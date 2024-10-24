@@ -1,3 +1,71 @@
+# Changelog
+
+All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
+
+## 5.0.0-rc.3 (2024-10-24)
+
+
+### Features
+
+* add map options to disable rotation gesture without disabling programmatic changes to rotation ([f2ce639](https://github.com/Akylas/mobile-sdk/commit/f2ce639686546d3383e0c8f48b50ba80d3cee9bf))
+* add valhalla instruction to RoutingInstruction ([5bd5a9e](https://github.com/Akylas/mobile-sdk/commit/5bd5a9ed672f6361dc1e71fb6e5ceaa0f58e4c4e))
+* added const predicate support (with `#variable`) ([f9f182b](https://github.com/Akylas/mobile-sdk/commit/f9f182bbe90e7e46ae70fa6b5923b5fda82a27db))
+* added doubleClickMaxDuration option ([51f3861](https://github.com/Akylas/mobile-sdk/commit/51f38617a945b7c5c32fb79dd710e731047803e6))
+* added doubleClickMaxDuration option ([533bdf8](https://github.com/Akylas/mobile-sdk/commit/533bdf8865cf30c4415221517f5e61a04bf167c9))
+* added new options for `VectorTileSearchService` : `sortByDistance`, `layers`, `preventDuplicates` ([c890104](https://github.com/Akylas/mobile-sdk/commit/c890104385d61fe61ea294df84fcf50924dc00b1))
+* added OruxDBDataSource ([748de52](https://github.com/Akylas/mobile-sdk/commit/748de526aa8ddda46dc7af2503ac439b0824b055))
+* allow calculateRoute and matchRoute to return rawResult ([a092b66](https://github.com/Akylas/mobile-sdk/commit/a092b663bd0fac1bed757def9379594dc62a2faa))
+* basic TextureMapView ([78d3dc7](https://github.com/Akylas/mobile-sdk/commit/78d3dc73230aea770e6ac5c63d25ce0814f0b9ed))
+* basic TextureMapView ([85d31dd](https://github.com/Akylas/mobile-sdk/commit/85d31dd90f2805cb451c86aff1d1af001f4d420c))
+* custom normalmap shader support ([ba27fc6](https://github.com/Akylas/mobile-sdk/commit/ba27fc6335c8f3bda1c7b94f6f67c227f274d84c))
+* exagerateHeightScaleEnabled property ([4269754](https://github.com/Akylas/mobile-sdk/commit/4269754a0164c404dddf4fdc8c484b4a97c5037f))
+* GeoJSONVectorDataSource all to add/remove single features ([607350b](https://github.com/Akylas/mobile-sdk/commit/607350bc1ae7920663f1c8ef30a1037f570dc6a2))
+* LocalPackageManagerTileDataSource ([2df9f52](https://github.com/Akylas/mobile-sdk/commit/2df9f52d658908ad686aa8702afba957ce007564))
+* maxOverZoomLevel for DataSource ([e7d7cd2](https://github.com/Akylas/mobile-sdk/commit/e7d7cd2179ee6ead478ffc58ccb066c2ba32e282))
+* maxSourceOverzoomLevel ([47cc12e](https://github.com/Akylas/mobile-sdk/commit/47cc12ea425c5cac99da00a4efbd1ed8a2fd1726))
+* MultiOSMOfflineGeocodingService, MultiOSMOfflineReverseGeocodingService ([92e4ece](https://github.com/Akylas/mobile-sdk/commit/92e4ece65d0643b440c366d5e8633adc0f62e57e))
+* MultiValhallaOfflineRoutingService ([f6aae4f](https://github.com/Akylas/mobile-sdk/commit/f6aae4f8c609a240cc73c48a0e9de04d3d77e7c8))
+* new `LayersLabelsProcessedInReverseOrder` `Options` property ([e82e9fc](https://github.com/Akylas/mobile-sdk/commit/e82e9fc45fcd6c9357179d4c383668a6ac500f70))
+* new methods for `MBVectorTileDecoder`:  `setJSONStyleParameters` and `setStyleParameters` ([9ad8e69](https://github.com/Akylas/mobile-sdk/commit/9ad8e6947fee061dbda24495086669fb8d6a8671))
+* normal accent color ([44394a3](https://github.com/Akylas/mobile-sdk/commit/44394a3218f84f3def4dacbb3c728c42a4922c0a))
+
+
+### Bug Fixes
+
+* added missing methods to MultiTileDataSource ([c85e6ca](https://github.com/Akylas/mobile-sdk/commit/c85e6ca934e4c800546a85844146c539722699ec))
+* allow shield to have no shield image ([5ec739c](https://github.com/Akylas/mobile-sdk/commit/5ec739c76556ca5a7da385c0a2f462656ac1c43c))
+* allow to add a layer to another renderer. The usecase is when an android activity is re created. You might still have the reference to the native layer which you want to add back to the carto map. It is faster to only add it again than to re create all layers ([9ba3241](https://github.com/Akylas/mobile-sdk/commit/9ba324181df07795c923250a7033914d81ab33e4))
+* **android:** add support for 16 KB page sizes ([7fef879](https://github.com/Akylas/mobile-sdk/commit/7fef87973e49eca5874af8be50a939fc8afea67a))
+* better support for tileMask ([a0c304e](https://github.com/Akylas/mobile-sdk/commit/a0c304e43a03e2b0fd82a0f325dfd716078575ad))
+* correctly copy info.plist ([1219ff0](https://github.com/Akylas/mobile-sdk/commit/1219ff03ac18181988a89e137d4e8fd97ed68c89))
+* correctly encode/decode GeoJSON properties for `GeoJSONVectorTileDataSource` so that properties with sub-objects are correctly returned in `onVectorTileElementClicked` ([313eb38](https://github.com/Akylas/mobile-sdk/commit/313eb3858541b937149eb7f0f822354526b71aaf))
+* correctly handle click events on MultiPoint PointGeometry ([bcd1e83](https://github.com/Akylas/mobile-sdk/commit/bcd1e835729319807185a78a8b8c99d8e5221331))
+* correctly handle valhalla route result ([f73a239](https://github.com/Akylas/mobile-sdk/commit/f73a2393c48dd2f5bd7961f649212bece0d015d5))
+* correctly query points elevation ([a8a65d8](https://github.com/Akylas/mobile-sdk/commit/a8a65d8fd8278f320068721204ea3bbd4174df49))
+* ensure customParameters are always applied ([8bda9ed](https://github.com/Akylas/mobile-sdk/commit/8bda9ed5fbdd5299ec3bf8e8e06b6f382313c456))
+* ensure pointIndex is good on multi leg/trip ([659d10d](https://github.com/Akylas/mobile-sdk/commit/659d10ddff3f072e6f1d5f185535aceb0d6fd036))
+* fix after merge ([e304cfc](https://github.com/Akylas/mobile-sdk/commit/e304cfc2a2806258d9eda44bc6791a7384cbb2f9))
+* fix for api name change ([148eaae](https://github.com/Akylas/mobile-sdk/commit/148eaaedfe240903371c141273e31942c16ec580))
+* for now dont crash on wrong geojson feature ([bfc62f9](https://github.com/Akylas/mobile-sdk/commit/bfc62f9d283119f66784d16dcbe589eaad3afeaf))
+* fully fixed normalIlluminationMapRotationEnabled ([14ba203](https://github.com/Akylas/mobile-sdk/commit/14ba203201310b0397bb79d16c16279cb2fd9d10))
+* hillshade exageration fix on overzoom ([b07c869](https://github.com/Akylas/mobile-sdk/commit/b07c869187dabad03e8478acd1df2e5d8763a0fe))
+* hillshade getElevation(s) handle isReplaceWithParent ([d22602f](https://github.com/Akylas/mobile-sdk/commit/d22602f6a96c16d13b395d26a1471bffcdcce2d0))
+* hillshader overzoom fix ([19f48bd](https://github.com/Akylas/mobile-sdk/commit/19f48bd474ee41fafe197352e880d22958d3397f))
+* if replaced with parent we should return the other one ([c8ea35c](https://github.com/Akylas/mobile-sdk/commit/c8ea35cb62c9bc39591880aa833b204ed22b32fd))
+* LocalPackageManagerTileDataSource working ([96b14e9](https://github.com/Akylas/mobile-sdk/commit/96b14e93876be7d3a42812920310fa8b16f815d9))
+* missing update for LIGHTING_SHADER_NORMALMAP with accent_color ([1195473](https://github.com/Akylas/mobile-sdk/commit/119547308eee39f34e965b0e2ab204b977919dab))
+* MultiDataSource supports maxOverZoomLevel ([36320ad](https://github.com/Akylas/mobile-sdk/commit/36320ad0fd5a655f5e18fb129372c329defd1fc5))
+* request parent tile if isReplacedByParent ([5108d4b](https://github.com/Akylas/mobile-sdk/commit/5108d4bd907784cc205c1f28e62f0a85ed8cfbb8))
+* searchProxy fix by allowing searchRadius<0 to disable distance check ([65102fc](https://github.com/Akylas/mobile-sdk/commit/65102fcc2d19273aa8e54d2503f671b98cfe146a))
+* shader dymanic change fix ([09d144c](https://github.com/Akylas/mobile-sdk/commit/09d144cdcb0d54dd1773dfecbb8ef4fde90c0ae3))
+* some JNI cleanup ([6df0354](https://github.com/Akylas/mobile-sdk/commit/6df0354e98bbc5b8163e10e4e1eee853fd475ef9))
+* some MultiDataSource improvements ([7e6c8bd](https://github.com/Akylas/mobile-sdk/commit/7e6c8bdbc3090ba21e4541eb3c2dd2a1136302ba))
+* support lite mode ([5af204d](https://github.com/Akylas/mobile-sdk/commit/5af204d4d1244ed6f25a94667303aa947be16f26))
+* try to fix build on macos ([6357995](https://github.com/Akylas/mobile-sdk/commit/6357995a29bdf95fde03c4238b084618f838e236))
+* trying to improve workflow for versioning ([8975155](https://github.com/Akylas/mobile-sdk/commit/8975155ead0604da5e47aa24a4ec903869dc295b))
+* ValhallaOnlineRoutingService allow creating without apiKey ([65d8895](https://github.com/Akylas/mobile-sdk/commit/65d8895be14d0b5ef5254ef4c0d9eae1c240ddfa))
+* working MultiTileDataSource (renamed from LocalPackageManagerTileDataSource) ([527b8b9](https://github.com/Akylas/mobile-sdk/commit/527b8b95ab4ffdc980e179226545d60534d9429f))
+
 CARTO Mobile SDK 4.4.7RC1
 -------------------
 

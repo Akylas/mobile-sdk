@@ -1,0 +1,14 @@
+{
+  "name": "mobile-sdk",
+  "version": "5.0.0-rc.3",
+  "description": "This is now a maintained fork of original Carto SDK as Carto stopped maintaining it. If you like the project and want me to keep on maintaining it. Please support it.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}
