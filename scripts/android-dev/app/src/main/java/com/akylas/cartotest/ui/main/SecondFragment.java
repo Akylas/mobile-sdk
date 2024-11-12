@@ -379,7 +379,7 @@ public class SecondFragment extends Fragment {
 //        dataSource.add(mergedSource);
 //        dataSource.add(sourceItaly);
 //        dataSource.add(sourceWorld);
-        mainMapLayer  = new VectorTileLayer(dataSource, decoder);
+        mainMapLayer  = new VectorTileLayer(sourceFrance, decoder);
         mapView.getLayers().add(mainMapLayer);
     }
     void addRoutes(String dataPath) {
@@ -419,7 +419,7 @@ public class SecondFragment extends Fragment {
         String dataPath = Paths.get(externalPath.getAbsolutePath(), "../../../../alpimaps_mbtiles").normalize().toString();
 
 
-//        addMap(dataPath);
+        addMap(dataPath);
 //        addRoutes(dataPath);
 //        addHillshadeLayer(view, dataPath);
 
@@ -440,7 +440,7 @@ public class SecondFragment extends Fragment {
 //        mapView.getLayers().add(layer);
 
 
-        testLineDrawing();
+//        testLineDrawing();
 //        testLineDrawing2();
         final TextView textZoom = (TextView) view.findViewById(R.id.zoomText); // initiate the Seek bar
         mapView.setMapEventListener(new MapEventListener() {
