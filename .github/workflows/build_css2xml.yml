@@ -19,10 +19,6 @@ jobs:
             echo "PLATFORM=$(echo "$PLATFORM_UP" | tr "[:upper:]" "[:lower:]")" >>${GITHUB_ENV}
             echo "PLATFORM=${{ env.PLATFORM }}"
 
-      - name: ensure dist
-        run: |
-          mkdir dist
-
       - uses: actions/checkout@v4
         with: 
           fetch-depth: 1
@@ -33,6 +29,10 @@ jobs:
 
       - name: Setup cmake
         uses: jwlawson/actions-setup-cmake@v2
+
+      - name: ensure dist
+        run: |
+          mkdir dist
 
       - name: fetch externals
         run: |
@@ -65,6 +65,7 @@ jobs:
           cd build
           make css2xml
           mv css2xml css2xml_${{ env.PLATFORM }}
+          ls ../../../..
           zip ../../../../dist/css2xml_${{ env.PLATFORM }}.zip css2xml_${{ env.PLATFORM }}
 
       - name: Upload Artifacts
