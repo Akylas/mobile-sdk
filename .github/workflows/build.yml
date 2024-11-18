@@ -45,7 +45,7 @@ jobs:
     strategy:
       matrix:
         variant: ['android', 'ios', 'ios_metal']
-    runs-on: ${{ matrix.variant == 'android' && 'ubuntu-latest' || 'macos-14' }}
+    runs-on: ${{ matrix.variant == 'android' && 'ubuntu-latest' || 'macos-latest' }}
     needs: [create-release]
     name: CartoMobileSDK ${{ matrix.variant }}
     steps:
@@ -134,7 +134,7 @@ jobs:
         run: |
           
           cd libs-carto/cartocss/util
-          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64;x86_64
           cd build
           make css2xml
           mv css2xml css2xml_${{ env.PLATFORM }}
