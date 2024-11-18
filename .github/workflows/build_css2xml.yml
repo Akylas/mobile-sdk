@@ -72,9 +72,11 @@ jobs:
         if: matrix.variant == 'android'
         uses: actions/upload-artifact@v4
         with:
+          name: css2xml_linux.zip
           path: dist/css2xml_linux.zip
       - name: Upload Artifacts
         if: matrix.variant != 'android'
         uses: actions/upload-artifact@v4
         with:
+          name: css2xml_macos.zip
           path: dist/css2xml_macos.zip
