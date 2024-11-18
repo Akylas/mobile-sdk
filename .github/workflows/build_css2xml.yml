@@ -69,6 +69,12 @@ jobs:
           zip ../../../../dist/css2xml_${{ env.PLATFORM }}.zip css2xml_${{ env.PLATFORM }}
 
       - name: Upload Artifacts
+        if: matrix.variant == 'android'
         uses: actions/upload-artifact@v4
         with:
-          path: dist/css2xml_*.zip
+          path: dist/css2xml_linux.zip
+      - name: Upload Artifacts
+        if: matrix.variant != 'android'
+        uses: actions/upload-artifact@v4
+        with:
+          path: dist/css2xml_macos.zip
