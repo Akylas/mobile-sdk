@@ -134,7 +134,7 @@ jobs:
         run: |
           
           cd libs-carto/cartocss/util
-          cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64;x86_64
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
           cd build
           make css2xml
           mv css2xml css2xml_${{ env.PLATFORM }}
