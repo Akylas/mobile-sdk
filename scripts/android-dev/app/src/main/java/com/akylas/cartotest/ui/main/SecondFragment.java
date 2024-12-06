@@ -363,7 +363,7 @@ public class SecondFragment extends Fragment {
             sourceFrance = new MBTilesTileDataSource( dataPath+"/france/france.mbtiles");
 //            sourceItaly = new MBTilesTileDataSource( dataPath+"/netherlands/netherlands.mbtiles");
 //            sourceFranceContours = new MBTilesTileDataSource( dataPath+"/france/france_contours.mbtiles");
-//            sourceWorld = new MBTilesTileDataSource( dataPath+"/world.mbtiles");
+//            sourceWorld = new MBTilesTileDataSource( dataPath+"/world.mbtiles");france
             final File file = new File(dataPath+"/osm.zip");
             final FileInputStream stream = new java.io.FileInputStream(file);
             final DataInputStream dataInputStream = new java.io.DataInputStream(stream);
