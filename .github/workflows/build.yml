@@ -6,10 +6,20 @@ on:
       version:
        required: false
        description: 'version number'
+      profile:
+       required: false
+       default: standard+valhalla
+       description: 'Profile'
+      publish:
+        description: "Should we publish on Github?"
+        default: true
+        required: true
+        type: boolean
 
 jobs:
   create-release:
     runs-on: ubuntu-latest
+    if: github.event.inputs.publish == 'true'
     outputs:
       RELEASE_UPLOAD_ID: ${{ steps.create_release.outputs.id }}
       VERSION: ${{ steps.get_version_or_prompt.outputs.result }}
@@ -166,19 +176,19 @@ jobs:
         if: matrix.variant != 'android'
         run: |
           cd scripts
-          python swigpp-objc.py --profile standard+valhalla --swig ../mobile-swig/swig 
+          python swigpp-objc.py --profile {{ github.event.inputs.profile }} --swig ../mobile-swig/swig 
 
       - name: Build swig-java
         if: matrix.variant == 'android'
         run: |
           cd scripts
-          python swigpp-java.py --profile standard+valhalla --swig ../mobile-swig/swig
+          python swigpp-java.py --profile {{ github.event.inputs.profile }} --swig ../mobile-swig/swig
 
       - name: Build CartoSDK
         if: matrix.variant == 'android'
         run: |
           cd scripts
-          python build-android.py --profile standard+valhalla --build-aar --build-version ${{ needs.create-release.outputs.VERSION }} --configuration=Release
+          python build-android.py --profile {{ github.event.inputs.profile }} --build-aar --build-version ${{ needs.create-release.outputs.VERSION }} --configuration=Release
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
 
@@ -186,23 +196,23 @@ jobs:
         if: matrix.variant == 'ios'
         run: |
           cd scripts
-          python build-ios.py --profile standard+valhalla --build-cocoapod --build-version ${{ needs.create-release.outputs.VERSION }} --configuration=Release --build-xcframework
+          python build-ios.py --profile {{ github.event.inputs.profile }} --build-cocoapod --build-version ${{ needs.create-release.outputs.VERSION }} --configuration=Release --build-xcframework
 
       - name: Build CartoSDK
         if: matrix.variant == 'ios_metal'
         run: |
           cd scripts
-          python build-ios.py --profile standard+valhalla --build-cocoapod --build-version ${{ needs.create-release.outputs.VERSION }} --configuration=Release --build-xcframework --use-metalangle
+          python build-ios.py --profile {{ github.event.inputs.profile }} --build-cocoapod --build-version ${{ needs.create-release.outputs.VERSION }} --configuration=Release --build-xcframework --use-metalangle
 
       - name: Upload Release Asset
-        if: matrix.variant != 'ios_metal'
+        if: github.event.inputs.publish == 'true' && matrix.variant != 'ios_metal'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release upload ${{ needs.create-release.outputs.VERSION_TAG }} dist/css2xml_*.zip
 
       - name: Upload Release Asset
-        if: matrix.variant == 'android'
+        if: github.event.inputs.publish == 'true' && matrix.variant == 'android'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -211,15 +221,43 @@ jobs:
           gh release upload ${{ needs.create-release.outputs.VERSION_TAG }} dist/android/*.pom
       
       - name: Upload Release Asset
-        if: matrix.variant != 'android'
+        if: github.event.inputs.publish == 'true' && matrix.variant != 'android'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release upload ${{ needs.create-release.outputs.VERSION_TAG }} dist/${{matrix.variant}}/*.zip
 
+      - uses: actions/upload-artifact@v4
+        if: github.event.inputs.publish != 'true' && matrix.variant != 'android'
+        with:
+          name:  CartoSDK-{{matrix.variant}}-{{ github.event.inputs.profile }}
+          path: |
+            dist/${{matrix.variant}}/*.zip
+          retention-days: 7
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        if: github.event.inputs.publish != 'true' && matrix.variant == 'android'
+        with:
+          name:  CartoSDK-{{matrix.variant}}-{{ github.event.inputs.profile }}
+          path: |
+            dist/android/*.aar
+          retention-days: 7
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        if: github.event.inputs.publish != 'true' && != 'ios_metal'
+        with:
+          name:  CartoSDK-{{matrix.variant}}-{{ github.event.inputs.profile }}-css2xml
+          path: |
+            dist/css2xml_*.zip
+          retention-days: 7
+          if-no-files-found: error
+
   update-release:
     runs-on: ubuntu-latest
     needs: [create-release, build]
+    if: github.event.inputs.publish == 'true'
     permissions:
       contents: write # release changes require contents write
     steps:
