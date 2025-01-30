@@ -2,13 +2,13 @@
 <project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>com.akylas</groupId>
+  <groupId>io.github.akylas</groupId>
   <artifactId>carto-mobile-sdk</artifactId>
   <version>$version</version>
   <packaging>aar</packaging>
-  <name>Akylas CARTO Maps SDK</name>
-  <description>Akylas Maps SDK build for Android</description>
-  <url>https://github.com/CartoDB/mobile-sdk</url>
+  <name>Akylas CARTO Maps SDK Fork</name>
+  <description>Maps SDK build for Android</description>
+  <url>https://github.com/Akylas/mobile-sdk</url>
   <licenses>
     <license>
       <name>BSD 3-Clause</name>
@@ -18,8 +18,8 @@
   </licenses>
   <developers>
     <developer>
-      <id>Akylas</id>
-      <name>Akylas CARTO Mobile</name>
+      <id>akylas</id>
+      <name>Akylas</name>
     </developer>
   </developers>
   <scm>

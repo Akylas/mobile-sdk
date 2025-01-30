@@ -1,0 +1,16 @@
+
+before_install:
+    - echo "Running a custom before install for version $VERSION"
+    - wget https://github.com/Akylas/mobile-sdk/releases/download/v$VERSION/carto-mobile-sdk-android-$VERSION.pom ./pom.xml
+    - echo "got pom.xml"
+    - cat ./pom.xml
+    - wget https://github.com/Akylas/mobile-sdk/releases/download/v$VERSION/carto-mobile-sdk-android-$VERSION.aar
+    - echo "got aar"
+    - ls -la
+install:
+    - echo "Running a custom install for version $VERSION"
+    - FILE="-Dfile=carto-mobile-sdk-android-$VERSION.aar"
+    - mvn install:install-file $FILE -DgroupId=com.github.akylas -DartifactId=repo -Dversion=$VERSION -Dpackaging=aar -DgeneratePom=true
+
+env:
+    VERSION: "5.0.0-rc.6"
