@@ -176,19 +176,19 @@ jobs:
         if: matrix.variant != 'android'
         run: |
           cd scripts
-          python swigpp-objc.py --profile {{ github.event.inputs.profile }} --swig ../mobile-swig/swig 
+          python swigpp-objc.py --profile ${{ github.event.inputs.profile }} --swig ../mobile-swig/swig 
 
       - name: Build swig-java
         if: matrix.variant == 'android'
         run: |
           cd scripts
-          python swigpp-java.py --profile {{ github.event.inputs.profile }} --swig ../mobile-swig/swig
+          python swigpp-java.py --profile ${{ github.event.inputs.profile }} --swig ../mobile-swig/swig
 
       - name: Build CartoSDK
         if: matrix.variant == 'android'
         run: |
           cd scripts
-          python build-android.py --profile {{ github.event.inputs.profile }} --build-aar --build-version ${{ needs.create-release.outputs.VERSION }} --configuration=Release
+          python build-android.py --profile ${{ github.event.inputs.profile }} --build-aar --build-version ${{ needs.create-release.outputs.VERSION }} --configuration=Release
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
 
@@ -196,13 +196,13 @@ jobs:
         if: matrix.variant == 'ios'
         run: |
           cd scripts
-          python build-ios.py --profile {{ github.event.inputs.profile }} --build-cocoapod --build-version ${{ needs.create-release.outputs.VERSION }} --configuration=Release --build-xcframework
+          python build-ios.py --profile ${{ github.event.inputs.profile }} --build-cocoapod --build-version ${{ needs.create-release.outputs.VERSION }} --configuration=Release --build-xcframework
 
       - name: Build CartoSDK
         if: matrix.variant == 'ios_metal'
         run: |
           cd scripts
-          python build-ios.py --profile {{ github.event.inputs.profile }} --build-cocoapod --build-version ${{ needs.create-release.outputs.VERSION }} --configuration=Release --build-xcframework --use-metalangle
+          python build-ios.py --profile ${{ github.event.inputs.profile }} --build-cocoapod --build-version ${{ needs.create-release.outputs.VERSION }} --configuration=Release --build-xcframework --use-metalangle
 
       - name: Upload Release Asset
         if: github.event.inputs.publish == 'true' && matrix.variant != 'ios_metal'
