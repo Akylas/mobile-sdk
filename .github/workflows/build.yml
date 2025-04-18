@@ -246,7 +246,7 @@ jobs:
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v4
-        if: github.event.inputs.publish != 'true' && != 'ios_metal'
+        if: github.event.inputs.publish != 'true' && matrix.variant != 'ios_metal'
         with:
           name:  CartoSDK-{{matrix.variant}}-{{ github.event.inputs.profile }}-css2xml
           path: |
