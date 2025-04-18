@@ -132,7 +132,7 @@ jobs:
 
       - name: prepare boost
         run: |
-          wget https://netcologne.dl.sourceforge.net/project/boost/boost/1.85.0/boost_1_85_0.zip?viasf=1
+          wget -O boost_1_85_0.zip https://sourceforge.net/projects/boost/files/boost/1.85.0/boost_1_85_0.zip
           unzip boost_1_85_0.zip
           ln -s ../boost_1_85_0 libs-external/boost
           cd boost_1_85_0
