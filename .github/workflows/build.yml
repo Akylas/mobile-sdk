@@ -132,7 +132,7 @@ jobs:
 
       - name: prepare boost
         run: |
-          wget https://boostorg.jfrog.io/artifactory/main/release/1.85.0/source/boost_1_85_0.zip
+          wget -O boost_1_85_0.zip https://sourceforge.net/projects/boost/files/boost/1.85.0/boost_1_85_0.zip
           unzip boost_1_85_0.zip
           ln -s ../boost_1_85_0 libs-external/boost
           cd boost_1_85_0
@@ -176,19 +176,19 @@ jobs:
         if: matrix.variant != 'android'
         run: |
           cd scripts
-          python swigpp-objc.py --profile {{ github.event.inputs.profile }} --swig ../mobile-swig/swig 
+          python swigpp-objc.py --profile ${{ github.event.inputs.profile }} --swig ../mobile-swig/swig 
 
       - name: Build swig-java
         if: matrix.variant == 'android'
         run: |
           cd scripts
-          python swigpp-java.py --profile {{ github.event.inputs.profile }} --swig ../mobile-swig/swig
+          python swigpp-java.py --profile ${{ github.event.inputs.profile }} --swig ../mobile-swig/swig
 
       - name: Build CartoSDK
         if: matrix.variant == 'android'
         run: |
           cd scripts
-          python build-android.py --profile {{ github.event.inputs.profile }} --build-aar --build-version ${{ needs.create-release.outputs.VERSION }} --configuration=Release
+          python build-android.py --profile ${{ github.event.inputs.profile }} --build-aar --build-version ${{ needs.create-release.outputs.VERSION }} --configuration=Release
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
 
@@ -196,13 +196,13 @@ jobs:
         if: matrix.variant == 'ios'
         run: |
           cd scripts
-          python build-ios.py --profile {{ github.event.inputs.profile }} --build-cocoapod --build-version ${{ needs.create-release.outputs.VERSION }} --configuration=Release --build-xcframework
+          python build-ios.py --profile ${{ github.event.inputs.profile }} --build-cocoapod --build-version ${{ needs.create-release.outputs.VERSION }} --configuration=Release --build-xcframework
 
       - name: Build CartoSDK
         if: matrix.variant == 'ios_metal'
         run: |
           cd scripts
-          python build-ios.py --profile {{ github.event.inputs.profile }} --build-cocoapod --build-version ${{ needs.create-release.outputs.VERSION }} --configuration=Release --build-xcframework --use-metalangle
+          python build-ios.py --profile ${{ github.event.inputs.profile }} --build-cocoapod --build-version ${{ needs.create-release.outputs.VERSION }} --configuration=Release --build-xcframework --use-metalangle
 
       - name: Upload Release Asset
         if: github.event.inputs.publish == 'true' && matrix.variant != 'ios_metal'
@@ -246,7 +246,7 @@ jobs:
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v4
-        if: github.event.inputs.publish != 'true' && != 'ios_metal'
+        if: github.event.inputs.publish != 'true' && matrix.variant != 'ios_metal'
         with:
           name:  CartoSDK-{{matrix.variant}}-{{ github.event.inputs.profile }}-css2xml
           path: |
