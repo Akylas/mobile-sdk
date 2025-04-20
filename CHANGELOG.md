@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [v5.0.0-rc.7] - 2025-04-20
+### Bug Fixes
+- [`9a3256e`](https://github.com/Akylas/mobile-sdk/commit/9a3256e5e8952c69ac60a0b0a922809ca344b793) - exclude_unpaved for bicycle *(commit by [@farfromrefug](https://github.com/farfromrefug))*
+
+
 ## [v5.0.0-rc.6] - 2024-12-06
 ### Bug Fixes
 - [`597cde4`](https://github.com/Akylas/mobile-sdk/commit/597cde4ab792e3caba03178c5f8b27e9a27ba5ee) - valhalla fix
@@ -1255,3 +1260,4 @@ Release notes for next releases can be found from [Releases section](https://git
 * Basic CartoCSS styling support is removed from styles module, full CartoCSS is available for vector tiles
 [v5.0.0-rc.4]: https://github.com/Akylas/mobile-sdk/compare/v5.0.0-rc.2...v5.0.0-rc.4
 [v5.0.0-rc.6]: https://github.com/Akylas/mobile-sdk/compare/v5.0.0-rc.5...v5.0.0-rc.6
+[v5.0.0-rc.7]: https://github.com/Akylas/mobile-sdk/compare/v5.0.0-rc.6...v5.0.0-rc.7
