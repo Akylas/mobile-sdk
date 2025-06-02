@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [v5.0.0-rc.10] - 2025-06-02
+### New Features
+- [`4ceb7d2`](https://github.com/Akylas/mobile-sdk/commit/4ceb7d279b4e13efae255153d2a572a3c59b33db) - view::rotation and view::tilt *(commit by [@farfromrefug](https://github.com/farfromrefug))*
+
+
 ## [vv5.0.0-rc.9] - 2025-05-25
 ### Bug Fixes
 - [`c8a1f4d`](https://github.com/Akylas/mobile-sdk/commit/c8a1f4d598cc0392ead713c461e3239bb5c2e06e) - valhalla non network penalty fix *(commit by [@farfromrefug](https://github.com/farfromrefug))*
@@ -1273,3 +1278,4 @@ Release notes for next releases can be found from [Releases section](https://git
 [v5.0.0-rc.7]: https://github.com/Akylas/mobile-sdk/compare/v5.0.0-rc.6...v5.0.0-rc.7
 [v5.0.0-rc.8]: https://github.com/Akylas/mobile-sdk/compare/v5.0.0-rc.7...v5.0.0-rc.8
 [vv5.0.0-rc.9]: https://github.com/Akylas/mobile-sdk/compare/v5.0.0-rc.8...vv5.0.0-rc.9
+[v5.0.0-rc.10]: https://github.com/Akylas/mobile-sdk/compare/vv5.0.0-rc.9...v5.0.0-rc.10
