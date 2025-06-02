@@ -166,7 +166,7 @@ namespace carto {
         }
 
         cglib::mat4x4<double> modelViewMat = viewState.getModelviewMat() * cglib::translate4_matrix(cglib::vec3<double>(_horizontalLayerOffset, 0, 0));
-        tileRenderer->setViewState(vt::ViewState(viewState.getProjectionMat(), modelViewMat, viewState.getZoom(), viewState.getAspectRatio(), viewState.getNormalizedResolution()));
+        tileRenderer->setViewState(vt::ViewState(viewState.getProjectionMat(), modelViewMat, viewState.getZoom(), viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewState.getNormalizedResolution()));
         tileRenderer->setInteractionMode(_interactionMode);
         tileRenderer->setRasterFilterMode(_rasterFilterMode);
         tileRenderer->setLayerBlendingSpeed(_layerBlendingSpeed);
@@ -278,7 +278,8 @@ namespace carto {
         if (!tileRenderer) {
             return false;
         }
-        culler.setViewState(vt::ViewState(viewState.getProjectionMat(), modelViewMat, viewState.getZoom(), viewState.getAspectRatio(), viewState.getNormalizedResolution()));
+        culler.setViewState(vt::ViewState(viewState.getProjectionMat(), modelViewMat, viewState.getZoom(),
+viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewState.getNormalizedResolution()));
 
         try {
             tileRenderer->cullLabels(culler);
@@ -382,7 +383,8 @@ namespace carto {
 
     Color TileRenderer::evaluateColorFunc(const vt::ColorFunction& colorFunc, const ViewState& viewState) {
         cglib::mat4x4<double> modelViewMat = viewState.getModelviewMat();
-        vt::ViewState vtViewState(viewState.getProjectionMat(), modelViewMat, viewState.getZoom(), viewState.getAspectRatio(), viewState.getNormalizedResolution());
+        vt::ViewState vtViewState(viewState.getProjectionMat(), modelViewMat, viewState.getZoom(),
+viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewState.getNormalizedResolution());
         return Color(colorFunc(vtViewState).value());
     }
 
