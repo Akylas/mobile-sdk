@@ -253,6 +253,16 @@ jobs:
             dist/css2xml_*.zip
           retention-days: 7
           if-no-files-found: error
+      - name: Rollback Release
+        if: failure()
+        uses: author/action-rollback@stable
+        with:
+          release_id: ${{ needs.create-release.outputs.RELEASE_UPLOAD_ID }}
+          tag: v${{ needs.create-release.outputs.VERSION }}
+          #  If the release does not exist but the tag does, setting this to true will remove the tag.
+          delete_orphan_tag: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   update-release:
     runs-on: ubuntu-latest
