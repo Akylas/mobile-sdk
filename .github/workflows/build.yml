@@ -296,7 +296,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           id: ${{ needs.create-release.outputs.RELEASE_UPLOAD_ID }}
           body: ${{ steps.changelog.outputs.changes }}
-          prerelease: false
+          prerelease: true
           draft: false
 
 
