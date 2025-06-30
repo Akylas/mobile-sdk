@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [v5.0.0-rc.12] - 2025-06-30
+### Bug Fixes
+- [`15c9997`](https://github.com/Akylas/mobile-sdk/commit/15c999705ec054801677e2131f67044429724b4b) - nutibillboardline fix *(commit by [@farfromrefug](https://github.com/farfromrefug))*
+
+
 ## [v5.0.0-rc.11] - 2025-06-08
 ### New Features
 - [`f23d26b`](https://github.com/Akylas/mobile-sdk/commit/f23d26b9a9978cd1278bdb4b73e9788de642d51d) - added the ?? operator for cartocss and mapnikvt *(commit by [@farfromrefug](https://github.com/farfromrefug))*
@@ -1285,3 +1290,4 @@ Release notes for next releases can be found from [Releases section](https://git
 [vv5.0.0-rc.9]: https://github.com/Akylas/mobile-sdk/compare/v5.0.0-rc.8...vv5.0.0-rc.9
 [v5.0.0-rc.10]: https://github.com/Akylas/mobile-sdk/compare/vv5.0.0-rc.9...v5.0.0-rc.10
 [v5.0.0-rc.11]: https://github.com/Akylas/mobile-sdk/compare/v5.0.0-rc.10...v5.0.0-rc.11
+[v5.0.0-rc.12]: https://github.com/Akylas/mobile-sdk/compare/v5.0.0-rc.11...v5.0.0-rc.12
