@@ -39,8 +39,8 @@ namespace carto {
         _cacheOnlyMode = enabled;
     }
 
-    void PersistentCacheTileDataSource::startDownloadArea(const MapBounds& mapBounds, int minZoom, int maxZoom, const std::shared_ptr<TileDownloadListener>& tileDownloadListener) {
-        auto task = std::make_shared<DownloadTask>(std::static_pointer_cast<PersistentCacheTileDataSource>(shared_from_this()), mapBounds, minZoom, maxZoom, tileDownloadListener);
+    void PersistentCacheTileDataSource::startDownloadArea(const MapBounds& mapBounds, int minZoom, int maxZoom, int fetchDelay, const std::shared_ptr<TileDownloadListener>& tileDownloadListener) {
+        auto task = std::make_shared<DownloadTask>(std::static_pointer_cast<PersistentCacheTileDataSource>(shared_from_this()), mapBounds, minZoom, maxZoom, fetchDelay, tileDownloadListener);
         {
             std::lock_guard<std::recursive_mutex> lock(_mutex);
             _downloadTasks.insert(task);
@@ -335,12 +335,13 @@ namespace carto {
         return std::shared_ptr<long long>(new long long(tileId), tileIdDeleter);
     }
 
-    PersistentCacheTileDataSource::DownloadTask::DownloadTask(const std::shared_ptr<PersistentCacheTileDataSource>& dataSource, const MapBounds& mapBounds, int minZoom, int maxZoom, const std::shared_ptr<TileDownloadListener>& listener) :
+    PersistentCacheTileDataSource::DownloadTask::DownloadTask(const std::shared_ptr<PersistentCacheTileDataSource>& dataSource, const MapBounds& mapBounds, int minZoom, int maxZoom, int fetchDelay, const std::shared_ptr<TileDownloadListener>& listener) :
         _dataSource(dataSource),
         _mapBounds(mapBounds),
         _minZoom(minZoom),
         _maxZoom(maxZoom),
         _downloadListener(listener)
+        _fetchDelay(fetchDelay)
     {
     }
     
@@ -406,6 +407,9 @@ namespace carto {
 
                     if (!tileData && _downloadListener) {
                         _downloadListener->onDownloadFailed(mapTile);
+                    }
+                    if (fetchDelay > 0) {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(fetchDelay));
                     }
                 }
             }

@@ -69,9 +69,10 @@ namespace carto {
          * @param mapBounds The bounds of the area to download. The coordinate system of the bounds must be the same as specified in the data source projection.
          * @param minZoom The minimum zoom of the tiles to load.
          * @param maxZoom The maximum zoom of the tiles to load.
+         * @param fetchDelay delay between tiles requests. Used to be easy on the servers
          * @param tileDownloadListener The tile download listener to use that will receive download related callbacks.
          */
-        void startDownloadArea(const MapBounds& mapBounds, int minZoom, int maxZoom, const std::shared_ptr<TileDownloadListener>& tileDownloadListener);
+        void startDownloadArea(const MapBounds& mapBounds, int minZoom, int maxZoom, int fetchDelay, const std::shared_ptr<TileDownloadListener>& tileDownloadListener);
         /**
          * Stops all background downloader processes.
          */
@@ -100,7 +101,7 @@ namespace carto {
     protected:
         class DownloadTask : public CancelableTask {
         public:
-            DownloadTask(const std::shared_ptr<PersistentCacheTileDataSource>& dataSource, const MapBounds& mapBounds, int minZoom, int maxZoom, const std::shared_ptr<TileDownloadListener>& listener);
+            DownloadTask(const std::shared_ptr<PersistentCacheTileDataSource>& dataSource, const MapBounds& mapBounds, int minZoom, int maxZoom, int fetchDelay, const std::shared_ptr<TileDownloadListener>& listener);
             
             virtual void run();
     
