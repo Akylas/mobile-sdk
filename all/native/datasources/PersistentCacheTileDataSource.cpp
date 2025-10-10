@@ -340,7 +340,7 @@ namespace carto {
         _mapBounds(mapBounds),
         _minZoom(minZoom),
         _maxZoom(maxZoom),
-        _downloadListener(listener)
+        _downloadListener(listener),
         _fetchDelay(fetchDelay)
     {
     }
