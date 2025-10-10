@@ -408,8 +408,8 @@ namespace carto {
                     if (!tileData && _downloadListener) {
                         _downloadListener->onDownloadFailed(mapTile);
                     }
-                    if (fetchDelay > 0) {
-                        std::this_thread::sleep_for(std::chrono::milliseconds(fetchDelay));
+                    if (_fetchDelay > 0) {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(_fetchDelay));
                     }
                 }
             }
