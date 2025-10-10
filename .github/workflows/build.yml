@@ -183,7 +183,7 @@ jobs:
           cd scripts
           python swigpp-java.py --profile ${{ github.event.inputs.profile }} --swig ../mobile-swig/swig
 
-      - name: Build CartoSDK
+      - name: Build CartoSDK for Android
         if: matrix.variant == 'android'
         run: |
           cd scripts
@@ -192,7 +192,8 @@ jobs:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
 
      
-      - name: Build CartoSDK
+      - name: Build CartoSDK for IOS
+        if: matrix.variant != 'android'
         run: |
           cd scripts
           python build-ios.py --profile ${{ github.event.inputs.profile }} --build-cocoapod --build-version ${{ needs.create-release.outputs.VERSION }} --configuration=Release --build-xcframework --use-metalangle
