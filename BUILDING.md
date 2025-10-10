@@ -22,11 +22,11 @@ git submodule update --init --remote --recursive
 Download and set up 'boost' library:
 
 ```
-curl -o boost_1_78_0.zip -L https://sourceforge.net/projects/boost/files/boost/1.78.0/boost_1_78_0.zip/download
-unzip boost_1_78_0.zip
+curl -o boost_1_85_0.zip -L https://sourceforge.net/projects/boost/files/boost/1.85.0/boost_1_85_0.zip
+unzip boost_1_85_0.zip
 cd libs-external
-ln -s ../boost_1_78_0 boost
-cd ../boost_1_78_0
+ln -s ../boost_1_85_0 boost
+cd ../boost_1_85_0
 ./bootstrap.sh
 ./b2 headers
 cd ..
@@ -38,7 +38,7 @@ Special **swig** version (swig-2.0.11-nutiteq branch) is needed for generating l
 brew install autoconf automake libtool
 git clone https://github.com/farfromrefug/mobile-swig.git
 cd mobile-swig
-wget https://github.com/PhilipHazel/pcre2/releases/download/pcre2-10.39/pcre2-10.39.tar.gz
+wget https://github.com/PhilipHazel/pcre2/releases/download/pcre2-10.44/pcre2-10.44.tar.gz
 ./Tools/pcre-build.sh
 ./autogen.sh
 ./configure

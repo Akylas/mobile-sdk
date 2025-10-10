@@ -29,7 +29,7 @@ CARTO Mobile SDK is an open, multi-platform framework for visualizing maps and p
 ## Installing and building
 
 * **We strongly suggest using the precompiled SDK versions that can be found in the [Releases](https://github.com/CartoDB/mobile-sdk/releases) section.** 
-* For custom builds, please read the [building guide](BUILDING.md).
+* For custom builds, please read the [building guide](./BUILDING.md).
 
 ## Documentation and samples
 
