@@ -5,7 +5,7 @@ import PackageDescription
 let package = Package(
     name: "CartoMobileSDK",
     platforms: [
-        .iOS(.v9)
+        .iOS(.v12)
     ],
     products: [
         .library(
@@ -18,7 +18,7 @@ let package = Package(
     targets: [
         .binaryTarget(
             name: "CartoMobileSDK",
-            url: "https://nutifront.s3.amazonaws.com/sdk_snapshots/$distName",
+            url: https://github.com/YourOrg/YourRepo/releases/download/$version/$distName",
             checksum: "$checksum"
         )
     ]
