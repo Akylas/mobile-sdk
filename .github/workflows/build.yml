@@ -226,7 +226,7 @@ jobs:
         with:
           name:  CartoSDK-{{matrix.variant}}-{{ github.event.inputs.profile }}
           path: |
-            dist/${{matrix.variant}}/*.zip
+            dist/**/*.xcframework
           retention-days: 7
           if-no-files-found: error
 
