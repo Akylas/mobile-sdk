@@ -220,6 +220,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release upload ${{ needs.create-release.outputs.VERSION_TAG }} dist/ios_metal/carto-mobile-sdk-ios-metal-${{ needs.create-release.outputs.VERSION }}.zip
+      
+      - uses: EndBug/add-and-commit@a94899bca583c204427a224a7af87c02f9b325d5
+        name: commit Package.swift
+        if: github.event.inputs.publish == 'true' && matrix.variant == 'ios'
+        with:
+          add: dist/ios_metal/Package.swift
+          default_author: github_actions
+          message: 'swift package for version ${{ needs.create-release.outputs.VERSION }}'
 
       - uses: actions/upload-artifact@v4
         if: github.event.inputs.publish != 'true' && matrix.variant == 'ios'
@@ -229,14 +237,6 @@ jobs:
             dist/ios_metal/carto-mobile-sdk-ios-metal-${{ needs.create-release.outputs.VERSION }}.zip
           retention-days: 7
           if-no-files-found: error
-      
-      - uses: EndBug/add-and-commit@a94899bca583c204427a224a7af87c02f9b325d5
-        name: commit Package.swift
-        if: github.event.inputs.publish != 'true' && matrix.variant == 'ios'
-        with:
-          add: dist/ios_metal/Package.swift
-          default_author: github_actions
-          message: 'swift package for version ${{ needs.create-release.outputs.VERSION }}'
 
 
       - uses: actions/upload-artifact@v4

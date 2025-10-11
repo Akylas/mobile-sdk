@@ -1,35 +1,99 @@
-ext["ossrhUsername"] = ''
-ext["ossrhPassword"] = ''
-ext["sonatypeStagingProfileId"] = ''
-ext["signing.keyId"] = ''
-ext["signing.password"] = ''
-ext["signing.secretKeyRingFile"] = ''
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url "https://plugins.gradle.org/m2/" }
+    }
 
-File secretPropsFile = project.rootProject.file('local.properties')
-if (secretPropsFile.exists()) {
-    Properties p = new Properties()
-    new FileInputStream(secretPropsFile).withCloseable { is -> p.load(is) }
-    p.each { name, value -> ext[name] = value }
-} else {
-    ext["ossrhUsername"] = System.getenv('OSSRH_USERNAME')
-    ext["ossrhPassword"] = System.getenv('OSSRH_PASSWORD')
-    ext["sonatypeStagingProfileId"] = System.getenv('SONATYPE_STAGING_PROFILE_ID')
-    ext["signing.keyId"] = System.getenv('SIGNING_KEY_ID')
-    ext["signing.password"] = System.getenv('SIGNING_PASSWORD')
-    ext["signing.secretKeyRingFile"] = System.getenv('SIGNING_SECRET_KEY_RING_FILE')
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.2.2'
+        // classpath 'io.github.gradle-nexus:publish-plugin:1.1.0'
+    }
+}
+plugins {
+    id 'com.android.library'
+    id 'de.undercouch.download' version '5.1.1' // plugin to download files
 }
 
-group = 'com.carto'
-archivesBaseName = 'carto-mobile-sdk'
-version = System.getProperty('build-version')
 
-nexusPublishing {
-    repositories {
-        sonatype {
-            username = ossrhUsername
-            password = ossrhPassword
-            nexusUrl.set(uri("https://s01.oss.sonatype.org/service/local/"))
-            snapshotRepositoryUrl.set(uri("https://s01.oss.sonatype.org/content/repositories/snapshots/"))
+// Get properties passed from the command line
+def aarUrlPath = project.findProperty("aarUrl")
+def libVersion = project.findProperty("version")
+
+// Check for required properties
+if (!aarUrlPath) {
+    throw new GradleException("ERROR: Missing required property 'aarUrl'. Usage: -PaarUrl=https://github.com/username/repo/releases/download/v1.0.0/mylibrary.aar")
+}
+
+if (!libVersion) {
+    throw new GradleException("ERROR: Missing required property 'version'. Usage: -Pversion=1.0.0")
+}
+
+// Optional: check if the .aar file actually exists
+// if (!file(aarFilePath).exists()) {
+//     throw new GradleException("ERROR: The specified aarFile does not exist at path: $aarFilePath")
+// }
+
+
+android {
+    compileSdk 34
+
+    defaultConfig {
+        minSdk 21
+        targetSdk 34
+        versionCode 1
+        versionName libVersion
+    }
+}
+
+repositories {
+    google()
+    mavenCentral()
+}
+
+
+
+// Where to store downloaded aar
+def aarFile = file("$buildDir/libs/mylibrary.aar")
+
+// Task to download the .aar
+tasks.register('downloadAAR', de.undercouch.gradle.tasks.download.Download) {
+    src aarUrlPath
+    dest aarFile
+    overwrite true
+}
+
+dependencies {
+    implementation files(aarFile)
+}
+
+// Make sure download runs before any build
+tasks.whenTaskAdded { task ->
+    if (task.name.startsWith('assemble') || task.name.startsWith('bundle')) {
+        task.dependsOn tasks.named('downloadAAR')
+    }
+}
+
+// Optional: publish block if you want JitPack to see it as a library
+publishing {
+    publications {
+        release(MavenPublication) {
+            groupId = 'com.carto'
+            artifactId = 'carto-mobile-sdk'
+            version = libVersion
+            artifact(aarFile) {
+                extension = 'aar'
+            }
         }
     }
+    // repositories {
+    //     maven {
+    //         name = "GitHubPackages"
+    //         url = uri("https://maven.pkg.github.com/Akylas/mobile-sdk")
+    //         credentials {
+    //             username = project.findProperty("gpr.user") ?: System.getenv("GITHUB_ACTOR")
+    //             password = project.findProperty("gpr.key") ?: System.getenv("GITHUB_TOKEN")
+    //         }
+    //     }
+    // }
 }

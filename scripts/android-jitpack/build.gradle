@@ -1,0 +1,47 @@
+plugins {
+    id 'com.android.library'
+    id 'de.undercouch.download' version '5.1.1'
+}
+
+android {
+    compileSdk 34
+    defaultConfig {
+        minSdk 21
+        versionCode 1
+        versionName "1.0.0"
+    }
+}
+
+repositories {
+    google()
+    mavenCentral()
+}
+
+// Pass GitHub release URL and version as properties
+def aarUrl = project.findProperty("aarUrl") ?: ""
+def libVersion = project.findProperty("version") ?: "1.0.0"
+
+if (!aarUrl) {
+    throw new GradleException("You must provide -PaarUrl=<url-to-aar>")
+}
+
+// Where to store downloaded .aar
+def aarFile = file("$buildDir/libs/mylibrary.aar")
+
+// Task to download .aar from GitHub Release
+tasks.register('downloadAAR', de.undercouch.gradle.tasks.download.Download) {
+    src aarUrl
+    dest aarFile
+    overwrite true
+}
+
+dependencies {
+    implementation files(aarFile)
+}
+
+// Ensure download runs before build
+tasks.whenTaskAdded { task ->
+    if (task.name.startsWith('assemble') || task.name.startsWith('bundle')) {
+        task.dependsOn tasks.named('downloadAAR')
+    }
+}

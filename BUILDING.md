@@ -22,11 +22,11 @@ git submodule update --init --remote --recursive
 Download and set up 'boost' library:
 
 ```
-curl -o boost_1_85_0.zip -L https://sourceforge.net/projects/boost/files/boost/1.89.0/boost_1_89_0.zip
-unzip boost_1_85_0.zip
+wget -q --show-progress -O boost_1_89_0.zip https://sourceforge.net/projects/boost/files/boost/1.89.0/boost_1_89_0.zip
+unzip -q boost_1_89_0.zip
 cd libs-external
-ln -s ../boost_1_85_0 boost
-cd ../boost_1_85_0
+ln -s ../boost_1_89_0 boost
+cd ../boost_1_89_0
 ./bootstrap.sh
 ./b2 headers
 cd ..

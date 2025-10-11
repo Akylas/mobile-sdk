@@ -1,4 +1,4 @@
-/build
+build
 /dist
 /extensions
 /generated
@@ -8,3 +8,4 @@
 /.vscode
 /.history
 boost*
+.gradle
