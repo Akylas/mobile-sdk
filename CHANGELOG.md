@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [v5.0.0-rc.13] - 2025-10-11
+### New Features
+- [`332c6c6`](https://github.com/Akylas/mobile-sdk/commit/332c6c6cff5230759092a73ed83bb55cf17032e4) - add fetcDelay to `startDownloadArea` to add delay between each tile request
+
+
 ## [v5.0.0-rc.12] - 2025-06-30
 ### Bug Fixes
 - [`15c9997`](https://github.com/Akylas/mobile-sdk/commit/15c999705ec054801677e2131f67044429724b4b) - nutibillboardline fix *(commit by [@farfromrefug](https://github.com/farfromrefug))*
@@ -1291,3 +1296,4 @@ Release notes for next releases can be found from [Releases section](https://git
 [v5.0.0-rc.10]: https://github.com/Akylas/mobile-sdk/compare/vv5.0.0-rc.9...v5.0.0-rc.10
 [v5.0.0-rc.11]: https://github.com/Akylas/mobile-sdk/compare/v5.0.0-rc.10...v5.0.0-rc.11
 [v5.0.0-rc.12]: https://github.com/Akylas/mobile-sdk/compare/v5.0.0-rc.11...v5.0.0-rc.12
+[v5.0.0-rc.13]: https://github.com/Akylas/mobile-sdk/compare/v5.0.0-rc.12...v5.0.0-rc.13
