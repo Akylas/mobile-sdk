@@ -110,6 +110,7 @@ namespace carto {
             MapBounds _mapBounds;
             int _minZoom;
             int _maxZoom;
+            int _fetchDelay;
             DirectorPtr<TileDownloadListener> _downloadListener;
         };
 
