@@ -57,6 +57,7 @@ jobs:
         variant: ['android', 'ios']
     runs-on: ${{ matrix.variant == 'android' && 'ubuntu-latest' || 'macos-latest' }}
     needs: [create-release]
+    if: always()
     name: CartoMobileSDK ${{ matrix.variant }}
     steps:
 
