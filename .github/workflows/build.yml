@@ -95,17 +95,30 @@ jobs:
       #   name: run SDKManager
       #   run:  sdkmanager "build-tools;30.0.3"
 
-      - uses: nttld/setup-ndk@v1
+      - uses: nttld/setup-ndk@v1.5.0
         if: matrix.variant == 'android'
         id: setup-ndk
         with:
-          ndk-version: r27c
-          local-cache: false
+          ndk-version: r27
+          add-to-path: true
+          link-to-sdk: true
+          local-cache: true
+
+      # TODO revisit after some updates of nttld/setup-ndk
+      - name: Restore Android Symlinks
+        run: |
+          directory="${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          find "$directory" -type l | while read link; do
+              current_target=$(readlink "$link")
+              new_target="$directory/$(basename "$current_target")"
+              ln -sf "$new_target" "$link"
+              echo "Changed $(basename "$link") from $current_target to $new_target"
+          done
       
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with: 
-          gradle-version: "8.10"
+          gradle-version: "8.14.3"
 
       - name: Install Python
         uses: actions/setup-python@v5
@@ -256,6 +269,7 @@ jobs:
             dist/css2xml_*.zip
           retention-days: 7
           if-no-files-found: error
+      
       - name: Rollback Release
         if: failure()
         uses: author/action-rollback@stable
@@ -263,7 +277,7 @@ jobs:
           release_id: ${{ needs.create-release.outputs.RELEASE_UPLOAD_ID }}
           tag: v${{ needs.create-release.outputs.VERSION }}
           #  If the release does not exist but the tag does, setting this to true will remove the tag.
-         #  delete_orphan_tag: true
+          delete_orphan_tag: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
