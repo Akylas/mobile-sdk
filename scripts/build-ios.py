@@ -295,6 +295,7 @@ def buildIOSPackage(args, buildCocoapod, buildSwiftPackage):
       packageFile = string.Template(f.read()).safe_substitute({
         'baseDir': baseDir,
         'distDir': distDir,
+        'repoUrl': REPO_URL,
         'distName': distName,
         'frameworkName': frameworkName,
         'frameworkDir': frameworkDir,

@@ -18,7 +18,7 @@ let package = Package(
     targets: [
         .binaryTarget(
             name: "$frameworkName",
-            url: "https://github.com/Akylas/mobile-sdk/releases/download/$version/$distName",
+            url: "$repoUrl/releases/download/$version/$distName",
             checksum: "$checksum"
         )
     ]
