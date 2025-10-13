@@ -147,6 +147,7 @@ def buildAndroidAAR(args, buildForJitpack):
   srcDir = getBuildDir('android-src')
   buildDir = getBuildDir('android-aar')
   distDir = getDistDir('android')
+  distName = 'carto-mobile-sdk-android-%s.aar' % (version)
   version = args.buildversion
 
   with open('%s/scripts/android/carto-mobile-sdk.pom.template' % baseDir, 'r') as f:
@@ -185,9 +186,9 @@ def buildAndroidAAR(args, buildForJitpack):
     aarFileName = '%s/outputs/aar/android-release.aar' % buildDir
   if not makedirs(distDir) or \
      not copyfile(pomFileName, '%s/carto-mobile-sdk-android-%s.pom' % (distDir, version)) or \
-     not copyfile(aarFileName, '%s/carto-mobile-sdk-android-%s.aar' % (distDir, version)) or \
-     not copyfile(srcFileName, '%s/carto-mobile-sdk-android-%s-sources.jar' % (distDir, version)) or \
-     not zip(args, '%s/scripts/android/src/main' % baseDir, '%s/carto-mobile-sdk-%s.aar' % (distDir, version), 'R.txt'):
+     not copyfile(aarFileName, '%s/%s' % (distDir, distName)) or \
+     not copyfile(srcFileName, '%s/carto-mobile-sdk-android-%s-sources.jar' % (distDir, version)):
+    #  not zip(args, '%s/scripts/android/src/main' % baseDir, '%s/carto-mobile-sdk-%s.aar' % (distDir, version), 'R.txt'):
     return False
 
   if buildForJitpack:
