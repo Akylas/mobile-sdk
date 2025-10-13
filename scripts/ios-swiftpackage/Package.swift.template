@@ -3,22 +3,22 @@
 import PackageDescription
 
 let package = Package(
-    name: "CartoMobileSDK",
+    name: "$frameworkName",
     platforms: [
         .iOS(.v12)
     ],
     products: [
         .library(
-            name: "CartoMobileSDK",
-            targets: ["CartoMobileSDK"]
+            name: "$frameworkName",
+            targets: ["$frameworkName"]
         )
     ],
     dependencies: [
     ],
     targets: [
         .binaryTarget(
-            name: "CartoMobileSDK",
-            url: "https://github.com/YourOrg/YourRepo/releases/download/$version/$distName",
+            name: "$frameworkName",
+            url: "https://github.com/Akylas/mobile-sdk/releases/download/$version/$distName",
             checksum: "$checksum"
         )
     ]

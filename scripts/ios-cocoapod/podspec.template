@@ -19,8 +19,8 @@ Pod::Spec.new do |s|
                    By carto.com
                    DESC
 
-  s.homepage     = "https://github.com/Akylas/mobile-sdk/"
-  s.screenshots  = "https://github.com/Akylas/mobile-sdk/blob/master/media/carto-mobile-sdk-animated.gif?raw=true"
+  s.homepage     = "$repoUrl/"
+  s.screenshots  = "$repoUrl/blob/master/media/carto-mobile-sdk-animated.gif?raw=true"
 
   s.license      = { :type => "BSD", :text => <<-LICENSE
                      $license
@@ -32,7 +32,7 @@ Pod::Spec.new do |s|
 
   s.platform     = :ios, "9.0"
 
-  s.source       = { :http => "https://github.com/Akylas/mobile-sdk/releases/download/$version/sdk4-ios-$version.zip"}
+  s.source       = { :http => "$repoUrl/releases/download/$version/sdk4-ios-$version.zip"}
 
   s.source_files  = "$frameworkDir/**/*.{h,m,mm}"
 
