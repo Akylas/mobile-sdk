@@ -147,8 +147,8 @@ def buildAndroidAAR(args, buildForJitpack):
   srcDir = getBuildDir('android-src')
   buildDir = getBuildDir('android-aar')
   distDir = getDistDir('android')
-  distName = 'carto-mobile-sdk-android-%s.aar' % (version)
   version = args.buildversion
+  distName = 'carto-mobile-sdk-android-%s.aar' % (version)
 
   with open('%s/scripts/android/carto-mobile-sdk.pom.template' % baseDir, 'r') as f:
     pomFile = string.Template(f.read()).safe_substitute({
