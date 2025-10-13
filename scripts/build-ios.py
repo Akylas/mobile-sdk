@@ -133,6 +133,7 @@ def buildIOSLib(args, baseArch, outputDir=None):
     '-G', 'Xcode',
     '-DCMAKE_SYSTEM_NAME=%s' % ('Darwin' if platform == 'MACCATALYST' else 'iOS'),
     '-DWRAPPER_DIR=%s' % ('%s/generated/ios-objc/proxies' % baseDir),
+    "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
     '-DINCLUDE_OBJC:BOOL=ON',
     '-DSINGLE_LIBRARY:BOOL=ON',
     '-DSHARED_LIBRARY:BOOL=%s' % ('ON' if args.sharedlib else 'OFF'),

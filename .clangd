@@ -1,0 +1,5 @@
+CompileFlags:
+  Add: [
+    "-std=c++20", 
+    "-D_CARTO_OFFLINE_SUPPORT"
+  ]

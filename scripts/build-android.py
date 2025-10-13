@@ -58,6 +58,7 @@ def buildAndroidSO(args, abi):
   if not cmake(args, buildDir, options + [
     '-G', 'Unix Makefiles',
     "-DCMAKE_TOOLCHAIN_FILE='%s/build/cmake/android.toolchain.cmake'" % args.androidndkpath,
+    "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
     "-DCMAKE_SYSTEM_NAME=Android",
     "-DCMAKE_BUILD_TYPE=%s" % args.configuration,
     "-DCMAKE_MAKE_PROGRAM='%s'" % args.make,
