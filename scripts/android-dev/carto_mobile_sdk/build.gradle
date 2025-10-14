@@ -9,7 +9,7 @@ def cmakeOptions = {
     def parsedJson = new groovy.json.JsonSlurper().parseText(jsonFile.text)
 
     def profileList = profiles.split('\\+')
-    if (!profileList.contains('lite')) {
+    if (!profileList.contains('lite') && !profileList.contains('standard')) {
         profileList += ['standard'];
     }
 
