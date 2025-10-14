@@ -262,9 +262,11 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
-      - uses: oleksiyrudenko/gha-git-credentials@v2-latest
+      - uses: oleksiyrudenko/gha-git-credentials@v2.1.1
+        if: github.event.inputs.publish == 'true'
         with:
           token: '${{ secrets.GITHUB_TOKEN }}'
+          global: true
           actor: farfromrefug
           name: Martin Guillon
           email: dev@akylas.fr
