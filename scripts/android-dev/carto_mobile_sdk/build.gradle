@@ -58,11 +58,11 @@ def cmakeOptions = {
 
 android {
     namespace 'com.carto'
-    compileSdkVersion 33
+    compileSdkVersion 35
 
     defaultConfig {
         minSdkVersion 21
-        targetSdkVersion 33
+        targetSdkVersion 35
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles 'consumer-rules.pro'
@@ -76,6 +76,11 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            externalNativeBuild {
+                cmake {
+                    arguments "-DCMAKE_BUILD_TYPE=Release"
+                }
+            }
         }
     }
 
@@ -83,7 +88,7 @@ android {
         ndkVersion "27.2.12479018"
         externalNativeBuild {
             cmake {
-                arguments "-DANDROID_STL=c++_static", '-DSINGLE_LIBRARY:BOOL=ON', '-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON', "-DWRAPPER_DIR=${projectDir.absolutePath.replaceAll('\\\\', '/')}/../../../generated/android-java/wrappers"
+                arguments "-DSDK_VERSION=Devel", "-DSDK_PLATFORM='Android'", "-DANDROID_STL=c++_static", '-DANDROID_ARM_NEON:BOOL=ON', '-DSINGLE_LIBRARY:BOOL=ON', '-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON', "-DWRAPPER_DIR=${projectDir.absolutePath.replaceAll('\\\\', '/')}/../../../generated/android-java/wrappers"
                 cmakeOptions().each {option -> arguments option }
             }
         }
