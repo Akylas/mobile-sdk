@@ -126,7 +126,7 @@ def copyHeaders(args, baseDir, outputDir):
 
 def buildIOSLib(args, baseArch, outputDir=None):
   platform, arch = getPlatformArch(baseArch)
-  version = getVersion(args.buildnumber) if args.configuration == 'Release' else 'Devel'
+  version = getVersion(args.buildversion, args.buildnumber) if args.configuration == 'Release' else 'Devel'
   baseDir = getBaseDir()
   buildDir = outputDir or getFinalBuildDir('ios', '%s-%s' % (platform, arch))
   defines = ["-D%s" % define for define in args.defines.split(';') if define]

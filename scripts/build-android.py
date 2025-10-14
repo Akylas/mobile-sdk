@@ -44,7 +44,7 @@ def detectAndroidJavaAPI(args):
   return apiJava
 
 def buildAndroidSO(args, abi):
-  version = getVersion(args.buildnumber) if args.configuration == 'Release' else 'Devel'
+  version = getVersion(args.buildversion, args.buildnumber) if args.configuration == 'Release' else 'Devel'
   baseDir = getBaseDir()
   buildDir = getBuildDir('android', abi)
   distDir = getDistDir('android')
@@ -59,17 +59,20 @@ def buildAndroidSO(args, abi):
   if not cmake(args, buildDir, options + [
     '-G', 'Unix Makefiles',
     "-DCMAKE_TOOLCHAIN_FILE='%s/build/cmake/android.toolchain.cmake'" % args.androidndkpath,
-    "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+    "-DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=ON",
     "-DCMAKE_SYSTEM_NAME=Android",
     "-DCMAKE_BUILD_TYPE=%s" % args.configuration,
     "-DCMAKE_MAKE_PROGRAM='%s'" % args.make,
+    "-DCMAKE_ANDROID_NDK='%s'" % args.androidndkpath,
+    "-DCMAKE_ANDROID_ARCH_ABI='%s'" % abi,
     "-DWRAPPER_DIR=%s" % ('%s/generated/android-java/wrappers' % baseDir),
     "-DSINGLE_LIBRARY:BOOL=ON",
     "-DANDROID_STL='c++_static'",
     "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON",
+    "-DANDROID_NDK='%s'" % args.androidndkpath,
     "-DANDROID_ABI='%s'" % abi,
-    "-DANDROID_PLATFORM='%d'" % (api64 if '64' in abi else api32),
-    "-DANDROID_ARM_NEON=%s" % ('true' if abi == 'arm64-v8a' or api32 >= 19 else 'false'),
+    "-DANDROID_PLATFORM='android-%d'" % (api64 if '64' in abi else api32),
+    "-DANDROID_ARM_NEON:BOOL=%s" % ('ON' if abi == 'arm64-v8a' or api32 >= 19 else 'OFF'),
     "-DSDK_CPP_DEFINES=%s" % " ".join(defines),
     "-DSDK_VERSION='%s'" % version,
     "-DSDK_PLATFORM='Android'",
@@ -198,8 +201,6 @@ def buildAndroidAAR(args, buildForJitpack):
         'distDir': distDir,
         'repoUrl': REPO_URL,
         'distName': distName,
-        'frameworkName': frameworkName,
-        'frameworkDir': frameworkDir,
         'version': version,
         'checksum': checksumSHA256('%s/%s' % (distDir, distName))
       })

@@ -138,7 +138,7 @@ def validProfile(profileIds):
       raise argparse.ArgumentTypeError('Profile must be one of or a combination of %s' % ', '.join(validProfileIds))
   return profileIds
 
-def getVersion(buildnumber):
+def getVersion(buildversion, buildnumber):
   try:
     lastCommit = "None"
     gitLog = subprocess.Popen(["git", "describe"], stdout=subprocess.PIPE).communicate()[0]
@@ -147,13 +147,13 @@ def getVersion(buildnumber):
     branch = "None"
     gitBranches = subprocess.Popen(["git", "branch"], stdout=subprocess.PIPE).communicate()[0]
     for line in gitBranches.split("\n"):
-      match = re.match("\\*\s+(.*)", line)
+      match = re.match(r"\\*\s+(.*)", line)
       if match:
         branch = match.group(1)
 
-    return "%s|%s|%s" % (buildnumber, branch, lastCommit)
+    return "%s|%s|%s|%s" % (buildversion, buildnumber, branch, lastCommit)
   except:
-    return "%s|%s|%s" % (buildnumber, "UNKNOWN", "UNKNOWN")
+    return "%s" % (buildversion)
 
 def readLines(fileName):
   with open(fileName, 'r') as f:

@@ -27,7 +27,7 @@ def detectAndroidAPIs(args):
   return api32, api64
 
 def buildAndroidSO(args, abi):
-  version = getVersion(args.buildnumber) if args.configuration == 'Release' else 'Devel'
+  version = getVersion(args.buildversion, args.buildnumber) if args.configuration == 'Release' else 'Devel'
   baseDir = getBaseDir()
   buildDir = getBuildDir('xamarin_android', abi)
   defines = ["-D%s" % define for define in args.defines.split(';') if define]
@@ -63,7 +63,7 @@ def buildAndroidSO(args, abi):
 
 def buildIOSLib(args, arch):
   baseArch = arch
-  version = getVersion(args.buildnumber) if args.configuration == 'Release' else 'Devel'
+  version = getVersion(args.buildversion, args.buildnumber) if args.configuration == 'Release' else 'Devel'
   platform = 'OS' if arch.startswith('arm') else 'SIMULATOR'
   baseDir = getBaseDir()
   buildDir = getBuildDir('xamarin_ios', '%s-%s' % (platform, arch))

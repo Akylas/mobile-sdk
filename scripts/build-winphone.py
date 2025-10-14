@@ -36,7 +36,7 @@ def patchVcxprojFile(baseDir, fileName, patched1=False, patched2=False):
     f.writelines(linesOut)
 
 def buildWinPhoneNativeDLL(args, arch):
-  version = getVersion(args.buildnumber) if args.configuration == 'Release' else 'Devel'
+  version = getVersion(args.buildversion, args.buildnumber) if args.configuration == 'Release' else 'Devel'
   platformArch = 'Win32' if arch == 'x86' else arch
   baseDir = getBaseDir()
   buildDir = getBuildDir('winphone_native10', platformArch)
