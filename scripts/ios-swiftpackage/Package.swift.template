@@ -18,7 +18,7 @@ let package = Package(
     targets: [
         .binaryTarget(
             name: "$frameworkName",
-            url: "$repoUrl/releases/download/$version/$distName",
+            url: "$repoUrl/releases/download/v$version/$distName",
             checksum: "$checksum"
         )
     ]
