@@ -78,7 +78,7 @@ def updatePublicHeader(filename):
 def buildModuleMap(filename, publicHeaders):
   with open(filename, 'w') as f:
     f.write('module %s {\n' % FRAMEWORK_NAME)
-    f.write('    umbrella header "%s.h"\n' % FRAMEWORK_NAME)
+    f.write('    umbrella header "%s/%s.h"\n' % (FRAMEWORK_NAME, FRAMEWORK_NAME))
     # f.write('    link "c++"\n')
     # f.write('    link "z"\n')
     # for header in publicHeaders:
@@ -126,7 +126,7 @@ def copyHeaders(args, baseDir, outputDir):
 
 def copyXCFrameworkHeaders(args, baseDir, outputDir):
   proxyHeaderDir = '%s/generated/ios-objc/proxies' % baseDir
-  destDir = '%s/CartoMobileSDK' % outputDir
+  destDir = '%s/%s' % (outputDir, FRAMEWORK_NAME)
   publicHeaders = []
   makedirs(destDir) 
 
@@ -153,9 +153,9 @@ def copyXCFrameworkHeaders(args, baseDir, outputDir):
     if not copyfile(os.path.join(dirpath, filename), '%s/%s' % (destDir, destFilename)):
       return False  
 
-  if not copyfile('%s/ios/objc/CartoMobileSDK.h' % baseDir, '%s/CartoMobileSDK.h' % destDir):
+  if not copyfile('%s/ios/objc/%s.h' % (baseDir, FRAMEWORK_NAME), '%s/%s.h' % (destDir, FRAMEWORK_NAME)):
     return False
-  updateUmbrellaHeader('%s/CartoMobileSDK.h' % destDir, args.defines)
+  updateUmbrellaHeader('%s/%s.h' % (destDir, FRAMEWORK_NAME), args.defines)
 
   return buildModuleMap('%s/module.modulemap' % outputDir, publicHeaders)
 
