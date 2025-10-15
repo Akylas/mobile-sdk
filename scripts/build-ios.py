@@ -78,7 +78,7 @@ def updatePublicHeader(filename):
 def buildModuleMap(filename, publicHeaders):
   with open(filename, 'w') as f:
     f.write('module %s {\n' % FRAMEWORK_NAME)
-    # f.write('    umbrella header "%s.h"\n' % FRAMEWORK_NAME)
+    f.write('    umbrella header "%s.h"\n' % FRAMEWORK_NAME)
     # f.write('    link "c++"\n')
     # f.write('    link "z"\n')
     # for header in publicHeaders:
