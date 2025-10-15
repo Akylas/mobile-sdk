@@ -290,7 +290,7 @@ jobs:
         if: github.event.inputs.publish == 'true' && matrix.variant == 'ios'
         uses: actions/checkout@v4
         with:
-          repository: Akylas/mobile-sdk-android-aar
+          repository: Akylas/mobile-sdk-ios-swift
           token: '${{ secrets.AAR_SWIFT_TOKEN }}'
           path: mobile-sdk-ios-swift
 
