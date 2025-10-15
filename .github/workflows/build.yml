@@ -1,4 +1,6 @@
 name: Build CartoMobileSDK 
+permissions:
+  contents: write
 
 on: 
   workflow_dispatch:
@@ -52,11 +54,14 @@ jobs:
           draft: true
           token: ${{ secrets.GITHUB_TOKEN }}
   build:
+    permissions:
+      contents: write
     strategy:
       matrix:
         variant: ['android', 'ios']
     runs-on: ${{ matrix.variant == 'android' && 'ubuntu-latest' || 'macos-latest' }}
     needs: [create-release]
+    if: always()
     name: CartoMobileSDK ${{ matrix.variant }}
     steps:
 
@@ -95,17 +100,30 @@ jobs:
       #   name: run SDKManager
       #   run:  sdkmanager "build-tools;30.0.3"
 
-      - uses: nttld/setup-ndk@v1
+      - uses: nttld/setup-ndk@v1.5.0
         if: matrix.variant == 'android'
         id: setup-ndk
         with:
-          ndk-version: r27c
-          local-cache: false
+          ndk-version: r27
+          add-to-path: true
+          link-to-sdk: true
+          local-cache: true
+
+      # TODO revisit after some updates of nttld/setup-ndk
+      - name: Restore Android Symlinks
+        run: |
+          directory="${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          find "$directory" -type l | while read link; do
+              current_target=$(readlink "$link")
+              new_target="$directory/$(basename "$current_target")"
+              ln -sf "$new_target" "$link"
+              echo "Changed $(basename "$link") from $current_target to $new_target"
+          done
       
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with: 
-          gradle-version: "8.10"
+          gradle-version: "8.14.3"
 
       - name: Install Python
         uses: actions/setup-python@v5
@@ -187,7 +205,7 @@ jobs:
         if: matrix.variant == 'android'
         run: |
           cd scripts
-          python build-android.py --profile ${{ github.event.inputs.profile }} --build-aar --build-version ${{ needs.create-release.outputs.VERSION }} --configuration=Release
+          python build-android.py --profile ${{ github.event.inputs.profile }} --build-aar --build-version ${{ github.event.inputs.version }} --configuration=Release --build-jitpack
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
 
@@ -196,7 +214,7 @@ jobs:
         if: matrix.variant == 'ios'
         run: |
           cd scripts
-          python build-ios.py --profile ${{ github.event.inputs.profile }} --build-cocoapod --build-version ${{ needs.create-release.outputs.VERSION }} --configuration=Release --build-xcframework --use-metalangle --build-swiftpackage
+          python build-ios.py --profile ${{ github.event.inputs.profile }} --build-version ${{ github.event.inputs.version }} --configuration=Release --build-xcframework --use-metalangle --build-swiftpackage
 
       - name: Upload Release Asset
         if: github.event.inputs.publish == 'true'
@@ -219,22 +237,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload ${{ needs.create-release.outputs.VERSION_TAG }} dist/ios_metal/carto-mobile-sdk-ios-metal-${{ needs.create-release.outputs.VERSION }}.zip
-      
-      - uses: EndBug/add-and-commit@a94899bca583c204427a224a7af87c02f9b325d5
-        name: commit Package.swift
-        if: github.event.inputs.publish == 'true' && matrix.variant == 'ios'
-        with:
-          add: dist/ios_metal/Package.swift
-          default_author: github_actions
-          message: 'swift package for version ${{ needs.create-release.outputs.VERSION }}'
+          gh release upload ${{ needs.create-release.outputs.VERSION_TAG }} dist/ios_metal/carto-mobile-sdk-ios-metal-${{ github.event.inputs.version }}.zip
 
       - uses: actions/upload-artifact@v4
         if: github.event.inputs.publish != 'true' && matrix.variant == 'ios'
         with:
           name:  CartoSDK-{{matrix.variant}}-{{ github.event.inputs.profile }}
           path: |
-            dist/ios_metal/carto-mobile-sdk-ios-metal-${{ needs.create-release.outputs.VERSION }}.zip
+            dist/ios_metal/*.zip
           retention-days: 7
           if-no-files-found: error
 
@@ -244,9 +254,56 @@ jobs:
         with:
           name:  CartoSDK-{{matrix.variant}}-{{ github.event.inputs.profile }}
           path: |
-            dist/android/*.aar
+            dist/android/*android*.aar
           retention-days: 7
           if-no-files-found: error
+
+      - uses: oleksiyrudenko/gha-git-credentials@v2.1.1
+        if: github.event.inputs.publish == 'true'
+        with:
+          token: '${{ secrets.GITHUB_TOKEN }}'
+          global: true
+          actor: farfromrefug
+          name: Martin Guillon
+          email: dev@akylas.fr
+
+      - name: Checkout mobile-sdk-android-aar
+        if: github.event.inputs.publish == 'true' && matrix.variant == 'android'
+        uses: actions/checkout@v4
+        with:
+          repository: Akylas/mobile-sdk-android-aar
+          token: '${{ secrets.AAR_SWIFT_TOKEN }}'
+          path: mobile-sdk-android-aar
+
+      - name: Modify jitpack.yml and publish/tag
+        if: github.event.inputs.publish == 'true' && matrix.variant == 'android'
+        run: |
+          cd mobile-sdk-android-aar
+          mv -f ../dist/android/jitpack.yml ./
+          git add jitpack.yml
+          git commit -m "Automated update jitpack from workflow for new release" || true
+          git push origin main
+          git tag ${{ github.event.inputs.version }}
+          git push origin ${{ github.event.inputs.version }}
+
+      - name: Checkout mobile-sdk-ios-swift
+        if: github.event.inputs.publish == 'true' && matrix.variant == 'ios'
+        uses: actions/checkout@v4
+        with:
+          repository: Akylas/mobile-sdk-ios-swift
+          token: '${{ secrets.AAR_SWIFT_TOKEN }}'
+          path: mobile-sdk-ios-swift
+
+      - name: Modify Package.swift and publish/tag
+        if: github.event.inputs.publish == 'true' && matrix.variant == 'ios'
+        run: |
+          cd mobile-sdk-ios-swift
+          mv -f ../dist/ios_metal/Package.swift ./
+          git add Package.swift
+          git commit -m "Automated update Package.swift from workflow for new release"|| true
+          git push origin main
+          git tag ${{ github.event.inputs.version }}
+          git push origin ${{ github.event.inputs.version }}
 
       - uses: actions/upload-artifact@v4
         if: github.event.inputs.publish != 'true'
@@ -256,14 +313,15 @@ jobs:
             dist/css2xml_*.zip
           retention-days: 7
           if-no-files-found: error
+      
       - name: Rollback Release
         if: failure()
         uses: author/action-rollback@stable
         with:
           release_id: ${{ needs.create-release.outputs.RELEASE_UPLOAD_ID }}
-          tag: v${{ needs.create-release.outputs.VERSION }}
+          tag: v${{ github.event.inputs.version }}
           #  If the release does not exist but the tag does, setting this to true will remove the tag.
-         #  delete_orphan_tag: true
+          delete_orphan_tag: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -294,7 +352,7 @@ jobs:
           useGitmojis: false
           excludeTypes: build,docs,other,style,chore,perf,doc
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag:  v${{ needs.create-release.outputs.VERSION }}
+          tag:  v${{ github.event.inputs.version }}
   
       - name: Commit CHANGELOG.md
         uses: stefanzweifel/git-auto-commit-action@v4

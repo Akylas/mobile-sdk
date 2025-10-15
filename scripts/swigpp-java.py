@@ -239,28 +239,28 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
   directors_module = False
   for line in lines_in:
 
-    match = re.search('^\s*(#ifdef )(_CARTO_[^\s]*_SUPPORT)$', line)
+    match = re.search(r'^\s*(#ifdef )(_CARTO_[^\s]*_SUPPORT)$', line)
     if match:
       if(match.group(2) and not match.group(2) in argsDefines ):
         print("ignoredSourceFiles %s for define: %s" % (sourcePath, match.group(2)))
         ignoredSourceFiles.append(sourcePath)
         return
     # Rename module
-    match = re.search('^\s*(%module(?:[(].*[)]|)\s+)([^\s]*)\s*$', line)
+    match = re.search(r'^\s*(%module(?:[(].*[)]|)\s+)([^\s]*)\s*$', line)
     if match:
       if match.group(1):
         directors_module = 'directors' in match.group(1)
       line = '%s%sModule' % (match.group(1), match.group(2))
 
     # Language-specific method modifiers
-    match = re.search('^\s*%(java|cs|objc)methodmodifiers.*$', line)
+    match = re.search(r'^\s*%(java|cs|objc)methodmodifiers.*$', line)
     if match:
       lang = match.group(1)
       if lang != 'java':
         continue
 
     # Language-specific rename declarations
-    match = re.search('^\s*!(java|cs|objc)_rename(.*)$', line)
+    match = re.search(r'^\s*!(java|cs|objc)_rename(.*)$', line)
     if match:
       lang = match.group(1)
       if lang != 'java':
@@ -268,12 +268,12 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
       line = '%%rename%s' % match.group(2)
 
     # Attributes
-    match = re.search('^\s*(%|!)(static|)attribute.*$', line)
+    match = re.search(r'^\s*(%|!)(static|)attribute.*$', line)
     if match:
       continue
 
     # Detect enum directive
-    match = re.search('^\s*!enum\s*[(]([^)]*)[)].*$', line)
+    match = re.search(r'^\s*!enum\s*[(]([^)]*)[)].*$', line)
     if match:
       enumName = match.group(1).strip()
       args = { 'ENUMNAME': match.group(1).strip() }
@@ -281,7 +281,7 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
       continue
 
     # Detect value_type directive
-    match = re.search('^\s*!value_type\s*[(]([^)]*),([^)]*)[)].*$', line)
+    match = re.search(r'^\s*!value_type\s*[(]([^)]*),([^)]*)[)].*$', line)
     if match:
       className = match.group(1).strip()
       javaClass = match.group(2).strip().split(".")[-1]
@@ -291,7 +291,7 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
       continue
 
     # Detect shared_ptr directive
-    match = re.search('^\s*!shared_ptr\s*[(]([^)]*),([^)]*)[)].*$', line)
+    match = re.search(r'^\s*!shared_ptr\s*[(]([^)]*),([^)]*)[)].*$', line)
     if match:
       className = match.group(1).strip()
       javaClass = match.group(2).strip().split(".")[-1]
@@ -301,7 +301,7 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
       continue
 
     # Polymorphic shared_ptr
-    match = re.search('^\s*!polymorphic_shared_ptr\s*[(]([^,]*),([^)]*)[)].*', line)
+    match = re.search(r'^\s*!polymorphic_shared_ptr\s*[(]([^,]*),([^)]*)[)].*', line)
     if match:
       className = match.group(1).strip()
       javaPackage = 'com.carto.%s' % '.'.join(match.group(2).strip().split(".")[:-1])
@@ -315,7 +315,7 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
       continue
 
     # Value-template
-    match = re.search('^\s*!value_template\s*[(]([^)]*),([^)]*)[)].*$', line)
+    match = re.search(r'^\s*!value_template\s*[(]([^)]*),([^)]*)[)].*$', line)
     if match:
       className = match.group(1).strip()
       javaClass = match.group(2).strip().split(".")[-1]
@@ -324,7 +324,7 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
       continue
 
     # Standard equals
-    match = re.search('^\s*!standard_equals\s*[(]([^)]*)[)].*', line)
+    match = re.search(r'^\s*!standard_equals\s*[(]([^)]*)[)].*', line)
     if match:
       className = match.group(1).strip()
       args = { 'CLASSNAME': match.group(1).strip() }
@@ -335,7 +335,7 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
       continue
 
     # Custom equals
-    match = re.search('^\s*!custom_equals\s*[(]([^)]*)[)].*', line)
+    match = re.search(r'^\s*!custom_equals\s*[(]([^)]*)[)].*', line)
     if match:
       className = match.group(1).strip()
       args = { 'CLASSNAME': match.group(1).strip() }
@@ -346,12 +346,12 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
       continue
 
     # Custom toString
-    match = re.search('^\s*!custom_tostring\s*[(]([^)]*)[)].*', line)
+    match = re.search(r'^\s*!custom_tostring\s*[(]([^)]*)[)].*', line)
     if match:
       continue
 
     # Imports
-    match = re.search('^\s*!(proxy|java|cs|objc)_imports\s*[(]([^)]*)[)](.*)$', line)
+    match = re.search(r'^\s*!(proxy|java|cs|objc)_imports\s*[(]([^)]*)[)](.*)$', line)
     if match:
       lang = match.group(1)
       parts = [part.strip() for part in match.group(2).split(",")]
@@ -367,12 +367,12 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
         imports_linenum = len(lines_out)
 
     # Check for STL templates
-    match = re.search('^\s*%template\(.*\)\s*std::.*$', line)
+    match = re.search(r'^\s*%template\(.*\)\s*std::.*$', line)
     if match:
       stl_wrapper = True
 
     # javacode import
-    match = re.search('^\s*%typemap[(]javacode[)]\s*(.*)\s*%{(.*)%}', line)
+    match = re.search(r'^\s*%typemap[(]javacode[)]\s*(.*)\s*%{(.*)%}', line)
     if match:
       className = match.group(1).strip()
       code = class_code.get(className, [])
@@ -381,14 +381,14 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
       continue
 
     # Includes
-    match = re.search('^\s*%include\s+(.*)$', line)
+    match = re.search(r'^\s*%include\s+(.*)$', line)
     if match:
       if include_linenum is None: # use proper enums for Java
         lines_out.append('%include "enums.swg"')
       include_linenum = len(lines_out)
 
     # Rename all methods to nonCapCase, add this before including C++ code
-    match = re.search('^\s*%include\s+"(.*)".*$', line)
+    match = re.search(r'^\s*%include\s+"(.*)".*$', line)
     if match:
       includeName = match.group(1)
       if not stl_wrapper and includeName != "NutiSwig.i":
@@ -490,7 +490,7 @@ def buildSwigPackage(args, sourceDir, packageName):
       return False
 
     for line in [line.rstrip('\n') for line in readUncommentedLines(sourcePath)]:
-      match = re.search('^\s*%template\((.*)\).*$', line)
+      match = re.search(r'^\s*%template\((.*)\).*$', line)
       if match:
         templateFileNameWithoutExt = match.group(1)
         if templateFileNameWithoutExt != fileNameWithoutExt:

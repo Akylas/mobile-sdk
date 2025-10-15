@@ -7,6 +7,7 @@ from build.sdk_build_utils import *
 
 ANDROID_ABIS = ['armeabi-v7a', 'x86', 'arm64-v8a', 'x86_64']
 SDK_VERSION = "4.4.2"
+REPO_URL="https://github.com/Akylas/mobile-sdk"
 
 def javac(args, dir, *cmdArgs):
   return execute(args.javac, dir, *cmdArgs)
@@ -43,7 +44,7 @@ def detectAndroidJavaAPI(args):
   return apiJava
 
 def buildAndroidSO(args, abi):
-  version = getVersion(args.buildnumber) if args.configuration == 'Release' else 'Devel'
+  version = getVersion(args.buildversion, args.buildnumber) if args.configuration == 'Release' else 'Devel'
   baseDir = getBaseDir()
   buildDir = getBuildDir('android', abi)
   distDir = getDistDir('android')
@@ -58,16 +59,20 @@ def buildAndroidSO(args, abi):
   if not cmake(args, buildDir, options + [
     '-G', 'Unix Makefiles',
     "-DCMAKE_TOOLCHAIN_FILE='%s/build/cmake/android.toolchain.cmake'" % args.androidndkpath,
+    "-DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=ON",
     "-DCMAKE_SYSTEM_NAME=Android",
     "-DCMAKE_BUILD_TYPE=%s" % args.configuration,
     "-DCMAKE_MAKE_PROGRAM='%s'" % args.make,
+    "-DCMAKE_ANDROID_NDK='%s'" % args.androidndkpath,
+    "-DCMAKE_ANDROID_ARCH_ABI='%s'" % abi,
     "-DWRAPPER_DIR=%s" % ('%s/generated/android-java/wrappers' % baseDir),
     "-DSINGLE_LIBRARY:BOOL=ON",
     "-DANDROID_STL='c++_static'",
     "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON",
+    "-DANDROID_NDK='%s'" % args.androidndkpath,
     "-DANDROID_ABI='%s'" % abi,
-    "-DANDROID_PLATFORM='%d'" % (api64 if '64' in abi else api32),
-    "-DANDROID_ARM_NEON=%s" % ('true' if abi == 'arm64-v8a' or api32 >= 19 else 'false'),
+    "-DANDROID_PLATFORM='android-%d'" % (api64 if '64' in abi else api32),
+    "-DANDROID_ARM_NEON:BOOL=%s" % ('ON' if abi == 'arm64-v8a' or api32 >= 19 else 'OFF'),
     "-DSDK_CPP_DEFINES=%s" % " ".join(defines),
     "-DSDK_VERSION='%s'" % version,
     "-DSDK_PLATFORM='Android'",
@@ -138,7 +143,7 @@ def buildAndroidJAR(args):
   print("JAR output available in:\n%s" % distDir)
   return True
 
-def buildAndroidAAR(args):
+def buildAndroidAAR(args, buildForJitpack):
   shutil.rmtree(getBuildDir('android-src'), True)
 
   baseDir = getBaseDir()
@@ -146,6 +151,7 @@ def buildAndroidAAR(args):
   buildDir = getBuildDir('android-aar')
   distDir = getDistDir('android')
   version = args.buildversion
+  distName = 'carto-mobile-sdk-android-%s.aar' % (version)
 
   with open('%s/scripts/android/carto-mobile-sdk.pom.template' % baseDir, 'r') as f:
     pomFile = string.Template(f.read()).safe_substitute({
@@ -183,10 +189,23 @@ def buildAndroidAAR(args):
     aarFileName = '%s/outputs/aar/android-release.aar' % buildDir
   if not makedirs(distDir) or \
      not copyfile(pomFileName, '%s/carto-mobile-sdk-android-%s.pom' % (distDir, version)) or \
-     not copyfile(aarFileName, '%s/carto-mobile-sdk-android-%s.aar' % (distDir, version)) or \
-     not copyfile(srcFileName, '%s/carto-mobile-sdk-android-%s-sources.jar' % (distDir, version)) or \
-     not zip(args, '%s/scripts/android/src/main' % baseDir, '%s/carto-mobile-sdk-%s.aar' % (distDir, version), 'R.txt'):
+     not copyfile(aarFileName, '%s/%s' % (distDir, distName)) or \
+     not copyfile(srcFileName, '%s/carto-mobile-sdk-android-%s-sources.jar' % (distDir, version)):
+    #  not zip(args, '%s/scripts/android/src/main' % baseDir, '%s/carto-mobile-sdk-%s.aar' % (distDir, version), 'R.txt'):
     return False
+
+  if buildForJitpack:
+    with open('%s/scripts/android-jitpack/jitpack.yml.template' % baseDir, 'r') as f:
+      packageFile = string.Template(f.read()).safe_substitute({
+        'baseDir': baseDir,
+        'distDir': distDir,
+        'repoUrl': REPO_URL,
+        'distName': distName,
+        'version': version,
+        'checksum': checksumSHA256('%s/%s' % (distDir, distName))
+      })
+    with open('%s/jitpack.yml' % distDir, 'w') as f:
+      f.write(packageFile)
 
   print("AAR output available in:\n%s" % distDir)
   return True
@@ -209,6 +228,7 @@ parser.add_argument('--build-number', dest='buildnumber', default='', help='Buil
 parser.add_argument('--build-version', dest='buildversion', default='%s-devel' % SDK_VERSION, help='Build version, goes to distributions')
 parser.add_argument('--build-aar', dest='buildaar', default=False, action='store_true', help='Build Android .aar package')
 parser.add_argument('--build-jar', dest='buildjar', default=False, action='store_true', help='Build Android .jar package')
+parser.add_argument('--build-jitpack', dest='buildjitpack', default=False, action='store_true', help='Build for Jitpack')
 args = parser.parse_args()
 if 'all' in args.androidabi or args.androidabi == []:
   args.androidabi = ANDROID_ABIS
@@ -257,5 +277,5 @@ if args.buildjar:
     sys.exit(-1)
 
 if args.buildaar:
-  if not buildAndroidAAR(args):
+  if not buildAndroidAAR(args, args.buildjitpack):
     sys.exit(-1)
