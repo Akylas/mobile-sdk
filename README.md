@@ -28,8 +28,30 @@ CARTO Mobile SDK is an open, multi-platform framework for visualizing maps and p
 
 ## Installing and building
 
-* **We strongly suggest using the precompiled SDK versions that can be found in the [Releases](https://github.com/CartoDB/mobile-sdk/releases) section.** 
-* For custom builds, please read the [building guide](./BUILDING.md).
+### Android
+
+```gradle
+
+repositories {
+	mavenCentral()
+	maven { url 'https://jitpack.io' }
+}
+dependencies {
+	implementation 'com.github.Akylas:mobile-sdk-android-aar:5.0.0'
+}
+```
+
+### iOS
+
+* In Xcode, go to File > Add Packages....
+* Paste the following URL into the search bar: https://github.com/Akylas/mobile-sdk-ios-swift
+* Select the version and add it to your project.
+
+You can also download the release from [Releases](https://github.com/Akylas/mobile-sdk/releases)
+
+## Building
+
+For custom builds, please read the [building guide](./BUILDING.md).
 
 ## Documentation and samples
 
