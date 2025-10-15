@@ -281,7 +281,7 @@ jobs:
           cd mobile-sdk-android-aar
           mv -f ../dist/android/jitpack.yml ./
           git add jitpack.yml
-          git commit -m "Automated update jitpack from workflow for new release"
+          git commit -m "Automated update jitpack from workflow for new release" || true
           git push origin main
           git tag ${{ github.event.inputs.version }}
           git push origin ${{ github.event.inputs.version }}
@@ -300,7 +300,7 @@ jobs:
           cd mobile-sdk-ios-swift
           mv -f ../dist/ios_metal/Package.swift ./
           git add Package.swift
-          git commit -m "Automated update Package.swift from workflow for new release"
+          git commit -m "Automated update Package.swift from workflow for new release"|| true
           git push origin main
           git tag ${{ github.event.inputs.version }}
           git push origin ${{ github.event.inputs.version }}
