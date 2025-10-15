@@ -281,8 +281,6 @@ def buildIOSXCFramework(args, baseArchs, outputDir=None):
   if not copyXCFrameworkHeaders(args, baseDir, headersDir):
     return False
   for platform, baseArchs in groupedPlatformArchs.items():
-    print("baseArchs :%s %s" % (platform,baseArchs))
-    
     libFilePaths = []
     for baseArch in baseArchs:
       platform, arch = getPlatformArch(baseArch)
@@ -407,9 +405,9 @@ if not checkExecutable(args.cmake, '--help'):
   print('Failed to find CMake executable. Use --cmake to specify its location')
   sys.exit(-1)
 
-# for arch in args.iosarch:
-#   if not buildIOSLib(args, arch):
-#     sys.exit(-1)
+for arch in args.iosarch:
+  if not buildIOSLib(args, arch):
+    sys.exit(-1)
 
 if args.buildxcframework:
   if not buildIOSXCFramework(args, args.iosarch):
