@@ -8,4 +8,4 @@ install:
   - ./gradlew publish
 env:
    VERSION: "$version"
-   AAR_URL: "$repoUrl/releases/download/$version/$distName"
+   AAR_URL: "$repoUrl/releases/download/v$version/$distName"
