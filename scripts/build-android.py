@@ -186,8 +186,8 @@ def buildAndroidAAR(args):
   if not os.path.exists(aarFileName):
     aarFileName = '%s/outputs/aar/android-release.aar' % buildDir
   if not makedirs(distDir) or \
-     not copyfile(aarFileName, '%s/%s' % (distDir, distName)) or \
-     not copyfile(srcFileName, '%s/carto-mobile-sdk-android-%s-sources.jar' % (distDir, version)):
+     not copyfile(aarFileName, '%s/%s' % (distDir, distName)):
+    #  not copyfile(srcFileName, '%s/carto-mobile-sdk-android-%s-sources.jar' % (distDir, version)):
       #  not copyfile(pomFileName, '%s/carto-mobile-sdk-android-%s.pom' % (distDir, version)) or \
     #  not zip(args, '%s/scripts/android/src/main' % baseDir, '%s/carto-mobile-sdk-%s.aar' % (distDir, version), 'R.txt'):
     return False
