@@ -8,10 +8,6 @@ on:
       version:
        required: false
        description: 'version number'
-      profile:
-       required: false
-       default: standard+valhalla
-       description: 'Profile'
       publish:
         description: "Should we publish on Github?"
         default: true
@@ -203,13 +199,13 @@ jobs:
         if: matrix.variant == 'ios'
         run: |
           cd scripts
-          python swigpp-objc.py --profile ${{ github.event.inputs.profile }} --swig ../mobile-swig/swig 
+          python swigpp-objc.py --profile ${{ matrix.profile }} --swig ../mobile-swig/swig 
 
       - name: Build swig-java
         if: matrix.variant == 'android'
         run: |
           cd scripts
-          python swigpp-java.py --profile ${{ github.event.inputs.profile }} --swig ../mobile-swig/swig
+          python swigpp-java.py --profile ${{ matrix.profile }} --swig ../mobile-swig/swig
 
       - name: Build CartoSDK for Android
         if: matrix.variant == 'android'
@@ -249,7 +245,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: github.event.inputs.publish != 'true' && matrix.variant == 'ios'
         with:
-          name:  CartoSDK-{{matrix.variant}}-{{ github.event.inputs.profile }}
+          name:  CartoSDK-{{matrix.variant}}-{{ matrix.profile }}
           path: |
             dist/ios_metal/*.zip
           retention-days: 7
@@ -271,7 +267,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: github.event.inputs.publish != 'true' && matrix.variant == 'android'
         with:
-          name:  CartoSDK-{{matrix.variant}}-{{ github.event.inputs.profile }}
+          name:  CartoSDK-{{matrix.variant}}-{{ matrix.profile }}
           path: |
             dist/android/*android*.aar
           retention-days: 7
@@ -280,7 +276,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: github.event.inputs.publish != 'true'
         with:
-          name:  CartoSDK-{{matrix.variant}}-{{ github.event.inputs.profile }}-css2xml
+          name:  CartoSDK-{{matrix.variant}}-{{ matrix.profile }}-css2xml
           path: |
             dist/css2xml_*.zip
           retention-days: 7
