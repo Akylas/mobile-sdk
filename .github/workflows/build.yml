@@ -215,7 +215,7 @@ jobs:
         if: matrix.variant == 'android'
         run: |
           cd scripts
-          python build-android.py --profile ${{ matrix.profile }} --build-aar --build-version ${{ github.event.inputs.version }} --configuration=Release --build-jitpack
+          python build-android.py --profile ${{ matrix.profile }} --build-aar --build-version ${{ github.event.inputs.version }} --configuration=Release
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
 
@@ -223,8 +223,7 @@ jobs:
         if: matrix.variant == 'ios'
         run: |
           cd scripts
-          python build-ios.py --profile ${{ matrix.profile }} --build-version ${{ github.event.inputs.version }} --configuration=Release --build-xcframework --use-metalangle --build-swiftpackage
-
+          python build-ios.py --profile ${{ matrix.profile }} --build-version ${{ github.event.inputs.version }} --configuration=Release --build-xcframework --use-metalangle
       - name: Upload Release Asset
         if: github.event.inputs.publish == 'true'
         env:
