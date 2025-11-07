@@ -307,11 +307,11 @@ def buildIOSXCFramework(args, baseArchs, outputDir=None):
     print("iOS xcframework output available in:\n%s" % distDir)
   return True
 
-def buildIOSPackage(args, buildCocoapod, buildSwiftPackage):
+def buildIOSPackage(args):
   baseDir = getBaseDir()
   distDir = getFinalDistDir(args)
   version = args.buildversion
-  distName = 'carto-mobile-sdk-ios-%s%s.zip' % (("metal-" if args.metalangle else ""), version)
+  distName = getIOSZipDistName(version, args.profile)
   frameworkName = FRAMEWORK_NAME
   frameworkDir = '%s.%s' % (FRAMEWORK_NAME, "xcframework" if args.buildxcframework else "framework")
   frameworks = (["QuartzCore"] if args.metalangle else ["OpenGLES", "GLKit"]) + ["UIKit", "CoreGraphics", "CoreText", "CFNetwork", "Foundation"]
@@ -324,37 +324,23 @@ def buildIOSPackage(args, buildCocoapod, buildSwiftPackage):
   if not execute('ditto', distDir, '-c', '-k', '--sequesterRsrc', '--keepParent', frameworkDir, '%s/%s' % (distDir, distName)):
     return False
 
-  if buildCocoapod:
-    with open('%s/scripts/ios-cocoapod/podspec.template' % baseDir, 'r') as f:
-      cocoapodFile = string.Template(f.read()).safe_substitute({
-        'baseDir': baseDir,
-        'distDir': distDir,
-        'distName': distName,
-        'repoUrl': REPO_URL,
-        'frameworkName': frameworkName,
-        'frameworkDir': frameworkDir,
-        'version': version,
-        'license': readLicense(),
-        'frameworks': ', '.join('"%s"' % framework for framework in frameworks) if frameworks else 'nil',
-        'weakFrameworks': ', '.join('"%s"' % framework for framework in weakFrameworks) if weakFrameworks else 'nil'
-      })
-    with open('%s/%s.podspec' % (distDir, frameworkName), 'w') as f:
-      f.write(cocoapodFile)
+  # if buildCocoapod:
+  #   with open('%s/scripts/ios-cocoapod/podspec.template' % baseDir, 'r') as f:
+  #     cocoapodFile = string.Template(f.read()).safe_substitute({
+  #       'baseDir': baseDir,
+  #       'distDir': distDir,
+  #       'distName': distName,
+  #       'repoUrl': REPO_URL,
+  #       'frameworkName': frameworkName,
+  #       'frameworkDir': frameworkDir,
+  #       'version': version,
+  #       'license': readLicense(),
+  #       'frameworks': ', '.join('"%s"' % framework for framework in frameworks) if frameworks else 'nil',
+  #       'weakFrameworks': ', '.join('"%s"' % framework for framework in weakFrameworks) if weakFrameworks else 'nil'
+  #     })
+  #   with open('%s/%s.podspec' % (distDir, frameworkName), 'w') as f:
+  #     f.write(cocoapodFile)
 
-  if buildSwiftPackage:
-    with open('%s/scripts/ios-swiftpackage/Package.swift.template' % baseDir, 'r') as f:
-      packageFile = string.Template(f.read()).safe_substitute({
-        'baseDir': baseDir,
-        'distDir': distDir,
-        'repoUrl': REPO_URL,
-        'distName': distName,
-        'frameworkName': frameworkName,
-        'frameworkDir': frameworkDir,
-        'version': version,
-        'checksum': checksumSHA256('%s/%s' % (distDir, distName))
-      })
-    with open('%s/Package.swift' % distDir, 'w') as f:
-      f.write(packageFile)
 
   print("iOS package output available in:\n%s" % distDir)
   return True
@@ -370,7 +356,6 @@ parser.add_argument('--build-number', dest='buildnumber', default='', help='Buil
 parser.add_argument('--build-version', dest='buildversion', default='%s-devel' % SDK_VERSION, help='Build version, goes to distributions')
 parser.add_argument('--build-xcframework', dest='buildxcframework', default=False, action='store_true', help='Build XCFramework')
 parser.add_argument('--build-cocoapod', dest='buildcocoapod', default=False, action='store_true', help='Build CocoaPod')
-parser.add_argument('--build-swiftpackage', dest='buildswiftpackage', default=False, action='store_true', help='Build Swift Package')
 parser.add_argument('--use-metalangle', dest='metalangle', default=False, action='store_true', help='Use MetalANGLE instead of Apple GL')
 parser.add_argument('--strip-bitcode', dest='stripbitcode', default=False, action='store_true', help='Strip bitcode from the built framework')
 parser.add_argument('--shared-framework', dest='sharedlib', default=False, action='store_true', help='Build shared framework instead of static')
@@ -416,6 +401,6 @@ else:
   if not buildIOSFramework(args, args.iosarch):
     sys.exit(-1)
 
-if args.buildcocoapod or args.buildswiftpackage:
-  if not buildIOSPackage(args, args.buildcocoapod, args.buildswiftpackage):
-    sys.exit(-1)
+# if args.buildcocoapod:
+if not buildIOSPackage(args):
+  sys.exit(-1)

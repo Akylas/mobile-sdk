@@ -19,6 +19,17 @@ on:
         type: boolean
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      variants: ${{ steps.set.outputs.variants }}
+      profiles: ${{ steps.set.outputs.profiles }}
+    steps:
+      - id: set
+        run: |
+          echo 'variants=["android","ios"]' >> $GITHUB_OUTPUT
+          echo 'profiles=["standard+valhalla","standard", "light"]' >> $GITHUB_OUTPUT
+
   create-release:
     runs-on: ubuntu-latest
     if: github.event.inputs.publish == 'true'
@@ -58,13 +69,13 @@ jobs:
       contents: write
     strategy:
       matrix:
-        variant: ['android', 'ios']
+        variant: ${{ fromJson(needs.prepare.outputs.variants) }}
+        profile: ${{ fromJson(needs.prepare.outputs.profiles) }}
     runs-on: ${{ matrix.variant == 'android' && 'ubuntu-latest' || 'macos-latest' }}
-    needs: [create-release]
+    needs: [create-release, prepare]
     if: always()
-    name: CartoMobileSDK ${{ matrix.variant }}
+    name: "CartoMobileSDK ${{ matrix.variant }} - Profile: ${{ matrix.profile }}"
     steps:
-
       - name: Runner platform name
         run: |
             export PLATFORM_UP=${{ runner.os }}
@@ -91,7 +102,6 @@ jobs:
           java-version: 17
           distribution: 'temurin'
       
-
       - name: Setup Android SDK
         if: matrix.variant == 'android'
         uses: android-actions/setup-android@v3
@@ -205,16 +215,15 @@ jobs:
         if: matrix.variant == 'android'
         run: |
           cd scripts
-          python build-android.py --profile ${{ github.event.inputs.profile }} --build-aar --build-version ${{ github.event.inputs.version }} --configuration=Release --build-jitpack
+          python build-android.py --profile ${{ matrix.profile }} --build-aar --build-version ${{ github.event.inputs.version }} --configuration=Release --build-jitpack
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
 
-     
       - name: Build CartoSDK for IOS
         if: matrix.variant == 'ios'
         run: |
           cd scripts
-          python build-ios.py --profile ${{ github.event.inputs.profile }} --build-version ${{ github.event.inputs.version }} --configuration=Release --build-xcframework --use-metalangle --build-swiftpackage
+          python build-ios.py --profile ${{ matrix.profile }} --build-version ${{ github.event.inputs.version }} --configuration=Release --build-xcframework --use-metalangle --build-swiftpackage
 
       - name: Upload Release Asset
         if: github.event.inputs.publish == 'true'
@@ -230,14 +239,13 @@ jobs:
         run: |
           ls -la dist/android
           gh release upload ${{ needs.create-release.outputs.VERSION_TAG }} dist/android/*.aar
-          gh release upload ${{ needs.create-release.outputs.VERSION_TAG }} dist/android/*.pom
       
       - name: Upload Release Asset
         if: github.event.inputs.publish == 'true' && matrix.variant == 'ios'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload ${{ needs.create-release.outputs.VERSION_TAG }} dist/ios_metal/carto-mobile-sdk-ios-metal-${{ github.event.inputs.version }}.zip
+          gh release upload ${{ needs.create-release.outputs.VERSION_TAG }} dist/ios_metal/*.zip
 
       - uses: actions/upload-artifact@v4
         if: github.event.inputs.publish != 'true' && matrix.variant == 'ios'
@@ -248,6 +256,18 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
+      - name: Write checksum JSON
+        if: github.event.inputs.publish == 'true' && matrix.variant == 'ios'
+        run: |
+          SHA=$(sha256sum dist/ios_metal/*.zip | awk '{print $1}')
+          printf '{"%s":"%s"}\n' "${{ matrix.profile }}" "$SHA" > dist/checksum-${{ matrix.profile }}.json
+
+      - uses: actions/upload-artifact@v4
+        if: github.event.inputs.publish == 'true' && matrix.variant == 'ios'
+        with:
+          name: ios-checksum-${{ matrix.profile }}
+          path: dist/checksum-${{ matrix.profile }}.json
+
 
       - uses: actions/upload-artifact@v4
         if: github.event.inputs.publish != 'true' && matrix.variant == 'android'
@@ -257,53 +277,6 @@ jobs:
             dist/android/*android*.aar
           retention-days: 7
           if-no-files-found: error
-
-      - uses: oleksiyrudenko/gha-git-credentials@v2.1.1
-        if: github.event.inputs.publish == 'true'
-        with:
-          token: '${{ secrets.GITHUB_TOKEN }}'
-          global: true
-          actor: farfromrefug
-          name: Martin Guillon
-          email: dev@akylas.fr
-
-      - name: Checkout mobile-sdk-android-aar
-        if: github.event.inputs.publish == 'true' && matrix.variant == 'android'
-        uses: actions/checkout@v4
-        with:
-          repository: Akylas/mobile-sdk-android-aar
-          token: '${{ secrets.AAR_SWIFT_TOKEN }}'
-          path: mobile-sdk-android-aar
-
-      - name: Modify jitpack.yml and publish/tag
-        if: github.event.inputs.publish == 'true' && matrix.variant == 'android'
-        run: |
-          cd mobile-sdk-android-aar
-          mv -f ../dist/android/jitpack.yml ./
-          git add jitpack.yml
-          git commit -m "Automated update jitpack from workflow for new release" || true
-          git push origin main
-          git tag ${{ github.event.inputs.version }}
-          git push origin ${{ github.event.inputs.version }}
-
-      - name: Checkout mobile-sdk-ios-swift
-        if: github.event.inputs.publish == 'true' && matrix.variant == 'ios'
-        uses: actions/checkout@v4
-        with:
-          repository: Akylas/mobile-sdk-ios-swift
-          token: '${{ secrets.AAR_SWIFT_TOKEN }}'
-          path: mobile-sdk-ios-swift
-
-      - name: Modify Package.swift and publish/tag
-        if: github.event.inputs.publish == 'true' && matrix.variant == 'ios'
-        run: |
-          cd mobile-sdk-ios-swift
-          mv -f ../dist/ios_metal/Package.swift ./
-          git add Package.swift
-          git commit -m "Automated update Package.swift from workflow for new release"|| true
-          git push origin main
-          git tag ${{ github.event.inputs.version }}
-          git push origin ${{ github.event.inputs.version }}
 
       - uses: actions/upload-artifact@v4
         if: github.event.inputs.publish != 'true'
@@ -325,17 +298,129 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  update-release:
+  create-jitpack-swiftpackage-release:
     runs-on: ubuntu-latest
-    needs: [create-release, build]
+    needs: [build]
     if: github.event.inputs.publish == 'true'
     permissions:
       contents: write # release changes require contents write
     steps:
       - uses: actions/checkout@v4
         with: 
-          fetch-depth: 1
+          fetch-depth: 0
+      - uses: oleksiyrudenko/gha-git-credentials@v2.1.1
+        with:
+          token: '${{ secrets.GITHUB_TOKEN }}'
+          global: true
+          actor: farfromrefug
+          name: Martin Guillon
+          email: dev@akylas.fr
 
+      - name: Checkout mobile-sdk-android-aar
+        uses: actions/checkout@v4
+        with:
+          repository: Akylas/mobile-sdk-android-aar
+          token: '${{ secrets.AAR_SWIFT_TOKEN }}'
+          path: mobile-sdk-android-aar
+
+      - name: Generate jitpack.yml then publish/tag
+        run: |
+          PROFILES_CSV=$(echo '${{ needs.prepare.outputs.profiles }}' | python3 -c 'import json,sys; print(\",\".join(json.load(sys.stdin)))')"
+          cd mobile-sdk-android-aar
+          python ../scripts/generate-jitpack.py --version ${{ github.event.inputs.version }} --profiles $PROFILES_CSV
+          mv -f ../dist/android/jitpack.yml ./
+          git add jitpack.yml
+          git commit -m "Automated update jitpack.yml for version ${{ github.event.inputs.version }} and profile $PROFILES_CSV"
+          git push origin main
+          git tag ${{ github.event.inputs.version }}
+          git push origin ${{ github.event.inputs.version }}
+      
+      - name: Download ios checksum artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ios-checksums
+
+      - name: Download only ios-checksum artifacts (no zips/aar)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          mkdir -p ios-checksums
+          echo "Listing artifacts for run $RUN_ID in $REPO"
+          artifacts_json=$(curl -s -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            "https://api.github.com/repos/$REPO/actions/artifacts?per_page=100")
+
+          # Filter artifact list to ios-checksum-* entries and write JSON list to a temp file
+          echo "$artifacts_json" | python3 - <<'PY' > /tmp/ios_checks_list.json
+          import json,sys
+          data = json.load(sys.stdin)
+          artifacts = data.get("artifacts", [])
+          out = []
+          for a in artifacts:
+              name = a.get("name","")
+              if name.startswith("ios-checksum-"):
+                  out.append({"name": name, "id": a.get("id"), "url": a.get("archive_download_url")})
+          print(json.dumps(out))
+          PY
+
+          count=$(jq 'length' /tmp/ios_checks_list.json)
+          if [ "$count" -eq 0 ]; then
+            echo "No ios-checksum-* artifacts found"
+            exit 0
+          fi
+
+          for i in $(seq 0 $((count-1))); do
+            url=$(jq -r ".[$i].url" /tmp/ios_checks_list.json)
+            name=$(jq -r ".[$i].name" /tmp/ios_checks_list.json)
+            echo "Downloading artifact $name"
+            curl -sL -H "Authorization: Bearer $GITHUB_TOKEN" -o /tmp/artifact.zip "$url"
+            unzip -o /tmp/artifact.zip -d ios-checksums >/dev/null
+            rm -f /tmp/artifact.zip
+          done
+
+      - name: Merge ios checksums
+        run: |
+          python3 - <<'PY'
+          import json,glob,sys
+          out={}
+          for fn in glob.glob('ios-checksums/*.json'):
+              try:
+                  with open(fn,'r') as f:
+                      out.update(json.load(f))
+              except Exception as e:
+                  print("warning reading", fn, e, file=sys.stderr)
+          with open('combined_ios_checksums.json','w') as f:
+              json.dump(out,f)
+          print('Wrote combined_ios_checksums.json with keys:', list(out.keys()))
+          PY
+
+      - name: Generate Package.swift using precomputed checksums and publish/tag
+        run: |
+          PROFILES_CSV=$(echo '${{ needs.prepare.outputs.profiles }}' | python3 -c 'import json,sys; print(",".join(json.load(sys.stdin)))')
+          cd mobile-sdk-ios-swift
+          # pass checksums file path relative to repo path
+          python ../scripts/generate-swiftpackage.py --version ${{ github.event.inputs.version }} --profiles "$PROFILES_CSV" --checksums-file ../combined_ios_checksums.json
+          mv -f ../dist/ios_metal/Package.swift ./
+          git add Package.swift
+          git commit -m "Automated update Package.swift from workflow for new release" || true
+          git push origin main
+          git tag ${{ github.event.inputs.version }}
+          git push origin ${{ github.event.inputs.version }}
+
+
+
+
+
+  update-release:
+    runs-on: ubuntu-latest
+    needs: [create-release, build, create-jitpack-swiftpackage-release]
+    if: github.event.inputs.publish == 'true'
+    permissions:
+      contents: write # release changes require contents write
+    steps:
       # we need to do this so that the tag is created now that the build worked
       - name: Update release
         uses: irongut/EditRelease@v1.2.0
@@ -369,6 +454,3 @@ jobs:
           body: ${{ steps.changelog.outputs.changes }}
           prerelease: true
           draft: false
-
-
-

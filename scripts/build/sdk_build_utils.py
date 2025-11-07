@@ -6,7 +6,8 @@ import argparse
 import shutil
 import json
 
-SDK_VERSION = '4.4.7'
+SDK_VERSION = '5.0.0'
+REPO_URL="https://github.com/Akylas/mobile-sdk"
 
 def makedirs(dir):
   try:
@@ -83,6 +84,17 @@ def getBaseDir():
   if os.name == 'nt':
     baseDir = baseDir.replace("\\", "/")
   return baseDir
+
+def getVariant(profile):
+  if profile == "standard":
+    return "core"
+  return profile.replace("standard+", "").replace("+", "_")
+
+def getAndroidAarDistName(version, profile):
+  return 'carto-mobile-sdk-android-%s-%s.aar' % (version, getVariant(profile))
+
+def getIOSZipDistName(version, profile):
+  return 'carto-mobile-sdk-ios-%s-%s.zip' % (version, getVariant(profile))
 
 def getBuildDir(target, arch=None):
   if arch is None:
