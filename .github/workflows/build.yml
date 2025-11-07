@@ -164,7 +164,7 @@ jobs:
           ./b2 headers
       
       - name: Build CSS2XML
-        if: matrix.profiles == 'lite'
+        if: matrix.profile == 'lite'
         run: |
           cd libs-carto/cartocss/util
           cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
@@ -221,7 +221,7 @@ jobs:
           cd scripts
           python build-ios.py --profile ${{ matrix.profile }} --build-version ${{ github.event.inputs.version }} --configuration=Release --build-xcframework --use-metalangle
       - name: Upload Release Asset
-        if: github.event.inputs.publish == 'true' && matrix.profiles == 'lite'
+        if: github.event.inputs.publish == 'true' && matrix.profile == 'lite'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -274,7 +274,7 @@ jobs:
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v4
-        if: github.event.inputs.publish != 'true' && matrix.profiles == 'lite'
+        if: github.event.inputs.publish != 'true' && matrix.profile == 'lite'
         with:
           name:  CartoSDK-{{matrix.variant}}-{{ matrix.profile }}-css2xml
           path: |
