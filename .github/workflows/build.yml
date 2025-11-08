@@ -295,7 +295,7 @@ jobs:
 
   create-jitpack-swiftpackage-release:
     runs-on: ubuntu-latest
-    needs: [build]
+    needs: [prepare, build]
     if: github.event.inputs.publish == 'true'
     permissions:
       contents: write # release changes require contents write
