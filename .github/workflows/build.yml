@@ -321,8 +321,8 @@ jobs:
       - name: Generate jitpack.yml then publish/tag
         run: |
           PROFILES_CSV=$(echo '${{ needs.prepare.outputs.profiles }}' | python3 -c 'import json,sys; print(",".join(json.load(sys.stdin)))')
+          python ./scripts/generate-jitpack.py --version ${{ github.event.inputs.version }} --profiles $PROFILES_CSV
           cd mobile-sdk-android-aar
-          python ../scripts/generate-jitpack.py --version ${{ github.event.inputs.version }} --profiles $PROFILES_CSV
           mv -f ../dist/android/jitpack.yml ./
           git add jitpack.yml
           git commit -m "Automated update jitpack.yml for version ${{ github.event.inputs.version }} and profile $PROFILES_CSV"
@@ -395,9 +395,9 @@ jobs:
       - name: Generate Package.swift using precomputed checksums and publish/tag
         run: |
           PROFILES_CSV=$(echo '${{ needs.prepare.outputs.profiles }}' | python3 -c 'import json,sys; print(",".join(json.load(sys.stdin)))')
+          python ./scripts/generate-swiftpackage.py --version ${{ github.event.inputs.version }} --profiles "$PROFILES_CSV" --checksums-file ./combined_ios_checksums.json
           cd mobile-sdk-ios-swift
           # pass checksums file path relative to repo path
-          python ../scripts/generate-swiftpackage.py --version ${{ github.event.inputs.version }} --profiles "$PROFILES_CSV" --checksums-file ../combined_ios_checksums.json
           mv -f ../dist/ios_metal/Package.swift ./
           git add Package.swift
           git commit -m "Automated update Package.swift from workflow for new release" || true
