@@ -30,11 +30,10 @@ def generate_jitpack_yml(version, profiles):
     print(f"Generated jitpack.yml at: {output_path}")
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: generate-jitpack.py <version> <profile>")
-        sys.exit(1)
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--version', required=True, dest='version')
+    parser.add_argument('--profiles', required=True, dest='profiles')
+    args = parser.parse_args()
 
-    version = sys.argv[1]
-    profiles = sys.argv[2]
-
-    generate_jitpack_yml(version, profiles)
+    generate_jitpack_yml(args.version, args.profiles)
