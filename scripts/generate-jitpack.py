@@ -6,7 +6,9 @@ from build.sdk_build_utils import *
 def generate_jitpack_yml(version, profiles):
     baseDir = getBaseDir()
     template_path = os.path.join(baseDir, 'scripts', 'android-jitpack', 'jitpack.yml.template')
-    output_path = os.path.join(baseDir, 'dist', 'android', 'jitpack.yml')
+    distDir = os.path.join(baseDir, 'dist', 'android')
+    output_path = os.path.join(distDir, 'jitpack.yml')
+    makedirs(distDir)
 
     if not os.path.exists(template_path):
         print(f"Template file not found: {template_path}")

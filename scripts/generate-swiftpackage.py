@@ -23,9 +23,9 @@ def checksum_url_sha256(url):
 def generate_swift_package(version, profiles_csv, checksums_map=None):
     baseDir = getBaseDir()
     template_path = os.path.join(baseDir, 'scripts', 'ios-swiftpackage', 'Package.swift.template')
-    output_dir = os.path.join(baseDir, 'dist', 'ios_metal')
-    makedirs(output_dir)
-    output_path = os.path.join(output_dir, 'Package.swift')
+    distDir = os.path.join(baseDir, 'dist', 'ios_metal')
+    output_path = os.path.join(distDir, 'Package.swift')
+    makedirs(distDir)
 
     if not os.path.exists(template_path):
         print(f"Template file not found: {template_path}")
