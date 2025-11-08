@@ -320,7 +320,7 @@ jobs:
 
       - name: Generate jitpack.yml then publish/tag
         run: |
-          PROFILES_CSV=$(echo '${{ needs.prepare.outputs.profiles }}' | python3 -c 'import json,sys; print(\",\".join(json.load(sys.stdin)))')
+          PROFILES_CSV=$(echo '${{ needs.prepare.outputs.profiles }}' | python3 -c 'import json,sys; print(",".join(json.load(sys.stdin)))')
           cd mobile-sdk-android-aar
           python ../scripts/generate-jitpack.py --version ${{ github.event.inputs.version }} --profiles $PROFILES_CSV
           mv -f ../dist/android/jitpack.yml ./
