@@ -282,26 +282,6 @@ jobs:
           retention-days: 7
           if-no-files-found: error
   
-  cleanup-release:
-    name: Delete draft release on failed/cancelled runs
-    runs-on: ubuntu-latest
-    needs: [create-release, build]
-    # run only when the overall workflow failed or was cancelled
-    if: ${{ failure() || cancelled() }}
-    permissions:
-      contents: write
-    steps:
-      - name: Rollback draft release
-        uses: author/action-rollback@stable
-        with:
-          release_id: ${{ needs.create-release.outputs.RELEASE_UPLOAD_ID }}
-          tag: v${{ github.event.inputs.version }}
-          #  If the release does not exist but the tag does, setting this to true will remove the tag.
-          delete_orphan_tag: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-
   create-jitpack-swiftpackage-release:
     runs-on: ubuntu-latest
     needs: [prepare, build]
@@ -355,10 +335,10 @@ jobs:
           echo "Listing artifacts for run $RUN_ID in $REPO"
           artifacts_json=$(curl -s -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
-            "https://api.github.com/repos/$REPO/actions/artifacts?per_page=100")
-
-          # Filter artifact list to ios-checksum-* entries and write JSON list to a temp file
-          echo "$artifacts_json" | python3 - <<'PY' > /tmp/ios_checks_list.json
+            "https://api.github.com/repos/$REPO/actions/runs/$RUN_ID/artifacts?per_page=100")
+          echo "Got artifacts for run $RUN_ID in $REPO"
+          # Filter artifact list to ios-checksum-* entries
+          echo "$artifacts_json" | python3 -c '
           import json,sys
           data = json.load(sys.stdin)
           artifacts = data.get("artifacts", [])
@@ -368,9 +348,10 @@ jobs:
               if name.startswith("ios-checksum-"):
                   out.append({"name": name, "id": a.get("id"), "url": a.get("archive_download_url")})
           print(json.dumps(out))
-          PY
+          ' > /tmp/ios_checks_list.json
 
           count=$(jq 'length' /tmp/ios_checks_list.json)
+          echo "Got checksums in /tmp/ios_checks_list.json $count"
           if [ "$count" -eq 0 ]; then
             echo "No ios-checksum-* artifacts found"
             exit 0
@@ -414,9 +395,24 @@ jobs:
           git tag ${{ github.event.inputs.version }}
           git push origin ${{ github.event.inputs.version }}
 
-
-
-
+  cleanup-release:
+    name: Delete draft release on failed/cancelled runs
+    runs-on: ubuntu-latest
+    needs: [create-release, build, create-jitpack-swiftpackage-release]
+    # run only when the overall workflow failed or was cancelled
+    if: ${{ failure() || cancelled() }}
+    permissions:
+      contents: write
+    steps:
+      - name: Rollback draft release
+        uses: author/action-rollback@stable
+        with:
+          release_id: ${{ needs.create-release.outputs.RELEASE_UPLOAD_ID }}
+          tag: v${{ github.event.inputs.version }}
+          #  If the release does not exist but the tag does, setting this to true will remove the tag.
+          delete_orphan_tag: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   update-release:
     runs-on: ubuntu-latest
