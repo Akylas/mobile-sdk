@@ -405,7 +405,7 @@ jobs:
       contents: write
     steps:
       - name: Rollback draft release
-        uses: author/action-rollback@stable
+        uses: author/action-rollback@5e7dd5c4692af3cb62ee64875e62579b2fd857c0
         with:
           release_id: ${{ needs.create-release.outputs.RELEASE_UPLOAD_ID }}
           tag: v${{ github.event.inputs.version }}
