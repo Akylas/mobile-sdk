@@ -281,9 +281,17 @@ jobs:
             dist/css2xml_*.zip
           retention-days: 7
           if-no-files-found: error
-      
-      - name: Rollback Release
-        if: failure()
+  
+  cleanup-release:
+    name: Delete draft release on failed/cancelled runs
+    runs-on: ubuntu-latest
+    needs: [create-release, build]
+    # run only when the overall workflow failed or was cancelled
+    if: ${{ failure() || cancelled() }}
+    permissions:
+      contents: write
+    steps:
+      - name: Rollback draft release
         uses: author/action-rollback@stable
         with:
           release_id: ${{ needs.create-release.outputs.RELEASE_UPLOAD_ID }}
@@ -292,6 +300,7 @@ jobs:
           delete_orphan_tag: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
   create-jitpack-swiftpackage-release:
     runs-on: ubuntu-latest
