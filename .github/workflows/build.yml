@@ -291,7 +291,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: 
-          fetch-depth: 0
+          fetch-depth: 1
+          lfs: false
+          submodules: false
+          clean: true
+
       - uses: oleksiyrudenko/gha-git-credentials@v2.1.1
         with:
           token: '${{ secrets.GITHUB_TOKEN }}'
@@ -381,6 +385,13 @@ jobs:
               json.dump(out,f)
           print('Wrote combined_ios_checksums.json with keys:', list(out.keys()))
           PY
+
+      - name: Checkout mobile-sdk-ios-swift
+        uses: actions/checkout@v4
+        with:
+          repository: Akylas/mobile-sdk-ios-swift
+          token: '${{ secrets.AAR_SWIFT_TOKEN }}'
+          path: mobile-sdk-ios-swift
 
       - name: Generate Package.swift using precomputed checksums and publish/tag
         run: |
