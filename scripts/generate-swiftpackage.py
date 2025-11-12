@@ -42,9 +42,10 @@ def generate_swift_package(version, profiles_csv, checksums_map=None):
     framework_base = "CartoMobileSDK"
 
     entries = []
-    for p in profiles:
+    for idx, p in enumerate(profiles):
         variant = getVariant(p)
-        target_name = f"{framework_base}-{variant}"
+        # First profile uses base framework name, rest append variant
+        target_name = framework_base if idx == 0 else f"{framework_base}-{variant}"
         dist_name = getIOSZipDistName(version, p)
         url = "%s/releases/download/v%s/%s" % (REPO_URL, version, dist_name)
         checksum = None
