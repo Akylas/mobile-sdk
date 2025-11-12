@@ -46,7 +46,7 @@ def generate_swift_package(version, profiles_csv, checksums_map=None):
         variant = getVariant(p)
         target_name = f"{framework_base}-{variant}"
         dist_name = getIOSZipDistName(version, p)
-        url = "%s/releases/download/%s/%s" % (REPO_URL, version, dist_name)
+        url = "%s/releases/download/v%s/%s" % (REPO_URL, version, dist_name)
         checksum = None
         if checksums_map:
             checksum = checksums_map.get(p) or checksums_map.get(variant)

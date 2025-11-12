@@ -22,7 +22,7 @@ def generate_jitpack_yml(version, profiles):
     jitpack_content = template.safe_substitute({
         'version': version,
         'variants': ','.join(getVariant(p) for p in profiles),
-        'aarUrls': ','.join("%s/releases/download/%s/%s" % (REPO_URL, version, getAndroidAarDistName(version, p)) for p in profiles),
+        'aarUrls': ','.join("%s/releases/download/v%s/%s" % (REPO_URL, version, getAndroidAarDistName(version, p)) for p in profiles),
         'repo_url': REPO_URL
     })
 
