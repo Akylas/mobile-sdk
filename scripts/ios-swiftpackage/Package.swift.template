@@ -7,12 +7,7 @@ let package = Package(
     platforms: [
         .iOS(.v12)
     ],
-    products: [
-        .library(
-            name: "$frameworkName",
-            targets: ["$frameworkName"]
-        )
-    ],
+    products: "$products",
     dependencies: [
     ],
     targets: "$targets"

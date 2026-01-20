@@ -4,6 +4,7 @@ import sys
 import hashlib
 import urllib.request
 import json
+import re
 from build.sdk_build_utils import *
 
 def checksum_url_sha256(url):
@@ -41,7 +42,17 @@ def generate_swift_package(version, profiles_csv, checksums_map=None):
 
     framework_base = "CartoMobileSDK"
 
-    entries = []
+    def make_library_name(name):
+        # Split on any non-alphanumeric separator and join by capitalizing subsequent parts
+        parts = re.split(r'[^0-9A-Za-z]+', name)
+        if not parts:
+            return re.sub(r'[^0-9A-Za-z]', '', name)
+        first = parts[0]
+        rest = ''.join(p[:1].upper() + p[1:] for p in parts[1:] if p)
+        return first + rest
+
+    target_entries = []
+    library_entries = []
     for idx, p in enumerate(profiles):
         variant = getVariant(p)
         # First profile uses base framework name, rest append variant
@@ -63,9 +74,19 @@ def generate_swift_package(version, profiles_csv, checksums_map=None):
             f'            checksum: "{checksum}"\n'
             "        ),\n"
         )
-        entries.append(entry)
+        target_entries.append(entry)
+        lib_name = make_library_name(target_name)
+        entry = (
+            f'        .library(name: "{lib_name}", targets: ["{target_name}"]),\n'
+        )
+        library_entries.append(entry)
 
-    targets_array = "[\n" + "".join(entries) + "    ]"
+    targets_array = "[\n" + "".join(target_entries) + "    ]"
+    libraries_array = "[\n" + "".join(library_entries) + "    ]"
+
+    if '"$products"' in template_text:
+        template_text = template_text.replace('"$products"', libraries_array)
+        template = string.Template(template_text)
 
     if '"$targets"' in template_text:
         template_text = template_text.replace('"$targets"', targets_array)
@@ -77,6 +98,7 @@ def generate_swift_package(version, profiles_csv, checksums_map=None):
             'frameworkName': framework_base,
             'targets': targets_array
         })
+    
 
     with open(output_path, 'w') as f:
         f.write(content)
