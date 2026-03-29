@@ -23,5 +23,5 @@ namespace carto
     }
 
     const std::array<double, 4> TerrariumElevationDataDecoder::COMPONENTS = std::array<double, 4>{256.0f, 1.0f, 1.0f / 256, -32768.0f};
-    const std::array<float, 4> TerrariumElevationDataDecoder::SCALES = std::array<float, 4>{256.0f, 1.0f, 1.0f / 256, -32768.0f};
+    const std::array<float, 4> TerrariumElevationDataDecoder::SCALES = std::array<float, 4>{256 * 256, 256.0f, 1.0f, 0.0f};
 } // namespace carto
