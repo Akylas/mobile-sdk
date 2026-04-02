@@ -33,6 +33,7 @@ namespace carto {
     class TileDrawData;
     class ViewState;
     class VTRenderer;
+    enum class HillshadeMethod;
     namespace vt {
         class LabelCuller;
         class TileTransformer;
@@ -60,6 +61,8 @@ namespace carto {
         void setNormalMapLightingShader(const std::string& shader);
         void setNormalIlluminationMapRotationEnabled(bool enabled);
         void setNormalIlluminationDirection(MapVec direction);
+        void setHillshadeMethod(HillshadeMethod method);
+        void setHillshadeExaggeration(float exaggeration);
         void setRendererLayerFilter(const std::optional<std::regex>& filter);
         void setClickHandlerLayerFilter(const std::optional<std::regex>& filter);
 
@@ -110,6 +113,8 @@ namespace carto {
         MapVec _normalIlluminationDirection;
         bool _normalIlluminationMapRotationEnabled;
         double _mapRotation;
+        HillshadeMethod _hillshadeMethod;
+        float _hillshadeExaggeration;
 
         std::map<vt::TileId, std::shared_ptr<const vt::Tile> > _tiles;
         

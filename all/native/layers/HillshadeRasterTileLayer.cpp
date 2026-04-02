@@ -90,7 +90,8 @@ namespace carto
         _shadowColor(Color(0, 0, 0, 255)),
         _highlightColor(Color(255, 255, 255, 255)),
         _illuminationDirection(MapVec(0,0,0)),
-        _illuminationMapRotationEnabled(true)
+        _illuminationMapRotationEnabled(true),
+        _hillshadeMethod(HillshadeMethod::STANDARD)
     {
         setTileBlendingSpeed(0.0f);
     }
@@ -186,6 +187,15 @@ namespace carto
         updateTiles(false);
     }
 
+    HillshadeMethod HillshadeRasterTileLayer::getHillshadeMethod() const {
+        return _hillshadeMethod.load();
+    }
+
+    void HillshadeRasterTileLayer::setHillshadeMethod(HillshadeMethod method) {
+        _hillshadeMethod.store(method);
+        redraw();
+    }
+
     bool HillshadeRasterTileLayer::onDrawFrame(float deltaSeconds, BillboardSorter &billboardSorter, const ViewState &viewState)
     {
         updateTileLoadListener();
@@ -207,6 +217,8 @@ namespace carto
             _tileRenderer->setNormalMapHighlightColor(getHighlightColor());
             _tileRenderer->setNormalIlluminationDirection(getIlluminationDirection());
             _tileRenderer->setNormalIlluminationMapRotationEnabled(getIlluminationMapRotationEnabled());
+            _tileRenderer->setHillshadeMethod(getHillshadeMethod());
+            _tileRenderer->setHillshadeExaggeration(getContrast());
             bool refresh = _tileRenderer->onDrawFrame(deltaSeconds, viewState);
 
             if (opacity < 1.0f)
