@@ -8,6 +8,7 @@
 #include "renderers/drawdatas/TileDrawData.h"
 #include "renderers/utils/GLResourceManager.h"
 #include "renderers/utils/VTRenderer.h"
+#include "layers/HillshadeRasterTileLayer.h"
 #include "utils/Const.h"
 #include "utils/Log.h"
 #include "utils/Const.h"
@@ -47,6 +48,8 @@ namespace carto {
         _normalIlluminationMapRotationEnabled(false),
         _normalIlluminationDirection(0,0,0),
         _mapRotation(0),
+        _hillshadeMethod(HillshadeMethod::STANDARD),
+        _hillshadeExaggeration(0.5f),
         _tiles(),
         _mutex()
     {
@@ -137,6 +140,16 @@ namespace carto {
     void TileRenderer::setNormalIlluminationMapRotationEnabled(bool enabled) {
         std::lock_guard<std::mutex> lock(_mutex);
         _normalIlluminationMapRotationEnabled = enabled;
+    }
+
+    void TileRenderer::setHillshadeMethod(HillshadeMethod method) {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _hillshadeMethod = method;
+    }
+
+    void TileRenderer::setHillshadeExaggeration(float exaggeration) {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _hillshadeExaggeration = exaggeration;
     }
 
     void TileRenderer::setRendererLayerFilter(const std::optional<std::regex>& filter) {
@@ -431,6 +444,8 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
                     float highlightAlpha = _normalMapHighlightColor.getA() / 255.0f;
                     glUniform4f(glGetUniformLocation(shaderProgram, "u_highlightColor"), _normalMapHighlightColor.getR() * highlightAlpha / 255.0f, _normalMapHighlightColor.getG() * highlightAlpha / 255.0f, _normalMapHighlightColor.getB() * highlightAlpha / 255.0f,  highlightAlpha);
                     glUniform3fv(glGetUniformLocation(shaderProgram, "u_lightDir"), 1, _normalLightDir.data() );
+                    glUniform1i(glGetUniformLocation(shaderProgram, "u_method"), static_cast<int>(_hillshadeMethod));
+                    glUniform1f(glGetUniformLocation(shaderProgram, "u_exaggeration"), _hillshadeExaggeration);
             });
             tileRenderer->setLightingShaderNormalMap(lightingShaderNormalMap);
         }
@@ -468,13 +483,131 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
         uniform vec4 u_highlightColor;
         uniform vec4 u_accentColor;
         uniform vec3 u_lightDir;
+        uniform int u_method;
+        uniform float u_exaggeration;
+
+        #define PI 3.141592653589793
+        #define STANDARD 0
+        #define COMBINED 1
+        #define IGOR 2
+        #define MULTIDIRECTIONAL 3
+        #define BASIC 4
+
+        float get_aspect(vec2 deriv) {
+            return deriv.x != 0.0 ? atan(deriv.y, -deriv.x) : PI / 2.0 * (deriv.y > 0.0 ? 1.0 : -1.0);
+        }
+
+        // Based on GDALHillshadeIgorAlg()
+        vec4 igor_hillshade(vec2 deriv, vec3 lightDir) {
+            float aspect = get_aspect(deriv);
+            // Convert light direction to azimuth
+            float azimuth = atan(lightDir.y, lightDir.x) + PI;
+            float slope_strength = atan(length(deriv)) * 2.0/PI;
+            float aspect_strength = 1.0 - abs(mod((aspect + azimuth) / PI + 0.5, 2.0) - 1.0);
+            float shadow_strength = slope_strength * aspect_strength;
+            float highlight_strength = slope_strength * (1.0-aspect_strength);
+            return u_shadowColor * shadow_strength + u_highlightColor * highlight_strength;
+        }
+
+        // MapLibre's legacy hillshade algorithm
+        vec4 standard_hillshade(vec2 deriv, vec3 lightDir) {
+            // Convert light direction to azimuth
+            float azimuth = atan(lightDir.y, lightDir.x) + PI;
+
+            // We multiply the slope by an arbitrary z-factor of 0.625
+            float slope = atan(0.625 * length(deriv));
+            float aspect = get_aspect(deriv);
+
+            float intensity = u_exaggeration;
+
+            // Scale the slope exponentially based on intensity
+            float base = 1.875 - intensity * 1.75;
+            float maxValue = 0.5 * PI;
+            float scaledSlope = intensity != 0.5 ? ((pow(base, slope) - 1.0) / (pow(base, maxValue) - 1.0)) * maxValue : slope;
+
+            // The accent color is calculated with the cosine of the slope
+            float accent = cos(scaledSlope);
+            vec4 accent_color = (1.0 - accent) * u_accentColor * clamp(intensity * 2.0, 0.0, 1.0);
+            
+            // Shade color based on aspect and azimuth
+            float shade = abs(mod((aspect + azimuth) / PI + 0.5, 2.0) - 1.0);
+            vec4 shade_color = mix(u_shadowColor, u_highlightColor, shade) * sin(scaledSlope) * clamp(intensity * 2.0, 0.0, 1.0);
+            
+            return accent_color * (1.0 - shade_color.a) + shade_color;
+        }
+
+        // Based on GDALHillshadeAlg()
+        vec4 basic_hillshade(vec2 deriv, vec3 lightDir) {
+            float azimuth = atan(lightDir.y, lightDir.x) + PI;
+            float altitude = asin(clamp(lightDir.z, -1.0, 1.0));
+            
+            float cos_az = cos(azimuth);
+            float sin_az = sin(azimuth);
+            float cos_alt = cos(altitude);
+            float sin_alt = sin(altitude);
+
+            float cang = (sin_alt - (deriv.y*cos_az*cos_alt - deriv.x*sin_az*cos_alt)) / sqrt(1.0 + dot(deriv, deriv));
+
+            float shade = clamp(cang, 0.0, 1.0);
+            if(shade > 0.5) {
+                return u_highlightColor * (2.0*shade - 1.0);
+            } else {
+                return u_shadowColor * (1.0 - 2.0*shade);
+            }
+        }
+
+        // Multidirectional hillshade (simplified to single light for now)
+        vec4 multidirectional_hillshade(vec2 deriv, vec3 lightDir) {
+            // For now, just use basic hillshade with the main light
+            // In the future, this could be extended to support multiple lights
+            return basic_hillshade(deriv, lightDir);
+        }
+
+        // Based on GDALHillshadeCombinedAlg()
+        vec4 combined_hillshade(vec2 deriv, vec3 lightDir) {
+            float azimuth = atan(lightDir.y, lightDir.x) + PI;
+            float altitude = asin(clamp(lightDir.z, -1.0, 1.0));
+            
+            float cos_az = cos(azimuth);
+            float sin_az = sin(azimuth);
+            float cos_alt = cos(altitude);
+            float sin_alt = sin(altitude);
+
+            float cang = acos(clamp((sin_alt - (deriv.y*cos_az*cos_alt - deriv.x*sin_az*cos_alt)) / sqrt(1.0 + dot(deriv, deriv)), -1.0, 1.0));
+
+            cang = clamp(cang, 0.0, PI/2.0);
+
+            float shade = cang * atan(length(deriv)) * 4.0/PI/PI;
+            float highlight = (PI/2.0-cang) * atan(length(deriv)) * 4.0/PI/PI;
+
+            return u_shadowColor*shade + u_highlightColor*highlight;
+        }
+
         vec4 applyLighting(lowp vec4 color, mediump vec3 normal, mediump vec3 surfaceNormal, mediump float intensity) {
-            mediump float lighting = max(0.0, dot(normal, u_lightDir));
-            mediump float accent = normal.z;
-            lowp vec4 accent_color = (1.0 - accent) * u_accentColor * intensity;
-            mediump float alpha = clamp(u_shadowColor.a*(1.0-lighting)+u_highlightColor.a*lighting, 0.0, 1.0);
-            lowp vec4 shade_color = vec4(mix(u_shadowColor.rgb, u_highlightColor.rgb, lighting), alpha);
-            return (accent_color * (1.0 - shade_color.a) + shade_color) * color * intensity;
+            // Extract derivatives from normal vector
+            // The normal is already in tangent space where z points up
+            // For a flat surface, normal would be (0, 0, 1)
+            // The derivatives represent the slope in x and y directions
+            vec2 deriv = vec2(-normal.x / max(normal.z, 0.001), -normal.y / max(normal.z, 0.001));
+            
+            // Apply exaggeration to derivatives
+            deriv *= u_exaggeration * 2.0;
+            
+            vec4 hillshadeColor;
+            if (u_method == BASIC) {
+                hillshadeColor = basic_hillshade(deriv, u_lightDir);
+            } else if (u_method == COMBINED) {
+                hillshadeColor = combined_hillshade(deriv, u_lightDir);
+            } else if (u_method == IGOR) {
+                hillshadeColor = igor_hillshade(deriv, u_lightDir);
+            } else if (u_method == MULTIDIRECTIONAL) {
+                hillshadeColor = multidirectional_hillshade(deriv, u_lightDir);
+            } else {
+                // STANDARD (default)
+                hillshadeColor = standard_hillshade(deriv, u_lightDir);
+            }
+            
+            return hillshadeColor * color * intensity;
         }
     )GLSL";
 

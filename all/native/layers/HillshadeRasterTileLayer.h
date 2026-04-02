@@ -17,6 +17,32 @@
 namespace carto {
     
     /**
+     * Hillshade rendering method.
+     */
+    enum class HillshadeMethod {
+        /**
+         * MapLibre's legacy hillshade algorithm.
+         */
+        STANDARD = 0,
+        /**
+         * Combined hillshade algorithm based on GDAL.
+         */
+        COMBINED = 1,
+        /**
+         * Igor hillshade algorithm based on GDAL.
+         */
+        IGOR = 2,
+        /**
+         * Multi-directional hillshade with multiple light sources.
+         */
+        MULTIDIRECTIONAL = 3,
+        /**
+         * Basic hillshade algorithm based on GDAL.
+         */
+        BASIC = 4
+    };
+    
+    /**
      * A tile layer that displays an overlay hillshading. Should be used together with corresponding data source that encodes height in RGBA image.
      * The shading is based on the direction of the main light source, which can be configured using Options class.
      * Note: this class is experimental and may change or even be removed in future SDK versions.
@@ -125,6 +151,17 @@ namespace carto {
          */
         void setExagerateHeightScaleEnabled(bool enabled);
 
+        /**
+         * Returns the hillshade rendering method.
+         * @return The hillshade method. Default is STANDARD.
+         */
+        HillshadeMethod getHillshadeMethod() const;
+        /**
+         * Sets the hillshade rendering method.
+         * @param method The hillshade method to use.
+         */
+        void setHillshadeMethod(HillshadeMethod method);
+
         double getElevation(const MapPos& pos) const;
         std::vector<double> getElevations(const std::vector<MapPos> poses) const;
 
@@ -147,6 +184,7 @@ namespace carto {
         std::atomic<Color> _highlightColor;
         std::atomic<MapVec> _illuminationDirection;
         std::atomic<bool> _illuminationMapRotationEnabled;
+        std::atomic<HillshadeMethod> _hillshadeMethod;
     };
     
 }
