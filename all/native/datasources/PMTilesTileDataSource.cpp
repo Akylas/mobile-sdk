@@ -435,21 +435,34 @@ namespace carto {
             baseTileId += (1ULL << (i * 2));
         }
         
-        // Calculate Hilbert curve index for this tile at zoom z
-        // This is a simplified version - for production, use proper Hilbert curve calculation
-        int n = 1 << z; // 2^z
+        // Hilbert curve encoding
+        // Based on the PMTiles spec which uses Hilbert curves
+        auto rotateQuadrant = [](int n, int* x, int* y, int rx, int ry) {
+            if (ry == 0) {
+                if (rx == 1) {
+                    *x = n - 1 - *x;
+                    *y = n - 1 - *y;
+                }
+                int t = *x;
+                *x = *y;
+                *y = t;
+            }
+        };
         
-        // Simple Hilbert curve encoding (Z-order/Morton code as approximation)
-        // For production use, implement proper Hilbert curve
-        uint64_t hilbertIndex = 0;
-        for (int i = 0; i < z; i++) {
-            int mask = 1 << i;
-            int xBit = (x & mask) ? 1 : 0;
-            int yBit = (y & mask) ? 1 : 0;
-            hilbertIndex |= static_cast<uint64_t>(xBit | (yBit << 1)) << (i * 2);
+        int n = 1 << z;
+        int rx, ry, s;
+        int tx = x;
+        int ty = y;
+        uint64_t d = 0;
+        
+        for (s = n / 2; s > 0; s /= 2) {
+            rx = (tx & s) > 0 ? 1 : 0;
+            ry = (ty & s) > 0 ? 1 : 0;
+            d += s * s * ((3 * rx) ^ ry);
+            rotateQuadrant(s, &tx, &ty, rx, ry);
         }
         
-        return baseTileId + hilbertIndex;
+        return baseTileId + d;
     }
 
     void PMTilesTileDataSource::TileIdToZxy(uint64_t tileId, int& z, int& x, int& y) {
@@ -469,16 +482,38 @@ namespace carto {
         }
         
         // Get position within zoom level
-        uint64_t posInZoom = tileId - acc;
+        uint64_t d = tileId - acc;
         
-        // Decode from Hilbert/Morton index
-        x = 0;
-        y = 0;
-        for (int i = 0; i < z; i++) {
-            int bits = (posInZoom >> (i * 2)) & 3;
-            x |= (bits & 1) << i;
-            y |= ((bits >> 1) & 1) << i;
+        // Inverse Hilbert curve
+        auto rotateQuadrant = [](int n, int* x, int* y, int rx, int ry) {
+            if (ry == 0) {
+                if (rx == 1) {
+                    *x = n - 1 - *x;
+                    *y = n - 1 - *y;
+                }
+                int t = *x;
+                *x = *y;
+                *y = t;
+            }
+        };
+        
+        int n = 1 << z;
+        int rx, ry, s;
+        int tx = 0;
+        int ty = 0;
+        uint64_t t = d;
+        
+        for (s = 1; s < n; s *= 2) {
+            rx = 1 & (t / 2);
+            ry = 1 & (t ^ rx);
+            rotateQuadrant(s, &tx, &ty, rx, ry);
+            tx += s * rx;
+            ty += s * ry;
+            t /= 4;
         }
+        
+        x = tx;
+        y = ty;
     }
 
     std::vector<uint8_t> PMTilesTileDataSource::ReadTileData(uint64_t offset, uint32_t length) {

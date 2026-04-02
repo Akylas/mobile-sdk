@@ -19,6 +19,7 @@
 %import "datasources/TileDataSource.i"
 #ifdef _CARTO_OFFLINE_SUPPORT
 %import "datasources/MBTilesTileDataSource.i"
+%import "datasources/PMTilesTileDataSource.i"
 #endif
 %import "datasources/components/TileData.i"
 
