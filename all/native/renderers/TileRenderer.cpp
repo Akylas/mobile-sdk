@@ -499,7 +499,6 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
 
         // Based on GDALHillshadeIgorAlg()
         vec4 igor_hillshade(vec2 deriv, vec3 lightDir) {
-            deriv = deriv * 2.0;
             float aspect = get_aspect(deriv);
             // Convert light direction to azimuth
             float azimuth = atan(lightDir.y, lightDir.x) + PI;
@@ -539,9 +538,8 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
 
         // Based on GDALHillshadeAlg()
         vec4 basic_hillshade(vec2 deriv, vec3 lightDir) {
-            deriv = deriv * 2.0;
             float azimuth = atan(lightDir.y, lightDir.x) + PI;
-            float altitude = asin(lightDir.z);
+            float altitude = asin(clamp(lightDir.z, -1.0, 1.0));
             
             float cos_az = cos(azimuth);
             float sin_az = sin(azimuth);
@@ -567,16 +565,15 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
 
         // Based on GDALHillshadeCombinedAlg()
         vec4 combined_hillshade(vec2 deriv, vec3 lightDir) {
-            deriv = deriv * 2.0;
             float azimuth = atan(lightDir.y, lightDir.x) + PI;
-            float altitude = asin(lightDir.z);
+            float altitude = asin(clamp(lightDir.z, -1.0, 1.0));
             
             float cos_az = cos(azimuth);
             float sin_az = sin(azimuth);
             float cos_alt = cos(altitude);
             float sin_alt = sin(altitude);
 
-            float cang = acos((sin_alt - (deriv.y*cos_az*cos_alt - deriv.x*sin_az*cos_alt)) / sqrt(1.0 + dot(deriv, deriv)));
+            float cang = acos(clamp((sin_alt - (deriv.y*cos_az*cos_alt - deriv.x*sin_az*cos_alt)) / sqrt(1.0 + dot(deriv, deriv)), -1.0, 1.0));
 
             cang = clamp(cang, 0.0, PI/2.0);
 
@@ -587,10 +584,14 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
         }
 
         vec4 applyLighting(lowp vec4 color, mediump vec3 normal, mediump vec3 surfaceNormal, mediump float intensity) {
-            // Compute derivatives from normal
-            // Normal map stores normals in tangent space, we need to extract slope derivatives
-            vec2 deriv = vec2(-normal.x / max(normal.z, 0.0001), -normal.y / max(normal.z, 0.0001));
-            deriv *= u_exaggeration;
+            // Extract derivatives from normal vector
+            // The normal is already in tangent space where z points up
+            // For a flat surface, normal would be (0, 0, 1)
+            // The derivatives represent the slope in x and y directions
+            vec2 deriv = vec2(-normal.x / max(normal.z, 0.001), -normal.y / max(normal.z, 0.001));
+            
+            // Apply exaggeration to derivatives
+            deriv *= u_exaggeration * 2.0;
             
             vec4 hillshadeColor;
             if (u_method == BASIC) {

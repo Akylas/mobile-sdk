@@ -89,7 +89,7 @@ namespace carto
         _accentColor(Color(0, 0, 0, 255)),
         _shadowColor(Color(0, 0, 0, 255)),
         _highlightColor(Color(255, 255, 255, 255)),
-        _illuminationDirection(MapVec(0,0,0)),
+        _illuminationDirection(MapVec(-0.42261826, 0.90630779, -0.70710678)),  // azimuth=335°, altitude=45° (MapLibre defaults)
         _illuminationMapRotationEnabled(true),
         _hillshadeMethod(HillshadeMethod::STANDARD)
     {
