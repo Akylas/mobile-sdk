@@ -437,12 +437,10 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
             tileRenderer->setLightingShader3D(lightingShader3D);
 
             vt::GLTileRenderer::LightingShader lightingShaderNormalMap(false, _normalMapLightingShader, [this](GLuint shaderProgram, const vt::ViewState& viewState) {
-                    float shadowAlpha = _normalMapShadowColor.getA() / 255.0f;
-                    glUniform4f(glGetUniformLocation(shaderProgram, "u_shadowColor"), _normalMapShadowColor.getR() * shadowAlpha / 255.0f, _normalMapShadowColor.getG() * shadowAlpha / 255.0f, _normalMapShadowColor.getB() * shadowAlpha / 255.0f,  shadowAlpha);
-                    float accentAlpha = _normalMapAccentColor.getA() / 255.0f;
-                    glUniform4f(glGetUniformLocation(shaderProgram, "u_accentColor"), _normalMapAccentColor.getR() * accentAlpha / 255.0f, _normalMapAccentColor.getG() * accentAlpha / 255.0f, _normalMapAccentColor.getB() * accentAlpha / 255.0f, accentAlpha);
-                    float highlightAlpha = _normalMapHighlightColor.getA() / 255.0f;
-                    glUniform4f(glGetUniformLocation(shaderProgram, "u_highlightColor"), _normalMapHighlightColor.getR() * highlightAlpha / 255.0f, _normalMapHighlightColor.getG() * highlightAlpha / 255.0f, _normalMapHighlightColor.getB() * highlightAlpha / 255.0f,  highlightAlpha);
+                    // Pass colors without premultiplying RGB by alpha, matching MapLibre's approach
+                    glUniform4f(glGetUniformLocation(shaderProgram, "u_shadowColor"), _normalMapShadowColor.getR() / 255.0f, _normalMapShadowColor.getG() / 255.0f, _normalMapShadowColor.getB() / 255.0f, _normalMapShadowColor.getA() / 255.0f);
+                    glUniform4f(glGetUniformLocation(shaderProgram, "u_accentColor"), _normalMapAccentColor.getR() / 255.0f, _normalMapAccentColor.getG() / 255.0f, _normalMapAccentColor.getB() / 255.0f, _normalMapAccentColor.getA() / 255.0f);
+                    glUniform4f(glGetUniformLocation(shaderProgram, "u_highlightColor"), _normalMapHighlightColor.getR() / 255.0f, _normalMapHighlightColor.getG() / 255.0f, _normalMapHighlightColor.getB() / 255.0f, _normalMapHighlightColor.getA() / 255.0f);
                     glUniform3fv(glGetUniformLocation(shaderProgram, "u_lightDir"), 1, _normalLightDir.data() );
                     glUniform1i(glGetUniformLocation(shaderProgram, "u_method"), (_hillshadeMethod));
                     glUniform1f(glGetUniformLocation(shaderProgram, "u_exaggeration"), _hillshadeExaggeration);
@@ -607,10 +605,9 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
                 hillshadeColor = standard_hillshade(deriv, u_lightDir);
             }
             
-            // Blend hillshade color with base color using alpha for proper transparency
-            // When hillshadeColor.a is 0, the effect is transparent (no change)
-            // This makes white highlight colors appear transparent like in MapLibre/Mapbox
-            return mix(color, hillshadeColor * color, hillshadeColor.a) * intensity;
+            // Return hillshade color directly, matching MapLibre's approach
+            // The hillshade algorithms handle color blending internally
+            return hillshadeColor;
         }
     )GLSL";
 
