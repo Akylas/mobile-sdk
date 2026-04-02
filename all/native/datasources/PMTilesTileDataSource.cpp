@@ -288,7 +288,7 @@ namespace carto {
         header.minZoom = headerBytes[100];
         header.maxZoom = headerBytes[101];
         
-        // Read positions (8 bytes each)
+        // Read positions (4 bytes for longitude, 4 bytes for latitude = 8 bytes per position)
         int32_t minLonE7 = readInt32(&headerBytes[102]);
         int32_t minLatE7 = readInt32(&headerBytes[106]);
         int32_t maxLonE7 = readInt32(&headerBytes[110]);
