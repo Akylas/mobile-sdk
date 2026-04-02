@@ -437,12 +437,10 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
             tileRenderer->setLightingShader3D(lightingShader3D);
 
             vt::GLTileRenderer::LightingShader lightingShaderNormalMap(false, _normalMapLightingShader, [this](GLuint shaderProgram, const vt::ViewState& viewState) {
-                    float shadowAlpha = _normalMapShadowColor.getA() / 255.0f;
-                    glUniform4f(glGetUniformLocation(shaderProgram, "u_shadowColor"), _normalMapShadowColor.getR() * shadowAlpha / 255.0f, _normalMapShadowColor.getG() * shadowAlpha / 255.0f, _normalMapShadowColor.getB() * shadowAlpha / 255.0f,  shadowAlpha);
-                    float accentAlpha = _normalMapAccentColor.getA() / 255.0f;
-                    glUniform4f(glGetUniformLocation(shaderProgram, "u_accentColor"), _normalMapAccentColor.getR() * accentAlpha / 255.0f, _normalMapAccentColor.getG() * accentAlpha / 255.0f, _normalMapAccentColor.getB() * accentAlpha / 255.0f, accentAlpha);
-                    float highlightAlpha = _normalMapHighlightColor.getA() / 255.0f;
-                    glUniform4f(glGetUniformLocation(shaderProgram, "u_highlightColor"), _normalMapHighlightColor.getR() * highlightAlpha / 255.0f, _normalMapHighlightColor.getG() * highlightAlpha / 255.0f, _normalMapHighlightColor.getB() * highlightAlpha / 255.0f,  highlightAlpha);
+                    // Pass colors without premultiplying RGB by alpha, matching MapLibre's approach
+                    glUniform4f(glGetUniformLocation(shaderProgram, "u_shadowColor"), _normalMapShadowColor.getR() / 255.0f, _normalMapShadowColor.getG() / 255.0f, _normalMapShadowColor.getB() / 255.0f, _normalMapShadowColor.getA() / 255.0f);
+                    glUniform4f(glGetUniformLocation(shaderProgram, "u_accentColor"), _normalMapAccentColor.getR() / 255.0f, _normalMapAccentColor.getG() / 255.0f, _normalMapAccentColor.getB() / 255.0f, _normalMapAccentColor.getA() / 255.0f);
+                    glUniform4f(glGetUniformLocation(shaderProgram, "u_highlightColor"), _normalMapHighlightColor.getR() / 255.0f, _normalMapHighlightColor.getG() / 255.0f, _normalMapHighlightColor.getB() / 255.0f, _normalMapHighlightColor.getA() / 255.0f);
                     glUniform3fv(glGetUniformLocation(shaderProgram, "u_lightDir"), 1, _normalLightDir.data() );
                     glUniform1i(glGetUniformLocation(shaderProgram, "u_method"), (_hillshadeMethod));
                     glUniform1f(glGetUniformLocation(shaderProgram, "u_exaggeration"), _hillshadeExaggeration);
@@ -506,7 +504,9 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
             float aspect_strength = 1.0 - abs(mod((aspect + azimuth) / PI + 0.5, 2.0) - 1.0);
             float shadow_strength = slope_strength * aspect_strength;
             float highlight_strength = slope_strength * (1.0-aspect_strength);
-            return u_shadowColor * shadow_strength + u_highlightColor * highlight_strength;
+            vec4 result = u_shadowColor * shadow_strength + u_highlightColor * highlight_strength;
+            // Premultiply RGB by alpha to handle transparency correctly
+            return vec4(result.rgb * result.a, result.a);
         }
 
         // MapLibre's legacy hillshade algorithm
@@ -533,7 +533,9 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
             float shade = abs(mod((aspect + azimuth) / PI + 0.5, 2.0) - 1.0);
             vec4 shade_color = mix(u_shadowColor, u_highlightColor, shade) * sin(scaledSlope) * clamp(intensity * 2.0, 0.0, 1.0);
             
-            return accent_color * (1.0 - shade_color.a) + shade_color;
+            vec4 result = accent_color * (1.0 - shade_color.a) + shade_color;
+            // Premultiply RGB by alpha to handle transparency correctly
+            return vec4(result.rgb * result.a, result.a);
         }
 
         // Based on GDALHillshadeAlg()
@@ -549,11 +551,14 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
             float cang = (sin_alt - (deriv.y*cos_az*cos_alt - deriv.x*sin_az*cos_alt)) / sqrt(1.0 + dot(deriv, deriv));
 
             float shade = clamp(cang, 0.0, 1.0);
+            vec4 result;
             if(shade > 0.5) {
-                return u_highlightColor * (2.0*shade - 1.0);
+                result = u_highlightColor * (2.0*shade - 1.0);
             } else {
-                return u_shadowColor * (1.0 - 2.0*shade);
+                result = u_shadowColor * (1.0 - 2.0*shade);
             }
+            // Premultiply RGB by alpha to handle transparency correctly
+            return vec4(result.rgb * result.a, result.a);
         }
 
         // Multidirectional hillshade (simplified to single light for now)
@@ -580,7 +585,9 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
             float shade = cang * atan(length(deriv)) * 4.0/PI/PI;
             float highlight = (PI/2.0-cang) * atan(length(deriv)) * 4.0/PI/PI;
 
-            return u_shadowColor*shade + u_highlightColor*highlight;
+            vec4 result = u_shadowColor*shade + u_highlightColor*highlight;
+            // Premultiply RGB by alpha to handle transparency correctly
+            return vec4(result.rgb * result.a, result.a);
         }
 
         vec4 applyLighting(lowp vec4 color, mediump vec3 normal, mediump vec3 surfaceNormal, mediump float intensity) {
@@ -607,7 +614,11 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
                 hillshadeColor = standard_hillshade(deriv, u_lightDir);
             }
             
-            return hillshadeColor * color * intensity;
+            // The VT library multiplies our result by 'intensity', but hillshading should have
+            // constant strength regardless of slope. Divide by intensity to cancel this out.
+            // Use max() to avoid division by zero for flat areas.
+            float intensityFactor = max(intensity, 0.01);
+            return vec4(hillshadeColor.rgb / intensityFactor, hillshadeColor.a);
         }
     )GLSL";
 

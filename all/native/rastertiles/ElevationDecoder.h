@@ -33,6 +33,7 @@ namespace carto {
         
         virtual std::array<float, 4> getVectorTileScales() const = 0;
         virtual std::array<double, 4> getColorComponentCoefficients() const = 0;
+        virtual float getMinimumHeightScale() const = 0;
 
     };
         
