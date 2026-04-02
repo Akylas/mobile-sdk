@@ -353,10 +353,25 @@ namespace carto {
             inflateEnd(&stream);
             return result;
         }
+        else if (compression == 0x03) {
+            // Brotli decompression
+            // TODO: Add brotli support when library is available
+            // #include <brotli/decode.h>
+            // Use BrotliDecoderDecompress() for decompression
+            Log::Error("PMTilesTileDataSource: Brotli compression not yet supported. Please use gzip or uncompressed PMTiles files.");
+            throw GenericException("Brotli compression not yet supported");
+        }
+        else if (compression == 0x04) {
+            // Zstandard decompression
+            // TODO: Add zstd support when library is available
+            // #include <zstd.h>
+            // Use ZSTD_decompress() for decompression
+            Log::Error("PMTilesTileDataSource: Zstandard compression not yet supported. Please use gzip or uncompressed PMTiles files.");
+            throw GenericException("Zstandard compression not yet supported");
+        }
         else {
-            // brotli (0x03) and zstd (0x04) not implemented yet
-            Log::Errorf("PMTilesTileDataSource: Unsupported compression type: %d", compression);
-            throw GenericException("Unsupported compression type");
+            Log::Errorf("PMTilesTileDataSource: Unknown compression type: %d", compression);
+            throw GenericException("Unknown compression type");
         }
     }
 
