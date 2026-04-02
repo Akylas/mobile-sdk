@@ -197,9 +197,8 @@ namespace carto {
             uint64_t tileId = ZxyToTileId(mapTile.getZoom(), mapTile.getX(), mapTile.getY());
             
             // Find the tile entry
-            const DirectoryEntry* entry = FindTileEntry(tileId);
-            
-            if (!entry) {
+            DirectoryEntry entry;
+            if (!FindTileEntry(tileId, entry)) {
                 // Tile not found, try parent tile
                 if (mapTile.getZoom() > getMinZoom()) {
                     Log::Infof("PMTilesTileDataSource::loadTile: Tile not found, redirecting to parent");
@@ -213,7 +212,7 @@ namespace carto {
             }
             
             // Read tile data
-            std::vector<uint8_t> compressedData = ReadTileData(entry->offset, entry->length);
+            std::vector<uint8_t> compressedData = ReadTileData(entry.offset, entry.length);
             
             // Decompress if needed
             std::vector<uint8_t> tileBytes = DecompressData(compressedData, _header.tileCompression);
@@ -544,7 +543,7 @@ namespace carto {
         return data;
     }
 
-    const PMTilesTileDataSource::DirectoryEntry* PMTilesTileDataSource::FindTileEntry(uint64_t tileId) {
+    bool PMTilesTileDataSource::FindTileEntry(uint64_t tileId, DirectoryEntry& outEntry) {
         // Search in root directory first
         for (const auto& entry : _rootDirectory) {
             if (entry.runLength == 0) {
@@ -570,7 +569,8 @@ namespace carto {
                             if (leafEntry.runLength > 0 && 
                                 tileId >= leafEntry.tileId && 
                                 tileId < leafEntry.tileId + leafEntry.runLength) {
-                                return &leafEntry;
+                                outEntry = leafEntry; // Copy the entry
+                                return true;
                             }
                         }
                     }
@@ -581,12 +581,13 @@ namespace carto {
             } else {
                 // This is a tile entry
                 if (tileId >= entry.tileId && tileId < entry.tileId + entry.runLength) {
-                    return &entry;
+                    outEntry = entry; // Copy the entry
+                    return true;
                 }
             }
         }
         
-        return nullptr;
+        return false;
     }
 
     std::vector<PMTilesTileDataSource::DirectoryEntry> PMTilesTileDataSource::LoadLeafDirectory(uint64_t offset, uint32_t length) {

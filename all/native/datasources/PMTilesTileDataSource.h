@@ -112,7 +112,7 @@ namespace carto {
         static void TileIdToZxy(uint64_t tileId, int& z, int& x, int& y);
         
         std::vector<uint8_t> ReadTileData(uint64_t offset, uint32_t length);
-        const DirectoryEntry* FindTileEntry(uint64_t tileId);
+        bool FindTileEntry(uint64_t tileId, DirectoryEntry& outEntry);
         std::vector<DirectoryEntry> LoadLeafDirectory(uint64_t offset, uint32_t length);
 
         std::string _path;

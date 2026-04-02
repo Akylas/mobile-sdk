@@ -149,7 +149,7 @@ All errors are logged to the SDK logger with detailed error messages.
 
 - Root directory is cached in memory (typically < 16 KB)
 - Metadata is cached on first access
-- Leaf directories are loaded on-demand and not cached
+- Leaf directories are loaded on-demand and cached for reuse
 - Individual tiles are not cached by this data source
 
 ### Disk Access
