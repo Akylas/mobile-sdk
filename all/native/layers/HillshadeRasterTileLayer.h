@@ -15,32 +15,33 @@
 #include <atomic>
 
 namespace carto {
-    
-    /**
-     * Hillshade rendering method.
-     */
-    enum HillshadeMethod {
+    namespace HillshadeMethod {
         /**
-         * MapLibre's legacy hillshade algorithm.
-         */
-        STANDARD = 0,
-        /**
-         * Combined hillshade algorithm based on GDAL.
-         */
-        COMBINED = 1,
-        /**
-         * Igor hillshade algorithm based on GDAL.
-         */
-        IGOR = 2,
-        /**
-         * Multi-directional hillshade with multiple light sources.
-         */
-        MULTIDIRECTIONAL = 3,
-        /**
-         * Basic hillshade algorithm based on GDAL.
-         */
-        BASIC = 4
-    };
+        * Hillshade rendering method.
+        */
+        enum HillshadeMethod {
+            /**
+            * MapLibre's legacy hillshade algorithm.
+            */
+            STANDARD,
+            /**
+            * Combined hillshade algorithm based on GDAL.
+            */
+            COMBINED,
+            /**
+            * Igor hillshade algorithm based on GDAL.
+            */
+            IGOR,
+            /**
+            * Multi-directional hillshade with multiple light sources.
+            */
+            MULTIDIRECTIONAL,
+            /**
+            * Basic hillshade algorithm based on GDAL.
+            */
+            BASIC
+        };
+    }
     
     /**
      * A tile layer that displays an overlay hillshading. Should be used together with corresponding data source that encodes height in RGBA image.
@@ -155,12 +156,12 @@ namespace carto {
          * Returns the hillshade rendering method.
          * @return The hillshade method. Default is STANDARD.
          */
-        HillshadeMethod getHillshadeMethod() const;
+        HillshadeMethod::HillshadeMethod getHillshadeMethod() const;
         /**
          * Sets the hillshade rendering method.
          * @param method The hillshade method to use.
          */
-        void setHillshadeMethod(HillshadeMethod method);
+        void setHillshadeMethod(HillshadeMethod::HillshadeMethod method);
 
         double getElevation(const MapPos& pos) const;
         std::vector<double> getElevations(const std::vector<MapPos> poses) const;
@@ -184,7 +185,7 @@ namespace carto {
         std::atomic<Color> _highlightColor;
         std::atomic<MapVec> _illuminationDirection;
         std::atomic<bool> _illuminationMapRotationEnabled;
-        std::atomic<HillshadeMethod> _hillshadeMethod;
+        std::atomic<HillshadeMethod::HillshadeMethod> _hillshadeMethod;
     };
     
 }

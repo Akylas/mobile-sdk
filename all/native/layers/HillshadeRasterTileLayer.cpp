@@ -91,7 +91,7 @@ namespace carto
         _highlightColor(Color(255, 255, 255, 255)),
         _illuminationDirection(MapVec(-0.42261826, 0.90630779, -0.70710678)),  // azimuth=335°, altitude=45° (MapLibre defaults)
         _illuminationMapRotationEnabled(true),
-        _hillshadeMethod(HillshadeMethod::STANDARD)
+        _hillshadeMethod(HillshadeMethod::HillshadeMethod::STANDARD)
     {
         setTileBlendingSpeed(0.0f);
     }
@@ -187,11 +187,11 @@ namespace carto
         updateTiles(false);
     }
 
-    HillshadeMethod HillshadeRasterTileLayer::getHillshadeMethod() const {
+    HillshadeMethod::HillshadeMethod HillshadeRasterTileLayer::getHillshadeMethod() const {
         return _hillshadeMethod.load();
     }
 
-    void HillshadeRasterTileLayer::setHillshadeMethod(HillshadeMethod method) {
+    void HillshadeRasterTileLayer::setHillshadeMethod(HillshadeMethod::HillshadeMethod method) {
         _hillshadeMethod.store(method);
         redraw();
     }
@@ -217,7 +217,27 @@ namespace carto
             _tileRenderer->setNormalMapHighlightColor(getHighlightColor());
             _tileRenderer->setNormalIlluminationDirection(getIlluminationDirection());
             _tileRenderer->setNormalIlluminationMapRotationEnabled(getIlluminationMapRotationEnabled());
-            _tileRenderer->setHillshadeMethod(static_cast<int>(getHillshadeMethod()));
+
+
+            int hillshadeMethod = 0;
+            switch (getHillshadeMethod()) {
+                case HillshadeMethod::HillshadeMethod::STANDARD:
+                    hillshadeMethod = 0;
+                    break;
+                case HillshadeMethod::HillshadeMethod::COMBINED:
+                    hillshadeMethod = 1;
+                    break;
+                case HillshadeMethod::HillshadeMethod::IGOR:
+                    hillshadeMethod = 2;
+                    break;
+                case HillshadeMethod::HillshadeMethod::MULTIDIRECTIONAL:
+                    hillshadeMethod = 3;
+                    break;
+                case HillshadeMethod::HillshadeMethod::BASIC:
+                    hillshadeMethod = 4;
+                    break;
+            }
+            _tileRenderer->setHillshadeMethod(hillshadeMethod);
             _tileRenderer->setHillshadeExaggeration(getContrast());
             bool refresh = _tileRenderer->onDrawFrame(deltaSeconds, viewState);
 

@@ -20,6 +20,7 @@
 %import "layers/RasterTileLayer.i"
 %import "core/DoubleVector.i"
 
+!enum(carto::HillshadeMethod::HillshadeMethod)
 !polymorphic_shared_ptr(carto::HillshadeRasterTileLayer, layers.HillshadeRasterTileLayer)
 
 %attribute(carto::HillshadeRasterTileLayer, float, Contrast, getContrast, setContrast)
@@ -27,7 +28,7 @@
 %attribute(carto::HillshadeRasterTileLayer, carto::MapVec, IlluminationDirection, getIlluminationDirection, setIlluminationDirection)
 %attribute(carto::HillshadeRasterTileLayer, bool, IlluminationMapRotationEnabled, getIlluminationMapRotationEnabled, setIlluminationMapRotationEnabled)
 %attribute(carto::HillshadeRasterTileLayer, bool, ExagerateHeightScaleEnabled, getExagerateHeightScaleEnabled, setExagerateHeightScaleEnabled)
-%attribute(carto::HillshadeRasterTileLayer, carto::HillshadeMethod, HillshadeMethod, getHillshadeMethod, setHillshadeMethod)
+%attribute(carto::HillshadeRasterTileLayer, carto::HillshadeMethod::HillshadeMethod, HillshadeMethod, getHillshadeMethod, setHillshadeMethod)
 %attributeval(carto::HillshadeRasterTileLayer, carto::Color, ShadowColor, getShadowColor, setShadowColor)
 %attributeval(carto::HillshadeRasterTileLayer, carto::Color, HighlightColor, getHighlightColor, setHighlightColor)
 %attributeval(carto::HillshadeRasterTileLayer, carto::Color, AccentColor, getAccentColor, setAccentColor)
