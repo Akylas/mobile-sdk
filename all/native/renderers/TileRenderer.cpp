@@ -614,9 +614,11 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
                 hillshadeColor = standard_hillshade(deriv, u_lightDir);
             }
             
-            // Return hillshade color directly, matching MapLibre's approach
-            // The hillshade algorithms handle color blending internally
-            return hillshadeColor;
+            // The VT library multiplies our result by 'intensity', but hillshading should have
+            // constant strength regardless of slope. Divide by intensity to cancel this out.
+            // Use max() to avoid division by zero for flat areas.
+            float intensityFactor = max(intensity, 0.01);
+            return vec4(hillshadeColor.rgb / intensityFactor, hillshadeColor.a);
         }
     )GLSL";
 
