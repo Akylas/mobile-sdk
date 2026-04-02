@@ -9,6 +9,7 @@
 
 #include <cstring>
 #include <algorithm>
+#include <unordered_map>
 #include <zlib.h>
 
 // For JSON parsing (simple extraction)
@@ -24,6 +25,7 @@ namespace carto {
         _rootDirectory(),
         _cachedMetadata(),
         _cachedDataExtent(),
+        _leafDirectoryCache(),
         _mutex()
     {
         _file = std::make_unique<std::ifstream>(path, std::ios::binary);
@@ -53,6 +55,7 @@ namespace carto {
         _rootDirectory(),
         _cachedMetadata(),
         _cachedDataExtent(),
+        _leafDirectoryCache(),
         _mutex()
     {
         _file = std::make_unique<std::ifstream>(path, std::ios::binary);
@@ -152,12 +155,10 @@ namespace carto {
     }
 
     int PMTilesTileDataSource::getMinZoom() const {
-        std::lock_guard<std::recursive_mutex> lock(_mutex);
         return _header.minZoom;
     }
     
     int PMTilesTileDataSource::getMaxZoom() const {
-        std::lock_guard<std::recursive_mutex> lock(_mutex);
         return _header.maxZoom;
     }
     
@@ -550,22 +551,26 @@ namespace carto {
                 // This is a leaf directory entry
                 if (entry.tileId <= tileId) {
                     // Check if this leaf directory might contain our tile
-                    // We need to load and search the leaf directory
                     try {
-                        std::vector<DirectoryEntry> leafDir = LoadLeafDirectory(entry.offset, entry.length);
-                        for (const auto& leafEntry : leafDir) {
+                        // Check cache first
+                        auto cacheIt = _leafDirectoryCache.find(entry.offset);
+                        std::vector<DirectoryEntry>* leafDir;
+                        
+                        if (cacheIt != _leafDirectoryCache.end()) {
+                            leafDir = &cacheIt->second;
+                        } else {
+                            // Load and cache the leaf directory
+                            std::vector<DirectoryEntry> loadedLeafDir = LoadLeafDirectory(entry.offset, entry.length);
+                            auto insertResult = _leafDirectoryCache.emplace(entry.offset, std::move(loadedLeafDir));
+                            leafDir = &insertResult.first->second;
+                        }
+                        
+                        // Search in the leaf directory
+                        for (const auto& leafEntry : *leafDir) {
                             if (leafEntry.runLength > 0 && 
                                 tileId >= leafEntry.tileId && 
                                 tileId < leafEntry.tileId + leafEntry.runLength) {
-                                // Found in leaf directory - cache it
-                                // For now, search linearly. Could optimize with caching.
-                                static thread_local std::vector<DirectoryEntry> cachedLeaf = leafDir;
-                                cachedLeaf = leafDir;
-                                for (const auto& e : cachedLeaf) {
-                                    if (e.runLength > 0 && tileId >= e.tileId && tileId < e.tileId + e.runLength) {
-                                        return &e;
-                                    }
-                                }
+                                return &leafEntry;
                             }
                         }
                     }

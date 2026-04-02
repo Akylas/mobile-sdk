@@ -16,6 +16,7 @@
 #include <optional>
 #include <vector>
 #include <fstream>
+#include <unordered_map>
 
 namespace carto {
     
@@ -120,6 +121,7 @@ namespace carto {
         std::vector<DirectoryEntry> _rootDirectory;
         mutable std::optional<std::string> _cachedMetadata;
         mutable std::optional<MapBounds> _cachedDataExtent;
+        mutable std::unordered_map<uint64_t, std::vector<DirectoryEntry>> _leafDirectoryCache;
         mutable std::recursive_mutex _mutex;
     };
     
