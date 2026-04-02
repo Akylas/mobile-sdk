@@ -607,7 +607,10 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
                 hillshadeColor = standard_hillshade(deriv, u_lightDir);
             }
             
-            return hillshadeColor * color * intensity;
+            // Blend hillshade color with base color using alpha for proper transparency
+            // When hillshadeColor.a is 0, the effect is transparent (no change)
+            // This makes white highlight colors appear transparent like in MapLibre/Mapbox
+            return mix(color, hillshadeColor * color, hillshadeColor.a) * intensity;
         }
     )GLSL";
 
