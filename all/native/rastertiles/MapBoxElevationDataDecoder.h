@@ -29,6 +29,7 @@ namespace carto {
 
         virtual std::array<float, 4> getVectorTileScales() const;
         virtual std::array<double, 4> getColorComponentCoefficients() const;
+        virtual float getMinimumHeightScale() const;
 
     private :
         static const std::array<double, 4> COMPONENTS;
