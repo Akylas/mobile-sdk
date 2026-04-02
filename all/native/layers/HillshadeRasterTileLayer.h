@@ -19,7 +19,7 @@ namespace carto {
     /**
      * Hillshade rendering method.
      */
-    enum class HillshadeMethod {
+    enum HillshadeMethod {
         /**
          * MapLibre's legacy hillshade algorithm.
          */

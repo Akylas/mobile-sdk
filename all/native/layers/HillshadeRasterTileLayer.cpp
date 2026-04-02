@@ -217,7 +217,7 @@ namespace carto
             _tileRenderer->setNormalMapHighlightColor(getHighlightColor());
             _tileRenderer->setNormalIlluminationDirection(getIlluminationDirection());
             _tileRenderer->setNormalIlluminationMapRotationEnabled(getIlluminationMapRotationEnabled());
-            _tileRenderer->setHillshadeMethod(getHillshadeMethod());
+            _tileRenderer->setHillshadeMethod(static_cast<int>(getHillshadeMethod()));
             _tileRenderer->setHillshadeExaggeration(getContrast());
             bool refresh = _tileRenderer->onDrawFrame(deltaSeconds, viewState);
 

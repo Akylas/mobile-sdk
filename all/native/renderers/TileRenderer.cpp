@@ -142,7 +142,7 @@ namespace carto {
         _normalIlluminationMapRotationEnabled = enabled;
     }
 
-    void TileRenderer::setHillshadeMethod(HillshadeMethod method) {
+    void TileRenderer::setHillshadeMethod(int method) {
         std::lock_guard<std::mutex> lock(_mutex);
         _hillshadeMethod = method;
     }
@@ -444,7 +444,7 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
                     float highlightAlpha = _normalMapHighlightColor.getA() / 255.0f;
                     glUniform4f(glGetUniformLocation(shaderProgram, "u_highlightColor"), _normalMapHighlightColor.getR() * highlightAlpha / 255.0f, _normalMapHighlightColor.getG() * highlightAlpha / 255.0f, _normalMapHighlightColor.getB() * highlightAlpha / 255.0f,  highlightAlpha);
                     glUniform3fv(glGetUniformLocation(shaderProgram, "u_lightDir"), 1, _normalLightDir.data() );
-                    glUniform1i(glGetUniformLocation(shaderProgram, "u_method"), static_cast<int>(_hillshadeMethod));
+                    glUniform1i(glGetUniformLocation(shaderProgram, "u_method"), (_hillshadeMethod));
                     glUniform1f(glGetUniformLocation(shaderProgram, "u_exaggeration"), _hillshadeExaggeration);
             });
             tileRenderer->setLightingShaderNormalMap(lightingShaderNormalMap);
