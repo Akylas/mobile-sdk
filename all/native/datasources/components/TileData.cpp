@@ -1,10 +1,11 @@
 #include "TileData.h"
 #include "core/BinaryData.h"
+#include "core/Variant.h"
 
 namespace carto {
     
     TileData::TileData(const std::shared_ptr<BinaryData>& data) :
-        _data(data), _expirationTime(), _replaceWithParent(false), _overzoom(false), _mutex()
+        _data(data), _expirationTime(), _replaceWithParent(false), _overzoom(false), _metadata(), _mutex()
     {
     }
 
@@ -54,6 +55,20 @@ namespace carto {
     
     const std::shared_ptr<BinaryData>& TileData::getData() const {
         return _data;
+    }
+    
+    std::shared_ptr<Variant> TileData::getMetadata(const std::string& key) const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        auto it = _metadata.find(key);
+        if (it != _metadata.end()) {
+            return it->second;
+        }
+        return std::shared_ptr<Variant>();
+    }
+    
+    void TileData::setMetadata(const std::string& key, const std::shared_ptr<Variant>& value) {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _metadata[key] = value;
     }
 
 }

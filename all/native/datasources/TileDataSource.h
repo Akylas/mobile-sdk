@@ -138,6 +138,13 @@ namespace carto {
          * @return The tag map that will be used for replacing tags in templates.
          */
         virtual std::map<std::string, std::string> buildTagValues(const MapTile& tile) const;
+        
+        /**
+         * Builds metadata map for the tile. Can be overridden by subclasses to provide tile-specific metadata.
+         * @param tile The tile for the metadata.
+         * @return The metadata map that will be attached to the tile data.
+         */
+        virtual std::map<std::string, std::shared_ptr<Variant>> buildTileMetadata(const MapTile& tile) const;
 
         std::atomic<int> _minZoom;
         std::atomic<int> _maxZoom;

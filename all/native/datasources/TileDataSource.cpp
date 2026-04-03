@@ -1,4 +1,5 @@
 #include "TileDataSource.h"
+#include "core/Variant.h"
 #include "projections/Projection.h"
 #include "projections/EPSG3857.h"
 #include "utils/Const.h"
@@ -111,6 +112,11 @@ namespace carto {
         tagValues["zoom"] = boost::lexical_cast<std::string>(tile.getZoom());
 
         return tagValues;
+    }
+    
+    std::map<std::string, std::shared_ptr<Variant>> TileDataSource::buildTileMetadata(const MapTile& tile) const {
+        // Default implementation returns empty metadata map
+        return std::map<std::string, std::shared_ptr<Variant>>();
     }
 
 }

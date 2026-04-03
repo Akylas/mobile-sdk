@@ -169,7 +169,7 @@ namespace carto {
     protected:
         virtual bool onDrawFrame(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState);
 
-        virtual std::shared_ptr<vt::Tile> createVectorTile(const MapTile& subTile, const MapTile& tile, const std::shared_ptr<Bitmap>& bitmap, const std::shared_ptr<vt::TileTransformer>& tileTransformer) const;
+        virtual std::shared_ptr<vt::Tile> createVectorTile(const MapTile& subTile, const MapTile& tile, const std::shared_ptr<TileData>& tileData, const std::shared_ptr<Bitmap>& bitmap, const std::shared_ptr<vt::TileTransformer>& tileTransformer) const;
 
         std::shared_ptr<Bitmap> getTileDataBitmap(std::shared_ptr<TileData> tileData) const;
         std::shared_ptr<Bitmap> getMapTileBitmap(const MapTile& mapTile) const;
