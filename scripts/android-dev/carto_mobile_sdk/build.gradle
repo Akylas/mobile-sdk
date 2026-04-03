@@ -88,7 +88,7 @@ android {
         ndkVersion "27.2.12479018"
         externalNativeBuild {
             cmake {
-                arguments "-DSDK_VERSION=Devel", "-DSDK_PLATFORM='Android'", "-DANDROID_STL=c++_static", '-DANDROID_ARM_NEON:BOOL=ON', '-DSINGLE_LIBRARY:BOOL=ON', '-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON', "-DWRAPPER_DIR=${projectDir.absolutePath.replaceAll('\\\\', '/')}/../../../generated/android-java/wrappers"
+                arguments "-DSDK_VERSION=Devel", "-DSDK_PLATFORM='Android'", "-DANDROID_STL=c++_static", '-DANDROID_ARM_NEON:BOOL=ON', '-DSINGLE_LIBRARY:BOOL=ON', '-DHAVE_ZSTD:BOOL=ON', '-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON', "-DWRAPPER_DIR=${projectDir.absolutePath.replaceAll('\\\\', '/')}/../../../generated/android-java/wrappers"
                 cmakeOptions().each {option -> arguments option }
             }
         }

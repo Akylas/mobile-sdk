@@ -54,15 +54,18 @@ import com.carto.geometry.PointGeometry;
 import com.carto.geometry.PolygonGeometry;
 import com.carto.geometry.VectorTileFeatureCollection;
 import com.carto.graphics.Color;
+import com.carto.layers.HillshadeMethod;
 import com.carto.layers.HillshadeRasterTileLayer;
 import com.carto.layers.RasterTileFilterMode;
 import com.carto.layers.RasterTileLayer;
+import com.carto.layers.TileLayer;
 import com.carto.layers.TileSubstitutionPolicy;
 import com.carto.layers.VectorLayer;
 import com.carto.layers.VectorTileLayer;
 import com.carto.projections.EPSG4326;
 import com.carto.projections.Projection;
 import com.carto.rastertiles.MapBoxElevationDataDecoder;
+import com.carto.rastertiles.TerrariumElevationDataDecoder;
 import com.carto.routing.RouteMatchingRequest;
 import com.carto.routing.RouteMatchingResult;
 import com.carto.routing.RoutingRequest;
@@ -164,15 +167,16 @@ public class SecondFragment extends Fragment {
     @RequiresApi(api = Build.VERSION_CODES.O)
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        if (requestCode == REQUEST_PERMISSIONS_CODE_WRITE_STORAGE) {
-            if (permissions[0].equals(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                    && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                if (Build.VERSION.SDK_INT >= 30) {
-                    // If you have access to the external storage, do whatever you need
+//        if (requestCode == REQUEST_PERMISSIONS_CODE_WRITE_STORAGE) {
+//            if (permissions[0].equals(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+//                    && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+//                if (Build.VERSION.SDK_INT >= 30) {
+//                    // If you have access to the external storage, do whatever you need
                     if (Environment.isExternalStorageManager()) {
-
-                        // If you don't have access, launch a new activity to show the user the system's dialog
-                        // to allow access to the external storage
+//
+//                        // If you don't have access, launch a new activity to show the user the system's dialog
+//                        // to allow access to the external storage
+                    proceedWithSdCard(this.getView());
                     } else {
                         Intent intent = new Intent();
                         intent.setAction(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
@@ -180,44 +184,51 @@ public class SecondFragment extends Fragment {
                         intent.setData(uri);
                         startActivityForResult(intent, REQUEST_PERMISSIONS_MANAGE_STORAGE);
                     }
-                } else {
-                    proceedWithSdCard(this.getView());
-
-                }
-            }
-        } else if (requestCode == REQUEST_PERMISSIONS_CODE_WRITE_STORAGE) {
-            proceedWithSdCard(this.getView());
-
-        }
+//                } else {
+//                    proceedWithSdCard(this.getView());
+//
+////                }
+//            }
+//        } else if (requestCode == REQUEST_PERMISSIONS_CODE_WRITE_STORAGE) {
+//            proceedWithSdCard(this.getView());
+//
+//        }
     }
     void addHillshadeLayer(View view, String dataPath) {
         MBTilesTileDataSource hillshadeSourceFrance = null;
-        MBTilesTileDataSource hillshadeSourceWorld = null;
+        HTTPTileDataSource hillshadeSource = null;
         MultiTileDataSource  dataSource = new MultiTileDataSource();
         try {
-            hillshadeSourceFrance = new MBTilesTileDataSource( dataPath+"/france_terrain.etiles");
-            hillshadeSourceWorld = new MBTilesTileDataSource( dataPath+"/world_terrain.etiles");
-//            hillshadeSource = this.hillshadeSource = new HTTPTileDataSource(5, 11, "http://192.168.1.45:8080/data/BDALTIV2_75M_rvb/{z}/{x}/{y}.png");
+//            hillshadeSourceFrance = new MBTilesTileDataSource( dataPath+"/france_terrain.etiles");
+//            hillshadeSourceWorld = new MBTilesTileDataSource( dataPath+"/world_terrain.etiles");
+            hillshadeSource = new HTTPTileDataSource(1, 16, "https://tiles.mapterhorn.com/{z}/{x}/{y}.webp");
             //        HTTPTileDataSource hillshadeSource =   new HTTPTileDataSource(1, 15, "https://api.mapbox.com/v4/mapbox.terrain-rgb/{z}/{x}/{y}.pngraw?access_token=pk.eyJ1IjoiYWt5bGFzIiwiYSI6IkVJVFl2OXMifQ.TGtrEmByO3-99hA0EI44Ew");
         } catch (Exception e) {
             e.printStackTrace();
         }
 //        hillshadeSourceWorld.setMaxOverzoomLevel(1);
-        dataSource.add(hillshadeSourceFrance, "wzAzMzDAwMBwwwXFfBcVXAzAxE8BcVfMxXFXMBFfxVVVwMzMBMVwMB8RVPHFV9QQ1xDUPwMDFfMRwFVzwFXMVxFVUz/MQD1BAPXENQTMQAP1dA1xV9AxExFc1NQDXNQDUxAAAPD/ww3BV8FxVfDAcVwVcwMMFwXwxV8BwVV/FVVV/DMBXwXFV8DBcMFVX/AcEXBV8MED0Q0QH9ENED0Q0AN1fVNQDV1dU/VNQA9EAP1dU11AAB9/RDRAw0QN1dEfBDRcEDfDRcEEdw0QfRR0QP1111FXdXV0DXV1T1TUNAPXRNQA/MQD1FMQDdXRM1EN0DUAP9Q0AAAP3V1DUPUAPXUNA3QAAAAAAAAA%");
+//        dataSource.add(hillshadeSourceFrance, "wzAzMzDAwMBwwwXFfBcVXAzAxE8BcVfMxXFXMBFfxVVVwMzMBMVwMB8RVPHFV9QQ1xDUPwMDFfMRwFVzwFXMVxFVUz/MQD1BAPXENQTMQAP1dA1xV9AxExFc1NQDXNQDUxAAAPD/ww3BV8FxVfDAcVwVcwMMFwXwxV8BwVV/FVVV/DMBXwXFV8DBcMFVX/AcEXBV8MED0Q0QH9ENED0Q0AN1fVNQDV1dU/VNQA9EAP1dU11AAB9/RDRAw0QN1dEfBDRcEDfDRcEEdw0QfRR0QP1111FXdXV0DXV1T1TUNAPXRNQA/MQD1FMQDdXRM1EN0DUAP9Q0AAAP3V1DUPUAPXUNA3QAAAAAAAAA%");
 //        dataSource.add(hillshadeSourceWorld);
-        final MapBoxElevationDataDecoder elevationDecoder = new MapBoxElevationDataDecoder();
-        final HillshadeRasterTileLayer layer = hillshadeLayer = new HillshadeRasterTileLayer(hillshadeSourceFrance, elevationDecoder);
+        final TerrariumElevationDataDecoder elevationDecoder = new TerrariumElevationDataDecoder();
+        final HillshadeRasterTileLayer layer = hillshadeLayer = new HillshadeRasterTileLayer(hillshadeSource, elevationDecoder);
         layer.setPreloading(true);
-        layer.setContrast( 0.52f);
-        layer.setHeightScale(0.32f);
-        layer.setVisibleZoomRange(new MapRange(0, 16));
-        layer.setIlluminationMapRotationEnabled(true);
-        layer.setIlluminationDirection(new MapVec(-1, 0, 0));
+//        layer.setContrast(0.3f);
+        layer.setHillshadeMethod(HillshadeMethod.IGOR);
+        layer.setContrast( 0.5f);
+        layer.setHeightScale(0.02f);
+//        layer.setVisibleZoomRange(new MapRange(0, 16));
+//        layer.setIlluminationMapRotationEnabled(true);
+//        layer.setIlluminationDirection(new MapVec(-1, 0, 0));
+        MapVec current = layer.getIlluminationDirection();
+        double rad = 180 * Math.PI / 180;
+        double sin = Math.sin(rad);
+        double cos = Math.cos(rad);
+        layer.setIlluminationDirection(new MapVec(sin, cos, current.getZ()));
         layer.setTileSubstitutionPolicy(TileSubstitutionPolicy.TILE_SUBSTITUTION_POLICY_VISIBLE);
         layer.setTileFilterMode(RasterTileFilterMode.RASTER_TILE_FILTER_MODE_BILINEAR);
-        layer.setHighlightColor(new Color((short) 0, (short) 0, (short) 0, (short) 170));
-        layer.setShadowColor(new Color((short) 0, (short) 0, (short) 0, (short) 0));
-        layer.setAccentColor(new Color((short) 0, (short) 0, (short) 0, (short) 170));
+        layer.setHighlightColor(new Color((short) 0, (short) 0, (short) 0, (short) 255));
+        layer.setShadowColor(new Color((short) 0, (short) 0, (short) 0, (short) 176));
+        layer.setAccentColor(new Color((short) 0, (short) 0, (short) 0, (short) 255));
 
         mapView.getLayers().add(layer);
 //        toggleSlopes(true);
@@ -283,25 +294,24 @@ public class SecondFragment extends Fragment {
         final TextView textHeightScale = (TextView) view.findViewById(R.id.textHeightScale); // initiate the Seek bar
         heightScaleSeekBar.setProgress((int) (layer.getHeightScale() * 100.0f));
         textHeightScale.setText(layer.getHeightScale() + "");
-//        heightScaleSeekBar.setOnSeekBarChangeListener(new AppCompatSeekBar.OnSeekBarChangeListener() {
-//            @Override
-//            public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
-//
-//                layer.setHeightScale(i / 100.0f);
-//                textHeightScale.setText(layer.getHeightScale() + "");
-//                mapView.requestRender();
-//            }
-//
-//            @Override
-//            public void onStartTrackingTouch(SeekBar seekBar) {
-//            }
-//
-//            @Override
-//            public void onStopTrackingTouch(SeekBar seekBar) {
-//            }
-//
-//        });
+        heightScaleSeekBar.setOnSeekBarChangeListener(new AppCompatSeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
 
+                layer.setHeightScale(i / 100.0f);
+                textHeightScale.setText(layer.getHeightScale() + "");
+                mapView.requestRender();
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+            }
+
+        });
 
         final AppCompatSeekBar highlightOpacitySeekBar = (AppCompatSeekBar) view.findViewById(R.id.highlightOpacitySeekBar); // initiate the Seek bar
         final TextView textHighlightOpacity = (TextView) view.findViewById(R.id.testHighlightOpacity); // initiate the Seek bar
@@ -351,16 +361,21 @@ public class SecondFragment extends Fragment {
         });
 
     }
-    VectorTileLayer mainMapLayer;
+    TileLayer mainMapLayer;
     void addMap(String dataPath) {
         MultiTileDataSource  dataSource = new MultiTileDataSource();
-        MBTilesTileDataSource sourceFrance = null;
+        HTTPTileDataSource sourceHTTP = null;
         MBTilesTileDataSource sourceItaly = null;
         MBTilesTileDataSource sourceFranceContours = null;
         MBTilesTileDataSource sourceWorld = null;
         MBVectorTileDecoder decoder = null;
         try {
-            sourceFrance = new MBTilesTileDataSource( dataPath+"/france/france.mbtiles");
+            sourceHTTP = new HTTPTileDataSource(0,19,"https://demo-bucket.protomaps.com/v4.pmtiles");
+//            sourceHTTP = new HTTPTileDataSource(0,19,"https://a.tile.openstreetmap.org/{z}/{x}/{y}.png");
+            StringMap headers = new StringMap();
+            headers.set("User-Agent", "AlpiMaps");
+            sourceHTTP.setHTTPHeaders(headers);
+//            sourceFrance = new MBTilesTileDataSource( dataPath+"/france/france.mbtiles");
 //            sourceItaly = new MBTilesTileDataSource( dataPath+"/netherlands/netherlands.mbtiles");
 //            sourceFranceContours = new MBTilesTileDataSource( dataPath+"/france/france_contours.mbtiles");
 //            sourceWorld = new MBTilesTileDataSource( dataPath+"/world.mbtiles");france
@@ -379,7 +394,8 @@ public class SecondFragment extends Fragment {
 //        dataSource.add(mergedSource);
 //        dataSource.add(sourceItaly);
 //        dataSource.add(sourceWorld);
-        mainMapLayer  = new VectorTileLayer(sourceFrance, decoder);
+        mainMapLayer  = new VectorTileLayer(sourceHTTP, decoder);
+//        mainMapLayer  = new RasterTileLayer(sourceHTTP);
         mapView.getLayers().add(mainMapLayer);
     }
     void addRoutes(String dataPath) {
@@ -421,7 +437,7 @@ public class SecondFragment extends Fragment {
 
         addMap(dataPath);
 //        addRoutes(dataPath);
-//        addHillshadeLayer(view, dataPath);
+        addHillshadeLayer(view, dataPath);
 
 //        try {
 //            MBTilesTileDataSource dataSource = new MBTilesTileDataSource(dataPath+"/france/france_terrain.etiles");
@@ -676,35 +692,35 @@ public class SecondFragment extends Fragment {
 ////            runValhallaInThread(routingService, request, "pedestrian", localSource);
 //    }
 
-    public void testVectorTileSearch(String query) {
-        Thread thread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                long startTime = System.nanoTime();
-                SearchRequest request = new SearchRequest();
-                request.setFilterExpression("regexp_ilike(name,'.*" + query + ".*') OR regexp_ilike(class,'.*" + query + ".*')");
-                request.setSearchRadius(2000);
-                request.setGeometry(new PointGeometry(mapView.getFocusPos()));
-                request.setProjection(mapView.getOptions().getBaseProjection());
-                VectorTileSearchService service = new VectorTileSearchService(mainMapLayer.getDataSource(), mainMapLayer.getTileDecoder());
-                service.setMaxZoom(14);
-                service.setMinZoom(14);
-                StringVector layers = new StringVector();
-                layers.add("poi");
-                layers.add("transportation_name");
-                layers.add("place");
-                service.setLayers(layers);
-                service.setSortByDistance(true);
-                service.setPreventDuplicates(true);
-                VectorTileFeatureCollection result = service.findFeatures(request);
-                Log.d("TAG", "testVectorTileSearch done " + result.getFeatureCount() + " " + ((System.nanoTime() - startTime)/1000000));
-                GeoJSONGeometryWriter writer = new GeoJSONGeometryWriter();
-                ;
-                largeLog("TAG", writer.writeFeatureCollection(result));
-            }
-        });
-        thread.start();
-    }
+//    public void testVectorTileSearch(String query) {
+//        Thread thread = new Thread(new Runnable() {
+//            @Override
+//            public void run() {
+//                long startTime = System.nanoTime();
+//                SearchRequest request = new SearchRequest();
+//                request.setFilterExpression("regexp_ilike(name,'.*" + query + ".*') OR regexp_ilike(class,'.*" + query + ".*')");
+//                request.setSearchRadius(2000);
+//                request.setGeometry(new PointGeometry(mapView.getFocusPos()));
+//                request.setProjection(mapView.getOptions().getBaseProjection());
+//                VectorTileSearchService service = new VectorTileSearchService(mainMapLayer.getDataSource(), mainMapLayer.getTileDecoder());
+//                service.setMaxZoom(14);
+//                service.setMinZoom(14);
+//                StringVector layers = new StringVector();
+//                layers.add("poi");
+//                layers.add("transportation_name");
+//                layers.add("place");
+//                service.setLayers(layers);
+//                service.setSortByDistance(true);
+//                service.setPreventDuplicates(true);
+//                VectorTileFeatureCollection result = service.findFeatures(request);
+//                Log.d("TAG", "testVectorTileSearch done " + result.getFeatureCount() + " " + ((System.nanoTime() - startTime)/1000000));
+//                GeoJSONGeometryWriter writer = new GeoJSONGeometryWriter();
+//                ;
+//                largeLog("TAG", writer.writeFeatureCollection(result));
+//            }
+//        });
+//        thread.start();
+//    }
 
 
    public void testValhallaBicycle(String dataPath, Options options) {
@@ -758,7 +774,7 @@ public class SecondFragment extends Fragment {
         options.setPanningMode(PanningMode.PANNING_MODE_STICKY);
         options.setBaseProjection(projection);
         mapView.setFocusPos(new MapPos(5.7279, 45.1949), 0);
-        mapView.setZoom(17f, 0);
+        mapView.setZoom(13f, 0);
         checkStoragePermission(view);
 
         return view;
