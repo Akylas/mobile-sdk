@@ -120,6 +120,9 @@ namespace carto {
         std::map<std::string, std::shared_ptr<Variant>> metadata;
         
         // Add elevation decoder type if set
+        // Note: Mutex lock here is acceptable as decoder type is typically set once during
+        // initialization and rarely changes. If high-frequency changes become common,
+        // consider using std::atomic<std::string> or read-write lock.
         {
             std::lock_guard<std::mutex> lock(_mutex);
             if (!_elevationDecoderType.empty()) {

@@ -265,10 +265,13 @@ namespace carto
                 std::shared_ptr<Variant> decoderTypeVariant = tileData->getMetadata("elevation_decoder");
                 if (decoderTypeVariant && decoderTypeVariant->getType() == VariantType::VARIANT_TYPE_STRING) {
                     std::string decoderType = decoderTypeVariant->getString();
+                    // Use static cached decoder instances to avoid repeated allocations
                     if (decoderType == "terrarium") {
-                        decoder = std::make_shared<TerrariumElevationDataDecoder>();
+                        static std::shared_ptr<ElevationDecoder> terrariumDecoder = std::make_shared<TerrariumElevationDataDecoder>();
+                        decoder = terrariumDecoder;
                     } else if (decoderType == "mapbox") {
-                        decoder = std::make_shared<MapBoxElevationDataDecoder>();
+                        static std::shared_ptr<ElevationDecoder> mapboxDecoder = std::make_shared<MapBoxElevationDataDecoder>();
+                        decoder = mapboxDecoder;
                     }
                 }
             }

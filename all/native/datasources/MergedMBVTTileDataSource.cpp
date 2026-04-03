@@ -125,8 +125,8 @@ namespace carto {
             auto mergedBinaryData = std::make_shared<BinaryData>(std::move(mergedData));
             auto mergedTileData = std::make_shared<TileData>(mergedBinaryData);
             
-            // Note: When merging tiles, we prefer metadata from source1 if there are conflicts
-            // This is consistent with the layer merge order (source1 data comes first)
+            // Merge metadata from both sources. When keys conflict, source1 metadata 
+            // overwrites source2 metadata (applied last to take precedence).
             std::map<std::string, std::shared_ptr<Variant>> metadata2 = _dataSource2->buildTileMetadata(mapTile);
             for (const auto& entry : metadata2) {
                 mergedTileData->setMetadata(entry.first, entry.second);
