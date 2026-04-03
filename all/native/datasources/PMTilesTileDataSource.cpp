@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <unordered_map>
 #include <zlib.h>
+#include <brotli/decode.h>
 
 // For JSON parsing (simple extraction)
 #include <boost/algorithm/string.hpp>
@@ -355,11 +356,26 @@ namespace carto {
         }
         else if (compression == 0x03) {
             // Brotli decompression
-            // TODO: Add brotli support when library is available
-            // #include <brotli/decode.h>
-            // Use BrotliDecoderDecompress() for decompression
-            Log::Error("PMTilesTileDataSource: Brotli compression not yet supported. Please use gzip or uncompressed PMTiles files.");
-            throw GenericException("Brotli compression not yet supported");
+            // Get maximum output size (use a heuristic: input size * 10)
+            size_t maxOutputSize = data.size() * 10;
+            std::vector<uint8_t> result(maxOutputSize);
+            size_t decodedSize = maxOutputSize;
+            
+            BrotliDecoderResult status = BrotliDecoderDecompress(
+                data.size(),
+                data.data(),
+                &decodedSize,
+                result.data()
+            );
+            
+            if (status != BROTLI_DECODER_RESULT_SUCCESS) {
+                Log::Error("PMTilesTileDataSource: Brotli decompression failed");
+                throw GenericException("Brotli decompression failed");
+            }
+            
+            // Resize to actual decompressed size
+            result.resize(decodedSize);
+            return result;
         }
         else if (compression == 0x04) {
             // Zstandard decompression

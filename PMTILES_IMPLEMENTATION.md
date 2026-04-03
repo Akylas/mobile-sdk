@@ -26,8 +26,9 @@ This implementation adds full read support for **PMTiles v3** archive format to 
 
 ✅ **Compression Support**
 - Gzip (for internal directories and tiles)
+- Brotli (for internal directories and tiles)
 - Uncompressed archives
-- Clear error messages for unsupported formats (Brotli, Zstandard)
+- Clear error messages for unsupported formats (Zstandard)
 
 ✅ **Core Functionality**
 - Automatic zoom level detection
@@ -64,13 +65,13 @@ A writable PMTiles cache data source was NOT implemented because:
 
 ❌ **Brotli and Zstandard Compression**
 
-Not implemented due to missing external libraries:
-- Would require adding libbrotli
-- Would require adding libzstd
+~~Not implemented due to missing external libraries:~~
+- ✅ Brotli is now implemented (available in libs-external)
+- ⚠️ Zstandard would require adding libzstd
 
-**Workaround**: Create PMTiles files with gzip or no compression:
+**Workaround for Zstandard**: Create PMTiles files with brotli, gzip or no compression:
 ```bash
-pmtiles convert input.mbtiles output.pmtiles --compression=gzip
+pmtiles convert input.mbtiles output.pmtiles --compression=brotli
 ```
 
 ## Usage Example
@@ -125,7 +126,7 @@ All code review feedback addressed:
 ## Testing Recommendations
 
 Test with PMTiles files:
-1. **Compression**: gzip and uncompressed
+1. **Compression**: brotli, gzip and uncompressed
 2. **Size**: Small (< 10MB) and large (> 100MB with leaf directories)
 3. **Tile types**: Vector (MVT), raster (PNG, JPEG, WebP)
 4. **Zoom ranges**: Single zoom and multi-zoom
