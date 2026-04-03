@@ -299,7 +299,9 @@ namespace carto {
 
         // Build bitmap, "compress" (serialize) to internal format
         Bitmap bitmap(data.data(), _tileSize, _tileSize, ColorFormat::COLOR_FORMAT_RGBA, 4 * _tileSize);
-        return std::make_shared<TileData>(bitmap.compressToInternal());
+        auto tileData = std::make_shared<TileData>(bitmap.compressToInternal());
+        applyTileMetadata(tileData, mapTile);
+        return tileData;
     }
 
     MapBounds GDALRasterTileDataSource::getDataExtent() const {

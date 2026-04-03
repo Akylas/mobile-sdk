@@ -78,6 +78,7 @@ namespace carto {
         _maxZoom(Const::MAX_SUPPORTED_ZOOM_LEVEL),
         _maxOverzoomLevel(-1),
         _projection(std::make_shared<EPSG3857>()),
+        _elevationDecoderType(),
         _onChangeListeners(),
         _mutex()
     {
@@ -88,6 +89,7 @@ namespace carto {
         _maxZoom(std::min(static_cast<int>(Const::MAX_SUPPORTED_ZOOM_LEVEL), maxZoom)),
         _maxOverzoomLevel(-1),
         _projection(std::make_shared<EPSG3857>()),
+        _elevationDecoderType(),
         _onChangeListeners(),
         _mutex()
     {
@@ -115,8 +117,41 @@ namespace carto {
     }
     
     std::map<std::string, std::shared_ptr<Variant>> TileDataSource::buildTileMetadata(const MapTile& tile) const {
-        // Default implementation returns empty metadata map
-        return std::map<std::string, std::shared_ptr<Variant>>();
+        std::map<std::string, std::shared_ptr<Variant>> metadata;
+        
+        // Add elevation decoder type if set
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            if (!_elevationDecoderType.empty()) {
+                metadata["elevation_decoder"] = std::make_shared<Variant>(_elevationDecoderType);
+            }
+        }
+        
+        return metadata;
+    }
+    
+    void TileDataSource::applyTileMetadata(const std::shared_ptr<TileData>& tileData, const MapTile& tile) const {
+        if (!tileData) {
+            return;
+        }
+        
+        std::map<std::string, std::shared_ptr<Variant>> metadata = buildTileMetadata(tile);
+        for (const auto& entry : metadata) {
+            tileData->setMetadata(entry.first, entry.second);
+        }
+    }
+    
+    void TileDataSource::setElevationDecoderType(const std::string& decoderType) {
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            _elevationDecoderType = decoderType;
+        }
+        notifyTilesChanged(false);
+    }
+    
+    std::string TileDataSource::getElevationDecoderType() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        return _elevationDecoderType;
     }
 
 }

@@ -145,11 +145,33 @@ namespace carto {
          * @return The metadata map that will be attached to the tile data.
          */
         virtual std::map<std::string, std::shared_ptr<Variant>> buildTileMetadata(const MapTile& tile) const;
+        
+        /**
+         * Applies metadata to a TileData object by calling buildTileMetadata.
+         * This should be called by subclasses after creating TileData in loadTile.
+         * @param tileData The TileData object to apply metadata to.
+         * @param tile The tile for which metadata should be built.
+         */
+        void applyTileMetadata(const std::shared_ptr<TileData>& tileData, const MapTile& tile) const;
+        
+        /**
+         * Sets the elevation decoder type for tiles loaded from this data source.
+         * This metadata is used by HillshadeRasterTileLayer to determine how to decode elevation data.
+         * @param decoderType The decoder type ("terrarium" or "mapbox"). Empty string clears the metadata.
+         */
+        void setElevationDecoderType(const std::string& decoderType);
+        
+        /**
+         * Gets the current elevation decoder type.
+         * @return The elevation decoder type, or empty string if not set.
+         */
+        std::string getElevationDecoderType() const;
 
         std::atomic<int> _minZoom;
         std::atomic<int> _maxZoom;
         std::atomic<int> _maxOverzoomLevel;
         const std::shared_ptr<Projection> _projection;
+        std::string _elevationDecoderType;
     
     private:
         std::vector<std::shared_ptr<OnChangeListener> > _onChangeListeners;

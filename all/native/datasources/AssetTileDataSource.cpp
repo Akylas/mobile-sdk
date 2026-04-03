@@ -23,7 +23,9 @@ namespace carto {
             Log::Infof("AssetTileDataSource::loadTile: Failed to load %s", path.c_str());
             return std::shared_ptr<TileData>();
         }
-        return std::make_shared<TileData>(data);
+        auto tileData = std::make_shared<TileData>(data);
+        applyTileMetadata(tileData, tile);
+        return tileData;
     }
     
     std::string AssetTileDataSource::buildAssetPath(const std::string& basePath, const MapTile& tile) const {

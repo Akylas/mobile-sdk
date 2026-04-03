@@ -135,6 +135,7 @@ namespace carto {
                 tileData->setMaxAge(maxAge * 1000);
             }
         }
+        applyTileMetadata(tileData, mapTile);
         return tileData;
     }
     

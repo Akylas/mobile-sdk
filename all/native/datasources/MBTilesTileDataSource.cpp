@@ -181,7 +181,9 @@ namespace carto {
             auto data = std::make_shared<BinaryData>(dataPtr, dataSize);
             query.finish();
     
-            return std::make_shared<TileData>(data);
+            auto tileData = std::make_shared<TileData>(data);
+            applyTileMetadata(tileData, mapTile);
+            return tileData;
         }
         catch (const std::exception& ex) {
             Log::Errorf("MBTilesTileDataSource::loadTile: Failed to query tile data from the database: %s", ex.what());
