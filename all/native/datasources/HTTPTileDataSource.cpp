@@ -394,6 +394,8 @@ namespace carto {
         }
         else if (compression == 0x02) {
             // gzip decompression
+            // Gzip uses streaming decompression with dynamic buffer growth
+            // This is more efficient than pre-allocating a large buffer
             z_stream stream;
             std::memset(&stream, 0, sizeof(stream));
             
@@ -406,7 +408,7 @@ namespace carto {
             stream.next_in = const_cast<uint8_t*>(data.data());
             
             std::vector<uint8_t> result;
-            result.reserve(data.size() * 4); // Estimate 4x compression
+            result.reserve(data.size() * 4); // Initial estimate: 4x compression ratio
             
             uint8_t buffer[32768];
             int ret;
@@ -597,15 +599,15 @@ namespace carto {
         
         // Hilbert curve encoding for spatial indexing
         // This lambda performs quadrant rotation during Hilbert curve traversal
-        auto rotateQuadrant = [](int n, int* x, int* y, int rx, int ry) {
+        auto rotateQuadrant = [](int n, int& x, int& y, int rx, int ry) {
             if (ry == 0) {
                 if (rx == 1) {
-                    *x = n - 1 - *x;
-                    *y = n - 1 - *y;
+                    x = n - 1 - x;
+                    y = n - 1 - y;
                 }
-                int t = *x;
-                *x = *y;
-                *y = t;
+                int t = x;
+                x = y;
+                y = t;
             }
         };
         
@@ -620,7 +622,7 @@ namespace carto {
             ry = (ty & s) > 0 ? 1 : 0;
             // Standard Hilbert curve quadrant encoding formula
             d += s * s * ((3 * rx) ^ ry);
-            rotateQuadrant(s, &tx, &ty, rx, ry);
+            rotateQuadrant(s, tx, ty, rx, ry);
         }
         
         return baseTileId + d;
