@@ -25,6 +25,9 @@ namespace carto {
      *
      * For example, if baseURL = "https://tile.openstreetmap.org/{zoom}/{x}/{y}.png" and the requested tile has zoom = 2,
      * x = 1 and y = 3, then the tile will be loaded from the following URL: "https://tile.openstreetmap.org/2/1/3.png".
+     *
+     * This data source also supports PMTiles archives hosted over HTTP. If the URL ends with .pmtiles or starts with
+     * pmtiles://, the data source will automatically use HTTP range requests to fetch tiles from the PMTiles archive.
      */
     class HTTPTileDataSource : public TileDataSource {
     public:
@@ -110,7 +113,54 @@ namespace carto {
     
     protected:
         virtual std::string buildTileURL(const std::string& baseURL, const MapTile& tile) const;
-    
+        
+        // PMTiles support
+        struct PMTilesHeader {
+            uint64_t rootDirectoryOffset;
+            uint64_t rootDirectoryLength;
+            uint64_t metadataOffset;
+            uint64_t metadataLength;
+            uint64_t leafDirectoriesOffset;
+            uint64_t leafDirectoriesLength;
+            uint64_t tileDataOffset;
+            uint64_t tileDataLength;
+            uint64_t numAddressedTiles;
+            uint64_t numTileEntries;
+            uint64_t numTileContents;
+            uint8_t clustered;
+            uint8_t internalCompression;
+            uint8_t tileCompression;
+            uint8_t tileType;
+            uint8_t minZoom;
+            uint8_t maxZoom;
+            double minLon;
+            double minLat;
+            double maxLon;
+            double maxLat;
+            uint8_t centerZoom;
+            double centerLon;
+            double centerLat;
+        };
+
+        struct PMTilesDirectoryEntry {
+            uint64_t tileId;
+            uint64_t offset;
+            uint32_t length;
+            uint32_t runLength;
+        };
+
+        bool isPMTilesURL(const std::string& url) const;
+        std::string normalizePMTilesURL(const std::string& url) const;
+        std::shared_ptr<TileData> loadPMTile(const std::string& baseURL, const MapTile& mapTile);
+        PMTilesHeader readPMTilesHeader(const std::string& url);
+        std::vector<uint8_t> httpRangeRequest(const std::string& url, uint64_t offset, uint64_t length);
+        std::vector<uint8_t> decompressPMTilesData(const std::vector<uint8_t>& data, uint8_t compression);
+        std::vector<PMTilesDirectoryEntry> decodePMTilesDirectory(const std::vector<uint8_t>& data);
+        uint64_t readPMTilesVarint(const std::vector<uint8_t>& data, size_t& offset);
+        uint64_t zxyToTileId(int z, int x, int y);
+        bool findPMTileEntry(const std::vector<PMTilesDirectoryEntry>& directory, uint64_t tileId, PMTilesDirectoryEntry& outEntry);
+        std::vector<PMTilesDirectoryEntry> loadPMTilesLeafDirectory(const std::string& url, const PMTilesHeader& header, uint64_t offset, uint32_t length);
+
         std::string _baseURL;
         std::vector<std::string> _subdomains;
         bool _tmsScheme;
@@ -120,6 +170,15 @@ namespace carto {
         HTTPClient _httpClient;
         mutable std::default_random_engine _randomGenerator;
         mutable std::mutex _mutex;
+        
+        // PMTiles caching
+        struct PMTilesCache {
+            std::string url;
+            PMTilesHeader header;
+            std::vector<PMTilesDirectoryEntry> rootDirectory;
+            std::map<uint64_t, std::vector<PMTilesDirectoryEntry>> leafDirectoryCache;
+        };
+        mutable std::unique_ptr<PMTilesCache> _pmtilesCache;
     };
     
 }
