@@ -12,6 +12,10 @@
 
 #include <brotli/decode.h>
 
+#ifdef HAVE_ZSTD
+#include <zstd.h>
+#endif
+
 namespace carto {
 
     /**
@@ -70,8 +74,6 @@ namespace carto {
          * @return True if decompression was successful, false otherwise.
          */
         inline bool inflate_zstd(const unsigned char* compressedData, std::size_t compressedSize, std::vector<unsigned char>& uncompressedData) {
-            #include <zstd.h>
-            
             // Get the decompressed size from the frame header
             unsigned long long const decompressedSize = ZSTD_getFrameContentSize(compressedData, compressedSize);
             
