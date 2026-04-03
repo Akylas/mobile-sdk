@@ -35,6 +35,7 @@
 %ignore carto::TileDataSource::OnChangeListener;
 %ignore carto::TileDataSource::registerOnChangeListener;
 %ignore carto::TileDataSource::unregisterOnChangeListener;
+%ignore carto::TileDataSource::buildTileMetadata;
 
 %feature("director") carto::TileDataSource;
 %feature("nodirector") carto::TileDataSource::buildTagValues;

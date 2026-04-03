@@ -143,7 +143,7 @@ namespace carto {
          * @param tile The tile for the metadata.
          * @return The metadata map that will be attached to the tile data.
          */
-        virtual std::map<std::string, std::shared_ptr<Variant>> buildTileMetadata(const MapTile& tile) const;
+        virtual std::map<std::string, std::shared_ptr<Variant> > buildTileMetadata(const MapTile& tile) const;
     
     protected:
         /**

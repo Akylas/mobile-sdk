@@ -83,7 +83,7 @@ namespace carto {
         std::vector<pmtiles::DirectoryEntry> _rootDirectory;
         mutable std::optional<std::string> _cachedMetadata;
         mutable std::optional<MapBounds> _cachedDataExtent;
-        mutable std::unordered_map<uint64_t, std::vector<pmtiles::DirectoryEntry>> _leafDirectoryCache;
+        mutable std::unordered_map<uint64_t, std::vector<pmtiles::DirectoryEntry> > _leafDirectoryCache;
         mutable std::recursive_mutex _mutex;
     };
     

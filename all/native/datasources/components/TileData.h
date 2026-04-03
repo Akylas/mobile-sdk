@@ -87,7 +87,7 @@ namespace carto {
         std::shared_ptr<std::chrono::steady_clock::time_point> _expirationTime;
         bool _replaceWithParent;
         bool _overzoom;
-        std::map<std::string, std::shared_ptr<Variant>> _metadata;
+        std::map<std::string, std::shared_ptr<Variant> > _metadata;
         mutable std::mutex _mutex;
     };
 

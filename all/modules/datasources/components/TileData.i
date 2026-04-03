@@ -20,6 +20,10 @@
 %attribute(carto::TileData, long long, MaxAge, getMaxAge, setMaxAge)
 %attribute(carto::TileData, bool, ReplaceWithParent, isReplaceWithParent, setReplaceWithParent)
 %attributestring(carto::TileData, std::shared_ptr<carto::BinaryData>, Data, getData)
+
+%ignore carto::TileData::getMetadata;
+%ignore carto::TileData::setMetadata;
+
 !standard_equals(carto::TileData);
 
 %include "datasources/components/TileData.h"
