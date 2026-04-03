@@ -87,6 +87,21 @@ namespace carto
     HillshadeRasterTileLayer::HillshadeRasterTileLayer(const std::shared_ptr<TileDataSource> &dataSource, const std::shared_ptr<ElevationDecoder> &elevationDecoder) : RasterTileLayer(dataSource),
         _elevationDecoder(elevationDecoder),
         _contrast(0.5f),
+        _heightScale(0.09f),
+        _exagerateHeightScaleEnabled(true),
+        _normalMapLightingShader(),
+        _accentColor(Color(0, 0, 0, 255)),
+        _shadowColor(Color(0, 0, 0, 255)),
+        _highlightColor(Color(255, 255, 255, 255)),
+        _illuminationDirection(MapVec(-0.42261826, 0.90630779, -0.70710678)),  // azimuth=335°, altitude=45° (MapLibre defaults)
+        _illuminationMapRotationEnabled(true),
+        _hillshadeMethod(HillshadeMethod::HillshadeMethod::STANDARD)
+    {
+        setTileBlendingSpeed(0.0f);
+    }
+    HillshadeRasterTileLayer::HillshadeRasterTileLayer(const std::shared_ptr<TileDataSource> &dataSource) : RasterTileLayer(dataSource),
+        _elevationDecoder(nullptr),
+        _contrast(0.5f),
         _heightScale(1.0f),
         _exagerateHeightScaleEnabled(true),
         _normalMapLightingShader(),
@@ -269,20 +284,23 @@ namespace carto
                     if (decoderType == "terrarium") {
                         static std::shared_ptr<ElevationDecoder> terrariumDecoder = std::make_shared<TerrariumElevationDataDecoder>();
                         decoder = terrariumDecoder;
-                    } else if (decoderType == "mapbox") {
+                    } else if (!decoder) {
                         static std::shared_ptr<ElevationDecoder> mapboxDecoder = std::make_shared<MapBoxElevationDataDecoder>();
                         decoder = mapboxDecoder;
                     }
                 }
             }
-            
+            if (!decoder) {
+                static std::shared_ptr<ElevationDecoder> mapboxDecoder = std::make_shared<MapBoxElevationDataDecoder>();
+                decoder = mapboxDecoder;
+            }
             scales = decoder->getVectorTileScales();
             alpha = static_cast<std::uint8_t>(getContrast() * 255.0f);
             float heightScale = decoder->getMinimumHeightScale();
             float scale = heightScale * static_cast<float>(bitmap->getHeight() * std::pow(2.0, tile.getZoom()) / 40075016.6855785);
             if (_exagerateHeightScaleEnabled) {
                  float exaggeration = tile.getZoom() < 2 ? 0.2f : tile.getZoom() < 5 ? 0.3f : 0.35f;
-                 scale = 16 * getHeightScale() * static_cast<float>(bitmap->getHeight() * std::pow(2.0, tile.getZoom() * (1 - exaggeration)) / 40075016.6855785);
+                 scale = heightScale * 160 * getHeightScale() * static_cast<float>(bitmap->getHeight() * std::pow(2.0, tile.getZoom() * (1 - exaggeration)) / 40075016.6855785);
 
             }
             std::transform(scales.begin(), scales.end(), scales.begin(), [&scale](float &c) { return c * scale; });
@@ -323,6 +341,22 @@ namespace carto
     double HillshadeRasterTileLayer::getElevation(const MapPos &pos) const
     {
         std::shared_ptr<TileDataSource> dataSource = getDataSource();
+
+        std::shared_ptr<ElevationDecoder> decoder = _elevationDecoder;
+        std::string decoderType = _dataSource->getEncoding();
+        // Use static cached decoder instances to avoid repeated allocations
+        if (decoderType == "terrarium") {
+            static std::shared_ptr<ElevationDecoder> terrariumDecoder = std::make_shared<TerrariumElevationDataDecoder>();
+            decoder = terrariumDecoder;
+        } else if (decoderType == "mapbox") {
+            static std::shared_ptr<ElevationDecoder> mapboxDecoder = std::make_shared<MapBoxElevationDataDecoder>();
+            decoder = mapboxDecoder;
+        }
+        if (!decoder) {
+            static std::shared_ptr<ElevationDecoder> mapboxDecoder = std::make_shared<MapBoxElevationDataDecoder>();
+            decoder = mapboxDecoder;
+        }
+
         // we need to transform pos to dataSource projection
         // TODO: how to check if pos is in Wgs84?
         std::shared_ptr<Projection> projection = dataSource->getProjection();
@@ -347,14 +381,31 @@ namespace carto
             Log::Error("ElevationDecoder::getElevation: Null tile bitmap");
             return -1000000;
         }
-        std::array<double, 4> components = _elevationDecoder->getColorComponentCoefficients();
+
+        std::array<double, 4> components = decoder->getColorComponentCoefficients();
         return readPixelAltitude(tileBitmap, TileUtils::CalculateMapTileBounds(mapTile, projection), dataSourcePos, components);
     }
     std::vector<double> HillshadeRasterTileLayer::getElevations(const std::vector<MapPos> poses) const
     {
         std::shared_ptr<TileDataSource> dataSource = getDataSource();
-        std::map<long long, std::pair<MapBounds, std::shared_ptr<Bitmap>>> indexedTiles;
         std::vector<double> results;
+
+        std::shared_ptr<ElevationDecoder> decoder = _elevationDecoder;
+        std::string decoderType = _dataSource->getEncoding();
+        // Use static cached decoder instances to avoid repeated allocations
+        if (decoderType == "terrarium") {
+            static std::shared_ptr<ElevationDecoder> terrariumDecoder = std::make_shared<TerrariumElevationDataDecoder>();
+            decoder = terrariumDecoder;
+        } else if (decoderType == "mapbox") {
+            static std::shared_ptr<ElevationDecoder> mapboxDecoder = std::make_shared<MapBoxElevationDataDecoder>();
+            decoder = mapboxDecoder;
+        }
+        if (!decoder) {
+            static std::shared_ptr<ElevationDecoder> mapboxDecoder = std::make_shared<MapBoxElevationDataDecoder>();
+            decoder = mapboxDecoder;
+        }
+
+        std::map<long long, std::pair<MapBounds, std::shared_ptr<Bitmap>>> indexedTiles;
         std::shared_ptr<Projection> projection = dataSource->getProjection();
         std::array<double, 4> components = _elevationDecoder->getColorComponentCoefficients();
         for (auto it = poses.begin(); it != poses.end(); it++) {

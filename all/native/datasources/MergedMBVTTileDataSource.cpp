@@ -97,14 +97,20 @@ namespace carto {
 
             // Try to decompress data1 with various compression formats
             std::vector<unsigned char> uncompressedData1;
-            if (zlib::inflate_gzip(data1->data(), data1->size(), uncompressedData1)) {
+            // Use fast header-based detection where possible to avoid expensive trial decompression.
+            const unsigned char* bytes1 = data1->empty() ? nullptr : data1->data();
+            std::size_t size1 = data1->size();
+            if (bytes1 && carto::mvt::compression::is_gzip(bytes1, size1)) {
+                zlib::inflate_gzip(bytes1, size1, uncompressedData1);
                 mergedData.insert(mergedData.end(), uncompressedData1.begin(), uncompressedData1.end());
-#ifdef HAVE_BROTLI
-            } else if (carto::mvt::compression::inflate_brotli(data1->data(), data1->size(), uncompressedData1)) {
+#ifdef HAVE_ZSTD
+            } else if (bytes1 && carto::mvt::compression::is_zstd(bytes1, size1)) {
+                carto::mvt::compression::inflate_zstd(bytes1, size1, uncompressedData1);
                 mergedData.insert(mergedData.end(), uncompressedData1.begin(), uncompressedData1.end());
 #endif
-#ifdef HAVE_ZSTD
-            } else if (carto::mvt::compression::inflate_zstd(data1->data(), data1->size(), uncompressedData1)) {
+#ifdef HAVE_BROTLI
+            } else if (carto::mvt::compression::is_brotli(bytes1, size1)) {
+                carto::mvt::compression::inflate_brotli(bytes1, size1, uncompressedData1);
                 mergedData.insert(mergedData.end(), uncompressedData1.begin(), uncompressedData1.end());
 #endif
             } else {
@@ -113,14 +119,20 @@ namespace carto {
             
             // Try to decompress data2 with various compression formats
             std::vector<unsigned char> uncompressedData2;
-            if (zlib::inflate_gzip(data2->data(), data2->size(), uncompressedData2)) {
+            // Use fast header-based detection where possible to avoid expensive trial decompression.
+            const unsigned char* bytes2 = data2->empty() ? nullptr : data2->data();
+            std::size_t size2 = data2->size();
+            if (bytes2 && carto::mvt::compression::is_gzip(bytes2, size2)) {
+                zlib::inflate_gzip(bytes2, size2, uncompressedData2);
                 mergedData.insert(mergedData.end(), uncompressedData2.begin(), uncompressedData2.end());
-#ifdef HAVE_BROTLI
-                } else if (carto::mvt::compression::inflate_brotli(data2->data(), data2->size(), uncompressedData2)) {
+#ifdef HAVE_ZSTD
+            } else if (bytes2 && carto::mvt::compression::is_zstd(bytes2, size2)) {
+                carto::mvt::compression::inflate_zstd(bytes2, size2, uncompressedData2);
                 mergedData.insert(mergedData.end(), uncompressedData2.begin(), uncompressedData2.end());
 #endif
-#ifdef HAVE_ZSTD
-            } else if (carto::mvt::compression::inflate_zstd(data2->data(), data2->size(), uncompressedData2)) {
+#ifdef HAVE_BROTLI
+            } else if (carto::mvt::compression::is_brotli(bytes2, size2)) {
+                carto::mvt::compression::inflate_brotli(bytes2, size2, uncompressedData1);
                 mergedData.insert(mergedData.end(), uncompressedData2.begin(), uncompressedData2.end());
 #endif
             } else {

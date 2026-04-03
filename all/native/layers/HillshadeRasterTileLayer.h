@@ -55,6 +55,7 @@ namespace carto {
          * @param dataSource The data source from which this layer loads data.
          */
         explicit HillshadeRasterTileLayer(const std::shared_ptr<TileDataSource>& dataSource, const std::shared_ptr<ElevationDecoder>& elevationDecoder);
+        explicit HillshadeRasterTileLayer(const std::shared_ptr<TileDataSource>& dataSource);
         virtual ~HillshadeRasterTileLayer();
 
         /**

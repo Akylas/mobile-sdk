@@ -751,12 +751,12 @@ namespace carto {
         std::vector<unsigned char> packageListDataTemp;
         if (zlib::inflate_gzip(packageListData.data(), packageListData.size(), packageListDataTemp)) {
             packageListData = std::move(packageListDataTemp);
-#ifdef HAVE_BROTLI
-        } else if (carto::mvt::compression::inflate_brotli(packageListData.data(), packageListData.size(), packageListDataTemp)) {
-            packageListData = std::move(packageListDataTemp);
-#endif
 #ifdef HAVE_ZSTD
         } else if (carto::mvt::compression::inflate_zstd(packageListData.data(), packageListData.size(), packageListDataTemp)) {
+            packageListData = std::move(packageListDataTemp);
+#endif
+#ifdef HAVE_BROTLI
+        } else if (carto::mvt::compression::inflate_brotli(packageListData.data(), packageListData.size(), packageListDataTemp)) {
             packageListData = std::move(packageListDataTemp);
 #endif
         }
