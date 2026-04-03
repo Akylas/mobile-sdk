@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.5)
 project(carto_mobile_sdk)
 
+enable_language( C CXX ASM )
+
 # General options
 option(SINGLE_LIBRARY "Compile as single library" OFF)
 
