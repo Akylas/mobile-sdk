@@ -356,7 +356,7 @@ namespace carto {
         }
         else if (compression == 0x03) {
             // Brotli decompression
-            // Get maximum output size (use a heuristic: input size * 10)
+            // Start with a reasonable buffer size estimate
             size_t maxOutputSize = data.size() * 10;
             std::vector<uint8_t> result(maxOutputSize);
             size_t decodedSize = maxOutputSize;
@@ -367,6 +367,20 @@ namespace carto {
                 &decodedSize,
                 result.data()
             );
+            
+            // If buffer was too small, retry with larger buffer
+            if (status == BROTLI_DECODER_RESULT_NEEDS_MORE_OUTPUT) {
+                maxOutputSize = data.size() * 50; // Try larger buffer
+                result.resize(maxOutputSize);
+                decodedSize = maxOutputSize;
+                
+                status = BrotliDecoderDecompress(
+                    data.size(),
+                    data.data(),
+                    &decodedSize,
+                    result.data()
+                );
+            }
             
             if (status != BROTLI_DECODER_RESULT_SUCCESS) {
                 Log::Error("PMTilesTileDataSource: Brotli decompression failed");
