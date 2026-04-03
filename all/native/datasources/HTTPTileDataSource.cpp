@@ -6,6 +6,7 @@
 #include "utils/NetworkUtils.h"
 #include "utils/GeneralUtils.h"
 
+#include <cinttypes>
 #include <cstring>
 #include <algorithm>
 #include <zlib.h>
@@ -222,7 +223,7 @@ namespace carto {
                 std::vector<uint8_t> decompressed = decompressPMTilesData(rootDirData, _pmtilesCache->header.internalCompression);
                 _pmtilesCache->rootDirectory = decodePMTilesDirectory(decompressed);
                 
-                Log::Infof("HTTPTileDataSource::loadPMTile: PMTiles header loaded, tiles: %llu, zoom: %d-%d", 
+                Log::Infof("HTTPTileDataSource::loadPMTile: PMTiles header loaded, tiles: %" PRIu64 ", zoom: %d-%d", 
                            _pmtilesCache->header.numTileEntries, _pmtilesCache->header.minZoom, _pmtilesCache->header.maxZoom);
             }
             
@@ -457,7 +458,7 @@ namespace carto {
             }
             
             if (status != BROTLI_DECODER_RESULT_SUCCESS) {
-                Log::Error("HTTPTileDataSource: Brotli decompression failed");
+                Log::Errorf("HTTPTileDataSource: Brotli decompression failed with status code %d", static_cast<int>(status));
                 throw GenericException("Brotli decompression failed");
             }
             
@@ -470,7 +471,7 @@ namespace carto {
             unsigned long long const decompressedSize = ZSTD_getFrameContentSize(data.data(), data.size());
             
             if (decompressedSize == ZSTD_CONTENTSIZE_ERROR) {
-                Log::Error("HTTPTileDataSource: Invalid zstd compressed data");
+                Log::Errorf("HTTPTileDataSource: Invalid zstd compressed data");
                 throw GenericException("Invalid zstd compressed data");
             }
             else if (decompressedSize == ZSTD_CONTENTSIZE_UNKNOWN) {
