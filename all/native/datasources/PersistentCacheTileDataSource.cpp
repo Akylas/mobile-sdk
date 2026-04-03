@@ -80,6 +80,10 @@ namespace carto {
             tileData = get(mapTile.getTileId());
             if (tileData) {
                 if (tileData->getMaxAge() != 0) {
+                    std::map<std::string, std::shared_ptr<Variant>> metadata = _dataSource->buildTileMetadata(mapTile);
+                    for (const auto& entry : metadata) {
+                        tileData->setMetadata(entry.first, entry.second);
+                    }
                     return tileData;
                 }
             }
@@ -89,6 +93,10 @@ namespace carto {
         if (!_cacheOnlyMode) {
             lock.unlock();
             tileData = _dataSource->loadTile(mapTile);
+            std::map<std::string, std::shared_ptr<Variant>> metadata = _dataSource->buildTileMetadata(mapTile);
+            for (const auto& entry : metadata) {
+                tileData->setMetadata(entry.first, entry.second);
+            }
             lock.lock();
         }
     
