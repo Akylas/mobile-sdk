@@ -12,6 +12,7 @@
 #include <unordered_map>
 #include <zlib.h>
 #include <brotli/decode.h>
+#include <zstd.h>
 
 // For JSON parsing (simple extraction)
 #include <boost/algorithm/string.hpp>
@@ -393,11 +394,48 @@ namespace carto {
         }
         else if (compression == 0x04) {
             // Zstandard decompression
-            // TODO: Add zstd support when library is available
-            // #include <zstd.h>
-            // Use ZSTD_decompress() for decompression
-            Log::Error("PMTilesTileDataSource: Zstandard compression not yet supported. Please use gzip or uncompressed PMTiles files.");
-            throw GenericException("Zstandard compression not yet supported");
+            // Get the decompressed size from the frame header
+            unsigned long long const decompressedSize = ZSTD_getFrameContentSize(data.data(), data.size());
+            
+            if (decompressedSize == ZSTD_CONTENTSIZE_ERROR) {
+                Log::Error("PMTilesTileDataSource: Invalid zstd compressed data");
+                throw GenericException("Invalid zstd compressed data");
+            }
+            else if (decompressedSize == ZSTD_CONTENTSIZE_UNKNOWN) {
+                // Size unknown, use heuristic
+                size_t maxOutputSize = data.size() * 10;
+                std::vector<uint8_t> result(maxOutputSize);
+                
+                size_t actualSize = ZSTD_decompress(result.data(), maxOutputSize, data.data(), data.size());
+                
+                if (ZSTD_isError(actualSize)) {
+                    // Try with larger buffer
+                    maxOutputSize = data.size() * 50;
+                    result.resize(maxOutputSize);
+                    actualSize = ZSTD_decompress(result.data(), maxOutputSize, data.data(), data.size());
+                    
+                    if (ZSTD_isError(actualSize)) {
+                        Log::Errorf("PMTilesTileDataSource: Zstandard decompression failed: %s", ZSTD_getErrorName(actualSize));
+                        throw GenericException("Zstandard decompression failed");
+                    }
+                }
+                
+                result.resize(actualSize);
+                return result;
+            }
+            else {
+                // Size is known
+                std::vector<uint8_t> result(decompressedSize);
+                
+                size_t actualSize = ZSTD_decompress(result.data(), decompressedSize, data.data(), data.size());
+                
+                if (ZSTD_isError(actualSize)) {
+                    Log::Errorf("PMTilesTileDataSource: Zstandard decompression failed: %s", ZSTD_getErrorName(actualSize));
+                    throw GenericException("Zstandard decompression failed");
+                }
+                
+                return result;
+            }
         }
         else {
             Log::Errorf("PMTilesTileDataSource: Unknown compression type: %d", compression);

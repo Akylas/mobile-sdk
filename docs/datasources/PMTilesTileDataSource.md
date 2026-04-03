@@ -12,8 +12,8 @@ The `PMTilesTileDataSource` class provides support for reading PMTiles v3 archiv
 - ✅ **Compression Support**: 
   - Gzip compression (both internal and tile compression)
   - Brotli compression (both internal and tile compression)
+  - Zstandard compression (both internal and tile compression)
   - Uncompressed archives
-  - ⚠️ Zstandard support planned for future releases
 - ✅ **Tile Types**: Supports all PMTiles tile types (MVT, PNG, JPEG, WebP, AVIF, etc.)
 - ✅ **Zoom Level Detection**: Automatic detection of min/max zoom levels from archive
 - ✅ **Data Extent**: Automatic bounds calculation from archive metadata
@@ -63,18 +63,13 @@ MapBounds bounds = dataSource->getDataExtent();
 
 ### Supported Compression
 
-Currently supported compression formats:
+All compression formats defined in the PMTiles v3 specification are supported:
 - **None** (0x01): Uncompressed archives
 - **Gzip** (0x02): Standard gzip compression
 - **Brotli** (0x03): Higher compression ratio than gzip
-
-Planned for future support:
 - **Zstandard** (0x04): Fast compression with good ratios
 
-If your PMTiles file uses Zstandard compression, you'll need to either:
-1. Recreate it with gzip or brotli compression
-2. Recreate it without compression
-3. Wait for future SDK updates with zstd support
+All compression types are fully supported for both internal directories and tile data.
 
 ### Creating Compatible PMTiles Files
 
@@ -86,6 +81,9 @@ pmtiles convert input.mbtiles output.pmtiles --compression=gzip
 
 # Or with brotli for better compression
 pmtiles convert input.mbtiles output.pmtiles --compression=brotli
+
+# Or with zstandard for fast compression with good ratios
+pmtiles convert input.mbtiles output.pmtiles --compression=zstd
 
 # Or without compression for maximum compatibility
 pmtiles convert input.mbtiles output.pmtiles --compression=none
@@ -131,10 +129,11 @@ PMTiles is a read-only format by design. For caching, use:
 
 ### Compression Support
 
-Currently limited to gzip and brotli compression. Zstandard support requires adding:
-- Zstandard library (libzstd)
-
-This will be added in future releases.
+All PMTiles v3 compression formats are fully supported:
+- Gzip compression
+- Brotli compression  
+- Zstandard compression
+- Uncompressed archives
 
 ## Error Handling
 
@@ -164,7 +163,7 @@ All errors are logged to the SDK logger with detailed error messages.
 ### Recommendations
 
 For best performance:
-1. Use PMTiles with brotli or gzip compression (good balance)
+1. Use PMTiles with zstd, brotli, or gzip compression (good balance)
 2. Wrap with `MemoryCacheTileDataSource` for frequently accessed tiles
 3. Consider zoom-dependent tile loading strategies
 4. Pre-warm cache for expected viewing areas
