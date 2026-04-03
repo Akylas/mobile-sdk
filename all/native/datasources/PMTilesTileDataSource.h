@@ -10,6 +10,7 @@
 #ifdef _CARTO_OFFLINE_SUPPORT
 
 #include "datasources/TileDataSource.h"
+#include "datasources/components/PMTilesUtils.h"
 
 #include <map>
 #include <memory>
@@ -70,58 +71,19 @@ namespace carto {
         virtual std::shared_ptr<TileData> loadTile(const MapTile& mapTile);
 
     private:
-        struct PMTilesHeader {
-            uint64_t rootDirectoryOffset;
-            uint64_t rootDirectoryLength;
-            uint64_t metadataOffset;
-            uint64_t metadataLength;
-            uint64_t leafDirectoriesOffset;
-            uint64_t leafDirectoriesLength;
-            uint64_t tileDataOffset;
-            uint64_t tileDataLength;
-            uint64_t numAddressedTiles;
-            uint64_t numTileEntries;
-            uint64_t numTileContents;
-            uint8_t clustered;
-            uint8_t internalCompression;
-            uint8_t tileCompression;
-            uint8_t tileType;
-            uint8_t minZoom;
-            uint8_t maxZoom;
-            double minLon;
-            double minLat;
-            double maxLon;
-            double maxLat;
-            uint8_t centerZoom;
-            double centerLon;
-            double centerLat;
-        };
-
-        struct DirectoryEntry {
-            uint64_t tileId;
-            uint64_t offset;
-            uint32_t length;
-            uint32_t runLength;
-        };
-
-        static PMTilesHeader ReadHeader(std::ifstream& file);
-        static std::vector<uint8_t> DecompressData(const std::vector<uint8_t>& data, uint8_t compression);
-        static std::vector<DirectoryEntry> DecodeDirectory(const std::vector<uint8_t>& data);
-        static uint64_t ReadVarint(const std::vector<uint8_t>& data, size_t& offset);
-        static uint64_t ZxyToTileId(int z, int x, int y);
-        static void TileIdToZxy(uint64_t tileId, int& z, int& x, int& y);
+        static pmtiles::Header ReadHeader(std::ifstream& file);
         
         std::vector<uint8_t> ReadTileData(uint64_t offset, uint32_t length);
-        bool FindTileEntry(uint64_t tileId, DirectoryEntry& outEntry);
-        std::vector<DirectoryEntry> LoadLeafDirectory(uint64_t offset, uint32_t length);
+        bool FindTileEntry(uint64_t tileId, pmtiles::DirectoryEntry& outEntry);
+        std::vector<pmtiles::DirectoryEntry> LoadLeafDirectory(uint64_t offset, uint32_t length);
 
         std::string _path;
         std::unique_ptr<std::ifstream> _file;
-        PMTilesHeader _header;
-        std::vector<DirectoryEntry> _rootDirectory;
+        pmtiles::Header _header;
+        std::vector<pmtiles::DirectoryEntry> _rootDirectory;
         mutable std::optional<std::string> _cachedMetadata;
         mutable std::optional<MapBounds> _cachedDataExtent;
-        mutable std::unordered_map<uint64_t, std::vector<DirectoryEntry>> _leafDirectoryCache;
+        mutable std::unordered_map<uint64_t, std::vector<pmtiles::DirectoryEntry>> _leafDirectoryCache;
         mutable std::recursive_mutex _mutex;
     };
     
