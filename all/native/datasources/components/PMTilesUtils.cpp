@@ -6,7 +6,9 @@
 #include <cstring>
 #include <algorithm>
 #include <zlib.h>
+//#ifdef HAVE_BROTLI
 #include <brotli/decode.h>
+//#endif
 #ifdef HAVE_ZSTD
 #include <zstd.h>
 #endif

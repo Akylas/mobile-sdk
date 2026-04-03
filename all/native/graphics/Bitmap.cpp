@@ -537,26 +537,25 @@ namespace carto {
         } else {
             // Try to decompress with various compression formats
             std::vector<unsigned char> uncompressedData;
-            
-            // Try gzip first (most common)
-            if (zlib::inflate_gzip(compressedData, dataSize, uncompressedData)) {
-                Log::Info("Bitmap::loadFromCompressedBytes: Image is gzipped, decompressing");
-                return loadFromCompressedBytes(uncompressedData.data(), uncompressedData.size());
+
+
+            bool decoded = false;
+            if (carto::mvt::compression::is_gzip(compressedData, dataSize)) {
+                decoded = zlib::inflate_gzip(compressedData, dataSize, uncompressedData);
             }
-            
-            // Try brotli
-            if (carto::mvt::compression::inflate_brotli(compressedData, dataSize, uncompressedData)) {
-                Log::Info("Bitmap::loadFromCompressedBytes: Image is brotli compressed, decompressing");
-                return loadFromCompressedBytes(uncompressedData.data(), uncompressedData.size());
-            }
-            
 #ifdef HAVE_ZSTD
-            // Try zstd
-            if (carto::mvt::compression::inflate_zstd(compressedData, dataSize, uncompressedData)) {
-                Log::Info("Bitmap::loadFromCompressedBytes: Image is zstd compressed, decompressing");
-                return loadFromCompressedBytes(uncompressedData.data(), uncompressedData.size());
+            else if (carto::mvt::compression::is_zstd(compressedData, dataSize)) {
+                decoded = carto::mvt::compression::inflate_zstd(compressedData, dataSize, uncompressedData);
+        }
+#endif
+#ifdef HAVE_BROTLI
+            else if (carto::mvt::compression::is_brotli(compressedData, dataSize)) {
+                decoded = compression::inflate_brotli(compressedData, dataSize, uncompressedData);
             }
 #endif
+            if (decoded) {
+                return loadFromCompressedBytes(uncompressedData.data(), uncompressedData.size());
+            }
             
             Log::Error("Bitmap::loadFromCompressedBytes: Unsupported image format");
             return false;
