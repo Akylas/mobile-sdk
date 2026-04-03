@@ -115,9 +115,8 @@ namespace pmtiles {
             return data;
         }
         else if (compression == 0x02) {
-            // gzip decompression
-            // Gzip uses streaming decompression with dynamic buffer growth
-            // This is more efficient than pre-allocating a large buffer
+            // gzip decompression using streaming API
+            // zlib's inflate() API works best with streaming decompression
             z_stream stream;
             std::memset(&stream, 0, sizeof(stream));
             

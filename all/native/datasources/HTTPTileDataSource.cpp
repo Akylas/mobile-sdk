@@ -343,8 +343,8 @@ namespace carto {
         
         std::map<std::string, std::string> responseHeaders;
         
-        int statusCode = _httpClient.streamResponse("GET", url, requestHeaders, responseHeaders, handlerFn, offset);
-        if (statusCode != 0) {
+        int errorCode = _httpClient.streamResponse("GET", url, requestHeaders, responseHeaders, handlerFn, offset);
+        if (errorCode != 0) {
             throw GenericException("HTTP range request failed");
         }
         
