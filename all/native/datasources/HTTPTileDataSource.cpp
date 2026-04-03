@@ -119,38 +119,42 @@ namespace carto {
             maxAgeHeaderCheck = _maxAgeHeaderCheck;
         }
 
+        std::shared_ptr<TileData> tileData;
         // Check if this is a PMTiles URL
         if (isPMTilesURL(baseURL)) {
-            return loadPMTile(baseURL, mapTile);
-        }
+            auto tileData = loadPMTile(baseURL, mapTile);
+            applyTileMetadata(tileData, mapTile);
+            return tileData;
+        } else {
 
-        std::string url = buildTileURL(baseURL, mapTile);
-        if (url.empty()) {
-            return std::shared_ptr<TileData>();
-        }
-
-        Log::Infof("HTTPTileDataSource::loadTile: Loading %s", url.c_str());
-        std::map<std::string, std::string> responseHeaders;
-        std::shared_ptr<BinaryData> responseData;
-        try {
-            if (_httpClient.get(url, headers, responseHeaders, responseData) != 0) {
-                Log::Errorf("HTTPTileDataSource::loadTile: Failed to load %s", url.c_str());
+            std::string url = buildTileURL(baseURL, mapTile);
+            if (url.empty()) {
                 return std::shared_ptr<TileData>();
             }
-        }
-        catch (const std::exception& ex) {
-            Log::Errorf("HTTPTileDataSource::loadTile: Exception while loading tile %d/%d/%d: %s", mapTile.getZoom(), mapTile.getX(), mapTile.getY(), ex.what());
-            return std::shared_ptr<TileData>();
-        }
-        auto tileData = std::make_shared<TileData>(responseData);
-        if (maxAgeHeaderCheck) {
-            int maxAge = NetworkUtils::GetMaxAgeHTTPHeader(responseHeaders);
-            if (maxAge >= 0) {
-                tileData->setMaxAge(maxAge * 1000);
+
+            Log::Infof("HTTPTileDataSource::loadTile: Loading %s", url.c_str());
+            std::map<std::string, std::string> responseHeaders;
+            std::shared_ptr<BinaryData> responseData;
+            try {
+                if (_httpClient.get(url, headers, responseHeaders, responseData) != 0) {
+                    Log::Errorf("HTTPTileDataSource::loadTile: Failed to load %s", url.c_str());
+                    return std::shared_ptr<TileData>();
+                }
             }
+            catch (const std::exception& ex) {
+                Log::Errorf("HTTPTileDataSource::loadTile: Exception while loading tile %d/%d/%d: %s", mapTile.getZoom(), mapTile.getX(), mapTile.getY(), ex.what());
+                return std::shared_ptr<TileData>();
+            }
+            auto tileData = std::make_shared<TileData>(responseData);
+            if (maxAgeHeaderCheck) {
+                int maxAge = NetworkUtils::GetMaxAgeHTTPHeader(responseHeaders);
+                if (maxAge >= 0) {
+                    tileData->setMaxAge(maxAge * 1000);
+                }
+            }
+            applyTileMetadata(tileData, mapTile);
+            return tileData;
         }
-        applyTileMetadata(tileData, mapTile);
-        return tileData;
     }
     
     std::string HTTPTileDataSource::buildTileURL(const std::string& baseURL, const MapTile& tile) const {
@@ -273,7 +277,7 @@ namespace carto {
                                 lock.unlock();
                                 std::vector<pmtiles::DirectoryEntry> leafDir = loadPMTilesLeafDirectory(url, header, leafOffset, leafLength);
                                 lock.lock();
-                                
+
                                 // Insert into cache (might already be there if another thread loaded it)
                                 leafIt = _pmtilesCache->leafDirectoryCache.insert({leafKey, std::move(leafDir)}).first;
                             }

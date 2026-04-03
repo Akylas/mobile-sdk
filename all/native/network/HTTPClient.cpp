@@ -96,7 +96,7 @@ namespace carto {
         if (request.headers.count("Accept") == 0) {
             request.headers["Accept"] = "*/*";
         }
-        if (offset > 0) {
+        if (offset > 0 && request.headers.count("Range") == 0) {
             request.headers["Range"] = "bytes=" + boost::lexical_cast<std::string>(offset) + "-";
         }
 
