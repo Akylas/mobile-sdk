@@ -27,7 +27,7 @@ elseif(NOT SHARED_LIBRARY)
 endif()
 
 # C++ compiler flags
-add_definitions("${SDK_CPP_DEFINES}" "-DBOOST_ALL_NO_LIB")
+add_definitions("${SDK_CPP_DEFINES}" "-DBOOST_ALL_NO_LIB" "-DHAVE_ZSTD")
 
 if(CMAKE_BUILD_TYPE MATCHES "Release|RELEASE")
   add_definitions("-DNDEBUG")
@@ -116,7 +116,7 @@ endif(WIN32)
 
 # Subprojects
 set(SDK_CARTO_SUBPROJECTS vt mapnikvt mbvtbuilder cartocss nml)
-set(SDK_EXTERNAL_SUBPROJECTS botan pugixml bidi freetype harfbuzz brotli miniz libjpeg libpng libwebp tess2 pvrt rg_etc1 zstd)
+set(SDK_EXTERNAL_SUBPROJECTS botan pugixml bidi freetype harfbuzz brotli zstd miniz libjpeg libpng libwebp tess2 pvrt rg_etc1)
 
 if(WIN32)
   list(APPEND SDK_EXTERNAL_SUBPROJECTS "zlib")
@@ -158,13 +158,13 @@ if(SINGLE_LIBRARY)
     set(SUBPROJECT_FLAGS "${${SDK_SUBPROJECT}_FLAGS}")
     if(CMAKE_BUILD_TYPE MATCHES "Release|RELEASE")
       if(ANDROID OR APPLE)
-        if(SDK_SUBPROJECT MATCHES "^(vt|mapnikvt|cartocss|freetype|tess2|zlib|brotli)$")
+        if(SDK_SUBPROJECT MATCHES "^(vt|mapnikvt|cartocss|freetype|tess2|zlib|brotli|zstd)$")
           set(SUBPROJECT_FLAGS ${SUBPROJECT_FLAGS} "-O2")
         else()
           set(SUBPROJECT_FLAGS ${SUBPROJECT_FLAGS} "-Oz")
         endif()
       elseif(WIN32)
-        if(SDK_SUBPROJECT MATCHES "^(vt|mapnikvt|cartocss|freetype|tess2|zlib|brotli)$")
+        if(SDK_SUBPROJECT MATCHES "^(vt|mapnikvt|cartocss|freetype|tess2|zlib|brotli|zstd)$")
           set(SUBPROJECT_FLAGS ${SUBPROJECT_FLAGS} "/Ox")
         else()
           set(SUBPROJECT_FLAGS ${SUBPROJECT_FLAGS} "/Os")

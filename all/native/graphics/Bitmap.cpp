@@ -2,6 +2,7 @@
 #include "core/BinaryData.h"
 #include "components/Exceptions.h"
 #include "utils/Log.h"
+#include "utils/CompressionUtils.h"
 
 #include <algorithm>
 #include <cmath>
@@ -532,14 +533,31 @@ namespace carto {
         } else if (IsNUTI(compressedData, dataSize)) {
             return loadNUTI(compressedData, dataSize);
         } else {
+            // Try to decompress with various compression formats
             std::vector<unsigned char> uncompressedData;
+            
+            // Try gzip first (most common)
             if (zlib::inflate_gzip(compressedData, dataSize, uncompressedData)) {
                 Log::Info("Bitmap::loadFromCompressedBytes: Image is gzipped, decompressing");
                 return loadFromCompressedBytes(uncompressedData.data(), uncompressedData.size());
-            } else {
-                Log::Error("Bitmap::loadFromCompressedBytes: Unsupported image format");
-                return false;
             }
+            
+            // Try brotli
+            if (compression::inflate_brotli(compressedData, dataSize, uncompressedData)) {
+                Log::Info("Bitmap::loadFromCompressedBytes: Image is brotli compressed, decompressing");
+                return loadFromCompressedBytes(uncompressedData.data(), uncompressedData.size());
+            }
+            
+#ifdef HAVE_ZSTD
+            // Try zstd
+            if (compression::inflate_zstd(compressedData, dataSize, uncompressedData)) {
+                Log::Info("Bitmap::loadFromCompressedBytes: Image is zstd compressed, decompressing");
+                return loadFromCompressedBytes(uncompressedData.data(), uncompressedData.size());
+            }
+#endif
+            
+            Log::Error("Bitmap::loadFromCompressedBytes: Unsupported image format");
+            return false;
         }
     }
     

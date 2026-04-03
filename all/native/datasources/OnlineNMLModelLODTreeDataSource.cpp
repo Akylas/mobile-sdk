@@ -7,6 +7,7 @@
 #include "renderers/components/CullState.h"
 #include "utils/Log.h"
 #include "utils/NetworkUtils.h"
+#include "utils/CompressionUtils.h"
 
 #include <boost/lexical_cast.hpp>
 
@@ -48,13 +49,21 @@ namespace carto {
             return std::vector<MapTile>();
         }
     
-        DataInputStream gzipStream(*response->getDataPtr());
-        int gzipDataSize = gzipStream.readInt();
-        std::vector<unsigned char> gzipData = gzipStream.readBytes(gzipDataSize);
+        DataInputStream compressedStream(*response->getDataPtr());
+        int compressedDataSize = compressedStream.readInt();
+        std::vector<unsigned char> compressedData = compressedStream.readBytes(compressedDataSize);
         std::vector<unsigned char> data;
-        if (!zlib::inflate_gzip(gzipData.data(), gzipData.size(), data)) {
-            Log::Error("OnlineNMLModelLODTreeDataSource: Failed to decompress tile list data.");
-            return std::vector<MapTile>();
+        if (!zlib::inflate_gzip(compressedData.data(), compressedData.size(), data)) {
+            if (!compression::inflate_brotli(compressedData.data(), compressedData.size(), data)) {
+#ifdef HAVE_ZSTD
+                if (!compression::inflate_zstd(compressedData.data(), compressedData.size(), data)) {
+#endif
+                    Log::Error("OnlineNMLModelLODTreeDataSource: Failed to decompress tile list data.");
+                    return std::vector<MapTile>();
+#ifdef HAVE_ZSTD
+                }
+#endif
+            }
         }
     
         DataInputStream dataStream(data);
@@ -94,13 +103,21 @@ namespace carto {
             return std::shared_ptr<NMLModelLODTree>();
         }
     
-        DataInputStream gzipStream(*response->getDataPtr());
-        int gzipDataSize = gzipStream.readInt();
-        std::vector<unsigned char> gzipData = gzipStream.readBytes(gzipDataSize);
+        DataInputStream compressedStream(*response->getDataPtr());
+        int compressedDataSize = compressedStream.readInt();
+        std::vector<unsigned char> compressedData = compressedStream.readBytes(compressedDataSize);
         std::vector<unsigned char> data;
-        if (!zlib::inflate_gzip(gzipData.data(), gzipData.size(), data)) {
-            Log::Error("OnlineNMLModelLODTreeDataSource: Failed to decompress LOD tree.");
-            return std::shared_ptr<NMLModelLODTree>();
+        if (!zlib::inflate_gzip(compressedData.data(), compressedData.size(), data)) {
+            if (!compression::inflate_brotli(compressedData.data(), compressedData.size(), data)) {
+#ifdef HAVE_ZSTD
+                if (!compression::inflate_zstd(compressedData.data(), compressedData.size(), data)) {
+#endif
+                    Log::Error("OnlineNMLModelLODTreeDataSource: Failed to decompress LOD tree.");
+                    return std::shared_ptr<NMLModelLODTree>();
+#ifdef HAVE_ZSTD
+                }
+#endif
+            }
         }
     
         DataInputStream dataStream(data);
@@ -181,14 +198,22 @@ namespace carto {
             return std::shared_ptr<nml::Mesh>();
         }
     
-        DataInputStream gzipStream(*response->getDataPtr());
-        gzipStream.readLongLong();
-        int gzipDataSize = gzipStream.readInt();
-        std::vector<unsigned char> gzipData = gzipStream.readBytes(gzipDataSize);
+        DataInputStream compressedStream(*response->getDataPtr());
+        compressedStream.readLongLong();
+        int compressedDataSize = compressedStream.readInt();
+        std::vector<unsigned char> compressedData = compressedStream.readBytes(compressedDataSize);
         std::vector<unsigned char> data;
-        if (!zlib::inflate_gzip(gzipData.data(), gzipData.size(), data)) {
-            Log::Error("OnlineNMLModelLODTreeDataSource: Failed to decompress mesh data.");
-            return std::shared_ptr<nml::Mesh>();
+        if (!zlib::inflate_gzip(compressedData.data(), compressedData.size(), data)) {
+            if (!compression::inflate_brotli(compressedData.data(), compressedData.size(), data)) {
+#ifdef HAVE_ZSTD
+                if (!compression::inflate_zstd(compressedData.data(), compressedData.size(), data)) {
+#endif
+                    Log::Error("OnlineNMLModelLODTreeDataSource: Failed to decompress mesh data.");
+                    return std::shared_ptr<nml::Mesh>();
+#ifdef HAVE_ZSTD
+                }
+#endif
+            }
         }
     
         std::shared_ptr<nml::Mesh> mesh = std::make_shared<nml::Mesh>(protobuf::message(data.size() > 0 ? &data[0] : nullptr, data.size()));
@@ -212,14 +237,22 @@ namespace carto {
             return std::shared_ptr<nml::Texture>();
         }
     
-        DataInputStream gzipStream(*response->getDataPtr());
-        gzipStream.readLongLong();
-        int gzipDataSize = gzipStream.readInt();
-        std::vector<unsigned char> gzipData = gzipStream.readBytes(gzipDataSize);
+        DataInputStream compressedStream(*response->getDataPtr());
+        compressedStream.readLongLong();
+        int compressedDataSize = compressedStream.readInt();
+        std::vector<unsigned char> compressedData = compressedStream.readBytes(compressedDataSize);
         std::vector<unsigned char> data;
-        if (!zlib::inflate_gzip(gzipData.data(), gzipData.size(), data)) {
-            Log::Error("OnlineNMLModelLODTreeDataSource: Failed to decompress texture data.");
-            return std::shared_ptr<nml::Texture>();
+        if (!zlib::inflate_gzip(compressedData.data(), compressedData.size(), data)) {
+            if (!compression::inflate_brotli(compressedData.data(), compressedData.size(), data)) {
+#ifdef HAVE_ZSTD
+                if (!compression::inflate_zstd(compressedData.data(), compressedData.size(), data)) {
+#endif
+                    Log::Error("OnlineNMLModelLODTreeDataSource: Failed to decompress texture data.");
+                    return std::shared_ptr<nml::Texture>();
+#ifdef HAVE_ZSTD
+                }
+#endif
+            }
         }
     
         std::shared_ptr<nml::Texture> texture = std::make_shared<nml::Texture>(protobuf::message(data.size() > 0 ? &data[0] : nullptr, data.size()));

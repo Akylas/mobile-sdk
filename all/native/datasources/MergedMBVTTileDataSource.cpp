@@ -3,6 +3,7 @@
 #include "core/MapTile.h"
 #include "components/Exceptions.h"
 #include "utils/Log.h"
+#include "utils/CompressionUtils.h"
 
 #ifdef _CARTO_OFFLINE_SUPPORT
 #include "datasources/MBTilesTileDataSource.h"
@@ -93,15 +94,30 @@ namespace carto {
             std::vector<unsigned char> mergedData;
             mergedData.reserve(data1->size() + data2->size());
 
+            // Try to decompress data1 with various compression formats
             std::vector<unsigned char> uncompressedData1;
             if (zlib::inflate_gzip(data1->data(), data1->size(), uncompressedData1)) {
                 mergedData.insert(mergedData.end(), uncompressedData1.begin(), uncompressedData1.end());
+            } else if (compression::inflate_brotli(data1->data(), data1->size(), uncompressedData1)) {
+                mergedData.insert(mergedData.end(), uncompressedData1.begin(), uncompressedData1.end());
+#ifdef HAVE_ZSTD
+            } else if (compression::inflate_zstd(data1->data(), data1->size(), uncompressedData1)) {
+                mergedData.insert(mergedData.end(), uncompressedData1.begin(), uncompressedData1.end());
+#endif
             } else {
                 mergedData.insert(mergedData.end(), data1->begin(), data1->end());
             }
+            
+            // Try to decompress data2 with various compression formats
             std::vector<unsigned char> uncompressedData2;
             if (zlib::inflate_gzip(data2->data(), data2->size(), uncompressedData2)) {
                 mergedData.insert(mergedData.end(), uncompressedData2.begin(), uncompressedData2.end());
+            } else if (compression::inflate_brotli(data2->data(), data2->size(), uncompressedData2)) {
+                mergedData.insert(mergedData.end(), uncompressedData2.begin(), uncompressedData2.end());
+#ifdef HAVE_ZSTD
+            } else if (compression::inflate_zstd(data2->data(), data2->size(), uncompressedData2)) {
+                mergedData.insert(mergedData.end(), uncompressedData2.begin(), uncompressedData2.end());
+#endif
             } else {
                 mergedData.insert(mergedData.end(), data2->begin(), data2->end());
             }

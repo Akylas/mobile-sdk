@@ -10,6 +10,7 @@
 #include "utils/URLFileLoader.h"
 #include "utils/GeneralUtils.h"
 #include "utils/Log.h"
+#include "utils/CompressionUtils.h"
 
 #include <cstdint>
 #include <memory>
@@ -744,9 +745,16 @@ namespace carto {
         }
 
         // Test if the data is gzipped, in that case inflate
+        // Try to decompress the package list data with various compression formats
         std::vector<unsigned char> packageListDataTemp;
         if (zlib::inflate_gzip(packageListData.data(), packageListData.size(), packageListDataTemp)) {
             packageListData = std::move(packageListDataTemp);
+        } else if (compression::inflate_brotli(packageListData.data(), packageListData.size(), packageListDataTemp)) {
+            packageListData = std::move(packageListDataTemp);
+#ifdef HAVE_ZSTD
+        } else if (compression::inflate_zstd(packageListData.data(), packageListData.size(), packageListDataTemp)) {
+            packageListData = std::move(packageListDataTemp);
+#endif
         }
 
         // Create JSON string
