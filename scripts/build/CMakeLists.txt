@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.5)
 project(carto_mobile_sdk)
 
+enable_language( C CXX ASM )
+
 # General options
 option(SINGLE_LIBRARY "Compile as single library" OFF)
 
@@ -114,7 +116,7 @@ endif(WIN32)
 
 # Subprojects
 set(SDK_CARTO_SUBPROJECTS vt mapnikvt mbvtbuilder cartocss nml)
-set(SDK_EXTERNAL_SUBPROJECTS botan pugixml bidi freetype harfbuzz brotli miniz libjpeg libpng libwebp tess2 pvrt rg_etc1)
+set(SDK_EXTERNAL_SUBPROJECTS botan pugixml bidi freetype harfbuzz brotli miniz libjpeg libpng libwebp tess2 pvrt rg_etc1 zstd)
 
 if(WIN32)
   list(APPEND SDK_EXTERNAL_SUBPROJECTS "zlib")
