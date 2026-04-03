@@ -75,9 +75,9 @@ namespace carto {
          */
         inline bool inflate_zstd(const unsigned char* compressedData, std::size_t compressedSize, std::vector<unsigned char>& uncompressedData) {
             // Get the decompressed size from the frame header
-            unsigned long long const decompressedSize = ZSTD_getFrameContentSize(compressedData, compressedSize);
+            unsigned long long const frameContentSize = ZSTD_getFrameContentSize(compressedData, compressedSize);
             
-            if (decompressedSize == ZSTD_CONTENTSIZE_ERROR || decompressedSize == ZSTD_CONTENTSIZE_UNKNOWN) {
+            if (frameContentSize == ZSTD_CONTENTSIZE_ERROR || frameContentSize == ZSTD_CONTENTSIZE_UNKNOWN) {
                 // If size is unknown, use an estimate
                 std::size_t bufferSize = compressedSize * 10;
                 uncompressedData.resize(bufferSize);
@@ -113,11 +113,11 @@ namespace carto {
                 return true;
             } else {
                 // We know the exact size
-                uncompressedData.resize(decompressedSize);
+                uncompressedData.resize(frameContentSize);
                 
                 std::size_t const result = ZSTD_decompress(
                     uncompressedData.data(),
-                    decompressedSize,
+                    frameContentSize,
                     compressedData,
                     compressedSize
                 );
