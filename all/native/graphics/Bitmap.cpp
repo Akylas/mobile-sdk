@@ -2,7 +2,6 @@
 #include "core/BinaryData.h"
 #include "components/Exceptions.h"
 #include "utils/Log.h"
-#include "utils/CompressionUtils.h"
 
 #include <algorithm>
 #include <cmath>
@@ -13,6 +12,9 @@
 #include <jpeglib.h>
 #include <png.h>
 #include <webp/decode.h>
+
+#include <mapnikvt/CompressionUtils.h>
+
 
 #if defined(__APPLE__)
 #include "utils/CFUniquePtr.h"
@@ -543,14 +545,14 @@ namespace carto {
             }
             
             // Try brotli
-            if (compression::inflate_brotli(compressedData, dataSize, uncompressedData)) {
+            if (carto::mvt::compression::inflate_brotli(compressedData, dataSize, uncompressedData)) {
                 Log::Info("Bitmap::loadFromCompressedBytes: Image is brotli compressed, decompressing");
                 return loadFromCompressedBytes(uncompressedData.data(), uncompressedData.size());
             }
             
 #ifdef HAVE_ZSTD
             // Try zstd
-            if (compression::inflate_zstd(compressedData, dataSize, uncompressedData)) {
+            if (carto::mvt::compression::inflate_zstd(compressedData, dataSize, uncompressedData)) {
                 Log::Info("Bitmap::loadFromCompressedBytes: Image is zstd compressed, decompressing");
                 return loadFromCompressedBytes(uncompressedData.data(), uncompressedData.size());
             }

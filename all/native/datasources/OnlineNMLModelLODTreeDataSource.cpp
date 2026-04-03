@@ -7,13 +7,14 @@
 #include "renderers/components/CullState.h"
 #include "utils/Log.h"
 #include "utils/NetworkUtils.h"
-#include "utils/CompressionUtils.h"
 
 #include <boost/lexical_cast.hpp>
 
 #include <stdext/zlib.h>
 
 #include <nml/Package.h>
+
+#include <mvt/CompressionUtils.h>
 
 namespace carto {
 

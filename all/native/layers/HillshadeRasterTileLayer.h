@@ -174,7 +174,7 @@ namespace carto {
         std::shared_ptr<Bitmap> getTileDataBitmap(std::shared_ptr<TileData> tileData) const;
         std::shared_ptr<Bitmap> getMapTileBitmap(const MapTile& mapTile) const;
 
-        const DirectorPtr<ElevationDecoder> _elevationDecoder;
+        const std::shared_ptr<ElevationDecoder> _elevationDecoder;
    
         std::atomic<float> _contrast;
         std::atomic<bool> _exagerateHeightScaleEnabled;

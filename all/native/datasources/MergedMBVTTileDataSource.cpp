@@ -3,7 +3,6 @@
 #include "core/MapTile.h"
 #include "components/Exceptions.h"
 #include "utils/Log.h"
-#include "utils/CompressionUtils.h"
 
 #ifdef _CARTO_OFFLINE_SUPPORT
 #include "datasources/MBTilesTileDataSource.h"
@@ -12,6 +11,8 @@
 #include <algorithm>
 
 #include <stdext/zlib.h>
+
+#include <mapnikvt/CompressionUtils.h>
 
 namespace carto {
     
@@ -98,10 +99,10 @@ namespace carto {
             std::vector<unsigned char> uncompressedData1;
             if (zlib::inflate_gzip(data1->data(), data1->size(), uncompressedData1)) {
                 mergedData.insert(mergedData.end(), uncompressedData1.begin(), uncompressedData1.end());
-            } else if (compression::inflate_brotli(data1->data(), data1->size(), uncompressedData1)) {
+            } else if (carto::mvt::compression::inflate_brotli(data1->data(), data1->size(), uncompressedData1)) {
                 mergedData.insert(mergedData.end(), uncompressedData1.begin(), uncompressedData1.end());
 #ifdef HAVE_ZSTD
-            } else if (compression::inflate_zstd(data1->data(), data1->size(), uncompressedData1)) {
+            } else if (carto::mvt::compression::inflate_zstd(data1->data(), data1->size(), uncompressedData1)) {
                 mergedData.insert(mergedData.end(), uncompressedData1.begin(), uncompressedData1.end());
 #endif
             } else {
@@ -112,10 +113,10 @@ namespace carto {
             std::vector<unsigned char> uncompressedData2;
             if (zlib::inflate_gzip(data2->data(), data2->size(), uncompressedData2)) {
                 mergedData.insert(mergedData.end(), uncompressedData2.begin(), uncompressedData2.end());
-            } else if (compression::inflate_brotli(data2->data(), data2->size(), uncompressedData2)) {
+            } else if (carto::mvt::compression::inflate_brotli(data2->data(), data2->size(), uncompressedData2)) {
                 mergedData.insert(mergedData.end(), uncompressedData2.begin(), uncompressedData2.end());
 #ifdef HAVE_ZSTD
-            } else if (compression::inflate_zstd(data2->data(), data2->size(), uncompressedData2)) {
+            } else if (carto::mvt::compression::inflate_zstd(data2->data(), data2->size(), uncompressedData2)) {
                 mergedData.insert(mergedData.end(), uncompressedData2.begin(), uncompressedData2.end());
 #endif
             } else {

@@ -78,7 +78,7 @@ namespace carto {
         _maxZoom(Const::MAX_SUPPORTED_ZOOM_LEVEL),
         _maxOverzoomLevel(-1),
         _projection(std::make_shared<EPSG3857>()),
-        _elevationDecoderType(),
+        _encoding(),
         _onChangeListeners(),
         _mutex()
     {
@@ -89,7 +89,7 @@ namespace carto {
         _maxZoom(std::min(static_cast<int>(Const::MAX_SUPPORTED_ZOOM_LEVEL), maxZoom)),
         _maxOverzoomLevel(-1),
         _projection(std::make_shared<EPSG3857>()),
-        _elevationDecoderType(),
+        _encoding(),
         _onChangeListeners(),
         _mutex()
     {
@@ -119,14 +119,14 @@ namespace carto {
     std::map<std::string, std::shared_ptr<Variant>> TileDataSource::buildTileMetadata(const MapTile& tile) const {
         std::map<std::string, std::shared_ptr<Variant>> metadata;
         
-        // Add elevation decoder type if set
+        // Add encoding type if set
         // Note: Mutex lock here is acceptable as decoder type is typically set once during
         // initialization and rarely changes. If high-frequency changes become common,
         // consider using std::atomic<std::string> or read-write lock.
         {
             std::lock_guard<std::mutex> lock(_mutex);
-            if (!_elevationDecoderType.empty()) {
-                metadata["elevation_decoder"] = std::make_shared<Variant>(_elevationDecoderType);
+            if (!_encoding.empty()) {
+                metadata["encoding"] = std::make_shared<Variant>(_encoding);
             }
         }
         
@@ -144,17 +144,17 @@ namespace carto {
         }
     }
     
-    void TileDataSource::setElevationDecoderType(const std::string& decoderType) {
+    void TileDataSource::setEncoding(const std::string& encoding) {
         {
             std::lock_guard<std::mutex> lock(_mutex);
-            _elevationDecoderType = decoderType;
+            _encoding = encoding;
         }
         notifyTilesChanged(false);
     }
     
-    std::string TileDataSource::getElevationDecoderType() const {
+    std::string TileDataSource::getEncoding() const {
         std::lock_guard<std::mutex> lock(_mutex);
-        return _elevationDecoderType;
+        return _encoding;
     }
 
 }

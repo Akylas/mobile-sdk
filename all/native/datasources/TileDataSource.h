@@ -78,6 +78,19 @@ namespace carto {
         bool isMaxOverzoomLevelSet() const;
 
         /**
+         * Sets the encoding type for tiles loaded from this data source.
+         * This metadata is used by HillshadeRasterTileLayer to determine how to decode elevation data.
+         * @param encoding The encoding ("terrarium" or "mapbox"). Empty string clears the metadata.
+         */
+        void setEncoding(const std::string& encoding);
+
+        /**
+         * Gets the current encoding type.
+         * @return The encoding type, or empty string if not set.
+         */
+        std::string getEncoding() const;
+
+        /**
          * Returns the extent of the tiles in this data source.
          * The bounds are in coordinate system of the projection of the data source.
          * @return The extent of the data source.
@@ -117,6 +130,20 @@ namespace carto {
          * @param listener The previously added listener.
          */
         void unregisterOnChangeListener(const std::shared_ptr<OnChangeListener>& listener);
+
+        /**
+         * Builds tag map from tile info.
+         * @param tile The tile for the tag map.
+         * @return The tag map that will be used for replacing tags in templates.
+         */
+        virtual std::map<std::string, std::string> buildTagValues(const MapTile& tile) const;
+
+        /**
+         * Builds metadata map for the tile. Can be overridden by subclasses to provide tile-specific metadata.
+         * @param tile The tile for the metadata.
+         * @return The metadata map that will be attached to the tile data.
+         */
+        virtual std::map<std::string, std::shared_ptr<Variant>> buildTileMetadata(const MapTile& tile) const;
     
     protected:
         /**
@@ -131,20 +158,6 @@ namespace carto {
          * @param maxZoom The maximum zoom level supported by this data source.
          */
         TileDataSource(int minZoom, int maxZoom);
-
-        /**
-         * Builds tag map from tile info.
-         * @param tile The tile for the tag map.
-         * @return The tag map that will be used for replacing tags in templates.
-         */
-        virtual std::map<std::string, std::string> buildTagValues(const MapTile& tile) const;
-        
-        /**
-         * Builds metadata map for the tile. Can be overridden by subclasses to provide tile-specific metadata.
-         * @param tile The tile for the metadata.
-         * @return The metadata map that will be attached to the tile data.
-         */
-        virtual std::map<std::string, std::shared_ptr<Variant>> buildTileMetadata(const MapTile& tile) const;
         
         /**
          * Applies metadata to a TileData object by calling buildTileMetadata.
@@ -153,25 +166,12 @@ namespace carto {
          * @param tile The tile for which metadata should be built.
          */
         void applyTileMetadata(const std::shared_ptr<TileData>& tileData, const MapTile& tile) const;
-        
-        /**
-         * Sets the elevation decoder type for tiles loaded from this data source.
-         * This metadata is used by HillshadeRasterTileLayer to determine how to decode elevation data.
-         * @param decoderType The decoder type ("terrarium" or "mapbox"). Empty string clears the metadata.
-         */
-        void setElevationDecoderType(const std::string& decoderType);
-        
-        /**
-         * Gets the current elevation decoder type.
-         * @return The elevation decoder type, or empty string if not set.
-         */
-        std::string getElevationDecoderType() const;
 
         std::atomic<int> _minZoom;
         std::atomic<int> _maxZoom;
         std::atomic<int> _maxOverzoomLevel;
         const std::shared_ptr<Projection> _projection;
-        std::string _elevationDecoderType;
+        std::string _encoding;
     
     private:
         std::vector<std::shared_ptr<OnChangeListener> > _onChangeListeners;

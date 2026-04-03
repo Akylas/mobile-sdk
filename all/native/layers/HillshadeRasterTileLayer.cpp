@@ -262,7 +262,7 @@ namespace carto
             // Try to get decoder type from tile metadata first, fallback to layer's decoder
             std::shared_ptr<ElevationDecoder> decoder = _elevationDecoder;
             if (tileData) {
-                std::shared_ptr<Variant> decoderTypeVariant = tileData->getMetadata("elevation_decoder");
+                std::shared_ptr<Variant> decoderTypeVariant = tileData->getMetadata("encoding");
                 if (decoderTypeVariant && decoderTypeVariant->getType() == VariantType::VARIANT_TYPE_STRING) {
                     std::string decoderType = decoderTypeVariant->getString();
                     // Use static cached decoder instances to avoid repeated allocations

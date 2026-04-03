@@ -10,7 +10,6 @@
 #include "utils/URLFileLoader.h"
 #include "utils/GeneralUtils.h"
 #include "utils/Log.h"
-#include "utils/CompressionUtils.h"
 
 #include <cstdint>
 #include <memory>
@@ -33,6 +32,9 @@
 #include <rapidjson/document.h>
 
 #include <botan/botan_all.h>
+
+#include <mapnikvt/CompressionUtils.h>
+
 
 namespace {
 
@@ -749,10 +751,10 @@ namespace carto {
         std::vector<unsigned char> packageListDataTemp;
         if (zlib::inflate_gzip(packageListData.data(), packageListData.size(), packageListDataTemp)) {
             packageListData = std::move(packageListDataTemp);
-        } else if (compression::inflate_brotli(packageListData.data(), packageListData.size(), packageListDataTemp)) {
+        } else if (carto::mvt::compression::inflate_brotli(packageListData.data(), packageListData.size(), packageListDataTemp)) {
             packageListData = std::move(packageListDataTemp);
 #ifdef HAVE_ZSTD
-        } else if (compression::inflate_zstd(packageListData.data(), packageListData.size(), packageListDataTemp)) {
+        } else if (carto::mvt::compression::inflate_zstd(packageListData.data(), packageListData.size(), packageListDataTemp)) {
             packageListData = std::move(packageListDataTemp);
 #endif
         }
