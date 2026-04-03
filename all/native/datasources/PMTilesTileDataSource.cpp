@@ -12,8 +12,9 @@
 #include <unordered_map>
 #include <zlib.h>
 #include <brotli/decode.h>
+#ifdef HAVE_ZSTD
 #include <zstd.h>
-
+#endif
 // For JSON parsing (simple extraction)
 #include <boost/algorithm/string.hpp>
 
@@ -392,7 +393,9 @@ namespace carto {
             result.resize(decodedSize);
             return result;
         }
+#ifdef HAVE_ZSTD
         else if (compression == 0x04) {
+
             // Zstandard decompression
             // Get the decompressed size from the frame header
             unsigned long long const decompressedSize = ZSTD_getFrameContentSize(data.data(), data.size());
@@ -437,6 +440,7 @@ namespace carto {
                 return result;
             }
         }
+#endif
         else {
             Log::Errorf("PMTilesTileDataSource: Unknown compression type: %d", compression);
             throw GenericException("Unknown compression type");
