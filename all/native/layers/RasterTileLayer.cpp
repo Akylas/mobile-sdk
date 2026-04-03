@@ -210,7 +210,7 @@ namespace carto {
         }
     }
 
-    std::shared_ptr<vt::Tile> RasterTileLayer::createVectorTile(const MapTile& subTile, const MapTile& tile, const std::shared_ptr<Bitmap>& baseBitmap, const std::shared_ptr<vt::TileTransformer>& tileTransformer) const {
+    std::shared_ptr<vt::Tile> RasterTileLayer::createVectorTile(const MapTile& subTile, const MapTile& tile, const std::shared_ptr<TileData>& tileData, const std::shared_ptr<Bitmap>& baseBitmap, const std::shared_ptr<vt::TileTransformer>& tileTransformer) const {
         // Extract/scale subbitmap
         std::shared_ptr<Bitmap> bitmap = ExtractSubTile(subTile, tile, baseBitmap);
 
@@ -473,7 +473,7 @@ namespace carto {
             std::shared_ptr<vt::TileTransformer> tileTransformer = layer->getTileTransformer();
             std::shared_ptr<vt::Tile> tile;
             if (bitmap) {
-                tile = layer->createVectorTile(_tile, dataSourceTile, bitmap, tileTransformer);
+                tile = layer->createVectorTile(_tile, dataSourceTile, tileData, bitmap, tileTransformer);
             }
 
             // Construct tile info and cache it.

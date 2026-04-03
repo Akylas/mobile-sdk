@@ -221,7 +221,9 @@ namespace carto {
             std::vector<uint8_t> tileBytes = DecompressData(compressedData, _header.tileCompression);
             
             auto data = std::make_shared<BinaryData>(tileBytes.data(), tileBytes.size());
-            return std::make_shared<TileData>(data);
+            auto tileData = std::make_shared<TileData>(data);
+            applyTileMetadata(tileData, mapTile);
+            return tileData;
         }
         catch (const std::exception& ex) {
             Log::Errorf("PMTilesTileDataSource::loadTile: Failed to load tile: %s", ex.what());

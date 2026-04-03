@@ -123,7 +123,20 @@ namespace carto {
             }
 
             auto mergedBinaryData = std::make_shared<BinaryData>(std::move(mergedData));
-            return std::make_shared<TileData>(mergedBinaryData);
+            auto mergedTileData = std::make_shared<TileData>(mergedBinaryData);
+            
+            // Merge metadata from both sources. When keys conflict, source1 metadata 
+            // overwrites source2 metadata (applied last to take precedence).
+            std::map<std::string, std::shared_ptr<Variant>> metadata2 = _dataSource2->buildTileMetadata(mapTile);
+            for (const auto& entry : metadata2) {
+                mergedTileData->setMetadata(entry.first, entry.second);
+            }
+            std::map<std::string, std::shared_ptr<Variant>> metadata1 = _dataSource1->buildTileMetadata(mapTile);
+            for (const auto& entry : metadata1) {
+                mergedTileData->setMetadata(entry.first, entry.second);
+            }
+            
+            return mergedTileData;
         }
 
         // Return either result that is not null.

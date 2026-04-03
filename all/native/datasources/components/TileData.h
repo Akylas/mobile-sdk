@@ -11,9 +11,12 @@
 #include <memory>
 #include <mutex>
 #include <vector>
+#include <map>
+#include <string>
 
 namespace carto {
     class BinaryData;
+    class Variant;
     
     /**
      * A wrapper class for tile data.
@@ -66,11 +69,25 @@ namespace carto {
          */
         const std::shared_ptr<BinaryData>& getData() const;
         
+        /**
+         * Returns metadata associated with this tile.
+         * @param key The metadata key to retrieve.
+         * @return The metadata value, or null if the key doesn't exist.
+         */
+        std::shared_ptr<Variant> getMetadata(const std::string& key) const;
+        /**
+         * Sets metadata for this tile.
+         * @param key The metadata key.
+         * @param value The metadata value.
+         */
+        void setMetadata(const std::string& key, const std::shared_ptr<Variant>& value);
+        
     private:
         const std::shared_ptr<BinaryData> _data;
         std::shared_ptr<std::chrono::steady_clock::time_point> _expirationTime;
         bool _replaceWithParent;
         bool _overzoom;
+        std::map<std::string, std::shared_ptr<Variant>> _metadata;
         mutable std::mutex _mutex;
     };
 

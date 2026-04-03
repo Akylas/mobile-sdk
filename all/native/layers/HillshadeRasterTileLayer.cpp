@@ -4,6 +4,10 @@
 #include "utils/Log.h"
 #include "utils/TileUtils.h"
 #include "core/BinaryData.h"
+#include "core/Variant.h"
+#include "datasources/components/TileData.h"
+#include "rastertiles/TerrariumElevationDataDecoder.h"
+#include "rastertiles/MapBoxElevationDataDecoder.h"
 #include "projections/EPSG3857.h"
 #include "projections/Projection.h"
 
@@ -251,13 +255,30 @@ namespace carto
         return false;
     }
     
-    std::shared_ptr<vt::Tile> HillshadeRasterTileLayer::createVectorTile(const MapTile& subTile, const MapTile& tile, const std::shared_ptr<Bitmap>& bitmap, const std::shared_ptr<vt::TileTransformer>& tileTransformer) const {
+    std::shared_ptr<vt::Tile> HillshadeRasterTileLayer::createVectorTile(const MapTile& subTile, const MapTile& tile, const std::shared_ptr<TileData>& tileData, const std::shared_ptr<Bitmap>& bitmap, const std::shared_ptr<vt::TileTransformer>& tileTransformer) const {
         std::uint8_t alpha = 0;
         std::array<float, 4> scales;
         {
-            scales = _elevationDecoder->getVectorTileScales();
+            // Try to get decoder type from tile metadata first, fallback to layer's decoder
+            std::shared_ptr<ElevationDecoder> decoder = _elevationDecoder;
+            if (tileData) {
+                std::shared_ptr<Variant> decoderTypeVariant = tileData->getMetadata("elevation_decoder");
+                if (decoderTypeVariant && decoderTypeVariant->getType() == VariantType::VARIANT_TYPE_STRING) {
+                    std::string decoderType = decoderTypeVariant->getString();
+                    // Use static cached decoder instances to avoid repeated allocations
+                    if (decoderType == "terrarium") {
+                        static std::shared_ptr<ElevationDecoder> terrariumDecoder = std::make_shared<TerrariumElevationDataDecoder>();
+                        decoder = terrariumDecoder;
+                    } else if (decoderType == "mapbox") {
+                        static std::shared_ptr<ElevationDecoder> mapboxDecoder = std::make_shared<MapBoxElevationDataDecoder>();
+                        decoder = mapboxDecoder;
+                    }
+                }
+            }
+            
+            scales = decoder->getVectorTileScales();
             alpha = static_cast<std::uint8_t>(getContrast() * 255.0f);
-            float heightScale = _elevationDecoder->getMinimumHeightScale();
+            float heightScale = decoder->getMinimumHeightScale();
             float scale = heightScale * static_cast<float>(bitmap->getHeight() * std::pow(2.0, tile.getZoom()) / 40075016.6855785);
             if (_exagerateHeightScaleEnabled) {
                  float exaggeration = tile.getZoom() < 2 ? 0.2f : tile.getZoom() < 5 ? 0.3f : 0.35f;

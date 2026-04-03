@@ -1,4 +1,5 @@
 #include "TileDataSource.h"
+#include "core/Variant.h"
 #include "projections/Projection.h"
 #include "projections/EPSG3857.h"
 #include "utils/Const.h"
@@ -77,6 +78,7 @@ namespace carto {
         _maxZoom(Const::MAX_SUPPORTED_ZOOM_LEVEL),
         _maxOverzoomLevel(-1),
         _projection(std::make_shared<EPSG3857>()),
+        _elevationDecoderType(),
         _onChangeListeners(),
         _mutex()
     {
@@ -87,6 +89,7 @@ namespace carto {
         _maxZoom(std::min(static_cast<int>(Const::MAX_SUPPORTED_ZOOM_LEVEL), maxZoom)),
         _maxOverzoomLevel(-1),
         _projection(std::make_shared<EPSG3857>()),
+        _elevationDecoderType(),
         _onChangeListeners(),
         _mutex()
     {
@@ -111,6 +114,47 @@ namespace carto {
         tagValues["zoom"] = boost::lexical_cast<std::string>(tile.getZoom());
 
         return tagValues;
+    }
+    
+    std::map<std::string, std::shared_ptr<Variant>> TileDataSource::buildTileMetadata(const MapTile& tile) const {
+        std::map<std::string, std::shared_ptr<Variant>> metadata;
+        
+        // Add elevation decoder type if set
+        // Note: Mutex lock here is acceptable as decoder type is typically set once during
+        // initialization and rarely changes. If high-frequency changes become common,
+        // consider using std::atomic<std::string> or read-write lock.
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            if (!_elevationDecoderType.empty()) {
+                metadata["elevation_decoder"] = std::make_shared<Variant>(_elevationDecoderType);
+            }
+        }
+        
+        return metadata;
+    }
+    
+    void TileDataSource::applyTileMetadata(const std::shared_ptr<TileData>& tileData, const MapTile& tile) const {
+        if (!tileData) {
+            return;
+        }
+        
+        std::map<std::string, std::shared_ptr<Variant>> metadata = buildTileMetadata(tile);
+        for (const auto& entry : metadata) {
+            tileData->setMetadata(entry.first, entry.second);
+        }
+    }
+    
+    void TileDataSource::setElevationDecoderType(const std::string& decoderType) {
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            _elevationDecoderType = decoderType;
+        }
+        notifyTilesChanged(false);
+    }
+    
+    std::string TileDataSource::getElevationDecoderType() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        return _elevationDecoderType;
     }
 
 }
