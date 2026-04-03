@@ -207,56 +207,87 @@ namespace carto {
     
     std::shared_ptr<TileData> HTTPTileDataSource::loadPMTile(const std::string& baseURL, const MapTile& mapTile) {
         try {
-            std::lock_guard<std::mutex> lock(_mutex);
-            
             std::string url = normalizePMTilesURL(baseURL);
             
-            // Initialize PMTiles cache if needed
-            if (!_pmtilesCache || _pmtilesCache->url != url) {
-                Log::Infof("HTTPTileDataSource::loadPMTile: Initializing PMTiles archive from %s", url.c_str());
-                
-                _pmtilesCache = std::make_unique<PMTilesCache>();
-                _pmtilesCache->url = url;
-                _pmtilesCache->header = readPMTilesHeader(url);
-                
-                // Read and decode root directory
-                std::vector<uint8_t> rootDirData = httpRangeRequest(url, _pmtilesCache->header.rootDirectoryOffset, _pmtilesCache->header.rootDirectoryLength);
-                std::vector<uint8_t> decompressed = decompressPMTilesData(rootDirData, _pmtilesCache->header.internalCompression);
-                _pmtilesCache->rootDirectory = decodePMTilesDirectory(decompressed);
-                
-                Log::Infof("HTTPTileDataSource::loadPMTile: PMTiles header loaded, tiles: %" PRIu64 ", zoom: %d-%d", 
-                           _pmtilesCache->header.numTileEntries, _pmtilesCache->header.minZoom, _pmtilesCache->header.maxZoom);
+            // Initialize PMTiles cache if needed (with mutex protection)
+            {
+                std::lock_guard<std::mutex> lock(_mutex);
+                if (!_pmtilesCache || _pmtilesCache->url != url) {
+                    Log::Infof("HTTPTileDataSource::loadPMTile: Initializing PMTiles archive from %s", url.c_str());
+                    
+                    // Create a new cache object
+                    auto newCache = std::make_unique<PMTilesCache>();
+                    newCache->url = url;
+                    
+                    // Read header (unlock during HTTP request)
+                    _mutex.unlock();
+                    newCache->header = readPMTilesHeader(url);
+                    
+                    // Read and decode root directory
+                    std::vector<uint8_t> rootDirData = httpRangeRequest(url, newCache->header.rootDirectoryOffset, newCache->header.rootDirectoryLength);
+                    std::vector<uint8_t> decompressed = decompressPMTilesData(rootDirData, newCache->header.internalCompression);
+                    newCache->rootDirectory = decodePMTilesDirectory(decompressed);
+                    
+                    // Re-lock and update cache atomically
+                    _mutex.lock();
+                    // Check again in case another thread initialized it while we were unlocked
+                    if (!_pmtilesCache || _pmtilesCache->url != url) {
+                        _pmtilesCache = std::move(newCache);
+                        Log::Infof("HTTPTileDataSource::loadPMTile: PMTiles header loaded, tiles: %" PRIu64 ", zoom: %d-%d", 
+                                   _pmtilesCache->header.numTileEntries, _pmtilesCache->header.minZoom, _pmtilesCache->header.maxZoom);
+                    }
+                }
             }
             
             // Convert tile coordinates to PMTiles TileID
             uint64_t tileId = zxyToTileId(mapTile.getZoom(), mapTile.getX(), mapTile.getY());
             
-            // Search for tile in root directory
+            // Search for tile in cache (with mutex protection)
             PMTilesDirectoryEntry entry;
-            bool found = findPMTileEntry(_pmtilesCache->rootDirectory, tileId, entry);
+            bool found = false;
+            PMTilesHeader header;
             
-            // If not found in root, search in leaf directories
-            if (!found) {
-                // Binary search in root directory to find the leaf directory
-                auto it = std::lower_bound(_pmtilesCache->rootDirectory.begin(), _pmtilesCache->rootDirectory.end(), tileId,
-                    [](const PMTilesDirectoryEntry& entry, uint64_t id) { return entry.tileId < id; });
+            {
+                std::lock_guard<std::mutex> lock(_mutex);
                 
-                if (it != _pmtilesCache->rootDirectory.begin()) {
-                    --it;
+                // Search for tile in root directory
+                found = findPMTileEntry(_pmtilesCache->rootDirectory, tileId, entry);
+                
+                // If not found in root, search in leaf directories
+                if (!found) {
+                    // Binary search in root directory to find the leaf directory
+                    auto it = std::lower_bound(_pmtilesCache->rootDirectory.begin(), _pmtilesCache->rootDirectory.end(), tileId,
+                        [](const PMTilesDirectoryEntry& entry, uint64_t id) { return entry.tileId < id; });
                     
-                    // Check if this points to a leaf directory
-                    if (it->runLength == 0) {
-                        // Load leaf directory (with caching)
-                        uint64_t leafKey = it->offset;
-                        auto leafIt = _pmtilesCache->leafDirectoryCache.find(leafKey);
-                        if (leafIt == _pmtilesCache->leafDirectoryCache.end()) {
-                            std::vector<PMTilesDirectoryEntry> leafDir = loadPMTilesLeafDirectory(url, _pmtilesCache->header, it->offset, it->length);
-                            leafIt = _pmtilesCache->leafDirectoryCache.insert({leafKey, std::move(leafDir)}).first;
-                        }
+                    if (it != _pmtilesCache->rootDirectory.begin()) {
+                        --it;
                         
-                        found = findPMTileEntry(leafIt->second, tileId, entry);
+                        // Check if this points to a leaf directory
+                        if (it->runLength == 0) {
+                            // Check if leaf directory is cached
+                            uint64_t leafKey = it->offset;
+                            auto leafIt = _pmtilesCache->leafDirectoryCache.find(leafKey);
+                            if (leafIt == _pmtilesCache->leafDirectoryCache.end()) {
+                                // Need to load leaf directory - unlock during HTTP request
+                                uint64_t leafOffset = it->offset;
+                                uint32_t leafLength = it->length;
+                                header = _pmtilesCache->header;
+                                
+                                _mutex.unlock();
+                                std::vector<PMTilesDirectoryEntry> leafDir = loadPMTilesLeafDirectory(url, header, leafOffset, leafLength);
+                                _mutex.lock();
+                                
+                                // Insert into cache (might already be there if another thread loaded it)
+                                leafIt = _pmtilesCache->leafDirectoryCache.insert({leafKey, std::move(leafDir)}).first;
+                            }
+                            
+                            found = findPMTileEntry(leafIt->second, tileId, entry);
+                        }
                     }
                 }
+                
+                // Copy header for use outside the lock
+                header = _pmtilesCache->header;
             }
             
             if (!found) {
@@ -272,12 +303,12 @@ namespace carto {
                 }
             }
             
-            // Read tile data
+            // Read tile data (without mutex - independent HTTP request)
             std::vector<uint8_t> compressedData = httpRangeRequest(url, 
-                _pmtilesCache->header.tileDataOffset + entry.offset, entry.length);
+                header.tileDataOffset + entry.offset, entry.length);
             
             // Decompress if needed
-            std::vector<uint8_t> tileBytes = decompressPMTilesData(compressedData, _pmtilesCache->header.tileCompression);
+            std::vector<uint8_t> tileBytes = decompressPMTilesData(compressedData, header.tileCompression);
             
             auto data = std::make_shared<BinaryData>(tileBytes.data(), tileBytes.size());
             return std::make_shared<TileData>(data);
@@ -369,21 +400,37 @@ namespace carto {
     }
     
     std::vector<uint8_t> HTTPTileDataSource::httpRangeRequest(const std::string& url, uint64_t offset, uint64_t length) {
+        // Use a custom handler that collects the data
+        std::vector<uint8_t> result;
+        result.reserve(static_cast<size_t>(length));
+        
+        auto handlerFn = [&result, offset, length](std::uint64_t dataOffset, std::uint64_t totalLength, const unsigned char* buf, std::size_t size) -> bool {
+            result.insert(result.end(), buf, buf + size);
+            return true;
+        };
+        
+        // Build request headers with Range
         std::map<std::string, std::string> requestHeaders = _headers;
         requestHeaders["Range"] = "bytes=" + std::to_string(offset) + "-" + std::to_string(offset + length - 1);
         
         std::map<std::string, std::string> responseHeaders;
-        std::shared_ptr<BinaryData> responseData;
         
-        if (_httpClient.get(url, requestHeaders, responseHeaders, responseData) != 0) {
+        int statusCode = _httpClient.streamResponse("GET", url, requestHeaders, responseHeaders, handlerFn, offset);
+        if (statusCode != 0) {
             throw GenericException("HTTP range request failed");
         }
         
-        if (!responseData || responseData->size() == 0) {
+        if (result.empty()) {
             throw GenericException("Empty HTTP range response");
         }
         
-        return std::vector<uint8_t>(responseData->data(), responseData->data() + responseData->size());
+        // Verify we got the expected amount of data
+        if (result.size() != length) {
+            Log::Warnf("HTTPTileDataSource::httpRangeRequest: Expected %" PRIu64 " bytes but got %zu bytes for range %" PRIu64 "-%" PRIu64 " from %s",
+                length, result.size(), offset, offset + length - 1, url.c_str());
+        }
+        
+        return result;
     }
     
     std::vector<uint8_t> HTTPTileDataSource::decompressPMTilesData(const std::vector<uint8_t>& data, uint8_t compression) {
