@@ -38,6 +38,7 @@
 #import "NTLocalVectorDataSource.h"
 #import "NTTileDownloadListener.h"
 #import "NTMultiTileDataSource.h"
+#import "NTPMTilesTileDataSource.h"
 
 #import "NTFeature.h"
 #import "NTFeatureCollection.h"
