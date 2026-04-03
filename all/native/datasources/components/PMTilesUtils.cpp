@@ -19,6 +19,21 @@
 namespace carto {
 namespace pmtiles {
 
+    namespace {
+        // Helper function for Hilbert curve quadrant rotation
+        void rotateQuadrant(int n, int& x, int& y, int rx, int ry) {
+            if (ry == 0) {
+                if (rx == 1) {
+                    x = n - 1 - x;
+                    y = n - 1 - y;
+                }
+                int t = x;
+                x = y;
+                y = t;
+            }
+        }
+    }
+
     Header readHeader(const uint8_t* headerBytes) {
         // Check magic number "PMTiles"
         if (std::memcmp(headerBytes, "PMTiles", 7) != 0) {
@@ -305,19 +320,6 @@ namespace pmtiles {
         }
         
         // Hilbert curve encoding for spatial indexing
-        // This lambda performs quadrant rotation during Hilbert curve traversal
-        auto rotateQuadrant = [](int n, int& x, int& y, int rx, int ry) {
-            if (ry == 0) {
-                if (rx == 1) {
-                    x = n - 1 - x;
-                    y = n - 1 - y;
-                }
-                int t = x;
-                x = y;
-                y = t;
-            }
-        };
-        
         int n = 1 << z;
         int rx, ry, s;
         int tx = x;
@@ -355,18 +357,6 @@ namespace pmtiles {
         uint64_t d = tileId - acc;
         
         // Inverse Hilbert curve
-        auto rotateQuadrant = [](int n, int& x, int& y, int rx, int ry) {
-            if (ry == 0) {
-                if (rx == 1) {
-                    x = n - 1 - x;
-                    y = n - 1 - y;
-                }
-                int t = x;
-                x = y;
-                y = t;
-            }
-        };
-        
         int n = 1 << z;
         int rx, ry, s;
         int tx = 0;

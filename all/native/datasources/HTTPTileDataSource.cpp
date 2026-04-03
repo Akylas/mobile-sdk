@@ -206,7 +206,7 @@ namespace carto {
             
             // Initialize PMTiles cache if needed (with mutex protection)
             {
-                std::lock_guard<std::mutex> lock(_mutex);
+                std::unique_lock<std::mutex> lock(_mutex);
                 if (!_pmtilesCache || _pmtilesCache->url != url) {
                     Log::Infof("HTTPTileDataSource::loadPMTile: Initializing PMTiles archive from %s", url.c_str());
                     
@@ -214,8 +214,10 @@ namespace carto {
                     auto newCache = std::make_unique<PMTilesCache>();
                     newCache->url = url;
                     
-                    // Read header (unlock during HTTP request)
-                    _mutex.unlock();
+                    // Unlock during HTTP requests to allow parallel tile fetches
+                    lock.unlock();
+                    
+                    // Read header
                     newCache->header = readPMTilesHeader(url);
                     
                     // Read and decode root directory
@@ -224,7 +226,7 @@ namespace carto {
                     newCache->rootDirectory = pmtiles::decodeDirectory(decompressed);
                     
                     // Re-lock and update cache atomically
-                    _mutex.lock();
+                    lock.lock();
                     // Check again in case another thread initialized it while we were unlocked
                     if (!_pmtilesCache || _pmtilesCache->url != url) {
                         _pmtilesCache = std::move(newCache);
@@ -243,7 +245,7 @@ namespace carto {
             pmtiles::Header header;
             
             {
-                std::lock_guard<std::mutex> lock(_mutex);
+                std::unique_lock<std::mutex> lock(_mutex);
                 
                 // Search for tile in root directory
                 found = pmtiles::findTileEntry(_pmtilesCache->rootDirectory, tileId, entry);
@@ -268,9 +270,9 @@ namespace carto {
                                 uint32_t leafLength = it->length;
                                 header = _pmtilesCache->header;
                                 
-                                _mutex.unlock();
+                                lock.unlock();
                                 std::vector<pmtiles::DirectoryEntry> leafDir = loadPMTilesLeafDirectory(url, header, leafOffset, leafLength);
-                                _mutex.lock();
+                                lock.lock();
                                 
                                 // Insert into cache (might already be there if another thread loaded it)
                                 leafIt = _pmtilesCache->leafDirectoryCache.insert({leafKey, std::move(leafDir)}).first;
