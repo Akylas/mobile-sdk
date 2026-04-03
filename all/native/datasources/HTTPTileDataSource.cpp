@@ -432,6 +432,7 @@ namespace carto {
         }
         else if (compression == 0x03) {
             // Brotli decompression
+            // Initial buffer size: estimate 10x compression ratio (typical for map tiles)
             size_t maxOutputSize = data.size() * 10;
             std::vector<uint8_t> result(maxOutputSize);
             size_t decodedSize = maxOutputSize;
@@ -444,6 +445,7 @@ namespace carto {
             );
             
             // If buffer was too small, retry with larger buffer
+            // Fallback buffer size: 50x for edge cases with high compression ratios
             if (status == BROTLI_DECODER_RESULT_NEEDS_MORE_OUTPUT) {
                 maxOutputSize = data.size() * 50;
                 result.resize(maxOutputSize);
@@ -476,6 +478,7 @@ namespace carto {
             }
             else if (decompressedSize == ZSTD_CONTENTSIZE_UNKNOWN) {
                 // Size unknown, use heuristic
+                // Initial buffer size: estimate 10x compression ratio (typical for map tiles)
                 size_t maxOutputSize = data.size() * 10;
                 std::vector<uint8_t> result(maxOutputSize);
                 
@@ -483,6 +486,7 @@ namespace carto {
                 
                 if (ZSTD_isError(actualSize)) {
                     // Try with larger buffer
+                    // Fallback buffer size: 50x for edge cases with high compression ratios
                     maxOutputSize = data.size() * 50;
                     result.resize(maxOutputSize);
                     actualSize = ZSTD_decompress(result.data(), maxOutputSize, data.data(), data.size());
@@ -591,7 +595,8 @@ namespace carto {
             baseTileId += (1ULL << (i * 2));
         }
         
-        // Hilbert curve encoding
+        // Hilbert curve encoding for spatial indexing
+        // This lambda performs quadrant rotation during Hilbert curve traversal
         auto rotateQuadrant = [](int n, int* x, int* y, int rx, int ry) {
             if (ry == 0) {
                 if (rx == 1) {
@@ -613,6 +618,7 @@ namespace carto {
         for (s = n / 2; s > 0; s /= 2) {
             rx = (tx & s) > 0 ? 1 : 0;
             ry = (ty & s) > 0 ? 1 : 0;
+            // Standard Hilbert curve quadrant encoding formula
             d += s * s * ((3 * rx) ^ ry);
             rotateQuadrant(s, &tx, &ty, rx, ry);
         }
