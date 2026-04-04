@@ -367,6 +367,8 @@ if 'all' in args.iosarch or args.iosarch == []:
     args.iosarch = list(filter(lambda arch: not (arch.endswith('-simulator') or arch.endswith('-maccatalyst')), args.iosarch))
   if not args.metalangle:
     args.iosarch = list(filter(lambda arch: not arch.endswith('-maccatalyst'), args.iosarch))
+# on iOS it needs to be defined or zstd wont build
+args.defines += ';' + 'ZSTD_STATIC_LINKING_ONLY'
 args.defines += ';' + getProfile(args.profile).get('defines', '')
 if args.metalangle:
   args.defines += ';' + '_CARTO_USE_METALANGLE'
