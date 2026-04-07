@@ -1,14 +1,8 @@
 #include "ValhallaRoutingProxy.h"
-#include "RoutingResultBuilder.h"
 #include "../../../assets/ValhallaDefaultConfig.h"
 #include "../../exceptions/Exceptions.h"
 #include "../../log/Log.h"
 
-#include <picojson/picojson.h>
-
-// Valhalla headers — compiled in when HAVE_VALHALLA is defined.
-// When building without valhalla (e.g. header-only unit tests), include a
-// fallback polyline decoder so ParseRoutingResult still compiles.
 #ifdef HAVE_VALHALLA
 #  include <valhalla/meili/map_matcher.h>
 #  include <valhalla/meili/map_matcher_factory.h>
@@ -20,11 +14,10 @@
 #  include <valhalla/midgard/constants.h>
 #  include <valhalla/midgard/encoded.h>
 #  include <valhalla/midgard/pointll.h>
-#  include <valhalla/baldr/json.h>
+#  include <valhalla/baldr/rapidjson_utils.h>
 #  include <valhalla/baldr/pathlocation.h>
 #  include <valhalla/baldr/directededge.h>
 #  include <valhalla/baldr/datetime.h>
-#  include <valhalla/baldr/rapidjson_utils.h>
 #  include <valhalla/loki/search.h>
 #  include <valhalla/loki/worker.h>
 #  include <valhalla/sif/autocost.h>
@@ -36,60 +29,20 @@
 #  include <valhalla/odin/util.h>
 #  include <valhalla/odin/directionsbuilder.h>
 #  include <boost/property_tree/ptree.hpp>
-#  include <valhalla/baldr/rapidjson_utils.h>
-#else
-// -----------------------------------------------------------------------
-// Fallback polyline decoder (used when valhalla is not present at all)
-// -----------------------------------------------------------------------
-namespace valhalla { namespace midgard {
 
-    typedef std::pair<float, float> PointLL;
-
-    template <typename Point>
-    class Shape5Decoder {
-    public:
-        Shape5Decoder(const char* begin, const size_t size)
-            : begin(begin), end(begin + size) {}
-
-        Point pop() {
-            lat = next(lat);
-            lon = next(lon);
-            return Point(typename Point::first_type(double(lon) * 1e-6),
-                         typename Point::second_type(double(lat) * 1e-6));
-        }
-        bool empty() const { return begin == end; }
-
-    private:
-        const char* begin;
-        const char* end;
-        int32_t lat = 0, lon = 0;
-
-        int32_t next(const int32_t previous) {
-            int byte, shift = 0, result = 0;
-            do {
-                if (empty()) throw std::runtime_error("Bad encoded polyline");
-                byte = int32_t(*begin++) - 63;
-                result |= (byte & 0x1f) << shift;
-                shift += 5;
-            } while (byte >= 0x20);
-            return previous + (result & 1 ? ~(result >> 1) : (result >> 1));
-        }
-    };
-
-    template <class container_t,
-              class ShapeDecoder = Shape5Decoder<typename container_t::value_type>>
-    container_t decode(const std::string& encoded) {
-        ShapeDecoder shape(encoded.c_str(), encoded.size());
-        container_t c;
-        c.reserve(encoded.size() / 4);
-        while (!shape.empty()) c.emplace_back(shape.pop());
-        return c;
-    }
-
-} } // namespace valhalla::midgard
+// rapidjson is always available through valhalla
+#  include <rapidjson/document.h>
+#  include <rapidjson/stringbuffer.h>
+#  include <rapidjson/writer.h>
 #endif // HAVE_VALHALLA
 
-// C++17 helper: split a string by delimiter (replaces boost::split)
+#include <sstream>
+#include <string>
+#include <unordered_map>
+
+// -----------------------------------------------------------------------
+// Dot-delimited key splitter (C++17, replaces boost::split)
+// -----------------------------------------------------------------------
 static std::vector<std::string> splitByDot(const std::string& s) {
     std::vector<std::string> result;
     std::string cur;
@@ -131,7 +84,7 @@ std::shared_ptr<RouteMatchingResult> ValhallaRoutingProxy::MatchRoute(
     std::string resultString;
     try {
         std::stringstream ss;
-        ss << config.toPicoJSON().serialize();
+        ss << config.toJSON();
         boost::property_tree::ptree configTree;
         rapidjson::read_json(ss, configTree);
         auto reader = std::make_shared<valhalla::baldr::GraphReader>(databases);
@@ -149,7 +102,7 @@ std::shared_ptr<RouteMatchingResult> ValhallaRoutingProxy::MatchRoute(
     catch (const std::exception& ex) {
         throw GenericException("Exception while matching route", ex.what());
     }
-    return ParseRouteMatchingResult(request->getProjection(), resultString);
+    return std::make_shared<RouteMatchingResult>(std::move(resultString));
 #else
     throw GenericException("Valhalla routing support not compiled in");
 #endif
@@ -168,7 +121,7 @@ std::shared_ptr<RoutingResult> ValhallaRoutingProxy::CalculateRoute(
     std::string resultString;
     try {
         std::stringstream ss;
-        ss << config.toPicoJSON().serialize();
+        ss << config.toJSON();
         boost::property_tree::ptree configTree;
         rapidjson::read_json(ss, configTree);
         auto reader = std::make_shared<valhalla::baldr::GraphReader>(databases);
@@ -191,240 +144,289 @@ std::shared_ptr<RoutingResult> ValhallaRoutingProxy::CalculateRoute(
     catch (const std::exception& ex) {
         throw GenericException("Exception while calculating route", ex.what());
     }
-    return ParseRoutingResult(request->getProjection(), resultString);
+    return std::make_shared<RoutingResult>(std::move(resultString));
 #else
     throw GenericException("Valhalla routing support not compiled in");
 #endif
 }
 
 // -------------------------------------------------------------------------
-// Maneuver type translation
+// CallRaw — dispatch any Valhalla endpoint directly
 // -------------------------------------------------------------------------
-bool ValhallaRoutingProxy::TranslateManeuverType(int maneuverType, RoutingAction::RoutingAction& action) {
-    enum {
-        kNone = 0, kStart = 1, kStartRight = 2, kStartLeft = 3,
-        kDestination = 4, kDestinationRight = 5, kDestinationLeft = 6,
-        kBecomes = 7, kContinue = 8, kSlightRight = 9, kRight = 10,
-        kSharpRight = 11, kUturnRight = 12, kUturnLeft = 13,
-        kSharpLeft = 14, kLeft = 15, kSlightLeft = 16,
-        kRampStraight = 17, kRampRight = 18, kRampLeft = 19,
-        kExitRight = 20, kExitLeft = 21, kStayStraight = 22,
-        kStayRight = 23, kStayLeft = 24, kMerge = 25,
-        kRoundaboutEnter = 26, kRoundaboutExit = 27,
-        kFerryEnter = 28, kFerryExit = 29,
-        kMergeRight = 37, kMergeLeft = 38
-    };
+std::string ValhallaRoutingProxy::CallRaw(
+        const std::vector<sqlite3*>& databases,
+        const Variant& config,
+        const std::string& endpoint,
+        const std::string& jsonBody) {
 
-    static const std::unordered_map<int, RoutingAction::RoutingAction> table = {
-        { kNone,           RoutingAction::ROUTING_ACTION_NO_TURN },
-        { kContinue,       RoutingAction::ROUTING_ACTION_GO_STRAIGHT },
-        { kBecomes,        RoutingAction::ROUTING_ACTION_GO_STRAIGHT },
-        { kRampStraight,   RoutingAction::ROUTING_ACTION_GO_STRAIGHT },
-        { kStayStraight,   RoutingAction::ROUTING_ACTION_GO_STRAIGHT },
-        { kMerge,          RoutingAction::ROUTING_ACTION_GO_STRAIGHT },
-        { kMergeLeft,      RoutingAction::ROUTING_ACTION_GO_STRAIGHT },
-        { kMergeRight,     RoutingAction::ROUTING_ACTION_GO_STRAIGHT },
-        { kFerryEnter,     RoutingAction::ROUTING_ACTION_ENTER_FERRY },
-        { kFerryExit,      RoutingAction::ROUTING_ACTION_LEAVE_FERRY },
-        { kSlightRight,    RoutingAction::ROUTING_ACTION_TURN_RIGHT },
-        { kRight,          RoutingAction::ROUTING_ACTION_TURN_RIGHT },
-        { kRampRight,      RoutingAction::ROUTING_ACTION_TURN_RIGHT },
-        { kExitRight,      RoutingAction::ROUTING_ACTION_TURN_RIGHT },
-        { kStayRight,      RoutingAction::ROUTING_ACTION_TURN_RIGHT },
-        { kSharpRight,     RoutingAction::ROUTING_ACTION_TURN_RIGHT },
-        { kUturnLeft,      RoutingAction::ROUTING_ACTION_UTURN },
-        { kUturnRight,     RoutingAction::ROUTING_ACTION_UTURN },
-        { kSharpLeft,      RoutingAction::ROUTING_ACTION_TURN_LEFT },
-        { kLeft,           RoutingAction::ROUTING_ACTION_TURN_LEFT },
-        { kRampLeft,       RoutingAction::ROUTING_ACTION_TURN_LEFT },
-        { kExitLeft,       RoutingAction::ROUTING_ACTION_TURN_LEFT },
-        { kStayLeft,       RoutingAction::ROUTING_ACTION_TURN_LEFT },
-        { kSlightLeft,     RoutingAction::ROUTING_ACTION_TURN_LEFT },
-        { kRoundaboutEnter, RoutingAction::ROUTING_ACTION_ENTER_ROUNDABOUT },
-        { kRoundaboutExit,  RoutingAction::ROUTING_ACTION_LEAVE_ROUNDABOUT },
-        { kStart,          RoutingAction::ROUTING_ACTION_HEAD_ON },
-        { kStartRight,     RoutingAction::ROUTING_ACTION_HEAD_ON },
-        { kStartLeft,      RoutingAction::ROUTING_ACTION_HEAD_ON },
-        { kDestination,    RoutingAction::ROUTING_ACTION_FINISH },
-        { kDestinationRight, RoutingAction::ROUTING_ACTION_FINISH },
-        { kDestinationLeft, RoutingAction::ROUTING_ACTION_FINISH },
-    };
+#ifdef HAVE_VALHALLA
+    // Map endpoint string → valhalla action enum
+    valhalla::Options::Action action;
+    if      (endpoint == "route"             ) action = valhalla::Options::route;
+    else if (endpoint == "locate"            ) action = valhalla::Options::locate;
+    else if (endpoint == "matrix" ||
+             endpoint == "sources_to_targets") action = valhalla::Options::sources_to_targets;
+    else if (endpoint == "optimized_route"   ) action = valhalla::Options::optimized_route;
+    else if (endpoint == "isochrone"         ) action = valhalla::Options::isochrone;
+    else if (endpoint == "trace_route"       ) action = valhalla::Options::trace_route;
+    else if (endpoint == "trace_attributes"  ) action = valhalla::Options::trace_attributes;
+    else if (endpoint == "height"            ) action = valhalla::Options::height;
+    else if (endpoint == "transit_available" ) action = valhalla::Options::transit_available;
+    else if (endpoint == "expansion"         ) action = valhalla::Options::expansion;
+    else if (endpoint == "centroid"          ) action = valhalla::Options::centroid;
+    else if (endpoint == "status"            ) action = valhalla::Options::status;
+    else throw GenericException("Unknown Valhalla endpoint", endpoint);
 
-    auto it = table.find(maneuverType);
-    if (it != table.end()) { action = it->second; return true; }
-    Log::infof("ValhallaRoutingProxy: ignoring unknown maneuver type %d", maneuverType);
-    return false;
+    std::string result;
+    try {
+        std::stringstream ss;
+        ss << config.toJSON();
+        boost::property_tree::ptree configTree;
+        rapidjson::read_json(ss, configTree);
+        auto reader = std::make_shared<valhalla::baldr::GraphReader>(databases);
+
+        valhalla::Api api;
+        valhalla::ParseApi(jsonBody, action, api, g_valhallaLocales);
+
+        valhalla::loki::loki_worker_t  lokiWorker(configTree, reader);
+        valhalla::thor::thor_worker_t  thorWorker(configTree, reader);
+        valhalla::odin::odin_worker_t  odinWorker(configTree);
+
+        switch (action) {
+        case valhalla::Options::route:
+            lokiWorker.route(api);
+            thorWorker.route(api);
+            odinWorker.narrate(api);
+            result = valhalla::tyr::serializeDirections(api);
+            break;
+
+        case valhalla::Options::trace_attributes:
+            lokiWorker.trace(api);
+            result = thorWorker.trace_attributes(api);
+            break;
+
+        case valhalla::Options::trace_route:
+            lokiWorker.trace(api);
+            thorWorker.trace_route(api);
+            odinWorker.narrate(api);
+            result = valhalla::tyr::serializeDirections(api);
+            break;
+
+        case valhalla::Options::sources_to_targets:
+            lokiWorker.matrix(api);
+            result = thorWorker.matrix(api);
+            break;
+
+        case valhalla::Options::optimized_route:
+            lokiWorker.route(api);
+            result = thorWorker.optimized_route(api);
+            break;
+
+        case valhalla::Options::isochrone:
+            lokiWorker.isochrone(api);
+            result = thorWorker.isochrone(api);
+            break;
+
+        case valhalla::Options::locate:
+            lokiWorker.locate(api);
+            result = valhalla::tyr::serializeLocate(api);
+            break;
+
+        case valhalla::Options::height:
+            lokiWorker.height(api);
+            result = valhalla::tyr::serializeHeight(api);
+            break;
+
+        case valhalla::Options::expansion:
+            lokiWorker.expansion(api);
+            result = thorWorker.expansion(api);
+            break;
+
+        case valhalla::Options::centroid:
+            lokiWorker.centroid(api);
+            result = thorWorker.centroid(api);
+            break;
+
+        case valhalla::Options::status:
+            lokiWorker.status(api);
+            result = valhalla::tyr::serializeStatus(api);
+            break;
+
+        default:
+            throw GenericException("Unhandled Valhalla action");
+        }
+
+        lokiWorker.cleanup();
+        thorWorker.cleanup();
+        odinWorker.cleanup();
+    }
+    catch (const std::exception& ex) {
+        throw GenericException("Exception in callRaw(" + endpoint + ")", ex.what());
+    }
+    return result;
+#else
+    throw GenericException("Valhalla routing support not compiled in");
+#endif
 }
 
 // -------------------------------------------------------------------------
-// Request serialization
+// Request serialization — uses rapidjson (from valhalla) when available,
+// otherwise falls back to Variant's own toJSON() helpers.
 // -------------------------------------------------------------------------
-std::string ValhallaRoutingProxy::SerializeRouteMatchingRequest(
-        const std::string& profile,
-        const std::shared_ptr<RouteMatchingRequest>& request) {
 
-    std::shared_ptr<Projection> proj = request->getProjection();
-    picojson::array locations;
-    const auto& points = request->getPoints();
-    for (std::size_t i = 0; i < points.size(); i++) {
-        picojson::object loc;
-        picojson::value pp = request->getPointParameters(static_cast<int>(i)).toPicoJSON();
-        if (pp.is<picojson::object>()) loc = pp.get<picojson::object>();
-        MapPos wgs84 = proj->toWgs84(points[i]);
-        loc["lon"] = picojson::value(wgs84.getX());
-        loc["lat"] = picojson::value(wgs84.getY());
-        locations.emplace_back(loc);
+#ifdef HAVE_VALHALLA
+
+// Build a rapidjson object for a single location from its Variant parameter bag.
+static void addLocationToArray(
+        rapidjson::Value& arr,
+        rapidjson::Document::AllocatorType& alloc,
+        double lon, double lat,
+        const Variant& params) {
+
+    rapidjson::Value loc(rapidjson::kObjectType);
+
+    // Copy any extra parameters from the Variant object
+    if (params.getType() == VariantType::VARIANT_TYPE_OBJECT) {
+        for (const auto& key : params.getObjectKeys()) {
+            const Variant& v = params.getObjectElement(key);
+            rapidjson::Value k(key.c_str(), alloc);
+            switch (v.getType()) {
+            case VariantType::VARIANT_TYPE_STRING: {
+                rapidjson::Value s(v.getString().c_str(), alloc);
+                loc.AddMember(k, s, alloc);
+                break;
+            }
+            case VariantType::VARIANT_TYPE_BOOL:
+                loc.AddMember(k, v.getBool(), alloc);
+                break;
+            case VariantType::VARIANT_TYPE_INTEGER:
+                loc.AddMember(k, v.getLong(), alloc);
+                break;
+            case VariantType::VARIANT_TYPE_DOUBLE:
+                loc.AddMember(k, v.getDouble(), alloc);
+                break;
+            default:
+                break;
+            }
+        }
     }
 
-    picojson::object json;
-    json["shape"]       = picojson::value(locations);
-    json["shape_match"] = picojson::value(std::string("map_snap"));
-    json["costing"]     = picojson::value(profile);
-    json["units"]       = picojson::value(std::string("kilometers"));
-    if (request->getAccuracy() > 0) {
-        json["gps_accuracy"] = picojson::value(static_cast<double>(request->getAccuracy()));
-    }
-    picojson::value custom = request->getCustomParameters().toPicoJSON();
-    if (custom.is<picojson::object>()) {
-        for (const auto& kv : custom.get<picojson::object>())
-            json[kv.first] = kv.second;
-    }
-    return picojson::value(json).serialize();
+    loc.AddMember("lon", lon, alloc);
+    loc.AddMember("lat", lat, alloc);
+    arr.PushBack(loc, alloc);
 }
+
+// Merge custom parameters (Variant object) into a rapidjson object.
+static void mergeCustomParams(
+        rapidjson::Value& target,
+        rapidjson::Document::AllocatorType& alloc,
+        const Variant& params) {
+    if (params.getType() != VariantType::VARIANT_TYPE_OBJECT) return;
+    // Re-parse the JSON representation of params into a rapidjson document,
+    // then copy top-level members into target.
+    std::string json = params.toJSON();
+    rapidjson::Document doc;
+    doc.Parse(json.c_str(), json.size());
+    if (doc.HasParseError() || !doc.IsObject()) return;
+    for (auto& m : doc.GetObject()) {
+        rapidjson::Value k(m.name, alloc);
+        rapidjson::Value v(m.value, alloc);
+        target.AddMember(k, v, alloc);
+    }
+}
+
+static std::string documentToString(const rapidjson::Document& doc) {
+    rapidjson::StringBuffer buf;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(buf);
+    doc.Accept(writer);
+    return buf.GetString();
+}
+
+#endif // HAVE_VALHALLA
 
 std::string ValhallaRoutingProxy::SerializeRoutingRequest(
         const std::string& profile,
         const std::shared_ptr<RoutingRequest>& request) {
 
     std::shared_ptr<Projection> proj = request->getProjection();
-    picojson::array locations;
     const auto& points = request->getPoints();
+
+#ifdef HAVE_VALHALLA
+    rapidjson::Document doc;
+    doc.SetObject();
+    auto& alloc = doc.GetAllocator();
+
+    rapidjson::Value locations(rapidjson::kArrayType);
     for (std::size_t i = 0; i < points.size(); i++) {
-        picojson::object loc;
-        picojson::value pp = request->getPointParameters(static_cast<int>(i)).toPicoJSON();
-        if (pp.is<picojson::object>()) loc = pp.get<picojson::object>();
         MapPos wgs84 = proj->toWgs84(points[i]);
-        loc["lon"] = picojson::value(wgs84.getX());
-        loc["lat"] = picojson::value(wgs84.getY());
-        locations.emplace_back(loc);
+        addLocationToArray(locations, alloc, wgs84.getX(), wgs84.getY(),
+                           request->getPointParameters(static_cast<int>(i)));
     }
+    doc.AddMember("locations", locations, alloc);
 
-    picojson::object json;
-    json["locations"] = picojson::value(locations);
-    json["costing"]   = picojson::value(profile);
-    json["units"]     = picojson::value(std::string("kilometers"));
+    rapidjson::Value costingVal(profile.c_str(), alloc);
+    doc.AddMember("costing", costingVal, alloc);
+    doc.AddMember("units", rapidjson::StringRef("kilometers"), alloc);
 
-    picojson::value custom = request->getCustomParameters().toPicoJSON();
-    if (custom.is<picojson::object>()) {
-        for (const auto& kv : custom.get<picojson::object>())
-            json[kv.first] = kv.second;
+    mergeCustomParams(doc, alloc, request->getCustomParameters());
+    return documentToString(doc);
+#else
+    // Fallback: build JSON manually
+    std::string json = "{\"locations\":[";
+    for (std::size_t i = 0; i < points.size(); i++) {
+        if (i > 0) json += ',';
+        MapPos wgs84 = proj->toWgs84(points[i]);
+        json += "{\"lon\":" + std::to_string(wgs84.getX()) +
+                ",\"lat\":" + std::to_string(wgs84.getY()) + "}";
     }
-    return picojson::value(json).serialize();
+    json += "],\"costing\":\"" + profile + "\",\"units\":\"kilometers\"}";
+    return json;
+#endif
 }
 
-// -------------------------------------------------------------------------
-// Result parsing
-// -------------------------------------------------------------------------
-std::shared_ptr<RouteMatchingResult> ValhallaRoutingProxy::ParseRouteMatchingResult(
-        const std::shared_ptr<Projection>& proj,
-        const std::string& resultString) {
+std::string ValhallaRoutingProxy::SerializeRouteMatchingRequest(
+        const std::string& profile,
+        const std::shared_ptr<RouteMatchingRequest>& request) {
 
-    picojson::value result;
-    std::string err = picojson::parse(result, resultString);
-    if (!err.empty()) throw GenericException("Failed to parse matching result", err);
+    std::shared_ptr<Projection> proj = request->getProjection();
+    const auto& points = request->getPoints();
 
-    std::vector<RouteMatchingPoint> matchingPoints;
-    std::vector<RouteMatchingEdge>  matchingEdges;
-    try {
-        if (result.get("matched_points").is<picojson::array>()) {
-            for (const picojson::value& pt : result.get("matched_points").get<picojson::array>()) {
-                RouteMatchingPointType::RouteMatchingPointType type =
-                    RouteMatchingPointType::ROUTE_MATCHING_POINT_UNMATCHED;
-                const std::string& typeStr = pt.get("type").get<std::string>();
-                if (typeStr == "matched")      type = RouteMatchingPointType::ROUTE_MATCHING_POINT_MATCHED;
-                else if (typeStr == "interpolated") type = RouteMatchingPointType::ROUTE_MATCHING_POINT_INTERPOLATED;
+#ifdef HAVE_VALHALLA
+    rapidjson::Document doc;
+    doc.SetObject();
+    auto& alloc = doc.GetAllocator();
 
-                double lat       = pt.get("lat").get<double>();
-                double lon       = pt.get("lon").get<double>();
-                int edgeIndex    = static_cast<int>(pt.get("edge_index").get<std::int64_t>());
-                matchingPoints.emplace_back(proj->fromLatLong(lat, lon), type, edgeIndex);
-            }
-        }
-        if (result.get("edges").is<picojson::array>()) {
-            for (const picojson::value& edge : result.get("edges").get<picojson::array>()) {
-                std::map<std::string, Variant> attrs;
-                if (edge.is<picojson::object>()) {
-                    for (const auto& kv : edge.get<picojson::object>())
-                        attrs[kv.first] = Variant::FromPicoJSON(kv.second);
-                }
-                matchingEdges.emplace_back(attrs);
-            }
-        }
+    rapidjson::Value shape(rapidjson::kArrayType);
+    for (std::size_t i = 0; i < points.size(); i++) {
+        MapPos wgs84 = proj->toWgs84(points[i]);
+        addLocationToArray(shape, alloc, wgs84.getX(), wgs84.getY(),
+                           request->getPointParameters(static_cast<int>(i)));
     }
-    catch (const std::exception& ex) {
-        throw GenericException("Exception while parsing route matching result", ex.what());
-    }
-    return std::make_shared<RouteMatchingResult>(proj, std::move(matchingPoints),
-                                                  std::move(matchingEdges), resultString);
-}
+    doc.AddMember("shape", shape, alloc);
+    doc.AddMember("shape_match", rapidjson::StringRef("map_snap"), alloc);
+    rapidjson::Value costingVal(profile.c_str(), alloc);
+    doc.AddMember("costing", costingVal, alloc);
+    doc.AddMember("units", rapidjson::StringRef("kilometers"), alloc);
 
-std::shared_ptr<RoutingResult> ValhallaRoutingProxy::ParseRoutingResult(
-        const std::shared_ptr<Projection>& proj,
-        const std::string& resultString) {
-
-    picojson::value result;
-    std::string err = picojson::parse(result, resultString);
-    if (!err.empty()) throw GenericException("Failed to parse routing result", err);
-    if (!result.get("trip").is<picojson::object>()) {
-        throw GenericException("No trip info in the routing result");
+    if (request->getAccuracy() > 0) {
+        doc.AddMember("gps_accuracy",
+                      static_cast<double>(request->getAccuracy()), alloc);
     }
 
-    RoutingResultBuilder builder(proj, resultString);
-    try {
-        std::size_t shapeOffset = 0;
-        for (const picojson::value& leg : result.get("trip").get("legs").get<picojson::array>()) {
-            std::vector<valhalla::midgard::PointLL> shape =
-                valhalla::midgard::decode<std::vector<valhalla::midgard::PointLL>>(
-                    leg.get("shape").get<std::string>());
-
-            std::vector<MapPos> points;
-            points.reserve(shape.size());
-            for (const auto& pt : shape)
-                points.push_back(proj->fromLatLong(pt.second, pt.first));
-            builder.addPoints(points);
-
-            const picojson::array& maneuvers = leg.get("maneuvers").get<picojson::array>();
-            for (std::size_t i = 0; i < maneuvers.size(); i++) {
-                const picojson::value& m = maneuvers[i];
-
-                RoutingAction::RoutingAction action = RoutingAction::ROUTING_ACTION_NO_TURN;
-                TranslateManeuverType(static_cast<int>(m.get("type").get<std::int64_t>()), action);
-                if (action == RoutingAction::ROUTING_ACTION_FINISH && i + 1 < maneuvers.size())
-                    action = RoutingAction::ROUTING_ACTION_REACH_VIA_LOCATION;
-
-                std::string streetName;
-                if (m.get("street_names").is<picojson::array>()) {
-                    for (const picojson::value& n : m.get("street_names").get<picojson::array>())
-                        streetName += (streetName.empty() ? "" : "/") + n.get<std::string>();
-                }
-
-                int pointIndex = static_cast<int>(shapeOffset +
-                    m.get("begin_shape_index").get<std::int64_t>());
-
-                RoutingInstructionBuilder& ib = builder.addInstruction(action, pointIndex);
-                ib.setStreetName(streetName);
-                ib.setTime(m.get("time").get<double>());
-                ib.setDistance(m.get("length").get<double>() * 1000.0);
-                ib.setInstruction(m.get("instruction").get<std::string>());
-            }
-            if (!maneuvers.empty())
-                shapeOffset += maneuvers.back().get("begin_shape_index").get<std::int64_t>();
-        }
+    mergeCustomParams(doc, alloc, request->getCustomParameters());
+    return documentToString(doc);
+#else
+    // Fallback: build JSON manually
+    std::string json = "{\"shape\":[";
+    for (std::size_t i = 0; i < points.size(); i++) {
+        if (i > 0) json += ',';
+        MapPos wgs84 = proj->toWgs84(points[i]);
+        json += "{\"lon\":" + std::to_string(wgs84.getX()) +
+                ",\"lat\":" + std::to_string(wgs84.getY()) + "}";
     }
-    catch (const std::exception& ex) {
-        throw GenericException("Exception while translating routing result", ex.what());
-    }
-    return builder.buildRoutingResult();
+    json += "],\"shape_match\":\"map_snap\",\"costing\":\"" + profile + "\",\"units\":\"kilometers\"}";
+    return json;
+#endif
 }
 
 } // namespace routing

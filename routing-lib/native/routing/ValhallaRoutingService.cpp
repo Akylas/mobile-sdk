@@ -5,7 +5,6 @@
 #include "../log/Log.h"
 
 #include <algorithm>
-#include <picojson/picojson.h>
 #include <sqlite3.h>
 
 namespace routing {
@@ -58,7 +57,7 @@ namespace routing {
     }
 
     // -----------------------------------------------------------------------
-    // Configuration (dot-delimited key access, no boost)
+    // Configuration (dot-delimited key access, pure Variant API)
     // -----------------------------------------------------------------------
 
     std::vector<std::string> ValhallaRoutingService::splitKeys(const std::string& param) {
@@ -75,25 +74,37 @@ namespace routing {
     Variant ValhallaRoutingService::getConfigurationParameter(const std::string& param) const {
         std::lock_guard<std::mutex> lk(_mutex);
         auto keys = splitKeys(param);
-        picojson::value sub = _configuration.toPicoJSON();
+        Variant sub = _configuration;
         for (const auto& key : keys) {
-            if (!sub.is<picojson::object>()) return Variant();
-            sub = sub.get(key);
+            if (sub.getType() != VariantType::VARIANT_TYPE_OBJECT) return Variant();
+            sub = sub.getObjectElement(key);
         }
-        return Variant::FromPicoJSON(sub);
+        return sub;
     }
 
-    void ValhallaRoutingService::setConfigurationParameter(const std::string& param, const Variant& value) {
+    // Recursively build a new Variant with the value set at the given key path.
+    Variant ValhallaRoutingService::setNestedValue(Variant obj,
+                                                    const std::vector<std::string>& keys,
+                                                    int idx,
+                                                    const Variant& value) {
+        const std::string& key = keys[static_cast<std::size_t>(idx)];
+        if (idx == static_cast<int>(keys.size()) - 1) {
+            obj.setObjectElement(key, value);
+            return obj;
+        }
+        Variant sub = obj.getObjectElement(key);
+        if (sub.getType() != VariantType::VARIANT_TYPE_OBJECT) {
+            sub = Variant(std::map<std::string, Variant>{});
+        }
+        obj.setObjectElement(key, setNestedValue(std::move(sub), keys, idx + 1, value));
+        return obj;
+    }
+
+    void ValhallaRoutingService::setConfigurationParameter(const std::string& param,
+                                                            const Variant& value) {
         std::lock_guard<std::mutex> lk(_mutex);
         auto keys = splitKeys(param);
-        picojson::value config = _configuration.toPicoJSON();
-        picojson::value* sub = &config;
-        for (const auto& key : keys) {
-            if (!sub->is<picojson::object>()) sub->set(picojson::object());
-            sub = &sub->get<picojson::object>()[key];
-        }
-        *sub = value.toPicoJSON();
-        _configuration = Variant::FromPicoJSON(config);
+        _configuration = setNestedValue(std::move(_configuration), keys, 0, value);
     }
 
     // -----------------------------------------------------------------------
@@ -105,13 +116,10 @@ namespace routing {
     }
 
     // -----------------------------------------------------------------------
-    // Routing
+    // Internal helpers
     // -----------------------------------------------------------------------
 
     // Collect sqlite3 handles from all registered MBTilesDataSource instances.
-    // Sources that do not expose a sqlite3* (e.g. future PMTiles sources) are
-    // skipped — they should ultimately be surfaced to valhalla via the
-    // IDataSource adapter mechanism.
     static std::vector<sqlite3*> collectDatabases(
             const std::vector<std::shared_ptr<IDataSource>>& sources) {
         std::vector<sqlite3*> dbs;
@@ -125,6 +133,10 @@ namespace routing {
         return dbs;
     }
 
+    // -----------------------------------------------------------------------
+    // Routing API
+    // -----------------------------------------------------------------------
+
     std::shared_ptr<RoutingResult> ValhallaRoutingService::calculateRoute(
             const std::shared_ptr<RoutingRequest>& request) const {
         std::string profile;
@@ -137,13 +149,9 @@ namespace routing {
             sources  = _sources;
         }
 
-        if (sources.empty()) {
-            throw GenericException("No data sources registered");
-        }
+        if (sources.empty()) throw GenericException("No data sources registered");
         auto databases = collectDatabases(sources);
-        if (databases.empty()) {
-            throw GenericException("No MBTiles data sources with open databases");
-        }
+        if (databases.empty()) throw GenericException("No MBTiles data sources with open databases");
 
         Log::debugf("ValhallaRoutingService::calculateRoute: profile=%s, sources=%d",
                     profile.c_str(), static_cast<int>(sources.size()));
@@ -163,18 +171,34 @@ namespace routing {
             sources  = _sources;
         }
 
-        if (sources.empty()) {
-            throw GenericException("No data sources registered");
-        }
+        if (sources.empty()) throw GenericException("No data sources registered");
         auto databases = collectDatabases(sources);
-        if (databases.empty()) {
-            throw GenericException("No MBTiles data sources with open databases");
-        }
+        if (databases.empty()) throw GenericException("No MBTiles data sources with open databases");
 
         Log::debugf("ValhallaRoutingService::matchRoute: profile=%s, sources=%d",
                     profile.c_str(), static_cast<int>(sources.size()));
 
         return ValhallaRoutingProxy::MatchRoute(databases, profile, config, request);
+    }
+
+    std::string ValhallaRoutingService::callRaw(const std::string& endpoint,
+                                                 const std::string& jsonBody) const {
+        Variant config;
+        std::vector<std::shared_ptr<IDataSource>> sources;
+        {
+            std::lock_guard<std::mutex> lk(_mutex);
+            config  = _configuration;
+            sources = _sources;
+        }
+
+        if (sources.empty()) throw GenericException("No data sources registered");
+        auto databases = collectDatabases(sources);
+        if (databases.empty()) throw GenericException("No MBTiles data sources with open databases");
+
+        Log::debugf("ValhallaRoutingService::callRaw: endpoint=%s, sources=%d",
+                    endpoint.c_str(), static_cast<int>(sources.size()));
+
+        return ValhallaRoutingProxy::CallRaw(databases, config, endpoint, jsonBody);
     }
 
 } // namespace routing

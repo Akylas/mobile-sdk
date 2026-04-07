@@ -15,19 +15,16 @@
 namespace routing {
 
     /**
-     * Standalone Valhalla routing service.
-     *
-     * Consolidates the functionality of ValhallaOfflineRoutingService and
-     * MultiValhallaOfflineRoutingService from the Carto SDK into a single
-     * self-contained class that has no dependency on the Carto core libraries.
+     * Offline Valhalla routing service.
      *
      * Data sources (MBTiles SQLite files, or any IDataSource implementation)
      * are registered via the constructor or addSource(). Multiple sources are
-     * queried in order so that the world can be split across several MBTiles
-     * files with non-overlapping geographic coverage.
+     * queried so that the world can be split across several MBTiles files.
      *
-     * Locale strings for navigation instructions can be registered with
-     * addLocale().
+     * Routing results are returned as raw Valhalla JSON strings. Parsing of
+     * individual fields is the responsibility of the application layer.
+     *
+     * Locale strings for narrative generation can be registered via addLocale().
      */
     class ValhallaRoutingService {
     public:
@@ -54,11 +51,11 @@ namespace routing {
         void setProfile(const std::string& profile);
 
         // ----------------------------------------------------------------
-        // Valhalla configuration (dot-delimited key paths, JSON values)
+        // Valhalla configuration (dot-delimited key paths, Variant values)
         //
         // Example:
-        //   service.setConfigurationParameter("costing_options.auto.use_highways",
-        //                                     Variant(0.0));
+        //   svc.setConfigurationParameter("costing_options.auto.use_highways",
+        //                                 Variant(0.0));
         // ----------------------------------------------------------------
 
         Variant getConfigurationParameter(const std::string& param) const;
@@ -69,23 +66,46 @@ namespace routing {
         // ----------------------------------------------------------------
 
         /**
-         * Register a locale JSON blob so that valhalla can produce
-         * navigation instructions in the given language.
-         * @param key  Locale identifier (e.g. "en-US", "de-DE")
-         * @param json Locale JSON string (valhalla locale format)
+         * Register a locale JSON blob so that Valhalla can produce navigation
+         * instructions in the given language.
+         * @param key  Locale identifier (e.g. "en-US", "de-DE").
+         * @param json Locale JSON string (Valhalla locale format).
          */
         void addLocale(const std::string& key, const std::string& json);
 
         // ----------------------------------------------------------------
-        // Routing API
+        // Routing API — returns raw Valhalla JSON strings
         // ----------------------------------------------------------------
 
-        std::shared_ptr<RoutingResult>       calculateRoute(const std::shared_ptr<RoutingRequest>& request) const;
-        std::shared_ptr<RouteMatchingResult> matchRoute(const std::shared_ptr<RouteMatchingRequest>& request) const;
+        /**
+         * Calculate a route. Returns the raw Valhalla JSON response.
+         */
+        std::shared_ptr<RoutingResult> calculateRoute(
+            const std::shared_ptr<RoutingRequest>& request) const;
+
+        /**
+         * Match a GPS trace to the road network. Returns the raw JSON response.
+         */
+        std::shared_ptr<RouteMatchingResult> matchRoute(
+            const std::shared_ptr<RouteMatchingRequest>& request) const;
+
+        /**
+         * Call any Valhalla API endpoint directly with a pre-built JSON request.
+         * @param endpoint  Endpoint name: "route", "trace_attributes", "trace_route",
+         *                  "matrix", "isochrone", "locate", "height",
+         *                  "expansion", "centroid", "status".
+         * @param jsonBody  Full Valhalla request JSON string.
+         * @return          Raw Valhalla JSON response string.
+         */
+        std::string callRaw(const std::string& endpoint,
+                            const std::string& jsonBody) const;
 
     private:
-        // C++17 helper: split dot-delimited key path into segments
         static std::vector<std::string> splitKeys(const std::string& param);
+        static Variant setNestedValue(Variant obj,
+                                      const std::vector<std::string>& keys,
+                                      int idx,
+                                      const Variant& value);
 
         mutable std::mutex _mutex;
         std::vector<std::shared_ptr<IDataSource>> _sources;

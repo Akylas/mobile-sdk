@@ -5,122 +5,121 @@
 #include <sstream>
 #include <string>
 
-// C++17 helper: split a string by a delimiter character (replaces boost::split)
+namespace routing {
+
+// ---------------------------------------------------------------------------
+// Internal helpers — navigate/modify nested Variant object trees
+// ---------------------------------------------------------------------------
+
 static std::vector<std::string> splitKeys(const std::string& s, char delim) {
     std::vector<std::string> result;
-    std::string current;
+    std::string cur;
     for (char c : s) {
-        if (c == delim) {
-            result.push_back(current);
-            current.clear();
-        } else {
-            current += c;
-        }
+        if (c == delim) { result.push_back(cur); cur.clear(); }
+        else cur += c;
     }
-    result.push_back(current);
+    result.push_back(cur);
     return result;
 }
 
-namespace routing {
-
-    RoutingRequest::RoutingRequest(const std::shared_ptr<Projection>& projection,
-                                   const std::vector<MapPos>& points) :
-        _projection(projection),
-        _points(points),
-        _pointParams(),
-        _customParams(),
-        _mutex()
-    {
-        if (!projection) throw NullArgumentException("Null projection");
+static Variant getNestedVariant(const Variant& root,
+                                 const std::vector<std::string>& keys) {
+    Variant cur = root;
+    for (const auto& k : keys) {
+        if (cur.getType() != VariantType::VARIANT_TYPE_OBJECT) return Variant();
+        cur = cur.getObjectElement(k);
     }
+    return cur;
+}
 
-    RoutingRequest::~RoutingRequest() {}
-
-    const std::shared_ptr<Projection>& RoutingRequest::getProjection() const { return _projection; }
-    const std::vector<MapPos>& RoutingRequest::getPoints() const { return _points; }
-
-    Variant RoutingRequest::getPointParameters(int index) const {
-        std::lock_guard<std::mutex> lock(_mutex);
-        auto it = _pointParams.find(index);
-        return it == _pointParams.end() ? Variant() : it->second;
+static Variant setNestedVariant(Variant root,
+                                 const std::vector<std::string>& keys,
+                                 int idx,
+                                 const Variant& value) {
+    if (idx == static_cast<int>(keys.size()) - 1) {
+        root.setObjectElement(keys[static_cast<std::size_t>(idx)], value);
+        return root;
     }
+    const std::string& key = keys[static_cast<std::size_t>(idx)];
+    Variant sub = root.getObjectElement(key);
+    if (sub.getType() != VariantType::VARIANT_TYPE_OBJECT)
+        sub = Variant(std::map<std::string, Variant>{});
+    root.setObjectElement(key, setNestedVariant(std::move(sub), keys, idx + 1, value));
+    return root;
+}
 
-    Variant RoutingRequest::getPointParameter(int index, const std::string& param) const {
-        std::lock_guard<std::mutex> lock(_mutex);
-        auto it = _pointParams.find(index);
-        if (it == _pointParams.end()) return Variant();
-        std::vector<std::string> keys = splitKeys(param, '.');
-        picojson::value sub = it->second.toPicoJSON();
-        for (const auto& key : keys) {
-            if (!sub.is<picojson::object>()) return Variant();
-            sub = sub.get(key);
-        }
-        return Variant::FromPicoJSON(sub);
-    }
+// ---------------------------------------------------------------------------
+// RoutingRequest implementation
+// ---------------------------------------------------------------------------
 
-    void RoutingRequest::setPointParameter(int index, const std::string& param, const Variant& value) {
-        std::lock_guard<std::mutex> lock(_mutex);
-        std::vector<std::string> keys = splitKeys(param, '.');
-        picojson::value root = _pointParams[index].toPicoJSON();
-        picojson::value* sub = &root;
-        for (const auto& key : keys) {
-            if (!sub->is<picojson::object>()) sub->set(picojson::object());
-            sub = &sub->get<picojson::object>()[key];
-        }
-        *sub = value.toPicoJSON();
-        _pointParams[index] = Variant::FromPicoJSON(root);
-    }
+RoutingRequest::RoutingRequest(const std::shared_ptr<Projection>& projection,
+                               const std::vector<MapPos>& points) :
+    _projection(projection),
+    _points(points)
+{
+    if (!projection) throw NullArgumentException("Null projection");
+}
 
-    Variant RoutingRequest::getCustomParameters() const {
-        std::lock_guard<std::mutex> lock(_mutex);
-        return _customParams;
-    }
+RoutingRequest::~RoutingRequest() {}
 
-    Variant RoutingRequest::getCustomParameter(const std::string& param) const {
-        std::lock_guard<std::mutex> lock(_mutex);
-        std::vector<std::string> keys = splitKeys(param, '.');
-        picojson::value sub = _customParams.toPicoJSON();
-        for (const auto& key : keys) {
-            if (!sub.is<picojson::object>()) return Variant();
-            sub = sub.get(key);
-        }
-        return Variant::FromPicoJSON(sub);
-    }
+const std::shared_ptr<Projection>& RoutingRequest::getProjection() const { return _projection; }
+const std::vector<MapPos>&         RoutingRequest::getPoints()     const { return _points; }
 
-    void RoutingRequest::setCustomParameter(const std::string& param, const Variant& value) {
-        std::lock_guard<std::mutex> lock(_mutex);
-        std::vector<std::string> keys = splitKeys(param, '.');
-        picojson::value root = _customParams.toPicoJSON();
-        picojson::value* sub = &root;
-        for (const auto& key : keys) {
-            if (!sub->is<picojson::object>()) sub->set(picojson::object());
-            sub = &sub->get<picojson::object>()[key];
-        }
-        *sub = value.toPicoJSON();
-        _customParams = Variant::FromPicoJSON(root);
-    }
+Variant RoutingRequest::getPointParameters(int index) const {
+    std::lock_guard<std::mutex> lock(_mutex);
+    auto it = _pointParams.find(index);
+    return it == _pointParams.end() ? Variant() : it->second;
+}
 
-    std::string RoutingRequest::toString() const {
-        std::lock_guard<std::mutex> lock(_mutex);
-        std::stringstream ss;
-        ss << std::setiosflags(std::ios::fixed);
-        ss << "RoutingRequest [points=[";
-        for (auto it = _points.begin(); it != _points.end(); ++it) {
-            ss << (it == _points.begin() ? "" : ", ") << it->toString();
-        }
+Variant RoutingRequest::getPointParameter(int index, const std::string& param) const {
+    std::lock_guard<std::mutex> lock(_mutex);
+    auto it = _pointParams.find(index);
+    if (it == _pointParams.end()) return Variant();
+    return getNestedVariant(it->second, splitKeys(param, '.'));
+}
+
+void RoutingRequest::setPointParameter(int index, const std::string& param, const Variant& value) {
+    std::lock_guard<std::mutex> lock(_mutex);
+    auto keys = splitKeys(param, '.');
+    _pointParams[index] = setNestedVariant(
+        _pointParams.count(index) ? _pointParams.at(index) : Variant(std::map<std::string,Variant>{}),
+        keys, 0, value);
+}
+
+Variant RoutingRequest::getCustomParameters() const {
+    std::lock_guard<std::mutex> lock(_mutex);
+    return _customParams;
+}
+
+Variant RoutingRequest::getCustomParameter(const std::string& param) const {
+    std::lock_guard<std::mutex> lock(_mutex);
+    return getNestedVariant(_customParams, splitKeys(param, '.'));
+}
+
+void RoutingRequest::setCustomParameter(const std::string& param, const Variant& value) {
+    std::lock_guard<std::mutex> lock(_mutex);
+    auto keys = splitKeys(param, '.');
+    _customParams = setNestedVariant(std::move(_customParams), keys, 0, value);
+}
+
+std::string RoutingRequest::toString() const {
+    std::lock_guard<std::mutex> lock(_mutex);
+    std::stringstream ss;
+    ss << "RoutingRequest [points=[";
+    for (auto it = _points.begin(); it != _points.end(); ++it)
+        ss << (it == _points.begin() ? "" : ", ") << it->toString();
+    ss << "]";
+    if (!_pointParams.empty()) {
+        ss << ", pointParams=[";
+        for (auto it = _pointParams.begin(); it != _pointParams.end(); ++it)
+            ss << (it == _pointParams.begin() ? "" : ", ")
+               << it->first << "=" << it->second.toString();
         ss << "]";
-        if (!_pointParams.empty()) {
-            ss << ", pointParams=[";
-            for (auto it = _pointParams.begin(); it != _pointParams.end(); ++it) {
-                ss << (it == _pointParams.begin() ? "" : ", ") << it->first << "=" << it->second.toString();
-            }
-            ss << "]";
-        }
-        if (_customParams.getType() != VariantType::VARIANT_TYPE_NULL) {
-            ss << ", customParams=" << _customParams.toString();
-        }
-        ss << "]";
-        return ss.str();
     }
+    if (_customParams.getType() != VariantType::VARIANT_TYPE_NULL)
+        ss << ", customParams=" << _customParams.toString();
+    ss << "]";
+    return ss.str();
+}
 
 } // namespace routing
