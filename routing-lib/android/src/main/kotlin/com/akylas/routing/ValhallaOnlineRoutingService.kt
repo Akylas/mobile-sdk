@@ -54,7 +54,7 @@ class ValhallaOnlineRoutingService(
      * @throws RuntimeException on HTTP or service error.
      */
     fun callRaw(endpoint: String, jsonBody: String): String {
-        val url = "${baseURL.trimEnd('/')}/$endpoint"
+        val url = "${baseURL}/$endpoint"
         return httpHandler.post(url, jsonBody)
     }
 }

@@ -9,7 +9,7 @@ package com.akylas.routing
  * All routing methods may perform disk I/O and must be called from a
  * background thread (not the main/UI thread).
  */
-class ValhallaRoutingService(paths: List<String> = emptyList()) {
+class ValhallaRoutingService(paths: List<String> = emptyList()) : AutoCloseable {
 
     private val nativePtr: Long
 
@@ -103,9 +103,7 @@ class ValhallaRoutingService(paths: List<String> = emptyList()) {
     // Lifecycle
     // -----------------------------------------------------------------------
 
-    fun close(): Unit = nativeDestroy(nativePtr)
-
-    protected fun finalize(): Unit = close()
+    override fun close(): Unit = nativeDestroy(nativePtr)
 
     // -----------------------------------------------------------------------
     // JNI declarations

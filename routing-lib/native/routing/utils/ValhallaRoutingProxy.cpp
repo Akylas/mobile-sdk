@@ -2,6 +2,7 @@
 #include "../../../assets/ValhallaDefaultConfig.h"
 #include "../../exceptions/Exceptions.h"
 #include "../../log/Log.h"
+#include "../../utils/StringUtils.h"
 
 #ifdef HAVE_VALHALLA
 #  include <valhalla/meili/map_matcher.h>
@@ -41,18 +42,8 @@
 #include <unordered_map>
 
 // -----------------------------------------------------------------------
-// Dot-delimited key splitter (C++17, replaces boost::split)
+// Dot-delimited key splitter — see utils/StringUtils.h
 // -----------------------------------------------------------------------
-static std::vector<std::string> splitByDot(const std::string& s) {
-    std::vector<std::string> result;
-    std::string cur;
-    for (char c : s) {
-        if (c == '.') { result.push_back(cur); cur.clear(); }
-        else cur += c;
-    }
-    result.push_back(cur);
-    return result;
-}
 
 namespace routing {
 

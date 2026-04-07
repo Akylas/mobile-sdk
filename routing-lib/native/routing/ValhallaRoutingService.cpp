@@ -3,6 +3,7 @@
 #include "../datasource/MBTilesDataSource.h"
 #include "../exceptions/Exceptions.h"
 #include "../log/Log.h"
+#include "../utils/StringUtils.h"
 
 #include <algorithm>
 #include <sqlite3.h>
@@ -61,14 +62,7 @@ namespace routing {
     // -----------------------------------------------------------------------
 
     std::vector<std::string> ValhallaRoutingService::splitKeys(const std::string& param) {
-        std::vector<std::string> result;
-        std::string cur;
-        for (char c : param) {
-            if (c == '.') { result.push_back(cur); cur.clear(); }
-            else cur += c;
-        }
-        result.push_back(cur);
-        return result;
+        return routing::splitKeys(param, '.');
     }
 
     Variant ValhallaRoutingService::getConfigurationParameter(const std::string& param) const {

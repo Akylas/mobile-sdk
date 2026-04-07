@@ -1,26 +1,12 @@
 #include "RoutingRequest.h"
 #include "../exceptions/Exceptions.h"
+#include "../utils/StringUtils.h"
 
 #include <iomanip>
 #include <sstream>
 #include <string>
 
 namespace routing {
-
-// ---------------------------------------------------------------------------
-// Internal helpers — navigate/modify nested Variant object trees
-// ---------------------------------------------------------------------------
-
-static std::vector<std::string> splitKeys(const std::string& s, char delim) {
-    std::vector<std::string> result;
-    std::string cur;
-    for (char c : s) {
-        if (c == delim) { result.push_back(cur); cur.clear(); }
-        else cur += c;
-    }
-    result.push_back(cur);
-    return result;
-}
 
 static Variant getNestedVariant(const Variant& root,
                                  const std::vector<std::string>& keys) {
