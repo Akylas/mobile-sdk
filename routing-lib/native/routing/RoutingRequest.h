@@ -2,9 +2,7 @@
 
 #include "../core/MapPos.h"
 #include "../core/Variant.h"
-#include "../core/Projection.h"
 
-#include <memory>
 #include <mutex>
 #include <vector>
 #include <map>
@@ -15,17 +13,19 @@ namespace routing {
     /**
      * Describes a route calculation request. Pass to ValhallaRoutingService::calculateRoute().
      *
+     * Points are WGS-84 coordinates: MapPos(lon, lat).
+     *
      * All setCustomParameter / setPointParameter calls use dot-separated paths
-     * (e.g. "costing_options.auto.toll_booth_penalty") which are resolved into
-     * nested JSON without boost::split.
+     * (e.g. "costing_options.auto.toll_booth_penalty") resolved into nested JSON.
      */
     class RoutingRequest {
     public:
-        RoutingRequest(const std::shared_ptr<Projection>& projection,
-                       const std::vector<MapPos>& points);
+        /**
+         * @param points  WGS-84 waypoints as MapPos(lon, lat).
+         */
+        explicit RoutingRequest(const std::vector<MapPos>& points);
         virtual ~RoutingRequest();
 
-        const std::shared_ptr<Projection>& getProjection() const;
         const std::vector<MapPos>& getPoints() const;
 
         Variant getPointParameters(int index) const;
@@ -39,7 +39,6 @@ namespace routing {
         std::string toString() const;
 
     private:
-        const std::shared_ptr<Projection> _projection;
         const std::vector<MapPos> _points;
         std::map<int, Variant> _pointParams;
         Variant _customParams;

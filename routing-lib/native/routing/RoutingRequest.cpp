@@ -34,22 +34,14 @@ static Variant setNestedVariant(Variant root,
     return root;
 }
 
-// ---------------------------------------------------------------------------
-// RoutingRequest implementation
-// ---------------------------------------------------------------------------
-
-RoutingRequest::RoutingRequest(const std::shared_ptr<Projection>& projection,
-                               const std::vector<MapPos>& points) :
-    _projection(projection),
+RoutingRequest::RoutingRequest(const std::vector<MapPos>& points) :
     _points(points)
 {
-    if (!projection) throw NullArgumentException("Null projection");
 }
 
 RoutingRequest::~RoutingRequest() {}
 
-const std::shared_ptr<Projection>& RoutingRequest::getProjection() const { return _projection; }
-const std::vector<MapPos>&         RoutingRequest::getPoints()     const { return _points; }
+const std::vector<MapPos>& RoutingRequest::getPoints() const { return _points; }
 
 Variant RoutingRequest::getPointParameters(int index) const {
     std::lock_guard<std::mutex> lock(_mutex);

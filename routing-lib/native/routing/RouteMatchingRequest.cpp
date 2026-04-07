@@ -33,25 +33,16 @@ static Variant setNestedVariant(Variant root,
     return root;
 }
 
-// ---------------------------------------------------------------------------
-// RouteMatchingRequest implementation
-// ---------------------------------------------------------------------------
-
-RouteMatchingRequest::RouteMatchingRequest(const std::shared_ptr<Projection>& projection,
-                                           const std::vector<MapPos>& points,
-                                           float accuracy) :
-    _projection(projection),
+RouteMatchingRequest::RouteMatchingRequest(const std::vector<MapPos>& points, float accuracy) :
     _points(points),
     _accuracy(accuracy)
 {
-    if (!projection) throw NullArgumentException("Null projection");
 }
 
 RouteMatchingRequest::~RouteMatchingRequest() {}
 
-const std::shared_ptr<Projection>& RouteMatchingRequest::getProjection() const { return _projection; }
-const std::vector<MapPos>&         RouteMatchingRequest::getPoints()     const { return _points; }
-float                              RouteMatchingRequest::getAccuracy()   const { return _accuracy; }
+const std::vector<MapPos>& RouteMatchingRequest::getPoints() const { return _points; }
+float                      RouteMatchingRequest::getAccuracy()  const { return _accuracy; }
 
 Variant RouteMatchingRequest::getPointParameters(int index) const {
     std::lock_guard<std::mutex> lock(_mutex);

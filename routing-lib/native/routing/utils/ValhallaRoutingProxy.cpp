@@ -339,7 +339,7 @@ std::string ValhallaRoutingProxy::SerializeRoutingRequest(
         const std::string& profile,
         const std::shared_ptr<RoutingRequest>& request) {
 
-    std::shared_ptr<Projection> proj = request->getProjection();
+    // Points are always WGS-84: MapPos(lon, lat)
     const auto& points = request->getPoints();
 
 #ifdef HAVE_VALHALLA
@@ -349,8 +349,7 @@ std::string ValhallaRoutingProxy::SerializeRoutingRequest(
 
     rapidjson::Value locations(rapidjson::kArrayType);
     for (std::size_t i = 0; i < points.size(); i++) {
-        MapPos wgs84 = proj->toWgs84(points[i]);
-        addLocationToArray(locations, alloc, wgs84.getX(), wgs84.getY(),
+        addLocationToArray(locations, alloc, points[i].getX(), points[i].getY(),
                            request->getPointParameters(static_cast<int>(i)));
     }
     doc.AddMember("locations", locations, alloc);
@@ -366,9 +365,8 @@ std::string ValhallaRoutingProxy::SerializeRoutingRequest(
     std::string json = "{\"locations\":[";
     for (std::size_t i = 0; i < points.size(); i++) {
         if (i > 0) json += ',';
-        MapPos wgs84 = proj->toWgs84(points[i]);
-        json += "{\"lon\":" + std::to_string(wgs84.getX()) +
-                ",\"lat\":" + std::to_string(wgs84.getY()) + "}";
+        json += "{\"lon\":" + std::to_string(points[i].getX()) +
+                ",\"lat\":" + std::to_string(points[i].getY()) + "}";
     }
     json += "],\"costing\":\"" + profile + "\",\"units\":\"kilometers\"}";
     return json;
@@ -379,7 +377,7 @@ std::string ValhallaRoutingProxy::SerializeRouteMatchingRequest(
         const std::string& profile,
         const std::shared_ptr<RouteMatchingRequest>& request) {
 
-    std::shared_ptr<Projection> proj = request->getProjection();
+    // Points are always WGS-84: MapPos(lon, lat)
     const auto& points = request->getPoints();
 
 #ifdef HAVE_VALHALLA
@@ -389,8 +387,7 @@ std::string ValhallaRoutingProxy::SerializeRouteMatchingRequest(
 
     rapidjson::Value shape(rapidjson::kArrayType);
     for (std::size_t i = 0; i < points.size(); i++) {
-        MapPos wgs84 = proj->toWgs84(points[i]);
-        addLocationToArray(shape, alloc, wgs84.getX(), wgs84.getY(),
+        addLocationToArray(shape, alloc, points[i].getX(), points[i].getY(),
                            request->getPointParameters(static_cast<int>(i)));
     }
     doc.AddMember("shape", shape, alloc);
@@ -411,9 +408,8 @@ std::string ValhallaRoutingProxy::SerializeRouteMatchingRequest(
     std::string json = "{\"shape\":[";
     for (std::size_t i = 0; i < points.size(); i++) {
         if (i > 0) json += ',';
-        MapPos wgs84 = proj->toWgs84(points[i]);
-        json += "{\"lon\":" + std::to_string(wgs84.getX()) +
-                ",\"lat\":" + std::to_string(wgs84.getY()) + "}";
+        json += "{\"lon\":" + std::to_string(points[i].getX()) +
+                ",\"lat\":" + std::to_string(points[i].getY()) + "}";
     }
     json += "],\"shape_match\":\"map_snap\",\"costing\":\"" + profile + "\",\"units\":\"kilometers\"}";
     return json;

@@ -8,8 +8,7 @@
 #include "../native/routing/ValhallaRoutingService.h"
 #include "../native/routing/ValhallaOnlineRoutingService.h"
 #include "../native/datasource/MBTilesDataSource.h"
-#include "../native/core/Projection.h"
-#include "../native/core/EPSG4326.h"
+#include "../native/core/MapPos.h"
 
 #include <memory>
 #include <stdexcept>
@@ -25,15 +24,6 @@ static NSError *makeError(const std::exception& ex) {
     return [NSError errorWithDomain:NTRoutingErrorDomain
                                code:-1
                            userInfo:@{NSLocalizedDescriptionKey: msg}];
-}
-
-// ---------------------------------------------------------------------------
-// WGS-84 projection (shared)
-// ---------------------------------------------------------------------------
-
-static const std::shared_ptr<routing::Projection>& wgs84Projection() {
-    static auto proj = std::make_shared<routing::EPSG4326>();
-    return proj;
 }
 
 // ---------------------------------------------------------------------------
@@ -82,10 +72,10 @@ buildRoutingRequest(NTRoutingRequest *req) {
     std::vector<routing::MapPos> points;
     points.reserve([req.points count]);
     for (NTLatLon *ll in req.points) {
-        // EPSG4326: x = lon, y = lat
-        points.push_back(wgs84Projection()->fromLatLong(ll.lat, ll.lon));
+        // WGS-84: MapPos(lon, lat)
+        points.push_back(routing::MapPos(ll.lon, ll.lat));
     }
-    auto r = std::make_shared<routing::RoutingRequest>(wgs84Projection(), points);
+    auto r = std::make_shared<routing::RoutingRequest>(points);
     if (req.customJSON.length > 0) {
         routing::Variant custom = routing::Variant::FromJSON(req.customJSON.UTF8String);
         if (custom.getType() == routing::VariantType::VARIANT_TYPE_OBJECT) {
@@ -102,10 +92,9 @@ buildRouteMatchingRequest(NTRouteMatchingRequest *req) {
     std::vector<routing::MapPos> points;
     points.reserve([req.points count]);
     for (NTLatLon *ll in req.points) {
-        points.push_back(wgs84Projection()->fromLatLong(ll.lat, ll.lon));
+        points.push_back(routing::MapPos(ll.lon, ll.lat));
     }
-    auto r = std::make_shared<routing::RouteMatchingRequest>(
-        wgs84Projection(), points, req.accuracy);
+    auto r = std::make_shared<routing::RouteMatchingRequest>(points, req.accuracy);
     if (req.customJSON.length > 0) {
         routing::Variant custom = routing::Variant::FromJSON(req.customJSON.UTF8String);
         if (custom.getType() == routing::VariantType::VARIANT_TYPE_OBJECT) {

@@ -2,9 +2,7 @@
 
 #include "../core/MapPos.h"
 #include "../core/Variant.h"
-#include "../core/Projection.h"
 
-#include <memory>
 #include <mutex>
 #include <map>
 #include <vector>
@@ -14,15 +12,18 @@ namespace routing {
 
     /**
      * Describes a route-matching request (GPS trace -> road network snap).
+     *
+     * Points are WGS-84 coordinates: MapPos(lon, lat).
      */
     class RouteMatchingRequest {
     public:
-        RouteMatchingRequest(const std::shared_ptr<Projection>& projection,
-                             const std::vector<MapPos>& points,
-                             float accuracy);
+        /**
+         * @param points    WGS-84 GPS trace points as MapPos(lon, lat).
+         * @param accuracy  GPS accuracy in metres (0 = use Valhalla default).
+         */
+        RouteMatchingRequest(const std::vector<MapPos>& points, float accuracy = 0.0f);
         virtual ~RouteMatchingRequest();
 
-        const std::shared_ptr<Projection>& getProjection() const;
         const std::vector<MapPos>& getPoints() const;
         float getAccuracy() const;
 
@@ -37,7 +38,6 @@ namespace routing {
         std::string toString() const;
 
     private:
-        const std::shared_ptr<Projection> _projection;
         const std::vector<MapPos> _points;
         const float _accuracy;
         std::map<int, Variant> _pointParams;

@@ -4,10 +4,10 @@
 #include <functional>
 
 namespace routing {
-    class MapVec;
 
     /**
-     * A double precision map position defined using three coordinates.
+     * A WGS-84 map position stored as (lon, lat [, alt]) or as (x, y [, z]).
+     * For routing: x = longitude, y = latitude.
      */
     class MapPos {
     public:
@@ -27,13 +27,6 @@ namespace routing {
 
         void setCoords(double x, double y);
         void setCoords(double x, double y, double z);
-
-        MapPos& operator +=(const MapVec& v);
-        MapPos& operator -=(const MapVec& v);
-
-        MapPos operator +(const MapVec& v) const;
-        MapPos operator -(const MapVec& v) const;
-        MapVec operator -(const MapPos& p) const;
 
         bool operator ==(const MapPos& p) const;
         bool operator !=(const MapPos& p) const;
