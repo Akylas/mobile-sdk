@@ -71,6 +71,8 @@ import com.carto.routing.RouteMatchingResult;
 import com.carto.routing.RoutingRequest;
 import com.carto.routing.RoutingResult;
 import com.carto.routing.MultiValhallaOfflineRoutingService;
+import com.akylas.routing.ValhallaRoutingService;
+import com.akylas.routing.ValhallaOnlineRoutingService;
 import com.carto.search.SearchRequest;
 import com.carto.search.VectorTileSearchService;
 import com.carto.styles.CartoCSSStyleSet;
@@ -777,7 +779,68 @@ public class SecondFragment extends Fragment {
         mapView.setZoom(13f, 0);
         checkStoragePermission(view);
 
+        final TextView routingResultText = (TextView) view.findViewById(R.id.routingResultText);
+        final Button testRoutingButton = (Button) view.findViewById(R.id.testRoutingButton);
+        testRoutingButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                testValhallaRoutingLib(routingResultText);
+            }
+        });
+
         return view;
+    }
+
+    /**
+     * Demonstrates usage of the standalone ValhallaRoutingService from routing-lib.
+     * Uses the online routing service to calculate a short route in Grenoble and
+     * displays the raw Valhalla JSON summary in the result TextView.
+     */
+    public void testValhallaRoutingLib(final TextView resultView) {
+        new Thread(() -> {
+            try {
+                // Online routing via Valhalla API (no MBTiles needed for the demo)
+                ValhallaOnlineRoutingService service = new ValhallaOnlineRoutingService(
+                        "https://valhalla.openstreetmap.de",
+                        (url, body) -> {
+                            // Minimal synchronous HTTP POST using java.net
+                            java.net.URL netUrl = new java.net.URL(url);
+                            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) netUrl.openConnection();
+                            conn.setRequestMethod("POST");
+                            conn.setDoOutput(true);
+                            conn.setRequestProperty("Content-Type", "application/json");
+                            conn.getOutputStream().write(body.getBytes("UTF-8"));
+                            int code = conn.getResponseCode();
+                            java.io.InputStream is = (code < 400) ? conn.getInputStream() : conn.getErrorStream();
+                            java.util.Scanner s = new java.util.Scanner(is).useDelimiter("\\A");
+                            return s.hasNext() ? s.next() : "";
+                        }
+                );
+                service.setProfile("pedestrian");
+
+                // Route: Place Grenette → Gare de Grenoble (raw JSON result)
+                java.util.List<com.akylas.routing.LatLon> points = new java.util.ArrayList<>();
+                points.add(new com.akylas.routing.LatLon(45.1877, 5.7249));
+                points.add(new com.akylas.routing.LatLon(45.1916, 5.7148));
+                com.akylas.routing.RoutingRequest request = new com.akylas.routing.RoutingRequest(points);
+
+                String rawJson = service.calculateRoute(request);
+
+                // Display a short summary
+                String summary = rawJson.length() > 200 ? rawJson.substring(0, 200) + "…" : rawJson;
+                String msg = "Routing OK (" + rawJson.length() + " bytes):\n" + summary;
+
+                if (resultView != null) {
+                    resultView.post(() -> resultView.setText(msg));
+                }
+                android.util.Log.i("ValhallaRoutingLib", msg);
+            } catch (Exception e) {
+                String err = "Routing error: " + e.getMessage();
+                if (resultView != null) {
+                    resultView.post(() -> resultView.setText(err));
+                }
+                android.util.Log.e("ValhallaRoutingLib", err, e);
+            }
+        }).start();
     }
 
 }

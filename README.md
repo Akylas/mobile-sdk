@@ -49,6 +49,135 @@ dependencies {
 
 You can also download the release from [Releases](https://github.com/Akylas/mobile-sdk/releases)
 
+---
+
+## Standalone Valhalla Routing Library
+
+In addition to the full map SDK, this repository ships a **lightweight standalone routing library** (`routing-lib`) that exposes the Valhalla offline and online routing engine without the full rendering stack.
+
+This is useful when you only need routing in an existing app (navigation, logistics, accessibility) and do not need the map view.
+
+### Features
+
+* Offline routing from Valhalla-format MBTiles databases
+* Online routing via any Valhalla HTTP endpoint
+* Raw Valhalla JSON results — parse only what you need
+* No transitive dependency on CARTO maps renderer
+* Kotlin/Swift idiomatic API on Android/iOS
+
+### Android — via JitPack
+
+```gradle
+repositories {
+    maven { url 'https://jitpack.io' }
+}
+dependencies {
+    // Full map SDK (optional if you only need routing)
+    implementation 'com.github.Akylas:mobile-sdk-android-aar:5.0.0'
+    // Standalone routing library
+    implementation 'com.github.Akylas:mobile-sdk-android-aar:valhalla-routing:5.0.0'
+}
+```
+
+#### Basic usage (Kotlin)
+
+```kotlin
+import com.akylas.routing.ValhallaRoutingService
+import com.akylas.routing.ValhallaOnlineRoutingService
+import com.akylas.routing.RoutingRequest
+import com.akylas.routing.LatLon
+import okhttp3.OkHttpClient
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
+
+// --- Offline routing (MBTiles) ---
+val offlineService = ValhallaRoutingService(listOf("/sdcard/routing/france.vtiles"))
+offlineService.profile = "pedestrian"
+
+val request = RoutingRequest(listOf(
+    LatLon(48.8566, 2.3522),  // Paris — origin
+    LatLon(48.8738, 2.2950)   // Bois de Boulogne — destination
+))
+val rawJson: String = offlineService.calculateRoute(request)
+// Parse rawJson as needed (trip.legs, trip.summary, etc.)
+
+// --- Online routing (Valhalla public API) ---
+val httpClient = OkHttpClient()
+val onlineService = ValhallaOnlineRoutingService(
+    baseURL = "https://valhalla.openstreetmap.de"
+) { url, body ->
+    val resp = httpClient.newCall(
+        okhttp3.Request.Builder()
+            .url(url)
+            .post(body.toRequestBody("application/json".toMediaType()))
+            .build()
+    ).execute()
+    resp.body!!.string()
+}
+onlineService.profile = "bicycle"
+val routeJson: String = onlineService.calculateRoute(request)
+```
+
+### iOS — via Swift Package Manager
+
+In Xcode, go to **File › Add Packages…** and enter:
+
+```
+https://github.com/Akylas/mobile-sdk-ios-swift
+```
+
+The `ValhallaRouting` library is included as a separate product. Import it in your target:
+
+```swift
+import ValhallaRouting
+
+// --- Offline routing (MBTiles) ---
+let service = NTValhallaRoutingService(mBTilesPaths: ["/path/to/france.vtiles"])
+service?.profile = "pedestrian"
+
+let waypoints = [
+    NTLatLon.lat(48.8566, lon: 2.3522),  // Paris — origin
+    NTLatLon.lat(48.8738, lon: 2.2950)   // Bois de Boulogne — destination
+]
+let request = NTRoutingRequest(points: waypoints)
+
+do {
+    let rawJson = try service!.calculateRoute(request)
+    // Parse rawJson using Codable or any JSON library
+    print(rawJson)
+} catch {
+    print("Routing error:", error)
+}
+
+// --- Online routing (URLSession) ---
+let online = NTValhallaOnlineRoutingService(
+    baseURL: "https://valhalla.openstreetmap.de"
+) { url, body, error in
+    guard let urlObj = URL(string: url) else { return nil }
+    var req = URLRequest(url: urlObj)
+    req.httpMethod = "POST"
+    req.httpBody = body?.data(using: .utf8)
+    req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+    var result: String?
+    let sem = DispatchSemaphore(value: 0)
+    URLSession.shared.dataTask(with: req) { data, _, _ in
+        result = data.flatMap { String(data: $0, encoding: .utf8) }
+        sem.signal()
+    }.resume()
+    sem.wait()
+    return result
+}
+online.profile = "bicycle"
+
+let routeJson = try? online.calculateRoute(request)
+```
+
+### Routing result
+
+Both online and offline services return **raw Valhalla JSON**. Parse it using your preferred JSON library to extract `trip.summary.length`, `trip.legs[].maneuvers`, etc.
+
+---
 ## Building
 
 For custom builds, please read the [building guide](./BUILDING.md).
