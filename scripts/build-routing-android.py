@@ -51,6 +51,7 @@ def build(args):
     base_dir  = repo_root()
     cmake_src = os.path.join(base_dir, "scripts", "build", "routing-CMakeLists.txt")
     dist_base = os.path.join(base_dir, "dist", "routing-android")
+    version = args.buildversion
 
     abis = args.androidabi if args.androidabi else ANDROID_ABIS
     lib_name = "libcarto_routing.%s" % ("so" if args.shared else "a")
