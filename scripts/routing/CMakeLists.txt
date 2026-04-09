@@ -101,6 +101,7 @@ file(GLOB_RECURSE ROUTING_SOURCES
   "${ROUTING_SRC_DIR}/native/core/*.cpp"
   "${ROUTING_SRC_DIR}/native/exceptions/*.cpp"
   "${ROUTING_SRC_DIR}/native/log/*.cpp"
+  "${ROUTING_SRC_DIR}/native/network/HTTPClient.cpp"
   "${ROUTING_SRC_DIR}/native/routing/*.cpp"
   "${ROUTING_SRC_DIR}/native/utils/*.cpp"
 )
