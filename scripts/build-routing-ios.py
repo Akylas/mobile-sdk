@@ -36,7 +36,6 @@ def buildRoutingLib(args, baseArch):
         '-DCMAKE_OSX_DEPLOYMENT_TARGET=%s'    % deployTarget,
         '-DCMAKE_BUILD_TYPE=%s'               % args.configuration,
         '-DSDK_VERSION=%s'                    % version,
-        '-DROUTING_WITH_ZSTD:BOOL=%s'         % ('ON' if args.with_zstd else 'OFF'),
         '-DROUTING_WITH_VALHALLA:BOOL=ON',
         '%s/scripts/build/routing-CMakeLists.txt' % baseDir
     ]):
@@ -138,8 +137,6 @@ parser.add_argument('--configuration',   dest='configuration',  default='Release
 parser.add_argument('--build-number',    dest='buildnumber',    default='', help='Build sequence number')
 parser.add_argument('--build-version',   dest='buildversion',   default='%s-devel' % SDK_VERSION,
                     help='Build version, embedded in the dist file name')
-parser.add_argument('--with-zstd',       dest='with_zstd',      default=True, action='store_true')
-parser.add_argument('--no-zstd',         dest='with_zstd',      action='store_false')
 parser.add_argument('--build-xcframework', dest='buildxcframework', default=True, action='store_true')
 args = parser.parse_args()
 
