@@ -20,59 +20,23 @@ allprojects {
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
-// Properties injected by build-routing-android.py via -P flags
-def ndkPath    = findProperty('androidNdkPath')  ?: System.getenv('ANDROID_NDK_HOME') ?: null
-def abiFilter  = (findProperty('androidAbi') ?: 'arm64-v8a,armeabi-v7a,x86_64').split(',').collect { it.trim() }
-def sdkDefines = findProperty('sdkDefines')  ?: ''
-def extraCmake = (findProperty('cmakeOptions') ?: '').split(';').findAll { it }.collect { "-D${it}".toString() }
-
 android {
     namespace "com.akylas.routing"
     compileSdkVersion 35
-
-    if (ndkPath) {
-        project.ext.set('android.ndkPath', ndkPath)
-    }
 
     defaultConfig {
         minSdkVersion 21
         targetSdkVersion 35
         versionCode 1
         versionName System.getProperty('build-version', '1.0.0')
-
-        ndk {
-            abiFilters(*abiFilter)
-        }
-
-        externalNativeBuild {
-            cmake {
-                cppFlags "-std=c++17"
-                def cmakeArgs = [
-                    "-DANDROID_STL=c++_static",
-                    "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON",
-                    "-DROUTING_WITH_VALHALLA:BOOL=ON",
-                    "-DSDK_VERSION=${System.getProperty('build-version', '1.0.0')}",
-                ]
-                if (sdkDefines) {
-                    cmakeArgs += ["-DSDK_CPP_DEFINES=${sdkDefines}"]
-                }
-                cmakeArgs += extraCmake
-                arguments(*cmakeArgs)
-            }
-        }
-    }
-
-    externalNativeBuild {
-        cmake {
-            path "../../routing-lib/android/src/main/cpp/CMakeLists.txt"
-            version "3.18.1"
-        }
     }
 
     sourceSets {
         main {
             kotlin.srcDirs = ['../../routing-lib/android/src/main/kotlin']
             manifest.srcFile '../../routing-lib/android/src/main/AndroidManifest.xml'
+            // Pick up pre-built .so files produced by build-routing-android.py cmake step
+            jniLibs.srcDir '../../dist/routing-android'
         }
     }
 
