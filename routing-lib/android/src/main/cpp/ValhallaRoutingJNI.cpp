@@ -8,7 +8,6 @@
 #include <jni.h>
 
 #include "../../../../native/routing/ValhallaRoutingService.h"
-#include "../../../../native/datasource/MBTilesDataSource.h"
 
 #include <string>
 #include <stdexcept>
@@ -84,8 +83,7 @@ Java_com_akylas_routing_ValhallaRoutingService_nativeAddMBTilesPath(
         JNIEnv* env, jobject, jlong ptr, jstring jpath) {
     try {
         std::string path = jstringToStr(env, jpath);
-        auto src = std::make_shared<routing::MBTilesDataSource>(path);
-        toService(ptr)->addSource(src);
+        toService(ptr)->addMBTilesPath(path);
     } catch (const std::exception& ex) {
         throwRuntimeException(env, ex.what());
     }
@@ -126,33 +124,6 @@ JNIEXPORT void JNICALL
 Java_com_akylas_routing_ValhallaRoutingService_nativeAddLocale(
         JNIEnv* env, jobject, jlong ptr, jstring jkey, jstring jjson) {
     toService(ptr)->addLocale(jstringToStr(env, jkey), jstringToStr(env, jjson));
-}
-
-JNIEXPORT jstring JNICALL
-Java_com_akylas_routing_ValhallaRoutingService_nativeCalculateRoute(
-        JNIEnv* env, jobject, jlong ptr, jstring jrequestJSON) {
-    try {
-        // The Kotlin layer serializes the request to JSON. We use callRaw("route", ...) here
-        // because the Kotlin RoutingRequest builds a valid Valhalla route request JSON directly.
-        // The profile is embedded in the JSON by the Kotlin builder.
-        std::string result = toService(ptr)->callRaw("route", jstringToStr(env, jrequestJSON));
-        return strToJString(env, result);
-    } catch (const std::exception& ex) {
-        throwRuntimeException(env, ex.what());
-        return nullptr;
-    }
-}
-
-JNIEXPORT jstring JNICALL
-Java_com_akylas_routing_ValhallaRoutingService_nativeMatchRoute(
-        JNIEnv* env, jobject, jlong ptr, jstring jrequestJSON) {
-    try {
-        std::string result = toService(ptr)->callRaw("trace_attributes", jstringToStr(env, jrequestJSON));
-        return strToJString(env, result);
-    } catch (const std::exception& ex) {
-        throwRuntimeException(env, ex.what());
-        return nullptr;
-    }
 }
 
 JNIEXPORT jstring JNICALL

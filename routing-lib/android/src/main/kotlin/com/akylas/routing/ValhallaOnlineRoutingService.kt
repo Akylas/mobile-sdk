@@ -35,6 +35,10 @@ class ValhallaOnlineRoutingService @JvmOverloads constructor(
     @Volatile
     var baseURL: String = baseURL.trimEnd('/')
 
+    /**
+     * Default costing model injected as "costing" into every [callRaw] body
+     * that does not already contain that key.
+     */
     @Volatile
     var profile: String = "pedestrian"
 
@@ -44,18 +48,27 @@ class ValhallaOnlineRoutingService @JvmOverloads constructor(
 
     /**
      * Calculate a route. POSTs to `{baseURL}/route` and returns raw JSON.
+     *
+     * The service [profile] is injected as "costing" if [request] does not
+     * set one explicitly.
      */
     fun calculateRoute(request: RoutingRequest): String =
         callRaw("route", request.toJSON())
 
     /**
      * Match a GPS trace. POSTs to `{baseURL}/trace_attributes` and returns raw JSON.
+     *
+     * The service [profile] is injected as "costing" if [request] does not
+     * set one explicitly.
      */
     fun matchRoute(request: RouteMatchingRequest): String =
         callRaw("trace_attributes", request.toJSON())
 
     /**
      * Call any Valhalla API endpoint directly.
+     *
+     * The service [profile] is injected as "costing" if [jsonBody] does not
+     * already contain that key.
      *
      * When built with ROUTING_WITH_HTTP_CLIENT and no handler was supplied,
      * the native C++ HTTP client is used. Otherwise the supplied [httpHandler]
@@ -68,10 +81,22 @@ class ValhallaOnlineRoutingService @JvmOverloads constructor(
      */
     fun callRaw(endpoint: String, jsonBody: String): String {
         val url = "${baseURL.trimEnd('/')}/$endpoint"
-        return if (httpHandler != null) {
-            httpHandler.post(url, jsonBody)
+
+        // Inject "costing" from the service profile if not already present.
+        val body = if (profile.isNotEmpty() && !jsonBody.contains("\"costing\"")) {
+            val idx = jsonBody.indexOf('{')
+            if (idx >= 0) jsonBody.substring(0, idx + 1) +
+                    "\"costing\":\"$profile\"," +
+                    jsonBody.substring(idx + 1)
+            else jsonBody
         } else {
-            nativeHttpPost(url, jsonBody)
+            jsonBody
+        }
+
+        return if (httpHandler != null) {
+            httpHandler.post(url, body)
+        } else {
+            nativeHttpPost(url, body)
         }
     }
 

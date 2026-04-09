@@ -380,35 +380,6 @@ static std::string documentToString(const rapidjson::Document& doc) {
 // Online routing via built-in HTTP client (ROUTING_WITH_HTTP_CLIENT)
 // -------------------------------------------------------------------------
 
-
-std::string ValhallaRoutingProxy::MatchRoute(
-        HTTPClient& httpClient,
-        const std::string& baseURL,
-        const std::string& profile,
-        const std::shared_ptr<RouteMatchingRequest>& request) {
-    std::string url = baseURL;
-    if (!url.empty() && url.back() == '/') url.pop_back();
-    url += "/trace_attributes";
-    std::string requestJSON = SerializeRouteMatchingRequest(profile, request);
-    Log::debugf("ValhallaRoutingProxy::MatchRoute (HTTP): url=%s", url.c_str());
-    std::string resultString = httpClient.post(url, requestJSON);
-    return resultString;
-}
-
-std::string ValhallaRoutingProxy::CalculateRoute(
-        HTTPClient& httpClient,
-        const std::string& baseURL,
-        const std::string& profile,
-        const std::shared_ptr<RoutingRequest>& request) {
-    std::string url = baseURL;
-    if (!url.empty() && url.back() == '/') url.pop_back();
-    url += "/route";
-    std::string requestJSON = SerializeRoutingRequest(profile, request);
-    Log::debugf("ValhallaRoutingProxy::CalculateRoute (HTTP): url=%s", url.c_str());
-    std::string resultString = httpClient.post(url, requestJSON);
-    return resultString;
-}
-
 std::string ValhallaRoutingProxy::CallRaw(
         HTTPClient& httpClient,
         const std::string& baseURL,

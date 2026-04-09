@@ -82,19 +82,30 @@ namespace routing {
                                                        const std::string& jsonBody) const {
         HttpHandler handler;
         std::string url;
+        std::string profile;
         {
             std::lock_guard<std::mutex> lk(_mutex);
             handler = _handler;
+            profile = _profile;
             url     = buildURL(endpoint);
+        }
+
+        // Inject "costing" from the service profile if the caller has not
+        // already included it in the request body.
+        std::string body = jsonBody;
+        if (!profile.empty() &&
+            body.find("\"costing\"") == std::string::npos) {
+            auto pos = body.find('{');
+            if (pos != std::string::npos) {
+                body.insert(pos + 1, "\"costing\":\"" + profile + "\",");
+            }
         }
 
         Log::debugf("ValhallaOnlineRoutingService::callRaw: url=%s", url.c_str());
 
-        if (!handler) {
-            // Use the built-in C++ HTTP client — no external handler needed.
+        if (handler) {
             try {
-                HTTPClient httpClient;
-                return httpClient.post(url, jsonBody);
+                return handler(url, body);
             }
             catch (const std::exception& ex) {
                 throw GenericException("HTTP request failed for endpoint '" + endpoint + "'",
@@ -102,12 +113,10 @@ namespace routing {
             }
         }
 
-        if (!handler) {
-            throw GenericException("No HTTP handler set for endpoint '" + endpoint + "'");
-        }
-
+        // Use the built-in C++ HTTP client — no external handler needed.
         try {
-            return handler(url, jsonBody);
+            HTTPClient httpClient;
+            return httpClient.post(url, body);
         }
         catch (const std::exception& ex) {
             throw GenericException("HTTP request failed for endpoint '" + endpoint + "'",

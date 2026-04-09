@@ -8,6 +8,9 @@ package com.akylas.routing
  *
  * All routing methods may perform disk I/O and must be called from a
  * background thread (not the main/UI thread).
+ *
+ * Databases are opened lazily on the first [callRaw] invocation and closed
+ * automatically when the request completes (or when all concurrent requests finish).
  */
 class ValhallaRoutingService(paths: List<String> = emptyList()) : AutoCloseable {
 
@@ -26,12 +29,15 @@ class ValhallaRoutingService(paths: List<String> = emptyList()) : AutoCloseable 
 
     /**
      * Add an MBTiles database by file path.
-     * @throws RuntimeException if the file cannot be opened.
+     * The database will be opened on the first [callRaw] and closed when idle.
      */
     fun addMBTilesPath(path: String): Unit = nativeAddMBTilesPath(nativePtr, path)
 
     // -----------------------------------------------------------------------
-    // Profile
+    // Profile (costing model)
+    //
+    // The profile is automatically injected as "costing" into every [callRaw]
+    // request body that does not already contain that key.
     // -----------------------------------------------------------------------
 
     /** Valhalla costing model, e.g. "pedestrian", "auto", "bicycle". */
@@ -72,21 +78,26 @@ class ValhallaRoutingService(paths: List<String> = emptyList()) : AutoCloseable 
 
     /**
      * Calculate a route.
+     *
+     * The service [profile] is injected as "costing" if [request] does not
+     * set one explicitly. Equivalent to `callRaw("route", request.toJSON())`.
+     *
      * @param request  Routing request built via [RoutingRequest].
      * @return Raw Valhalla route JSON string.
-     * @throws RuntimeException on routing failure.
      */
     fun calculateRoute(request: RoutingRequest): String =
-        nativeCalculateRoute(nativePtr, request.toJSON())
+        callRaw("route", request.toJSON())
 
     /**
      * Match a GPS trace to the road network.
+     *
+     * Equivalent to `callRaw("trace_attributes", request.toJSON())`.
+     *
      * @param request  Route-matching request built via [RouteMatchingRequest].
      * @return Raw Valhalla trace_attributes JSON string.
-     * @throws RuntimeException on matching failure.
      */
     fun matchRoute(request: RouteMatchingRequest): String =
-        nativeMatchRoute(nativePtr, request.toJSON())
+        callRaw("trace_attributes", request.toJSON())
 
     /**
      * Call any Valhalla API endpoint directly.
@@ -117,8 +128,6 @@ class ValhallaRoutingService(paths: List<String> = emptyList()) : AutoCloseable 
     private external fun nativeGetConfigParam(ptr: Long, key: String): String?
     private external fun nativeSetConfigParam(ptr: Long, key: String, jsonValue: String)
     private external fun nativeAddLocale(ptr: Long, key: String, json: String)
-    private external fun nativeCalculateRoute(ptr: Long, requestJSON: String): String
-    private external fun nativeMatchRoute(ptr: Long, requestJSON: String): String
     private external fun nativeCallRaw(ptr: Long, endpoint: String, jsonBody: String): String
 
     companion object {
@@ -139,8 +148,13 @@ data class LatLon(val lat: Double, val lon: Double)
 
 /**
  * Routing request builder.
+ *
+ * Set [profile] to override the service-level costing model for this request.
  */
 class RoutingRequest(private val points: List<LatLon>) {
+
+    /** Optional costing model override (e.g. "auto", "pedestrian", "bicycle"). */
+    var profile: String? = null
 
     private val customParams = mutableMapOf<String, String>()
 
@@ -161,6 +175,8 @@ class RoutingRequest(private val points: List<LatLon>) {
             sb.append("{\"lon\":").append(ll.lon).append(",\"lat\":").append(ll.lat).append('}')
         }
         sb.append(']')
+        // Include costing if a profile is set on the request.
+        profile?.let { p -> sb.append(",\"costing\":\"").append(p).append('"') }
         for ((k, v) in customParams) {
             sb.append(",\"").append(k.replace("\"", "\\\"")).append("\":").append(v)
         }
@@ -171,9 +187,16 @@ class RoutingRequest(private val points: List<LatLon>) {
 
 /**
  * Route-matching request builder.
+ *
+ * Set [profile] to override the service-level costing model for this request.
  */
-class RouteMatchingRequest(private val points: List<LatLon>,
-                           private val accuracy: Float = 0f) {
+class RouteMatchingRequest(
+    private val points: List<LatLon>,
+    private val accuracy: Float = 0f
+) {
+
+    /** Optional costing model override (e.g. "auto", "pedestrian", "bicycle"). */
+    var profile: String? = null
 
     private val customParams = mutableMapOf<String, String>()
 
@@ -191,6 +214,8 @@ class RouteMatchingRequest(private val points: List<LatLon>,
         }
         sb.append("],\"shape_match\":\"map_snap\"")
         if (accuracy > 0f) sb.append(",\"gps_accuracy\":").append(accuracy)
+        // Include costing if a profile is set on the request.
+        profile?.let { p -> sb.append(",\"costing\":\"").append(p).append('"') }
         for ((k, v) in customParams) {
             sb.append(",\"").append(k.replace("\"", "\\\"")).append("\":").append(v)
         }

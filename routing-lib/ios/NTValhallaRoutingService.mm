@@ -7,8 +7,6 @@
 
 #include "../native/routing/ValhallaRoutingService.h"
 #include "../native/routing/ValhallaOnlineRoutingService.h"
-#include "../native/datasource/MBTilesDataSource.h"
-#include "../native/core/MapPos.h"
 
 #include <memory>
 #include <stdexcept>
@@ -24,6 +22,83 @@ static NSError *makeError(const std::exception& ex) {
     return [NSError errorWithDomain:NTRoutingErrorDomain
                                code:-1
                            userInfo:@{NSLocalizedDescriptionKey: msg}];
+}
+
+// ---------------------------------------------------------------------------
+// JSON serialisation helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a Valhalla route-request JSON body from an NTRoutingRequest.
+ * The "costing" key is only included when the request's profile is non-nil;
+ * the service will inject its own profile if absent.
+ */
+static NSString *serializeRoutingRequest(NTRoutingRequest *req) {
+    NSMutableString *sb = [NSMutableString string];
+    [sb appendString:@"{\"locations\":["];
+    NSArray<NTLatLon *> *points = req.points;
+    for (NSUInteger i = 0; i < points.count; i++) {
+        if (i > 0) [sb appendString:@","];
+        NTLatLon *ll = points[i];
+        [sb appendFormat:@"{\"lon\":%g,\"lat\":%g}", ll.lon, ll.lat];
+    }
+    [sb appendString:@"]"];
+    if (req.profile.length > 0) {
+        [sb appendFormat:@",\"costing\":\"%@\"", req.profile];
+    }
+    if (req.customJSON.length > 0) {
+        // Merge top-level keys from customJSON into the body.
+        // customJSON must be a JSON object string, e.g. {"units":"miles"}.
+        NSString *inner = req.customJSON;
+        NSRange openBrace  = [inner rangeOfString:@"{"];
+        NSRange closeBrace = [inner rangeOfString:@"}" options:NSBackwardsSearch];
+        if (openBrace.location != NSNotFound && closeBrace.location != NSNotFound) {
+            NSString *content = [inner substringWithRange:
+                NSMakeRange(openBrace.location + 1,
+                            closeBrace.location - openBrace.location - 1)];
+            if (content.length > 0) {
+                [sb appendFormat:@",%@", content];
+            }
+        }
+    }
+    [sb appendString:@"}"];
+    return sb;
+}
+
+/**
+ * Build a Valhalla trace-attributes-request JSON body from an NTRouteMatchingRequest.
+ */
+static NSString *serializeRouteMatchingRequest(NTRouteMatchingRequest *req) {
+    NSMutableString *sb = [NSMutableString string];
+    [sb appendString:@"{\"shape\":["];
+    NSArray<NTLatLon *> *points = req.points;
+    for (NSUInteger i = 0; i < points.count; i++) {
+        if (i > 0) [sb appendString:@","];
+        NTLatLon *ll = points[i];
+        [sb appendFormat:@"{\"lon\":%g,\"lat\":%g}", ll.lon, ll.lat];
+    }
+    [sb appendString:@"],\"shape_match\":\"map_snap\""];
+    if (req.accuracy > 0.0f) {
+        [sb appendFormat:@",\"gps_accuracy\":%g", (double)req.accuracy];
+    }
+    if (req.profile.length > 0) {
+        [sb appendFormat:@",\"costing\":\"%@\"", req.profile];
+    }
+    if (req.customJSON.length > 0) {
+        NSString *inner = req.customJSON;
+        NSRange openBrace  = [inner rangeOfString:@"{"];
+        NSRange closeBrace = [inner rangeOfString:@"}" options:NSBackwardsSearch];
+        if (openBrace.location != NSNotFound && closeBrace.location != NSNotFound) {
+            NSString *content = [inner substringWithRange:
+                NSMakeRange(openBrace.location + 1,
+                            closeBrace.location - openBrace.location - 1)];
+            if (content.length > 0) {
+                [sb appendFormat:@",%@", content];
+            }
+        }
+    }
+    [sb appendString:@"}"];
+    return sb;
 }
 
 // ---------------------------------------------------------------------------
@@ -64,49 +139,6 @@ static NSError *makeError(const std::exception& ex) {
 @end
 
 // ---------------------------------------------------------------------------
-// Internal helper: build routing::RoutingRequest from NTRoutingRequest
-// ---------------------------------------------------------------------------
-
-static std::shared_ptr<routing::RoutingRequest>
-buildRoutingRequest(NTRoutingRequest *req) {
-    std::vector<routing::MapPos> points;
-    points.reserve([req.points count]);
-    for (NTLatLon *ll in req.points) {
-        // WGS-84: MapPos(lon, lat)
-        points.push_back(routing::MapPos(ll.lon, ll.lat));
-    }
-    auto r = std::make_shared<routing::RoutingRequest>(points);
-    if (req.customJSON.length > 0) {
-        routing::Variant custom = routing::Variant::FromJSON(req.customJSON.UTF8String);
-        if (custom.getType() == routing::VariantType::VARIANT_TYPE_OBJECT) {
-            for (const auto& key : custom.getObjectKeys()) {
-                r->setCustomParameter(key, custom.getObjectElement(key));
-            }
-        }
-    }
-    return r;
-}
-
-static std::shared_ptr<routing::RouteMatchingRequest>
-buildRouteMatchingRequest(NTRouteMatchingRequest *req) {
-    std::vector<routing::MapPos> points;
-    points.reserve([req.points count]);
-    for (NTLatLon *ll in req.points) {
-        points.push_back(routing::MapPos(ll.lon, ll.lat));
-    }
-    auto r = std::make_shared<routing::RouteMatchingRequest>(points, req.accuracy);
-    if (req.customJSON.length > 0) {
-        routing::Variant custom = routing::Variant::FromJSON(req.customJSON.UTF8String);
-        if (custom.getType() == routing::VariantType::VARIANT_TYPE_OBJECT) {
-            for (const auto& key : custom.getObjectKeys()) {
-                r->setCustomParameter(key, custom.getObjectElement(key));
-            }
-        }
-    }
-    return r;
-}
-
-// ---------------------------------------------------------------------------
 // NTValhallaRoutingService
 // ---------------------------------------------------------------------------
 
@@ -124,21 +156,13 @@ buildRouteMatchingRequest(NTRouteMatchingRequest *req) {
     _service = std::make_shared<routing::ValhallaRoutingService>();
 
     for (NSString *path in paths) {
-        NSError *err = nil;
-        [self addMBTilesPath:path error:&err];
-        // Silently skip failures at construction time
+        [self addMBTilesPath:path];
     }
     return self;
 }
 
-- (void)addMBTilesPath:(NSString *)path
-                 error:(NSError * _Nullable __autoreleasing *)error {
-    try {
-        auto src = std::make_shared<routing::MBTilesDataSource>(path.UTF8String);
-        _service->addSource(src);
-    } catch (const std::exception& ex) {
-        if (error) *error = makeError(ex);
-    }
+- (void)addMBTilesPath:(NSString *)path {
+    _service->addMBTilesPath(path.UTF8String);
 }
 
 - (NSString *)profile {
@@ -168,26 +192,14 @@ buildRouteMatchingRequest(NTRouteMatchingRequest *req) {
 
 - (nullable NSString *)calculateRoute:(NTRoutingRequest *)request
                                 error:(NSError * _Nullable __autoreleasing *)error {
-    try {
-        auto req = buildRoutingRequest(request);
-        auto result = _service->calculateRoute(req);
-        return [NSString stringWithUTF8String:result->getRawResult().c_str()];
-    } catch (const std::exception& ex) {
-        if (error) *error = makeError(ex);
-        return nil;
-    }
+    NSString *jsonBody = serializeRoutingRequest(request);
+    return [self callRaw:@"route" jsonBody:jsonBody error:error];
 }
 
 - (nullable NSString *)matchRoute:(NTRouteMatchingRequest *)request
                             error:(NSError * _Nullable __autoreleasing *)error {
-    try {
-        auto req = buildRouteMatchingRequest(request);
-        auto result = _service->matchRoute(req);
-        return [NSString stringWithUTF8String:result->getRawResult().c_str()];
-    } catch (const std::exception& ex) {
-        if (error) *error = makeError(ex);
-        return nil;
-    }
+    NSString *jsonBody = serializeRouteMatchingRequest(request);
+    return [self callRaw:@"trace_attributes" jsonBody:jsonBody error:error];
 }
 
 - (nullable NSString *)callRaw:(NSString *)endpoint
@@ -216,11 +228,7 @@ buildRouteMatchingRequest(NTRouteMatchingRequest *req) {
 @implementation NTValhallaOnlineRoutingService
 
 - (instancetype)initWithBaseURL:(NSString *)baseURL {
-    self = [super init];
-    if (!self) return nil;
-    _service = std::make_shared<routing::ValhallaOnlineRoutingService>(
-        baseURL.UTF8String);
-    return self;
+    return [self initWithBaseURL:baseURL handler:nil];
 }
 
 - (instancetype)initWithBaseURL:(NSString *)baseURL
@@ -268,26 +276,14 @@ buildRouteMatchingRequest(NTRouteMatchingRequest *req) {
 
 - (nullable NSString *)calculateRoute:(NTRoutingRequest *)request
                                 error:(NSError * _Nullable __autoreleasing *)error {
-    try {
-        auto req = buildRoutingRequest(request);
-        auto result = _service->calculateRoute(req);
-        return [NSString stringWithUTF8String:result->getRawResult().c_str()];
-    } catch (const std::exception& ex) {
-        if (error) *error = makeError(ex);
-        return nil;
-    }
+    NSString *jsonBody = serializeRoutingRequest(request);
+    return [self callRaw:@"route" jsonBody:jsonBody error:error];
 }
 
 - (nullable NSString *)matchRoute:(NTRouteMatchingRequest *)request
                             error:(NSError * _Nullable __autoreleasing *)error {
-    try {
-        auto req = buildRouteMatchingRequest(request);
-        auto result = _service->matchRoute(req);
-        return [NSString stringWithUTF8String:result->getRawResult().c_str()];
-    } catch (const std::exception& ex) {
-        if (error) *error = makeError(ex);
-        return nil;
-    }
+    NSString *jsonBody = serializeRouteMatchingRequest(request);
+    return [self callRaw:@"trace_attributes" jsonBody:jsonBody error:error];
 }
 
 - (nullable NSString *)callRaw:(NSString *)endpoint

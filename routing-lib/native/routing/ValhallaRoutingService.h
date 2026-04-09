@@ -1,21 +1,25 @@
 #pragma once
 
 #include "../core/Variant.h"
-#include "../datasource/IDataSource.h"
 
 #include <memory>
 #include <mutex>
 #include <string>
 #include <vector>
 
+struct sqlite3;
+
 namespace routing {
 
     /**
-     * Offline Valhalla routing service.
+     * Offline Valhalla routing service backed by MBTiles SQLite files.
      *
-     * Data sources (MBTiles SQLite files, or any IDataSource implementation)
-     * are registered via the constructor or addSource(). Multiple sources are
-     * queried so that the world can be split across several MBTiles files.
+     * Register one or more MBTiles file paths via addMBTilesPath(). Multiple
+     * files are queried so that the world can be split across several databases.
+     *
+     * Databases are opened lazily on the first callRaw() invocation and closed
+     * automatically once all in-flight requests have completed. Concurrent
+     * requests from multiple threads are supported.
      *
      * Routing results are returned as raw Valhalla JSON strings. Parsing of
      * individual fields is the responsibility of the application layer.
@@ -25,22 +29,29 @@ namespace routing {
     class ValhallaRoutingService {
     public:
         /**
-         * Construct with an initial set of data sources.
+         * Construct with an optional initial list of MBTiles file paths.
          */
-        explicit ValhallaRoutingService(
-            std::vector<std::shared_ptr<IDataSource>> sources = {});
+        explicit ValhallaRoutingService(std::vector<std::string> paths = {});
         virtual ~ValhallaRoutingService();
 
         // ----------------------------------------------------------------
-        // Source management
+        // Database path management
         // ----------------------------------------------------------------
 
-        void addSource(std::shared_ptr<IDataSource> source);
-        bool removeSource(const std::shared_ptr<IDataSource>& source);
-        std::vector<std::shared_ptr<IDataSource>> getSources() const;
+        /**
+         * Add an MBTiles database by file path.
+         * If databases are currently open (a request is in progress), the new
+         * path will be used starting from the next request.
+         */
+        void addMBTilesPath(const std::string& path);
+
+        std::vector<std::string> getMBTilesPaths() const;
 
         // ----------------------------------------------------------------
-        // Profile
+        // Profile (costing model)
+        //
+        // The profile is injected as "costing" into every callRaw() body
+        // that does not already contain a "costing" key.
         // ----------------------------------------------------------------
 
         std::string getProfile() const;
@@ -70,26 +81,18 @@ namespace routing {
         void addLocale(const std::string& key, const std::string& json);
 
         // ----------------------------------------------------------------
-        // Routing API — returns raw Valhalla JSON strings
+        // Routing API
         // ----------------------------------------------------------------
 
         /**
-         * Calculate a route. Returns the raw Valhalla JSON response.
-         */
-        // std::string calculateRoute(
-        //     const std::shared_ptr<RoutingRequest>& request) const;
-
-        /**
-         * Match a GPS trace to the road network. Returns the raw JSON response.
-         */
-        // std::string matchRoute(
-            // const std::shared_ptr<RouteMatchingRequest>& request) const;
-
-        /**
          * Call any Valhalla API endpoint directly with a pre-built JSON request.
-         * @param endpoint  Endpoint name: "route", "trace_attributes", "trace_route",
-         *                  "matrix", "isochrone", "locate", "height",
-         *                  "expansion", "centroid", "status".
+         *
+         * The service's profile is injected as "costing" if the body does not
+         * already contain that key.
+         *
+         * @param endpoint  Endpoint name: "route", "trace_attributes",
+         *                  "trace_route", "matrix", "isochrone", "locate",
+         *                  "height", "expansion", "centroid", "status".
          * @param jsonBody  Full Valhalla request JSON string.
          * @return          Raw Valhalla JSON response string.
          */
@@ -97,16 +100,22 @@ namespace routing {
                             const std::string& jsonBody) const;
 
     private:
+        // Database lifecycle helpers
+        std::vector<sqlite3*> acquireDatabases() const;
+        void releaseDatabases() const;
+
         static std::vector<std::string> splitKeys(const std::string& param);
         static Variant setNestedValue(Variant obj,
                                       const std::vector<std::string>& keys,
                                       int idx,
                                       const Variant& value);
 
-        mutable std::mutex _mutex;
-        std::vector<std::shared_ptr<IDataSource>> _sources;
-        std::string _profile;
-        Variant     _configuration;
+        mutable std::mutex          _mutex;
+        std::vector<std::string>    _paths;          // registered MBTiles file paths
+        mutable std::vector<sqlite3*> _openDbs;      // currently open handles
+        mutable int                 _activeCount = 0; // in-flight request count
+        std::string                 _profile;
+        Variant                     _configuration;
     };
 
 } // namespace routing

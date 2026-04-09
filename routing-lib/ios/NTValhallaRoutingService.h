@@ -3,7 +3,7 @@
 //  routing-lib iOS wrapper
 //
 //  Objective-C bridge to the C++ ValhallaRoutingService (offline) and
-//  ValhallaOnlineRoutingService (online with user-supplied HTTP handler).
+//  ValhallaOnlineRoutingService (online with optional user-supplied HTTP handler).
 //
 
 #import <Foundation/Foundation.h>
@@ -26,12 +26,16 @@ NS_ASSUME_NONNULL_BEGIN
 
 /**
  * Input to a route calculation.
- * Set customJSON to override any Valhalla request fields (merged at the top level).
+ *
+ * Set @c profile to override the service-level costing model for this request.
+ * If @c customJSON is supplied its top-level keys are merged into the request.
  */
 @interface NTRoutingRequest : NSObject
 /** Ordered list of NTLatLon waypoints. */
 @property (nonatomic, copy) NSArray<NTLatLon *> *points;
-/** Optional extra Valhalla request fields serialized as a JSON string. */
+/** Optional costing model override (e.g. @"auto", @"pedestrian", @"bicycle"). */
+@property (nonatomic, copy, nullable) NSString *profile;
+/** Optional extra Valhalla request fields serialised as a JSON object string. */
 @property (nonatomic, copy, nullable) NSString *customJSON;
 
 - (instancetype)initWithPoints:(NSArray<NTLatLon *> *)points;
@@ -40,13 +44,17 @@ NS_ASSUME_NONNULL_BEGIN
 
 /**
  * Input to a route-matching (map-snapping) operation.
+ *
+ * Set @c profile to override the service-level costing model for this request.
  */
 @interface NTRouteMatchingRequest : NSObject
 /** Ordered GPS trace points. */
 @property (nonatomic, copy) NSArray<NTLatLon *> *points;
 /** GPS accuracy in metres (0 = use Valhalla default). */
 @property (nonatomic, assign) float accuracy;
-/** Optional extra Valhalla request fields as a JSON string. */
+/** Optional costing model override (e.g. @"auto", @"pedestrian", @"bicycle"). */
+@property (nonatomic, copy, nullable) NSString *profile;
+/** Optional extra Valhalla request fields as a JSON object string. */
 @property (nonatomic, copy, nullable) NSString *customJSON;
 
 - (instancetype)initWithPoints:(NSArray<NTLatLon *> *)points accuracy:(float)accuracy;
@@ -61,6 +69,8 @@ NS_ASSUME_NONNULL_BEGIN
  * Offline Valhalla routing service.
  *
  * Add one or more MBTiles database paths via -addMBTilesPath:.
+ * Databases are opened lazily on the first request and closed when idle.
+ *
  * All routing results are returned as raw Valhalla JSON strings; parsing
  * is the responsibility of the caller.
  *
@@ -74,11 +84,14 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)initWithMBTilesPaths:(nullable NSArray<NSString *> *)paths;
 
 /** Add an MBTiles data source by file path. */
-- (void)addMBTilesPath:(NSString *)path error:(NSError * _Nullable __autoreleasing *)error;
+- (void)addMBTilesPath:(NSString *)path;
 
 // -- Profile ----------------------------------------------------------------
 
-/** Valhalla costing model, e.g. @"pedestrian", @"auto", @"bicycle". Default: @"pedestrian". */
+/**
+ * Default costing model injected as "costing" into every callRaw: body that
+ * does not already contain that key. Default: @"pedestrian".
+ */
 @property (nonatomic, copy) NSString *profile;
 
 // -- Configuration ----------------------------------------------------------
@@ -86,7 +99,6 @@ NS_ASSUME_NONNULL_BEGIN
 /**
  * Get a Valhalla configuration value by dot-delimited key path.
  * Returns nil if the key does not exist.
- * The returned value is a JSON string of that node.
  */
 - (nullable NSString *)configurationParameterForKey:(NSString *)key;
 
@@ -108,19 +120,27 @@ NS_ASSUME_NONNULL_BEGIN
 
 /**
  * Calculate a route. Returns raw Valhalla JSON, or nil on error.
- * @param error  Populated on failure.
+ *
+ * Equivalent to calling @c callRaw:@"route" with the serialised request.
+ * The service profile is injected as "costing" if the request does not set one.
  */
 - (nullable NSString *)calculateRoute:(NTRoutingRequest *)request
                                 error:(NSError * _Nullable __autoreleasing *)error;
 
 /**
  * Match a GPS trace to the road network. Returns raw Valhalla JSON, or nil on error.
+ *
+ * Equivalent to calling @c callRaw:@"trace_attributes" with the serialised request.
  */
 - (nullable NSString *)matchRoute:(NTRouteMatchingRequest *)request
                             error:(NSError * _Nullable __autoreleasing *)error;
 
 /**
  * Call any Valhalla API endpoint directly.
+ *
+ * The service profile is injected as "costing" if @c jsonBody does not already
+ * contain that key.
+ *
  * @param endpoint   e.g. @"route", @"trace_attributes", @"isochrone", @"matrix" …
  * @param jsonBody   Pre-built Valhalla request JSON.
  * @return           Raw Valhalla JSON response, or nil on error.
@@ -154,11 +174,10 @@ typedef NSString * _Nullable (^NTHTTPPostHandler)(NSString *url,
  * Two initializers are provided:
  *
  * - When the library is built with ROUTING_WITH_HTTP_CLIENT=ON, use
- *   `initWithBaseURL:` — HTTP is handled internally by the native C++ client.
+ *   @c initWithBaseURL: — HTTP is handled internally.
  *
- * - Alternatively, use `initWithBaseURL:handler:` to supply your own HTTP
- *   stack (URLSession, Alamofire, etc.).  This also works when the library
- *   is built without ROUTING_WITH_HTTP_CLIENT.
+ * - Use @c initWithBaseURL:handler: to supply your own HTTP stack (URLSession,
+ *   Alamofire, etc.). Works regardless of the ROUTING_WITH_HTTP_CLIENT flag.
  *
  * All routing methods are synchronous; call them from a background thread.
  */
@@ -166,16 +185,15 @@ typedef NSString * _Nullable (^NTHTTPPostHandler)(NSString *url,
 
 /**
  * Initializer for use when the library is built with ROUTING_WITH_HTTP_CLIENT=ON.
- * HTTP transport is handled internally by the native C++ HTTP client.
  * @param baseURL  Base URL, e.g. @"https://valhalla1.openstreetmap.de".
  */
 - (instancetype)initWithBaseURL:(NSString *)baseURL;
 
 /**
  * Initializer that accepts an explicit HTTP POST handler.
- * Works regardless of whether ROUTING_WITH_HTTP_CLIENT is defined.
  * @param baseURL  Base URL, e.g. @"https://valhalla1.openstreetmap.de".
- * @param handler  Synchronous HTTP POST handler block.
+ * @param handler  Synchronous HTTP POST handler block (may be nil when
+ *                 built with ROUTING_WITH_HTTP_CLIENT=ON).
  */
 - (instancetype)initWithBaseURL:(NSString *)baseURL
                         handler:(NTHTTPPostHandler _Nullable)handler;
@@ -183,15 +201,30 @@ typedef NSString * _Nullable (^NTHTTPPostHandler)(NSString *url,
 /** Base URL of the Valhalla service. */
 @property (nonatomic, copy) NSString *baseURL;
 
-/** Valhalla costing model. Default: @"pedestrian". */
+/**
+ * Default costing model injected as "costing" into every callRaw: body that
+ * does not already contain that key. Default: @"pedestrian".
+ */
 @property (nonatomic, copy) NSString *profile;
 
+/**
+ * Calculate a route. Equivalent to @c callRaw:@"route" with the serialised request.
+ */
 - (nullable NSString *)calculateRoute:(NTRoutingRequest *)request
                                 error:(NSError * _Nullable __autoreleasing *)error;
 
+/**
+ * Match a GPS trace. Equivalent to @c callRaw:@"trace_attributes".
+ */
 - (nullable NSString *)matchRoute:(NTRouteMatchingRequest *)request
                             error:(NSError * _Nullable __autoreleasing *)error;
 
+/**
+ * Call any Valhalla API endpoint directly.
+ *
+ * The service profile is injected as "costing" if @c jsonBody does not already
+ * contain that key.
+ */
 - (nullable NSString *)callRaw:(NSString *)endpoint
                       jsonBody:(NSString *)jsonBody
                          error:(NSError * _Nullable __autoreleasing *)error;
