@@ -1,28 +1,83 @@
 #pragma once
 
+#include <cstdint>
+#include <functional>
+#include <map>
+#include <memory>
 #include <string>
+#include <vector>
 
 namespace routing {
 
     /**
-     * Minimal synchronous HTTP client for routing-lib network requests.
+     * Synchronous HTTP client for routing-lib network requests.
      *
-     * Only available when the library is built with ROUTING_WITH_HTTP_CLIENT=ON.
-     * Sends a JSON POST request and returns the response body.
-     * Throws std::runtime_error on network or HTTP errors.
+     * Mirrors the internal structure of the main SDK HTTPClient (Request / Response /
+     * Impl) but without Boost, BinaryData, or streaming methods that routing-lib
+     * does not need.  Only available when built with ROUTING_WITH_HTTP_CLIENT=ON.
      */
     class HTTPClient {
     public:
-        HTTPClient();
+        explicit HTTPClient(bool log = false);
 
         /**
-         * Sends a synchronous HTTP POST with a JSON body.
+         * Send a synchronous HTTP POST with a JSON body.
          * @param url      Full request URL.
          * @param jsonBody JSON request body.
          * @return         Response body string.
          * @throws std::runtime_error on network or HTTP error.
          */
         std::string post(const std::string& url, const std::string& jsonBody) const;
+
+    private:
+        struct HeaderLess {
+            bool operator()(const std::string& h1, const std::string& h2) const {
+                return std::lexicographical_compare(h1.begin(), h1.end(),
+                                                    h2.begin(), h2.end(),
+                                                    [](char a, char b) {
+                    auto lc = [](char c) { return c >= 'A' && c <= 'Z' ? char(c - 'A' + 'a') : c; };
+                    return lc(a) < lc(b);
+                });
+            }
+        };
+
+        struct Request {
+            std::string url;
+            std::string method;
+            std::map<std::string, std::string, HeaderLess> headers;
+            std::string contentType;
+            std::vector<unsigned char> body;
+
+            explicit Request(const std::string& method_, const std::string& url_)
+                : url(url_), method(method_) {}
+        };
+
+        struct Response {
+            int statusCode = -1;
+            std::map<std::string, std::string, HeaderLess> headers;
+            std::vector<unsigned char> body;
+        };
+
+        class Impl {
+        public:
+            typedef std::function<bool(int, const std::map<std::string, std::string>&)> HeadersFunc;
+            typedef std::function<bool(const unsigned char*, std::size_t)>              DataFunc;
+
+            virtual ~Impl();
+
+            virtual void setTimeout(int milliseconds) = 0;
+            virtual bool makeRequest(const HTTPClient::Request& request,
+                                     HeadersFunc headersFn,
+                                     DataFunc    dataFn) const = 0;
+        };
+
+        class AndroidImpl;
+        class IOSImpl;
+
+        int makeRequest(Request request, Response& response) const;
+
+        bool                  _log;
+        std::unique_ptr<Impl> _impl;
     };
 
 } // namespace routing
