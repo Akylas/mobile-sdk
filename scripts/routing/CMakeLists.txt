@@ -74,6 +74,10 @@ foreach(SDK_SUBPROJECT IN ITEMS ${ROUTING_EXTERNAL_SUBPROJECTS})
   add_subdirectory("${SDK_EXTERNAL_LIBS_DIR}/${SDK_SUBPROJECT}" "${SDK_SUBPROJECT}")
 endforeach()
 
+foreach(SDK_HEADER_LIB IN ITEMS "rapidjson/include")
+  include_directories("${SDK_EXTERNAL_LIBS_DIR}/${SDK_HEADER_LIB}")
+endforeach()
+
 # Collect include dirs from subprojects (each exposes ${name}_INCLUDE_DIRS)
 set(ROUTING_SUBPROJECT_INCLUDE_DIRS "")
 foreach(SDK_SUBPROJECT IN ITEMS ${ROUTING_EXTERNAL_SUBPROJECTS})

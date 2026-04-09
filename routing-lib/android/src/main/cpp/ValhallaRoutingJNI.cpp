@@ -7,8 +7,8 @@
 
 #include <jni.h>
 
-#include "../../../native/routing/ValhallaRoutingService.h"
-#include "../../../native/datasource/MBTilesDataSource.h"
+#include "../../../../native/routing/ValhallaRoutingService.h"
+#include "../../../../native/datasource/MBTilesDataSource.h"
 
 #include <string>
 #include <stdexcept>
