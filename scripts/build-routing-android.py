@@ -52,7 +52,7 @@ def build(args):
     cmake_src = os.path.join(base_dir, "scripts", "build", "routing-CMakeLists.txt")
     dist_base = os.path.join(base_dir, "dist", "routing-android")
 
-    abis = args.abi if args.abi else ANDROID_ABIS
+    abis = args.androidabi if args.androidabi else ANDROID_ABIS
     lib_name = "libcarto_routing.%s" % ("so" if args.shared else "a")
 
     for abi in abis:
@@ -71,6 +71,11 @@ def build(args):
             "-DANDROID_STL=c++_static",
             "-DANDROID_NDK=%s"               % args.androidndkpath,
             "-DANDROID_ABI=%s"               % abi,
+            "-DSINGLE_LIBRARY:BOOL=ON",
+            "-DSDK_CPP_DEFINES=%s" % " ".join(defines),
+            "-DSDK_PLATFORM='Android'",
+            "-DSDK_ANDROID_ABI='%s'" % abi,
+            "-DSDK_VERSION='%s'" % version,
             "-DANDROID_PLATFORM=android-%d"  % api,
             "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON",
             "-DROUTING_WITH_ZSTD:BOOL=%s"    % ("ON" if args.with_zstd else "OFF"),
@@ -106,10 +111,27 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Build routing library for Android")
     parser.add_argument("--cmake",           default="cmake",  help="Path to cmake executable")
     parser.add_argument("--make",            default=None,     help="Path to make/ninja executable")
-    parser.add_argument("--androidndkpath",  required=True,    help="Path to Android NDK")
+    parser.add_argument('--android-ndk-path', dest='androidndkpath', default='auto', help='Android NDK path')
     parser.add_argument("--configuration",   default="Release", choices=["Release", "Debug"])
-    parser.add_argument("--abi",             action="append",  help="Target ABI(s)")
+    parser.add_argument('--android-abi', dest='androidabi', default=[], choices=ANDROID_ABIS + ['all'], action='append', help='Android target ABIs')
+    parser.add_argument('--defines', dest='defines', default='', help='Defines for compilation')
+    parser.add_argument('--gradle', dest='gradle', default='gradle', help='Gradle executable')
     parser.add_argument("--with-zstd",       action="store_true", default=True)
+    parser.add_argument('--build-number', dest='buildnumber', default='', help='Build sequence number, goes to version str')
+    parser.add_argument('--build-version', dest='buildversion', default='%s-devel' % SDK_VERSION, help='Build version, goes to distributions')
     parser.add_argument("--shared",          action="store_true", default=False)
     args = parser.parse_args()
-    build(args)
+
+if 'all' in args.androidabi or args.androidabi == []:
+  args.androidabi = ANDROID_ABIS
+if args.androidsdkpath == 'auto':
+  args.androidsdkpath = os.environ.get('ANDROID_HOME', None)
+  if args.androidsdkpath is None:
+    print("ANDROID_HOME variable not set")
+    sys.exit(-1)
+if args.androidndkpath == 'auto':
+  args.androidndkpath = os.environ.get('ANDROID_NDK_HOME', None)
+  if args.androidndkpath is None:
+    args.androidndkpath = os.path.join(args.androidsdkpath, 'ndk-bundle')
+args.defines += ';' + getProfile(args.profile).get('defines', '')
+build(args)
