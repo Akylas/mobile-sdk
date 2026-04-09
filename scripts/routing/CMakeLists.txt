@@ -83,18 +83,6 @@ foreach(SDK_SUBPROJECT IN ITEMS ${ROUTING_EXTERNAL_SUBPROJECTS})
   endif()
 endforeach()
 
-# -----------------------------------------------------------------------
-# ROUTING_WITH_HTTP_CLIENT — build with integrated C++ HTTP client
-#
-# When ON the library includes platform-native HTTP transport so that
-# ValhallaOnlineRoutingService can be used without a Kotlin/ObjC handler.
-# When OFF (default) the caller must supply an HttpHandler/NTHTTPPostHandler.
-# -----------------------------------------------------------------------
-option(ROUTING_WITH_HTTP_CLIENT "Build with integrated C++ HTTP client" OFF)
-
-if(ROUTING_WITH_HTTP_CLIENT)
-  add_definitions("-DROUTING_WITH_HTTP_CLIENT")
-endif()
 
 # Routing-lib C++ sources
 file(GLOB_RECURSE ROUTING_SOURCES
@@ -111,20 +99,16 @@ if(ANDROID)
   list(APPEND ROUTING_SOURCES
     "${ROUTING_SRC_DIR}/android/src/main/cpp/ValhallaRoutingJNI.cpp"
   )
-  if(ROUTING_WITH_HTTP_CLIENT)
-    list(APPEND ROUTING_SOURCES
-      "${ROUTING_SRC_DIR}/android/src/main/cpp/HTTPClientAndroidImpl.cpp"
-    )
-  endif()
+  list(APPEND ROUTING_SOURCES
+    "${ROUTING_SRC_DIR}/android/src/main/cpp/HTTPClientAndroidImpl.cpp"
+  )
 elseif(APPLE)
   list(APPEND ROUTING_SOURCES
     "${ROUTING_SRC_DIR}/ios/NTValhallaRoutingService.mm"
   )
-  if(ROUTING_WITH_HTTP_CLIENT)
-    list(APPEND ROUTING_SOURCES
-      "${ROUTING_SRC_DIR}/ios/HTTPClientIOSImpl.mm"
-    )
-  endif()
+  list(APPEND ROUTING_SOURCES
+    "${ROUTING_SRC_DIR}/ios/HTTPClientIOSImpl.mm"
+  )
 endif()
 
 # Collect compiled objects from all subprojects (same pattern as main SDK)
