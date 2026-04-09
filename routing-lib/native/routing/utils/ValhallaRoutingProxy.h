@@ -2,10 +2,13 @@
 
 #include "../../core/Variant.h"
 
+#include <memory>
 #include <string>
 #include <vector>
 
-struct sqlite3;
+namespace sqlite3pp {
+    class database;
+}
 
 namespace routing {
 
@@ -23,14 +26,14 @@ namespace routing {
 
         /**
          * Call any Valhalla API endpoint using offline Valhalla workers.
-         * @param databases   Open MBTiles sqlite3 handles.
+         * @param databases   Open sqlite3pp::database handles (MBTiles).
          * @param config      Valhalla configuration variant.
          * @param endpoint    Endpoint name, e.g. "route", "trace_attributes".
          * @param jsonBody    Full Valhalla request JSON string (including "costing").
          * @return            Raw Valhalla JSON response string.
          */
         static std::string CallRaw(
-            const std::vector<sqlite3*>& databases,
+            const std::vector<std::shared_ptr<sqlite3pp::database>>& databases,
             const Variant& config,
             const std::string& endpoint,
             const std::string& jsonBody);

@@ -4,7 +4,7 @@
 #include "../log/Log.h"
 #include "../utils/StringUtils.h"
 
-#include <sqlite3.h>
+#include <sqlite3pp.h>
 #include <stdexcept>
 
 namespace routing {
@@ -18,10 +18,9 @@ namespace routing {
     }
 
     ValhallaRoutingService::~ValhallaRoutingService() {
-        // Close any databases that may still be open (should only happen if the
-        // service is destroyed while a request is in flight, which is API misuse).
+        // Close any databases that may still be open. Should only happen if the
+        // service is destroyed while a request is in flight (API misuse).
         std::lock_guard<std::mutex> lk(_mutex);
-        for (auto* db : _openDbs) sqlite3_close(db);
         _openDbs.clear();
     }
 
@@ -109,10 +108,11 @@ namespace routing {
     //
     // Databases are opened lazily when the first request arrives (_activeCount
     // goes from 0→1) and closed when the last request completes (1→0).
+    // Valhalla's GraphReader requires sqlite3pp::database objects.
     // All access to _paths, _openDbs, _activeCount is guarded by _mutex.
     // -----------------------------------------------------------------------
 
-    std::vector<sqlite3*> ValhallaRoutingService::acquireDatabases() const {
+    std::vector<std::shared_ptr<sqlite3pp::database>> ValhallaRoutingService::acquireDatabases() const {
         std::lock_guard<std::mutex> lk(_mutex);
 
         if (_paths.empty()) {
@@ -121,42 +121,38 @@ namespace routing {
 
         if (_activeCount == 0) {
             // Open all registered databases.
-            std::vector<sqlite3*> newDbs;
+            std::vector<std::shared_ptr<sqlite3pp::database>> newDbs;
             newDbs.reserve(_paths.size());
             try {
                 for (const auto& path : _paths) {
-                    sqlite3* db = nullptr;
-                    int rc = sqlite3_open_v2(path.c_str(), &db,
-                                             SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX,
-                                             nullptr);
+                    auto db = std::make_shared<sqlite3pp::database>();
+                    int rc = db->connect_v2(path.c_str(),
+                                            SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX);
                     if (rc != SQLITE_OK) {
-                        std::string err = db ? sqlite3_errmsg(db) : "unknown error";
-                        if (db) sqlite3_close(db);
-                        throw std::runtime_error("Cannot open '" + path + "': " + err);
+                        throw std::runtime_error("Cannot open '" + path + "': sqlite error " +
+                                                 std::to_string(rc));
                     }
                     // Performance tuning for read-only access
-                    sqlite3_exec(db, "PRAGMA journal_mode=OFF;", nullptr, nullptr, nullptr);
-                    sqlite3_exec(db, "PRAGMA temp_store=MEMORY;", nullptr, nullptr, nullptr);
-                    sqlite3_exec(db, "PRAGMA synchronous=OFF;",  nullptr, nullptr, nullptr);
-                    sqlite3_exec(db, "PRAGMA cache_size=2000;",  nullptr, nullptr, nullptr);
-                    newDbs.push_back(db);
+                    db->execute("PRAGMA journal_mode=OFF");
+                    db->execute("PRAGMA temp_store=MEMORY");
+                    db->execute("PRAGMA synchronous=OFF");
+                    db->execute("PRAGMA cache_size=2000");
+                    newDbs.push_back(std::move(db));
                 }
             } catch (...) {
-                // Clean up any databases we opened before the failure.
-                for (auto* db : newDbs) sqlite3_close(db);
+                // newDbs' shared_ptrs will clean up on destruction
                 throw;
             }
             _openDbs = std::move(newDbs);
         }
 
         ++_activeCount;
-        return _openDbs;  // copy of pointers; valid while _activeCount > 0
+        return _openDbs;  // copy of shared_ptrs; valid while _activeCount > 0
     }
 
     void ValhallaRoutingService::releaseDatabases() const {
         std::lock_guard<std::mutex> lk(_mutex);
         if (--_activeCount == 0) {
-            for (auto* db : _openDbs) sqlite3_close(db);
             _openDbs.clear();
         }
     }

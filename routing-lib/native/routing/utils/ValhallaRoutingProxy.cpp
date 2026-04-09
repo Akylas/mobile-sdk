@@ -6,6 +6,8 @@
 
 #  include "../../network/HTTPClient.h"
 
+#  include <sqlite3pp.h>
+
 #  include <valhalla/meili/map_matcher.h>
 #  include <valhalla/meili/map_matcher_factory.h>
 #  include <valhalla/thor/worker.h>
@@ -137,7 +139,7 @@ Variant ValhallaRoutingProxy::GetDefaultConfiguration() {
 // CallRaw — dispatch any Valhalla endpoint directly
 // -------------------------------------------------------------------------
 std::string ValhallaRoutingProxy::CallRaw(
-        const std::vector<sqlite3*>& databases,
+        const std::vector<std::shared_ptr<sqlite3pp::database>>& databases,
         const Variant& config,
         const std::string& endpoint,
         const std::string& jsonBody) {

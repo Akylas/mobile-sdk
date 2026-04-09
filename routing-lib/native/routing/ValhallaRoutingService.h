@@ -7,7 +7,9 @@
 #include <string>
 #include <vector>
 
-struct sqlite3;
+namespace sqlite3pp {
+    class database;
+}
 
 namespace routing {
 
@@ -101,7 +103,7 @@ namespace routing {
 
     private:
         // Database lifecycle helpers
-        std::vector<sqlite3*> acquireDatabases() const;
+        std::vector<std::shared_ptr<sqlite3pp::database>> acquireDatabases() const;
         void releaseDatabases() const;
 
         static std::vector<std::string> splitKeys(const std::string& param);
@@ -112,7 +114,7 @@ namespace routing {
 
         mutable std::mutex          _mutex;
         std::vector<std::string>    _paths;          // registered MBTiles file paths
-        mutable std::vector<sqlite3*> _openDbs;      // currently open handles
+        mutable std::vector<std::shared_ptr<sqlite3pp::database>> _openDbs; // currently open handles
         mutable int                 _activeCount = 0; // in-flight request count
         std::string                 _profile;
         Variant                     _configuration;
