@@ -37,7 +37,7 @@ def buildRoutingLib(args, baseArch):
         '-DCMAKE_BUILD_TYPE=%s'               % args.configuration,
         '-DSDK_VERSION=%s'                    % version,
         '-DROUTING_WITH_VALHALLA:BOOL=ON',
-        '%s/scripts/build/routing-CMakeLists.txt' % baseDir
+        '%s/scripts/routing' % baseDir
     ]):
         return False
 

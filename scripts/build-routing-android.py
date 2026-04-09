@@ -36,7 +36,7 @@ def buildRoutingSO(args, abi):
         return False
     print('Using API-%d for 32-bit builds, API-%d for 64-bit builds' % (api32, api64))
 
-    cmakeListsDir = '%s/routing-lib/android/src/main/cpp' % baseDir
+    cmakeListsDir = '%s/scripts/routing' % baseDir
 
     if not cmake(args, buildDir, options + defines + [
         '-G', 'Unix Makefiles',
@@ -53,8 +53,11 @@ def buildRoutingSO(args, abi):
         "-DANDROID_ABI='%s'" % abi,
         "-DANDROID_PLATFORM='android-%d'" % (api64 if '64' in abi else api32),
         "-DANDROID_ARM_NEON:BOOL=%s" % ('ON' if abi == 'arm64-v8a' or api32 >= 19 else 'OFF'),
+        "-DSDK_CPP_DEFINES=%s" % " ".join(defines),
         "-DSDK_VERSION='%s'" % version,
         "-DSDK_PLATFORM='Android'",
+        "-DSDK_ANDROID_ABI='%s'" % abi,
+        "-DROUTING_WITH_VALHALLA:BOOL=ON",
         cmakeListsDir,
     ]):
         return False
