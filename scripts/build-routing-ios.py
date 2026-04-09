@@ -1,115 +1,161 @@
-#!/usr/bin/env python3
-"""
-Build script for the standalone routing library (iOS / macOS / Mac Catalyst).
-
-Usage:
-    python3 scripts/build-routing-ios.py \
-        [--configuration Release|Debug] \
-        [--arch arm64|x86_64|...] \
-        [--with-zstd] \
-        [--shared]
-
-Output:
-    dist/routing-ios/<arch>/libcarto_routing.a  (or .dylib)
-"""
-
 import os
 import sys
 import shutil
 import argparse
-import subprocess
+from build.sdk_build_utils import *
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+IOS_ARCHS = ['arm64', 'arm64-simulator', 'x86_64']
 
-def repo_root():
-    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FRAMEWORK_NAME = "ValhallaRouting"
 
-def makedirs(path):
-    os.makedirs(path, exist_ok=True)
+def getPlatformArch(baseArch):
+    if baseArch.endswith('-maccatalyst'):
+        return 'MACCATALYST', baseArch[:-12]
+    if baseArch.endswith('-simulator'):
+        return 'SIMULATOR', baseArch[:-10]
+    return ('OS' if baseArch.startswith('arm') else 'SIMULATOR'), baseArch
 
-def run_cmake(cmake_exe, cwd, args):
-    cmd = [cmake_exe] + args
-    print(">> " + " ".join(cmd))
-    result = subprocess.run(cmd, cwd=cwd)
-    if result.returncode != 0:
-        print("CMake command failed with exit code %d" % result.returncode)
-        sys.exit(result.returncode)
+def buildRoutingLib(args, baseArch):
+    platform, arch = getPlatformArch(baseArch)
+    version  = getVersion(args.buildversion, args.buildnumber) if args.configuration == 'Release' else 'Devel'
+    baseDir  = getBaseDir()
+    buildDir = getBuildDir('routing-ios', '%s-%s' % (platform, arch))
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
+    sysroot = {
+        'OS':          'iphoneos',
+        'SIMULATOR':   'iphonesimulator',
+        'MACCATALYST': 'macosx',
+    }[platform]
+    deployTarget = '13.0' if platform == 'MACCATALYST' else '12.0'
 
-IOS_ARCHS = ["arm64", "x86_64"]
+    if not cmake(args, buildDir, [
+        '-G', 'Xcode',
+        '-DCMAKE_SYSTEM_NAME=%s'             % ('Darwin' if platform == 'MACCATALYST' else 'iOS'),
+        '-DCMAKE_OSX_ARCHITECTURES=%s'        % arch,
+        '-DCMAKE_OSX_SYSROOT=%s'              % sysroot,
+        '-DCMAKE_OSX_DEPLOYMENT_TARGET=%s'    % deployTarget,
+        '-DCMAKE_BUILD_TYPE=%s'               % args.configuration,
+        '-DSDK_VERSION=%s'                    % version,
+        '-DROUTING_WITH_ZSTD:BOOL=%s'         % ('ON' if args.with_zstd else 'OFF'),
+        '-DROUTING_WITH_VALHALLA:BOOL=ON',
+        '%s/scripts/build/routing-CMakeLists.txt' % baseDir
+    ]):
+        return False
 
-def build(args):
-    base_dir  = repo_root()
-    cmake_src = os.path.join(base_dir, "scripts", "build", "routing-CMakeLists.txt")
-    dist_base = os.path.join(base_dir, "dist", "routing-ios")
+    return cmake(args, buildDir, [
+        '--build', '.',
+        '--config', args.configuration,
+        '--parallel', str(os.cpu_count() or 4),
+    ])
 
-    archs = args.arch if args.arch else IOS_ARCHS
-    lib_name = "libcarto_routing.%s" % ("dylib" if args.shared else "a")
+def buildRoutingXCFramework(args, baseArchs):
+    baseDir  = getBaseDir()
+    distDir  = getDistDir('routing-ios')
+    version  = args.buildversion
+    distName = getRoutingIOSZipDistName(version)
 
-    for arch in archs:
-        # Determine platform
-        if arch in ("x86_64", "i386", "arm64-simulator"):
-            platform = "SIMULATOR"
-            base_arch = arch.replace("-simulator", "")
-        elif arch.endswith("-maccatalyst"):
-            platform = "MACCATALYST"
-            base_arch = arch[:-12]
+    # Copy the public header into a staging area
+    headersDir  = getBuildDir('routing-ios', 'Headers')
+    headersDest = '%s/%s' % (headersDir, FRAMEWORK_NAME)
+    makedirs(headersDest)
+    if not copyfile('%s/routing-lib/ios/NTValhallaRoutingService.h' % baseDir,
+                    '%s/NTValhallaRoutingService.h' % headersDest):
+        return False
+
+    # Group by platform and lipo-combine architectures
+    groupedPlatformArchs = {}
+    for baseArch in baseArchs:
+        platform, _ = getPlatformArch(baseArch)
+        groupedPlatformArchs.setdefault(platform, []).append(baseArch)
+
+    frameworkOptions = []
+    for platform, pArchs in groupedPlatformArchs.items():
+        libFiles = []
+        for baseArch in pArchs:
+            plat, arch = getPlatformArch(baseArch)
+            buildDir = getBuildDir('routing-ios', '%s-%s' % (plat, arch))
+            # Xcode places the product in <buildDir>/<config>-iphone{os,simulator}/
+            candidates = [
+                '%s/%s-%s/libValhallaRouting.a'  % (buildDir, args.configuration, ('iphoneos'        if plat == 'OS'       else 'iphonesimulator')),
+                '%s/%s/libValhallaRouting.a'      % (buildDir, args.configuration),
+                '%s/libValhallaRouting.a'          % buildDir,
+            ]
+            libFile = next((p for p in candidates if os.path.exists(p)), None)
+            if libFile is None:
+                # Walk and find it
+                for root, _, files in os.walk(buildDir):
+                    for f in files:
+                        if f == 'libValhallaRouting.a':
+                            libFile = os.path.join(root, f)
+                            break
+                    if libFile:
+                        break
+            if libFile is None:
+                print("ERROR: Could not find libValhallaRouting.a for %s" % baseArch)
+                return False
+            libFiles.append(libFile)
+
+        fatLib = '%s/libValhallaRouting.a' % getBuildDir('routing-ios', platform)
+        if len(libFiles) > 1:
+            if not execute('lipo', baseDir, '-output', fatLib, '-create', *libFiles):
+                return False
         else:
-            platform = "OS"
-            base_arch = arch
+            if not copyfile(libFiles[0], fatLib):
+                return False
+        frameworkOptions.extend(['-library', fatLib, '-headers', headersDir])
 
-        build_dir = os.path.join(base_dir, "build", "routing-ios", arch)
-        dist_dir  = os.path.join(dist_base, arch)
-        makedirs(build_dir)
-        makedirs(dist_dir)
+    xcframeworkPath = '%s/%s.xcframework' % (distDir, FRAMEWORK_NAME)
+    shutil.rmtree(xcframeworkPath, True)
+    if not execute('xcodebuild', baseDir,
+        '-create-xcframework', '-output', xcframeworkPath,
+        *frameworkOptions
+    ):
+        return False
 
-        cmake_defines = [
-            "-DCMAKE_TOOLCHAIN_FILE=%s/scripts/build/ios-toolchain.cmake" % base_dir,
-            "-DPLATFORM=%s"          % platform,
-            "-DARCHS=%s"             % base_arch,
-            "-DCMAKE_BUILD_TYPE=%s"  % args.configuration,
-            "-DROUTING_WITH_ZSTD:BOOL=%s"   % ("ON" if args.with_zstd else "OFF"),
-            "-DROUTING_SHARED:BOOL=%s"       % ("ON" if args.shared else "OFF"),
-            "-DROUTING_WITH_VALHALLA:BOOL=ON",
-            "-G", "Xcode",
-        ]
+    # Zip the XCFramework
+    zipPath = '%s/%s' % (distDir, distName)
+    try:
+        os.remove(zipPath)
+    except:
+        pass
+    if not execute('ditto', distDir,
+        '-c', '-k', '--sequesterRsrc', '--keepParent',
+        '%s.xcframework' % FRAMEWORK_NAME,
+        zipPath
+    ):
+        return False
 
-        # Generate
-        run_cmake(args.cmake, build_dir, cmake_defines + [cmake_src])
-
-        # Build
-        run_cmake(args.cmake, build_dir, [
-            "--build", ".",
-            "--config", args.configuration,
-            "--parallel", str(os.cpu_count() or 4),
-        ])
-
-        # Copy output
-        built_lib = os.path.join(build_dir, args.configuration, lib_name)
-        if not os.path.exists(built_lib):
-            # Some CMake generators put it in a sub-folder
-            built_lib = os.path.join(build_dir, lib_name)
-
-        if os.path.exists(built_lib):
-            shutil.copy2(built_lib, os.path.join(dist_dir, lib_name))
-            print("Copied %s -> %s/%s" % (lib_name, dist_dir, lib_name))
-        else:
-            print("WARNING: Could not find built library at %s" % built_lib)
-
-    print("\nBuild complete. Output in: %s" % dist_base)
+    print("iOS XCFramework output available in:\n%s" % distDir)
+    return True
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Build routing library for iOS")
-    parser.add_argument("--cmake",         default="cmake",  help="Path to cmake executable")
-    parser.add_argument("--configuration", default="Release", choices=["Release", "Debug"])
-    parser.add_argument("--arch",          action="append",  help="Target architecture(s)")
-    parser.add_argument("--with-zstd",     action="store_true", default=True)
-    parser.add_argument("--shared",        action="store_true", default=False)
-    args = parser.parse_args()
-    build(args)
+parser = argparse.ArgumentParser(description="Build Valhalla routing library for iOS (XCFramework)")
+parser.add_argument('--cmake',           dest='cmake',          default='cmake', help='CMake executable')
+parser.add_argument('--ios-arch',        dest='iosarch',        default=[],
+                    choices=IOS_ARCHS + ['all'], action='append', help='iOS target architectures')
+parser.add_argument('--configuration',   dest='configuration',  default='Release',
+                    choices=['Release', 'RelWithDebInfo', 'Debug'])
+parser.add_argument('--build-number',    dest='buildnumber',    default='', help='Build sequence number')
+parser.add_argument('--build-version',   dest='buildversion',   default='%s-devel' % SDK_VERSION,
+                    help='Build version, embedded in the dist file name')
+parser.add_argument('--with-zstd',       dest='with_zstd',      default=True, action='store_true')
+parser.add_argument('--no-zstd',         dest='with_zstd',      action='store_false')
+parser.add_argument('--build-xcframework', dest='buildxcframework', default=True, action='store_true')
+args = parser.parse_args()
+
+if 'all' in args.iosarch or args.iosarch == []:
+    args.iosarch = IOS_ARCHS
+
+if not checkExecutable(args.cmake, '--help'):
+    print('Failed to find CMake executable. Use --cmake to specify its location.')
+    sys.exit(-1)
+
+for arch in args.iosarch:
+    if not buildRoutingLib(args, arch):
+        sys.exit(-1)
+
+if args.buildxcframework:
+    if not buildRoutingXCFramework(args, args.iosarch):
+        sys.exit(-1)
+
+print("Done. Output: dist/routing-ios/%s" % getRoutingIOSZipDistName(args.buildversion))

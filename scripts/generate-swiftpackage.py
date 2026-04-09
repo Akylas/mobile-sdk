@@ -21,7 +21,7 @@ def checksum_url_sha256(url):
         print(f"Failed to download/checksum {url}: {e}")
         return None
 
-def generate_swift_package(version, profiles_csv, checksums_map=None):
+def generate_swift_package(version, profiles_csv, checksums_map=None, routing_checksum=None):
     baseDir = getBaseDir()
     template_path = os.path.join(baseDir, 'scripts', 'ios-swiftpackage', 'Package.swift.template')
     distDir = os.path.join(baseDir, 'dist', 'ios_metal')
@@ -81,6 +81,27 @@ def generate_swift_package(version, profiles_csv, checksums_map=None):
         )
         library_entries.append(entry)
 
+    # Add ValhallaRouting binary target
+    routing_target_name = "ValhallaRouting"
+    routing_dist_name = getRoutingIOSZipDistName(version)
+    routing_url = "%s/releases/download/v%s/%s" % (REPO_URL, version, routing_dist_name)
+    if not routing_checksum:
+        routing_checksum = checksum_url_sha256(routing_url)
+    if routing_checksum:
+        routing_entry = (
+            "        .binaryTarget(\n"
+            f'            name: "{routing_target_name}",\n'
+            f'            url: "{routing_url}",\n'
+            f'            checksum: "{routing_checksum}"\n'
+            "        ),\n"
+        )
+        target_entries.append(routing_entry)
+        library_entries.append(
+            f'        .library(name: "{routing_target_name}", targets: ["{routing_target_name}"]),\n'
+        )
+    else:
+        print(f"Warning: could not compute checksum for {routing_url}, skipping ValhallaRouting target")
+
     targets_array = "[\n" + "".join(target_entries) + "    ]"
     libraries_array = "[\n" + "".join(library_entries) + "    ]"
 
@@ -98,7 +119,6 @@ def generate_swift_package(version, profiles_csv, checksums_map=None):
             'frameworkName': framework_base,
             'targets': targets_array
         })
-    
 
     with open(output_path, 'w') as f:
         f.write(content)
@@ -108,9 +128,11 @@ def generate_swift_package(version, profiles_csv, checksums_map=None):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--version', required=True, dest='version')
-    parser.add_argument('--profiles', required=True, dest='profiles')
-    parser.add_argument('--checksums-file', dest='checksums_file', default=None)
+    parser.add_argument('--version',          required=True, dest='version')
+    parser.add_argument('--profiles',         required=True, dest='profiles')
+    parser.add_argument('--checksums-file',   dest='checksums_file',    default=None)
+    parser.add_argument('--routing-checksum', dest='routing_checksum',  default=None,
+                        help='SHA-256 checksum of the ValhallaRouting XCFramework zip')
     args = parser.parse_args()
 
     checksums_map = None
@@ -121,4 +143,4 @@ if __name__ == "__main__":
         with open(args.checksums_file, 'r') as f:
             checksums_map = json.load(f)
 
-    generate_swift_package(args.version, args.profiles, checksums_map)
+    generate_swift_package(args.version, args.profiles, checksums_map, routing_checksum=args.routing_checksum)

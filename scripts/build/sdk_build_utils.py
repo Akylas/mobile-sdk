@@ -96,6 +96,12 @@ def getAndroidAarDistName(version, profile):
 def getIOSZipDistName(version, profile):
   return 'carto-mobile-sdk-ios-%s-%s.zip' % (version, getVariant(profile))
 
+def getRoutingAndroidAarDistName(version):
+  return 'carto-routing-android-%s.aar' % version
+
+def getRoutingIOSZipDistName(version):
+  return 'carto-routing-ios-%s.zip' % version
+
 def getBuildDir(target, arch=None):
   if arch is None:
     buildDir = '%s/build/%s' % (getBaseDir(), target)
