@@ -65,73 +65,73 @@ Variant ValhallaRoutingProxy::GetDefaultConfiguration() {
 // -------------------------------------------------------------------------
 // MatchRoute
 // -------------------------------------------------------------------------
-std::string ValhallaRoutingProxy::MatchRoute(
-        const std::vector<sqlite3*>& databases,
-        const std::string& profile,
-        const Variant& config,
-        const std::shared_ptr<RouteMatchingRequest>& request) {
+// std::string ValhallaRoutingProxy::MatchRoute(
+//         const std::vector<sqlite3*>& databases,
+//         const std::string& profile,
+//         const Variant& config,
+//         const std::shared_ptr<RouteMatchingRequest>& request) {
 
-    std::string resultString;
-    try {
-        std::stringstream ss;
-        ss << config.toJSON();
-        boost::property_tree::ptree configTree;
-        rapidjson::read_json(ss, configTree);
-        auto reader = std::make_shared<valhalla::baldr::GraphReader>(databases);
+//     std::string resultString;
+//     try {
+//         std::stringstream ss;
+//         ss << config.toJSON();
+//         boost::property_tree::ptree configTree;
+//         rapidjson::read_json(ss, configTree);
+//         auto reader = std::make_shared<valhalla::baldr::GraphReader>(databases);
 
-        valhalla::Api api;
-        valhalla::ParseApi(SerializeRouteMatchingRequest(profile, request),
-                           valhalla::Options::trace_attributes, api, g_valhallaLocales);
+//         valhalla::Api api;
+//         valhalla::ParseApi(SerializeRouteMatchingRequest(profile, request),
+//                            valhalla::Options::trace_attributes, api, g_valhallaLocales);
 
-        valhalla::loki::loki_worker_t lokiWorker(configTree, reader);
-        lokiWorker.trace(api);
-        valhalla::thor::thor_worker_t thorWorker(configTree, reader);
-        resultString = thorWorker.trace_attributes(api);
-        lokiWorker.cleanup();
-    }
-    catch (const std::exception& ex) {
-        throw GenericException("Exception while matching route", ex.what());
-    }
-    return resultString;
-}
+//         valhalla::loki::loki_worker_t lokiWorker(configTree, reader);
+//         lokiWorker.trace(api);
+//         valhalla::thor::thor_worker_t thorWorker(configTree, reader);
+//         resultString = thorWorker.trace_attributes(api);
+//         lokiWorker.cleanup();
+//     }
+//     catch (const std::exception& ex) {
+//         throw GenericException("Exception while matching route", ex.what());
+//     }
+//     return resultString;
+// }
 
 // -------------------------------------------------------------------------
 // CalculateRoute
 // -------------------------------------------------------------------------
-std::string ValhallaRoutingProxy::CalculateRoute(
-        const std::vector<sqlite3*>& databases,
-        const std::string& profile,
-        const Variant& config,
-        const std::shared_ptr<RoutingRequest>& request) {
+// std::string ValhallaRoutingProxy::CalculateRoute(
+//         const std::vector<sqlite3*>& databases,
+//         const std::string& profile,
+//         const Variant& config,
+//         const std::shared_ptr<RoutingRequest>& request) {
 
-    std::string resultString;
-    try {
-        std::stringstream ss;
-        ss << config.toJSON();
-        boost::property_tree::ptree configTree;
-        rapidjson::read_json(ss, configTree);
-        auto reader = std::make_shared<valhalla::baldr::GraphReader>(databases);
+//     std::string resultString;
+//     try {
+//         std::stringstream ss;
+//         ss << config.toJSON();
+//         boost::property_tree::ptree configTree;
+//         rapidjson::read_json(ss, configTree);
+//         auto reader = std::make_shared<valhalla::baldr::GraphReader>(databases);
 
-        valhalla::Api api;
-        valhalla::ParseApi(SerializeRoutingRequest(profile, request),
-                           valhalla::Options::route, api, g_valhallaLocales);
+//         valhalla::Api api;
+//         valhalla::ParseApi(SerializeRoutingRequest(profile, request),
+//                            valhalla::Options::route, api, g_valhallaLocales);
 
-        valhalla::loki::loki_worker_t lokiWorker(configTree, reader);
-        lokiWorker.route(api);
-        valhalla::thor::thor_worker_t thorWorker(configTree, reader);
-        thorWorker.route(api);
-        valhalla::odin::odin_worker_t odinWorker(configTree);
-        odinWorker.narrate(api);
-        resultString = valhalla::tyr::serializeDirections(api);
-        lokiWorker.cleanup();
-        thorWorker.cleanup();
-        odinWorker.cleanup();
-    }
-    catch (const std::exception& ex) {
-        throw GenericException("Exception while calculating route", ex.what());
-    }
-    return resultString;
-}
+//         valhalla::loki::loki_worker_t lokiWorker(configTree, reader);
+//         lokiWorker.route(api);
+//         valhalla::thor::thor_worker_t thorWorker(configTree, reader);
+//         thorWorker.route(api);
+//         valhalla::odin::odin_worker_t odinWorker(configTree);
+//         odinWorker.narrate(api);
+//         resultString = valhalla::tyr::serializeDirections(api);
+//         lokiWorker.cleanup();
+//         thorWorker.cleanup();
+//         odinWorker.cleanup();
+//     }
+//     catch (const std::exception& ex) {
+//         throw GenericException("Exception while calculating route", ex.what());
+//     }
+//     return resultString;
+// }
 
 // -------------------------------------------------------------------------
 // CallRaw — dispatch any Valhalla endpoint directly
@@ -318,63 +318,63 @@ static std::string documentToString(const rapidjson::Document& doc) {
 }
 
 
-std::string ValhallaRoutingProxy::SerializeRoutingRequest(
-        const std::string& profile,
-        const std::shared_ptr<RoutingRequest>& request) {
+// std::string ValhallaRoutingProxy::SerializeRoutingRequest(
+//         const std::string& profile,
+//         const std::shared_ptr<RoutingRequest>& request) {
 
-    // Points are always WGS-84: MapPos(lon, lat)
-    const auto& points = request->getPoints();
+//     // Points are always WGS-84: MapPos(lon, lat)
+//     const auto& points = request->getPoints();
 
-    rapidjson::Document doc;
-    doc.SetObject();
-    auto& alloc = doc.GetAllocator();
+//     rapidjson::Document doc;
+//     doc.SetObject();
+//     auto& alloc = doc.GetAllocator();
 
-    rapidjson::Value locations(rapidjson::kArrayType);
-    for (std::size_t i = 0; i < points.size(); i++) {
-        addLocationToArray(locations, alloc, points[i].getX(), points[i].getY(),
-                           request->getPointParameters(static_cast<int>(i)));
-    }
-    doc.AddMember("locations", locations, alloc);
+//     rapidjson::Value locations(rapidjson::kArrayType);
+//     for (std::size_t i = 0; i < points.size(); i++) {
+//         addLocationToArray(locations, alloc, points[i].getX(), points[i].getY(),
+//                            request->getPointParameters(static_cast<int>(i)));
+//     }
+//     doc.AddMember("locations", locations, alloc);
 
-    rapidjson::Value costingVal(profile.c_str(), alloc);
-    doc.AddMember("costing", costingVal, alloc);
-    doc.AddMember("units", rapidjson::StringRef("kilometers"), alloc);
+//     rapidjson::Value costingVal(profile.c_str(), alloc);
+//     doc.AddMember("costing", costingVal, alloc);
+//     doc.AddMember("units", rapidjson::StringRef("kilometers"), alloc);
 
-    mergeCustomParams(doc, alloc, request->getCustomParameters());
-    return documentToString(doc);
+//     mergeCustomParams(doc, alloc, request->getCustomParameters());
+//     return documentToString(doc);
 
-}
+// }
 
-std::string ValhallaRoutingProxy::SerializeRouteMatchingRequest(
-        const std::string& profile,
-        const std::shared_ptr<RouteMatchingRequest>& request) {
+// std::string ValhallaRoutingProxy::SerializeRouteMatchingRequest(
+//         const std::string& profile,
+//         const std::shared_ptr<RouteMatchingRequest>& request) {
 
-    // Points are always WGS-84: MapPos(lon, lat)
-    const auto& points = request->getPoints();
+//     // Points are always WGS-84: MapPos(lon, lat)
+//     const auto& points = request->getPoints();
 
-    rapidjson::Document doc;
-    doc.SetObject();
-    auto& alloc = doc.GetAllocator();
+//     rapidjson::Document doc;
+//     doc.SetObject();
+//     auto& alloc = doc.GetAllocator();
 
-    rapidjson::Value shape(rapidjson::kArrayType);
-    for (std::size_t i = 0; i < points.size(); i++) {
-        addLocationToArray(shape, alloc, points[i].getX(), points[i].getY(),
-                           request->getPointParameters(static_cast<int>(i)));
-    }
-    doc.AddMember("shape", shape, alloc);
-    doc.AddMember("shape_match", rapidjson::StringRef("map_snap"), alloc);
-    rapidjson::Value costingVal(profile.c_str(), alloc);
-    doc.AddMember("costing", costingVal, alloc);
-    doc.AddMember("units", rapidjson::StringRef("kilometers"), alloc);
+//     rapidjson::Value shape(rapidjson::kArrayType);
+//     for (std::size_t i = 0; i < points.size(); i++) {
+//         addLocationToArray(shape, alloc, points[i].getX(), points[i].getY(),
+//                            request->getPointParameters(static_cast<int>(i)));
+//     }
+//     doc.AddMember("shape", shape, alloc);
+//     doc.AddMember("shape_match", rapidjson::StringRef("map_snap"), alloc);
+//     rapidjson::Value costingVal(profile.c_str(), alloc);
+//     doc.AddMember("costing", costingVal, alloc);
+//     doc.AddMember("units", rapidjson::StringRef("kilometers"), alloc);
 
-    if (request->getAccuracy() > 0) {
-        doc.AddMember("gps_accuracy",
-                      static_cast<double>(request->getAccuracy()), alloc);
-    }
+//     if (request->getAccuracy() > 0) {
+//         doc.AddMember("gps_accuracy",
+//                       static_cast<double>(request->getAccuracy()), alloc);
+//     }
 
-    mergeCustomParams(doc, alloc, request->getCustomParameters());
-    return documentToString(doc);
-}
+//     mergeCustomParams(doc, alloc, request->getCustomParameters());
+//     return documentToString(doc);
+// }
 
 // -------------------------------------------------------------------------
 // Online routing via built-in HTTP client (ROUTING_WITH_HTTP_CLIENT)

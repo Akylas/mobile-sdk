@@ -2,10 +2,6 @@
 
 #include "../core/Variant.h"
 #include "../datasource/IDataSource.h"
-#include "../routing/RoutingRequest.h"
-#include "../routing/RoutingResult.h"
-#include "../routing/RouteMatchingRequest.h"
-#include "../routing/RouteMatchingResult.h"
 
 #include <memory>
 #include <mutex>

@@ -1,10 +1,7 @@
 #pragma once
 
 #include "../../core/Variant.h"
-#include "../RoutingRequest.h"
-#include "../RouteMatchingRequest.h"
 
-#include <memory>
 #include <string>
 #include <vector>
 
@@ -24,17 +21,17 @@ namespace routing {
         // Offline routing (calls Valhalla workers directly)
         // ----------------------------------------------------------------
 
-        static std::string MatchRoute(
-            const std::vector<sqlite3*>& databases,
-            const std::string& profile,
-            const Variant& config,
-            const std::shared_ptr<RouteMatchingRequest>& request);
+        // static std::string MatchRoute(
+        //     const std::vector<sqlite3*>& databases,
+        //     const std::string& profile,
+        //     const Variant& config,
+        //     const std::shared_ptr<RouteMatchingRequest>& request);
 
-        static std::string CalculateRoute(
-            const std::vector<sqlite3*>& databases,
-            const std::string& profile,
-            const Variant& config,
-            const std::shared_ptr<RoutingRequest>& request);
+        // static std::string CalculateRoute(
+        //     const std::vector<sqlite3*>& databases,
+        //     const std::string& profile,
+        //     const Variant& config,
+        //     const std::shared_ptr<RoutingRequest>& request);
 
         /**
          * Call any Valhalla API endpoint directly (offline, Valhalla workers).
@@ -61,20 +58,20 @@ namespace routing {
          * @param profile     Costing profile ("auto", "pedestrian", …).
          * @param request     Route matching request.
          */
-        static std::string MatchRoute(
-            HTTPClient& httpClient,
-            const std::string& baseURL,
-            const std::string& profile,
-            const std::shared_ptr<RouteMatchingRequest>& request);
+        // static std::string MatchRoute(
+        //     HTTPClient& httpClient,
+        //     const std::string& baseURL,
+        //     const std::string& profile,
+        //     const std::shared_ptr<RouteMatchingRequest>& request);
 
         /**
          * Calculate a route via HTTP POST to a remote Valhalla service.
          */
-        static std::string CalculateRoute(
-            HTTPClient& httpClient,
-            const std::string& baseURL,
-            const std::string& profile,
-            const std::shared_ptr<RoutingRequest>& request);
+        // static std::string CalculateRoute(
+        //     HTTPClient& httpClient,
+        //     const std::string& baseURL,
+        //     const std::string& profile,
+        //     const std::shared_ptr<RoutingRequest>& request);
 
         /**
          * Call any Valhalla endpoint via HTTP POST.
@@ -99,14 +96,14 @@ namespace routing {
         static Variant GetDefaultConfiguration();
 
         /** Build the JSON body for a routing request. */
-        static std::string SerializeRoutingRequest(
-            const std::string& profile,
-            const std::shared_ptr<RoutingRequest>& request);
+        // static std::string SerializeRoutingRequest(
+        //     const std::string& profile,
+        //     const std::shared_ptr<RoutingRequest>& request);
 
-        /** Build the JSON body for a route-matching request. */
-        static std::string SerializeRouteMatchingRequest(
-            const std::string& profile,
-            const std::shared_ptr<RouteMatchingRequest>& request);
+        // /** Build the JSON body for a route-matching request. */
+        // static std::string SerializeRouteMatchingRequest(
+        //     const std::string& profile,
+        //     const std::shared_ptr<RouteMatchingRequest>& request);
 
     private:
         ValhallaRoutingProxy() = delete;
