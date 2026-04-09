@@ -4,11 +4,8 @@
 #include "../../log/Log.h"
 #include "../../utils/StringUtils.h"
 
-#ifdef ROUTING_WITH_HTTP_CLIENT
 #  include "../../network/HTTPClient.h"
-#endif
 
-#ifdef HAVE_VALHALLA
 #  include <valhalla/meili/map_matcher.h>
 #  include <valhalla/meili/map_matcher_factory.h>
 #  include <valhalla/thor/worker.h>
@@ -39,7 +36,6 @@
 #  include <rapidjson/document.h>
 #  include <rapidjson/stringbuffer.h>
 #  include <rapidjson/writer.h>
-#endif // HAVE_VALHALLA
 
 #include <sstream>
 #include <string>
@@ -69,13 +65,12 @@ Variant ValhallaRoutingProxy::GetDefaultConfiguration() {
 // -------------------------------------------------------------------------
 // MatchRoute
 // -------------------------------------------------------------------------
-std::shared_ptr<RouteMatchingResult> ValhallaRoutingProxy::MatchRoute(
+std::string ValhallaRoutingProxy::MatchRoute(
         const std::vector<sqlite3*>& databases,
         const std::string& profile,
         const Variant& config,
         const std::shared_ptr<RouteMatchingRequest>& request) {
 
-#ifdef HAVE_VALHALLA
     std::string resultString;
     try {
         std::stringstream ss;
@@ -97,22 +92,18 @@ std::shared_ptr<RouteMatchingResult> ValhallaRoutingProxy::MatchRoute(
     catch (const std::exception& ex) {
         throw GenericException("Exception while matching route", ex.what());
     }
-    return std::make_shared<RouteMatchingResult>(std::move(resultString));
-#else
-    throw GenericException("Valhalla routing support not compiled in");
-#endif
+    return resultString;
 }
 
 // -------------------------------------------------------------------------
 // CalculateRoute
 // -------------------------------------------------------------------------
-std::shared_ptr<RoutingResult> ValhallaRoutingProxy::CalculateRoute(
+std::string ValhallaRoutingProxy::CalculateRoute(
         const std::vector<sqlite3*>& databases,
         const std::string& profile,
         const Variant& config,
         const std::shared_ptr<RoutingRequest>& request) {
 
-#ifdef HAVE_VALHALLA
     std::string resultString;
     try {
         std::stringstream ss;
@@ -139,10 +130,7 @@ std::shared_ptr<RoutingResult> ValhallaRoutingProxy::CalculateRoute(
     catch (const std::exception& ex) {
         throw GenericException("Exception while calculating route", ex.what());
     }
-    return std::make_shared<RoutingResult>(std::move(resultString));
-#else
-    throw GenericException("Valhalla routing support not compiled in");
-#endif
+    return resultString;
 }
 
 // -------------------------------------------------------------------------
@@ -154,7 +142,6 @@ std::string ValhallaRoutingProxy::CallRaw(
         const std::string& endpoint,
         const std::string& jsonBody) {
 
-#ifdef HAVE_VALHALLA
     // Map endpoint string → valhalla action enum
     valhalla::Options::Action action;
     if      (endpoint == "route"             ) action = valhalla::Options::route;
@@ -213,33 +200,30 @@ std::string ValhallaRoutingProxy::CallRaw(
             break;
 
         case valhalla::Options::optimized_route:
-            lokiWorker.route(api);
-            result = thorWorker.optimized_route(api);
+            thorWorker.optimized_route(api);
+            result = valhalla::tyr::serializePbf(api);
             break;
 
         case valhalla::Options::isochrone:
-            lokiWorker.isochrone(api);
-            result = thorWorker.isochrone(api);
+            lokiWorker.isochrones(api);
+            result = thorWorker.isochrones(api);
             break;
 
         case valhalla::Options::locate:
-            lokiWorker.locate(api);
-            result = valhalla::tyr::serializeLocate(api);
+            result = lokiWorker.locate(api);
             break;
 
         case valhalla::Options::height:
-            lokiWorker.height(api);
-            result = valhalla::tyr::serializeHeight(api);
+            result = lokiWorker.height(api);
             break;
 
         case valhalla::Options::expansion:
-            lokiWorker.expansion(api);
             result = thorWorker.expansion(api);
             break;
 
         case valhalla::Options::centroid:
-            lokiWorker.centroid(api);
-            result = thorWorker.centroid(api);
+            thorWorker.centroid(api);
+            result = valhalla::tyr::serializePbf(api);
             break;
 
         case valhalla::Options::status:
@@ -259,9 +243,6 @@ std::string ValhallaRoutingProxy::CallRaw(
         throw GenericException("Exception in callRaw(" + endpoint + ")", ex.what());
     }
     return result;
-#else
-    throw GenericException("Valhalla routing support not compiled in");
-#endif
 }
 
 // -------------------------------------------------------------------------
@@ -269,7 +250,6 @@ std::string ValhallaRoutingProxy::CallRaw(
 // otherwise falls back to Variant's own toJSON() helpers.
 // -------------------------------------------------------------------------
 
-#ifdef HAVE_VALHALLA
 
 // Build a rapidjson object for a single location from its Variant parameter bag.
 static void addLocationToArray(
@@ -337,7 +317,6 @@ static std::string documentToString(const rapidjson::Document& doc) {
     return buf.GetString();
 }
 
-#endif // HAVE_VALHALLA
 
 std::string ValhallaRoutingProxy::SerializeRoutingRequest(
         const std::string& profile,
@@ -346,7 +325,6 @@ std::string ValhallaRoutingProxy::SerializeRoutingRequest(
     // Points are always WGS-84: MapPos(lon, lat)
     const auto& points = request->getPoints();
 
-#ifdef HAVE_VALHALLA
     rapidjson::Document doc;
     doc.SetObject();
     auto& alloc = doc.GetAllocator();
@@ -364,17 +342,7 @@ std::string ValhallaRoutingProxy::SerializeRoutingRequest(
 
     mergeCustomParams(doc, alloc, request->getCustomParameters());
     return documentToString(doc);
-#else
-    // Fallback: build JSON manually
-    std::string json = "{\"locations\":[";
-    for (std::size_t i = 0; i < points.size(); i++) {
-        if (i > 0) json += ',';
-        json += "{\"lon\":" + std::to_string(points[i].getX()) +
-                ",\"lat\":" + std::to_string(points[i].getY()) + "}";
-    }
-    json += "],\"costing\":\"" + profile + "\",\"units\":\"kilometers\"}";
-    return json;
-#endif
+
 }
 
 std::string ValhallaRoutingProxy::SerializeRouteMatchingRequest(
@@ -384,7 +352,6 @@ std::string ValhallaRoutingProxy::SerializeRouteMatchingRequest(
     // Points are always WGS-84: MapPos(lon, lat)
     const auto& points = request->getPoints();
 
-#ifdef HAVE_VALHALLA
     rapidjson::Document doc;
     doc.SetObject();
     auto& alloc = doc.GetAllocator();
@@ -407,26 +374,14 @@ std::string ValhallaRoutingProxy::SerializeRouteMatchingRequest(
 
     mergeCustomParams(doc, alloc, request->getCustomParameters());
     return documentToString(doc);
-#else
-    // Fallback: build JSON manually
-    std::string json = "{\"shape\":[";
-    for (std::size_t i = 0; i < points.size(); i++) {
-        if (i > 0) json += ',';
-        json += "{\"lon\":" + std::to_string(points[i].getX()) +
-                ",\"lat\":" + std::to_string(points[i].getY()) + "}";
-    }
-    json += "],\"shape_match\":\"map_snap\",\"costing\":\"" + profile + "\",\"units\":\"kilometers\"}";
-    return json;
-#endif
 }
 
 // -------------------------------------------------------------------------
 // Online routing via built-in HTTP client (ROUTING_WITH_HTTP_CLIENT)
 // -------------------------------------------------------------------------
 
-#ifdef ROUTING_WITH_HTTP_CLIENT
 
-std::shared_ptr<RouteMatchingResult> ValhallaRoutingProxy::MatchRoute(
+std::string ValhallaRoutingProxy::MatchRoute(
         HTTPClient& httpClient,
         const std::string& baseURL,
         const std::string& profile,
@@ -437,10 +392,10 @@ std::shared_ptr<RouteMatchingResult> ValhallaRoutingProxy::MatchRoute(
     std::string requestJSON = SerializeRouteMatchingRequest(profile, request);
     Log::debugf("ValhallaRoutingProxy::MatchRoute (HTTP): url=%s", url.c_str());
     std::string resultString = httpClient.post(url, requestJSON);
-    return std::make_shared<RouteMatchingResult>(std::move(resultString));
+    return resultString;
 }
 
-std::shared_ptr<RoutingResult> ValhallaRoutingProxy::CalculateRoute(
+std::string ValhallaRoutingProxy::CalculateRoute(
         HTTPClient& httpClient,
         const std::string& baseURL,
         const std::string& profile,
@@ -451,7 +406,7 @@ std::shared_ptr<RoutingResult> ValhallaRoutingProxy::CalculateRoute(
     std::string requestJSON = SerializeRoutingRequest(profile, request);
     Log::debugf("ValhallaRoutingProxy::CalculateRoute (HTTP): url=%s", url.c_str());
     std::string resultString = httpClient.post(url, requestJSON);
-    return std::make_shared<RoutingResult>(std::move(resultString));
+    return resultString;
 }
 
 std::string ValhallaRoutingProxy::CallRaw(
@@ -465,7 +420,5 @@ std::string ValhallaRoutingProxy::CallRaw(
     Log::debugf("ValhallaRoutingProxy::CallRaw (HTTP): url=%s", url.c_str());
     return httpClient.post(url, jsonBody);
 }
-
-#endif // ROUTING_WITH_HTTP_CLIENT
 
 } // namespace routing

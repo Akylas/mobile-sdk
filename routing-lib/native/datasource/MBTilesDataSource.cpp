@@ -7,19 +7,10 @@
 namespace routing {
 
     MBTilesDataSource::MBTilesDataSource(const std::string& path) : _path(path) {
-        int rc = sqlite3_open_v2(path.c_str(), &_db,
-                                 SQLITE_OPEN_READONLY | SQLITE_OPEN_NOMUTEX, nullptr);
-        if (rc != SQLITE_OK) {
-            std::string err = _db ? sqlite3_errmsg(_db) : "unknown error";
-            if (_db) sqlite3_close(_db);
-            _db = nullptr;
-            throw std::runtime_error("MBTilesDataSource: cannot open '" + path + "': " + err);
-        }
-        // Performance tuning for read-only access
-        sqlite3_exec(_db, "PRAGMA journal_mode=OFF;", nullptr, nullptr, nullptr);
-        sqlite3_exec(_db, "PRAGMA synchronous=OFF;",  nullptr, nullptr, nullptr);
-        sqlite3_exec(_db, "PRAGMA cache_size=2000;",  nullptr, nullptr, nullptr);
+        
     }
+
+
 
     MBTilesDataSource::~MBTilesDataSource() {
         if (_db) {
@@ -78,7 +69,28 @@ namespace routing {
         return value;
     }
 
-    sqlite3* MBTilesDataSource::getDatabase() const { return _db; }
+    void MBTilesDataSource::openDatabase() { 
+        int rc = sqlite3_open_v2(_path.c_str(), &_db,
+                                 SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nullptr);
+        if (rc != SQLITE_OK) {
+            std::string err = _db ? sqlite3_errmsg(_db) : "unknown error";
+            if (_db) sqlite3_close(_db);
+            _db = nullptr;
+            throw std::runtime_error("MBTilesDataSource: cannot open '" + _path + "': " + err);
+        }
+        // Performance tuning for read-only access
+        sqlite3_exec(_db, "PRAGMA journal_mode=OFF;", nullptr, nullptr, nullptr);
+        sqlite3_exec(_db, "PRAGMA temp_store=MEMORY;", nullptr, nullptr, nullptr);
+        sqlite3_exec(_db, "PRAGMA synchronous=OFF;",  nullptr, nullptr, nullptr);
+        sqlite3_exec(_db, "PRAGMA cache_size=2000;",  nullptr, nullptr, nullptr);
+    }
+
+    sqlite3* MBTilesDataSource::getDatabase() { 
+        if (!_db) {
+            openDatabase();
+        }
+        return _db; 
+    }
 
     const std::string& MBTilesDataSource::getPath() const { return _path; }
 

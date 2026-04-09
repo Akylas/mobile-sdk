@@ -1,6 +1,5 @@
 #pragma once
 
-#include "../core/Variant.h"
 #include "../routing/RoutingRequest.h"
 #include "../routing/RoutingResult.h"
 #include "../routing/RouteMatchingRequest.h"
@@ -45,7 +44,6 @@ namespace routing {
             std::function<std::string(const std::string& url,
                                       const std::string& postBody)>;
 
-#ifdef ROUTING_WITH_HTTP_CLIENT
         /**
          * Constructor for use when built with ROUTING_WITH_HTTP_CLIENT=ON.
          * No external HTTP handler is required; all HTTP I/O is handled
@@ -55,7 +53,6 @@ namespace routing {
          *                 e.g. "https://valhalla1.openstreetmap.de".
          */
         explicit ValhallaOnlineRoutingService(const std::string& baseURL);
-#endif
 
         /**
          * Constructor that accepts an explicit HTTP POST handler.
@@ -90,15 +87,15 @@ namespace routing {
          * Calculate a route. Builds the JSON request from the RoutingRequest,
          * POSTs to {baseURL}/route, returns raw JSON response.
          */
-        std::shared_ptr<RoutingResult> calculateRoute(
-            const std::shared_ptr<RoutingRequest>& request) const;
+        // std::shared_ptr<RoutingResult> calculateRoute(
+        //     const std::shared_ptr<RoutingRequest>& request) const;
 
         /**
          * Match a GPS trace. POSTs to {baseURL}/trace_attributes,
          * returns raw JSON response.
          */
-        std::shared_ptr<RouteMatchingResult> matchRoute(
-            const std::shared_ptr<RouteMatchingRequest>& request) const;
+        // std::shared_ptr<RouteMatchingResult> matchRoute(
+        //     const std::shared_ptr<RouteMatchingRequest>& request) const;
 
         /**
          * Call any Valhalla API endpoint directly.
@@ -115,7 +112,7 @@ namespace routing {
         mutable std::mutex _mutex;
         std::string   _baseURL;
         std::string   _profile;
-        HttpHandler   _handler;   // may be null when ROUTING_WITH_HTTP_CLIENT is used
+        HttpHandler   _handler;
     };
 
 } // namespace routing

@@ -80,14 +80,14 @@ namespace routing {
         /**
          * Calculate a route. Returns the raw Valhalla JSON response.
          */
-        std::shared_ptr<RoutingResult> calculateRoute(
-            const std::shared_ptr<RoutingRequest>& request) const;
+        // std::string calculateRoute(
+        //     const std::shared_ptr<RoutingRequest>& request) const;
 
         /**
          * Match a GPS trace to the road network. Returns the raw JSON response.
          */
-        std::shared_ptr<RouteMatchingResult> matchRoute(
-            const std::shared_ptr<RouteMatchingRequest>& request) const;
+        // std::string matchRoute(
+            // const std::shared_ptr<RouteMatchingRequest>& request) const;
 
         /**
          * Call any Valhalla API endpoint directly with a pre-built JSON request.

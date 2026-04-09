@@ -65,10 +65,7 @@ include_directories("${SDK_EXTERNAL_LIBS_DIR}/boost/libs/any/include")
 # (same mechanism as scripts/build/CMakeLists.txt)
 set(ROUTING_EXTERNAL_SUBPROJECTS "sqlite" "sqlite3pp" "zstd")
 
-if(ROUTING_WITH_VALHALLA)
-  add_definitions("-DHAVE_VALHALLA")
-  list(APPEND ROUTING_EXTERNAL_SUBPROJECTS "date" "protobuf" "valhalla")
-endif()
+list(APPEND ROUTING_EXTERNAL_SUBPROJECTS "date" "protobuf" "valhalla")
 
 foreach(SDK_SUBPROJECT IN ITEMS ${ROUTING_EXTERNAL_SUBPROJECTS})
   add_subdirectory("${SDK_EXTERNAL_LIBS_DIR}/${SDK_SUBPROJECT}" "${SDK_SUBPROJECT}")

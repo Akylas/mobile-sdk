@@ -2,14 +2,10 @@
 #include "utils/ValhallaRoutingProxy.h"
 #include "../exceptions/Exceptions.h"
 #include "../log/Log.h"
-
-#ifdef ROUTING_WITH_HTTP_CLIENT
-#  include "../network/HTTPClient.h"
-#endif
+#include "../network/HTTPClient.h"
 
 namespace routing {
 
-#ifdef ROUTING_WITH_HTTP_CLIENT
     ValhallaOnlineRoutingService::ValhallaOnlineRoutingService(
             const std::string& baseURL) :
         _baseURL(baseURL),
@@ -17,7 +13,6 @@ namespace routing {
         _handler()
     {
     }
-#endif
 
     ValhallaOnlineRoutingService::ValhallaOnlineRoutingService(
             const std::string& baseURL,
@@ -57,31 +52,31 @@ namespace routing {
         return url + "/" + endpoint;
     }
 
-    std::shared_ptr<RoutingResult> ValhallaOnlineRoutingService::calculateRoute(
-            const std::shared_ptr<RoutingRequest>& request) const {
-        std::string profile;
-        {
-            std::lock_guard<std::mutex> lk(_mutex);
-            profile = _profile;
-        }
-        std::string requestJSON =
-            ValhallaRoutingProxy::SerializeRoutingRequest(profile, request);
-        std::string result = callRaw("route", requestJSON);
-        return std::make_shared<RoutingResult>(std::move(result));
-    }
+    // std::shared_ptr<RoutingResult> ValhallaOnlineRoutingService::calculateRoute(
+    //         const std::shared_ptr<RoutingRequest>& request) const {
+    //     std::string profile;
+    //     {
+    //         std::lock_guard<std::mutex> lk(_mutex);
+    //         profile = _profile;
+    //     }
+    //     std::string requestJSON =
+    //         ValhallaRoutingProxy::SerializeRoutingRequest(profile, request);
+    //     std::string result = callRaw("route", requestJSON);
+    //     return std::make_shared<RoutingResult>(std::move(result));
+    // }
 
-    std::shared_ptr<RouteMatchingResult> ValhallaOnlineRoutingService::matchRoute(
-            const std::shared_ptr<RouteMatchingRequest>& request) const {
-        std::string profile;
-        {
-            std::lock_guard<std::mutex> lk(_mutex);
-            profile = _profile;
-        }
-        std::string requestJSON =
-            ValhallaRoutingProxy::SerializeRouteMatchingRequest(profile, request);
-        std::string result = callRaw("trace_attributes", requestJSON);
-        return std::make_shared<RouteMatchingResult>(std::move(result));
-    }
+    // std::shared_ptr<RouteMatchingResult> ValhallaOnlineRoutingService::matchRoute(
+    //         const std::shared_ptr<RouteMatchingRequest>& request) const {
+    //     std::string profile;
+    //     {
+    //         std::lock_guard<std::mutex> lk(_mutex);
+    //         profile = _profile;
+    //     }
+    //     std::string requestJSON =
+    //         ValhallaRoutingProxy::SerializeRouteMatchingRequest(profile, request);
+    //     std::string result = callRaw("trace_attributes", requestJSON);
+    //     return std::make_shared<RouteMatchingResult>(std::move(result));
+    // }
 
     std::string ValhallaOnlineRoutingService::callRaw(const std::string& endpoint,
                                                        const std::string& jsonBody) const {
@@ -95,7 +90,6 @@ namespace routing {
 
         Log::debugf("ValhallaOnlineRoutingService::callRaw: url=%s", url.c_str());
 
-#ifdef ROUTING_WITH_HTTP_CLIENT
         if (!handler) {
             // Use the built-in C++ HTTP client — no external handler needed.
             try {
@@ -107,7 +101,6 @@ namespace routing {
                                        ex.what());
             }
         }
-#endif
 
         if (!handler) {
             throw GenericException("No HTTP handler set for endpoint '" + endpoint + "'");

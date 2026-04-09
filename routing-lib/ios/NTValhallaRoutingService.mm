@@ -218,16 +218,8 @@ buildRouteMatchingRequest(NTRouteMatchingRequest *req) {
 - (instancetype)initWithBaseURL:(NSString *)baseURL {
     self = [super init];
     if (!self) return nil;
-#ifdef ROUTING_WITH_HTTP_CLIENT
     _service = std::make_shared<routing::ValhallaOnlineRoutingService>(
         baseURL.UTF8String);
-#else
-    // Without ROUTING_WITH_HTTP_CLIENT a handler is required.
-    // Raise an exception to inform the caller.
-    [NSException raise:NSInvalidArgumentException
-                format:@"NTValhallaOnlineRoutingService: built without "
-                        "ROUTING_WITH_HTTP_CLIENT — use initWithBaseURL:handler: instead"];
-#endif
     return self;
 }
 
@@ -252,14 +244,8 @@ buildRouteMatchingRequest(NTRouteMatchingRequest *req) {
         _service = std::make_shared<routing::ValhallaOnlineRoutingService>(
             baseURL.UTF8String, std::move(cppHandler));
     } else {
-#ifdef ROUTING_WITH_HTTP_CLIENT
         _service = std::make_shared<routing::ValhallaOnlineRoutingService>(
             baseURL.UTF8String);
-#else
-        [NSException raise:NSInvalidArgumentException
-                    format:@"NTValhallaOnlineRoutingService: handler is required when "
-                            "built without ROUTING_WITH_HTTP_CLIENT"];
-#endif
     }
     return self;
 }

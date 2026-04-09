@@ -18,10 +18,8 @@
 // C++ HTTP client (HTTPClientAndroidImpl.cpp) when ROUTING_WITH_HTTP_CLIENT
 // is defined.
 // ---------------------------------------------------------------------------
-#ifdef ROUTING_WITH_HTTP_CLIENT
 JavaVM* g_routing_jvm = nullptr;
 #  include "../../../../native/network/HTTPClient.h"
-#endif
 
 // ---------------------------------------------------------------------------
 // Helper: convert jstring to std::string
@@ -62,9 +60,7 @@ extern "C" {
 // JNI_OnLoad — store the JavaVM pointer for the built-in HTTP client.
 // ---------------------------------------------------------------------------
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* /*reserved*/) {
-#ifdef ROUTING_WITH_HTTP_CLIENT
     g_routing_jvm = vm;
-#endif
     return JNI_VERSION_1_6;
 }
 
@@ -176,7 +172,6 @@ Java_com_akylas_routing_ValhallaRoutingService_nativeCallRaw(
 JNIEXPORT jstring JNICALL
 Java_com_akylas_routing_ValhallaOnlineRoutingService_nativeHttpPost(
         JNIEnv* env, jobject /*thiz*/, jstring jurl, jstring jbody) {
-#ifdef ROUTING_WITH_HTTP_CLIENT
     try {
         routing::HTTPClient client;
         std::string result = client.post(jstringToStr(env, jurl), jstringToStr(env, jbody));
@@ -185,11 +180,6 @@ Java_com_akylas_routing_ValhallaOnlineRoutingService_nativeHttpPost(
         throwRuntimeException(env, ex.what());
         return nullptr;
     }
-#else
-    (void)jurl; (void)jbody;
-    throwRuntimeException(env, "Built without ROUTING_WITH_HTTP_CLIENT: supply an HttpPostHandler");
-    return nullptr;
-#endif
 }
 
 } // extern "C"

@@ -40,7 +40,7 @@ namespace routing {
          * Returns the raw sqlite3 handle for direct use by valhalla's GraphReader.
          * The returned pointer is owned by this object; do not close it externally.
          */
-        sqlite3* getDatabase() const;
+        sqlite3* getDatabase();
 
         /**
          * Returns the file path this source was opened from.
@@ -51,6 +51,8 @@ namespace routing {
         std::string _path;
         sqlite3* _db = nullptr;
         mutable std::mutex _mutex;
+
+        void openDatabase();
     };
 
 } // namespace routing

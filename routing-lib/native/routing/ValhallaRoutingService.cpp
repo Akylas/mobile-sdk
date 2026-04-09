@@ -131,49 +131,49 @@ namespace routing {
     // Routing API
     // -----------------------------------------------------------------------
 
-    std::shared_ptr<RoutingResult> ValhallaRoutingService::calculateRoute(
-            const std::shared_ptr<RoutingRequest>& request) const {
-        std::string profile;
-        Variant config;
-        std::vector<std::shared_ptr<IDataSource>> sources;
-        {
-            std::lock_guard<std::mutex> lk(_mutex);
-            profile  = _profile;
-            config   = _configuration;
-            sources  = _sources;
-        }
+    // std::string ValhallaRoutingService::calculateRoute(
+    //         const std::shared_ptr<RoutingRequest>& request) const {
+    //     std::string profile;
+    //     Variant config;
+    //     std::vector<std::shared_ptr<IDataSource>> sources;
+    //     {
+    //         std::lock_guard<std::mutex> lk(_mutex);
+    //         profile  = _profile;
+    //         config   = _configuration;
+    //         sources  = _sources;
+    //     }
 
-        if (sources.empty()) throw GenericException("No data sources registered");
-        auto databases = collectDatabases(sources);
-        if (databases.empty()) throw GenericException("No MBTiles data sources with open databases");
+    //     if (sources.empty()) throw GenericException("No data sources registered");
+    //     auto databases = collectDatabases(sources);
+    //     if (databases.empty()) throw GenericException("No MBTiles data sources with open databases");
 
-        Log::debugf("ValhallaRoutingService::calculateRoute: profile=%s, sources=%d",
-                    profile.c_str(), static_cast<int>(sources.size()));
+    //     Log::debugf("ValhallaRoutingService::calculateRoute: profile=%s, sources=%d",
+    //                 profile.c_str(), static_cast<int>(sources.size()));
 
-        return ValhallaRoutingProxy::CalculateRoute(databases, profile, config, request);
-    }
+    //     return ValhallaRoutingProxy::CalculateRoute(databases, profile, config, request);
+    // }
 
-    std::shared_ptr<RouteMatchingResult> ValhallaRoutingService::matchRoute(
-            const std::shared_ptr<RouteMatchingRequest>& request) const {
-        std::string profile;
-        Variant config;
-        std::vector<std::shared_ptr<IDataSource>> sources;
-        {
-            std::lock_guard<std::mutex> lk(_mutex);
-            profile  = _profile;
-            config   = _configuration;
-            sources  = _sources;
-        }
+    // std::string ValhallaRoutingService::matchRoute(
+    //         const std::shared_ptr<RouteMatchingRequest>& request) const {
+    //     std::string profile;
+    //     Variant config;
+    //     std::vector<std::shared_ptr<IDataSource>> sources;
+    //     {
+    //         std::lock_guard<std::mutex> lk(_mutex);
+    //         profile  = _profile;
+    //         config   = _configuration;
+    //         sources  = _sources;
+    //     }
 
-        if (sources.empty()) throw GenericException("No data sources registered");
-        auto databases = collectDatabases(sources);
-        if (databases.empty()) throw GenericException("No MBTiles data sources with open databases");
+    //     if (sources.empty()) throw GenericException("No data sources registered");
+    //     auto databases = collectDatabases(sources);
+    //     if (databases.empty()) throw GenericException("No MBTiles data sources with open databases");
 
-        Log::debugf("ValhallaRoutingService::matchRoute: profile=%s, sources=%d",
-                    profile.c_str(), static_cast<int>(sources.size()));
+    //     Log::debugf("ValhallaRoutingService::matchRoute: profile=%s, sources=%d",
+    //                 profile.c_str(), static_cast<int>(sources.size()));
 
-        return ValhallaRoutingProxy::MatchRoute(databases, profile, config, request);
-    }
+    //     return ValhallaRoutingProxy::MatchRoute(databases, profile, config, request);
+    // }
 
     std::string ValhallaRoutingService::callRaw(const std::string& endpoint,
                                                  const std::string& jsonBody) const {

@@ -20,7 +20,6 @@ android {
                 cppFlags "-std=c++17"
                 arguments "-DANDROID_STL=c++_static",
                           "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON",
-                          "-DROUTING_WITH_VALHALLA:BOOL=ON",
                           "-DSDK_VERSION=Devel"
             }
         }

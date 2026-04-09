@@ -2,29 +2,21 @@
 
 #include "../../core/Variant.h"
 #include "../RoutingRequest.h"
-#include "../RoutingResult.h"
 #include "../RouteMatchingRequest.h"
-#include "../RouteMatchingResult.h"
 
 #include <memory>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 struct sqlite3;
 
 namespace routing {
 
-#ifdef ROUTING_WITH_HTTP_CLIENT
     class HTTPClient;
-#endif
 
     /**
      * Internal helper that serializes requests to JSON, drives Valhalla workers
      * or dispatches them via HTTP, and returns raw JSON response strings.
-     *
-     * Offline (Valhalla) methods are guarded by #ifdef HAVE_VALHALLA.
-     * Online (HTTP) methods are guarded by #ifdef ROUTING_WITH_HTTP_CLIENT.
      */
     class ValhallaRoutingProxy {
     public:
@@ -32,13 +24,13 @@ namespace routing {
         // Offline routing (calls Valhalla workers directly)
         // ----------------------------------------------------------------
 
-        static std::shared_ptr<RouteMatchingResult> MatchRoute(
+        static std::string MatchRoute(
             const std::vector<sqlite3*>& databases,
             const std::string& profile,
             const Variant& config,
             const std::shared_ptr<RouteMatchingRequest>& request);
 
-        static std::shared_ptr<RoutingResult> CalculateRoute(
+        static std::string CalculateRoute(
             const std::vector<sqlite3*>& databases,
             const std::string& profile,
             const Variant& config,
@@ -58,7 +50,6 @@ namespace routing {
             const std::string& endpoint,
             const std::string& jsonBody);
 
-#ifdef ROUTING_WITH_HTTP_CLIENT
         // ----------------------------------------------------------------
         // Online routing (dispatches via built-in C++ HTTP client)
         // ----------------------------------------------------------------
@@ -70,7 +61,7 @@ namespace routing {
          * @param profile     Costing profile ("auto", "pedestrian", …).
          * @param request     Route matching request.
          */
-        static std::shared_ptr<RouteMatchingResult> MatchRoute(
+        static std::string MatchRoute(
             HTTPClient& httpClient,
             const std::string& baseURL,
             const std::string& profile,
@@ -79,7 +70,7 @@ namespace routing {
         /**
          * Calculate a route via HTTP POST to a remote Valhalla service.
          */
-        static std::shared_ptr<RoutingResult> CalculateRoute(
+        static std::string CalculateRoute(
             HTTPClient& httpClient,
             const std::string& baseURL,
             const std::string& profile,
@@ -98,7 +89,6 @@ namespace routing {
             const std::string& baseURL,
             const std::string& endpoint,
             const std::string& jsonBody);
-#endif // ROUTING_WITH_HTTP_CLIENT
 
         // ----------------------------------------------------------------
         // Shared utilities
