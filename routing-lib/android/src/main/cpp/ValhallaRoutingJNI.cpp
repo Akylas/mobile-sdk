@@ -14,6 +14,16 @@
 #include <stdexcept>
 
 // ---------------------------------------------------------------------------
+// Global JavaVM pointer — stored in JNI_OnLoad and used by the built-in
+// C++ HTTP client (HTTPClientAndroidImpl.cpp) when ROUTING_WITH_HTTP_CLIENT
+// is defined.
+// ---------------------------------------------------------------------------
+#ifdef ROUTING_WITH_HTTP_CLIENT
+JavaVM* g_routing_jvm = nullptr;
+#  include "../../../../native/network/HTTPClient.h"
+#endif
+
+// ---------------------------------------------------------------------------
 // Helper: convert jstring to std::string
 // ---------------------------------------------------------------------------
 static std::string jstringToStr(JNIEnv* env, jstring js) {
@@ -47,6 +57,16 @@ static routing::ValhallaRoutingService* toService(jlong ptr) {
 }
 
 extern "C" {
+
+// ---------------------------------------------------------------------------
+// JNI_OnLoad — store the JavaVM pointer for the built-in HTTP client.
+// ---------------------------------------------------------------------------
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* /*reserved*/) {
+#ifdef ROUTING_WITH_HTTP_CLIENT
+    g_routing_jvm = vm;
+#endif
+    return JNI_VERSION_1_6;
+}
 
 // ---------------------------------------------------------------------------
 // com.akylas.routing.ValhallaRoutingService native methods
@@ -151,6 +171,25 @@ Java_com_akylas_routing_ValhallaRoutingService_nativeCallRaw(
         throwRuntimeException(env, ex.what());
         return nullptr;
     }
+}
+
+JNIEXPORT jstring JNICALL
+Java_com_akylas_routing_ValhallaOnlineRoutingService_nativeHttpPost(
+        JNIEnv* env, jobject /*thiz*/, jstring jurl, jstring jbody) {
+#ifdef ROUTING_WITH_HTTP_CLIENT
+    try {
+        routing::HTTPClient client;
+        std::string result = client.post(jstringToStr(env, jurl), jstringToStr(env, jbody));
+        return strToJString(env, result);
+    } catch (const std::exception& ex) {
+        throwRuntimeException(env, ex.what());
+        return nullptr;
+    }
+#else
+    (void)jurl; (void)jbody;
+    throwRuntimeException(env, "Built without ROUTING_WITH_HTTP_CLIENT: supply an HttpPostHandler");
+    return nullptr;
+#endif
 }
 
 } // extern "C"

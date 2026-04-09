@@ -151,20 +151,34 @@ typedef NSString * _Nullable (^NTHTTPPostHandler)(NSString *url,
 /**
  * Online Valhalla routing service.
  *
- * HTTP transport is handled by the user-supplied NTHTTPPostHandler block,
- * keeping this class independent of any specific HTTP stack (URLSession,
- * Alamofire, etc.).
+ * Two initializers are provided:
+ *
+ * - When the library is built with ROUTING_WITH_HTTP_CLIENT=ON, use
+ *   `initWithBaseURL:` — HTTP is handled internally by the native C++ client.
+ *
+ * - Alternatively, use `initWithBaseURL:handler:` to supply your own HTTP
+ *   stack (URLSession, Alamofire, etc.).  This also works when the library
+ *   is built without ROUTING_WITH_HTTP_CLIENT.
  *
  * All routing methods are synchronous; call them from a background thread.
  */
 @interface NTValhallaOnlineRoutingService : NSObject
 
 /**
+ * Initializer for use when the library is built with ROUTING_WITH_HTTP_CLIENT=ON.
+ * HTTP transport is handled internally by the native C++ HTTP client.
+ * @param baseURL  Base URL, e.g. @"https://valhalla1.openstreetmap.de".
+ */
+- (instancetype)initWithBaseURL:(NSString *)baseURL;
+
+/**
+ * Initializer that accepts an explicit HTTP POST handler.
+ * Works regardless of whether ROUTING_WITH_HTTP_CLIENT is defined.
  * @param baseURL  Base URL, e.g. @"https://valhalla1.openstreetmap.de".
  * @param handler  Synchronous HTTP POST handler block.
  */
 - (instancetype)initWithBaseURL:(NSString *)baseURL
-                        handler:(NTHTTPPostHandler)handler;
+                        handler:(NTHTTPPostHandler _Nullable)handler;
 
 /** Base URL of the Valhalla service. */
 @property (nonatomic, copy) NSString *baseURL;

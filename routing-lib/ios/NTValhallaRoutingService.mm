@@ -215,26 +215,52 @@ buildRouteMatchingRequest(NTRouteMatchingRequest *req) {
 
 @implementation NTValhallaOnlineRoutingService
 
+- (instancetype)initWithBaseURL:(NSString *)baseURL {
+    self = [super init];
+    if (!self) return nil;
+#ifdef ROUTING_WITH_HTTP_CLIENT
+    _service = std::make_shared<routing::ValhallaOnlineRoutingService>(
+        baseURL.UTF8String);
+#else
+    // Without ROUTING_WITH_HTTP_CLIENT a handler is required.
+    // Raise an exception to inform the caller.
+    [NSException raise:NSInvalidArgumentException
+                format:@"NTValhallaOnlineRoutingService: built without "
+                        "ROUTING_WITH_HTTP_CLIENT — use initWithBaseURL:handler: instead"];
+#endif
+    return self;
+}
+
 - (instancetype)initWithBaseURL:(NSString *)baseURL
-                        handler:(NTHTTPPostHandler)handler {
+                        handler:(NTHTTPPostHandler _Nullable)handler {
     self = [super init];
     if (!self) return nil;
 
-    routing::ValhallaOnlineRoutingService::HttpHandler cppHandler =
-        [handler](const std::string& url, const std::string& body) -> std::string {
-            NSError *err = nil;
-            NSString *nsURL  = [NSString stringWithUTF8String:url.c_str()];
-            NSString *nsBody = [NSString stringWithUTF8String:body.c_str()];
-            NSString *result = handler(nsURL, nsBody, &err);
-            if (!result) {
-                std::string what = err ? err.localizedDescription.UTF8String : "HTTP error";
-                throw std::runtime_error(what);
-            }
-            return result.UTF8String;
-        };
-
-    _service = std::make_shared<routing::ValhallaOnlineRoutingService>(
-        baseURL.UTF8String, std::move(cppHandler));
+    if (handler) {
+        routing::ValhallaOnlineRoutingService::HttpHandler cppHandler =
+            [handler](const std::string& url, const std::string& body) -> std::string {
+                NSError *err = nil;
+                NSString *nsURL  = [NSString stringWithUTF8String:url.c_str()];
+                NSString *nsBody = [NSString stringWithUTF8String:body.c_str()];
+                NSString *result = handler(nsURL, nsBody, &err);
+                if (!result) {
+                    std::string what = err ? err.localizedDescription.UTF8String : "HTTP error";
+                    throw std::runtime_error(what);
+                }
+                return result.UTF8String;
+            };
+        _service = std::make_shared<routing::ValhallaOnlineRoutingService>(
+            baseURL.UTF8String, std::move(cppHandler));
+    } else {
+#ifdef ROUTING_WITH_HTTP_CLIENT
+        _service = std::make_shared<routing::ValhallaOnlineRoutingService>(
+            baseURL.UTF8String);
+#else
+        [NSException raise:NSInvalidArgumentException
+                    format:@"NTValhallaOnlineRoutingService: handler is required when "
+                            "built without ROUTING_WITH_HTTP_CLIENT"];
+#endif
+    }
     return self;
 }
 

@@ -16,20 +16,27 @@ namespace routing {
     /**
      * Online Valhalla routing service.
      *
-     * Makes HTTP requests to a remote Valhalla server. All HTTP transport
-     * is handled by the user-supplied HttpHandler callback, keeping this
-     * class free of platform HTTP dependencies.
+     * Makes HTTP requests to a remote Valhalla server.
      *
-     * The handler is called synchronously on whichever thread invokes
-     * calculateRoute / matchRoute / callRaw, so callers should ensure those
-     * methods run on a background thread.
+     * Two build modes are supported:
+     *
+     * 1) Built with ROUTING_WITH_HTTP_CLIENT=ON (recommended):
+     *    HTTP transport is handled internally by the built-in C++ HTTP client.
+     *    Use the single-argument constructor ValhallaOnlineRoutingService(baseURL).
+     *
+     * 2) Built without ROUTING_WITH_HTTP_CLIENT:
+     *    HTTP transport is provided by a caller-supplied HttpHandler callback.
+     *    Use the two-argument constructor ValhallaOnlineRoutingService(baseURL, handler).
+     *    The handler is called synchronously on whichever thread invokes the routing
+     *    methods, so callers should ensure those methods run on a background thread.
      *
      * Routing results are returned as raw Valhalla JSON strings.
      */
     class ValhallaOnlineRoutingService {
     public:
         /**
-         * Synchronous HTTP POST handler.
+         * Synchronous HTTP POST handler type (only used when built WITHOUT
+         * ROUTING_WITH_HTTP_CLIENT).
          * @param url       Full URL (base + "/" + endpoint).
          * @param postBody  JSON request body.
          * @return          Response body string. Throw std::exception on error.
@@ -38,10 +45,24 @@ namespace routing {
             std::function<std::string(const std::string& url,
                                       const std::string& postBody)>;
 
+#ifdef ROUTING_WITH_HTTP_CLIENT
         /**
-         * @param baseURL    Base URL of the Valhalla service,
-         *                   e.g. "https://valhalla1.openstreetmap.de".
-         * @param handler    HTTP POST handler.
+         * Constructor for use when built with ROUTING_WITH_HTTP_CLIENT=ON.
+         * No external HTTP handler is required; all HTTP I/O is handled
+         * internally by the built-in C++ HTTP client.
+         *
+         * @param baseURL  Base URL of the Valhalla service,
+         *                 e.g. "https://valhalla1.openstreetmap.de".
+         */
+        explicit ValhallaOnlineRoutingService(const std::string& baseURL);
+#endif
+
+        /**
+         * Constructor that accepts an explicit HTTP POST handler.
+         * Works regardless of whether ROUTING_WITH_HTTP_CLIENT is defined.
+         *
+         * @param baseURL  Base URL of the Valhalla service.
+         * @param handler  HTTP POST handler callback.
          */
         ValhallaOnlineRoutingService(const std::string& baseURL,
                                      HttpHandler handler);
@@ -94,7 +115,7 @@ namespace routing {
         mutable std::mutex _mutex;
         std::string   _baseURL;
         std::string   _profile;
-        HttpHandler   _handler;
+        HttpHandler   _handler;   // may be null when ROUTING_WITH_HTTP_CLIENT is used
     };
 
 } // namespace routing

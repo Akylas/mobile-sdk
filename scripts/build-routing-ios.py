@@ -37,6 +37,7 @@ def buildRoutingLib(args, baseArch):
         '-DCMAKE_BUILD_TYPE=%s'               % args.configuration,
         '-DSDK_VERSION=%s'                    % version,
         '-DROUTING_WITH_VALHALLA:BOOL=ON',
+        '-DROUTING_WITH_HTTP_CLIENT:BOOL=%s'  % ('ON' if args.httpclient else 'OFF'),
         '%s/scripts/routing' % baseDir
     ]):
         return False
@@ -138,6 +139,10 @@ parser.add_argument('--build-number',    dest='buildnumber',    default='', help
 parser.add_argument('--build-version',   dest='buildversion',   default='%s-devel' % SDK_VERSION,
                     help='Build version, embedded in the dist file name')
 parser.add_argument('--build-xcframework', dest='buildxcframework', default=True, action='store_true')
+parser.add_argument('--with-http-client', dest='httpclient',    default=False,
+                    action='store_true',
+                    help='Build with integrated C++ HTTP client (ROUTING_WITH_HTTP_CLIENT=ON). '
+                         'When enabled, NTValhallaOnlineRoutingService works without an NTHTTPPostHandler.')
 args = parser.parse_args()
 
 if 'all' in args.iosarch or args.iosarch == []:

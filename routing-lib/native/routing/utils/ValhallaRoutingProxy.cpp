@@ -4,6 +4,10 @@
 #include "../../log/Log.h"
 #include "../../utils/StringUtils.h"
 
+#ifdef ROUTING_WITH_HTTP_CLIENT
+#  include "../../network/HTTPClient.h"
+#endif
+
 #ifdef HAVE_VALHALLA
 #  include <valhalla/meili/map_matcher.h>
 #  include <valhalla/meili/map_matcher_factory.h>
@@ -415,5 +419,53 @@ std::string ValhallaRoutingProxy::SerializeRouteMatchingRequest(
     return json;
 #endif
 }
+
+// -------------------------------------------------------------------------
+// Online routing via built-in HTTP client (ROUTING_WITH_HTTP_CLIENT)
+// -------------------------------------------------------------------------
+
+#ifdef ROUTING_WITH_HTTP_CLIENT
+
+std::shared_ptr<RouteMatchingResult> ValhallaRoutingProxy::MatchRoute(
+        HTTPClient& httpClient,
+        const std::string& baseURL,
+        const std::string& profile,
+        const std::shared_ptr<RouteMatchingRequest>& request) {
+    std::string url = baseURL;
+    if (!url.empty() && url.back() == '/') url.pop_back();
+    url += "/trace_attributes";
+    std::string requestJSON = SerializeRouteMatchingRequest(profile, request);
+    Log::debugf("ValhallaRoutingProxy::MatchRoute (HTTP): url=%s", url.c_str());
+    std::string resultString = httpClient.post(url, requestJSON);
+    return std::make_shared<RouteMatchingResult>(std::move(resultString));
+}
+
+std::shared_ptr<RoutingResult> ValhallaRoutingProxy::CalculateRoute(
+        HTTPClient& httpClient,
+        const std::string& baseURL,
+        const std::string& profile,
+        const std::shared_ptr<RoutingRequest>& request) {
+    std::string url = baseURL;
+    if (!url.empty() && url.back() == '/') url.pop_back();
+    url += "/route";
+    std::string requestJSON = SerializeRoutingRequest(profile, request);
+    Log::debugf("ValhallaRoutingProxy::CalculateRoute (HTTP): url=%s", url.c_str());
+    std::string resultString = httpClient.post(url, requestJSON);
+    return std::make_shared<RoutingResult>(std::move(resultString));
+}
+
+std::string ValhallaRoutingProxy::CallRaw(
+        HTTPClient& httpClient,
+        const std::string& baseURL,
+        const std::string& endpoint,
+        const std::string& jsonBody) {
+    std::string url = baseURL;
+    if (!url.empty() && url.back() == '/') url.pop_back();
+    url += "/" + endpoint;
+    Log::debugf("ValhallaRoutingProxy::CallRaw (HTTP): url=%s", url.c_str());
+    return httpClient.post(url, jsonBody);
+}
+
+#endif // ROUTING_WITH_HTTP_CLIENT
 
 } // namespace routing

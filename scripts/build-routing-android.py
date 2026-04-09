@@ -58,6 +58,7 @@ def buildRoutingSO(args, abi):
         "-DSDK_PLATFORM='Android'",
         "-DSDK_ANDROID_ABI='%s'" % abi,
         "-DROUTING_WITH_VALHALLA:BOOL=ON",
+        "-DROUTING_WITH_HTTP_CLIENT:BOOL=%s" % ('ON' if args.httpclient else 'OFF'),
         cmakeListsDir,
     ]):
         return False
@@ -122,6 +123,10 @@ parser.add_argument('--javac',            dest='javac',          default='javac'
 parser.add_argument('--make',             dest='make',           default='make',   help='Make executable')
 parser.add_argument('--cmake',            dest='cmake',          default='cmake',  help='CMake executable')
 parser.add_argument('--cmake-options',    dest='cmakeoptions',   default='',       help='CMake options (semicolon-separated)')
+parser.add_argument('--with-http-client', dest='httpclient',     default=False,
+                    action='store_true',
+                    help='Build with integrated C++ HTTP client (ROUTING_WITH_HTTP_CLIENT=ON). '
+                         'When enabled, ValhallaOnlineRoutingService works without a Kotlin HttpPostHandler.')
 parser.add_argument('--gradle',           dest='gradle',         default='gradle', help='Gradle executable')
 parser.add_argument('--configuration',    dest='configuration',  default='Release',
                     choices=['Release', 'RelWithDebInfo', 'Debug'])

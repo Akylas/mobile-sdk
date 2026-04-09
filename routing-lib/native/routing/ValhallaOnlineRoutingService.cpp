@@ -3,7 +3,21 @@
 #include "../exceptions/Exceptions.h"
 #include "../log/Log.h"
 
+#ifdef ROUTING_WITH_HTTP_CLIENT
+#  include "../network/HTTPClient.h"
+#endif
+
 namespace routing {
+
+#ifdef ROUTING_WITH_HTTP_CLIENT
+    ValhallaOnlineRoutingService::ValhallaOnlineRoutingService(
+            const std::string& baseURL) :
+        _baseURL(baseURL),
+        _profile("pedestrian"),
+        _handler()
+    {
+    }
+#endif
 
     ValhallaOnlineRoutingService::ValhallaOnlineRoutingService(
             const std::string& baseURL,
@@ -79,9 +93,25 @@ namespace routing {
             url     = buildURL(endpoint);
         }
 
-        if (!handler) throw GenericException("No HTTP handler set");
-
         Log::debugf("ValhallaOnlineRoutingService::callRaw: url=%s", url.c_str());
+
+#ifdef ROUTING_WITH_HTTP_CLIENT
+        if (!handler) {
+            // Use the built-in C++ HTTP client — no external handler needed.
+            try {
+                HTTPClient httpClient;
+                return httpClient.post(url, jsonBody);
+            }
+            catch (const std::exception& ex) {
+                throw GenericException("HTTP request failed for endpoint '" + endpoint + "'",
+                                       ex.what());
+            }
+        }
+#endif
+
+        if (!handler) {
+            throw GenericException("No HTTP handler set for endpoint '" + endpoint + "'");
+        }
 
         try {
             return handler(url, jsonBody);
