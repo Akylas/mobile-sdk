@@ -2,7 +2,7 @@
 #include "core/BinaryData.h"
 #include "utils/Log.h"
 
-#include <boost/lexical_cast.hpp>
+
 
 #include <rapidjson/rapidjson.h>
 #include <rapidjson/document.h>

@@ -8,8 +8,7 @@
 #include "utils/Const.h"
 #include "utils/Log.h"
 
-#include <boost/lexical_cast.hpp>
-#include <boost/algorithm/string.hpp>
+#include "utils/GeneralUtils.h"
 
 #include <sqlite3pp.h>
 
@@ -208,7 +207,7 @@ namespace carto {
             for (auto it = query.begin(); it != query.end(); it++) {
                 std::string name = (*it).get<const char*>(0);
                 std::string strValue = (*it).get<const char*>(1);
-                int numValue = (strValue.substr(0, 3) == "inf" ? Const::MAX_SUPPORTED_ZOOM_LEVEL : boost::lexical_cast<int>(strValue));
+                int numValue = (strValue.substr(0, 3) == "inf" ? Const::MAX_SUPPORTED_ZOOM_LEVEL : std::stoi(strValue));
                 if (name == "minzoom") {
                     minZoom = numValue;
                     foundMinZoom = true;
@@ -253,13 +252,17 @@ namespace carto {
             sqlite3pp::query query(*_database, "SELECT value FROM metadata WHERE name='bounds'");
             for (auto it = query.begin(); it != query.end(); it++) {
                 std::string bounds = (*it).get<const char*>(0);
-                std::vector<std::string> coordinates;
-                boost::split(coordinates, bounds, boost::is_any_of(","));
+                std::vector<std::string> coordinates = GeneralUtils::Split(bounds, ',');
                 if (coordinates.size() == 4) {
-                    double x0 = boost::lexical_cast<double>(boost::trim_copy(coordinates[0]));
-                    double y0 = boost::lexical_cast<double>(boost::trim_copy(coordinates[1]));
-                    double x1 = boost::lexical_cast<double>(boost::trim_copy(coordinates[2]));
-                    double y1 = boost::lexical_cast<double>(boost::trim_copy(coordinates[3]));
+                    auto trim = [](const std::string& s) {
+                        auto start = s.find_first_not_of(" \t\r\n");
+                        auto end = s.find_last_not_of(" \t\r\n");
+                        return (start == std::string::npos) ? std::string() : s.substr(start, end - start + 1);
+                    };
+                    double x0 = std::stod(trim(coordinates[0]));
+                    double y0 = std::stod(trim(coordinates[1]));
+                    double x1 = std::stod(trim(coordinates[2]));
+                    double y1 = std::stod(trim(coordinates[3]));
 
                     mapBounds.expandToContain(_projection->fromWgs84(MapPos(x0, y0)));
                     mapBounds.expandToContain(_projection->fromWgs84(MapPos(x1, y0)));

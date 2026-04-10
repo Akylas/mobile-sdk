@@ -14,7 +14,7 @@
 #include <cmath>
 #include <algorithm>
 
-#include <boost/lexical_cast.hpp>
+
 
 namespace carto {
 
@@ -97,12 +97,12 @@ namespace carto {
                 params["language"] = _language;
             }
 
-            params["limit"] = boost::lexical_cast<std::string>(std::max(1, std::min(10, _maxResults)));
+            params["limit"] = std::to_string(std::max(1, std::min(10, _maxResults)));
         }
 
         if (request->isLocationDefined()) {
             MapPos wgs84Center = request->getProjection()->toWgs84(request->getLocation());
-            params["proximity"] = boost::lexical_cast<std::string>(wgs84Center.getX()) + "," + boost::lexical_cast<std::string>(wgs84Center.getY());
+            params["proximity"] = std::to_string(wgs84Center.getX()) + "," + std::to_string(wgs84Center.getY());
         }
         if (request->getLocationRadius() > 0) {
             EPSG3857 epsg3857;
@@ -114,7 +114,7 @@ namespace carto {
             mercPos1[0] = std::min(mercPos1[0], epsg3857.getBounds().getMax()[0] * 0.9999);
             MapPos wgs84Pos0 = epsg3857.toWgs84(mercPos0);
             MapPos wgs84Pos1 = epsg3857.toWgs84(mercPos1);
-            params["bbox"] = boost::lexical_cast<std::string>(wgs84Pos0.getX()) + "," + boost::lexical_cast<std::string>(wgs84Pos0.getY()) + "," + boost::lexical_cast<std::string>(wgs84Pos1.getX()) + "," + boost::lexical_cast<std::string>(wgs84Pos1.getY());
+            params["bbox"] = std::to_string(wgs84Pos0.getX()) + "," + std::to_string(wgs84Pos0.getY()) + "," + std::to_string(wgs84Pos1.getX()) + "," + std::to_string(wgs84Pos1.getY());
         }
 
         std::string url = NetworkUtils::BuildURLFromParameters(baseURL, params);

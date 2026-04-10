@@ -9,7 +9,7 @@
 #include "utils/NetworkUtils.h"
 #include "utils/Log.h"
 
-#include <boost/lexical_cast.hpp>
+
 
 namespace carto {
 
@@ -62,11 +62,11 @@ namespace carto {
 
             baseURL = GeneralUtils::ReplaceTags(_serviceURL.empty() ? MAPZEN_SERVICE_URL : _serviceURL, tagMap);
 
-            params["point.lat"] = boost::lexical_cast<std::string>(point.getY());
-            params["point.lon"] = boost::lexical_cast<std::string>(point.getX());
-            params["boundary.circle.lat"] = boost::lexical_cast<std::string>(point.getY());
-            params["boundary.circle.lon"] = boost::lexical_cast<std::string>(point.getX());
-            params["boundary.circle.radius"] = boost::lexical_cast<std::string>(request->getSearchRadius());
+            params["point.lat"] = std::to_string(point.getY());
+            params["point.lon"] = std::to_string(point.getX());
+            params["boundary.circle.lat"] = std::to_string(point.getY());
+            params["boundary.circle.lon"] = std::to_string(point.getX());
+            params["boundary.circle.radius"] = std::to_string(request->getSearchRadius());
 
             if (!_language.empty()) {
                 params["lang"] = _language;

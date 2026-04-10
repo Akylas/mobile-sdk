@@ -6,7 +6,7 @@
 #include "utils/Const.h"
 #include "utils/Log.h"
 
-#include <boost/algorithm/string.hpp>
+#include "utils/GeneralUtils.h"
 
 #include <sqlite3pp.h>
 
@@ -52,8 +52,7 @@ namespace carto {
 
     Variant MultiValhallaOfflineRoutingService::getConfigurationParameter(const std::string& param) const {
         std::lock_guard<std::recursive_mutex> lock(_mutex);
-        std::vector<std::string> keys;
-        boost::split(keys, param, boost::is_any_of("."));
+        std::vector<std::string> keys = GeneralUtils::Split(param, '.');
         picojson::value subValue = _configuration.toPicoJSON();
         for (const std::string& key : keys) {
             if (!subValue.is<picojson::object>()) {
@@ -66,8 +65,7 @@ namespace carto {
 
     void MultiValhallaOfflineRoutingService::setConfigurationParameter(const std::string& param, const Variant& value) {
         std::lock_guard<std::recursive_mutex> lock(_mutex);
-        std::vector<std::string> keys;
-        boost::split(keys, param, boost::is_any_of("."));
+        std::vector<std::string> keys = GeneralUtils::Split(param, '.');
         picojson::value config = _configuration.toPicoJSON();
         picojson::value* subValue = &config;
         for (const std::string& key : keys) {

@@ -6,9 +6,7 @@
 #include <chrono>
 #include <limits>
 #include <regex>
-
-#include <boost/algorithm/string.hpp>
-#include <boost/lexical_cast.hpp>
+#include <string>
 
 #if defined(_WIN32)
 #define CARTO_HTTP_SOCKET_IMPL WinSockImpl
@@ -97,7 +95,7 @@ namespace carto {
             request.headers["Accept"] = "*/*";
         }
         if (offset > 0 && request.headers.count("Range") == 0) {
-            request.headers["Range"] = "bytes=" + boost::lexical_cast<std::string>(offset) + "-";
+            request.headers["Range"] = "bytes=" + std::to_string(offset) + "-";
         }
 
         Response response;
@@ -120,7 +118,7 @@ namespace carto {
                 if (it != response.headers.end()) {
                     std::cmatch what;
                     if (std::regex_match(it->second.c_str(), what, std::regex("bytes ([0-9]+)-.*"))) {
-                        contentOffset = boost::lexical_cast<std::uint64_t>(what[1]);
+                        contentOffset = std::stoull(what[1]);
                     }
                 }
                 if (contentOffset != offset) {
@@ -134,7 +132,7 @@ namespace carto {
             // Read Content-Length
             auto it = response.headers.find("Content-Length");
             if (it != response.headers.end()) {
-                contentLength = boost::lexical_cast<std::uint64_t>(it->second);
+                contentLength = std::stoull(it->second);
             }
 
             return true;

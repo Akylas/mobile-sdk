@@ -9,7 +9,7 @@
 #include "utils/Const.h"
 #include "utils/Log.h"
 
-#include <boost/algorithm/string.hpp>
+#include "utils/GeneralUtils.h"
 
 namespace carto {
 
@@ -30,9 +30,7 @@ namespace carto {
 
     Variant PackageManagerValhallaRoutingService::getConfigurationParameter(const std::string& param) const {
         std::lock_guard<std::mutex> lock(_mutex);
-        std::vector<std::string> keys;
-        boost::split(keys, param, boost::is_any_of("."));
-        picojson::value subValue = _configuration.toPicoJSON();
+        std::vector<std::string> keys = GeneralUtils::Split(param, '.');
         for (const std::string& key : keys) {
             if (!subValue.is<picojson::object>()) {
                 return Variant();
@@ -44,9 +42,7 @@ namespace carto {
 
     void PackageManagerValhallaRoutingService::setConfigurationParameter(const std::string& param, const Variant& value) {
         std::lock_guard<std::mutex> lock(_mutex);
-        std::vector<std::string> keys;
-        boost::split(keys, param, boost::is_any_of("."));
-        picojson::value config = _configuration.toPicoJSON();
+        std::vector<std::string> keys = GeneralUtils::Split(param, '.');
         picojson::value* subValue = &config;
         for (const std::string& key : keys) {
             if (!subValue->is<picojson::object>()) {

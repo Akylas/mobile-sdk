@@ -12,11 +12,9 @@
 #include <ostream>
 #include <sstream>
 #include <string>
+#include <cctype>
 #include <cstdint>
 #include <regex>
-
-#include <boost/algorithm/string.hpp>
-#include <boost/lexical_cast.hpp>
 
 namespace carto {
 
@@ -73,24 +71,34 @@ namespace carto {
     }
 
     int NetworkUtils::GetMaxAgeHTTPHeader(const std::map<std::string, std::string>& headers) {
+        auto iequals = [](const std::string& a, const std::string& b) {
+            return a.size() == b.size() && std::equal(a.begin(), a.end(), b.begin(), [](char c1, char c2) {
+                return std::tolower(static_cast<unsigned char>(c1)) == std::tolower(static_cast<unsigned char>(c2));
+            });
+        };
+        auto trim = [](const std::string& s) {
+            auto start = s.find_first_not_of(" \t\r\n");
+            auto end = s.find_last_not_of(" \t\r\n");
+            return (start == std::string::npos) ? std::string() : s.substr(start, end - start + 1);
+        };
         for (auto it = headers.begin(); it != headers.end(); it++) {
-            if (boost::iequals(it->first, "Cache-Control")) {
+            if (iequals(it->first, "Cache-Control")) {
                 std::vector<std::string> values = GeneralUtils::Split(it->second, ',');
                 for (auto it2 = values.begin(); it2 != values.end(); it2++) {
-                    std::string value = boost::trim_copy(*it2);
-                    if (boost::iequals(value, "no-cache") || boost::iequals(value, "no-store")) {
+                    std::string value = trim(*it2);
+                    if (iequals(value, "no-cache") || iequals(value, "no-store")) {
                         return 0;
                     }
-                    if (boost::iequals(value.substr(0, 8), "max-age=")) {
-                        std::string maxAge = boost::trim_copy(value.substr(8));
+                    if (iequals(value.substr(0, 8), "max-age=")) {
+                        std::string maxAge = trim(value.substr(8));
                         std::string::size_type pos = maxAge.find(' ');
                         if (pos != std::string::npos) {
                             maxAge = maxAge.substr(0, pos);
                         }
                         try {
-                            return boost::lexical_cast<int>(maxAge);
+                            return std::stoi(maxAge);
                         }
-                        catch (const boost::bad_lexical_cast&) {
+                        catch (const std::exception&) {
                             Log::Errorf("NetworkUtils::GetMaxAgeHTTPHeader: Invalid max-age value: %s", maxAge.c_str());
                             return -1;
                         }

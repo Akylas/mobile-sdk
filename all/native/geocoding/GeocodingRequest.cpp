@@ -9,7 +9,7 @@
 #include <iomanip>
 #include <sstream>
 
-#include <boost/algorithm/string.hpp>
+#include "utils/GeneralUtils.h"
 
 namespace carto {
 
@@ -71,8 +71,7 @@ namespace carto {
 
     Variant GeocodingRequest::getCustomParameter(const std::string& param) const {
         std::lock_guard<std::mutex> lock(_mutex);
-        std::vector<std::string> keys;
-        boost::split(keys, param, boost::is_any_of("."));
+        std::vector<std::string> keys = GeneralUtils::Split(param, '.');
         picojson::value subValue = _customParams.toPicoJSON();
         for (const std::string& key : keys) {
             if (!subValue.is<picojson::object>()) {
@@ -85,8 +84,7 @@ namespace carto {
 
     void GeocodingRequest::setCustomParameter(const std::string& param, const Variant& value) {
         std::lock_guard<std::mutex> lock(_mutex);
-        std::vector<std::string> keys;
-        boost::split(keys, param, boost::is_any_of("."));
+        std::vector<std::string> keys = GeneralUtils::Split(param, '.');
         picojson::value rootValue = _customParams.toPicoJSON();
         picojson::value* subValue = &rootValue;
         for (const std::string& key : keys) {

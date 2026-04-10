@@ -5,9 +5,7 @@
 #include <chrono>
 #include <limits>
 #include <regex>
-
-#include <boost/algorithm/string.hpp>
-#include <boost/lexical_cast.hpp>
+#include <string>
 
 namespace carto {
 
@@ -145,11 +143,11 @@ namespace carto {
         if (it != pionResponse.get_headers().end()) {
             std::cmatch what;
             if (std::regex_match(it->second.c_str(), what, std::regex(".*[^a-zA-Z0-9]timeout=([0-9]*).*"))) {
-                long long timeout = boost::lexical_cast<long long>(what[1]);
+                long long timeout = std::stoll(what[1]);
                 connection.keepAliveTime = requestTime + std::chrono::seconds(timeout);
             }
             if (std::regex_match(it->second.c_str(), what, std::regex(".*[^a-zA-Z0-9]max=([0-9]*).*"))) {
-                int maxRequests = boost::lexical_cast<int>(what[1]);
+                int maxRequests = std::stoi(what[1]);
                 connection.maxRequests = std::min(connection.maxRequests, maxRequests);
             }
         } else {
@@ -160,7 +158,7 @@ namespace carto {
         std::uint64_t contentLength = std::numeric_limits<std::uint64_t>::max();
         auto it = pionResponse.get_headers().find("Content-Length");
         if (it != pionResponse.get_headers().end()) {
-            contentLength = boost::lexical_cast<std::uint64_t>(it->second);
+            contentLength = std::stoull(it->second);
         } else {
             connection.maxRequests = 0; // force new connection next time
         }

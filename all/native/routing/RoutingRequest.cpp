@@ -3,10 +3,10 @@
 #include "RoutingRequest.h"
 #include "components/Exceptions.h"
 
+#include "utils/GeneralUtils.h"
+
 #include <iomanip>
 #include <sstream>
-
-#include <boost/algorithm/string.hpp>
 
 namespace carto {
 
@@ -48,8 +48,7 @@ namespace carto {
         if (it == _pointParams.end()) {
             return Variant();
         }
-        std::vector<std::string> keys;
-        boost::split(keys, param, boost::is_any_of("."));
+        std::vector<std::string> keys = GeneralUtils::Split(param, '.');
         picojson::value subValue = it->second.toPicoJSON();
         for (const std::string& key : keys) {
             if (!subValue.is<picojson::object>()) {
@@ -62,8 +61,7 @@ namespace carto {
 
     void RoutingRequest::setPointParameter(int index, const std::string& param, const Variant& value) {
         std::lock_guard<std::mutex> lock(_mutex);
-        std::vector<std::string> keys;
-        boost::split(keys, param, boost::is_any_of("."));
+        std::vector<std::string> keys = GeneralUtils::Split(param, '.');
         picojson::value rootValue = _pointParams[index].toPicoJSON();
         picojson::value* subValue = &rootValue;
         for (const std::string& key : keys) {
@@ -83,8 +81,7 @@ namespace carto {
 
     Variant RoutingRequest::getCustomParameter(const std::string& param) const {
         std::lock_guard<std::mutex> lock(_mutex);
-        std::vector<std::string> keys;
-        boost::split(keys, param, boost::is_any_of("."));
+        std::vector<std::string> keys = GeneralUtils::Split(param, '.');
         picojson::value subValue = _customParams.toPicoJSON();
         for (const std::string& key : keys) {
             if (!subValue.is<picojson::object>()) {
@@ -97,8 +94,7 @@ namespace carto {
 
     void RoutingRequest::setCustomParameter(const std::string& param, const Variant& value) {
         std::lock_guard<std::mutex> lock(_mutex);
-        std::vector<std::string> keys;
-        boost::split(keys, param, boost::is_any_of("."));
+        std::vector<std::string> keys = GeneralUtils::Split(param, '.');
         picojson::value rootValue = _customParams.toPicoJSON();
         picojson::value* subValue = &rootValue;
         for (const std::string& key : keys) {

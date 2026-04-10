@@ -13,8 +13,6 @@
 #include "utils/NetworkUtils.h"
 #include "utils/Log.h"
 
-#include <boost/lexical_cast.hpp>
-
 #include <rapidjson/rapidjson.h>
 #include <rapidjson/document.h>
 #include <rapidjson/error/en.h>
@@ -137,7 +135,7 @@ namespace carto {
             std::string streetName = routeInstruction[1].GetString();
             
             RoutingAction::RoutingAction action = RoutingAction::ROUTING_ACTION_NO_TURN;
-            if (!TranslateInstructionCode(boost::lexical_cast<int>(routeInstruction[0].GetString()), action)) {
+            if (!TranslateInstructionCode(std::stoi(routeInstruction[0].GetString()), action)) {
                 if (prevInstrBuilder) {
                     prevInstrBuilder->setTime(prevInstrBuilder->getTime() + time);
                     prevInstrBuilder->setDistance(prevInstrBuilder->getDistance() + distance);

@@ -11,7 +11,7 @@
 #include "utils/GeneralUtils.h"
 #include "utils/Log.h"
 
-#include <boost/lexical_cast.hpp>
+
 
 #include <picojson/picojson.h>
 
@@ -76,11 +76,11 @@ namespace carto {
             const picojson::value& positionInfo = resultInfo.get("position");
             if (positionInfo.is<std::string>()) {
                 std::vector<std::string> latLon = GeneralUtils::Split(positionInfo.get<std::string>(), ',');
-                lat = boost::lexical_cast<double>(latLon.at(0));
-                lon = boost::lexical_cast<double>(latLon.at(1));
+                lat = std::stod(latLon.at(0));
+                lon = std::stod(latLon.at(1));
             } else {
-                lat = positionInfo.get("lat").is<double>() ? positionInfo.get("lat").get<double>() : boost::lexical_cast<double>(positionInfo.get("lat").get<std::string>());
-                lon = positionInfo.get("lon").is<double>() ? positionInfo.get("lon").get<double>() : boost::lexical_cast<double>(positionInfo.get("lon").get<std::string>());
+                lat = positionInfo.get("lat").is<double>() ? positionInfo.get("lat").get<double>() : std::stod(positionInfo.get("lat").get<std::string>());
+                lon = positionInfo.get("lon").is<double>() ? positionInfo.get("lon").get<double>() : std::stod(positionInfo.get("lon").get<std::string>());
             }
             auto geometry = std::make_shared<PointGeometry>(proj->fromWgs84(MapPos(lon, lat)));
 

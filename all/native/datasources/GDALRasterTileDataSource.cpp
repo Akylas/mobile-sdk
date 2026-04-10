@@ -19,8 +19,6 @@
 #include "assets/gdal/projop_wparm_csv.h"
 #include "assets/gdal/unit_of_measure_csv.h"
 
-#include <boost/lexical_cast.hpp>
-
 #include <gdal_priv.h>
 #include <ogrsf_frmts.h>
 #include <cpl_port.h>
@@ -141,7 +139,7 @@ namespace carto {
         if (srs.substr(0, 5) == "EPSG:") {
             int epsgCode = 3857;
             try {
-                epsgCode = boost::lexical_cast<int>(srs.substr(5));
+                epsgCode = std::stoi(srs.substr(5));
             }
             catch (const std::exception& ex) {
                 throw ParseException(std::string("Failed to parse EPSG code: ") + ex.what(), srs);

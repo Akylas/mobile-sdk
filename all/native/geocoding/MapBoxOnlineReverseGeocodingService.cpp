@@ -9,7 +9,7 @@
 #include "utils/NetworkUtils.h"
 #include "utils/Log.h"
 
-#include <boost/lexical_cast.hpp>
+
 
 namespace carto {
 
@@ -58,7 +58,7 @@ namespace carto {
             std::lock_guard<std::mutex> lock(_mutex);
 
             std::map<std::string, std::string> tagMap;
-            tagMap["query"] = NetworkUtils::URLEncode(boost::lexical_cast<std::string>(point.getX()) + "," + boost::lexical_cast<std::string>(point.getY()));
+            tagMap["query"] = NetworkUtils::URLEncode(std::to_string(point.getX()) + "," + std::to_string(point.getY()));
             tagMap["access_token"] = NetworkUtils::URLEncode(_accessToken);
 
             baseURL = GeneralUtils::ReplaceTags(_serviceURL.empty() ? MAPBOX_SERVICE_URL : _serviceURL, tagMap);

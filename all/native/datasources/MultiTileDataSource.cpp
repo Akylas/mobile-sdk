@@ -10,7 +10,6 @@
 #include "datasources/MBTilesTileDataSource.h"
 #endif
 
-#include <boost/lexical_cast.hpp>
 #include "datasources/MergedMBVTTileDataSource.h"
 
 #include <memory>
@@ -214,7 +213,7 @@ namespace carto {
                     int zoomLevel;
                     if (parts.size() > 1)
                     {
-                        zoomLevel = boost::lexical_cast<int>(parts[1]);
+                        zoomLevel = std::stoi(parts[1]);
                     }
                     else
                     {

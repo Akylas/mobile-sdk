@@ -15,7 +15,7 @@
 #include <mapnikvt/TorqueTileReader.h>
 #include <cartocss/TorqueCartoCSSMapLoader.h>
 
-#include <boost/lexical_cast.hpp>
+
 
 namespace carto {
     

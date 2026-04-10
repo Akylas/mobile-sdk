@@ -37,9 +37,7 @@
 #include <cartocss/CartoCSSMapLoader.h>
 
 #include <functional>
-
-#include <boost/lexical_cast.hpp>
-#include <boost/algorithm/string/predicate.hpp>
+#include <string>
 
 namespace carto {
 
@@ -162,11 +160,11 @@ namespace carto {
             }
         } else {
             if (auto val = std::get_if<bool>(&value)) {
-                return boost::lexical_cast<std::string>(*val);
+                return std::to_string(*val);
             } else if (auto val = std::get_if<long long>(&value)) {
-                return boost::lexical_cast<std::string>(*val);
+                return std::to_string(*val);
             } else if (auto val = std::get_if<double>(&value)) {
-                return boost::lexical_cast<std::string>(*val);
+                return std::to_string(*val);
             } else if (auto val = std::get_if<std::string>(&value)) {
                 return *val;
             }
@@ -207,12 +205,12 @@ namespace carto {
                     } else if (value == "false") {
                         val = mvt::Value(false);
                     } else {
-                        val = mvt::Value(boost::lexical_cast<bool>(value));
+                        val = mvt::Value(value != "0" && value != "false");
                     }
                 } else if (std::get_if<long long>(&val)) {
-                    val = mvt::Value(boost::lexical_cast<long long>(value));
+                    val = mvt::Value(static_cast<long long>(std::stoll(value)));
                 } else if (std::get_if<double>(&val)) {
-                    val = mvt::Value(boost::lexical_cast<double>(value));
+                    val = mvt::Value(std::stod(value));
                 } else if (std::get_if<std::string>(&val)) {
                     val = value;
                 }
@@ -526,7 +524,10 @@ namespace carto {
                 throw GenericException("Failed to load style description asset");
             }
 
-            if (boost::algorithm::ends_with(styleAssetName, ".xml")) {
+            auto endsWith = [](const std::string& str, const std::string& suffix) {
+                return str.size() >= suffix.size() && str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
+            };
+            if (endsWith(styleAssetName, ".xml")) {
                 pugi::xml_document doc;
                 if (!doc.load_buffer(styleData->data(), styleData->size())) {
                     throw ParseException("Style element XML parsing failed");
@@ -539,7 +540,7 @@ namespace carto {
                 catch (const std::exception& ex) {
                     throw ParseException(std::string("XML style processing failed: ") + ex.what());
                 }
-            } else if (boost::algorithm::ends_with(styleAssetName, ".json")) {
+            } else if (endsWith(styleAssetName, ".json")) {
                 try {
                     auto assetLoader = std::make_shared<CartoCSSAssetLoader>(FileUtils::GetFilePath(styleAssetName), assetPackage);
                     css::CartoCSSMapLoader mapLoader(assetLoader, _logger);

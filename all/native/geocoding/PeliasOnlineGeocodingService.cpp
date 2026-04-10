@@ -11,7 +11,7 @@
 
 #include <algorithm>
 
-#include <boost/lexical_cast.hpp>
+
 
 namespace carto {
 
@@ -93,22 +93,22 @@ namespace carto {
 
             if (request->isLocationDefined()) {
                 MapPos wgs84Center = request->getProjection()->toWgs84(request->getLocation());
-                params["focus.point.lat"] = boost::lexical_cast<std::string>(wgs84Center.getY());
-                params["focus.point.lon"] = boost::lexical_cast<std::string>(wgs84Center.getX());
+                params["focus.point.lat"] = std::to_string(wgs84Center.getY());
+                params["focus.point.lon"] = std::to_string(wgs84Center.getX());
             }
             if (request->getLocationRadius() > 0 && !_autocomplete) {
                 MapPos wgs84Center = request->getProjection()->toWgs84(request->getLocation());
                 double radius = request->getLocationRadius();
-                params["boundary.circle.lat"] = boost::lexical_cast<std::string>(wgs84Center.getY());
-                params["boundary.circle.lon"] = boost::lexical_cast<std::string>(wgs84Center.getX());
-                params["boundary.circle.radius"] = boost::lexical_cast<std::string>(radius);
+                params["boundary.circle.lat"] = std::to_string(wgs84Center.getY());
+                params["boundary.circle.lon"] = std::to_string(wgs84Center.getX());
+                params["boundary.circle.radius"] = std::to_string(radius);
             }
 
             if (!_language.empty()) {
                 params["lang"] = _language;
             }
 
-            params["size"] = boost::lexical_cast<std::string>(std::max(1, _maxResults));
+            params["size"] = std::to_string(std::max(1, _maxResults));
         }
 
         std::string url = NetworkUtils::BuildURLFromParameters(baseURL, params);

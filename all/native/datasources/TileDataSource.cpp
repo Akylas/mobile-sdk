@@ -6,8 +6,7 @@
 
 #include <algorithm>
 #include <sstream>
-
-#include <boost/lexical_cast.hpp>
+#include <string>
 
 namespace carto {
 
@@ -104,14 +103,14 @@ namespace carto {
         }
         tagValues["quadkey"] = ss.str();
 
-        tagValues["x"] = boost::lexical_cast<std::string>(tile.getX());
-        tagValues["xflipped"] = boost::lexical_cast<std::string>((1 << tile.getZoom()) - 1 - tile.getX());
+        tagValues["x"] = std::to_string(tile.getX());
+        tagValues["xflipped"] = std::to_string((1 << tile.getZoom()) - 1 - tile.getX());
 
-        tagValues["y"] = boost::lexical_cast<std::string>(tile.getY());
-        tagValues["yflipped"] = boost::lexical_cast<std::string>((1 << tile.getZoom()) - 1 - tile.getY());
+        tagValues["y"] = std::to_string(tile.getY());
+        tagValues["yflipped"] = std::to_string((1 << tile.getZoom()) - 1 - tile.getY());
 
-        tagValues["z"] = boost::lexical_cast<std::string>(tile.getZoom());
-        tagValues["zoom"] = boost::lexical_cast<std::string>(tile.getZoom());
+        tagValues["z"] = std::to_string(tile.getZoom());
+        tagValues["zoom"] = std::to_string(tile.getZoom());
 
         return tagValues;
     }

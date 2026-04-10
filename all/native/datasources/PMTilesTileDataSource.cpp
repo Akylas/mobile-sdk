@@ -11,8 +11,6 @@
 #include <cstring>
 #include <algorithm>
 #include <unordered_map>
-// For JSON parsing (simple extraction)
-#include <boost/algorithm/string.hpp>
 
 namespace carto {
 
@@ -145,7 +143,10 @@ namespace carto {
             size_t valueEnd = metadata.find_first_of(",}", valueStart);
             if (valueEnd != std::string::npos) {
                 std::string value = metadata.substr(valueStart, valueEnd - valueStart);
-                boost::trim(value);
+                // Trim whitespace
+                auto start = value.find_first_not_of(" \t\r\n");
+                auto end = value.find_last_not_of(" \t\r\n");
+                value = (start == std::string::npos) ? std::string() : value.substr(start, end - start + 1);
                 return value;
             }
         }

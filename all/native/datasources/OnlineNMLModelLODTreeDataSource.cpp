@@ -8,9 +8,7 @@
 #include "utils/Log.h"
 #include "utils/NetworkUtils.h"
 
-#include <boost/lexical_cast.hpp>
-
-#include <stdext/zlib.h>
+#include <string>
 
 #include <nml/Package.h>
 
@@ -32,11 +30,11 @@ namespace carto {
     
         std::map<std::string, std::string> urlParams;
         urlParams["q"] = "MapTiles";
-        urlParams["mapbounds_x0"] = boost::lexical_cast<std::string>(bounds.getMin().getX());
-        urlParams["mapbounds_y0"] = boost::lexical_cast<std::string>(bounds.getMin().getY());
-        urlParams["mapbounds_x1"] = boost::lexical_cast<std::string>(bounds.getMax().getX());
-        urlParams["mapbounds_y1"] = boost::lexical_cast<std::string>(bounds.getMax().getY());
-        urlParams["width"] = boost::lexical_cast<std::string>(_projection->getBounds().getDelta().getX());
+        urlParams["mapbounds_x0"] = std::to_string(bounds.getMin().getX());
+        urlParams["mapbounds_y0"] = std::to_string(bounds.getMin().getY());
+        urlParams["mapbounds_x1"] = std::to_string(bounds.getMax().getX());
+        urlParams["mapbounds_y1"] = std::to_string(bounds.getMax().getY());
+        urlParams["width"] = std::to_string(_projection->getBounds().getDelta().getX());
         std::string url = NetworkUtils::BuildURLFromParameters(_serviceURL, urlParams);
     
         Log::Debugf("OnlineNMLModelLODTreeDataSource: Request %s", url.c_str());
@@ -94,7 +92,7 @@ namespace carto {
     std::shared_ptr<NMLModelLODTree> OnlineNMLModelLODTreeDataSource::loadModelLODTree(const MapTile& mapTile) {
         std::map<std::string, std::string> urlParams;
         urlParams["q"] = "ModelLODTree";
-        urlParams["id"] = boost::lexical_cast<std::string>(mapTile.modelLODTreeId);
+        urlParams["id"] = std::to_string(mapTile.modelLODTreeId);
         std::string url = NetworkUtils::BuildURLFromParameters(_serviceURL, urlParams);
     
         Log::Debugf("OnlineNMLModelLODTreeDataSource: Request %s", url.c_str());
@@ -191,7 +189,7 @@ namespace carto {
     std::shared_ptr<nml::Mesh> OnlineNMLModelLODTreeDataSource::loadMesh(long long meshId) {
         std::map<std::string, std::string> urlParams;
         urlParams["q"] = "Meshes";
-        urlParams["ids"] = boost::lexical_cast<std::string>(meshId);
+        urlParams["ids"] = std::to_string(meshId);
         std::string url = NetworkUtils::BuildURLFromParameters(_serviceURL, urlParams);
     
         Log::Debugf("OnlineNMLModelLODTreeDataSource: Request %s", url.c_str());
@@ -233,7 +231,7 @@ namespace carto {
     std::shared_ptr<nml::Texture> OnlineNMLModelLODTreeDataSource::loadTexture(long long textureId, int level) {
         std::map<std::string, std::string> urlParams;
         urlParams["q"] = "Textures";
-        urlParams["ids"] = boost::lexical_cast<std::string>(textureId);
+        urlParams["ids"] = std::to_string(textureId);
         std::string url = NetworkUtils::BuildURLFromParameters(_serviceURL, urlParams);
     
         Log::Debugf("OnlineNMLModelLODTreeDataSource: Request %s", url.c_str());

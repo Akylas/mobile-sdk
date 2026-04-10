@@ -17,8 +17,7 @@
 #include <algorithm>
 #include <limits>
 #include <time.h>
-
-#include <boost/lexical_cast.hpp>
+#include <string>
 
 #include <stdext/utf8_filesystem.h>
 #include <stdext/zlib.h>
@@ -234,8 +233,8 @@ namespace carto {
                     auto packageInfo = std::make_shared<PackageInfo>(
                         packageId,
                         packageType,
-                        jsonPackageInfo["version"].IsString() ? boost::lexical_cast<int>(jsonPackageInfo["version"].GetString()) : jsonPackageInfo["version"].GetInt(),
-                        jsonPackageInfo["size"].IsString() ? boost::lexical_cast<std::uint64_t>(jsonPackageInfo["size"].GetString()) : jsonPackageInfo["size"].GetInt64(),
+                        jsonPackageInfo["version"].IsString() ? std::stoi(jsonPackageInfo["version"].GetString()) : jsonPackageInfo["version"].GetInt(),
+                        jsonPackageInfo["size"].IsString() ? static_cast<std::uint64_t>(std::stoull(jsonPackageInfo["size"].GetString())) : static_cast<std::uint64_t>(jsonPackageInfo["size"].GetInt64()),
                         packageURL,
                         tileMask,
                         metaInfo
@@ -1396,7 +1395,7 @@ namespace carto {
     }
 
     std::string PackageManager::createPackageFileName(const std::string& packageId, PackageType::PackageType packageType, int version) const {
-        return packageId + "." + boost::lexical_cast<std::string>(version) + PackageHandlerFactory::GetPackageTypeExtension(packageType);
+        return packageId + "." + std::to_string(version) + PackageHandlerFactory::GetPackageTypeExtension(packageType);
     }
 
     std::string PackageManager::createPackageListURL(const std::string& baseURL) const {
@@ -1557,7 +1556,7 @@ namespace carto {
         }
         int zoomLevel = DEFAULT_TILEMASK_ZOOMLEVEL;
         if (parts.size() > 1) {
-            zoomLevel = boost::lexical_cast<int>(parts[1]);
+            zoomLevel = std::stoi(parts[1]);
         }
         return std::make_shared<PackageTileMask>(parts[0], zoomLevel);
     }
@@ -1566,7 +1565,7 @@ namespace carto {
         if (!tileMask) {
             return std::string();
         }
-        return tileMask->getStringValue() + ":" + boost::lexical_cast<std::string>(tileMask->getMaxZoomLevel());
+        return tileMask->getStringValue() + ":" + std::to_string(tileMask->getMaxZoomLevel());
     }
 
     int PackageManager::DownloadFile(const std::string& url, NetworkUtils::HandlerFunc handler, std::uint64_t offset) {

@@ -9,7 +9,7 @@
 #include "utils/NetworkUtils.h"
 #include "utils/Log.h"
 
-#include <boost/lexical_cast.hpp>
+
 
 namespace carto {
 
@@ -91,19 +91,19 @@ namespace carto {
 
             if (request->isLocationDefined()) {
                 MapPos wgs84Center = request->getProjection()->toWgs84(request->getLocation());
-                params["lat"] = boost::lexical_cast<std::string>(wgs84Center.getY());
-                params["lon"] = boost::lexical_cast<std::string>(wgs84Center.getX());
+                params["lat"] = std::to_string(wgs84Center.getY());
+                params["lon"] = std::to_string(wgs84Center.getX());
             }
             if (request->getLocationRadius() > 0) {
                 double radius = request->getLocationRadius();
-                params["radius"] = boost::lexical_cast<std::string>(radius);
+                params["radius"] = std::to_string(radius);
             }
 
             if (!_language.empty()) {
                 params["language"] = _language;
             }
 
-            params["limit"] = boost::lexical_cast<std::string>(std::max(1, std::min(100, _maxResults)));
+            params["limit"] = std::to_string(std::max(1, std::min(100, _maxResults)));
         }
 
         std::string url = NetworkUtils::BuildURLFromParameters(baseURL, params);
