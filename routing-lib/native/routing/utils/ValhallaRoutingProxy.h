@@ -1,7 +1,5 @@
 #pragma once
 
-#include "../../core/Variant.h"
-
 #include <memory>
 #include <string>
 #include <vector>
@@ -27,14 +25,14 @@ namespace routing {
         /**
          * Call any Valhalla API endpoint using offline Valhalla workers.
          * @param databases   Open sqlite3pp::database handles (MBTiles).
-         * @param config      Valhalla configuration variant.
+         * @param config      Valhalla configuration JSON string.
          * @param endpoint    Endpoint name, e.g. "route", "trace_attributes".
          * @param jsonBody    Full Valhalla request JSON string (including "costing").
          * @return            Raw Valhalla JSON response string.
          */
         static std::string CallRaw(
             const std::vector<std::shared_ptr<sqlite3pp::database>>& databases,
-            const Variant& config,
+            const std::string& config,
             const std::string& endpoint,
             const std::string& jsonBody);
 
@@ -61,7 +59,7 @@ namespace routing {
         // ----------------------------------------------------------------
 
         static void AddLocale(const std::string& key, const std::string& json);
-        static Variant GetDefaultConfiguration();
+        static std::string GetDefaultConfiguration();
 
     private:
         ValhallaRoutingProxy() = delete;

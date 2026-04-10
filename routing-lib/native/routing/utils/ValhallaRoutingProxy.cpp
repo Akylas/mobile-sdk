@@ -17,7 +17,6 @@
 #include <valhalla/midgard/constants.h>
 #include <valhalla/midgard/encoded.h>
 #include <valhalla/midgard/pointll.h>
-#include <valhalla/baldr/rapidjson_utils.h>
 #include <valhalla/baldr/pathlocation.h>
 #include <valhalla/baldr/directededge.h>
 #include <valhalla/baldr/datetime.h>
@@ -32,18 +31,11 @@
 #include <valhalla/odin/util.h>
 #include <valhalla/odin/directionsbuilder.h>
 
-// rapidjson is always available through valhalla
-// #include <rapidjson/document.h>
-// #include <rapidjson/stringbuffer.h>
-// #include <rapidjson/writer.h>
+#include <boost/property_tree/json_parser.hpp>
 
 #include <sstream>
 #include <string>
 #include <unordered_map>
-
-// -----------------------------------------------------------------------
-// Dot-delimited key splitter — see utils/StringUtils.h
-// -----------------------------------------------------------------------
 
 namespace routing {
 
@@ -58,8 +50,8 @@ void ValhallaRoutingProxy::AddLocale(const std::string& key, const std::string& 
     }
 }
 
-Variant ValhallaRoutingProxy::GetDefaultConfiguration() {
-    return Variant::FromString(valhalla_default_config);
+std::string ValhallaRoutingProxy::GetDefaultConfiguration() {
+    return valhalla_default_config;
 }
 
 // -------------------------------------------------------------------------
@@ -67,7 +59,7 @@ Variant ValhallaRoutingProxy::GetDefaultConfiguration() {
 // -------------------------------------------------------------------------
 std::string ValhallaRoutingProxy::CallRaw(
         const std::vector<std::shared_ptr<sqlite3pp::database>>& databases,
-        const Variant& config,
+        const std::string& config,
         const std::string& endpoint,
         const std::string& jsonBody) {
 
@@ -90,10 +82,9 @@ std::string ValhallaRoutingProxy::CallRaw(
 
     std::string result;
     try {
-        std::stringstream ss;
-        ss << config.toJSON();
+        std::stringstream ss(config);
         boost::property_tree::ptree configTree;
-        rapidjson::read_json(ss, configTree);
+        boost::property_tree::json_parser::read_json(ss, configTree);
         auto reader = std::make_shared<valhalla::baldr::GraphReader>(databases);
 
         valhalla::Api api;
@@ -172,78 +163,6 @@ std::string ValhallaRoutingProxy::CallRaw(
         throw GenericException("Exception in callRaw(" + endpoint + ")", ex.what());
     }
     return result;
-}
-
-// -------------------------------------------------------------------------
-// Request serialization — uses rapidjson (from valhalla) when available,
-// otherwise falls back to Variant's own toJSON() helpers.
-// -------------------------------------------------------------------------
-
-
-// Build a rapidjson object for a single location from its Variant parameter bag.
-static void addLocationToArray(
-        rapidjson::Value& arr,
-        rapidjson::Document::AllocatorType& alloc,
-        double lon, double lat,
-        const Variant& params) {
-
-    rapidjson::Value loc(rapidjson::kObjectType);
-
-    // Copy any extra parameters from the Variant object
-    if (params.getType() == VariantType::VARIANT_TYPE_OBJECT) {
-        for (const auto& key : params.getObjectKeys()) {
-            const Variant& v = params.getObjectElement(key);
-            rapidjson::Value k(key.c_str(), alloc);
-            switch (v.getType()) {
-            case VariantType::VARIANT_TYPE_STRING: {
-                rapidjson::Value s(v.getString().c_str(), alloc);
-                loc.AddMember(k, s, alloc);
-                break;
-            }
-            case VariantType::VARIANT_TYPE_BOOL:
-                loc.AddMember(k, v.getBool(), alloc);
-                break;
-            case VariantType::VARIANT_TYPE_INTEGER:
-                loc.AddMember(k, v.getLong(), alloc);
-                break;
-            case VariantType::VARIANT_TYPE_DOUBLE:
-                loc.AddMember(k, v.getDouble(), alloc);
-                break;
-            default:
-                break;
-            }
-        }
-    }
-
-    loc.AddMember("lon", lon, alloc);
-    loc.AddMember("lat", lat, alloc);
-    arr.PushBack(loc, alloc);
-}
-
-// Merge custom parameters (Variant object) into a rapidjson object.
-static void mergeCustomParams(
-        rapidjson::Value& target,
-        rapidjson::Document::AllocatorType& alloc,
-        const Variant& params) {
-    if (params.getType() != VariantType::VARIANT_TYPE_OBJECT) return;
-    // Re-parse the JSON representation of params into a rapidjson document,
-    // then copy top-level members into target.
-    std::string json = params.toJSON();
-    rapidjson::Document doc;
-    doc.Parse(json.c_str(), json.size());
-    if (doc.HasParseError() || !doc.IsObject()) return;
-    for (auto& m : doc.GetObject()) {
-        rapidjson::Value k(m.name, alloc);
-        rapidjson::Value v(m.value, alloc);
-        target.AddMember(k, v, alloc);
-    }
-}
-
-static std::string documentToString(const rapidjson::Document& doc) {
-    rapidjson::StringBuffer buf;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(buf);
-    doc.Accept(writer);
-    return buf.GetString();
 }
 
 std::string ValhallaRoutingProxy::CallRaw(

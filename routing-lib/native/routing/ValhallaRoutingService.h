@@ -1,7 +1,5 @@
 #pragma once
 
-#include "../core/Variant.h"
-
 #include <memory>
 #include <mutex>
 #include <string>
@@ -60,15 +58,25 @@ namespace routing {
         void setProfile(const std::string& profile);
 
         // ----------------------------------------------------------------
-        // Valhalla configuration (dot-delimited key paths, Variant values)
+        // Valhalla configuration (dot-delimited key paths, JSON string values)
         //
         // Example:
         //   svc.setConfigurationParameter("costing_options.auto.use_highways",
-        //                                 Variant(0.0));
+        //                                 "0.0");
         // ----------------------------------------------------------------
 
-        Variant getConfigurationParameter(const std::string& param) const;
-        void setConfigurationParameter(const std::string& param, const Variant& value);
+        /**
+         * Get a configuration value by dot-delimited key path.
+         * Returns the JSON-serialized value, or an empty string if not found.
+         */
+        std::string getConfigurationParameter(const std::string& param) const;
+
+        /**
+         * Set a configuration value by dot-delimited key path.
+         * @param param     Dot-delimited key path.
+         * @param valueJson JSON-encoded value (e.g. "0.5", "\"residential\"", "true").
+         */
+        void setConfigurationParameter(const std::string& param, const std::string& valueJson);
 
         // ----------------------------------------------------------------
         // Locale support for narrative generation
@@ -107,17 +115,13 @@ namespace routing {
         void releaseDatabases() const;
 
         static std::vector<std::string> splitKeys(const std::string& param);
-        static Variant setNestedValue(Variant obj,
-                                      const std::vector<std::string>& keys,
-                                      int idx,
-                                      const Variant& value);
 
         mutable std::mutex          _mutex;
         std::vector<std::string>    _paths;          // registered MBTiles file paths
         mutable std::vector<std::shared_ptr<sqlite3pp::database>> _openDbs; // currently open handles
         mutable int                 _activeCount = 0; // in-flight request count
         std::string                 _profile;
-        Variant                     _configuration;
+        std::string                 _configuration;  // Valhalla config as JSON string
     };
 
 } // namespace routing

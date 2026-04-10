@@ -80,6 +80,9 @@ foreach(SDK_HEADER_LIB IN ITEMS "rapidjson/include")
   include_directories("${SDK_EXTERNAL_LIBS_DIR}/valhalla/valhalla/third_party/${SDK_HEADER_LIB}")
 endforeach()
 
+# picojson — header-only JSON library used by ValhallaRoutingService
+include_directories("${SDK_EXTERNAL_LIBS_DIR}/picojson")
+
 # Collect include dirs from subprojects (each exposes ${name}_INCLUDE_DIRS)
 set(ROUTING_SUBPROJECT_INCLUDE_DIRS "")
 foreach(SDK_SUBPROJECT IN ITEMS ${ROUTING_EXTERNAL_SUBPROJECTS})

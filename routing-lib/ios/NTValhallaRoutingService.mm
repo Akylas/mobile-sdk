@@ -174,15 +174,14 @@ static NSString *serializeRouteMatchingRequest(NTRouteMatchingRequest *req) {
 }
 
 - (nullable NSString *)configurationParameterForKey:(NSString *)key {
-    routing::Variant val = _service->getConfigurationParameter(key.UTF8String);
-    if (val.getType() == routing::VariantType::VARIANT_TYPE_NULL) return nil;
-    return [NSString stringWithUTF8String:val.toJSON().c_str()];
+    std::string val = _service->getConfigurationParameter(key.UTF8String);
+    if (val.empty()) return nil;
+    return [NSString stringWithUTF8String:val.c_str()];
 }
 
 - (void)setConfigurationParameter:(NSString *)jsonValue forKey:(NSString *)key {
     try {
-        routing::Variant val = routing::Variant::FromJSON(jsonValue.UTF8String);
-        _service->setConfigurationParameter(key.UTF8String, val);
+        _service->setConfigurationParameter(key.UTF8String, jsonValue.UTF8String);
     } catch (...) {}
 }
 

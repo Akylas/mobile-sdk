@@ -104,17 +104,17 @@ Java_com_akylas_routing_ValhallaRoutingService_nativeSetProfile(
 JNIEXPORT jstring JNICALL
 Java_com_akylas_routing_ValhallaRoutingService_nativeGetConfigParam(
         JNIEnv* env, jobject, jlong ptr, jstring jkey) {
-    routing::Variant val = toService(ptr)->getConfigurationParameter(jstringToStr(env, jkey));
-    if (val.getType() == routing::VariantType::VARIANT_TYPE_NULL) return nullptr;
-    return strToJString(env, val.toJSON());
+    std::string val = toService(ptr)->getConfigurationParameter(jstringToStr(env, jkey));
+    if (val.empty()) return nullptr;
+    return strToJString(env, val);
 }
 
 JNIEXPORT void JNICALL
 Java_com_akylas_routing_ValhallaRoutingService_nativeSetConfigParam(
         JNIEnv* env, jobject, jlong ptr, jstring jkey, jstring jvalue) {
     try {
-        routing::Variant val = routing::Variant::FromJSON(jstringToStr(env, jvalue));
-        toService(ptr)->setConfigurationParameter(jstringToStr(env, jkey), val);
+        toService(ptr)->setConfigurationParameter(jstringToStr(env, jkey),
+                                                   jstringToStr(env, jvalue));
     } catch (const std::exception& ex) {
         throwRuntimeException(env, ex.what());
     }

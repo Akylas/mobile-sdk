@@ -4,8 +4,10 @@
 #include "../log/Log.h"
 #include "../utils/StringUtils.h"
 
+#include <picojson.h>
 #include <sqlite3pp.h>
 #include <stdexcept>
+#include <functional>
 
 namespace routing {
 
@@ -53,46 +55,60 @@ namespace routing {
     }
 
     // -----------------------------------------------------------------------
-    // Configuration (dot-delimited key access, pure Variant API)
+    // Configuration (dot-delimited key access, picojson)
     // -----------------------------------------------------------------------
 
     std::vector<std::string> ValhallaRoutingService::splitKeys(const std::string& param) {
         return routing::splitKeys(param, '.');
     }
 
-    Variant ValhallaRoutingService::getConfigurationParameter(const std::string& param) const {
+    std::string ValhallaRoutingService::getConfigurationParameter(const std::string& param) const {
         std::lock_guard<std::mutex> lk(_mutex);
-        auto keys = splitKeys(param);
-        Variant sub = _configuration;
-        for (const auto& key : keys) {
-            if (sub.getType() != VariantType::VARIANT_TYPE_OBJECT) return Variant();
-            sub = sub.getObjectElement(key);
-        }
-        return sub;
-    }
+        picojson::value v;
+        std::string err = picojson::parse(v, _configuration);
+        if (!err.empty() || !v.is<picojson::object>()) return {};
 
-    Variant ValhallaRoutingService::setNestedValue(Variant obj,
-                                                    const std::vector<std::string>& keys,
-                                                    int idx,
-                                                    const Variant& value) {
-        const std::string& key = keys[static_cast<std::size_t>(idx)];
-        if (idx == static_cast<int>(keys.size()) - 1) {
-            obj.setObjectElement(key, value);
-            return obj;
+        auto keys = splitKeys(param);
+        const picojson::value* cur = &v;
+        for (const auto& key : keys) {
+            if (!cur->is<picojson::object>()) return {};
+            const auto& obj = cur->get<picojson::object>();
+            auto it = obj.find(key);
+            if (it == obj.end()) return {};
+            cur = &it->second;
         }
-        Variant sub = obj.getObjectElement(key);
-        if (sub.getType() != VariantType::VARIANT_TYPE_OBJECT) {
-            sub = Variant(std::map<std::string, Variant>{});
-        }
-        obj.setObjectElement(key, setNestedValue(std::move(sub), keys, idx + 1, value));
-        return obj;
+        return cur->serialize();
     }
 
     void ValhallaRoutingService::setConfigurationParameter(const std::string& param,
-                                                            const Variant& value) {
+                                                            const std::string& valueJson) {
+        picojson::value newVal;
+        {
+            std::string err = picojson::parse(newVal, valueJson);
+            if (!err.empty()) {
+                throw std::runtime_error("Invalid JSON value for '" + param + "': " + err);
+            }
+        }
+
         std::lock_guard<std::mutex> lk(_mutex);
+        picojson::value v;
+        std::string err = picojson::parse(v, _configuration);
+        if (!err.empty() || !v.is<picojson::object>()) return;
+
         auto keys = splitKeys(param);
-        _configuration = setNestedValue(std::move(_configuration), keys, 0, value);
+        std::function<void(picojson::value&, int)> setNested = [&](picojson::value& node, int idx) {
+            if (!node.is<picojson::object>()) {
+                node = picojson::value(picojson::object());
+            }
+            auto& obj = node.get<picojson::object>();
+            if (idx == static_cast<int>(keys.size()) - 1) {
+                obj[keys[static_cast<std::size_t>(idx)]] = newVal;
+            } else {
+                setNested(obj[keys[static_cast<std::size_t>(idx)]], idx + 1);
+            }
+        };
+        setNested(v, 0);
+        _configuration = v.serialize();
     }
 
     // -----------------------------------------------------------------------
@@ -165,7 +181,7 @@ namespace routing {
                                                  const std::string& jsonBody) const {
         // Snapshot mutable state under the lock.
         std::string profile;
-        Variant config;
+        std::string config;
         {
             std::lock_guard<std::mutex> lk(_mutex);
             profile = _profile;
