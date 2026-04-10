@@ -31,6 +31,7 @@ namespace carto {
     Variant PackageManagerValhallaRoutingService::getConfigurationParameter(const std::string& param) const {
         std::lock_guard<std::mutex> lock(_mutex);
         std::vector<std::string> keys = GeneralUtils::Split(param, '.');
+        picojson::value subValue = _configuration.toPicoJSON();
         for (const std::string& key : keys) {
             if (!subValue.is<picojson::object>()) {
                 return Variant();
@@ -43,6 +44,7 @@ namespace carto {
     void PackageManagerValhallaRoutingService::setConfigurationParameter(const std::string& param, const Variant& value) {
         std::lock_guard<std::mutex> lock(_mutex);
         std::vector<std::string> keys = GeneralUtils::Split(param, '.');
+        picojson::value config = _configuration.toPicoJSON();
         picojson::value* subValue = &config;
         for (const std::string& key : keys) {
             if (!subValue->is<picojson::object>()) {
