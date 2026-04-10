@@ -1,13 +1,31 @@
 {
 	"lite": {
-		"cmake-excludes": "VALHALLA;SQLITE;ROUTING;GEOCODING",
+		"cmake-excludes": "VALHALLA;SQLITE;ROUTING;GEOCODING;PACKAGEMANAGER",
 		"defines": "_CARTO_LITE"
 	},
 
 	"standard": {
-		"cmake-includes": "SQLITE;ROUTING;GEOCODING",
+		"cmake-includes": "SQLITE",
 		"cmake-excludes": "VALHALLA",
-		"defines": "_CARTO_SEARCH_SUPPORT;_CARTO_GEOCODING_SUPPORT;_CARTO_ROUTING_SUPPORT;_CARTO_OFFLINE_SUPPORT;_CARTO_PACKAGEMANAGER_SUPPORT;_CARTO_EDITABLE_SUPPORT;_CARTO_WKBT_SUPPORT"
+		"defines": "_CARTO_SEARCH_SUPPORT;_CARTO_OFFLINE_SUPPORT;_CARTO_EDITABLE_SUPPORT"
+	},
+	"geocoding": {
+		"cmake-includes": "SQLITE;GEOCODING",
+		"cmake-excludes": "VALHALLA",
+		"defines": "_CARTO_GEOCODING_SUPPORT"
+	},
+	"routing": {
+		"cmake-includes": "SQLITE;ROUTING",
+		"cmake-excludes": "VALHALLA",
+		"defines": "_CARTO_ROUTING_SUPPORT"
+	},
+	"wkbt": {
+		"defines": "_CARTO_WKBT_SUPPORT"
+	},
+	"packagemanager": {
+		"cmake-includes": "PACKAGEMANAGER",
+		"cmake-excludes": "VALHALLA",
+		"defines": "_CARTO_PACKAGEMANAGER_SUPPORT"
 	},
 
 	"valhalla": {

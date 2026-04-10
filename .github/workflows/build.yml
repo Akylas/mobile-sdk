@@ -24,7 +24,7 @@ jobs:
       - id: set
         run: |
           echo 'variants=["android","ios"]' >> $GITHUB_OUTPUT
-          echo 'profiles=["standard+valhalla","standard", "lite"]' >> $GITHUB_OUTPUT
+          echo 'profiles=["standard+geocoding+routing+wkbt+packagemanager","standard", "lite"]' >> $GITHUB_OUTPUT
 
   create-release:
     runs-on: ubuntu-latest
