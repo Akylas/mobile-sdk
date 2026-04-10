@@ -24,6 +24,7 @@ endif()
 # so it does NOT propagate to our ValhallaRouting target). Without it, 64-bit builds fail with
 # "call to constructor of 'GenericValue'" in rapidjson/document.h.
 add_definitions("${SDK_CPP_DEFINES}" "-DBOOST_ALL_NO_LIB" "-DHAVE_ZSTD" "-DRAPIDJSON_HAS_STDSTRING=1")
+#add_definitions("${SDK_CPP_DEFINES}" "-DBOOST_ALL_NO_LIB" "-DHAVE_ZSTD")
 
 if(CMAKE_BUILD_TYPE MATCHES "Release|RELEASE")
   add_definitions("-DNDEBUG")
@@ -76,7 +77,7 @@ foreach(SDK_SUBPROJECT IN ITEMS ${ROUTING_EXTERNAL_SUBPROJECTS})
 endforeach()
 
 foreach(SDK_HEADER_LIB IN ITEMS "rapidjson/include")
-  include_directories("${SDK_EXTERNAL_LIBS_DIR}/${SDK_HEADER_LIB}")
+  include_directories("${SDK_EXTERNAL_LIBS_DIR}/valhalla/valhalla/third_party/${SDK_HEADER_LIB}")
 endforeach()
 
 # Collect include dirs from subprojects (each exposes ${name}_INCLUDE_DIRS)

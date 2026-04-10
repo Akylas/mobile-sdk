@@ -33,9 +33,9 @@
 #include <valhalla/odin/directionsbuilder.h>
 
 // rapidjson is always available through valhalla
-#include <rapidjson/document.h>
-#include <rapidjson/stringbuffer.h>
-#include <rapidjson/writer.h>
+// #include <rapidjson/document.h>
+// #include <rapidjson/stringbuffer.h>
+// #include <rapidjson/writer.h>
 
 #include <sstream>
 #include <string>
