@@ -89,7 +89,7 @@ namespace carto {
                     if (iequals(value, "no-cache") || iequals(value, "no-store")) {
                         return 0;
                     }
-                    if (iequals(value.substr(0, 8), "max-age=")) {
+                    if (value.size() >= 8 && iequals(value.substr(0, 8), "max-age=")) {
                         std::string maxAge = trim(value.substr(8));
                         std::string::size_type pos = maxAge.find(' ');
                         if (pos != std::string::npos) {

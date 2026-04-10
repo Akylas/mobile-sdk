@@ -36,6 +36,8 @@
 #include <mapnikvt/MapParser.h>
 #include <cartocss/CartoCSSMapLoader.h>
 
+#include <algorithm>
+#include <cctype>
 #include <functional>
 #include <string>
 
@@ -205,7 +207,9 @@ namespace carto {
                     } else if (value == "false") {
                         val = mvt::Value(false);
                     } else {
-                        val = mvt::Value(value != "0" && value != "false");
+                        std::string lv = value;
+                        std::transform(lv.begin(), lv.end(), lv.begin(), [](unsigned char c) { return std::tolower(c); });
+                        val = mvt::Value(lv == "1" || lv == "true");
                     }
                 } else if (std::get_if<long long>(&val)) {
                     val = mvt::Value(static_cast<long long>(std::stoll(value)));

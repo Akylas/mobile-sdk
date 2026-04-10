@@ -15,6 +15,7 @@
 #include <memory>
 #include <utility>
 #include <algorithm>
+#include <cstdint>
 #include <limits>
 #include <time.h>
 #include <string>
@@ -234,7 +235,7 @@ namespace carto {
                         packageId,
                         packageType,
                         jsonPackageInfo["version"].IsString() ? std::stoi(jsonPackageInfo["version"].GetString()) : jsonPackageInfo["version"].GetInt(),
-                        jsonPackageInfo["size"].IsString() ? static_cast<std::uint64_t>(std::stoull(jsonPackageInfo["size"].GetString())) : static_cast<std::uint64_t>(jsonPackageInfo["size"].GetInt64()),
+                        jsonPackageInfo["size"].IsString() ? static_cast<std::uint64_t>(std::stoull(jsonPackageInfo["size"].GetString())) : static_cast<std::uint64_t>(std::max(static_cast<std::int64_t>(0), jsonPackageInfo["size"].GetInt64())),
                         packageURL,
                         tileMask,
                         metaInfo
