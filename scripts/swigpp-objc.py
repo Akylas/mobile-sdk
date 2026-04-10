@@ -235,8 +235,13 @@ def transformSwigFile(sourcePath, outPath, moduleDirs, headerDirs):
   stl_wrapper = False
   for line in lines_in:
 
-    match = re.search('^\s*(#ifdef )(_CARTO_[^\s]*_SUPPORT)$', line)
+    match = re.search(r'(?:^\s*(?:#ifdef )(_CARTO_[^\s]*_SUPPORT)$|(?:defined\((_CARTO_[^\s]*_SUPPORT)\)))', line)
     if match:
+      if(match.group(1) and not match.group(1) in argsDefines ):
+        print("ignoredSourceFiles %s for define: %s" % (sourcePath, match.group(1)))
+        ignoredSourceFiles.append(sourcePath)
+        return
+      
       if(match.group(2) and not match.group(2) in argsDefines ):
         print("ignoredSourceFiles %s for define: %s" % (sourcePath, match.group(2)))
         ignoredSourceFiles.append(sourcePath)
