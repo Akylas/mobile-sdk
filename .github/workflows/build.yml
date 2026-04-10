@@ -346,6 +346,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: 3.12
+      
+      - name: Install build tools
+        if: matrix.variant == 'android'
+        run: |
+          sudo apt-get install autoconf automake libtool build-essential
 
       - name: ensure dist
         run: mkdir -p dist
@@ -353,6 +358,15 @@ jobs:
       - name: fetch externals
         run: |
           git submodule update --init --remote --recursive
+      
+      - name: prepare boost
+        run: |
+          wget -q -O boost_1_89_0.zip https://sourceforge.net/projects/boost/files/boost/1.89.0/boost_1_89_0.zip
+          unzip -q boost_1_89_0.zip
+          ln -s ../boost_1_89_0 libs-external/boost
+          cd boost_1_89_0
+          ./bootstrap.sh
+          ./b2 headers
 
       - name: Build ValhallaRouting for Android
         if: matrix.variant == 'android'
