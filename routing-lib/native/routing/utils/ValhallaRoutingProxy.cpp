@@ -32,9 +32,8 @@
 #include <valhalla/odin/directionsbuilder.h>
 
 #include <boost/property_tree/ptree.hpp>
-#include <picojson.h>
+#include <picojson/picojson.h>
 
-#include <sstream>
 #include <string>
 #include <unordered_map>
 

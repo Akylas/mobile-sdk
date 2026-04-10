@@ -4,7 +4,7 @@
 #include "../log/Log.h"
 #include "../utils/StringUtils.h"
 
-#include <picojson.h>
+#include <picojson/picojson.h>
 #include <sqlite3pp.h>
 #include <stdexcept>
 #include <functional>
