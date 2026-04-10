@@ -21,21 +21,22 @@ def buildRoutingLib(args, baseArch):
     baseDir  = getBaseDir()
     buildDir = getBuildDir('routing-ios', '%s-%s' % (platform, arch))
 
-    sysroot = {
-        'OS':          'iphoneos',
-        'SIMULATOR':   'iphonesimulator',
-        'MACCATALYST': 'macosx',
-    }[platform]
     deployTarget = '13.0' if platform == 'MACCATALYST' else '12.0'
+    defines = ["-D%s" % define for define in args.defines.split(';') if define]
 
     if not cmake(args, buildDir, [
         '-G', 'Xcode',
         '-DCMAKE_SYSTEM_NAME=%s'             % ('Darwin' if platform == 'MACCATALYST' else 'iOS'),
         '-DCMAKE_OSX_ARCHITECTURES=%s'        % arch,
-        '-DCMAKE_OSX_SYSROOT=%s'              % sysroot,
         '-DCMAKE_OSX_DEPLOYMENT_TARGET=%s'    % deployTarget,
+        '-DCMAKE_OSX_SYSROOT=%s' % ('macosx' if platform == 'MACCATALYST' else 'iphone%s' % platform.lower()),
+        '-DCMAKE_OSX_DEPLOYMENT_TARGET=%s' % ('11.3' if platform == 'MACCATALYST' else ('11.0' if arch == 'i386' else '9.0')),
+        "-DSDK_CPP_DEFINES=%s" % " ".join(defines),
         '-DCMAKE_BUILD_TYPE=%s'               % args.configuration,
         '-DSDK_VERSION=%s'                    % version,
+        "-DSDK_PLATFORM='iOS'",
+        "-DSDK_IOS_ARCH='%s'" % arch,
+        "-DSDK_IOS_BASEARCH='%s'" % baseArch,
         '%s/scripts/routing' % baseDir
     ]):
         return False
@@ -128,6 +129,7 @@ def buildRoutingXCFramework(args, baseArchs):
 
 
 parser = argparse.ArgumentParser(description="Build Valhalla routing library for iOS (XCFramework)")
+parser.add_argument('--defines', dest='defines', default='', help='Defines for compilation')
 parser.add_argument('--cmake',           dest='cmake',          default='cmake', help='CMake executable')
 parser.add_argument('--ios-arch',        dest='iosarch',        default=[],
                     choices=IOS_ARCHS + ['all'], action='append', help='iOS target architectures')
@@ -138,6 +140,8 @@ parser.add_argument('--build-version',   dest='buildversion',   default='%s-deve
                     help='Build version, embedded in the dist file name')
 parser.add_argument('--build-xcframework', dest='buildxcframework', default=True, action='store_true')
 args = parser.parse_args()
+
+args.defines += ';' + 'ZSTD_STATIC_LINKING_ONLY'
 
 if 'all' in args.iosarch or args.iosarch == []:
     args.iosarch = IOS_ARCHS
