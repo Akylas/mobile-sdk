@@ -1,0 +1,61 @@
+plugins {
+    id 'com.android.library'
+    id 'de.undercouch.download' version '5.1.1'
+}
+
+def aarUrl     = project.findProperty("routingAarUrl") ?: System.getenv("ROUTING_AAR_URL") ?: ""
+def libVersion = project.findProperty("version")       ?: System.getenv("VERSION")          ?: "1.0.0"
+
+if (!aarUrl) {
+    throw new GradleException("Missing 'routingAarUrl' property or ROUTING_AAR_URL env var")
+}
+
+android {
+    compileSdk 35
+    defaultConfig {
+        minSdk 21
+        targetSdk 35
+        versionCode 1
+        versionName libVersion
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+repositories {
+    google()
+    mavenCentral()
+}
+
+def aarFile = file("$buildDir/libs/valhalla-routing.aar")
+
+tasks.register('downloadRoutingAAR', de.undercouch.gradle.tasks.download.Download) {
+    src  aarUrl
+    dest aarFile
+    overwrite true
+}
+
+dependencies {
+    implementation files(aarFile)
+}
+
+tasks.whenTaskAdded { task ->
+    if (task.name.startsWith('assemble') || task.name.startsWith('bundle')) {
+        task.dependsOn tasks.named('downloadRoutingAAR')
+    }
+}
+
+publishing {
+    publications {
+        release(MavenPublication) {
+            groupId    = 'com.akylas.routing'
+            artifactId = 'valhalla-routing'
+            version    = libVersion
+            artifact(aarFile) {
+                extension = 'aar'
+            }
+        }
+    }
+}

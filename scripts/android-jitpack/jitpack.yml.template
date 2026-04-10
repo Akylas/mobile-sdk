@@ -11,3 +11,5 @@ env:
   USE_CLASSIFIER: "true"
   VARIANTS: "$variants"
   AAR_URLS: "$aarUrls"
+  ROUTING_AAR_URL: "$routingAarUrl"
+

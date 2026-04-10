@@ -1,0 +1,69 @@
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.13.2'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:2.2.0"
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    buildDir = '../../build/routing-android-aar'
+}
+
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+
+android {
+    namespace "com.akylas.routing"
+    compileSdkVersion 36
+
+    defaultConfig {
+        minSdkVersion 21
+        targetSdkVersion 36
+        versionCode 1
+        versionName System.getProperty('build-version', '1.0.0')
+    }
+
+    sourceSets {
+        main {
+            kotlin.srcDirs = ['../../routing-lib/android/src/main/kotlin']
+            manifest.srcFile '../../routing-lib/android/src/main/AndroidManifest.xml'
+            // Pick up pre-built .so files produced by build-routing-android.py cmake step
+            jniLibs.srcDir '../../dist/routing-android'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+    packagingOptions {
+        doNotStrip "*/*/libvalhalla_routing.so"
+    }
+
+    lintOptions {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+}
+
+group = 'com.akylas.routing'
+version = System.getProperty('build-version', '1.0.0')

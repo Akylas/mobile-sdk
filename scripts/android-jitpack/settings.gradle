@@ -1,1 +1,4 @@
 rootProject.name = "MyLibraryWrapper"
+
+include ':routing'
+project(':routing').projectDir = file('routing')

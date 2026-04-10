@@ -282,9 +282,133 @@ jobs:
           retention-days: 7
           if-no-files-found: error
   
+  build-routing:
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        variant: ["android", "ios"]
+    runs-on: ${{ matrix.variant == 'android' && 'ubuntu-latest' || 'macos-latest' }}
+    needs: [create-release, prepare]
+    if: always()
+    name: "ValhallaRouting ${{ matrix.variant }}"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: maxim-lobanov/setup-xcode@7f352e61cbe8130c957c3bc898c4fb025784ea1e
+        if: matrix.variant == 'ios'
+        with:
+          xcode-version: 16.4
+
+      - name: Setup cmake
+        uses: jwlawson/actions-setup-cmake@v2
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        if: matrix.variant == 'android'
+        with:
+          java-version: 17
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        if: matrix.variant == 'android'
+        uses: android-actions/setup-android@v3
+
+      - uses: nttld/setup-ndk@v1.5.0
+        if: matrix.variant == 'android'
+        id: setup-ndk
+        with:
+          ndk-version: r27
+          add-to-path: true
+          link-to-sdk: true
+          local-cache: true
+
+      - name: Restore Android Symlinks
+        if: matrix.variant == 'android'
+        run: |
+          directory="${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          find "$directory" -type l | while read link; do
+              current_target=$(readlink "$link")
+              new_target="$directory/$(basename "$current_target")"
+              ln -sf "$new_target" "$link"
+              echo "Changed $(basename "$link") from $current_target to $new_target"
+          done
+
+      - name: Setup Gradle
+        if: matrix.variant == 'android'
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.14.3"
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+
+      - name: ensure dist
+        run: mkdir -p dist
+
+      - name: Build ValhallaRouting for Android
+        if: matrix.variant == 'android'
+        run: |
+          cd scripts
+          python build-routing-android.py --build-version ${{ github.event.inputs.version }}
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+
+      - name: Build ValhallaRouting for iOS
+        if: matrix.variant == 'ios'
+        run: |
+          cd scripts
+          python build-routing-ios.py --build-version ${{ github.event.inputs.version }} --build-xcframework
+
+      - name: Upload routing release asset (Android)
+        if: github.event.inputs.publish == 'true' && matrix.variant == 'android'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${{ needs.create-release.outputs.VERSION_TAG }} dist/routing-android/*.aar
+
+      - name: Upload routing release asset (iOS)
+        if: github.event.inputs.publish == 'true' && matrix.variant == 'ios'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${{ needs.create-release.outputs.VERSION_TAG }} dist/routing-ios/*.zip
+
+      - name: Write routing checksum JSON (iOS)
+        if: github.event.inputs.publish == 'true' && matrix.variant == 'ios'
+        run: |
+          SHA=$(sha256sum dist/routing-ios/*.zip | awk '{print $1}')
+          printf '{"routing":"%s"}\n' "$SHA" > dist/routing-checksum.json
+
+      - uses: actions/upload-artifact@v4
+        if: github.event.inputs.publish == 'true' && matrix.variant == 'ios'
+        with:
+          name: routing-checksum
+          path: dist/routing-checksum.json
+
+      - uses: actions/upload-artifact@v4
+        if: github.event.inputs.publish != 'true' && matrix.variant == 'ios'
+        with:
+          name: ValhallaRouting-ios
+          path: dist/routing-ios/*.zip
+          retention-days: 7
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        if: github.event.inputs.publish != 'true' && matrix.variant == 'android'
+        with:
+          name: ValhallaRouting-android
+          path: dist/routing-android/*.aar
+          retention-days: 7
+          if-no-files-found: error
+
   create-jitpack-swiftpackage-release:
     runs-on: ubuntu-latest
-    needs: [prepare, build]
+    needs: [prepare, build, build-routing]
     if: github.event.inputs.publish == 'true'
     permissions:
       contents: write # release changes require contents write
@@ -386,6 +510,13 @@ jobs:
           print('Wrote combined_ios_checksums.json with keys:', list(out.keys()))
           PY
 
+      - name: Download routing checksum artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: routing-checksum
+          path: routing-checksum
+        continue-on-error: true
+
       - name: Checkout mobile-sdk-ios-swift
         uses: actions/checkout@v4
         with:
@@ -396,7 +527,16 @@ jobs:
       - name: Generate Package.swift using precomputed checksums and publish/tag
         run: |
           PROFILES_CSV=$(echo '${{ needs.prepare.outputs.profiles }}' | python3 -c 'import json,sys; print(",".join(json.load(sys.stdin)))')
-          python ./scripts/generate-swiftpackage.py --version ${{ github.event.inputs.version }} --profiles "$PROFILES_CSV" --checksums-file ./combined_ios_checksums.json
+          # Extract routing checksum if available
+          ROUTING_CHECKSUM=""
+          if [ -f routing-checksum/routing-checksum.json ]; then
+            ROUTING_CHECKSUM=$(python3 -c 'import json; d=json.load(open("routing-checksum/routing-checksum.json")); print(d.get("routing",""))')
+          fi
+          ROUTING_ARGS=""
+          if [ -n "$ROUTING_CHECKSUM" ]; then
+            ROUTING_ARGS="--routing-checksum $ROUTING_CHECKSUM"
+          fi
+          python ./scripts/generate-swiftpackage.py --version ${{ github.event.inputs.version }} --profiles "$PROFILES_CSV" --checksums-file ./combined_ios_checksums.json $ROUTING_ARGS
           cd mobile-sdk-ios-swift
           # pass checksums file path relative to repo path
           mv -f ../dist/ios_metal/Package.swift ./
@@ -409,7 +549,7 @@ jobs:
   cleanup-release:
     name: Delete draft release on failed/cancelled runs
     runs-on: ubuntu-latest
-    needs: [create-release, build, create-jitpack-swiftpackage-release]
+    needs: [create-release, build, build-routing, create-jitpack-swiftpackage-release]
     # run only when the overall workflow failed or was cancelled
     if: ${{ failure() || cancelled() }}
     permissions:
@@ -427,7 +567,7 @@ jobs:
 
   update-release:
     runs-on: ubuntu-latest
-    needs: [create-release, build, create-jitpack-swiftpackage-release]
+    needs: [create-release, build, build-routing, create-jitpack-swiftpackage-release]
     if: github.event.inputs.publish == 'true'
     permissions:
       contents: write # release changes require contents write
