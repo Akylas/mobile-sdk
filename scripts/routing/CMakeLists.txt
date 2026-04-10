@@ -19,7 +19,11 @@ else()
 endif()
 
 # C++ defines (matching main CMakeLists.txt)
-add_definitions("${SDK_CPP_DEFINES}" "-DBOOST_ALL_NO_LIB" "-DHAVE_ZSTD")
+# RAPIDJSON_HAS_STDSTRING: required by valhalla headers when used from outside the valhalla
+# subproject (which adds this define via add_compile_options() in its own subdirectory scope,
+# so it does NOT propagate to our ValhallaRouting target). Without it, 64-bit builds fail with
+# "call to constructor of 'GenericValue'" in rapidjson/document.h.
+add_definitions("${SDK_CPP_DEFINES}" "-DBOOST_ALL_NO_LIB" "-DHAVE_ZSTD" "-DRAPIDJSON_HAS_STDSTRING=1")
 
 if(CMAKE_BUILD_TYPE MATCHES "Release|RELEASE")
   add_definitions("-DNDEBUG")
