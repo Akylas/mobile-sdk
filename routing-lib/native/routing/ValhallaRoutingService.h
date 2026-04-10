@@ -109,6 +109,8 @@ namespace routing {
         std::string callRaw(const std::string& endpoint,
                             const std::string& jsonBody) const;
 
+        std::string parseShape(const std::string& shape);
+
     private:
         // Database lifecycle helpers
         std::vector<std::shared_ptr<sqlite3pp::database>> acquireDatabases() const;

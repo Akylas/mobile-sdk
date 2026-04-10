@@ -125,6 +125,13 @@ Java_com_akylas_routing_ValhallaRoutingService_nativeAddLocale(
         JNIEnv* env, jobject, jlong ptr, jstring jkey, jstring jjson) {
     toService(ptr)->addLocale(jstringToStr(env, jkey), jstringToStr(env, jjson));
 }
+JNIEXPORT jstring JNICALL
+Java_com_akylas_routing_ValhallaRoutingService_nativeParseShape(
+        JNIEnv* env, jobject, jlong ptr, jstring jShape, jstring jjson) {
+    std::string val = toService(ptr)->parseShape(jstringToStr(env, jShape));
+    if (val.empty()) return nullptr;
+    return strToJString(env, val);
+}
 
 JNIEXPORT jstring JNICALL
 Java_com_akylas_routing_ValhallaRoutingService_nativeCallRaw(

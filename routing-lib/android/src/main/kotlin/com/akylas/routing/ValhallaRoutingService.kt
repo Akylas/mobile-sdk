@@ -72,6 +72,11 @@ class ValhallaRoutingService(paths: List<String> = emptyList()) : AutoCloseable 
      */
     fun addLocale(key: String, json: String): Unit = nativeAddLocale(nativePtr, key, json)
 
+    /**
+     * Parse a valhalla response shape into [[lon,lat]...]
+     */
+    fun parseShape(shape: String): String = nativeParseShape(nativePtr, shape)
+
     // -----------------------------------------------------------------------
     // Routing API — all return raw Valhalla JSON
     // -----------------------------------------------------------------------
@@ -128,6 +133,7 @@ class ValhallaRoutingService(paths: List<String> = emptyList()) : AutoCloseable 
     private external fun nativeGetConfigParam(ptr: Long, key: String): String?
     private external fun nativeSetConfigParam(ptr: Long, key: String, jsonValue: String)
     private external fun nativeAddLocale(ptr: Long, key: String, json: String)
+    private external fun nativeParseShape(ptr: Long, shape: String): String
     private external fun nativeCallRaw(ptr: Long, endpoint: String, jsonBody: String): String
 
     companion object {

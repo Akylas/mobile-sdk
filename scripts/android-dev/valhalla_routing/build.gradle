@@ -3,11 +3,13 @@ apply plugin: 'kotlin-android'
 
 android {
     namespace 'com.akylas.routing'
-    compileSdkVersion 35
+    compileSdkVersion 36
+
+    ndkVersion "27.3.13750724"
 
     defaultConfig {
         minSdkVersion 21
-        targetSdkVersion 35
+        targetSdkVersion 36
         versionCode 1
         versionName "1.0"
 
@@ -28,7 +30,7 @@ android {
     externalNativeBuild {
         cmake {
             // Points at the routing-lib JNI CMakeLists (relative to this module)
-            path file("${projectDir}/../../../routing-lib/android/src/main/cpp/CMakeLists.txt")
+            path file("${projectDir}/../../routing/CMakeLists.txt")
         }
     }
 

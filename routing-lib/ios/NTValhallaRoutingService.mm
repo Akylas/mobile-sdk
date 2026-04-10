@@ -173,6 +173,11 @@ static NSString *serializeRouteMatchingRequest(NTRouteMatchingRequest *req) {
     _service->setProfile(profile.UTF8String);
 }
 
+- (NSString *)parseShape:(NSString *)shape {
+    return [NSString stringWithUTF8String:_service->parseShape(shape.UTF8String).c_str()];
+}
+
+
 - (nullable NSString *)configurationParameterForKey:(NSString *)key {
     std::string val = _service->getConfigurationParameter(key.UTF8String);
     if (val.empty()) return nil;

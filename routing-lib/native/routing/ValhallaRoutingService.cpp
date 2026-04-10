@@ -9,6 +9,12 @@
 #include <stdexcept>
 #include <functional>
 
+
+#include <valhalla/midgard/encoded.h>
+#include <valhalla/midgard/pointll.h>
+#include <charconv>
+#include <cstdio>
+
 namespace routing {
 
     // -----------------------------------------------------------------------
@@ -213,6 +219,57 @@ namespace routing {
                     endpoint.c_str(), static_cast<int>(dbs.size()));
 
         return ValhallaRoutingProxy::CallRaw(dbs, config, endpoint, body);
+    }
+
+    std::string ValhallaRoutingService::parseShape(const std::string &shapeStr) {
+        // Decode the compact valhalla shape into a vector of PointLL (lon, lat)
+        auto shape = valhalla::midgard::decode<std::vector<valhalla::midgard::PointLL> >(shapeStr);
+
+        // Fast path for empty shape
+        if (shape.empty()) return "[]";
+
+        // Build JSON array: [[lon,lat],[lon,lat],...]
+        // Use a small stack buffer and std::to_chars for fast number -> chars conversion.
+        std::string out;
+        out.reserve(shape.size() * 24); // heuristic reserve to avoid many reallocs
+        out.push_back('[');
+
+        char buf[64]; // enough for double textual representation
+        for (std::size_t i = 0; i < shape.size(); ++i) {
+            if (i) out.push_back(',');
+            out.push_back('[');
+
+            // valhalla::midgard::PointLL is typedef'd as std::pair<float,float>
+            // where first = lon, second = lat
+            double lon = static_cast<double>(shape[i].first);
+            double lat = static_cast<double>(shape[i].second);
+
+            // Convert lon
+            auto res1 = std::to_chars(buf, buf + sizeof(buf), lon);
+            if (res1.ec == std::errc()) {
+                out.append(buf, res1.ptr);
+            } else {
+                // fallback: snprintf with 6 fractional digits
+                int n = std::snprintf(buf, sizeof(buf), "%.6f", lon);
+                if (n > 0) out.append(buf, static_cast<std::size_t>(n));
+            }
+
+            out.push_back(',');
+
+            // Convert lat
+            auto res2 = std::to_chars(buf, buf + sizeof(buf), lat);
+            if (res2.ec == std::errc()) {
+                out.append(buf, res2.ptr);
+            } else {
+                int n = std::snprintf(buf, sizeof(buf), "%.6f", lat);
+                if (n > 0) out.append(buf, static_cast<std::size_t>(n));
+            }
+
+            out.push_back(']');
+        }
+
+        out.push_back(']');
+        return out;
     }
 
 } // namespace routing

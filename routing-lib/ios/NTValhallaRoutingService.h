@@ -114,7 +114,12 @@ NS_ASSUME_NONNULL_BEGIN
  * Register a Valhalla locale so that narrative instructions are generated
  * in the given language.
  */
-- (void)addLocaleWithKey:(NSString *)key json:(NSString *)json;
+- (void)addLocaleWithKey:(NSString *)key json:(NSString *)json;----------------------
+
+/**
+ * Parse a Valhalla response shape
+ */
+- (NSString *)parseShape:(NSString *)shape;
 
 // -- Routing API ------------------------------------------------------------
 
