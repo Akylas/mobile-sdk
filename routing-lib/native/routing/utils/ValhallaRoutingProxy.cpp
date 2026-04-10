@@ -31,13 +31,52 @@
 #include <valhalla/odin/util.h>
 #include <valhalla/odin/directionsbuilder.h>
 
-#include <boost/property_tree/json_parser.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <picojson.h>
 
 #include <sstream>
 #include <string>
 #include <unordered_map>
 
 namespace routing {
+
+// -------------------------------------------------------------------------
+// picojson → boost::property_tree::ptree converter
+// Avoids boost::property_tree::json_parser (which would pull in extra deps).
+// -------------------------------------------------------------------------
+static void picojsonToPtree(const picojson::value& v, boost::property_tree::ptree& pt) {
+    if (v.is<picojson::object>()) {
+        for (const auto& kv : v.get<picojson::object>()) {
+            boost::property_tree::ptree child;
+            picojsonToPtree(kv.second, child);
+            pt.add_child(kv.first, child);
+        }
+    } else if (v.is<picojson::array>()) {
+        for (const auto& item : v.get<picojson::array>()) {
+            boost::property_tree::ptree child;
+            picojsonToPtree(item, child);
+            pt.push_back({"", child});
+        }
+    } else if (v.is<std::string>()) {
+        pt.put_value(v.get<std::string>());
+    } else if (v.is<double>()) {
+        pt.put_value(v.get<double>());
+    } else if (v.is<bool>()) {
+        pt.put_value(v.get<bool>());
+    }
+    // null → empty node (default)
+}
+
+static boost::property_tree::ptree parseConfigToPtree(const std::string& json) {
+    picojson::value v;
+    std::string err = picojson::parse(v, json);
+    if (!err.empty()) {
+        throw std::runtime_error("Valhalla config JSON parse error: " + err);
+    }
+    boost::property_tree::ptree pt;
+    picojsonToPtree(v, pt);
+    return pt;
+}
 
 // -------------------------------------------------------------------------
 // Module-level locale registry (shared across all proxy calls)
@@ -82,9 +121,7 @@ std::string ValhallaRoutingProxy::CallRaw(
 
     std::string result;
     try {
-        std::stringstream ss(config);
-        boost::property_tree::ptree configTree;
-        boost::property_tree::json_parser::read_json(ss, configTree);
+        boost::property_tree::ptree configTree = parseConfigToPtree(config);
         auto reader = std::make_shared<valhalla::baldr::GraphReader>(databases);
 
         valhalla::Api api;
