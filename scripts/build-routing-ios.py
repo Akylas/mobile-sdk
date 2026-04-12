@@ -17,7 +17,7 @@ def getFinalBuildDir(target, arch=None):
   return getBuildDir( target, arch)
 
 def getFinalDistDir(args):
-  return getDistDir('ios')
+  return getDistDir('routing-ios')
 
 def getPlatformArch(baseArch):
   if baseArch.endswith('-maccatalyst'):
