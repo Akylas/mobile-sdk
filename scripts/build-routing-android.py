@@ -43,6 +43,8 @@ def buildRoutingSO(args, abi):
         "-DCMAKE_TOOLCHAIN_FILE='%s/build/cmake/android.toolchain.cmake'" % args.androidndkpath,
         "-DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=ON",
         "-DCMAKE_SYSTEM_NAME=Android",
+        '-DSINGLE_LIBRARY:BOOL=ON',
+        "-DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=ON",
         "-DCMAKE_BUILD_TYPE=%s" % args.configuration,
         "-DCMAKE_MAKE_PROGRAM='%s'" % args.make,
         "-DCMAKE_ANDROID_NDK='%s'" % args.androidndkpath,
