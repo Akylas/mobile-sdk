@@ -106,7 +106,7 @@ def copyXCFrameworkHeaders(args, baseDir, outputDir):
 #     if not copyfile(os.path.join(dirpath, filename), '%s/%s' % (destDir, destFilename)):
 #       return False  
 
-  if not copyfile('%s/ios/objc/%s.h' % (baseDir, FRAMEWORK_NAME), '%s/%s.h' % (destDir, FRAMEWORK_NAME)):
+  if not copyfile('%s/scripts/routing-ios/%s.h' % (baseDir, FRAMEWORK_NAME), '%s/%s.h' % (destDir, FRAMEWORK_NAME)):
     return False
   updateUmbrellaHeader('%s/%s.h' % (destDir, FRAMEWORK_NAME), args.defines)
 
@@ -119,7 +119,6 @@ def buildIOSLib(args, baseArch, outputDir=None):
   buildDir = outputDir or getFinalBuildDir('routing-ios', '%s-%s' % (platform, arch))
   defines = ["-D%s" % define for define in args.defines.split(';') if define]
   options = ["-D%s" % option for option in args.cmakeoptions.split(';') if option]
-  print('defines %s' % defines)
 
   if not cmake(args, buildDir, options + [
     '-G', 'Xcode',
@@ -173,7 +172,7 @@ def buildIOSXCFramework(args, baseArchs, outputDir=None):
   frameworkBuildDirs = []
   frameworkOptions = []
 
-  headersDir = getFinalBuildDir('ios', 'Headers')
+  headersDir = getFinalBuildDir('routing-ios', 'Headers')
   makedirs(headersDir)
   if not copyXCFrameworkHeaders(args, baseDir, headersDir):
     return False
@@ -182,11 +181,11 @@ def buildIOSXCFramework(args, baseArchs, outputDir=None):
     for baseArch in baseArchs:
       platform, arch = getPlatformArch(baseArch)
       if platform == 'MACCATALYST':
-        libFilePath = "%s/%s/libvalhalla_routing.%s" % (getFinalBuildDir('ios', '%s-%s' % (platform, arch)), args.configuration, 'dylib' if args.sharedlib else 'a')
+        libFilePath = "%s/%s/libvalhalla_routing.%s" % (getFinalBuildDir('routing-ios', '%s-%s' % (platform, arch)), args.configuration, 'dylib' if args.sharedlib else 'a')
       else:
-        libFilePath = "%s/%s-%s/libvalhalla_routing.%s" % (getFinalBuildDir('ios', '%s-%s' % (platform, arch)), args.configuration, ('iphone%s' % platform.lower()), 'dylib' if args.sharedlib else 'a')
+        libFilePath = "%s/%s-%s/libvalhalla_routing.%s" % (getFinalBuildDir('routing-ios', '%s-%s' % (platform, arch)), args.configuration, ('iphone%s' % platform.lower()), 'dylib' if args.sharedlib else 'a')
       libFilePaths.append(libFilePath)
-    libFinalPath = "%s/%s.a" % (getFinalBuildDir('ios', platform), FRAMEWORK_NAME)
+    libFinalPath = "%s/%s.a" % (getFinalBuildDir('routing-ios', platform), FRAMEWORK_NAME)
     if not execute('lipo', baseDir,
       '-output', libFinalPath,
       '-create', *libFilePaths

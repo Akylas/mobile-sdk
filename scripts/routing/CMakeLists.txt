@@ -83,6 +83,9 @@ if(SINGLE_LIBRARY)
       if(ANDROID OR APPLE)
         if(SDK_SUBPROJECT MATCHES "^(zstd)$")
           set(SUBPROJECT_FLAGS ${SUBPROJECT_FLAGS} "-O2")
+          if (APPLE)
+            set(SUBPROJECT_FLAGS ${SUBPROJECT_FLAGS} "-fno-modules")
+          endif()
         else()
           set(SUBPROJECT_FLAGS ${SUBPROJECT_FLAGS} "-Oz")
         endif()
@@ -161,7 +164,6 @@ add_library(valhalla_routing ${ROUTING_LIBRARY_TYPE}
 if(ANDROID)
   target_link_libraries(valhalla_routing log z android)
 elseif(APPLE)
-  target_compile_options(zstd INTERFACE -fno-modules)
 
   target_link_libraries(valhalla_routing
     "-framework Foundation"
