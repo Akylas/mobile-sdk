@@ -112,8 +112,8 @@ file(GLOB_RECURSE SDK_SRC_FILES
 # Platform-specific sources
 if(ANDROID)
   file(GLOB SDK_ANDROID_SRC_FILES
-    "${ROUTING_SRC_DIR}/android/*/*.cpp"
-    "${ROUTING_SRC_DIR}/android/*/*.h"
+    "${ROUTING_SRC_DIR}/android/src/main/*/*.cpp"
+    "${ROUTING_SRC_DIR}/android/src/main/*/*.h"
   )
   set(SDK_SRC_FILES "${SDK_SRC_FILES}" "${SDK_ANDROID_SRC_FILES}")
 elseif(APPLE)
