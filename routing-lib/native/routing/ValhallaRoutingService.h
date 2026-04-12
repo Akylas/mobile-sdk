@@ -9,6 +9,27 @@ namespace sqlite3pp {
     class database;
 }
 
+inline void append_double(char* buf, size_t buf_size, std::string& out, double value) {
+    // "%.17g" = closest equivalent to default to_chars for double
+    int n = std::snprintf(buf, buf_size, "%.6f", value);
+
+    if (n > 0) {
+        // clamp in case of truncation
+        size_t len = static_cast<size_t>(n) < buf_size ? static_cast<size_t>(n) : buf_size;
+        out.append(buf, len);
+    }
+
+    // auto res1 = std::to_chars(buf, buf + sizeof(buf), value);
+    // append_double(buf, sizeof(buf), out, value);
+    // if (res1.ec == std::errc()) {
+    //     out.append(buf, res1.ptr);
+    // } else {
+    //     // fallback: snprintf with 6 fractional digits
+    //     int n = std::snprintf(buf, sizeof(buf), "%.6f", value);
+    //     if (n > 0) out.append(buf, static_cast<std::size_t>(n));
+    // }
+}
+
 namespace routing {
 
     /**

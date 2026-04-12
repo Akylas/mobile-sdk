@@ -283,6 +283,7 @@ add_library(carto_mobile_sdk ${SDK_LIBRARY_TYPE} ${SDK_SRC_FILES} ${SDK_OBJECTS}
 if(ANDROID)
   target_link_libraries(carto_mobile_sdk EGL GLESv2 z log android jnigraphics)
 elseif(APPLE)
+  target_compile_options(zstd INTERFACE -fno-modules)
   target_link_libraries(carto_mobile_sdk "-framework Foundation" "-framework CoreGraphics" "-framework CoreText" "-framework CFNetwork" "-framework UIKit")
   if(SDK_CPP_DEFINES MATCHES ".*_CARTO_USE_METALANGLE.*")
     target_link_libraries(carto_mobile_sdk "-weak_framework OpenGLES" "-weak_framework Metal" "-framework QuartzCore")

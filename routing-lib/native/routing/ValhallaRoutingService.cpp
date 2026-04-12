@@ -220,6 +220,7 @@ namespace routing {
 
         return ValhallaRoutingProxy::CallRaw(dbs, config, endpoint, body);
     }
+    
 
     std::string ValhallaRoutingService::parseShape(const std::string &shapeStr) {
         // Decode the compact valhalla shape into a vector of PointLL (lon, lat)
@@ -245,25 +246,27 @@ namespace routing {
             double lat = static_cast<double>(shape[i].second);
 
             // Convert lon
-            auto res1 = std::to_chars(buf, buf + sizeof(buf), lon);
-            if (res1.ec == std::errc()) {
-                out.append(buf, res1.ptr);
-            } else {
-                // fallback: snprintf with 6 fractional digits
-                int n = std::snprintf(buf, sizeof(buf), "%.6f", lon);
-                if (n > 0) out.append(buf, static_cast<std::size_t>(n));
-            }
+            // auto res1 = std::to_chars(buf, buf + sizeof(buf), lon);
+            append_double(buf, sizeof(buf), out, lon);
+            // if (res1.ec == std::errc()) {
+            //     out.append(buf, res1.ptr);
+            // } else {
+            //     // fallback: snprintf with 6 fractional digits
+            //     int n = std::snprintf(buf, sizeof(buf), "%.6f", lon);
+            //     if (n > 0) out.append(buf, static_cast<std::size_t>(n));
+            // }
 
             out.push_back(',');
 
             // Convert lat
-            auto res2 = std::to_chars(buf, buf + sizeof(buf), lat);
-            if (res2.ec == std::errc()) {
-                out.append(buf, res2.ptr);
-            } else {
-                int n = std::snprintf(buf, sizeof(buf), "%.6f", lat);
-                if (n > 0) out.append(buf, static_cast<std::size_t>(n));
-            }
+            // auto res2 = std::to_chars(buf, buf + sizeof(buf), lat);
+            append_double(buf, sizeof(buf), out, lat);
+            // if (res2.ec == std::errc()) {
+            //     out.append(buf, res2.ptr);
+            // } else {
+            //     int n = std::snprintf(buf, sizeof(buf), "%.6f", lat);
+            //     if (n > 0) out.append(buf, static_cast<std::size_t>(n));
+            // }
 
             out.push_back(']');
         }
