@@ -261,3 +261,5 @@ for arch in args.iosarch:
 if not buildIOSXCFramework(args, args.iosarch):
     sys.exit(-1)
 
+if not buildIOSPackage(args):
+  sys.exit(-1)
