@@ -245,7 +245,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: github.event.inputs.publish != 'true' && matrix.variant == 'ios'
         with:
-          name:  CartoSDK-{{matrix.variant}}-{{ matrix.profile }}
+          name:  CartoSDK-ios-{{matrix.variant}}-{{ matrix.profile }}
           path: |
             dist/ios_metal/*.zip
           retention-days: 7
@@ -267,7 +267,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: github.event.inputs.publish != 'true' && matrix.variant == 'android'
         with:
-          name:  CartoSDK-{{matrix.variant}}-{{ matrix.profile }}
+          name:  CartoSDK-android-{{matrix.variant}}-{{ matrix.profile }}
           path: |
             dist/android/*android*.aar
           retention-days: 7

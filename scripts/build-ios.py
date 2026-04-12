@@ -403,6 +403,5 @@ else:
   if not buildIOSFramework(args, args.iosarch):
     sys.exit(-1)
 
-# if args.buildcocoapod:
 if not buildIOSPackage(args):
   sys.exit(-1)

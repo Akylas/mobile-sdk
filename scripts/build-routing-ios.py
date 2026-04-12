@@ -207,7 +207,7 @@ def buildIOSPackage(args):
   baseDir = getBaseDir()
   distDir = getFinalDistDir(args)
   version = args.buildversion
-  distName = getIOSZipDistName(version, args.profile)
+  distName = getRoutingIOSZipDistName(version, args.profile)
   frameworkName = FRAMEWORK_NAME
   frameworkDir = '%s.%s' % (FRAMEWORK_NAME, "xcframework" if args.buildxcframework else "framework")
   frameworks = ["CFNetwork", "Foundation"]
