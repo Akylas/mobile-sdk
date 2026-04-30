@@ -3,6 +3,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <map>
 
 namespace sqlite3pp {
     class database;
@@ -52,7 +53,8 @@ namespace routing {
             HTTPClient& httpClient,
             const std::string& baseURL,
             const std::string& endpoint,
-            const std::string& jsonBody);
+            const std::string& jsonBody,
+            std::map<std::string, std::string>& headers);
 
         // ----------------------------------------------------------------
         // Shared utilities

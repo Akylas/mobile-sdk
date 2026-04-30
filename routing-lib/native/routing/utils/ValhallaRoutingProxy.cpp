@@ -205,12 +205,13 @@ std::string ValhallaRoutingProxy::CallRaw(
         HTTPClient& httpClient,
         const std::string& baseURL,
         const std::string& endpoint,
-        const std::string& jsonBody) {
+        const std::string& jsonBody,
+        std::map<std::string, std::string>& headers) {
     std::string url = baseURL;
     if (!url.empty() && url.back() == '/') url.pop_back();
     url += "/" + endpoint;
     Log::debugf("ValhallaRoutingProxy::CallRaw (HTTP): url=%s", url.c_str());
-    return httpClient.post(url, jsonBody);
+    return httpClient.post(url, jsonBody, headers);
 }
 
 } // namespace routing
