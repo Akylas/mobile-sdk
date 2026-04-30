@@ -8,6 +8,7 @@
 #include <jni.h>
 
 #include "../../../../native/routing/ValhallaRoutingService.h"
+#include <picojson/picojson.h>
 
 #include <string>
 #include <stdexcept>
@@ -149,10 +150,41 @@ Java_com_akylas_routing_ValhallaRoutingService_nativeCallRaw(
 
 JNIEXPORT jstring JNICALL
 Java_com_akylas_routing_ValhallaOnlineRoutingService_nativeHttpPost(
-        JNIEnv* env, jobject /*thiz*/, jstring jurl, jstring jbody) {
+        JNIEnv* env, jobject /*thiz*/, jstring jurl, jstring jbody, jstring jheaders) {
     try {
         routing::HTTPClient client;
-        std::string result = client.post(jstringToStr(env, jurl), jstringToStr(env, jbody));
+
+        std::string url = jstringToStr(env, jurl);
+        std::string body = jstringToStr(env, jbody);
+        std::string headersStr = jstringToStr(env, jheaders);
+
+        // -----------------------------------
+        // Parse headers JSON using picojson
+        // -----------------------------------
+        std::map<std::string, std::string> headers;
+
+        if (!headersStr.empty()) {
+            picojson::value v;
+            std::string err = picojson::parse(v, headersStr);
+
+            if (!err.empty()) {
+                throw std::runtime_error("Invalid headers JSON: " + err);
+            }
+
+            if (v.is<picojson::object>()) {
+                const auto& obj = v.get<picojson::object>();
+
+                for (const auto& kv : obj) {
+                    if (kv.second.is<std::string>()) {
+                        headers[kv.first] = kv.second.get<std::string>();
+                    } else {
+                        // fallback: stringify non-string values
+                        headers[kv.first] = kv.second.to_str();
+                    }
+                }
+            }
+        }
+        std::string result = client.post(url, body, headers);
         return strToJString(env, result);
     } catch (const std::exception& ex) {
         throwRuntimeException(env, ex.what());

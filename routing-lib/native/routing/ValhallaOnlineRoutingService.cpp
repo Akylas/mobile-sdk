@@ -10,6 +10,8 @@ namespace routing {
             const std::string& baseURL) :
         _baseURL(baseURL),
         _profile("pedestrian"),
+        _timeout(-1),
+        _headers(),
         _handler()
     {
     }
@@ -19,6 +21,8 @@ namespace routing {
             HttpHandler handler) :
         _baseURL(baseURL),
         _profile("pedestrian"),
+        _timeout(-1),
+        _headers(),
         _handler(std::move(handler))
     {
     }
@@ -44,6 +48,29 @@ namespace routing {
         std::lock_guard<std::mutex> lk(_mutex);
         _profile = profile;
     }
+
+     int ValhallaOnlineRoutingService::getTimeout() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        return _timeout;
+    }
+
+    void ValhallaOnlineRoutingService::setTimeout(int timeout) {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _timeout = timeout;
+    }
+
+    std::map<std::string, std::string> ValhallaOnlineRoutingService::getHTTPHeaders() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        return _headers;
+    }
+    
+    void ValhallaOnlineRoutingService::setHTTPHeaders(const std::map<std::string, std::string>& headers) {
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            _headers = headers;
+        }
+    }
+    
 
     std::string ValhallaOnlineRoutingService::buildURL(const std::string& endpoint) const {
         // _baseURL may or may not have a trailing slash
@@ -83,9 +110,11 @@ namespace routing {
         HttpHandler handler;
         std::string url;
         std::string profile;
+        std::map<std::string, std::string> headers;
         {
             std::lock_guard<std::mutex> lk(_mutex);
             handler = _handler;
+            headers = _headers;
             profile = _profile;
             url     = buildURL(endpoint);
         }
@@ -116,7 +145,7 @@ namespace routing {
         // Use the built-in C++ HTTP client — no external handler needed.
         try {
             HTTPClient httpClient;
-            return httpClient.post(url, body);
+            return httpClient.post(url, body, headers);
         }
         catch (const std::exception& ex) {
             throw GenericException("HTTP request failed for endpoint '" + endpoint + "'",

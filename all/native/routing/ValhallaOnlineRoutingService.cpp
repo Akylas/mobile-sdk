@@ -16,12 +16,16 @@ namespace carto {
         _apiKey(apiKey),
         _profile("pedestrian"),
         _serviceURL(),
+        _timeout(-1),
+        _headers(),
         _mutex()
     {
     }
     ValhallaOnlineRoutingService::ValhallaOnlineRoutingService() :
         _profile("pedestrian"),
         _serviceURL(),
+        _timeout(-1),
+        _headers(),
         _mutex()
     {
     }
@@ -49,6 +53,28 @@ namespace carto {
         _profile = profile;
     }
 
+    int ValhallaOnlineRoutingService::getTimeout() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        return _timeout;
+    }
+
+    void ValhallaOnlineRoutingService::setTimeout(int timeout) {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _timeout = timeout;
+    }
+
+    std::map<std::string, std::string> ValhallaOnlineRoutingService::getHTTPHeaders() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        return _headers;
+    }
+    
+    void ValhallaOnlineRoutingService::setHTTPHeaders(const std::map<std::string, std::string>& headers) {
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            _headers = headers;
+        }
+    }
+
     std::shared_ptr<RouteMatchingResult> ValhallaOnlineRoutingService::matchRoute(const std::shared_ptr<RouteMatchingRequest>& request) const {
         if (!request) {
             throw NullArgumentException("Null request");
@@ -57,9 +83,11 @@ namespace carto {
         std::string baseURL;
 
         std::map<std::string, std::string> params;
+        std::map<std::string, std::string> headers;
         {
             std::lock_guard<std::mutex> lock(_mutex);
 
+            headers = _headers;
             std::map<std::string, std::string> tagMap;
             tagMap["service"] = "trace_attributes";
             if (!_apiKey.empty()) {
@@ -71,7 +99,8 @@ namespace carto {
         std::string url = NetworkUtils::BuildURLFromParameters(baseURL, params);
 
         HTTPClient httpClient(Log::IsShowDebug());
-        return ValhallaRoutingProxy::MatchRoute(httpClient, url, getProfile(), request);
+        httpClient.setTimeout(_timeout < 0 ? -1 : _timeout * 1000);
+        return ValhallaRoutingProxy::MatchRoute(httpClient, url, getProfile(), request, headers);
     }
 
     std::shared_ptr<RoutingResult> ValhallaOnlineRoutingService::calculateRoute(const std::shared_ptr<RoutingRequest>& request) const {
@@ -82,9 +111,11 @@ namespace carto {
         std::string baseURL;
 
         std::map<std::string, std::string> params;
+        std::map<std::string, std::string> headers;
         {
             std::lock_guard<std::mutex> lock(_mutex);
 
+            headers = _headers;
             std::map<std::string, std::string> tagMap;
             tagMap["service"] = "route";
             if (!_apiKey.empty()) {
@@ -96,7 +127,8 @@ namespace carto {
         std::string url = NetworkUtils::BuildURLFromParameters(baseURL, params);
 
         HTTPClient httpClient(Log::IsShowDebug());
-        return ValhallaRoutingProxy::CalculateRoute(httpClient, url, getProfile(), request);
+        httpClient.setTimeout(_timeout < 0 ? -1 : _timeout * 1000);
+        return ValhallaRoutingProxy::CalculateRoute(httpClient, url, getProfile(), request, headers);
     }
 
     const std::string ValhallaOnlineRoutingService::MAPBOX_SERVICE_URL = "https://api.mapbox.com/valhalla/v1/{service}?access_token={api_key}";

@@ -22,11 +22,12 @@ namespace routing {
     {
     }
 
-    std::string HTTPClient::post(const std::string& url, const std::string& jsonBody) const {
+    std::string HTTPClient::post(const std::string& url, const std::string& jsonBody, std::map<std::string, std::string>& requestHeaders) const {
         Request request("POST", url);
         request.contentType = "application/json";
         request.headers["Content-Type"] = "application/json";
         request.headers["Accept"] = "application/json";
+        request.headers.insert(requestHeaders.begin(), requestHeaders.end());
         request.body.assign(jsonBody.begin(), jsonBody.end());
 
         Response response;

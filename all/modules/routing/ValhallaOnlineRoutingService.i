@@ -22,6 +22,9 @@
 !polymorphic_shared_ptr(carto::ValhallaOnlineRoutingService, routing.ValhallaOnlineRoutingService)
 
 %attributestring(carto::ValhallaOnlineRoutingService, std::string, CustomServiceURL, getCustomServiceURL, setCustomServiceURL)
+
+%attribute(carto::ValhallaOnlineRoutingService, int, Timeout, getTimeout, setTimeout)
+%attributeval(carto::ValhallaOnlineRoutingService, %arg(std::map<std::string, std::string>), HTTPHeaders, getHTTPHeaders, setHTTPHeaders)
 %std_io_exceptions(carto::ValhallaOnlineRoutingService::matchRoute)
 %std_io_exceptions(carto::ValhallaOnlineRoutingService::calculateRoute)
 

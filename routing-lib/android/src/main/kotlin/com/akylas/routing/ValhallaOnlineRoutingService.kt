@@ -25,7 +25,7 @@ class ValhallaOnlineRoutingService @JvmOverloads constructor(
 ) {
     /** Synchronous HTTP POST: given URL and body, return response body or throw. */
     fun interface HttpPostHandler {
-        fun post(url: String, body: String): String
+        fun post(url: String, body: String, headers: HashMap<String, String>): String
     }
 
     // -----------------------------------------------------------------------
@@ -40,7 +40,15 @@ class ValhallaOnlineRoutingService @JvmOverloads constructor(
      * that does not already contain that key.
      */
     @Volatile
+
     var profile: String = "pedestrian"
+
+    /**
+     * Sets HTTP headers for all requests.
+     * @param headers A map of HTTP headers that will be used in subsequent requests.
+     */
+    @Volatile
+    var headers: HashMap<String, String> = HashMap()
 
     // -----------------------------------------------------------------------
     // Routing API — all return raw Valhalla JSON
@@ -93,10 +101,14 @@ class ValhallaOnlineRoutingService @JvmOverloads constructor(
             jsonBody
         }
 
+
+
         return if (httpHandler != null) {
-            httpHandler.post(url, body)
+            httpHandler.post(url, body, headers)
         } else {
-            nativeHttpPost(url, body)
+            // Convert headers map to JSON string
+            val headersJson = JSONObject(headers as Map<*, *>).toString()
+            nativeHttpPost(url, body, headersJson)
         }
     }
 
@@ -105,7 +117,7 @@ class ValhallaOnlineRoutingService @JvmOverloads constructor(
     // ROUTING_WITH_HTTP_CLIENT=ON.
     // -----------------------------------------------------------------------
 
-    private external fun nativeHttpPost(url: String, body: String): String
+    private external fun nativeHttpPost(url: String, body: String, headersJson: String): String
 
     companion object {
         init {

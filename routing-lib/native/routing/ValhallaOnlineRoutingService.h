@@ -1,9 +1,9 @@
 #pragma once
 
 #include <functional>
-#include <memory>
 #include <mutex>
 #include <string>
+#include <map>
 
 namespace routing {
 
@@ -59,6 +59,28 @@ namespace routing {
         std::string getProfile() const;
         void setProfile(const std::string& profile);
 
+         /**
+         * Returns the current timeout value.
+         * @return The current timeout value in seconds. If negative, then default platform-specific timeout is used.
+         */
+        int getTimeout() const;
+        /**
+         * Sets the current timeout value.
+         * @param timeout The new timeout value in seconds. If negative, then default platform-specific timeout is used.
+         */
+        void setTimeout(int timeout);
+
+        /**
+         * Returns the current set of HTTP headers used. Initially this set is empty and can be changed with setHTTPHeaders.
+         * @returns The current set of custom HTTP headers.
+         */
+        std::map<std::string, std::string> getHTTPHeaders() const;
+        /**
+         * Sets HTTP headers for all requests.
+         * @param headers A map of HTTP headers that will be used in subsequent requests.
+         */
+        void setHTTPHeaders(const std::map<std::string, std::string>& headers);
+
         // ----------------------------------------------------------------
         // Routing API — return raw Valhalla JSON strings
         // ----------------------------------------------------------------
@@ -93,6 +115,8 @@ namespace routing {
         std::string   _baseURL;
         std::string   _profile;
         HttpHandler   _handler;
+        int _timeout;
+        std::map<std::string, std::string> _headers;
     };
 
 } // namespace routing

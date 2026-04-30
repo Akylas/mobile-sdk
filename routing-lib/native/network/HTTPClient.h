@@ -27,7 +27,7 @@ namespace routing {
          * @return         Response body string.
          * @throws std::runtime_error on network or HTTP error.
          */
-        std::string post(const std::string& url, const std::string& jsonBody) const;
+        std::string post(const std::string& url, const std::string& jsonBody, std::map<std::string, std::string>& requestHeaders) const;
 
     private:
         struct HeaderLess {

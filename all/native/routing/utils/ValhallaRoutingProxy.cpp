@@ -15,14 +15,11 @@
 #include "routing/utils/RoutingResultBuilder.h"
 #include "network/HTTPClient.h"
 #include "utils/NetworkUtils.h"
-#include "utils/Const.h"
 #include "utils/Log.h"
 
 #include <ctime>
 #include <vector>
-#include <functional>
 #include <string>
-#include <stdexcept>
 #include <vector>
 #include <cstdint>
 #include <sstream>
@@ -168,23 +165,23 @@ namespace valhalla { namespace midgard {
 
 namespace carto {
 
-    std::shared_ptr<RouteMatchingResult> ValhallaRoutingProxy::MatchRoute(HTTPClient& httpClient, const std::string& baseURL, const std::string& profile, const std::shared_ptr<RouteMatchingRequest>& request) {
+    std::shared_ptr<RouteMatchingResult> ValhallaRoutingProxy::MatchRoute(HTTPClient& httpClient, const std::string& baseURL, const std::string& profile, const std::shared_ptr<RouteMatchingRequest>& request, std::map<std::string, std::string>& headers) {
         std::map<std::string, std::string> params;
         params["json"] = SerializeRouteMatchingRequest(profile, request);
         std::string finalURL = NetworkUtils::BuildURLFromParameters(baseURL, params);
         Log::Debugf("ValhallaRoutingProxy::MatchRoute: Loading %s", finalURL.c_str());
 
-        std::string responseString = MakeHTTPRequest(httpClient, finalURL);
+        std::string responseString = MakeHTTPRequest(httpClient, finalURL, headers);
         return ParseRouteMatchingResult(request->getProjection(), responseString);
     }
 
-    std::shared_ptr<RoutingResult> ValhallaRoutingProxy::CalculateRoute(HTTPClient& httpClient, const std::string& baseURL, const std::string& profile, const std::shared_ptr<RoutingRequest>& request) {
+    std::shared_ptr<RoutingResult> ValhallaRoutingProxy::CalculateRoute(HTTPClient& httpClient, const std::string& baseURL, const std::string& profile, const std::shared_ptr<RoutingRequest>& request, std::map<std::string, std::string>& headers) {
         std::map<std::string, std::string> params;
         params["json"] = SerializeRoutingRequest(profile, request);
         std::string finalURL = NetworkUtils::BuildURLFromParameters(baseURL, params);
         Log::Debugf("ValhallaRoutingProxy::CalculateRoute: Loading %s", finalURL.c_str());
 
-        std::string responseString = MakeHTTPRequest(httpClient, finalURL);
+        std::string responseString = MakeHTTPRequest(httpClient, finalURL, headers);
         return ParseRoutingResult(request->getProjection(), responseString);
     }
 
@@ -524,9 +521,10 @@ namespace carto {
         return resultBuilder.buildRoutingResult();
     }
 
-    std::string ValhallaRoutingProxy::MakeHTTPRequest(HTTPClient& httpClient, const std::string& url) {
+    std::string ValhallaRoutingProxy::MakeHTTPRequest(HTTPClient& httpClient, const std::string& url, std::map<std::string, std::string>& headers) {
         std::map<std::string, std::string> requestHeaders;
         requestHeaders["Connection"] = "close";
+        requestHeaders.merge(headers);
         std::map<std::string, std::string> responseHeaders;
         std::shared_ptr<BinaryData> responseData;
         int code = httpClient.get(url, requestHeaders, responseHeaders, responseData);
