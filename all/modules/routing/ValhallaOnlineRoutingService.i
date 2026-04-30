@@ -5,7 +5,7 @@
 
 #ifdef _CARTO_ROUTING_SUPPORT
 
-!proxy_imports(carto::ValhallaOnlineRoutingService, routing.RoutingService, routing.RoutingRequest, routing.RoutingResult, routing.RouteMatchingRequest, routing.RouteMatchingResult)
+!proxy_imports(carto::ValhallaOnlineRoutingService, routing.RoutingService, routing.RoutingRequest, routing.RoutingResult, routing.RouteMatchingRequest, routing.RouteMatchingResult, core.StringMap)
 
 %{
 #include "routing/ValhallaOnlineRoutingService.h"
@@ -16,8 +16,10 @@
 %include <std_shared_ptr.i>
 %include <std_string.i>
 %include <cartoswig.i>
+%include <std_map.i>
 
 %import "routing/RoutingService.i"
+%import "core/StringMap.i"
 
 !polymorphic_shared_ptr(carto::ValhallaOnlineRoutingService, routing.ValhallaOnlineRoutingService)
 
