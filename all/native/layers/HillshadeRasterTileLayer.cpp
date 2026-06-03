@@ -407,7 +407,7 @@ namespace carto
 
         std::map<long long, std::pair<MapBounds, std::shared_ptr<Bitmap>>> indexedTiles;
         std::shared_ptr<Projection> projection = dataSource->getProjection();
-        std::array<double, 4> components = _elevationDecoder->getColorComponentCoefficients();
+        std::array<double, 4> components = decoder->getColorComponentCoefficients();
         for (auto it = poses.begin(); it != poses.end(); it++) {
             // TODO: how to check if pos is in Wgs84?
             MapPos dataSourcePos = projection->fromWgs84(*it);
