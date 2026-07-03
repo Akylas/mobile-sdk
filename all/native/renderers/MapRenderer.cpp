@@ -1152,6 +1152,10 @@ namespace carto {
 
     const int MapRenderer::VT_LABEL_PLACEMENT_TASK_DELAY = 200;
 
+    const double MapRenderer::CAMERA_TERRAIN_CLEARANCE = 0.5;
+
+    const int MapRenderer::ELEVATION_REFRESH_DELAY = 200;
+
     const std::string MapRenderer::BLEND_VERTEX_SHADER = R"GLSL(
         #version 100
         attribute vec2 a_coord;
