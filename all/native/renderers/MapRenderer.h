@@ -39,6 +39,8 @@ namespace carto {
     class RedrawRequestListener;
     class RayIntersectedElement;
     class Options;
+    class PostProcessEffect;
+    class TerrainRenderer;
     class ThreadWorker;
     class CullWorker;
     class VTLabelPlacementWorker;
@@ -106,6 +108,19 @@ namespace carto {
          */
         void captureRendering(const std::shared_ptr<RendererCaptureListener>& listener, bool waitWhileUpdating);
 
+        /**
+         * Returns the current post-process effect. Can be null.
+         * @return The current post-process effect.
+         */
+        std::shared_ptr<PostProcessEffect> getPostProcessEffect() const;
+        /**
+         * Sets the post-process effect. When set, the map is rendered into an offscreen
+         * buffer and the effect fragment shader produces the final screen output.
+         * Note: this feature is experimental and may change in future SDK versions.
+         * @param postProcessEffect The new post-process effect. Can be null.
+         */
+        void setPostProcessEffect(const std::shared_ptr<PostProcessEffect>& postProcessEffect);
+
         std::shared_ptr<Layers> getLayers() const;
 
         std::shared_ptr<Options> getOptions() const;
@@ -159,7 +174,9 @@ namespace carto {
         void initializeRenderState() const;
 
         void drawLayers(float deltaSeconds, const ViewState& viewState);
-        
+
+        void applyPostProcessEffect(const std::shared_ptr<PostProcessEffect>& effect, const ViewState& viewState);
+
         void handleRendererCaptureCallbacks();
 
         static const int BILLBOARD_PLACEMENT_TASK_DELAY;
@@ -169,6 +186,7 @@ namespace carto {
 
         static const std::string BLEND_VERTEX_SHADER;
         static const std::string BLEND_FRAGMENT_SHADER;
+        static const std::string POST_PROCESS_VERTEX_SHADER;
         
         std::optional<std::chrono::steady_clock::time_point> _lastFrameTime;
     
@@ -187,7 +205,13 @@ namespace carto {
         std::vector<std::pair<GLuint, GLuint> > _screenBoundFBOs;
         std::map<GLuint, std::shared_ptr<FrameBuffer> > _screenFrameBuffers;
         std::shared_ptr<Shader> _screenBlendShader;
-        
+
+        std::shared_ptr<PostProcessEffect> _postProcessEffect;
+        std::shared_ptr<Shader> _postProcessShader;
+        std::string _postProcessShaderName;
+        std::optional<std::chrono::steady_clock::time_point> _postProcessStartTime;
+        std::unique_ptr<TerrainRenderer> _terrainRenderer;
+
         BackgroundRenderer _backgroundRenderer;
         
         std::vector<std::shared_ptr<BillboardDrawData> > _billboardDrawDatas;

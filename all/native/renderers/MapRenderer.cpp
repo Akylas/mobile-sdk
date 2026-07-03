@@ -23,6 +23,8 @@
 #include "renderers/utils/GLContext.h"
 #include "renderers/utils/GLResourceManager.h"
 #include "renderers/utils/FrameBuffer.h"
+#include "renderers/PostProcessEffect.h"
+#include "renderers/TerrainRenderer.h"
 #include "terrain/ElevationManager.h"
 #include "renderers/utils/Shader.h"
 #include "renderers/utils/Texture.h"
@@ -618,11 +620,21 @@ namespace carto {
         _animationHandler.calculate(viewState, deltaSeconds);
         _kineticEventHandler.calculate(viewState, deltaSeconds);
 
+        // If a post-process effect is set, render the frame into an offscreen buffer
+        std::shared_ptr<PostProcessEffect> postProcessEffect = getPostProcessEffect();
+        if (postProcessEffect) {
+            clearAndBindScreenFBO(_options->getClearColor(), true, false);
+        }
+
         // Render everything
         initializeRenderState();
         _backgroundRenderer.onDrawFrame(viewState);
         drawLayers(deltaSeconds, viewState);
-    
+
+        if (postProcessEffect) {
+            applyPostProcessEffect(postProcessEffect, viewState);
+        }
+
         // Callback for synchronized rendering
         if (mapRendererListener) {
             mapRendererListener->onAfterDrawFrame();
@@ -702,6 +714,125 @@ namespace carto {
         }
 
         GLContext::CheckGLError("MapRenderer::clearAndBindScreenFBO");
+    }
+
+    std::shared_ptr<PostProcessEffect> MapRenderer::getPostProcessEffect() const {
+        std::lock_guard<std::recursive_mutex> lock(_mutex);
+        return _postProcessEffect;
+    }
+
+    void MapRenderer::setPostProcessEffect(const std::shared_ptr<PostProcessEffect>& postProcessEffect) {
+        {
+            std::lock_guard<std::recursive_mutex> lock(_mutex);
+            if (_postProcessEffect == postProcessEffect) {
+                return;
+            }
+            _postProcessEffect = postProcessEffect;
+            _postProcessStartTime = std::chrono::steady_clock::now();
+        }
+        requestRedraw();
+    }
+
+    void MapRenderer::applyPostProcessEffect(const std::shared_ptr<PostProcessEffect>& effect, const ViewState& viewState) {
+        static const GLfloat screenVertices[8] = { -1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, 1.0f, 1.0f };
+
+        if (_screenBoundFBOs.empty()) {
+            Log::Error("MapRenderer::applyPostProcessEffect: No bound FBOs");
+            return;
+        }
+
+        // Optional terrain depth pre-pass (renders into its own FBO and restores the binding)
+        GLuint terrainDepthTex = 0;
+        if (effect->isTerrainDepthRequired()) {
+            std::shared_ptr<TerrainOptions> terrainOptions;
+            if (_options->getRenderProjectionMode() == RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
+                terrainOptions = _options->getTerrainOptions();
+            }
+            if (terrainOptions && terrainOptions->isEnabled()) {
+                if (!_terrainRenderer) {
+                    _terrainRenderer = std::make_unique<TerrainRenderer>();
+                }
+                if (_terrainRenderer->onDrawFrame(viewState, terrainOptions, _glResourceManager)) {
+                    terrainDepthTex = _terrainRenderer->getDepthTextureId();
+                }
+            }
+        }
+
+        GLuint prevBoundFBO = _screenBoundFBOs.back().first;
+        GLuint bufferMask = _screenBoundFBOs.back().second;
+        _screenBoundFBOs.pop_back();
+
+        std::shared_ptr<FrameBuffer>& frameBuffer = _screenFrameBuffers[bufferMask];
+        if (!frameBuffer || !frameBuffer->isValid()) {
+            return; // should not happen, just safety
+        }
+        if (bufferMask & (GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)) {
+            frameBuffer->discard(false, (bufferMask & GL_DEPTH_BUFFER_BIT) != 0, (bufferMask & GL_STENCIL_BUFFER_BIT) != 0);
+        }
+
+        glBindFramebuffer(GL_FRAMEBUFFER, prevBoundFBO);
+
+        // Compile the effect shader on demand
+        if (!_postProcessShader || !_postProcessShader->isValid() || _postProcessShaderName != effect->getName()) {
+            _postProcessShader = _glResourceManager->create<Shader>("postprocess_" + effect->getName(), POST_PROCESS_VERTEX_SHADER, effect->getFragmentShader());
+            _postProcessShaderName = effect->getName();
+        }
+        if (!_postProcessShader) {
+            return;
+        }
+
+        glDisable(GL_BLEND);
+
+        GLuint progId = _postProcessShader->getProgId();
+        glUseProgram(progId);
+
+        glVertexAttribPointer(_postProcessShader->getAttribLoc("a_coord"), 2, GL_FLOAT, GL_FALSE, 0, screenVertices);
+        glEnableVertexAttribArray(_postProcessShader->getAttribLoc("a_coord"));
+
+        // Effects declare only the uniforms they use, so query the locations directly
+        GLint loc = glGetUniformLocation(progId, "uColorTex");
+        if (loc >= 0) {
+            glUniform1i(loc, 0);
+        }
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, frameBuffer->getColorTexId());
+        if (terrainDepthTex != 0 && (loc = glGetUniformLocation(progId, "uTerrainDepthTex")) >= 0) {
+            glUniform1i(loc, 1);
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, terrainDepthTex);
+            glActiveTexture(GL_TEXTURE0);
+        }
+
+        if ((loc = glGetUniformLocation(progId, "uInvScreenSize")) >= 0) {
+            glUniform2f(loc, 1.0f / _viewState.getWidth(), 1.0f / _viewState.getHeight());
+        }
+        if ((loc = glGetUniformLocation(progId, "uNear")) >= 0) {
+            glUniform1f(loc, viewState.getNear());
+        }
+        if ((loc = glGetUniformLocation(progId, "uFar")) >= 0) {
+            glUniform1f(loc, viewState.getFar());
+        }
+        if ((loc = glGetUniformLocation(progId, "uTime")) >= 0) {
+            float time = 0;
+            if (_postProcessStartTime) {
+                time = std::chrono::duration_cast<std::chrono::duration<float> >(std::chrono::steady_clock::now() - *_postProcessStartTime).count();
+            }
+            glUniform1f(loc, time);
+        }
+
+        for (const auto& param : effect->getFloatParameters()) {
+            if ((loc = glGetUniformLocation(progId, param.first.c_str())) >= 0) {
+                glUniform1f(loc, param.second);
+            }
+        }
+
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glDisableVertexAttribArray(_postProcessShader->getAttribLoc("a_coord"));
+        glEnable(GL_BLEND);
+
+        GLContext::CheckGLError("MapRenderer::applyPostProcessEffect");
     }
 
     void MapRenderer::blendAndUnbindScreenFBO(float opacity) {
@@ -1009,6 +1140,14 @@ namespace carto {
         uniform mat4 u_mvpMat;
         void main() {
             gl_Position = u_mvpMat * vec4(a_coord, 0.0, 1.0);
+        }
+    )GLSL";
+
+    const std::string MapRenderer::POST_PROCESS_VERTEX_SHADER = R"GLSL(
+        #version 100
+        attribute vec2 a_coord;
+        void main() {
+            gl_Position = vec4(a_coord, 0.0, 1.0);
         }
     )GLSL";
 
