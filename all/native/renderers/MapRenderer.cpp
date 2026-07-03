@@ -23,6 +23,7 @@
 #include "renderers/utils/GLContext.h"
 #include "renderers/utils/GLResourceManager.h"
 #include "renderers/utils/FrameBuffer.h"
+#include "terrain/ElevationManager.h"
 #include "renderers/utils/Shader.h"
 #include "renderers/utils/Texture.h"
 #include "renderers/workers/BillboardPlacementWorker.h"
@@ -581,6 +582,33 @@ namespace carto {
         ViewState viewState;
         {
             std::lock_guard<std::recursive_mutex> lock(_mutex);
+
+            // Terrain: extend view distances by the terrain height range and keep
+            // the camera above the terrain surface.
+            std::shared_ptr<ElevationManager> elevationManager;
+            if (_options->getRenderProjectionMode() == RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
+                if (auto terrainOptions = _options->getTerrainOptions()) {
+                    if (terrainOptions->isEnabled()) {
+                        elevationManager = terrainOptions->getElevationManager();
+                    }
+                }
+            }
+            if (elevationManager) {
+                cglib::vec3<double> cameraPos = _viewState.getCameraPos();
+                double minZ = 0, maxZ = 0;
+                elevationManager->getDisplayHeightRange(cameraPos(1), minZ, maxZ);
+                _viewState.setTerrainHeightRange(static_cast<float>(minZ), static_cast<float>(maxZ));
+
+                double terrainZ = elevationManager->getDisplayHeight(cameraPos(0), cameraPos(1), ElevationManager::LoadMode::CACHED_ONLY);
+                double clampedZ = terrainZ + CAMERA_TERRAIN_CLEARANCE;
+                if (cameraPos(2) < clampedZ) {
+                    _viewState.setCameraPos(cglib::vec3<double>(cameraPos(0), cameraPos(1), clampedZ));
+                    _viewState.cameraChanged();
+                }
+            } else {
+                _viewState.setTerrainHeightRange(0.0f, 0.0f);
+            }
+
             _viewState.calculateViewState(*_options);
             viewState = _viewState;
             _viewState.setHorizontalLayerOffsetDir(0);

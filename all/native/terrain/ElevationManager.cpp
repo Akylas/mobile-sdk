@@ -193,6 +193,13 @@ namespace carto {
         return Const::WORLD_SIZE / Const::EARTH_CIRCUMFERENCE / cos;
     }
 
+    void ElevationManager::getDisplayHeightRange(double internalY, double& minZ, double& maxZ) const {
+        double maxMeters = std::max(static_cast<double>(_maxSeenElevation.load()), DEFAULT_MAX_ELEVATION);
+        double scale = _exaggeration.load() * getDisplayScale(internalY);
+        minZ = DEFAULT_MIN_ELEVATION * scale;
+        maxZ = maxMeters * scale;
+    }
+
     double ElevationManager::getDisplayHeight(double internalX, double internalY) const {
         return getDisplayHeight(internalX, internalY, LoadMode::CACHED_ONLY);
     }

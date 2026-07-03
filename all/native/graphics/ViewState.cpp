@@ -66,6 +66,14 @@ namespace carto {
         return _cameraPos;
     }
     
+    void ViewState::setTerrainHeightRange(float minZ, float maxZ) {
+        if (minZ != _terrainHeightMin || maxZ != _terrainHeightMax) {
+            _terrainHeightMin = minZ;
+            _terrainHeightMax = maxZ;
+            _cameraChanged = true; // force near/far plane recalculation
+        }
+    }
+
     void ViewState::setCameraPos(const cglib::vec3<double>& cameraPos) {
         if (!std::isfinite(cglib::norm(cameraPos))) {
             Log::Errorf("ViewState::setCameraPos: Invalid coordinates %g, %g, %g", cameraPos(0), cameraPos(1), cameraPos(2)); 
@@ -632,8 +640,8 @@ namespace carto {
         cglib::mat4x4<double> modelviewMat = calculateLookatMat();
         cglib::mat4x4<double> invModelviewProjMat = cglib::inverse(projMat * modelviewMat);
 
-        double heightMin = Const::MIN_HEIGHT;
-        double heightMax = Const::MAX_HEIGHT;
+        double heightMin = std::min(static_cast<double>(Const::MIN_HEIGHT), static_cast<double>(_terrainHeightMin));
+        double heightMax = std::max(static_cast<double>(Const::MAX_HEIGHT), static_cast<double>(_terrainHeightMax));
 
         near = static_cast<float>(cglib::dot_product(options.getProjectionSurface()->calculateNearestPoint(_cameraPos, heightMax) - _cameraPos, zProjVector));
         far  = near;

@@ -7,6 +7,8 @@
 #ifndef _CARTO_TERRAINOPTIONS_H_
 #define _CARTO_TERRAINOPTIONS_H_
 
+#include "core/MapPos.h"
+
 #include <atomic>
 #include <memory>
 #include <mutex>
@@ -124,6 +126,23 @@ namespace carto {
          * @param capacityInBytes The new cache capacity in bytes.
          */
         void setElevationCacheCapacity(std::size_t capacityInBytes);
+
+        /**
+         * Returns the terrain elevation in meters at the given position.
+         * The position is expected to be in WGS84 coordinates.
+         * Note: this method may block on network/IO if the elevation tile is not cached.
+         * @param pos The position to query.
+         * @return The elevation in meters, or -1000000 if no elevation data is available.
+         */
+        double getElevation(const MapPos& pos) const;
+        /**
+         * Returns terrain elevations in meters at the given positions (WGS84).
+         * One value is returned for every input position, in the input order.
+         * Note: this method may block on network/IO if the elevation tiles are not cached.
+         * @param poses The positions to query.
+         * @return The elevations in meters (-1000000 where no data is available).
+         */
+        std::vector<double> getElevations(const std::vector<MapPos>& poses) const;
 
         /**
          * Returns the elevation manager. Internal method.

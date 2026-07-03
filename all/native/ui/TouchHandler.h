@@ -12,6 +12,7 @@
 #include "ui/MapClickInfo.h"
 #include "renderers/MapRenderer.h"
 
+#include <atomic>
 #include <chrono>
 #include <memory>
 #include <thread>
@@ -114,6 +115,8 @@ namespace carto {
 
         bool isValidScreenPosition(const ScreenPos& screenPos, const ViewState& viewState) const;
         MapPos mapScreenPosition(const ScreenPos& screenPos, const ViewState& viewState) const;
+        double calculateTerrainHeight(const ScreenPos& screenPos, const ViewState& viewState) const;
+        void updateGestureAnchorHeight(const ScreenPos& screenPos, const ViewState& viewState);
 
         void handleClick(const ClickInfo& clickInfo, const ScreenPos& screenPos);
     
@@ -157,7 +160,12 @@ namespace carto {
         static const float PANNING_FACTOR;
     
         GestureMode _gestureMode;
-        
+
+        // Height (internal units) of the terrain point under the finger at gesture start.
+        // Panning and picking are anchored to the plane at this height so that the touched
+        // terrain point stays under the finger. 0 when terrain is not enabled.
+        std::atomic<double> _gestureAnchorHeight;
+
         ScreenPos _prevScreenPos1;
         ScreenPos _prevScreenPos2;
     

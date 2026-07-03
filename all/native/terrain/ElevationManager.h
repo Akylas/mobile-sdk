@@ -93,6 +93,12 @@ namespace carto {
          */
         double getDisplayScale(double internalY) const;
 
+        /**
+         * Returns the conservative global display height range (internal z units) using
+         * the latitude scale at the given internal y coordinate.
+         */
+        void getDisplayHeightRange(double internalY, double& minZ, double& maxZ) const;
+
         virtual double getDisplayHeight(double internalX, double internalY) const override;
         virtual bool intersectRay(const cglib::ray3<double>& ray, double& t) const override;
         virtual void getMinMaxDisplayHeight(const MapTile& tile, double& minZ, double& maxZ) const override;

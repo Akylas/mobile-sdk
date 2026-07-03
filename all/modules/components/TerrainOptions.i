@@ -3,7 +3,7 @@
 
 %module TerrainOptions
 
-!proxy_imports(carto::TerrainOptions, datasources.TileDataSource, rastertiles.ElevationDecoder)
+!proxy_imports(carto::TerrainOptions, core.MapPos, core.MapPosVector, core.DoubleVector, datasources.TileDataSource, rastertiles.ElevationDecoder)
 
 %{
 #include "components/TerrainOptions.h"
@@ -14,6 +14,8 @@
 %include <std_shared_ptr.i>
 %include <cartoswig.i>
 
+%import "core/MapPos.i"
+%import "core/DoubleVector.i"
 %import "datasources/TileDataSource.i"
 %import "rastertiles/ElevationDecoder.i"
 

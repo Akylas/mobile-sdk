@@ -87,6 +87,14 @@ namespace carto {
         _elevationManager->setCacheCapacity(capacityInBytes);
     }
 
+    double TerrainOptions::getElevation(const MapPos& pos) const {
+        return _elevationManager->getElevation(pos);
+    }
+
+    std::vector<double> TerrainOptions::getElevations(const std::vector<MapPos>& poses) const {
+        return _elevationManager->getElevations(poses);
+    }
+
     std::shared_ptr<ElevationManager> TerrainOptions::getElevationManager() const {
         return _elevationManager;
     }
