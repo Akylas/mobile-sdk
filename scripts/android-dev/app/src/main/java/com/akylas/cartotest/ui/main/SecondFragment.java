@@ -172,7 +172,7 @@ public class SecondFragment extends Fragment {
                 " " : "");
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.O)
+    @RequiresApi(api = Build.VERSION_CODES.R)
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
 //        if (requestCode == REQUEST_PERMISSIONS_CODE_WRITE_STORAGE) {
@@ -378,8 +378,8 @@ public class SecondFragment extends Fragment {
         MBTilesTileDataSource sourceWorld = null;
         MBVectorTileDecoder decoder = null;
         try {
-            sourceHTTP = new HTTPTileDataSource(0,19,"https://demo-bucket.protomaps.com/v4.pmtiles");
-//            sourceHTTP = new HTTPTileDataSource(0,19,"https://a.tile.openstreetmap.org/{z}/{x}/{y}.png");
+//            sourceHTTP = new HTTPTileDataSource(0,19,"https://demo-bucket.protomaps.com/v4.pmtiles");
+            sourceHTTP = new HTTPTileDataSource(0,14,"https://tiles.openfreemap.org/planet/latest/{z}/{x}/{y}.pbf");
             StringMap headers = new StringMap();
             headers.set("User-Agent", "AlpiMaps");
             sourceHTTP.setHTTPHeaders(headers);
@@ -445,7 +445,7 @@ public class SecondFragment extends Fragment {
 
         addMap(dataPath);
 //        addRoutes(dataPath);
-        addHillshadeLayer(view, dataPath);
+//        addHillshadeLayer(view, dataPath);
 
 //        try {
 //            MBTilesTileDataSource dataSource = new MBTilesTileDataSource(dataPath+"/france/france_terrain.etiles");
@@ -813,7 +813,7 @@ public class SecondFragment extends Fragment {
                 // Online routing via Valhalla API (no MBTiles needed for the demo)
                 ValhallaOnlineRoutingService service = new ValhallaOnlineRoutingService(
                         "https://valhalla.openstreetmap.de",
-                        (url, body) -> {
+                        (url, body, headers) -> {
                             try {
                                 // Minimal synchronous HTTP POST using java.net
                                 java.net.URL netUrl = new java.net.URL(url);

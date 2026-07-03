@@ -2,7 +2,7 @@ apply plugin: 'com.android.library'
 
 // IMPORTANT!
 // This variable should normally reflect the value of '--profile' argument when generating wrappers via 'swigpp-java.py' script!
-def profiles = "full"
+def profiles = "standard+valhalla+geocoding+routing+packagemanager"
 
 def cmakeOptions = {
     def jsonFile = file('$projectDir/../../../build/sdk_profiles.json')
