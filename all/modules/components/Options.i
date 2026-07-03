@@ -6,7 +6,7 @@
 
 %module Options
 
-!proxy_imports(carto::Options, core.MapBounds, core.MapRange, core.MapVec, core.ScreenPos, graphics.Bitmap, graphics.Color, projections.Projection)
+!proxy_imports(carto::Options, core.MapBounds, core.MapRange, core.MapVec, core.ScreenPos, components.TerrainOptions, graphics.Bitmap, graphics.Color, projections.Projection)
 
 %{
 #include "components/Options.h"
@@ -26,6 +26,7 @@
 %import "core/MapRange.i"
 %import "core/MapVec.i"
 %import "core/ScreenPos.i"
+%import "components/TerrainOptions.i"
 %import "graphics/Bitmap.i"
 %import "graphics/Color.i"
 %import "projections/Projection.i"

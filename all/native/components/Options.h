@@ -10,6 +10,7 @@
 #include "core/MapBounds.h"
 #include "core/MapRange.h"
 #include "core/ScreenPos.h"
+#include "components/TerrainOptions.h"
 #include "graphics/Color.h"
 
 #include <memory>
@@ -546,6 +547,20 @@ namespace carto {
         std::shared_ptr<ProjectionSurface> getProjectionSurface() const;
 
         /**
+         * Returns the terrain options. May be null if no terrain is configured.
+         * @return The terrain options.
+         */
+        std::shared_ptr<TerrainOptions> getTerrainOptions() const;
+        /**
+         * Sets the terrain options. When set, 3D terrain is rendered using the elevation
+         * data source of the terrain options. Note that terrain is currently only supported
+         * with the PLANAR render projection mode. Setting null disables terrain.
+         * Note: this feature is experimental and may change in future SDK versions.
+         * @param terrainOptions The new terrain options. Can be null.
+         */
+        void setTerrainOptions(const std::shared_ptr<TerrainOptions>& terrainOptions);
+
+        /**
          * Sets wether layers are processed in reversed order to process labels.
          * The default is true.
          * @param enabled wether to process layers in reversed order.
@@ -643,6 +658,9 @@ namespace carto {
         std::shared_ptr<Projection> _renderProjection;
 
         std::shared_ptr<ProjectionSurface> _projectionSurface;
+
+        std::shared_ptr<TerrainOptions> _terrainOptions;
+        std::shared_ptr<TerrainOptions::OnChangeListener> _terrainOptionsListener;
     
         std::shared_ptr<CancelableThreadPool> _envelopeThreadPool;
         std::shared_ptr<CancelableThreadPool> _tileThreadPool;
