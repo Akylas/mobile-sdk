@@ -30,6 +30,7 @@
 namespace carto {
     class Options;
     class MapRenderer;
+    class TerrainOptions;
     class TileDrawData;
     class ViewState;
     class VTRenderer;
@@ -81,7 +82,10 @@ namespace carto {
         static Color evaluateColorFunc(const vt::ColorFunction& colorFunc, const ViewState& viewState);
 
     private:
+        struct LabelOcclusionState;
+
         bool initializeRenderer();
+        void updateLabelOcclusionTest(const std::shared_ptr<vt::GLTileRenderer>& tileRenderer, const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions);
 
         static constexpr float TERRAIN_DEPTH_BIAS = 0.0002f; // clip-space depth bias for 2D geometry draped on terrain
 
@@ -117,6 +121,7 @@ namespace carto {
         int _hillshadeMethod;
         float _hillshadeExaggeration;
         unsigned int _elevationVersion = 0;
+        std::shared_ptr<LabelOcclusionState> _labelOcclusionState;
 
         std::map<vt::TileId, std::shared_ptr<const vt::Tile> > _tiles;
         

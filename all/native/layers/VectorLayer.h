@@ -19,6 +19,8 @@
 
 namespace carto {
     class CullState;
+    class ProjectionSurface;
+    class TerrainProjectionSurface;
     class ViewState;
 
     class Billboard;
@@ -178,6 +180,8 @@ namespace carto {
         virtual void addRendererElement(const std::shared_ptr<VectorElement>& element, const ViewState& viewState);
         virtual bool refreshRendererElements();
         virtual bool syncRendererElement(const std::shared_ptr<VectorElement>& element, const ViewState& viewState, bool remove);
+
+        std::shared_ptr<ProjectionSurface> getElementProjectionSurface(const std::shared_ptr<ProjectionSurface>& baseProjectionSurface) const;
         
         virtual void registerDataSourceListener();
         virtual void unregisterDataSourceListener();
@@ -186,8 +190,10 @@ namespace carto {
 
         const DirectorPtr<VectorDataSource> _dataSource;
         std::shared_ptr<VectorDataSource::OnChangeListener> _dataSourceListener;
-        
+
         FetchingTasks _fetchingTasks;
+
+        mutable std::shared_ptr<TerrainProjectionSurface> _terrainProjectionSurface;
 
     private:
         ThreadSafeDirectorPtr<VectorElementEventListener> _vectorElementEventListener;

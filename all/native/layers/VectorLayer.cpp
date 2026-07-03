@@ -33,6 +33,8 @@
 #include "vectorelements/Polygon3D.h"
 #include "vectorelements/Polygon.h"
 #include "vectorelements/Popup.h"
+#include "terrain/ElevationManager.h"
+#include "terrain/TerrainProjectionSurface.h"
 #include "ui/VectorElementClickInfo.h"
 #include "utils/Log.h"
 
@@ -267,7 +269,7 @@ namespace carto {
             return;
         }
 
-        std::shared_ptr<ProjectionSurface> projectionSurface = viewState.getProjectionSurface();
+        std::shared_ptr<ProjectionSurface> projectionSurface = getElementProjectionSurface(viewState.getProjectionSurface());
         if (!projectionSurface) {
             return;
         }
@@ -338,11 +340,32 @@ namespace carto {
         return billboardsChanged;
     }
     
+    std::shared_ptr<ProjectionSurface> VectorLayer::getElementProjectionSurface(const std::shared_ptr<ProjectionSurface>& baseProjectionSurface) const {
+        std::shared_ptr<Options> options = getOptions();
+        if (!options || !baseProjectionSurface || options->getRenderProjectionMode() != RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
+            return baseProjectionSurface;
+        }
+        std::shared_ptr<TerrainOptions> terrainOptions = options->getTerrainOptions();
+        if (!terrainOptions || !terrainOptions->isEnabled()) {
+            return baseProjectionSurface;
+        }
+
+        // Elements are placed on the displaced terrain surface. A new surface instance is
+        // created when the elevation data changes; the projection-surface identity checks
+        // then trigger a rebuild of the element draw data.
+        std::shared_ptr<ElevationManager> elevationManager = terrainOptions->getElevationManager();
+        std::lock_guard<std::recursive_mutex> lock(_mutex);
+        if (!_terrainProjectionSurface || _terrainProjectionSurface->getElevationManager() != elevationManager || _terrainProjectionSurface->getElevationVersion() != elevationManager->getVersion()) {
+            _terrainProjectionSurface = std::make_shared<TerrainProjectionSurface>(elevationManager);
+        }
+        return _terrainProjectionSurface;
+    }
+
     bool VectorLayer::syncRendererElement(const std::shared_ptr<VectorElement>& element, const ViewState& viewState, bool remove) {
         bool visible = element->isVisible() && isVisible() && getVisibleZoomRange().inRange(viewState.getZoom());
         bool billboardsChanged = false;
-        
-        std::shared_ptr<ProjectionSurface> projectionSurface = viewState.getProjectionSurface();
+
+        std::shared_ptr<ProjectionSurface> projectionSurface = getElementProjectionSurface(viewState.getProjectionSurface());
         if (!projectionSurface) {
             return false;
         }

@@ -20,11 +20,19 @@
 #include <vt/GLExtensions.h>
 
 #include <cmath>
+#include <unordered_map>
 
 #include <cglib/mat.h>
 
 namespace carto {
-    
+
+    struct TileRenderer::LabelOcclusionState {
+        std::mutex mutex;
+        cglib::vec3<double> cameraPos = cglib::vec3<double>(0, 0, 0);
+        unsigned int elevationVersion = 0;
+        std::unordered_map<long long, bool> results;
+    };
+
     TileRenderer::TileRenderer() :
         _mapRenderer(),
         _options(),
@@ -190,11 +198,13 @@ namespace carto {
         // Terrain state: enable depth-based terrain rendering and rebuild tile surfaces
         // whenever the elevation data changes (new DEM tiles, exaggeration change).
         bool terrainMode = false;
+        std::shared_ptr<TerrainOptions> activeTerrainOptions;
         if (auto options = _options.lock()) {
             if (options->getRenderProjectionMode() == RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
                 if (auto terrainOptions = options->getTerrainOptions()) {
                     if (terrainOptions->isEnabled()) {
                         terrainMode = true;
+                        activeTerrainOptions = terrainOptions;
                         unsigned int elevationVersion = terrainOptions->getElevationManager()->getVersion();
                         if (elevationVersion != _elevationVersion) {
                             _elevationVersion = elevationVersion;
@@ -205,6 +215,7 @@ namespace carto {
             }
         }
         tileRenderer->setTerrainMode(terrainMode, TERRAIN_DEPTH_BIAS);
+        updateLabelOcclusionTest(tileRenderer, viewState, activeTerrainOptions);
 
 
         _mapRotation = viewState.getRotation();
@@ -419,6 +430,57 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
         vt::ViewState vtViewState(viewState.getProjectionMat(), modelViewMat, viewState.getZoom(),
 viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewState.getNormalizedResolution());
         return Color(colorFunc(vtViewState).value());
+    }
+
+    void TileRenderer::updateLabelOcclusionTest(const std::shared_ptr<vt::GLTileRenderer>& tileRenderer, const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions) {
+        if (!terrainOptions || !terrainOptions->isBillboardOcclusionEnabled()) {
+            _labelOcclusionState.reset();
+            tileRenderer->setLabelOcclusionTest(std::function<bool(const cglib::vec3<double>&)>());
+            return;
+        }
+
+        std::shared_ptr<ElevationManager> elevationManager = terrainOptions->getElevationManager();
+        if (!_labelOcclusionState) {
+            _labelOcclusionState = std::make_shared<LabelOcclusionState>();
+        }
+        std::shared_ptr<LabelOcclusionState> state = _labelOcclusionState;
+
+        // Invalidate cached results when the camera moves significantly or the elevation data changes
+        cglib::vec3<double> cameraPos = viewState.getCameraPos();
+        double moveThreshold = 0.01 * cglib::length(viewState.getFocusPos() - cameraPos);
+        unsigned int elevationVersion = elevationManager->getVersion();
+        {
+            std::lock_guard<std::mutex> lock(state->mutex);
+            if (cglib::length(cameraPos - state->cameraPos) > moveThreshold || elevationVersion != state->elevationVersion) {
+                state->results.clear();
+                state->cameraPos = cameraPos;
+                state->elevationVersion = elevationVersion;
+            }
+        }
+
+        tileRenderer->setLabelOcclusionTest([state, elevationManager, cameraPos](const cglib::vec3<double>& pos) -> bool {
+            // Quantize the position for caching (roughly 4m grid)
+            const double QUANT = 10.0;
+            long long key = (static_cast<long long>(pos(0) * QUANT) * 73856093LL) ^ (static_cast<long long>(pos(1) * QUANT) * 19349663LL) ^ (static_cast<long long>(pos(2) * QUANT) * 83492791LL);
+            {
+                std::lock_guard<std::mutex> lock(state->mutex);
+                auto it = state->results.find(key);
+                if (it != state->results.end()) {
+                    return it->second;
+                }
+            }
+
+            double dist = cglib::length(pos - cameraPos);
+            cglib::vec3<double> target = pos + cglib::vec3<double>(0, 0, dist * 0.005);
+            cglib::ray3<double> ray(cameraPos, target - cameraPos);
+            double t = 0;
+            bool occluded = elevationManager->intersectRay(ray, t) && t > 0 && t < 0.995;
+            {
+                std::lock_guard<std::mutex> lock(state->mutex);
+                state->results[key] = occluded;
+            }
+            return occluded;
+        });
     }
 
     bool TileRenderer::initializeRenderer() {

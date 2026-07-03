@@ -62,6 +62,13 @@ namespace carto {
         bool isOverlapping() const;
         void setOverlapping(bool overlapping);
 
+        // Terrain occlusion state. May be called from multiple threads at the same time.
+        bool isTerrainOccluded() const;
+        void setTerrainOccluded(bool occluded);
+        float getTerrainOcclusionOpacity() const;
+        // Fades the occlusion opacity towards its target state; returns true while still animating.
+        bool updateTerrainOcclusionOpacity(float deltaSeconds);
+
         // These two methods may be called from multiple threads at the same time
         float getTransition() const;
         void setTransition(float transition);
@@ -138,6 +145,9 @@ namespace carto {
         bool _causesOverlap;
         bool _hideIfOverlapped;
         std::atomic<bool> _overlapping;
+
+        std::atomic<bool> _terrainOccluded;
+        std::atomic<float> _terrainOcclusionOpacity;
 
         std::atomic<float> _transition;
         

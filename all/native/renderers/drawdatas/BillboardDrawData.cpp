@@ -95,6 +95,35 @@ namespace carto {
         _overlapping = overlapping;
     }
 
+    bool BillboardDrawData::isTerrainOccluded() const {
+        return _terrainOccluded.load();
+    }
+
+    void BillboardDrawData::setTerrainOccluded(bool occluded) {
+        _terrainOccluded.store(occluded);
+    }
+
+    float BillboardDrawData::getTerrainOcclusionOpacity() const {
+        return _terrainOcclusionOpacity.load();
+    }
+
+    bool BillboardDrawData::updateTerrainOcclusionOpacity(float deltaSeconds) {
+        const float FADE_SPEED = 4.0f; // full fade in 250ms
+        float target = (_terrainOccluded.load() ? 0.0f : 1.0f);
+        float opacity = _terrainOcclusionOpacity.load();
+        if (opacity == target) {
+            return false;
+        }
+        float step = FADE_SPEED * deltaSeconds;
+        if (opacity < target) {
+            opacity = std::min(target, opacity + step);
+        } else {
+            opacity = std::max(target, opacity - step);
+        }
+        _terrainOcclusionOpacity.store(opacity);
+        return opacity != target;
+    }
+
     float BillboardDrawData::getTransition() const {
         return _transition;
     }
@@ -229,6 +258,8 @@ namespace carto {
         _causesOverlap(style.isCausesOverlap()),
         _hideIfOverlapped(style.isHideIfOverlapped()),
         _overlapping(style.isHideIfOverlapped() ? true : false),
+        _terrainOccluded(false),
+        _terrainOcclusionOpacity(1.0f),
         _transition(0.0f),
         _placementPriority(style.getPlacementPriority()),
         _pos(0, 0, 0),

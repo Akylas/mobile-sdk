@@ -129,6 +129,17 @@ namespace carto {
         if (!initializeRenderer()) {
             return;
         }
+
+        // Animate terrain occlusion fades
+        bool occlusionFading = false;
+        for (const std::shared_ptr<BillboardDrawData>& drawData : billboardDrawDatas) {
+            occlusionFading = drawData->updateTerrainOcclusionOpacity(deltaSeconds) || occlusionFading;
+        }
+        if (occlusionFading) {
+            if (auto mapRenderer = _mapRenderer.lock()) {
+                mapRenderer->requestRedraw();
+            }
+        }
     
         // Get layer opacity
         float opacity = 0;
@@ -519,9 +530,9 @@ namespace carto {
             if (drawData->getTransition() == 0.0f) {
                 continue;
             }
-            
+
             // Alpha value
-            int alpha = std::min(256, static_cast<int>(256 * opacity * AnimationStyle::CalculateTransition(drawData->getAnimationStyle() ? drawData->getAnimationStyle()->getFadeAnimationType() : AnimationType::ANIMATION_TYPE_NONE, drawData->getTransition())));
+            int alpha = std::min(256, static_cast<int>(256 * opacity * drawData->getTerrainOcclusionOpacity() * AnimationStyle::CalculateTransition(drawData->getAnimationStyle() ? drawData->getAnimationStyle()->getFadeAnimationType() : AnimationType::ANIMATION_TYPE_NONE, drawData->getTransition())));
             
             // Check for possible overflow in the buffers
             if ((drawDataIndex + 1) * 6 > GLContext::MAX_VERTEXBUFFER_SIZE) {
@@ -680,7 +691,7 @@ namespace carto {
 
             // Render the element
             Color color = drawData->getColor();
-            float alpha = opacity * AnimationStyle::CalculateTransition(drawData->getAnimationStyle() ? drawData->getAnimationStyle()->getFadeAnimationType() : AnimationType::ANIMATION_TYPE_NONE, drawData->getTransition());
+            float alpha = opacity * drawData->getTerrainOcclusionOpacity() * AnimationStyle::CalculateTransition(drawData->getAnimationStyle() ? drawData->getAnimationStyle()->getFadeAnimationType() : AnimationType::ANIMATION_TYPE_NONE, drawData->getTransition());
             cglib::vec4<float> modelColor = cglib::vec4<float>(color.getR(), color.getG(), color.getB(), color.getA()) * (alpha / 255.0f);
             std::shared_ptr<nml::Model> sourceModel = drawData->getSourceModel();
             std::shared_ptr<nml::GLModel> glModel = _nmlModelMap[sourceModel];
