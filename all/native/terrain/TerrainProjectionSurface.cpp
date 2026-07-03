@@ -16,7 +16,10 @@ namespace carto {
     }
 
     cglib::vec3<double> TerrainProjectionSurface::calculatePosition(const MapPos& mapPos) const {
-        double terrainZ = _elevationManager->getDisplayHeight(mapPos.getX(), mapPos.getY(), ElevationManager::LoadMode::ALLOW_LOAD);
+        // Cached-only: element positioning may run on the UI thread and must never block on IO.
+        // When the elevation tile arrives later, the elevation version changes and the element
+        // draw data is rebuilt (MapRenderer refreshes vector layers on elevation version changes).
+        double terrainZ = _elevationManager->getDisplayHeight(mapPos.getX(), mapPos.getY(), ElevationManager::LoadMode::CACHED_ONLY);
         return cglib::vec3<double>(mapPos.getX(), mapPos.getY(), mapPos.getZ() + terrainZ);
     }
 

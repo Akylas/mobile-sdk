@@ -7,6 +7,7 @@
 #include "core/ScreenBounds.h"
 #include "graphics/Bitmap.h"
 #include "layers/Layer.h"
+#include "layers/VectorLayer.h"
 #include "projections/Projection.h"
 #include "projections/ProjectionSurface.h"
 #include "renderers/BillboardRenderer.h"
@@ -606,6 +607,23 @@ namespace carto {
                 if (cameraPos(2) < clampedZ) {
                     _viewState.setCameraPos(cglib::vec3<double>(cameraPos(0), cameraPos(1), clampedZ));
                     _viewState.cameraChanged();
+                }
+
+                // Refresh vector layers when the elevation data changes (debounced), so that
+                // element draw data gets rebuilt with the new heights
+                unsigned int elevationVersion = elevationManager->getVersion();
+                if (elevationVersion != _layersElevationVersion) {
+                    if (!_lastElevationRefreshTime || currentTime - *_lastElevationRefreshTime > std::chrono::milliseconds(ELEVATION_REFRESH_DELAY)) {
+                        _layersElevationVersion = elevationVersion;
+                        _lastElevationRefreshTime = currentTime;
+                        for (const std::shared_ptr<Layer>& layer : _layers->getAll()) {
+                            if (std::dynamic_pointer_cast<VectorLayer>(layer)) {
+                                layer->refresh();
+                            }
+                        }
+                    } else {
+                        requestRedraw(); // check again on the next frame
+                    }
                 }
             } else {
                 _viewState.setTerrainHeightRange(0.0f, 0.0f);

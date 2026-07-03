@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [Unreleased]
+### New Features
+- **3D terrain support** (experimental): the map surface can be displaced by a DEM elevation tile source (mapbox/terrarium RGB encoding, the same sources used by `HillshadeRasterTileLayer`).
+  - `TerrainOptions` attached via `Options.setTerrainOptions(...)`: elevation data source (+ optional decoder), `exaggeration`, `meshResolution`, `billboardOcclusionEnabled`, `enabled`; `getElevation`/`getElevations` query API sharing the elevation cache.
+  - All tile layers (vector tiles incl. 3D buildings, raster overlays, hillshade) are rendered on the terrain, with crack-free LOD transitions between zoom levels. The same data source instance can feed both the terrain and a `HillshadeRasterTileLayer` (wrap it in a `MemoryCacheTileDataSource`).
+  - Vector elements (markers, points, lines, polygons, popups, NML models) are placed on the terrain surface; their z coordinate is interpreted as height above terrain.
+  - Billboards and vector tile labels hidden behind terrain fade out (with hysteresis to avoid flicker); can be disabled via `TerrainOptions.setBillboardOcclusionEnabled(false)`.
+  - Touch handling is terrain-aware: panning keeps the touched terrain point under the finger, pinch/double-tap zoom pivot on the terrain hit, clicks resolve to terrain positions and the camera is kept above the terrain.
+  - Changing the exaggeration or mesh resolution re-tesselates loaded tiles (relatively expensive; debounce UI sliders). Terrain is currently only supported in the `PLANAR` render projection mode.
+- **Post-process effects** (experimental): `MapRenderer.setPostProcessEffect(...)` renders the map through a custom fullscreen GLSL fragment shader (`PostProcessEffect`), with optional access to a terrain depth pre-pass. Includes a built-in PeakFinder-style relief outline effect (`PostProcessEffect.createReliefOutlineEffect()`).
+
 ## [v5.0.0-rc.13] - 2025-10-11
 ### New Features
 - [`332c6c6`](https://github.com/Akylas/mobile-sdk/commit/332c6c6cff5230759092a73ed83bb55cf17032e4) - add fetcDelay to `startDownloadArea` to add delay between each tile request

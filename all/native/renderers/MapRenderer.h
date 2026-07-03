@@ -183,6 +183,7 @@ namespace carto {
         static const int VT_LABEL_PLACEMENT_TASK_DELAY;
 
         static constexpr double CAMERA_TERRAIN_CLEARANCE = 0.5; // minimum camera height above terrain, in internal units (~20m)
+        static constexpr int ELEVATION_REFRESH_DELAY = 200; // milliseconds between vector layer refreshes caused by elevation data changes
 
         static const std::string BLEND_VERTEX_SHADER;
         static const std::string BLEND_FRAGMENT_SHADER;
@@ -211,6 +212,9 @@ namespace carto {
         std::string _postProcessShaderName;
         std::optional<std::chrono::steady_clock::time_point> _postProcessStartTime;
         std::unique_ptr<TerrainRenderer> _terrainRenderer;
+
+        unsigned int _layersElevationVersion = 0;
+        std::optional<std::chrono::steady_clock::time_point> _lastElevationRefreshTime;
 
         BackgroundRenderer _backgroundRenderer;
         

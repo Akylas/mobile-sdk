@@ -202,6 +202,46 @@ public class SecondFragment extends Fragment {
 //
 //        }
     }
+    void addTerrain(View view) {
+        // Shared elevation source: used simultaneously by the 3D terrain and the hillshade layer.
+        // The memory cache avoids downloading/decoding each elevation tile twice.
+        final HTTPTileDataSource demSource = new HTTPTileDataSource(1, 12, "https://tiles.mapterhorn.com/{z}/{x}/{y}.webp");
+        demSource.setEncoding("terrarium");
+        final com.carto.datasources.MemoryCacheTileDataSource cachedDemSource = new com.carto.datasources.MemoryCacheTileDataSource(demSource);
+
+        // 3D terrain
+        final com.carto.components.TerrainOptions terrainOptions = new com.carto.components.TerrainOptions(cachedDemSource);
+        terrainOptions.setExaggeration(1.0f);
+        mapView.getOptions().setTerrainOptions(terrainOptions);
+
+        // Hillshade layer draped over the 3D terrain, sharing the elevation source
+        final HillshadeRasterTileLayer hillshade = new HillshadeRasterTileLayer(cachedDemSource, new TerrariumElevationDataDecoder());
+        hillshade.setHillshadeMethod(HillshadeMethod.IGOR);
+        hillshade.setContrast(0.5f);
+        hillshade.setHeightScale(0.02f);
+        mapView.getLayers().add(hillshade);
+
+        // Tap to read the elevation under the finger
+        Log.d(TAG, "terrain elevation at Grenoble: " + terrainOptions.getElevation(new MapPos(5.72476358599884, 45.19272038067931)));
+
+        // Start tilted over the Alps
+        mapView.setFocusPos(new MapPos(5.72476358599884, 45.19272038067931), 0);
+        mapView.setZoom(12f, 0);
+        mapView.setTilt(35f, 0);
+    }
+
+    void toggleReliefOutlineEffect() {
+        // PeakFinder-style relief outline post-process effect demo
+        com.carto.renderers.MapRenderer renderer = mapView.getMapRenderer();
+        if (renderer.getPostProcessEffect() == null) {
+            com.carto.renderers.PostProcessEffect effect = com.carto.renderers.PostProcessEffect.createReliefOutlineEffect();
+            effect.setFloatParameter("uIntensity", 1.0f);
+            renderer.setPostProcessEffect(effect);
+        } else {
+            renderer.setPostProcessEffect(null);
+        }
+    }
+
     void addHillshadeLayer(View view, String dataPath) {
         MBTilesTileDataSource hillshadeSourceFrance = null;
         HTTPTileDataSource hillshadeSource = null;
@@ -444,6 +484,7 @@ public class SecondFragment extends Fragment {
 
 
         addMap(dataPath);
+        addTerrain(view);
 //        addRoutes(dataPath);
 //        addHillshadeLayer(view, dataPath);
 
