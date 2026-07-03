@@ -83,6 +83,8 @@ namespace carto {
     private:
         bool initializeRenderer();
 
+        static constexpr float TERRAIN_DEPTH_BIAS = 0.0002f; // clip-space depth bias for 2D geometry draped on terrain
+
         static const std::string LIGHTING_SHADER_2D;
         static const std::string LIGHTING_SHADER_3D;
         static const std::string LIGHTING_SHADER_NORMALMAP;
@@ -114,6 +116,7 @@ namespace carto {
         double _mapRotation;
         int _hillshadeMethod;
         float _hillshadeExaggeration;
+        unsigned int _elevationVersion = 0;
 
         std::map<vt::TileId, std::shared_ptr<const vt::Tile> > _tiles;
         

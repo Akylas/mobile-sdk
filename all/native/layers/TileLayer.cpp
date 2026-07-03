@@ -14,6 +14,8 @@
 #include "renderers/TileRenderer.h"
 #include "projections/Projection.h"
 #include "projections/EPSG3857.h"
+#include "terrain/ElevationManager.h"
+#include "terrain/TerrainTileTransformer.h"
 #include "ui/UTFGridClickInfo.h"
 #include "utils/Const.h"
 #include "utils/TileUtils.h"
@@ -245,6 +247,25 @@ namespace carto {
             resetTileTransformer();
             _projectionSurface = projectionSurface;
             _glResourceManager = glResourceManager;
+        }
+
+        // Check if the terrain configuration has changed. Any change requires tiles to be rebuilt.
+        {
+            std::shared_ptr<TerrainOptions> terrainOptions;
+            if (auto options = getOptions()) {
+                terrainOptions = options->getTerrainOptions();
+            }
+            bool terrainEnabled = terrainOptions && terrainOptions->isEnabled();
+            float terrainExaggeration = terrainOptions ? terrainOptions->getExaggeration() : 1.0f;
+            int terrainMeshResolution = terrainOptions ? terrainOptions->getMeshResolution() : 0;
+            if (_terrainOptions.lock() != terrainOptions || _terrainEnabled != terrainEnabled || _terrainExaggeration != terrainExaggeration || _terrainMeshResolution != terrainMeshResolution) {
+                clearTileCaches(true);
+                resetTileTransformer();
+                _terrainOptions = terrainOptions;
+                _terrainEnabled = terrainEnabled;
+                _terrainExaggeration = terrainExaggeration;
+                _terrainMeshResolution = terrainMeshResolution;
+            }
         }
 
         // Remove UTF grid tiles that are missing from the cache
@@ -701,6 +722,11 @@ namespace carto {
             if (options->getRenderProjectionMode() == RenderProjectionMode::RENDER_PROJECTION_MODE_SPHERICAL) {
                 tileTransformer = std::make_shared<vt::SphericalTileTransformer>(static_cast<float>(Const::WORLD_SIZE / Const::PI));
             }
+            else if (auto terrainOptions = options->getTerrainOptions()) {
+                if (terrainOptions->isEnabled()) {
+                    tileTransformer = std::make_shared<TerrainTileTransformer>(static_cast<float>(Const::WORLD_SIZE), terrainOptions->getElevationManager(), terrainOptions->getMeshResolution());
+                }
+            }
         }
         if (!tileTransformer) {
             tileTransformer = std::make_shared<vt::DefaultTileTransformer>(static_cast<float>(Const::WORLD_SIZE));
@@ -787,6 +813,17 @@ namespace carto {
 
         bool refresh = false;
         try {
+            // Warm up the elevation grid cache so that tile geometry can be built
+            // with the correct heights on the first try (elevation lookups during
+            // decoding and surface building are non-blocking).
+            if (auto options = layer->getOptions()) {
+                if (auto terrainOptions = options->getTerrainOptions()) {
+                    if (terrainOptions->isEnabled() && !isCanceled()) {
+                        terrainOptions->getElevationManager()->getTileGrid(_tile, ElevationManager::LoadMode::ALLOW_LOAD);
+                    }
+                }
+            }
+
             refresh = loadTile(layer) && !_preloadingTile;
             if (refresh) {
                 loadUTFGridTile(layer);

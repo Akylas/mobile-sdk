@@ -9,6 +9,7 @@
 #include "renderers/utils/GLResourceManager.h"
 #include "renderers/utils/VTRenderer.h"
 #include "layers/HillshadeRasterTileLayer.h"
+#include "terrain/ElevationManager.h"
 #include "utils/Const.h"
 #include "utils/Log.h"
 #include "utils/Const.h"
@@ -185,6 +186,25 @@ namespace carto {
         tileRenderer->setLayerBlendingSpeed(_layerBlendingSpeed);
         tileRenderer->setLabelBlendingSpeed(_labelBlendingSpeed);
         tileRenderer->setRendererLayerFilter(_rendererLayerFilter);
+
+        // Terrain state: enable depth-based terrain rendering and rebuild tile surfaces
+        // whenever the elevation data changes (new DEM tiles, exaggeration change).
+        bool terrainMode = false;
+        if (auto options = _options.lock()) {
+            if (options->getRenderProjectionMode() == RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
+                if (auto terrainOptions = options->getTerrainOptions()) {
+                    if (terrainOptions->isEnabled()) {
+                        terrainMode = true;
+                        unsigned int elevationVersion = terrainOptions->getElevationManager()->getVersion();
+                        if (elevationVersion != _elevationVersion) {
+                            _elevationVersion = elevationVersion;
+                            tileRenderer->resetTileSurfaces();
+                        }
+                    }
+                }
+            }
+        }
+        tileRenderer->setTerrainMode(terrainMode, TERRAIN_DEPTH_BIAS);
 
 
         _mapRotation = viewState.getRotation();

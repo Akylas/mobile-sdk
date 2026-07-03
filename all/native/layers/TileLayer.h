@@ -24,6 +24,7 @@ namespace carto {
     class CullState;
     class GLResourceManager;
     class ProjectionSurface;
+    class TerrainOptions;
     class TileRenderer;
     class TileLoadListener;
     class UTFGridTile;
@@ -432,6 +433,11 @@ namespace carto {
 
         std::weak_ptr<GLResourceManager> _glResourceManager;
         std::weak_ptr<ProjectionSurface> _projectionSurface;
+
+        std::weak_ptr<TerrainOptions> _terrainOptions;
+        bool _terrainEnabled = false;
+        float _terrainExaggeration = 1.0f;
+        int _terrainMeshResolution = 0;
     };
     
 }
