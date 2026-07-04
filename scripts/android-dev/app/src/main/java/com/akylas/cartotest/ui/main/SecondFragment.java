@@ -211,8 +211,9 @@ public class SecondFragment extends Fragment {
         demSource.setEncoding("terrarium");
         final com.carto.datasources.MemoryCacheTileDataSource cachedDemSource = new com.carto.datasources.MemoryCacheTileDataSource(demSource);
 
-        // 3D terrain
-        terrainOptions = new com.carto.components.TerrainOptions(cachedDemSource);
+        // 3D terrain. The decoder is resolved from the data source "encoding" setting
+        // (delegated through the cache wrapper); passing it explicitly works as well.
+        terrainOptions = new com.carto.components.TerrainOptions(cachedDemSource, new TerrariumElevationDataDecoder());
         terrainOptions.setExaggeration(1.0f);
         mapView.getOptions().setTerrainOptions(terrainOptions);
 
@@ -361,6 +362,7 @@ public class SecondFragment extends Fragment {
 //            hillshadeSourceFrance = new MBTilesTileDataSource( dataPath+"/france_terrain.etiles");
 //            hillshadeSourceWorld = new MBTilesTileDataSource( dataPath+"/world_terrain.etiles");
             hillshadeSource = new HTTPTileDataSource(1, 16, "https://tiles.mapterhorn.com/{z}/{x}/{y}.webp");
+            hillshadeSource.setEncoding("terrarium");
             //        HTTPTileDataSource hillshadeSource =   new HTTPTileDataSource(1, 15, "https://api.mapbox.com/v4/mapbox.terrain-rgb/{z}/{x}/{y}.pngraw?access_token=pk.eyJ1IjoiYWt5bGFzIiwiYSI6IkVJVFl2OXMifQ.TGtrEmByO3-99hA0EI44Ew");
         } catch (Exception e) {
             e.printStackTrace();
@@ -368,10 +370,11 @@ public class SecondFragment extends Fragment {
 //        hillshadeSourceWorld.setMaxOverzoomLevel(1);
 //        dataSource.add(hillshadeSourceFrance, "wzAzMzDAwMBwwwXFfBcVXAzAxE8BcVfMxXFXMBFfxVVVwMzMBMVwMB8RVPHFV9QQ1xDUPwMDFfMRwFVzwFXMVxFVUz/MQD1BAPXENQTMQAP1dA1xV9AxExFc1NQDXNQDUxAAAPD/ww3BV8FxVfDAcVwVcwMMFwXwxV8BwVV/FVVV/DMBXwXFV8DBcMFVX/AcEXBV8MED0Q0QH9ENED0Q0AN1fVNQDV1dU/VNQA9EAP1dU11AAB9/RDRAw0QN1dEfBDRcEDfDRcEEdw0QfRR0QP1111FXdXV0DXV1T1TUNAPXRNQA/MQD1FMQDdXRM1EN0DUAP9Q0AAAP3V1DUPUAPXUNA3QAAAAAAAAA%");
 //        dataSource.add(hillshadeSourceWorld);
-        final TerrariumElevationDataDecoder elevationDecoder = new TerrariumElevationDataDecoder();
-        final HillshadeRasterTileLayer layer = hillshadeLayer = new HillshadeRasterTileLayer(hillshadeSource, elevationDecoder);
+//        final TerrariumElevationDataDecoder elevationDecoder = new TerrariumElevationDataDecoder();
+        final HillshadeRasterTileLayer layer = hillshadeLayer = new HillshadeRasterTileLayer(hillshadeSource);
         layer.setPreloading(true);
 //        layer.setContrast(0.3f);
+
         layer.setHillshadeMethod(HillshadeMethod.IGOR);
         layer.setContrast( 0.5f);
         layer.setHeightScale(0.02f);

@@ -114,6 +114,11 @@ namespace carto {
             heights[i] = static_cast<float>(coeffs[0] * r + coeffs[1] * g + coeffs[2] * b + coeffs[3] * (a / 255.0));
         }
 
-        return std::make_shared<ElevationTileGrid>(tile, internalBounds, width, height, std::move(heights));
+        auto grid = std::make_shared<ElevationTileGrid>(tile, internalBounds, width, height, std::move(heights));
+        if (grid->getMinHeight() < -12000.0f || grid->getMaxHeight() > 10000.0f) {
+            Log::Warnf("ElevationTileGrid::DecodeBitmap: Implausible elevation range %g..%g m for tile %d/%d/%d - check that the elevation data source encoding ('terrarium'/'mapbox') matches the data",
+                       grid->getMinHeight(), grid->getMaxHeight(), tile.getZoom(), tile.getX(), tile.getY());
+        }
+        return grid;
     }
 }

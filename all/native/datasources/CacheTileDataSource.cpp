@@ -36,6 +36,14 @@ namespace carto {
         return _dataSource->getDataExtent();
     }
 
+    std::string CacheTileDataSource::getEncoding() const {
+        std::string encoding = TileDataSource::getEncoding();
+        if (encoding.empty()) {
+            encoding = _dataSource->getEncoding();
+        }
+        return encoding;
+    }
+
     void CacheTileDataSource::notifyTilesChanged(bool removeTiles) {
         clear();
         TileDataSource::notifyTilesChanged(removeTiles);
