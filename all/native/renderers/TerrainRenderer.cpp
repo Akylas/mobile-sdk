@@ -21,6 +21,13 @@ namespace carto {
         std::vector<unsigned short> indices;
     };
 
+    struct TerrainRenderer::MeshCacheEntry {
+        std::shared_ptr<ElevationTileGrid> grid; // the grid the mesh was built from
+        float exaggeration = 1.0f;
+        int gridSize = 0;
+        std::shared_ptr<TileMesh> mesh;
+    };
+
     TerrainRenderer::TerrainRenderer() :
         _frameBuffer(),
         _shader(),
@@ -31,17 +38,35 @@ namespace carto {
     TerrainRenderer::~TerrainRenderer() {
     }
 
-    bool TerrainRenderer::onDrawFrame(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager) {
+    bool TerrainRenderer::renderDepthPrepass(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager) {
         if (!terrainOptions || !glResourceManager || viewState.getWidth() <= 0 || viewState.getHeight() <= 0) {
             return false;
         }
-        std::shared_ptr<ElevationManager> elevationManager = terrainOptions->getElevationManager();
 
-        // Drop cached meshes when the elevation data changes
-        unsigned int elevationVersion = elevationManager->getVersion();
-        if (elevationVersion != _elevationVersion) {
-            _elevationVersion = elevationVersion;
-            _meshCache.clear();
+        // Depth-only pass into the current framebuffer: this is the single source of truth
+        // that 2D draped geometry depth-tests against (with a bias towards the viewer).
+        glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+        glDepthMask(GL_TRUE);
+        glEnable(GL_DEPTH_TEST);
+        glDisable(GL_BLEND);
+        glDisable(GL_STENCIL_TEST);
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+
+        bool result = renderTiles(viewState, terrainOptions, glResourceManager);
+
+        // Restore state expected by the layer renderers
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        glDepthMask(GL_FALSE);
+        glEnable(GL_BLEND);
+
+        GLContext::CheckGLError("TerrainRenderer::renderDepthPrepass");
+        return result;
+    }
+
+    bool TerrainRenderer::renderDepthTexture(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager) {
+        if (!terrainOptions || !glResourceManager || viewState.getWidth() <= 0 || viewState.getHeight() <= 0) {
+            return false;
         }
 
         int bufferWidth = std::max(1, viewState.getWidth() / BUFFER_DOWNSCALE);
@@ -49,16 +74,9 @@ namespace carto {
         if (!_frameBuffer || !_frameBuffer->isValid() || _frameBuffer->getWidth() != bufferWidth || _frameBuffer->getHeight() != bufferHeight) {
             _frameBuffer = glResourceManager->create<FrameBuffer>(bufferWidth, bufferHeight, true, true, false);
         }
-        if (!_shader || !_shader->isValid()) {
-            _shader = glResourceManager->create<Shader>("terraindepth", TERRAIN_DEPTH_VERTEX_SHADER, TERRAIN_DEPTH_FRAGMENT_SHADER);
-        }
-        if (!_frameBuffer || !_shader) {
+        if (!_frameBuffer) {
             return false;
         }
-
-        // Calculate visible terrain tiles
-        std::vector<MapTile> tiles;
-        calculateVisibleTiles(viewState, elevationManager, MapTile(0, 0, 0, 0), tiles);
 
         GLint prevFBO = 0;
         glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFBO);
@@ -75,23 +93,64 @@ namespace carto {
         glEnable(GL_CULL_FACE);
         glCullFace(GL_BACK);
 
+        bool result = renderTiles(viewState, terrainOptions, glResourceManager);
+
+        // Restore state
+        glBindFramebuffer(GL_FRAMEBUFFER, prevFBO);
+        glViewport(0, 0, viewState.getWidth(), viewState.getHeight());
+        glEnable(GL_BLEND);
+        glDepthMask(GL_FALSE);
+
+        GLContext::CheckGLError("TerrainRenderer::renderDepthTexture");
+        return result;
+    }
+
+    unsigned int TerrainRenderer::getDepthTextureId() const {
+        return _frameBuffer && _frameBuffer->isValid() ? _frameBuffer->getColorTexId() : 0;
+    }
+
+    bool TerrainRenderer::renderTiles(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager) {
+        std::shared_ptr<ElevationManager> elevationManager = terrainOptions->getElevationManager();
+
+        if (!_shader || !_shader->isValid()) {
+            _shader = glResourceManager->create<Shader>("terraindepth", TERRAIN_DEPTH_VERTEX_SHADER, TERRAIN_DEPTH_FRAGMENT_SHADER);
+        }
+        if (!_shader) {
+            return false;
+        }
+
+        // Calculate visible terrain tiles
+        std::vector<MapTile> tiles;
+        calculateVisibleTiles(viewState, elevationManager, MapTile(0, 0, 0, 0), tiles);
+
         glUseProgram(_shader->getProgId());
         GLuint aCoord = _shader->getAttribLoc("a_coord");
         glEnableVertexAttribArray(aCoord);
         glUniform1f(_shader->getUniformLoc("u_far"), viewState.getFar());
 
+        float exaggeration = elevationManager->getExaggeration();
         const cglib::mat4x4<double>& mvpMat = viewState.getModelviewProjectionMat();
         for (const MapTile& tile : tiles) {
             long long tileId = tile.getTileId();
+            std::shared_ptr<ElevationTileGrid> grid = elevationManager->getTileGrid(tile, ElevationManager::LoadMode::CACHED_ONLY);
+            int gridSize = calculateMeshGridSize(tile, grid, viewState);
+
+            // Rebuild the mesh only when its inputs actually changed. This avoids rebuilding
+            // every cached mesh each time a new elevation tile arrives during loading.
             auto it = _meshCache.find(tileId);
-            if (it == _meshCache.end()) {
-                std::shared_ptr<TileMesh> mesh = buildTileMesh(tile, elevationManager);
+            if (it == _meshCache.end() || it->second.grid != grid || it->second.exaggeration != exaggeration || it->second.gridSize != gridSize) {
                 if (_meshCache.size() >= MAX_CACHED_MESHES) {
                     _meshCache.clear(); // simple full flush; meshes are cheap to rebuild
+                    it = _meshCache.end();
                 }
-                it = _meshCache.emplace(tileId, std::make_pair(_elevationVersion, std::move(mesh))).first;
+                MeshCacheEntry entry;
+                entry.grid = grid;
+                entry.exaggeration = exaggeration;
+                entry.gridSize = gridSize;
+                entry.mesh = buildTileMesh(tile, grid, elevationManager, gridSize);
+                it = _meshCache.insert_or_assign(tileId, std::move(entry)).first;
             }
-            const std::shared_ptr<TileMesh>& mesh = it->second.second;
+            const std::shared_ptr<TileMesh>& mesh = it->second.mesh;
             if (!mesh || mesh->indices.empty()) {
                 continue;
             }
@@ -103,19 +162,7 @@ namespace carto {
         }
 
         glDisableVertexAttribArray(aCoord);
-
-        // Restore state
-        glBindFramebuffer(GL_FRAMEBUFFER, prevFBO);
-        glViewport(0, 0, viewState.getWidth(), viewState.getHeight());
-        glEnable(GL_BLEND);
-        glDepthMask(GL_FALSE);
-
-        GLContext::CheckGLError("TerrainRenderer::onDrawFrame");
         return true;
-    }
-
-    unsigned int TerrainRenderer::getDepthTextureId() const {
-        return _frameBuffer && _frameBuffer->isValid() ? _frameBuffer->getColorTexId() : 0;
     }
 
     void TerrainRenderer::calculateVisibleTiles(const ViewState& viewState, const std::shared_ptr<ElevationManager>& elevationManager, const MapTile& tile, std::vector<MapTile>& tiles) const {
@@ -164,7 +211,26 @@ namespace carto {
         }
     }
 
-    std::shared_ptr<TerrainRenderer::TileMesh> TerrainRenderer::buildTileMesh(const MapTile& tile, const std::shared_ptr<ElevationManager>& elevationManager) const {
+    int TerrainRenderer::calculateMeshGridSize(const MapTile& tile, const std::shared_ptr<ElevationTileGrid>& grid, const ViewState& viewState) const {
+        if (!grid || grid->getMaxHeight() - grid->getMinHeight() <= 0) {
+            return 1;
+        }
+
+        // Match the mesh resolution to the elevation data resolution so that the pre-pass
+        // depth agrees closely with the draped tile surfaces (which are tesselated down to
+        // DEM texel size). Far tiles get progressively coarser meshes.
+        double tileSize = Const::WORLD_SIZE / (1 << tile.getZoom());
+        double gridWidth = grid->getInternalBounds().getMax().getX() - grid->getInternalBounds().getMin().getX();
+        int texelsPerTile = MAX_MESH_GRID_SIZE;
+        if (gridWidth > 0) {
+            texelsPerTile = static_cast<int>(grid->getWidth() * tileSize / gridWidth + 0.5);
+        }
+        int zoomDelta = std::max(0, static_cast<int>(viewState.getZoom()) - tile.getZoom());
+        int gridSize = std::min(texelsPerTile, MAX_MESH_GRID_SIZE) >> zoomDelta;
+        return std::min(std::max(gridSize, MIN_MESH_GRID_SIZE), MAX_MESH_GRID_SIZE);
+    }
+
+    std::shared_ptr<TerrainRenderer::TileMesh> TerrainRenderer::buildTileMesh(const MapTile& tile, const std::shared_ptr<ElevationTileGrid>& grid, const std::shared_ptr<ElevationManager>& elevationManager, int gridSize) const {
         auto mesh = std::make_shared<TileMesh>();
 
         int tileMask = (1 << tile.getZoom()) - 1;
@@ -174,10 +240,9 @@ namespace carto {
         double size = zoomScale * Const::WORLD_SIZE;
         double localFromInternal = 1.0 / size;
 
-        std::shared_ptr<ElevationTileGrid> grid = elevationManager->getTileGrid(tile, ElevationManager::LoadMode::CACHED_ONLY);
         float exaggeration = elevationManager->getExaggeration();
 
-        int gridSize = (grid ? MESH_GRID_SIZE : 1);
+        gridSize = std::max(1, gridSize);
         int rowSize = gridSize + 1;
 
         mesh->vertices.reserve(rowSize * rowSize * 3);

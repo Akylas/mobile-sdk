@@ -106,6 +106,19 @@ namespace carto {
         void setMeshResolution(int meshResolution);
 
         /**
+         * Returns the clip-space depth bias used when depth-testing draped 2D geometry against the terrain.
+         * @return The depth bias. The default is 0.0005.
+         */
+        float getDepthBias() const;
+        /**
+         * Sets the clip-space depth bias used when depth-testing draped 2D geometry against the terrain.
+         * Larger values prevent draped layers from being clipped by the terrain surface itself,
+         * at the cost of geometry slightly behind terrain ridges 'shining through' near silhouettes.
+         * @param depthBias The new depth bias (clamped to 0..0.01).
+         */
+        void setDepthBias(float depthBias);
+
+        /**
          * Returns the billboard/label terrain occlusion state.
          * @return True if billboards and labels hidden behind terrain are faded out. The default is true.
          */
@@ -169,6 +182,7 @@ namespace carto {
 
         std::atomic<bool> _enabled;
         std::atomic<int> _meshResolution;
+        std::atomic<float> _depthBias;
         std::atomic<bool> _billboardOcclusionEnabled;
 
         std::vector<std::shared_ptr<OnChangeListener> > _onChangeListeners;

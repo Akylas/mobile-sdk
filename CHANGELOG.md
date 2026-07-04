@@ -10,7 +10,9 @@ All notable changes to this project will be documented in this file. See [standa
   - Vector elements (markers, points, lines, polygons, popups, NML models) are placed on the terrain surface; their z coordinate is interpreted as height above terrain.
   - Billboards and vector tile labels hidden behind terrain fade out (with hysteresis to avoid flicker); can be disabled via `TerrainOptions.setBillboardOcclusionEnabled(false)`.
   - Touch handling is terrain-aware: panning keeps the touched terrain point under the finger, pinch/double-tap zoom pivot on the terrain hit, clicks resolve to terrain positions and the camera is kept above the terrain.
+  - A terrain depth pre-pass provides a single consistent depth source: draped 2D geometry is depth-tested against it with a configurable clip-space bias (`TerrainOptions.setDepthBias`, default 0.0005), so overlapping draped layers can not z-fight while terrain ridges still occlude everything behind them.
   - Changing the exaggeration or mesh resolution re-tesselates loaded tiles (relatively expensive; debounce UI sliders). Terrain is currently only supported in the `PLANAR` render projection mode.
+  - Known v1 limitations: 3D buildings render through a separate overlay buffer and are not occluded by terrain ridges; layers with an explicit `compOp` are composited without terrain depth; small LOD-ring artifacts are possible where neighboring tiles use different elevation tile zooms.
 - **Post-process effects** (experimental): `MapRenderer.setPostProcessEffect(...)` renders the map through a custom fullscreen GLSL fragment shader (`PostProcessEffect`), with optional access to a terrain depth pre-pass. Includes a built-in PeakFinder-style relief outline effect (`PostProcessEffect.createReliefOutlineEffect()`).
 
 ## [v5.0.0-rc.13] - 2025-10-11

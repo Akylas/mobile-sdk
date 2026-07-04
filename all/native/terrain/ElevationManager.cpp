@@ -17,6 +17,15 @@
 
 namespace carto {
 
+    static const std::size_t DEFAULT_CACHE_CAPACITY = 32 * 1024 * 1024;
+    static const int FAILED_TILE_TTL_MILLISECONDS = 30 * 1000;
+    static const int MAX_ANCESTOR_SEARCH_DEPTH = 8;
+    static constexpr double NO_DATA_ELEVATION = -1000000.0;
+    static constexpr double DEFAULT_MIN_ELEVATION = -500.0;
+    static constexpr double DEFAULT_MAX_ELEVATION = 9000.0;
+    static constexpr int RAY_MARCH_MAX_STEPS = 256;
+    static constexpr int RAY_BISECT_STEPS = 24;
+
     struct ElevationManager::DataSourceListener : public TileDataSource::OnChangeListener {
         explicit DataSourceListener(ElevationManager& manager) : _manager(manager) { }
 
@@ -76,7 +85,8 @@ namespace carto {
 
     double ElevationManager::getElevation(const MapPos& pos) const {
         MapPos dataSourcePos = _projection->fromWgs84(pos);
-        MapTile mapTile = TileUtils::CalculateMapTile(dataSourcePos, _dataSource->getMaxZoom(), _projection);
+        // TileUtils returns TMS-convention tiles (y=0 south); getTileGrid expects XYZ (y=0 north)
+        MapTile mapTile = TileUtils::CalculateMapTile(dataSourcePos, _dataSource->getMaxZoom(), _projection).getFlipped();
         std::shared_ptr<ElevationTileGrid> grid = getTileGrid(mapTile, LoadMode::ALLOW_LOAD);
         if (!grid) {
             Log::Error("ElevationManager::getElevation: no tile found to get elevation");
@@ -91,7 +101,7 @@ namespace carto {
         results.reserve(poses.size());
         for (const MapPos& pos : poses) {
             MapPos dataSourcePos = _projection->fromWgs84(pos);
-            MapTile mapTile = TileUtils::CalculateMapTile(dataSourcePos, _dataSource->getMaxZoom(), _projection);
+            MapTile mapTile = TileUtils::CalculateMapTile(dataSourcePos, _dataSource->getMaxZoom(), _projection).getFlipped();
             std::shared_ptr<ElevationTileGrid> grid = getTileGrid(mapTile, LoadMode::ALLOW_LOAD);
             if (grid) {
                 MapPos internalPos = _projection->toInternal(dataSourcePos);
@@ -212,6 +222,20 @@ namespace carto {
         float exaggeration = _exaggeration.load();
         double maxElevation = std::max(static_cast<double>(_maxSeenElevation.load()), DEFAULT_MAX_ELEVATION);
 
+        // Most march steps hit the same elevation grid; keep the last used grid around
+        // to avoid a cache lookup (and its mutex) per sample.
+        std::shared_ptr<ElevationTileGrid> cachedGrid;
+        auto sampleDisplayHeight = [&](double internalX, double internalY) -> double {
+            double wrappedX = wrapInternalX(internalX);
+            if (!cachedGrid || !cachedGrid->getInternalBounds().contains(MapPos(wrappedX, internalY, 0))) {
+                cachedGrid = getGridForInternalPos(wrappedX, internalY, LoadMode::CACHED_ONLY);
+            }
+            if (!cachedGrid) {
+                return 0.0;
+            }
+            return cachedGrid->sampleHeight(wrappedX, internalY) * exaggeration * getDisplayScale(internalY);
+        };
+
         // Conservative display-space search interval. Use the largest latitude scale along the ray
         // to be safe; heights are re-sampled precisely at each march step anyway.
         double tGround = -ray.origin(2) / ray.direction(2);
@@ -234,7 +258,7 @@ namespace carto {
         // then refine the first crossing with bisection.
         double prevT = t0;
         cglib::vec3<double> pos = ray(t0);
-        double prevDelta = pos(2) - getDisplayHeight(pos(0), pos(1), LoadMode::CACHED_ONLY);
+        double prevDelta = pos(2) - sampleDisplayHeight(pos(0), pos(1));
         if (prevDelta <= 0) {
             t = t0;
             return true;
@@ -243,14 +267,14 @@ namespace carto {
             double f = static_cast<double>(i) / RAY_MARCH_MAX_STEPS;
             double curT = t0 + (t1 - t0) * f * f;
             pos = ray(curT);
-            double delta = pos(2) - getDisplayHeight(pos(0), pos(1), LoadMode::CACHED_ONLY);
+            double delta = pos(2) - sampleDisplayHeight(pos(0), pos(1));
             if (delta <= 0) {
                 double tLow = prevT;
                 double tHigh = curT;
                 for (int j = 0; j < RAY_BISECT_STEPS; j++) {
                     double tMid = (tLow + tHigh) * 0.5;
                     pos = ray(tMid);
-                    double midDelta = pos(2) - getDisplayHeight(pos(0), pos(1), LoadMode::CACHED_ONLY);
+                    double midDelta = pos(2) - sampleDisplayHeight(pos(0), pos(1));
                     if (midDelta <= 0) {
                         tHigh = tMid;
                     } else {
@@ -269,7 +293,7 @@ namespace carto {
     void ElevationManager::getMinMaxDisplayHeight(const MapTile& tile, double& minZ, double& maxZ) const {
         double minMeters = DEFAULT_MIN_ELEVATION;
         double maxMeters = std::max(static_cast<double>(_maxSeenElevation.load()), DEFAULT_MAX_ELEVATION);
-        MapBounds bounds = TileUtils::CalculateMapTileBounds(tile, _projection);
+        MapBounds bounds = TileUtils::CalculateMapTileBounds(tile.getFlipped(), _projection);
         if (std::shared_ptr<ElevationTileGrid> grid = getTileGrid(tile, LoadMode::CACHED_ONLY)) {
             minMeters = grid->getMinHeight();
             maxMeters = grid->getMaxHeight();
@@ -328,18 +352,18 @@ namespace carto {
 
     std::shared_ptr<ElevationTileGrid> ElevationManager::getGridForInternalPos(double internalX, double internalY, LoadMode mode) const {
         MapPos dataSourcePos = _projection->fromInternal(MapPos(internalX, internalY, 0));
-        MapTile mapTile = TileUtils::CalculateClippedMapTile(dataSourcePos, _dataSource->getMaxZoom(), _projection);
+        MapTile mapTile = TileUtils::CalculateClippedMapTile(dataSourcePos, _dataSource->getMaxZoom(), _projection).getFlipped();
         return getTileGrid(mapTile, mode);
     }
 
     std::shared_ptr<ElevationTileGrid> ElevationManager::loadTileGrid(const MapTile& requestedTile) const {
+        // The tile is in XYZ convention (y=0 north), which is what TileDataSource::loadTile expects.
+        // TileUtils works in TMS convention (y=0 south), hence the getFlipped() for bounds math.
         MapTile mapTile = requestedTile;
-        MapTile flippedMapTile = mapTile.getFlipped();
-        std::shared_ptr<TileData> tileData = _dataSource->loadTile(flippedMapTile);
+        std::shared_ptr<TileData> tileData = _dataSource->loadTile(mapTile);
         while (tileData && tileData->isReplaceWithParent() && mapTile.getZoom() > 0) {
             mapTile = mapTile.getParent();
-            flippedMapTile = mapTile.getFlipped();
-            tileData = _dataSource->loadTile(flippedMapTile);
+            tileData = _dataSource->loadTile(mapTile);
         }
         if (!tileData || !tileData->getData()) {
             return std::shared_ptr<ElevationTileGrid>();
@@ -351,7 +375,7 @@ namespace carto {
             return std::shared_ptr<ElevationTileGrid>();
         }
 
-        MapBounds bounds = TileUtils::CalculateMapTileBounds(mapTile, _projection);
+        MapBounds bounds = TileUtils::CalculateMapTileBounds(mapTile.getFlipped(), _projection);
         MapPos internalMin = _projection->toInternal(bounds.getMin());
         MapPos internalMax = _projection->toInternal(bounds.getMax());
         MapBounds internalBounds(MapPos(std::min(internalMin.getX(), internalMax.getX()), std::min(internalMin.getY(), internalMax.getY())),

@@ -196,25 +196,35 @@ namespace carto {
         tileRenderer->setRendererLayerFilter(_rendererLayerFilter);
 
         // Terrain state: enable depth-based terrain rendering and rebuild tile surfaces
-        // whenever the elevation data changes (new DEM tiles, exaggeration change).
+        // when the elevation data changes (new DEM tiles, exaggeration change). The rebuild
+        // is debounced: during the initial load a new elevation tile may arrive almost every
+        // frame and rebuilding all surfaces each time would kill interactivity.
         bool terrainMode = false;
+        float terrainDepthBias = 0.0f;
         std::shared_ptr<TerrainOptions> activeTerrainOptions;
         if (auto options = _options.lock()) {
             if (options->getRenderProjectionMode() == RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
                 if (auto terrainOptions = options->getTerrainOptions()) {
                     if (terrainOptions->isEnabled()) {
                         terrainMode = true;
+                        terrainDepthBias = terrainOptions->getDepthBias();
                         activeTerrainOptions = terrainOptions;
                         unsigned int elevationVersion = terrainOptions->getElevationManager()->getVersion();
                         if (elevationVersion != _elevationVersion) {
-                            _elevationVersion = elevationVersion;
-                            tileRenderer->resetTileSurfaces();
+                            auto now = std::chrono::steady_clock::now();
+                            if (!_lastSurfaceResetTime || now - *_lastSurfaceResetTime > std::chrono::milliseconds(SURFACE_RESET_DELAY)) {
+                                _elevationVersion = elevationVersion;
+                                _lastSurfaceResetTime = now;
+                                tileRenderer->resetTileSurfaces();
+                            } else if (auto mapRenderer = _mapRenderer.lock()) {
+                                mapRenderer->requestRedraw(); // apply the pending rebuild on a later frame
+                            }
                         }
                     }
                 }
             }
         }
-        tileRenderer->setTerrainMode(terrainMode, TERRAIN_DEPTH_BIAS);
+        tileRenderer->setTerrainMode(terrainMode, terrainDepthBias);
         updateLabelOcclusionTest(tileRenderer, viewState, activeTerrainOptions);
 
 

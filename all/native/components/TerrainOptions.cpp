@@ -17,6 +17,7 @@ namespace carto {
         _elevationManager(dataSource ? std::make_shared<ElevationManager>(dataSource, elevationDecoder) : std::shared_ptr<ElevationManager>()),
         _enabled(true),
         _meshResolution(64),
+        _depthBias(0.0005f),
         _billboardOcclusionEnabled(true),
         _onChangeListeners(),
         _onChangeListenersMutex()
@@ -66,6 +67,17 @@ namespace carto {
         int resolution = std::min(256, std::max(2, meshResolution));
         if (_meshResolution.exchange(resolution) != resolution) {
             notifyOptionChanged("MeshResolution");
+        }
+    }
+
+    float TerrainOptions::getDepthBias() const {
+        return _depthBias.load();
+    }
+
+    void TerrainOptions::setDepthBias(float depthBias) {
+        float bias = std::min(0.01f, std::max(0.0f, depthBias));
+        if (_depthBias.exchange(bias) != bias) {
+            notifyOptionChanged("DepthBias");
         }
     }
 

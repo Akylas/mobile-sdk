@@ -202,6 +202,8 @@ public class SecondFragment extends Fragment {
 //
 //        }
     }
+    com.carto.components.TerrainOptions terrainOptions;
+
     void addTerrain(View view) {
         // Shared elevation source: used simultaneously by the 3D terrain and the hillshade layer.
         // The memory cache avoids downloading/decoding each elevation tile twice.
@@ -210,7 +212,7 @@ public class SecondFragment extends Fragment {
         final com.carto.datasources.MemoryCacheTileDataSource cachedDemSource = new com.carto.datasources.MemoryCacheTileDataSource(demSource);
 
         // 3D terrain
-        final com.carto.components.TerrainOptions terrainOptions = new com.carto.components.TerrainOptions(cachedDemSource);
+        terrainOptions = new com.carto.components.TerrainOptions(cachedDemSource);
         terrainOptions.setExaggeration(1.0f);
         mapView.getOptions().setTerrainOptions(terrainOptions);
 
@@ -221,13 +223,122 @@ public class SecondFragment extends Fragment {
         hillshade.setHeightScale(0.02f);
         mapView.getLayers().add(hillshade);
 
-        // Tap to read the elevation under the finger
-        Log.d(TAG, "terrain elevation at Grenoble: " + terrainOptions.getElevation(new MapPos(5.72476358599884, 45.19272038067931)));
+        addTerrainTestElements();
+        addTerrainControls(view);
 
-        // Start tilted over the Alps
-        mapView.setFocusPos(new MapPos(5.72476358599884, 45.19272038067931), 0);
+        // Start tilted over the Alps (Grenoble). Note: setFocusPos expects base projection
+        // coordinates, so WGS84 positions must be converted first.
+        Projection proj = mapView.getOptions().getBaseProjection();
+        mapView.setFocusPos(proj.fromWgs84(new MapPos(5.72476358599884, 45.19272038067931)), 0);
         mapView.setZoom(12f, 0);
         mapView.setTilt(35f, 0);
+    }
+
+    void addTerrainTestElements() {
+        // Vector elements draped on the terrain: markers on summits (test billboard
+        // occlusion by orbiting around a ridge) and a line crossing the Isere valley.
+        final Projection proj = mapView.getOptions().getBaseProjection();
+        LocalVectorDataSource source = new LocalVectorDataSource(proj);
+
+        com.carto.styles.MarkerStyleBuilder markerStyle = new com.carto.styles.MarkerStyleBuilder();
+        markerStyle.setSize(24);
+        markerStyle.setColor(new Color((short) 255, (short) 0, (short) 0, (short) 255));
+        double[][] peaks = {
+                { 5.7869, 45.2876 }, // Chamechaude
+                { 5.9207, 45.2989 }, // Dent de Crolles
+                { 5.5433, 45.1861 }, // Le Moucherotte
+                { 5.7247, 45.1988 }, // Bastille above Grenoble
+        };
+        for (double[] p : peaks) {
+            source.add(new com.carto.vectorelements.Marker(proj.fromWgs84(new MapPos(p[0], p[1])), markerStyle.buildStyle()));
+        }
+
+        LineStyleBuilder lineStyle = new LineStyleBuilder();
+        lineStyle.setWidth(8);
+        lineStyle.setColor(new Color((short) 0, (short) 90, (short) 255, (short) 255));
+        MapPosVector linePoses = new MapPosVector();
+        linePoses.add(proj.fromWgs84(new MapPos(5.6800, 45.1600)));
+        linePoses.add(proj.fromWgs84(new MapPos(5.7247, 45.1927)));
+        linePoses.add(proj.fromWgs84(new MapPos(5.7869, 45.2876)));
+        source.add(new Line(linePoses, lineStyle.buildStyle()));
+
+        mapView.getLayers().add(new VectorLayer(source));
+    }
+
+    void addTerrainControls(View view) {
+        final android.content.Context context = getContext();
+        android.widget.LinearLayout panel = new android.widget.LinearLayout(context);
+        panel.setOrientation(android.widget.LinearLayout.VERTICAL);
+        panel.setBackgroundColor(0xA0FFFFFF);
+        panel.setPadding(10, 10, 10, 10);
+
+        final CheckBox terrainCheck = new CheckBox(context);
+        terrainCheck.setText("3D terrain");
+        terrainCheck.setChecked(terrainOptions.isEnabled());
+        terrainCheck.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                terrainOptions.setEnabled(isChecked); // 2D <-> 3D switch
+                mapView.requestRender();
+            }
+        });
+        panel.addView(terrainCheck);
+
+        final CheckBox occlusionCheck = new CheckBox(context);
+        occlusionCheck.setText("terrain occlusion");
+        occlusionCheck.setChecked(terrainOptions.isBillboardOcclusionEnabled());
+        occlusionCheck.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                terrainOptions.setBillboardOcclusionEnabled(isChecked);
+                mapView.requestRender();
+            }
+        });
+        panel.addView(occlusionCheck);
+
+        final CheckBox reliefCheck = new CheckBox(context);
+        reliefCheck.setText("relief outline");
+        reliefCheck.setChecked(false);
+        reliefCheck.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                toggleReliefOutlineEffect();
+                mapView.requestRender();
+            }
+        });
+        panel.addView(reliefCheck);
+
+        final TextView exText = new TextView(context);
+        exText.setText("exaggeration 1.0 (release to apply)");
+        panel.addView(exText);
+        final SeekBar exSeek = new SeekBar(context);
+        exSeek.setMax(300);
+        exSeek.setProgress(100);
+        exSeek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                exText.setText(String.format("exaggeration %.1f (release to apply)", progress / 100.0f));
+            }
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+            }
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                // Applying exaggeration re-tesselates loaded tiles, so apply on release only
+                terrainOptions.setExaggeration(seekBar.getProgress() / 100.0f);
+                mapView.requestRender();
+            }
+        });
+        panel.addView(exSeek, new android.widget.LinearLayout.LayoutParams(500, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        androidx.constraintlayout.widget.ConstraintLayout root = view.findViewById(R.id.main);
+        androidx.constraintlayout.widget.ConstraintLayout.LayoutParams lp = new androidx.constraintlayout.widget.ConstraintLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID;
+        lp.startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID;
+        lp.bottomMargin = 180;
+        lp.leftMargin = 10;
+        root.addView(panel, lp);
     }
 
     void toggleReliefOutlineEffect() {
@@ -523,8 +634,27 @@ public class SecondFragment extends Fragment {
             @Override
             public void onMapClicked(MapClickInfo mapClickInfo) {
                 super.onMapClicked(mapClickInfo);
-                MapPos clickPos = mapClickInfo.getClickPos();
-//                Log.d(TAG, "elevation " + layer.getElevation(new MapPos(5.722772489758224, 45.182362864932706)));
+                final MapPos clickPos = mapClickInfo.getClickPos();
+                if (terrainOptions == null) {
+                    return;
+                }
+                // Terrain-aware picking: clickPos already resolves to the terrain surface.
+                // Read the elevation on a background thread (may block on tile loading).
+                final MapPos wgs84Pos = mapView.getOptions().getBaseProjection().toWgs84(clickPos);
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        final double elevation = terrainOptions.getElevation(wgs84Pos);
+                        getActivity().runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                android.widget.Toast.makeText(getContext(),
+                                        String.format("%.5f, %.5f: %.0f m", wgs84Pos.getY(), wgs84Pos.getX(), elevation),
+                                        android.widget.Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                    }
+                }).start();
             }
         });
 

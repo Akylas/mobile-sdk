@@ -19,16 +19,22 @@
 
 namespace carto {
     class ElevationManager;
+    class ElevationTileGrid;
     class TerrainOptions;
     class FrameBuffer;
     class Shader;
     class GLResourceManager;
-    class VBO;
 
     /**
-     * Renders a terrain-only depth pre-pass into an offscreen buffer: per-tile grid meshes
-     * (with skirts) displaced by the elevation data, output as packed 24-bit linear depth
-     * (RGB, relative to the far plane) plus terrain coverage (A). Used by post-process effects.
+     * Renders the displaced terrain surface as per-tile grid meshes (with skirts).
+     * Used in two ways:
+     * 1. renderDepthPrepass: renders terrain depth into the currently bound framebuffer
+     *    (color writes disabled) before the tile layers are drawn. The 2D tile geometry
+     *    then depth-tests against this single consistent depth source (with a small bias),
+     *    which gives terrain self-occlusion without z-fighting between layers.
+     * 2. renderDepthTexture: renders packed 24-bit linear depth (RGB, relative to the
+     *    far plane) plus terrain coverage (A) into a half-resolution offscreen buffer,
+     *    consumed by post-process effects.
      * Internal class, not exposed in the public API.
      */
     class TerrainRenderer {
@@ -37,10 +43,16 @@ namespace carto {
         virtual ~TerrainRenderer();
 
         /**
-         * Renders the terrain depth pre-pass. Returns true on success.
+         * Renders terrain depth into the currently bound framebuffer. Color writes are
+         * disabled during the pass and GL state is restored on return. Returns true on success.
+         */
+        bool renderDepthPrepass(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager);
+
+        /**
+         * Renders the packed terrain depth texture for post-processing. Returns true on success.
          * Leaves the previously bound framebuffer bound again on return.
          */
-        bool onDrawFrame(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager);
+        bool renderDepthTexture(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager);
 
         /**
          * Returns the GL texture id of the packed depth buffer (0 if not rendered).
@@ -49,22 +61,25 @@ namespace carto {
 
     private:
         struct TileMesh;
+        struct MeshCacheEntry;
 
-        static constexpr int BUFFER_DOWNSCALE = 2;   // pre-pass runs at half resolution
-        static constexpr int MESH_GRID_SIZE = 32;    // grid cells per tile edge
-        static constexpr int MAX_CACHED_MESHES = 128;
+        static constexpr int BUFFER_DOWNSCALE = 2;    // packed depth texture runs at half resolution
+        static constexpr int MIN_MESH_GRID_SIZE = 8;  // grid cells per tile edge, lower bound
+        static constexpr int MAX_MESH_GRID_SIZE = 96; // grid cells per tile edge, upper bound
+        static constexpr int MAX_CACHED_MESHES = 160;
 
         static const std::string TERRAIN_DEPTH_VERTEX_SHADER;
         static const std::string TERRAIN_DEPTH_FRAGMENT_SHADER;
 
+        bool renderTiles(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager);
         void calculateVisibleTiles(const ViewState& viewState, const std::shared_ptr<ElevationManager>& elevationManager, const MapTile& tile, std::vector<MapTile>& tiles) const;
-        std::shared_ptr<TileMesh> buildTileMesh(const MapTile& tile, const std::shared_ptr<ElevationManager>& elevationManager) const;
+        std::shared_ptr<TileMesh> buildTileMesh(const MapTile& tile, const std::shared_ptr<ElevationTileGrid>& grid, const std::shared_ptr<ElevationManager>& elevationManager, int gridSize) const;
+        int calculateMeshGridSize(const MapTile& tile, const std::shared_ptr<ElevationTileGrid>& grid, const ViewState& viewState) const;
         cglib::mat4x4<double> calculateTileMatrix(const MapTile& tile) const;
 
         std::shared_ptr<FrameBuffer> _frameBuffer;
         std::shared_ptr<Shader> _shader;
-        std::map<long long, std::pair<unsigned int, std::shared_ptr<TileMesh> > > _meshCache; // tileId -> (elevation version, mesh)
-        unsigned int _elevationVersion = 0;
+        std::map<long long, MeshCacheEntry> _meshCache;
     };
 }
 

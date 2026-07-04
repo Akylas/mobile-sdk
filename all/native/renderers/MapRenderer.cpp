@@ -770,7 +770,7 @@ namespace carto {
                 if (!_terrainRenderer) {
                     _terrainRenderer = std::make_unique<TerrainRenderer>();
                 }
-                if (_terrainRenderer->onDrawFrame(viewState, terrainOptions, _glResourceManager)) {
+                if (_terrainRenderer->renderDepthTexture(viewState, terrainOptions, _glResourceManager)) {
                     terrainDepthTex = _terrainRenderer->getDepthTextureId();
                 }
             }
@@ -1004,6 +1004,22 @@ namespace carto {
     void MapRenderer::drawLayers(float deltaSeconds, const ViewState& viewState) {
         std::vector<std::shared_ptr<Layer> > layers = _layers->getAll();
 
+        // Terrain depth pre-pass: render the displaced terrain surface into the depth
+        // buffer (color writes off) before any layer is drawn. Draped 2D tile geometry
+        // depth-tests against this single consistent depth source (with a small bias
+        // towards the viewer), which yields terrain self-occlusion without z-fighting,
+        // and 3D geometry/billboard passes get correct occlusion by terrain ridges.
+        if (_options->getRenderProjectionMode() == RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
+            if (auto terrainOptions = _options->getTerrainOptions()) {
+                if (terrainOptions->isEnabled()) {
+                    if (!_terrainRenderer) {
+                        _terrainRenderer = std::make_unique<TerrainRenderer>();
+                    }
+                    _terrainRenderer->renderDepthPrepass(viewState, terrainOptions, _glResourceManager);
+                }
+            }
+        }
+
         // Create new billboard sorter instance
         std::vector<std::shared_ptr<BillboardDrawData> > billboardDrawDatas;
         {
@@ -1154,7 +1170,7 @@ namespace carto {
 
     const double MapRenderer::CAMERA_TERRAIN_CLEARANCE = 0.5;
 
-    const int MapRenderer::ELEVATION_REFRESH_DELAY = 200;
+    const int MapRenderer::ELEVATION_REFRESH_DELAY = 500;
 
     const std::string MapRenderer::BLEND_VERTEX_SHADER = R"GLSL(
         #version 100

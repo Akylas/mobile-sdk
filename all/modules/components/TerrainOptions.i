@@ -24,6 +24,7 @@
 %attribute(carto::TerrainOptions, bool, Enabled, isEnabled, setEnabled)
 %attribute(carto::TerrainOptions, float, Exaggeration, getExaggeration, setExaggeration)
 %attribute(carto::TerrainOptions, int, MeshResolution, getMeshResolution, setMeshResolution)
+%attribute(carto::TerrainOptions, float, DepthBias, getDepthBias, setDepthBias)
 %attribute(carto::TerrainOptions, bool, BillboardOcclusionEnabled, isBillboardOcclusionEnabled, setBillboardOcclusionEnabled)
 %std_exceptions(carto::TerrainOptions::TerrainOptions)
 

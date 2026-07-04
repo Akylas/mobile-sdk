@@ -11,6 +11,7 @@
 #include "graphics/ViewState.h"
 #include "renderers/utils/GLResource.h"
 
+#include <chrono>
 #include <memory>
 #include <mutex>
 #include <map>
@@ -87,7 +88,7 @@ namespace carto {
         bool initializeRenderer();
         void updateLabelOcclusionTest(const std::shared_ptr<vt::GLTileRenderer>& tileRenderer, const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions);
 
-        static constexpr float TERRAIN_DEPTH_BIAS = 0.0002f; // clip-space depth bias for 2D geometry draped on terrain
+        static constexpr int SURFACE_RESET_DELAY = 300; // minimum interval (ms) between elevation-driven tile surface rebuilds
 
         static const std::string LIGHTING_SHADER_2D;
         static const std::string LIGHTING_SHADER_3D;
@@ -121,6 +122,7 @@ namespace carto {
         int _hillshadeMethod;
         float _hillshadeExaggeration;
         unsigned int _elevationVersion = 0;
+        std::optional<std::chrono::steady_clock::time_point> _lastSurfaceResetTime;
         std::shared_ptr<LabelOcclusionState> _labelOcclusionState;
 
         std::map<vt::TileId, std::shared_ptr<const vt::Tile> > _tiles;

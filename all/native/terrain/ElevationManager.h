@@ -84,6 +84,7 @@ namespace carto {
         /**
          * Returns the decoded elevation grid covering the given tile (the tile zoom is clamped to the
          * data source zoom range and cached ancestors act as fallbacks). May return null.
+         * The tile must be in XYZ convention (y=0 north, same as vt::TileId and TileDataSource::loadTile).
          */
         std::shared_ptr<ElevationTileGrid> getTileGrid(const MapTile& mapTile, LoadMode mode) const;
 
@@ -101,6 +102,9 @@ namespace carto {
 
         virtual double getDisplayHeight(double internalX, double internalY) const override;
         virtual bool intersectRay(const cglib::ray3<double>& ray, double& t) const override;
+        /**
+         * The tile must be in XYZ convention (y=0 north, same as vt::TileId).
+         */
         virtual void getMinMaxDisplayHeight(const MapTile& tile, double& minZ, double& maxZ) const override;
         virtual unsigned int getVersion() const override;
 
@@ -112,15 +116,6 @@ namespace carto {
 
     private:
         struct DataSourceListener;
-
-        static const std::size_t DEFAULT_CACHE_CAPACITY = 32 * 1024 * 1024;
-        static const int FAILED_TILE_TTL_MILLISECONDS = 30 * 1000;
-        static const int MAX_ANCESTOR_SEARCH_DEPTH = 8;
-        static constexpr double NO_DATA_ELEVATION = -1000000.0;
-        static constexpr double DEFAULT_MIN_ELEVATION = -500.0;
-        static constexpr double DEFAULT_MAX_ELEVATION = 9000.0;
-        static constexpr int RAY_MARCH_MAX_STEPS = 256;
-        static constexpr int RAY_BISECT_STEPS = 24;
 
         void tilesChanged();
         double wrapInternalX(double internalX) const;
