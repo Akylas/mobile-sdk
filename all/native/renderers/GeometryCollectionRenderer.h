@@ -33,6 +33,7 @@ namespace carto {
 
         void offsetLayerHorizontally(double offset);
 
+        void setDepthBias(float depthBias);
         void onDrawFrame(float deltaSeconds, const ViewState& viewState);
 
         void addElement(const std::shared_ptr<GeometryCollection>& element);

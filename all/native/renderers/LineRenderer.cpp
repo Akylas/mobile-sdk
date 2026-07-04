@@ -39,6 +39,8 @@ namespace carto {
         _u_dpToPX(0),
         _u_unitToDP(0),
         _u_mvpMat(0),
+        _u_depthBias(0),
+        _depthBias(0.0f),
         _u_tex(0),
         _mutex()
     {
@@ -332,6 +334,10 @@ namespace carto {
         return false;
     }
     
+    void LineRenderer::setDepthBias(float depthBias) {
+        _depthBias = depthBias;
+    }
+
     bool LineRenderer::initializeRenderer() {
         if (_shader && _shader->isValid() && _textureCache && _textureCache->isValid()) {
             return true;
@@ -351,6 +357,7 @@ namespace carto {
             _u_dpToPX = _shader->getUniformLoc("u_dpToPX");
             _u_unitToDP = _shader->getUniformLoc("u_unitToDP");
             _u_mvpMat = _shader->getUniformLoc("u_mvpMat");
+            _u_depthBias = _shader->getUniformLoc("u_depthBias");
             _u_tex = _shader->getUniformLoc("u_tex");
         }
 
@@ -372,6 +379,7 @@ namespace carto {
         // Matrix
         const cglib::mat4x4<float>& mvpMat = viewState.getRTEModelviewProjectionMat();
         glUniformMatrix4fv(_u_mvpMat, 1, GL_FALSE, mvpMat.data());
+        glUniform1f(_u_depthBias, _depthBias);
         // Texture
         glUniform1i(_u_tex, 0);
     }
@@ -430,6 +438,7 @@ namespace carto {
         uniform float u_dpToPX;
         uniform float u_unitToDP;
         uniform mat4 u_mvpMat;
+        uniform float u_depthBias;
         varying lowp vec4 v_color;
         varying vec2 v_texCoord;
         varying float v_dist;
@@ -442,7 +451,9 @@ namespace carto {
             v_texCoord = a_texCoord;
             v_dist = a_normal.w * roundedWidth * u_gamma;
             v_width = 1.0 + (width - 1.0) * u_gamma;
-            gl_Position = u_mvpMat * vec4(pos, 1.0);
+            vec4 clipPos = u_mvpMat * vec4(pos, 1.0);
+            clipPos.z -= u_depthBias * clipPos.w;
+            gl_Position = clipPos;
         }
     )GLSL";
 

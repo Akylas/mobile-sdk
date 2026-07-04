@@ -38,6 +38,7 @@ namespace carto {
 
         void offsetLayerHorizontally(double offset);
     
+        void setDepthBias(float depthBias);
         void onDrawFrame(float deltaSeconds, const ViewState& viewState);
     
         void addElement(const std::shared_ptr<Polygon>& element);
@@ -93,6 +94,8 @@ namespace carto {
         GLuint _a_color;
         GLuint _a_coord;
         GLuint _u_mvpMat;
+        GLuint _u_depthBias;
+        float _depthBias;
 
         LineRenderer _lineRenderer;
     

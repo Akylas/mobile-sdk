@@ -38,6 +38,7 @@ namespace carto {
 
         void offsetLayerHorizontally(double offset);
     
+        void setDepthBias(float depthBias);
         void onDrawFrame(float deltaSeconds, const ViewState& viewState);
     
         void addElement(const std::shared_ptr<Line>& element);
@@ -109,6 +110,8 @@ namespace carto {
         GLuint _u_dpToPX;
         GLuint _u_unitToDP;
         GLuint _u_mvpMat;
+        GLuint _u_depthBias;
+        float _depthBias;
         GLuint _u_tex;
     
         mutable std::mutex _mutex;

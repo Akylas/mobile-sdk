@@ -173,13 +173,26 @@ namespace carto {
             // would z-fight the terrain depth pre-pass. Pull them slightly towards the
             // viewer (slope-scaled) while the terrain pre-pass is pushed slightly away.
             bool terrainDepthOffset = false;
+            float elementDepthBias = 0.0f;
             if (auto options = getOptions()) {
                 if (options->getRenderProjectionMode() == RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
                     if (auto terrainOptions = options->getTerrainOptions()) {
-                        terrainDepthOffset = terrainOptions->isEnabled();
+                        if (terrainOptions->isEnabled()) {
+                            terrainDepthOffset = true;
+                            // Element geometry is built once at full elevation resolution, but the
+                            // terrain surfaces get coarser (smoother) as the view zooms out - the
+                            // static element geometry then dips below the smoothed surface. A
+                            // constant clip-space bias larger than the tile geometry bias keeps
+                            // elements in front of the terrain across zoom levels.
+                            elementDepthBias = terrainOptions->getDepthBias() * 8.0f;
+                        }
                     }
                 }
             }
+            _lineRenderer->setDepthBias(elementDepthBias);
+            _pointRenderer->setDepthBias(elementDepthBias);
+            _polygonRenderer->setDepthBias(elementDepthBias);
+            _geometryCollectionRenderer->setDepthBias(elementDepthBias);
             if (terrainDepthOffset) {
                 glEnable(GL_POLYGON_OFFSET_FILL);
                 glPolygonOffset(-1.0f, -2.0f);

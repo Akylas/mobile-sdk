@@ -43,6 +43,12 @@ namespace carto {
         _polygonRenderer.offsetLayerHorizontally(offset);
     }
 
+    void GeometryCollectionRenderer::setDepthBias(float depthBias) {
+        _pointRenderer.setDepthBias(depthBias);
+        _lineRenderer.setDepthBias(depthBias);
+        _polygonRenderer.setDepthBias(depthBias);
+    }
+
     void GeometryCollectionRenderer::onDrawFrame(float deltaSeconds, const ViewState& viewState) {
         std::lock_guard<std::mutex> lock(_mutex);
 

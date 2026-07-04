@@ -54,8 +54,7 @@ namespace carto {
         glEnable(GL_DEPTH_TEST);
         glDisable(GL_BLEND);
         glDisable(GL_STENCIL_TEST);
-        glEnable(GL_CULL_FACE);
-        glCullFace(GL_BACK);
+        glDisable(GL_CULL_FACE); // displaced surfaces can face away near ridge crests
         // Keep the factor moderate: it scales with the per-pixel depth slope, which gets
         // large at ridge silhouettes - too much offset lets geometry behind ridges
         // 'shine through' in a band along every silhouette.
@@ -70,6 +69,7 @@ namespace carto {
         glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
         glDepthMask(GL_FALSE);
         glEnable(GL_BLEND);
+        glEnable(GL_CULL_FACE);
 
         GLContext::CheckGLError("TerrainRenderer::renderDepthPrepass");
         return result;
@@ -101,12 +101,12 @@ namespace carto {
 
         glDisable(GL_BLEND);
         glEnable(GL_DEPTH_TEST);
-        glEnable(GL_CULL_FACE);
-        glCullFace(GL_BACK);
+        glDisable(GL_CULL_FACE); // displaced surfaces can face away near ridge crests
 
         bool result = renderTiles(viewState, terrainOptions, glResourceManager);
 
         // Restore state
+        glEnable(GL_CULL_FACE);
         glBindFramebuffer(GL_FRAMEBUFFER, prevFBO);
         glViewport(0, 0, viewState.getWidth(), viewState.getHeight());
         glEnable(GL_BLEND);
