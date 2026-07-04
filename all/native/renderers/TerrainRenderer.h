@@ -10,6 +10,7 @@
 #include "core/MapTile.h"
 #include "graphics/ViewState.h"
 
+#include <chrono>
 #include <map>
 #include <memory>
 #include <vector>
@@ -77,6 +78,7 @@ namespace carto {
         struct MeshCacheEntry;
 
         static constexpr int BUFFER_DOWNSCALE = 2;    // packed depth texture runs at half resolution
+        static constexpr int DEPTH_READBACK_THROTTLE = 60; // minimum interval (ms) between occlusion depth read-backs while the camera moves
         static constexpr int MIN_MESH_GRID_SIZE = 4;  // grid cells per tile edge, lower bound
         static constexpr int MAX_MESH_GRID_SIZE = 96; // grid cells per tile edge, upper bound
         static constexpr int MAX_CACHED_MESHES = 160;
@@ -100,6 +102,7 @@ namespace carto {
         float _depthFar = 0.0f;
         cglib::mat4x4<double> _depthMVPMatrix = cglib::mat4x4<double>::zero(); // camera state of the last read-back
         unsigned int _depthElevationVersion = 0;
+        std::chrono::steady_clock::time_point _depthReadbackTime; // throttles read-backs while the camera moves
     };
 }
 

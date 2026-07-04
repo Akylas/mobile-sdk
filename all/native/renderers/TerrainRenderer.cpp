@@ -126,12 +126,22 @@ namespace carto {
         int bufferHeight = std::max(1, viewState.getHeight() / BUFFER_DOWNSCALE);
 
         // The render + read-back only needs to happen when the camera or the elevation
-        // data changed - on static frames (the common case) this is free
+        // data changed - on static frames (the common case) this is free. While the camera
+        // is moving, read-backs are additionally throttled: a slightly stale occlusion
+        // depth during motion is invisible (labels fade in/out anyway), while a
+        // glReadPixels stall every frame is not.
         unsigned int elevationVersion = (terrainOptions && terrainOptions->getElevationManager() ? terrainOptions->getElevationManager()->getVersion() : 0);
-        if (_depthWidth == bufferWidth && _depthHeight == bufferHeight &&
-            _depthMVPMatrix == viewState.getModelviewProjectionMat() && _depthElevationVersion == elevationVersion) {
+        bool unchanged = (_depthWidth == bufferWidth && _depthHeight == bufferHeight &&
+            _depthMVPMatrix == viewState.getModelviewProjectionMat() && _depthElevationVersion == elevationVersion);
+        if (unchanged) {
             return true;
         }
+        auto now = std::chrono::steady_clock::now();
+        if (_depthWidth == bufferWidth && _depthHeight == bufferHeight &&
+            now - _depthReadbackTime < std::chrono::milliseconds(DEPTH_READBACK_THROTTLE)) {
+            return true; // keep the previous (slightly stale) depth data during motion
+        }
+        _depthReadbackTime = now;
 
         _depthWidth = 0;
         _depthHeight = 0;
