@@ -119,6 +119,31 @@ namespace carto {
         void setMinZoom(int minZoom);
 
         /**
+         * Returns the camera terrain clearance: the minimum height the camera is kept
+         * above the terrain surface, in meters.
+         * @return The camera clearance in meters. The default is 200. 0 disables camera terrain-following.
+         */
+        float getCameraClearance() const;
+        /**
+         * Sets the camera terrain clearance: the minimum height the camera is kept above
+         * the terrain surface, in meters. When the camera would dive below this, it is
+         * corrected by zooming out through the normal camera event path.
+         * @param clearance The new clearance in meters. 0 disables camera terrain-following.
+         */
+        void setCameraClearance(float clearance);
+
+        /**
+         * Returns the duration of the camera terrain-following correction animation.
+         * @return The correction duration in seconds. The default is 0 (instant correction).
+         */
+        float getCameraClampDuration() const;
+        /**
+         * Sets the duration of the camera terrain-following correction animation.
+         * @param duration The new duration in seconds. 0 applies corrections instantly.
+         */
+        void setCameraClampDuration(float duration);
+
+        /**
          * Returns the clip-space depth bias used when depth-testing draped 2D geometry against the terrain.
          * @return The depth bias. The default is 0.0002.
          */
@@ -197,6 +222,8 @@ namespace carto {
         std::atomic<int> _meshResolution;
         std::atomic<int> _minZoom;
         std::atomic<float> _depthBias;
+        std::atomic<float> _cameraClearance;
+        std::atomic<float> _cameraClampDuration;
         std::atomic<bool> _billboardOcclusionEnabled;
 
         std::vector<std::shared_ptr<OnChangeListener> > _onChangeListeners;

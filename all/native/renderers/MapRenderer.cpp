@@ -1039,21 +1039,24 @@ namespace carto {
                         _terrainRenderer->updateDepthBuffer(viewState, terrainOptions, _glResourceManager);
                     }
 
-                    // Camera terrain-following: keep the camera above the terrain surface.
-                    // The correction goes through the normal camera event path (a short
-                    // animated zoom-out), never by mutating the view state directly.
+                    // Camera terrain-following: keep the camera at least the configured
+                    // clearance above the terrain surface. The correction goes through the
+                    // normal camera event path (a zoom-out; instant by default, optionally
+                    // animated), never by mutating the view state directly.
+                    float cameraClearance = terrainOptions->getCameraClearance();
+                    float clampDuration = terrainOptions->getCameraClampDuration();
                     auto now = std::chrono::steady_clock::now();
-                    if (now - _lastTerrainCameraClampTime > std::chrono::milliseconds(150)) {
+                    bool debounced = (clampDuration > 0 && now - _lastTerrainCameraClampTime < std::chrono::milliseconds(static_cast<int>(clampDuration * 1000)));
+                    if (cameraClearance > 0 && !debounced) {
                         std::shared_ptr<ElevationManager> elevationManager = terrainOptions->getElevationManager();
                         cglib::vec3<double> cameraPos = viewState.getCameraPos();
                         double terrainZ = elevationManager->getDisplayHeight(cameraPos(0), cameraPos(1), ElevationManager::LoadMode::CACHED_ONLY);
-                        double clearance = 20.0 * elevationManager->getDisplayScale(cameraPos(1)); // ~20m above the surface
-                        double minCameraZ = terrainZ + clearance;
+                        double minCameraZ = terrainZ + cameraClearance * elevationManager->getDisplayScale(cameraPos(1));
                         if (cameraPos(2) > 0 && cameraPos(2) < minCameraZ) {
                             _lastTerrainCameraClampTime = now;
                             CameraZoomEvent zoomEvent;
                             zoomEvent.setZoomDelta(static_cast<float>(std::log2(cameraPos(2) / minCameraZ)) * 1.05f); // negative: zoom out just past the clearance
-                            calculateCameraEvent(zoomEvent, 0.15f, false);
+                            calculateCameraEvent(zoomEvent, clampDuration, false);
                         }
                     }
                 }

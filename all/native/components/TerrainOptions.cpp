@@ -19,6 +19,8 @@ namespace carto {
         _meshResolution(32),
         _minZoom(5),
         _depthBias(0.0002f),
+        _cameraClearance(200.0f),
+        _cameraClampDuration(0.0f),
         _billboardOcclusionEnabled(true),
         _onChangeListeners(),
         _onChangeListenersMutex()
@@ -79,6 +81,28 @@ namespace carto {
         int zoom = std::min(24, std::max(0, minZoom));
         if (_minZoom.exchange(zoom) != zoom) {
             notifyOptionChanged("MinZoom");
+        }
+    }
+
+    float TerrainOptions::getCameraClearance() const {
+        return _cameraClearance.load();
+    }
+
+    void TerrainOptions::setCameraClearance(float clearance) {
+        float value = std::max(0.0f, clearance);
+        if (_cameraClearance.exchange(value) != value) {
+            notifyOptionChanged("CameraClearance");
+        }
+    }
+
+    float TerrainOptions::getCameraClampDuration() const {
+        return _cameraClampDuration.load();
+    }
+
+    void TerrainOptions::setCameraClampDuration(float duration) {
+        float value = std::max(0.0f, duration);
+        if (_cameraClampDuration.exchange(value) != value) {
+            notifyOptionChanged("CameraClampDuration");
         }
     }
 
