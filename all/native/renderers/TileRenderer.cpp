@@ -193,7 +193,9 @@ namespace carto {
         }
 
         cglib::mat4x4<double> modelViewMat = viewState.getModelviewMat() * cglib::translate4_matrix(cglib::vec3<double>(_horizontalLayerOffset, 0, 0));
-        tileRenderer->setViewState(vt::ViewState(viewState.getProjectionMat(), modelViewMat, viewState.getZoom(), viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewState.getNormalizedResolution()));
+        vt::ViewState vtViewState(viewState.getProjectionMat(), modelViewMat, viewState.getZoom(), viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewState.getNormalizedResolution());
+        vtViewState.planarTerrain = isPlanarTerrainMode(); // labels rescale by view depth so terrain elevation does not blow up their screen size
+        tileRenderer->setViewState(vtViewState);
         tileRenderer->setInteractionMode(_interactionMode);
         tileRenderer->setRasterFilterMode(_rasterFilterMode);
         tileRenderer->setLayerBlendingSpeed(_layerBlendingSpeed);
@@ -343,8 +345,10 @@ namespace carto {
         if (!tileRenderer) {
             return false;
         }
-        culler.setViewState(vt::ViewState(viewState.getProjectionMat(), modelViewMat, viewState.getZoom(),
-viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewState.getNormalizedResolution()));
+        vt::ViewState cullViewState(viewState.getProjectionMat(), modelViewMat, viewState.getZoom(),
+viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewState.getNormalizedResolution());
+        cullViewState.planarTerrain = isPlanarTerrainMode(); // keep culling envelopes consistent with the rendered label sizes
+        culler.setViewState(cullViewState);
 
         try {
             tileRenderer->cullLabels(culler);
@@ -451,6 +455,17 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
         vt::ViewState vtViewState(viewState.getProjectionMat(), modelViewMat, viewState.getZoom(),
 viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewState.getNormalizedResolution());
         return Color(colorFunc(vtViewState).value());
+    }
+
+    bool TileRenderer::isPlanarTerrainMode() const {
+        if (auto options = _options.lock()) {
+            if (options->getRenderProjectionMode() == RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
+                if (auto terrainOptions = options->getTerrainOptions()) {
+                    return terrainOptions->isEnabled();
+                }
+            }
+        }
+        return false;
     }
 
     void TileRenderer::updateLabelOcclusionTest(const std::shared_ptr<vt::GLTileRenderer>& tileRenderer, const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions) {
