@@ -6,6 +6,7 @@
 #include "projections/PlanarProjectionSurface.h"
 #include "renderers/MapRenderer.h"
 #include "renderers/drawdatas/TileDrawData.h"
+#include "renderers/TerrainRenderer.h"
 #include "renderers/utils/ElevationTextureCache.h"
 #include "renderers/utils/GLResourceManager.h"
 #include "renderers/utils/VTRenderer.h"
@@ -544,6 +545,42 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
             _labelOcclusionState.reset();
             tileRenderer->setLabelOcclusionTest(std::function<bool(const cglib::vec3<double>&)>());
             return;
+        }
+
+        // Preferred path: pixel-exact occlusion against the read-back terrain depth buffer
+        // (rendered by MapRenderer each frame) - matches what is actually on screen and is
+        // much cheaper than ray-marching the elevation grids per label.
+        if (auto mapRenderer = _mapRenderer.lock()) {
+            if (mapRenderer->getTerrainRenderer() != nullptr) {
+                {
+                    _labelOcclusionState.reset();
+                    cglib::mat4x4<double> mvpMat = viewState.getModelviewProjectionMat();
+                    float screenWidth = static_cast<float>(viewState.getWidth());
+                    float screenHeight = static_cast<float>(viewState.getHeight());
+                    std::weak_ptr<MapRenderer> mapRendererWeak = _mapRenderer;
+                    tileRenderer->setLabelOcclusionTest([mapRendererWeak, mvpMat, screenWidth, screenHeight](const cglib::vec3<double>& pos) {
+                        auto mapRenderer = mapRendererWeak.lock();
+                        if (!mapRenderer) {
+                            return false;
+                        }
+                        TerrainRenderer* terrainRenderer = mapRenderer->getTerrainRenderer();
+                        if (!terrainRenderer) {
+                            return false;
+                        }
+                        cglib::vec4<double> clipPos = cglib::transform(cglib::vec4<double>(pos(0), pos(1), pos(2), 1), mvpMat);
+                        if (clipPos(3) <= 0) {
+                            return false;
+                        }
+                        float screenX = static_cast<float>((clipPos(0) / clipPos(3) * 0.5 + 0.5) * screenWidth);
+                        float screenY = static_cast<float>((0.5 - clipPos(1) / clipPos(3) * 0.5) * screenHeight);
+                        float depthW = terrainRenderer->getDepthW(screenX, screenY);
+                        // occluded if clearly behind the terrain at this pixel (labels are
+                        // anchored ON the terrain, so allow a small relative tolerance)
+                        return static_cast<float>(clipPos(3)) > depthW * 1.02f;
+                    });
+                    return;
+                }
+            }
         }
 
         std::shared_ptr<ElevationManager> elevationManager = terrainOptions->getElevationManager();

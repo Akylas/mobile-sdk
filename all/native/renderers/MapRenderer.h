@@ -127,6 +127,11 @@ namespace carto {
         
         std::shared_ptr<GLResourceManager> getGLResourceManager() const;
 
+        /**
+         * Returns the terrain renderer (may be null). GL thread only. Internal method.
+         */
+        TerrainRenderer* getTerrainRenderer() const { return _terrainRenderer.get(); }
+
         std::vector<std::shared_ptr<BillboardDrawData> > getBillboardDrawDatas() const;
     
         AnimationHandler& getAnimationHandler();

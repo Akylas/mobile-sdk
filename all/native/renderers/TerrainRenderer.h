@@ -59,6 +59,19 @@ namespace carto {
          */
         unsigned int getDepthTextureId() const;
 
+        /**
+         * Renders the terrain depth texture and reads it back into a CPU buffer for
+         * pixel-exact occlusion queries (getDepthW). Returns true on success.
+         */
+        bool updateDepthBuffer(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager);
+
+        /**
+         * Returns the linear eye depth (view w, internal units) of the terrain at the
+         * given screen position from the last updateDepthBuffer call. Returns a huge
+         * value for sky pixels or when no depth data is available.
+         */
+        float getDepthW(float screenX, float screenY) const;
+
     private:
         struct TileMesh;
         struct MeshCacheEntry;
@@ -80,6 +93,11 @@ namespace carto {
         std::shared_ptr<FrameBuffer> _frameBuffer;
         std::shared_ptr<Shader> _shader;
         std::map<long long, MeshCacheEntry> _meshCache;
+
+        std::vector<std::uint8_t> _depthData; // read-back packed depth (RGBA, BUFFER_DOWNSCALE resolution)
+        int _depthWidth = 0;
+        int _depthHeight = 0;
+        float _depthFar = 0.0f;
     };
 }
 

@@ -1031,6 +1031,13 @@ namespace carto {
                         }
                         _terrainRenderer->renderDepthPrepass(viewState, terrainOptions, _glResourceManager);
                     }
+                    if (terrainOptions->isBillboardOcclusionEnabled()) {
+                        // Pixel-exact terrain depth buffer for label/billboard occlusion tests
+                        if (!_terrainRenderer) {
+                            _terrainRenderer = std::make_unique<TerrainRenderer>();
+                        }
+                        _terrainRenderer->updateDepthBuffer(viewState, terrainOptions, _glResourceManager);
+                    }
                 }
             }
         }

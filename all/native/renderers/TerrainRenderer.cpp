@@ -12,6 +12,7 @@
 #include "utils/Log.h"
 
 #include <algorithm>
+#include <limits>
 #include <cmath>
 
 namespace carto {
@@ -118,6 +119,45 @@ namespace carto {
 
     unsigned int TerrainRenderer::getDepthTextureId() const {
         return _frameBuffer && _frameBuffer->isValid() ? _frameBuffer->getColorTexId() : 0;
+    }
+
+    bool TerrainRenderer::updateDepthBuffer(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager) {
+        _depthWidth = 0;
+        _depthHeight = 0;
+        if (!renderDepthTexture(viewState, terrainOptions, glResourceManager)) {
+            return false;
+        }
+
+        int bufferWidth = std::max(1, viewState.getWidth() / BUFFER_DOWNSCALE);
+        int bufferHeight = std::max(1, viewState.getHeight() / BUFFER_DOWNSCALE);
+        _depthData.resize(static_cast<std::size_t>(bufferWidth) * bufferHeight * 4);
+
+        GLint prevFBO = 0;
+        glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFBO);
+        glBindFramebuffer(GL_FRAMEBUFFER, _frameBuffer->getFBOId());
+        glReadPixels(0, 0, bufferWidth, bufferHeight, GL_RGBA, GL_UNSIGNED_BYTE, _depthData.data());
+        glBindFramebuffer(GL_FRAMEBUFFER, prevFBO);
+
+        _depthWidth = bufferWidth;
+        _depthHeight = bufferHeight;
+        _depthFar = viewState.getFar();
+        GLContext::CheckGLError("TerrainRenderer::updateDepthBuffer");
+        return true;
+    }
+
+    float TerrainRenderer::getDepthW(float screenX, float screenY) const {
+        if (_depthWidth < 1 || _depthHeight < 1) {
+            return std::numeric_limits<float>::max();
+        }
+        int x = std::min(std::max(static_cast<int>(screenX) / BUFFER_DOWNSCALE, 0), _depthWidth - 1);
+        int y = std::min(std::max(static_cast<int>(screenY) / BUFFER_DOWNSCALE, 0), _depthHeight - 1);
+        // The framebuffer rows start at the bottom of the screen; screen y grows downwards
+        const std::uint8_t* ptr = &_depthData[(static_cast<std::size_t>(_depthHeight - 1 - y) * _depthWidth + x) * 4];
+        if (ptr[3] == 0) {
+            return std::numeric_limits<float>::max(); // sky pixel (zero coverage)
+        }
+        float depth = ptr[0] / 255.0f + ptr[1] / 65025.0f + ptr[2] / 16581375.0f;
+        return depth * _depthFar;
     }
 
     bool TerrainRenderer::renderTiles(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager) {
