@@ -12,6 +12,8 @@
 #include "core/MapTile.h"
 
 #include <atomic>
+#include <future>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <vector>
@@ -133,6 +135,7 @@ namespace carto {
         mutable std::atomic<float> _maxSeenElevation;
 
         mutable cache::timed_lru_cache<long long, std::shared_ptr<ElevationTileGrid> > _gridCache;
+        mutable std::map<long long, std::shared_future<std::shared_ptr<ElevationTileGrid> > > _pendingLoads; // single-flight de-duplication of concurrent loads
         mutable std::mutex _mutex;
     };
 }

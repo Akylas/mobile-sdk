@@ -45,6 +45,10 @@ namespace carto {
 
         // Depth-only pass into the current framebuffer: this is the single source of truth
         // that 2D draped geometry depth-tests against (with a bias towards the viewer).
+        // Slope-scaled polygon offset pushes the pre-pass depth slightly away from the
+        // viewer: the pre-pass mesh and the draped tile meshes are different tesselations
+        // of the same height field, and near the camera (steep, glancing surfaces) their
+        // difference exceeds any practical constant clip-space bias.
         glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
         glDepthMask(GL_TRUE);
         glEnable(GL_DEPTH_TEST);
@@ -52,10 +56,14 @@ namespace carto {
         glDisable(GL_STENCIL_TEST);
         glEnable(GL_CULL_FACE);
         glCullFace(GL_BACK);
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(2.0f, 4.0f);
 
         bool result = renderTiles(viewState, terrainOptions, glResourceManager);
 
         // Restore state expected by the layer renderers
+        glDisable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(0.0f, 0.0f);
         glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
         glDepthMask(GL_FALSE);
         glEnable(GL_BLEND);
@@ -129,10 +137,14 @@ namespace carto {
         glUniform1f(_shader->getUniformLoc("u_far"), viewState.getFar());
 
         float exaggeration = elevationManager->getExaggeration();
+        int minZoom = terrainOptions->getMinZoom();
         const cglib::mat4x4<double>& mvpMat = viewState.getModelviewProjectionMat();
         for (const MapTile& tile : tiles) {
             long long tileId = tile.getTileId();
-            std::shared_ptr<ElevationTileGrid> grid = elevationManager->getTileGrid(tile, ElevationManager::LoadMode::CACHED_ONLY);
+            std::shared_ptr<ElevationTileGrid> grid;
+            if (tile.getZoom() >= minZoom) {
+                grid = elevationManager->getTileGrid(tile, ElevationManager::LoadMode::CACHED_ONLY);
+            }
             int gridSize = calculateMeshGridSize(tile, grid, viewState);
 
             // Rebuild the mesh only when its inputs actually changed. This avoids rebuilding

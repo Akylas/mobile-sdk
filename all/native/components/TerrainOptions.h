@@ -106,6 +106,19 @@ namespace carto {
         void setMeshResolution(int meshResolution);
 
         /**
+         * Returns the minimum tile zoom level with 3D terrain.
+         * @return The minimum zoom level. The default is 5.
+         */
+        int getMinZoom() const;
+        /**
+         * Sets the minimum tile zoom level with 3D terrain. Tiles below this zoom level render flat
+         * and do not fetch elevation data. Terrain displacement is invisible at low zoom levels anyway,
+         * so this limits the number of elevation tiles fetched and processed for far-away/zoomed-out views.
+         * @param minZoom The new minimum zoom level (clamped to 0..24).
+         */
+        void setMinZoom(int minZoom);
+
+        /**
          * Returns the clip-space depth bias used when depth-testing draped 2D geometry against the terrain.
          * @return The depth bias. The default is 0.0005.
          */
@@ -182,6 +195,7 @@ namespace carto {
 
         std::atomic<bool> _enabled;
         std::atomic<int> _meshResolution;
+        std::atomic<int> _minZoom;
         std::atomic<float> _depthBias;
         std::atomic<bool> _billboardOcclusionEnabled;
 

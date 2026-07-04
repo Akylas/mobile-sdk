@@ -258,13 +258,15 @@ namespace carto {
             bool terrainEnabled = terrainOptions && terrainOptions->isEnabled();
             float terrainExaggeration = terrainOptions ? terrainOptions->getExaggeration() : 1.0f;
             int terrainMeshResolution = terrainOptions ? terrainOptions->getMeshResolution() : 0;
-            if (_terrainOptions.lock() != terrainOptions || _terrainEnabled != terrainEnabled || _terrainExaggeration != terrainExaggeration || _terrainMeshResolution != terrainMeshResolution) {
+            int terrainMinZoom = terrainOptions ? terrainOptions->getMinZoom() : 0;
+            if (_terrainOptions.lock() != terrainOptions || _terrainEnabled != terrainEnabled || _terrainExaggeration != terrainExaggeration || _terrainMeshResolution != terrainMeshResolution || _terrainMinZoom != terrainMinZoom) {
                 clearTileCaches(true);
                 resetTileTransformer();
                 _terrainOptions = terrainOptions;
                 _terrainEnabled = terrainEnabled;
                 _terrainExaggeration = terrainExaggeration;
                 _terrainMeshResolution = terrainMeshResolution;
+                _terrainMinZoom = terrainMinZoom;
             }
         }
 
@@ -724,7 +726,7 @@ namespace carto {
             }
             else if (auto terrainOptions = options->getTerrainOptions()) {
                 if (terrainOptions->isEnabled()) {
-                    tileTransformer = std::make_shared<TerrainTileTransformer>(static_cast<float>(Const::WORLD_SIZE), terrainOptions->getElevationManager(), terrainOptions->getMeshResolution());
+                    tileTransformer = std::make_shared<TerrainTileTransformer>(static_cast<float>(Const::WORLD_SIZE), terrainOptions->getElevationManager(), terrainOptions->getMeshResolution(), terrainOptions->getMinZoom());
                 }
             }
         }
@@ -818,7 +820,7 @@ namespace carto {
             // decoding and surface building are non-blocking).
             if (auto options = layer->getOptions()) {
                 if (auto terrainOptions = options->getTerrainOptions()) {
-                    if (terrainOptions->isEnabled() && !isCanceled()) {
+                    if (terrainOptions->isEnabled() && _tile.getZoom() >= terrainOptions->getMinZoom() && !isCanceled()) {
                         terrainOptions->getElevationManager()->getTileGrid(_tile, ElevationManager::LoadMode::ALLOW_LOAD);
                     }
                 }

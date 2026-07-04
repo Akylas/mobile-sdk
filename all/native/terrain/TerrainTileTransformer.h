@@ -59,11 +59,12 @@ namespace carto {
             double _localFromInternal;
         };
 
-        TerrainTileTransformer(float scale, const std::shared_ptr<ElevationManager>& elevationManager, int meshResolution);
+        TerrainTileTransformer(float scale, const std::shared_ptr<ElevationManager>& elevationManager, int meshResolution, int minZoom);
         virtual ~TerrainTileTransformer() = default;
 
         std::shared_ptr<ElevationManager> getElevationManager() const { return _elevationManager; }
         int getMeshResolution() const { return _meshResolution; }
+        int getMinZoom() const { return _minZoom; }
 
         virtual cglib::vec3<double> calculateTileOrigin(const vt::TileId& tileId) const override;
         virtual cglib::bbox3<double> calculateTileBBox(const vt::TileId& tileId) const override;
@@ -78,6 +79,7 @@ namespace carto {
         const double _scale;
         const std::shared_ptr<ElevationManager> _elevationManager;
         const int _meshResolution;
+        const int _minZoom; // tiles below this zoom level are rendered flat
     };
 }
 

@@ -17,6 +17,7 @@ namespace carto {
         _elevationManager(dataSource ? std::make_shared<ElevationManager>(dataSource, elevationDecoder) : std::shared_ptr<ElevationManager>()),
         _enabled(true),
         _meshResolution(64),
+        _minZoom(5),
         _depthBias(0.0005f),
         _billboardOcclusionEnabled(true),
         _onChangeListeners(),
@@ -67,6 +68,17 @@ namespace carto {
         int resolution = std::min(256, std::max(2, meshResolution));
         if (_meshResolution.exchange(resolution) != resolution) {
             notifyOptionChanged("MeshResolution");
+        }
+    }
+
+    int TerrainOptions::getMinZoom() const {
+        return _minZoom.load();
+    }
+
+    void TerrainOptions::setMinZoom(int minZoom) {
+        int zoom = std::min(24, std::max(0, minZoom));
+        if (_minZoom.exchange(zoom) != zoom) {
+            notifyOptionChanged("MinZoom");
         }
     }
 

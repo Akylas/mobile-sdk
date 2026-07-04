@@ -174,23 +174,50 @@ namespace carto {
             return std::shared_ptr<ElevationTileGrid>();
         }
 
-        // Load and decode outside of the lock. Duplicate concurrent loads are possible but benign.
-        std::shared_ptr<ElevationTileGrid> grid = loadTileGrid(tile);
+        // Single-flight: many tile fetch threads typically request the same elevation tile
+        // at nearly the same time (16 layer tiles can share one clamped elevation tile).
+        // Only the first caller performs the load; the others wait for its result.
+        long long tileId = tile.getTileId();
+        std::promise<std::shared_ptr<ElevationTileGrid> > promise;
+        {
+            std::unique_lock<std::mutex> lock(_mutex);
+            auto it = _pendingLoads.find(tileId);
+            if (it != _pendingLoads.end()) {
+                std::shared_future<std::shared_ptr<ElevationTileGrid> > future = it->second;
+                lock.unlock();
+                return future.get();
+            }
+            _pendingLoads[tileId] = promise.get_future().share();
+        }
+
+        // Load and decode outside of the lock
+        std::shared_ptr<ElevationTileGrid> grid;
+        try {
+            grid = loadTileGrid(tile);
+        }
+        catch (...) {
+            std::lock_guard<std::mutex> lock(_mutex);
+            _pendingLoads.erase(tileId);
+            promise.set_value(std::shared_ptr<ElevationTileGrid>());
+            throw;
+        }
         {
             std::lock_guard<std::mutex> lock(_mutex);
             if (grid) {
                 _gridCache.put(grid->getTile().getTileId(), grid, grid->getDataSize());
                 if (grid->getTile() != tile) {
                     // Loaded an ancestor (replace-with-parent); also mark the requested tile as resolved via ancestor
-                    _gridCache.put(tile.getTileId(), grid, 1024);
+                    _gridCache.put(tileId, grid, 1024);
                 }
                 float maxSeen = _maxSeenElevation.load();
                 while (grid->getMaxHeight() > maxSeen && !_maxSeenElevation.compare_exchange_weak(maxSeen, grid->getMaxHeight())) { }
             } else {
-                _gridCache.put(tile.getTileId(), std::shared_ptr<ElevationTileGrid>(), 1024);
-                _gridCache.invalidate(tile.getTileId(), std::chrono::steady_clock::now() + std::chrono::milliseconds(FAILED_TILE_TTL_MILLISECONDS));
+                _gridCache.put(tileId, std::shared_ptr<ElevationTileGrid>(), 1024);
+                _gridCache.invalidate(tileId, std::chrono::steady_clock::now() + std::chrono::milliseconds(FAILED_TILE_TTL_MILLISECONDS));
             }
+            _pendingLoads.erase(tileId);
         }
+        promise.set_value(grid);
         if (grid) {
             _version++;
         }

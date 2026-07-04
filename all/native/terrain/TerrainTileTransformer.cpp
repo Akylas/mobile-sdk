@@ -136,10 +136,11 @@ namespace carto {
         }
     }
 
-    TerrainTileTransformer::TerrainTileTransformer(float scale, const std::shared_ptr<ElevationManager>& elevationManager, int meshResolution) :
+    TerrainTileTransformer::TerrainTileTransformer(float scale, const std::shared_ptr<ElevationManager>& elevationManager, int meshResolution, int minZoom) :
         _scale(scale),
         _elevationManager(elevationManager),
-        _meshResolution(std::max(1, meshResolution))
+        _meshResolution(std::max(1, meshResolution)),
+        _minZoom(minZoom)
     {
     }
 
@@ -184,9 +185,12 @@ namespace carto {
     }
 
     std::shared_ptr<const vt::TileTransformer::VertexTransformer> TerrainTileTransformer::createTileVertexTransformer(const vt::TileId& tileId) const {
-        int tileMask = (1 << tileId.zoom) - 1;
-        MapTile mapTile(tileId.x & tileMask, std::min(std::max(tileId.y, 0), tileMask), tileId.zoom, 0);
-        std::shared_ptr<ElevationTileGrid> grid = _elevationManager->getTileGrid(mapTile, ElevationManager::LoadMode::CACHED_ONLY);
+        std::shared_ptr<ElevationTileGrid> grid;
+        if (tileId.zoom >= _minZoom) {
+            int tileMask = (1 << tileId.zoom) - 1;
+            MapTile mapTile(tileId.x & tileMask, std::min(std::max(tileId.y, 0), tileMask), tileId.zoom, 0);
+            grid = _elevationManager->getTileGrid(mapTile, ElevationManager::LoadMode::CACHED_ONLY);
+        }
 
         float divideThreshold = std::numeric_limits<float>::infinity();
         if (grid && grid->getMaxHeight() - grid->getMinHeight() > FLAT_HEIGHT_RANGE_EPSILON) {
