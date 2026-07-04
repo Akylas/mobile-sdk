@@ -212,7 +212,12 @@ namespace carto {
                 if (auto terrainOptions = options->getTerrainOptions()) {
                     if (terrainOptions->isEnabled()) {
                         terrainMode = true;
-                        terrainDepthBias = terrainOptions->getDepthBias();
+                        // Tile geometry lies exactly on the terrain surfaces (same transformer and
+                        // tesselation), so it only needs a small equality slack - the slope-scaled
+                        // polygon offset in the vt renderer provides the distance-stable pull
+                        // towards the viewer. A large constant clip-space bias would translate to
+                        // hundreds of meters of depth tolerance at far distances (see-through ridges).
+                        terrainDepthBias = terrainOptions->getDepthBias() * 0.1f;
                         activeTerrainOptions = terrainOptions;
                         unsigned int elevationVersion = terrainOptions->getElevationManager()->getVersion();
                         if (elevationVersion != _elevationVersion) {
