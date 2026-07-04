@@ -216,6 +216,7 @@ namespace carto {
         std::string _postProcessShaderName;
         std::optional<std::chrono::steady_clock::time_point> _postProcessStartTime;
         std::unique_ptr<TerrainRenderer> _terrainRenderer;
+        std::chrono::steady_clock::time_point _lastTerrainCameraClampTime; // debounces camera terrain-following corrections
 
         unsigned int _layersElevationVersion = 0;
         std::optional<std::chrono::steady_clock::time_point> _lastElevationRefreshTime;
