@@ -273,9 +273,9 @@ namespace carto {
                         return elevationTextureCache->getTexture(tileId, terrainTexture);
                     };
                     // Heights agree exactly between layers in GPU draping mode, so layers are
-                    // separated by a small fixed clip-space delta by their stacking order
-                    // (the vt renderer adds the per-sublayer deltas on top of this base).
-                    terrainDepthBias = static_cast<float>(_terrainRenderOrder) * 64.0f / 524288.0f;
+                    // separated by a fixed clip-space delta by their stacking order (the vt
+                    // renderer adds per-sublayer deltas and the geometry slack on top).
+                    terrainDepthBias = static_cast<float>(_terrainRenderOrder) * 128.0f / 524288.0f;
                 }
             }
         }

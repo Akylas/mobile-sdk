@@ -185,7 +185,7 @@ namespace carto {
                             // deltas keep elements above the draped tile content. A large bias
                             // would make elements visible through terrain ridges at distance
                             // (the eye-space tolerance of a clip-space bias grows with z^2).
-                            elementDepthBias = 8.0f / 524288.0f;
+                            elementDepthBias = 256.0f / 524288.0f;
                         }
                     }
                 }
