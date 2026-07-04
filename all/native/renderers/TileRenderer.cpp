@@ -279,6 +279,16 @@ namespace carto {
             }
         }
         tileRenderer->setTerrainTextureProvider(terrainTextureProvider);
+        if (terrainMode && activeTerrainOptions) {
+            // Labels are anchored when their tile is decoded, possibly before elevation
+            // data arrives - re-anchor them whenever the elevation version changes
+            std::shared_ptr<ElevationManager> elevationManager = activeTerrainOptions->getElevationManager();
+            tileRenderer->setLabelElevationProvider([elevationManager](const cglib::vec3<double>& pos) {
+                return elevationManager->getDisplayHeight(pos(0), pos(1), ElevationManager::LoadMode::CACHED_ONLY);
+            }, elevationManager->getVersion());
+        } else {
+            tileRenderer->setLabelElevationProvider(std::function<double(const cglib::vec3<double>&)>(), 0);
+        }
         tileRenderer->setTerrainMode(terrainMode, terrainDepthBias);
         tileRenderer->setTerrainDepthWrite(terrainMode && _terrainDepthWriteMode);
         updateLabelOcclusionTest(tileRenderer, viewState, activeTerrainOptions);
