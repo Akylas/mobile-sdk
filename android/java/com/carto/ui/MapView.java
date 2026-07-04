@@ -109,8 +109,20 @@ public class MapView extends GLSurfaceView implements GLSurfaceView.Renderer, Ma
             } catch (Exception e) {
                 com.carto.utils.Log.info("MapView: Preserving EGL context on pause is not possible: " + e);
             }
-            setEGLContextClientVersion(2);
-            setEGLConfigChooser(new ConfigChooser());
+            // Prefer an OpenGL ES 3.0 context when the device supports it: the rendering
+            // code uses the ES 2.0 API subset, but ES3-class contexts guarantee vertex
+            // texture fetch (GPU terrain draping).
+            int glesVersion = 2;
+            try {
+                android.app.ActivityManager activityManager = (android.app.ActivityManager) context.getApplicationContext().getSystemService(android.content.Context.ACTIVITY_SERVICE);
+                if (activityManager != null && activityManager.getDeviceConfigurationInfo().reqGlEsVersion >= 0x30000) {
+                    glesVersion = 3;
+                }
+            } catch (Exception e) {
+                com.carto.utils.Log.info("MapView: Could not query OpenGL ES version, using ES 2.0: " + e);
+            }
+            setEGLContextClientVersion(glesVersion);
+            setEGLConfigChooser(new ConfigChooser(glesVersion));
             setRenderer(this);
             setRenderMode(RENDERMODE_WHEN_DIRTY);
         }

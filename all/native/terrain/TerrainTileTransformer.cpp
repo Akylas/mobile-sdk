@@ -22,16 +22,6 @@ namespace carto {
         _tileScaleInternal = zoomScale * _scale;
         _tileScaleMeters = EARTH_CIRCUMFERENCE * zoomScale;
         _localFromInternal = (1 << tileId.zoom) / _scale;
-        if (divideThreshold > 0 && std::isfinite(divideThreshold)) {
-            // The tesselation halves edges while they are longer than the threshold, so
-            // surface vertices lie on a power-of-two lattice; the clamp lattice must match
-            // exactly so that surface vertices stay on lattice nodes (and thus unchanged)
-            int cells = 1;
-            while (cells < (1 << 14) && _tileScaleMeters / cells > divideThreshold) {
-                cells <<= 1;
-            }
-            _latticeCells = cells;
-        }
     }
 
     cglib::vec3<float> TerrainTileTransformer::TerrainVertexTransformer::calculatePoint(const cglib::vec2<float>& pos) const {
@@ -83,53 +73,15 @@ namespace carto {
     }
 
     double TerrainTileTransformer::TerrainVertexTransformer::calculateLocalHeight(const cglib::vec2<float>& pos) const {
+        // Plain bilinear elevation sample. This matches the GPU draping displacement
+        // (which REPLACES the z of draped geometry with the same bilinear texture sample),
+        // and is used directly for label anchors and hit testing.
         if (!_grid) {
             return 0.0;
         }
         double internalX = _tileOffsetInternal(0) + pos(0) * _tileScaleInternal;
         double internalY = _tileOffsetInternal(1) + (1 - pos(1)) * _tileScaleInternal;
         double meters = _grid->sampleHeight(internalX, internalY);
-
-        // Clamp geometry heights so that they never fall below the rendered terrain
-        // surface: the surface mesh samples the height field only at its tesselation
-        // vertices, so between them it can run above the full-resolution field (worst
-        // when the elevation data has more texels per tile than surface cells) -
-        // geometry sampling the full field there would be depth-clipped by the terrain
-        // ('holes' in roads around slope changes). Within each finest tesselation cell
-        // the rendered surface is exactly the 4-triangle fan around the cell center
-        // (the diagonal is the longest edge and is split once more than the axis
-        // edges), so the exact surface height can be evaluated in closed form.
-        // Surface vertices lie on lattice nodes or cell centers, where the fan equals
-        // the direct sample - the surface itself (and its crack-free tile borders,
-        // which use direct samples at exact edge positions) is unaffected.
-        bool boundary = pos(0) == 0.0f || pos(0) == 1.0f || pos(1) == 0.0f || pos(1) == 1.0f;
-        if (_latticeCells > 0 && !boundary) {
-            double fx = pos(0) * _latticeCells;
-            double fy = pos(1) * _latticeCells;
-            double x0 = std::floor(fx);
-            double y0 = std::floor(fy);
-            double dx = fx - x0;
-            double dy = fy - y0;
-            if (dx > 0 || dy > 0) {
-                auto sampleNode = [this](double lx, double ly) -> double {
-                    double ix = _tileOffsetInternal(0) + (lx / _latticeCells) * _tileScaleInternal;
-                    double iy = _tileOffsetInternal(1) + (1.0 - ly / _latticeCells) * _tileScaleInternal;
-                    return _grid->sampleHeight(ix, iy);
-                };
-                double hc = sampleNode(x0 + 0.5, y0 + 0.5);
-                double hfan;
-                if (dy <= dx && dx + dy <= 1) { // bottom fan triangle
-                    hfan = (1 - dx - dy) * sampleNode(x0, y0) + (dx - dy) * sampleNode(x0 + 1, y0) + 2 * dy * hc;
-                } else if (dy <= dx) { // right fan triangle
-                    hfan = (dx - dy) * sampleNode(x0 + 1, y0) + (dx + dy - 1) * sampleNode(x0 + 1, y0 + 1) + 2 * (1 - dx) * hc;
-                } else if (dx + dy <= 1) { // left fan triangle
-                    hfan = (1 - dx - dy) * sampleNode(x0, y0) + (dy - dx) * sampleNode(x0, y0 + 1) + 2 * dx * hc;
-                } else { // top fan triangle
-                    hfan = (dy - dx) * sampleNode(x0, y0 + 1) + (dx + dy - 1) * sampleNode(x0 + 1, y0 + 1) + 2 * (1 - dy) * hc;
-                }
-                meters = std::max(meters, hfan);
-            }
-        }
 
         double cosLatitude = calculateMercatorCosine(internalY);
         double internalHeight = meters * _exaggeration * _scale / EARTH_CIRCUMFERENCE / cosLatitude;
