@@ -728,6 +728,10 @@ namespace carto {
         return _tileRenderer->getTileTransformer();
     }
 
+    void TileLayer::setTerrainDepthWriteMode(bool enabled) {
+        _tileRenderer->setTerrainDepthWriteMode(enabled);
+    }
+
     void TileLayer::resetTileTransformer() {
         std::shared_ptr<vt::TileTransformer> tileTransformer;
         if (auto options = getOptions()) {

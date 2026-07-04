@@ -51,6 +51,7 @@ namespace carto {
         void setTileTransformer(const std::shared_ptr<vt::TileTransformer>& tileTransformer);
     
         void setInteractionMode(bool enabled);
+        void setTerrainDepthWriteMode(bool enabled);
         void setLayerBlendingSpeed(float speed);
         void setLabelBlendingSpeed(float speed);
         void setLabelOrder(int order);
@@ -121,6 +122,7 @@ namespace carto {
         double _mapRotation;
         int _hillshadeMethod;
         float _hillshadeExaggeration;
+        bool _terrainDepthWriteMode = false;
         unsigned int _elevationVersion = 0;
         std::optional<std::chrono::steady_clock::time_point> _lastSurfaceResetTime;
         std::shared_ptr<LabelOcclusionState> _labelOcclusionState;

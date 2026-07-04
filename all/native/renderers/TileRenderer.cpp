@@ -91,6 +91,11 @@ namespace carto {
         std::lock_guard<std::mutex> lock(_mutex);
         _interactionMode = enabled;
     }
+
+    void TileRenderer::setTerrainDepthWriteMode(bool enabled) {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _terrainDepthWriteMode = enabled;
+    }
     
     void TileRenderer::setLayerBlendingSpeed(float speed) {
         std::lock_guard<std::mutex> lock(_mutex);
@@ -225,6 +230,7 @@ namespace carto {
             }
         }
         tileRenderer->setTerrainMode(terrainMode, terrainDepthBias);
+        tileRenderer->setTerrainDepthWrite(terrainMode && _terrainDepthWriteMode);
         updateLabelOcclusionTest(tileRenderer, viewState, activeTerrainOptions);
 
 

@@ -371,6 +371,14 @@ namespace carto {
         std::shared_ptr<vt::TileTransformer> getTileTransformer() const;
         void resetTileTransformer();
 
+    public:
+        /**
+         * Marks/unmarks this layer as the terrain depth-write layer. Internal method.
+         */
+        void setTerrainDepthWriteMode(bool enabled);
+
+    protected:
+
         const DirectorPtr<TileDataSource> _dataSource;
         std::shared_ptr<DataSourceListener> _dataSourceListener;
 

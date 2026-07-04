@@ -618,6 +618,26 @@ namespace carto {
             return false;
         }
 
+        // Warm up the elevation grid cache over the visible area (this runs on a background
+        // thread and may block on IO): element draw data is then built with complete heights
+        // in one pass, avoiding transient half-draped geometry (e.g. near-vertical line
+        // segments between vertices with and without loaded elevation data).
+        if (auto options = layer->getOptions()) {
+            if (auto terrainOptions = options->getTerrainOptions()) {
+                if (terrainOptions->isEnabled() && !isCanceled()) {
+                    const std::shared_ptr<ElevationManager>& elevationManager = terrainOptions->getElevationManager();
+                    const MapBounds& bounds = cullState->getEnvelope().getBounds();
+                    for (int yi = 0; yi <= 3; yi++) {
+                        for (int xi = 0; xi <= 3; xi++) {
+                            double x = bounds.getMin().getX() + (bounds.getMax().getX() - bounds.getMin().getX()) * xi / 3.0;
+                            double y = bounds.getMin().getY() + (bounds.getMax().getY() - bounds.getMin().getY()) * yi / 3.0;
+                            elevationManager->getElevationMeters(x, y, ElevationManager::LoadMode::ALLOW_LOAD);
+                        }
+                    }
+                }
+            }
+        }
+
         const ViewState& viewState = cullState->getViewState();
 
         std::lock_guard<std::recursive_mutex> lock(layer->_mutex);

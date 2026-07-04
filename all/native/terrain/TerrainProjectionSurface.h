@@ -48,6 +48,7 @@ namespace carto {
         const std::shared_ptr<ElevationManager> _elevationManager;
         const unsigned int _elevationVersion;
         const double _splitThreshold; // internal units; longer segments/triangle edges are subdivided to follow the terrain
+        const double _heightLift; // internal units; draped elements are lifted slightly above the terrain surface
     };
 }
 

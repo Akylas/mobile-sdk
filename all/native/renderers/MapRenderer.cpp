@@ -7,6 +7,7 @@
 #include "core/ScreenBounds.h"
 #include "graphics/Bitmap.h"
 #include "layers/Layer.h"
+#include "layers/TileLayer.h"
 #include "layers/VectorLayer.h"
 #include "projections/Projection.h"
 #include "projections/ProjectionSurface.h"
@@ -1002,18 +1003,38 @@ namespace carto {
     void MapRenderer::drawLayers(float deltaSeconds, const ViewState& viewState) {
         std::vector<std::shared_ptr<Layer> > layers = _layers->getAll();
 
-        // Terrain depth pre-pass: render the displaced terrain surface into the depth
-        // buffer (color writes off) before any layer is drawn. Draped 2D tile geometry
-        // depth-tests against this single consistent depth source (with a small bias
-        // towards the viewer), which yields terrain self-occlusion without z-fighting,
-        // and 3D geometry/billboard passes get correct occlusion by terrain ridges.
+        // Terrain depth source: the FIRST suitable tile layer writes the depth of its
+        // draped background/raster surfaces - the depth source is then bit-exact with the
+        // rendered terrain, so draped geometry, other layers and vector elements can
+        // depth-test against it without mesh-mismatch artifacts (sinking/see-through).
+        // Only when no tile layer is available, a separate approximate terrain depth
+        // pre-pass is rendered instead.
+        bool terrainMode = false;
         if (_options->getRenderProjectionMode() == RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
             if (auto terrainOptions = _options->getTerrainOptions()) {
                 if (terrainOptions->isEnabled()) {
-                    if (!_terrainRenderer) {
-                        _terrainRenderer = std::make_unique<TerrainRenderer>();
+                    terrainMode = true;
+                    bool depthWriteAssigned = false;
+                    for (const std::shared_ptr<Layer>& layer : layers) {
+                        if (auto tileLayer = std::dynamic_pointer_cast<TileLayer>(layer)) {
+                            bool depthWrite = !depthWriteAssigned && tileLayer->isVisible() && tileLayer->getOpacity() >= 1.0f;
+                            tileLayer->setTerrainDepthWriteMode(depthWrite);
+                            depthWriteAssigned = depthWriteAssigned || depthWrite;
+                        }
                     }
-                    _terrainRenderer->renderDepthPrepass(viewState, terrainOptions, _glResourceManager);
+                    if (!depthWriteAssigned) {
+                        if (!_terrainRenderer) {
+                            _terrainRenderer = std::make_unique<TerrainRenderer>();
+                        }
+                        _terrainRenderer->renderDepthPrepass(viewState, terrainOptions, _glResourceManager);
+                    }
+                }
+            }
+        }
+        if (!terrainMode) {
+            for (const std::shared_ptr<Layer>& layer : layers) {
+                if (auto tileLayer = std::dynamic_pointer_cast<TileLayer>(layer)) {
+                    tileLayer->setTerrainDepthWriteMode(false);
                 }
             }
         }

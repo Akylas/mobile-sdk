@@ -14,21 +14,26 @@ namespace carto {
         PlanarProjectionSurface(),
         _elevationManager(elevationManager),
         _elevationVersion(elevationManager->getVersion()),
-        _splitThreshold(CalculateSplitThreshold(elevationManager))
+        _splitThreshold(CalculateSplitThreshold(elevationManager)),
+        _heightLift(CalculateSplitThreshold(elevationManager) * 0.2)
     {
     }
 
     MapPos TerrainProjectionSurface::calculateMapPos(const cglib::vec3<double>& pos) const {
         double terrainZ = _elevationManager->getDisplayHeight(pos(0), pos(1), ElevationManager::LoadMode::CACHED_ONLY);
-        return MapPos(pos(0), pos(1), pos(2) - terrainZ);
+        return MapPos(pos(0), pos(1), pos(2) - terrainZ - _heightLift);
     }
 
     cglib::vec3<double> TerrainProjectionSurface::calculatePosition(const MapPos& mapPos) const {
         // Cached-only: element positioning may run on the UI thread and must never block on IO.
         // When the elevation tile arrives later, the elevation version changes and the element
         // draw data is rebuilt (MapRenderer refreshes vector layers on elevation version changes).
+        // The small lift keeps draped element geometry (whose vertices sample the height
+        // field more densely than the terrain surface meshes) clear of the terrain depth
+        // in concave areas. The lift is a fraction of the elevation data texel size, i.e.
+        // within the resolution of the data itself.
         double terrainZ = _elevationManager->getDisplayHeight(mapPos.getX(), mapPos.getY(), ElevationManager::LoadMode::CACHED_ONLY);
-        return cglib::vec3<double>(mapPos.getX(), mapPos.getY(), mapPos.getZ() + terrainZ);
+        return cglib::vec3<double>(mapPos.getX(), mapPos.getY(), mapPos.getZ() + terrainZ + _heightLift);
     }
 
     cglib::vec3<double> TerrainProjectionSurface::calculateNormal(const MapPos& mapPos) const {
@@ -49,7 +54,7 @@ namespace carto {
 
     cglib::vec3<double> TerrainProjectionSurface::calculateNearestPoint(const cglib::vec3<double>& pos, double height) const {
         double terrainZ = _elevationManager->getDisplayHeight(pos(0), pos(1), ElevationManager::LoadMode::CACHED_ONLY);
-        return cglib::vec3<double>(pos(0), pos(1), height + terrainZ);
+        return cglib::vec3<double>(pos(0), pos(1), height + terrainZ + _heightLift);
     }
 
     bool TerrainProjectionSurface::calculateHitPoint(const cglib::ray3<double>& ray, double height, double& t) const {
