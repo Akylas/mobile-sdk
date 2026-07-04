@@ -122,14 +122,22 @@ namespace carto {
     }
 
     bool TerrainRenderer::updateDepthBuffer(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager) {
+        int bufferWidth = std::max(1, viewState.getWidth() / BUFFER_DOWNSCALE);
+        int bufferHeight = std::max(1, viewState.getHeight() / BUFFER_DOWNSCALE);
+
+        // The render + read-back only needs to happen when the camera or the elevation
+        // data changed - on static frames (the common case) this is free
+        unsigned int elevationVersion = (terrainOptions && terrainOptions->getElevationManager() ? terrainOptions->getElevationManager()->getVersion() : 0);
+        if (_depthWidth == bufferWidth && _depthHeight == bufferHeight &&
+            _depthMVPMatrix == viewState.getModelviewProjectionMat() && _depthElevationVersion == elevationVersion) {
+            return true;
+        }
+
         _depthWidth = 0;
         _depthHeight = 0;
         if (!renderDepthTexture(viewState, terrainOptions, glResourceManager)) {
             return false;
         }
-
-        int bufferWidth = std::max(1, viewState.getWidth() / BUFFER_DOWNSCALE);
-        int bufferHeight = std::max(1, viewState.getHeight() / BUFFER_DOWNSCALE);
         _depthData.resize(static_cast<std::size_t>(bufferWidth) * bufferHeight * 4);
 
         GLint prevFBO = 0;
@@ -141,6 +149,8 @@ namespace carto {
         _depthWidth = bufferWidth;
         _depthHeight = bufferHeight;
         _depthFar = viewState.getFar();
+        _depthMVPMatrix = viewState.getModelviewProjectionMat();
+        _depthElevationVersion = elevationVersion;
         GLContext::CheckGLError("TerrainRenderer::updateDepthBuffer");
         return true;
     }

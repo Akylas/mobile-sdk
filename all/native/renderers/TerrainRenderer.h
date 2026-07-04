@@ -98,6 +98,8 @@ namespace carto {
         int _depthWidth = 0;
         int _depthHeight = 0;
         float _depthFar = 0.0f;
+        cglib::mat4x4<double> _depthMVPMatrix = cglib::mat4x4<double>::zero(); // camera state of the last read-back
+        unsigned int _depthElevationVersion = 0;
     };
 }
 
