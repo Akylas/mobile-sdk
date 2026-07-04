@@ -91,14 +91,17 @@ namespace carto {
         double meters = _grid->sampleHeight(internalX, internalY);
 
         // Clamp geometry heights so that they never fall below the rendered terrain
-        // surface: the surface mesh samples the height field only at lattice nodes, so
-        // between nodes it can run above the full-resolution field (worst when the
-        // elevation data has more texels per tile than surface cells) - geometry sampling
-        // the full field there would be depth-clipped by the terrain ('holes' in roads
-        // around slope changes). Surface vertices lie exactly on lattice nodes where the
-        // bilinear interpolation equals the direct sample, so the surface itself (and its
-        // crack-free tile borders, which use direct samples at exact edge positions) is
-        // unaffected.
+        // surface: the surface mesh samples the height field only at its tesselation
+        // vertices, so between them it can run above the full-resolution field (worst
+        // when the elevation data has more texels per tile than surface cells) -
+        // geometry sampling the full field there would be depth-clipped by the terrain
+        // ('holes' in roads around slope changes). Within each finest tesselation cell
+        // the rendered surface is exactly the 4-triangle fan around the cell center
+        // (the diagonal is the longest edge and is split once more than the axis
+        // edges), so the exact surface height can be evaluated in closed form.
+        // Surface vertices lie on lattice nodes or cell centers, where the fan equals
+        // the direct sample - the surface itself (and its crack-free tile borders,
+        // which use direct samples at exact edge positions) is unaffected.
         bool boundary = pos(0) == 0.0f || pos(0) == 1.0f || pos(1) == 0.0f || pos(1) == 1.0f;
         if (_latticeCells > 0 && !boundary) {
             double fx = pos(0) * _latticeCells;
@@ -113,13 +116,18 @@ namespace carto {
                     double iy = _tileOffsetInternal(1) + (1.0 - ly / _latticeCells) * _tileScaleInternal;
                     return _grid->sampleHeight(ix, iy);
                 };
-                double h00 = sampleNode(x0, y0);
-                double h10 = sampleNode(x0 + 1, y0);
-                double h01 = sampleNode(x0, y0 + 1);
-                double h11 = sampleNode(x0 + 1, y0 + 1);
-                double hbil = (h00 * (1 - dx) + h10 * dx) * (1 - dy) + (h01 * (1 - dx) + h11 * dx) * dy;
-                double twist = std::abs(h00 + h11 - h10 - h01);
-                meters = std::max(meters, hbil + 0.5 * twist);
+                double hc = sampleNode(x0 + 0.5, y0 + 0.5);
+                double hfan;
+                if (dy <= dx && dx + dy <= 1) { // bottom fan triangle
+                    hfan = (1 - dx - dy) * sampleNode(x0, y0) + (dx - dy) * sampleNode(x0 + 1, y0) + 2 * dy * hc;
+                } else if (dy <= dx) { // right fan triangle
+                    hfan = (dx - dy) * sampleNode(x0 + 1, y0) + (dx + dy - 1) * sampleNode(x0 + 1, y0 + 1) + 2 * (1 - dx) * hc;
+                } else if (dx + dy <= 1) { // left fan triangle
+                    hfan = (1 - dx - dy) * sampleNode(x0, y0) + (dy - dx) * sampleNode(x0, y0 + 1) + 2 * dx * hc;
+                } else { // top fan triangle
+                    hfan = (dy - dx) * sampleNode(x0, y0 + 1) + (dx + dy - 1) * sampleNode(x0 + 1, y0 + 1) + 2 * (1 - dy) * hc;
+                }
+                meters = std::max(meters, hfan);
             }
         }
 

@@ -203,6 +203,7 @@ public class SecondFragment extends Fragment {
 //        }
     }
     com.carto.components.TerrainOptions terrainOptions;
+    TextView terrainZoomText;
 
     void addTerrain(View view) {
         // Shared elevation source: used simultaneously by the 3D terrain and the hillshade layer.
@@ -272,6 +273,10 @@ public class SecondFragment extends Fragment {
         panel.setOrientation(android.widget.LinearLayout.VERTICAL);
         panel.setBackgroundColor(0xA0FFFFFF);
         panel.setPadding(10, 10, 10, 10);
+
+        terrainZoomText = new TextView(context);
+        terrainZoomText.setText("zoom -");
+        panel.addView(terrainZoomText);
 
         final CheckBox terrainCheck = new CheckBox(context);
         terrainCheck.setText("3D terrain");
@@ -629,7 +634,11 @@ public class SecondFragment extends Fragment {
                 getActivity().runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        textZoom.setText(String.format("z=%.2f", mapView.getZoom()));
+                        String zoomStr = String.format("z=%.2f tilt=%.0f", mapView.getZoom(), mapView.getTilt());
+                        textZoom.setText(zoomStr);
+                        if (terrainZoomText != null) {
+                            terrainZoomText.setText(zoomStr);
+                        }
                     }
                 });
             }
