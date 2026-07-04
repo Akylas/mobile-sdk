@@ -58,6 +58,16 @@ namespace carto {
         void encodeTexture(std::vector<std::uint8_t>& rgbaData, std::array<float, 4>& decode) const;
 
         /**
+         * Like encodeTexture, but pads the texture with a 1-texel border taken from the
+         * neighbouring grids (same DEM level, order: W, E, S, N, SW, SE, NW, NE; null or
+         * differently-sized neighbours fall back to duplicating this grid's edge texels).
+         * Adjacent tiles then interpolate across the border from IDENTICAL texel pairs,
+         * making same-level tile borders seam-free. The padded texture covers the grid
+         * bounds extended by one texel on each side.
+         */
+        void encodeTextureWithBorders(const std::array<std::shared_ptr<ElevationTileGrid>, 8>& neighbours, std::vector<std::uint8_t>& rgbaData, std::array<float, 4>& decode) const;
+
+        /**
          * Decodes a DEM bitmap (mapbox/terrarium RGB encoded) into an elevation grid using
          * the given color component coefficients. Returns null if the bitmap has an unsupported format.
          */

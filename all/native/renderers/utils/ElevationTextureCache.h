@@ -47,6 +47,7 @@ namespace carto {
     private:
         struct CacheEntry {
             std::shared_ptr<ElevationTileGrid> grid;
+            std::array<std::shared_ptr<ElevationTileGrid>, 8> neighbours; // border sources; entry rebuilds when a neighbour grid loads
             std::shared_ptr<Texture> texture;
             std::array<float, 4> decode = { { 0, 0, 0, 0 } };
         };

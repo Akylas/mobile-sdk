@@ -82,6 +82,54 @@ namespace carto {
         decode = { { 255.0f * 256.0f * QUANT_SCALE, 255.0f * QUANT_SCALE, 0.0f, QUANT_OFFSET } };
     }
 
+    void ElevationTileGrid::encodeTextureWithBorders(const std::array<std::shared_ptr<ElevationTileGrid>, 8>& neighbours, std::vector<std::uint8_t>& rgbaData, std::array<float, 4>& decode) const {
+        int paddedWidth = _width + 2;
+        int paddedHeight = _height + 2;
+        rgbaData.resize(static_cast<std::size_t>(paddedWidth) * paddedHeight * 4);
+
+        auto compatible = [this](const std::shared_ptr<ElevationTileGrid>& grid) {
+            return grid && grid->_width == _width && grid->_height == _height;
+        };
+        // texel value at padded coordinates (gx, gy in [-1, width/height]); border texels
+        // come from the neighbour that actually covers them, falling back to edge clamping
+        auto rawValue = [&, this](int gx, int gy) -> std::uint16_t {
+            const ElevationTileGrid* grid = this;
+            if (gx < 0 && gy >= 0 && gy < _height && compatible(neighbours[0])) {
+                grid = neighbours[0].get(); gx += _width;
+            } else if (gx >= _width && gy >= 0 && gy < _height && compatible(neighbours[1])) {
+                grid = neighbours[1].get(); gx -= _width;
+            } else if (gy < 0 && gx >= 0 && gx < _width && compatible(neighbours[2])) {
+                grid = neighbours[2].get(); gy += _height;
+            } else if (gy >= _height && gx >= 0 && gx < _width && compatible(neighbours[3])) {
+                grid = neighbours[3].get(); gy -= _height;
+            } else if (gx < 0 && gy < 0 && compatible(neighbours[4])) {
+                grid = neighbours[4].get(); gx += _width; gy += _height;
+            } else if (gx >= _width && gy < 0 && compatible(neighbours[5])) {
+                grid = neighbours[5].get(); gx -= _width; gy += _height;
+            } else if (gx < 0 && gy >= _height && compatible(neighbours[6])) {
+                grid = neighbours[6].get(); gx += _width; gy -= _height;
+            } else if (gx >= _width && gy >= _height && compatible(neighbours[7])) {
+                grid = neighbours[7].get(); gx -= _width; gy -= _height;
+            }
+            gx = std::min(std::max(gx, 0), grid->_width - 1);
+            gy = std::min(std::max(gy, 0), grid->_height - 1);
+            return grid->_heights[static_cast<std::size_t>(gy) * grid->_width + gx];
+        };
+
+        std::size_t i = 0;
+        for (int gy = -1; gy <= _height; gy++) {
+            for (int gx = -1; gx <= _width; gx++) {
+                std::uint16_t value = rawValue(gx, gy);
+                rgbaData[i + 0] = static_cast<std::uint8_t>(value >> 8);
+                rgbaData[i + 1] = static_cast<std::uint8_t>(value & 255);
+                rgbaData[i + 2] = 0;
+                rgbaData[i + 3] = 255;
+                i += 4;
+            }
+        }
+        decode = { { 255.0f * 256.0f * QUANT_SCALE, 255.0f * QUANT_SCALE, 0.0f, QUANT_OFFSET } };
+    }
+
     std::shared_ptr<ElevationTileGrid> ElevationTileGrid::DecodeBitmap(const MapTile& tile, const MapBounds& internalBounds, const std::shared_ptr<Bitmap>& bitmap, const std::array<double, 4>& coeffs) {
         if (!bitmap) {
             return std::shared_ptr<ElevationTileGrid>();
