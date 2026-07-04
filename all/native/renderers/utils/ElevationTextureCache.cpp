@@ -41,7 +41,11 @@ namespace carto {
             entry.grid = grid;
             std::vector<std::uint8_t> rgbaData;
             grid->encodeTexture(rgbaData, entry.decode);
-            auto bitmap = std::make_shared<Bitmap>(rgbaData.data(), grid->getWidth(), grid->getHeight(), ColorFormat::COLOR_FORMAT_RGBA, 4 * grid->getWidth());
+            // The encoded rows are south-to-north, i.e. already bottom-up in the Bitmap
+            // convention. Bitmap treats a POSITIVE stride as top-down input and flips the
+            // rows - pass a negative stride so the data is taken as-is (a flipped texture
+            // mirrors every tile's terrain north-south).
+            auto bitmap = std::make_shared<Bitmap>(rgbaData.data(), grid->getWidth(), grid->getHeight(), ColorFormat::COLOR_FORMAT_RGBA, -static_cast<int>(4 * grid->getWidth()));
             entry.texture = _glResourceManager->create<Texture>(bitmap, false, false); // no mipmaps, clamp to edge
             it = _cache.insert_or_assign(gridTileId, std::move(entry)).first;
         }
