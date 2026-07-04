@@ -11,6 +11,7 @@
 #include "core/MapBounds.h"
 
 #include <array>
+#include <cstdint>
 #include <memory>
 #include <vector>
 
@@ -18,7 +19,9 @@ namespace carto {
     class Bitmap;
 
     /**
-     * A single decoded DEM tile: a grid of elevation samples in meters.
+     * A single decoded DEM tile: a grid of elevation samples.
+     * Heights are stored quantized to 16 bits (0.25m resolution, well below typical DEM
+     * accuracy) to halve the memory footprint of the decoded elevation cache.
      * Grid rows are stored south-to-north (row 0 corresponds to the minimum internal y).
      * Internal class, not exposed in the public API.
      */
@@ -32,7 +35,7 @@ namespace carto {
         int getHeight() const { return _height; }
         float getMinHeight() const { return _minHeight; }
         float getMaxHeight() const { return _maxHeight; }
-        std::size_t getDataSize() const { return _heights.size() * sizeof(float) + sizeof(ElevationTileGrid); }
+        std::size_t getDataSize() const { return _heights.size() * sizeof(std::uint16_t) + sizeof(ElevationTileGrid); }
 
         /**
          * Bilinearly sampled elevation in meters at the given internal coordinates.
@@ -51,15 +54,24 @@ namespace carto {
         static std::shared_ptr<ElevationTileGrid> DecodeBitmap(const MapTile& tile, const MapBounds& internalBounds, const std::shared_ptr<Bitmap>& bitmap, const std::array<double, 4>& coeffs);
 
     private:
+        // Fixed-point encoding: covers -1100m (Dead Sea + margin) to +15283m at 0.25m steps
+        static constexpr float QUANT_OFFSET = -1100.0f;
+        static constexpr float QUANT_SCALE = 0.25f;
+
+        static std::uint16_t EncodeHeight(float height) {
+            float value = (height - QUANT_OFFSET) / QUANT_SCALE;
+            return static_cast<std::uint16_t>(value < 0 ? 0 : (value > 65535.0f ? 65535.0f : value + 0.5f));
+        }
+
         float getHeight(int gx, int gy) const {
-            return _heights[gy * _width + gx];
+            return _heights[gy * _width + gx] * QUANT_SCALE + QUANT_OFFSET;
         }
 
         const MapTile _tile;
         const MapBounds _internalBounds;
         const int _width;
         const int _height;
-        std::vector<float> _heights;
+        std::vector<std::uint16_t> _heights;
         float _minHeight;
         float _maxHeight;
     };

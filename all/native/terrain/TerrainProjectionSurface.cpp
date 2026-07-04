@@ -31,6 +31,22 @@ namespace carto {
         return cglib::vec3<double>(mapPos.getX(), mapPos.getY(), mapPos.getZ() + terrainZ);
     }
 
+    cglib::vec3<double> TerrainProjectionSurface::calculateNormal(const MapPos& mapPos) const {
+        // The terrain surface normal (from the elevation gradient). Line width extrusion
+        // is performed perpendicular to this normal, so wide lines lie in the local
+        // terrain tangent plane instead of a horizontal plane cutting into slopes.
+        double dhdx = 0, dhdy = 0;
+        _elevationManager->getDisplayGradient(mapPos.getX(), mapPos.getY(), ElevationManager::LoadMode::CACHED_ONLY, dhdx, dhdy);
+        return cglib::unit(cglib::vec3<double>(-dhdx, -dhdy, 1));
+    }
+
+    cglib::vec3<double> TerrainProjectionSurface::calculateVector(const MapPos& mapPos, const MapVec& mapVec) const {
+        // Tilt local vectors into the terrain tangent plane (see calculateNormal)
+        double dhdx = 0, dhdy = 0;
+        _elevationManager->getDisplayGradient(mapPos.getX(), mapPos.getY(), ElevationManager::LoadMode::CACHED_ONLY, dhdx, dhdy);
+        return cglib::vec3<double>(mapVec.getX(), mapVec.getY(), mapVec.getZ() + dhdx * mapVec.getX() + dhdy * mapVec.getY());
+    }
+
     cglib::vec3<double> TerrainProjectionSurface::calculateNearestPoint(const cglib::vec3<double>& pos, double height) const {
         double terrainZ = _elevationManager->getDisplayHeight(pos(0), pos(1), ElevationManager::LoadMode::CACHED_ONLY);
         return cglib::vec3<double>(pos(0), pos(1), height + terrainZ);

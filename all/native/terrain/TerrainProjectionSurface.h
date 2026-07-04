@@ -32,6 +32,8 @@ namespace carto {
 
         virtual MapPos calculateMapPos(const cglib::vec3<double>& pos) const;
         virtual cglib::vec3<double> calculatePosition(const MapPos& mapPos) const;
+        virtual cglib::vec3<double> calculateNormal(const MapPos& mapPos) const;
+        virtual cglib::vec3<double> calculateVector(const MapPos& mapPos, const MapVec& mapVec) const;
         virtual cglib::vec3<double> calculateNearestPoint(const cglib::vec3<double>& pos, double height) const;
         virtual bool calculateHitPoint(const cglib::ray3<double>& ray, double height, double& t) const;
 

@@ -12,14 +12,19 @@ namespace carto {
         _internalBounds(internalBounds),
         _width(width),
         _height(height),
-        _heights(std::move(heights)),
+        _heights(),
         _minHeight(0),
         _maxHeight(0)
     {
-        if (!_heights.empty()) {
-            auto minmax = std::minmax_element(_heights.begin(), _heights.end());
+        if (!heights.empty()) {
+            auto minmax = std::minmax_element(heights.begin(), heights.end());
             _minHeight = *minmax.first;
             _maxHeight = *minmax.second;
+
+            _heights.resize(heights.size());
+            for (std::size_t i = 0; i < heights.size(); i++) {
+                _heights[i] = EncodeHeight(heights[i]);
+            }
         }
     }
 

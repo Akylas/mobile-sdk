@@ -136,11 +136,13 @@ namespace carto {
 
         glUseProgram(_shader->getProgId());
         GLuint aCoord = _shader->getAttribLoc("a_coord");
+        GLuint uMVPMat = _shader->getUniformLoc("u_mvpMat");
         glEnableVertexAttribArray(aCoord);
         glUniform1f(_shader->getUniformLoc("u_far"), viewState.getFar());
 
         float exaggeration = elevationManager->getExaggeration();
         int minZoom = terrainOptions->getMinZoom();
+        int meshResolution = terrainOptions->getMeshResolution();
         const cglib::mat4x4<double>& mvpMat = viewState.getModelviewProjectionMat();
         for (const MapTile& tile : tiles) {
             long long tileId = tile.getTileId();
@@ -148,7 +150,7 @@ namespace carto {
             if (tile.getZoom() >= minZoom) {
                 grid = elevationManager->getTileGrid(tile, ElevationManager::LoadMode::CACHED_ONLY);
             }
-            int gridSize = calculateMeshGridSize(tile, grid, viewState);
+            int gridSize = calculateMeshGridSize(tile, grid, viewState, meshResolution);
 
             // Rebuild the mesh only when its inputs actually changed. This avoids rebuilding
             // every cached mesh each time a new elevation tile arrives during loading.
@@ -171,7 +173,7 @@ namespace carto {
             }
 
             cglib::mat4x4<float> tileMVPMat = cglib::mat4x4<float>::convert(mvpMat * calculateTileMatrix(tile));
-            glUniformMatrix4fv(_shader->getUniformLoc("u_mvpMat"), 1, GL_FALSE, tileMVPMat.data());
+            glUniformMatrix4fv(uMVPMat, 1, GL_FALSE, tileMVPMat.data());
             glVertexAttribPointer(aCoord, 3, GL_FLOAT, GL_FALSE, 0, mesh->vertices.data());
             glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(mesh->indices.size()), GL_UNSIGNED_SHORT, mesh->indices.data());
         }
@@ -227,26 +229,26 @@ namespace carto {
         }
     }
 
-    int TerrainRenderer::calculateMeshGridSize(const MapTile& tile, const std::shared_ptr<ElevationTileGrid>& grid, const ViewState& viewState) const {
+    int TerrainRenderer::calculateMeshGridSize(const MapTile& tile, const std::shared_ptr<ElevationTileGrid>& grid, const ViewState& viewState, int meshResolution) const {
         if (!grid || grid->getMaxHeight() - grid->getMinHeight() <= 0) {
             return 1;
         }
 
-        // Match the mesh resolution to the elevation data resolution so that the pre-pass
-        // depth agrees closely with the draped tile surfaces (which are tesselated down to
-        // DEM texel size). Far tiles get progressively coarser meshes.
+        // The pre-pass mesh must never be FINER than the draped tile surfaces: a coarser
+        // draped surface would linearly cut through ridges of a finer pre-pass mesh and
+        // fail the depth test (see-through holes in the terrain). The draped surfaces are
+        // tesselated to min(meshResolution, elevation texels per tile) cells per tile edge,
+        // so the pre-pass uses the same bound and only gets coarser with distance (a
+        // coarser pre-pass merely weakens ridge occlusion, which is safe).
         double tileSize = Const::WORLD_SIZE / (1 << tile.getZoom());
         double gridWidth = grid->getInternalBounds().getMax().getX() - grid->getInternalBounds().getMin().getX();
         int texelsPerTile = MAX_MESH_GRID_SIZE;
         if (gridWidth > 0) {
             texelsPerTile = static_cast<int>(grid->getWidth() * tileSize / gridWidth + 0.5);
         }
-        // Reduce resolution for tiles far below the view zoom, but only moderately: the
-        // closer the pre-pass mesh matches the elevation data, the smaller the depth
-        // mismatch with the draped tile surfaces (less shine-through at ridges).
         int zoomDelta = std::min(3, std::max(0, static_cast<int>(viewState.getZoom()) - tile.getZoom()));
-        int gridSize = std::min(texelsPerTile >> zoomDelta, MAX_MESH_GRID_SIZE);
-        return std::min(std::max(gridSize, MIN_MESH_GRID_SIZE), MAX_MESH_GRID_SIZE);
+        int gridSize = std::min(std::min(texelsPerTile, meshResolution) >> zoomDelta, MAX_MESH_GRID_SIZE);
+        return std::max(gridSize, MIN_MESH_GRID_SIZE);
     }
 
     std::shared_ptr<TerrainRenderer::TileMesh> TerrainRenderer::buildTileMesh(const MapTile& tile, const std::shared_ptr<ElevationTileGrid>& grid, const std::shared_ptr<ElevationManager>& elevationManager, int gridSize) const {
@@ -264,7 +266,7 @@ namespace carto {
         gridSize = std::max(1, gridSize);
         int rowSize = gridSize + 1;
 
-        mesh->vertices.reserve(rowSize * rowSize * 3);
+        mesh->vertices.reserve((rowSize * rowSize + 8 * rowSize) * 3); // grid + skirt vertices
         double minLocalZ = 0;
         for (int gy = 0; gy <= gridSize; gy++) {
             for (int gx = 0; gx <= gridSize; gx++) {
