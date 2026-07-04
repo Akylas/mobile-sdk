@@ -56,8 +56,11 @@ namespace carto {
         glDisable(GL_STENCIL_TEST);
         glEnable(GL_CULL_FACE);
         glCullFace(GL_BACK);
+        // Keep the factor moderate: it scales with the per-pixel depth slope, which gets
+        // large at ridge silhouettes - too much offset lets geometry behind ridges
+        // 'shine through' in a band along every silhouette.
         glEnable(GL_POLYGON_OFFSET_FILL);
-        glPolygonOffset(2.0f, 4.0f);
+        glPolygonOffset(1.0f, 2.0f);
 
         bool result = renderTiles(viewState, terrainOptions, glResourceManager);
 
@@ -238,8 +241,11 @@ namespace carto {
         if (gridWidth > 0) {
             texelsPerTile = static_cast<int>(grid->getWidth() * tileSize / gridWidth + 0.5);
         }
-        int zoomDelta = std::max(0, static_cast<int>(viewState.getZoom()) - tile.getZoom());
-        int gridSize = std::min(texelsPerTile, MAX_MESH_GRID_SIZE) >> zoomDelta;
+        // Reduce resolution for tiles far below the view zoom, but only moderately: the
+        // closer the pre-pass mesh matches the elevation data, the smaller the depth
+        // mismatch with the draped tile surfaces (less shine-through at ridges).
+        int zoomDelta = std::min(3, std::max(0, static_cast<int>(viewState.getZoom()) - tile.getZoom()));
+        int gridSize = std::min(texelsPerTile >> zoomDelta, MAX_MESH_GRID_SIZE);
         return std::min(std::max(gridSize, MIN_MESH_GRID_SIZE), MAX_MESH_GRID_SIZE);
     }
 

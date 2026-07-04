@@ -120,7 +120,7 @@ namespace carto {
 
         /**
          * Returns the clip-space depth bias used when depth-testing draped 2D geometry against the terrain.
-         * @return The depth bias. The default is 0.0005.
+         * @return The depth bias. The default is 0.0002.
          */
         float getDepthBias() const;
         /**

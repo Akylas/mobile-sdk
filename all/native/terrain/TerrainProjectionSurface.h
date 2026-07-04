@@ -35,9 +35,17 @@ namespace carto {
         virtual cglib::vec3<double> calculateNearestPoint(const cglib::vec3<double>& pos, double height) const;
         virtual bool calculateHitPoint(const cglib::ray3<double>& ray, double height, double& t) const;
 
+        virtual void tesselateSegment(const MapPos& mapPos0, const MapPos& mapPos1, std::vector<MapPos>& mapPoses) const;
+        virtual void tesselateTriangle(unsigned int i0, unsigned int i1, unsigned int i2, std::vector<unsigned int>& indices, std::vector<MapPos>& mapPoses) const;
+
     private:
+        bool splitSegment(const MapPos& mapPos0, const MapPos& mapPos1, MapPos& mapPosM) const;
+
+        static double CalculateSplitThreshold(const std::shared_ptr<ElevationManager>& elevationManager);
+
         const std::shared_ptr<ElevationManager> _elevationManager;
         const unsigned int _elevationVersion;
+        const double _splitThreshold; // internal units; longer segments/triangle edges are subdivided to follow the terrain
     };
 }
 

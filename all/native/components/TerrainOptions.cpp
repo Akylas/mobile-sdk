@@ -18,7 +18,7 @@ namespace carto {
         _enabled(true),
         _meshResolution(32),
         _minZoom(5),
-        _depthBias(0.0005f),
+        _depthBias(0.0002f),
         _billboardOcclusionEnabled(true),
         _onChangeListeners(),
         _onChangeListenersMutex()
