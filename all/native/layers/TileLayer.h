@@ -376,6 +376,10 @@ namespace carto {
          * Marks/unmarks this layer as the terrain depth-write layer. Internal method.
          */
         void setTerrainDepthWriteMode(bool enabled);
+        /**
+         * Sets the layer stacking order used for terrain depth separation in GPU draping mode. Internal method.
+         */
+        void setTerrainRenderOrder(int order);
 
     protected:
 

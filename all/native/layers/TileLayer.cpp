@@ -732,6 +732,10 @@ namespace carto {
         _tileRenderer->setTerrainDepthWriteMode(enabled);
     }
 
+    void TileLayer::setTerrainRenderOrder(int order) {
+        _tileRenderer->setTerrainRenderOrder(order);
+    }
+
     void TileLayer::resetTileTransformer() {
         std::shared_ptr<vt::TileTransformer> tileTransformer;
         if (auto options = getOptions()) {

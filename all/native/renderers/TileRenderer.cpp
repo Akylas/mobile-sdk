@@ -6,6 +6,7 @@
 #include "projections/PlanarProjectionSurface.h"
 #include "renderers/MapRenderer.h"
 #include "renderers/drawdatas/TileDrawData.h"
+#include "renderers/utils/ElevationTextureCache.h"
 #include "renderers/utils/GLResourceManager.h"
 #include "renderers/utils/VTRenderer.h"
 #include "layers/HillshadeRasterTileLayer.h"
@@ -90,6 +91,11 @@ namespace carto {
     void TileRenderer::setInteractionMode(bool enabled) {
         std::lock_guard<std::mutex> lock(_mutex);
         _interactionMode = enabled;
+    }
+
+    void TileRenderer::setTerrainRenderOrder(int order) {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _terrainRenderOrder = order;
     }
 
     void TileRenderer::setTerrainDepthWriteMode(bool enabled) {
@@ -236,6 +242,43 @@ namespace carto {
                 }
             }
         }
+        // GPU terrain draping: provide elevation textures so that draped geometry is
+        // displaced in the vertex shader - every layer samples the same textures, so all
+        // layers agree on heights exactly. Requires vertex texture fetch support;
+        // without it the CPU displacement path with polygon offsets stays active.
+        vt::GLTileRenderer::TerrainTextureProvider terrainTextureProvider;
+        if (terrainMode && activeTerrainOptions) {
+            if (_maxVertexTextureUnits < 0) {
+                GLint maxVertexTextureUnits = 0;
+                glGetIntegerv(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS, &maxVertexTextureUnits);
+                _maxVertexTextureUnits = maxVertexTextureUnits;
+                if (maxVertexTextureUnits <= 0) {
+                    Log::Warn("TileRenderer::onDrawFrame: No vertex texture support, using CPU terrain displacement");
+                }
+            }
+            if (_maxVertexTextureUnits > 0) {
+                std::shared_ptr<ElevationManager> elevationManager = activeTerrainOptions->getElevationManager();
+                if (_elevationTextureCache && _elevationTextureCache->getElevationManager() != elevationManager) {
+                    _elevationTextureCache.reset();
+                }
+                if (!_elevationTextureCache && elevationManager) {
+                    if (auto mapRenderer = _mapRenderer.lock()) {
+                        _elevationTextureCache = std::make_shared<ElevationTextureCache>(elevationManager, mapRenderer->getGLResourceManager());
+                    }
+                }
+                if (_elevationTextureCache) {
+                    std::shared_ptr<ElevationTextureCache> elevationTextureCache = _elevationTextureCache;
+                    terrainTextureProvider = [elevationTextureCache](const vt::TileId& tileId, vt::GLTileRenderer::TerrainTexture& terrainTexture) {
+                        return elevationTextureCache->getTexture(tileId, terrainTexture);
+                    };
+                    // Heights agree exactly between layers in GPU draping mode, so layers are
+                    // separated by a small fixed clip-space delta by their stacking order
+                    // (the vt renderer adds the per-sublayer deltas on top of this base).
+                    terrainDepthBias = static_cast<float>(_terrainRenderOrder) * 64.0f / 524288.0f;
+                }
+            }
+        }
+        tileRenderer->setTerrainTextureProvider(terrainTextureProvider);
         tileRenderer->setTerrainMode(terrainMode, terrainDepthBias);
         tileRenderer->setTerrainDepthWrite(terrainMode && _terrainDepthWriteMode);
         updateLabelOcclusionTest(tileRenderer, viewState, activeTerrainOptions);

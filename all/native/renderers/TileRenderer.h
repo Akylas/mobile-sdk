@@ -29,6 +29,7 @@
 #include <vt/GLTileRenderer.h>
 
 namespace carto {
+    class ElevationTextureCache;
     class Options;
     class MapRenderer;
     class TerrainOptions;
@@ -52,6 +53,7 @@ namespace carto {
     
         void setInteractionMode(bool enabled);
         void setTerrainDepthWriteMode(bool enabled);
+        void setTerrainRenderOrder(int order);
         void setLayerBlendingSpeed(float speed);
         void setLabelBlendingSpeed(float speed);
         void setLabelOrder(int order);
@@ -124,6 +126,9 @@ namespace carto {
         int _hillshadeMethod;
         float _hillshadeExaggeration;
         bool _terrainDepthWriteMode = false;
+        int _terrainRenderOrder = 0;
+        int _maxVertexTextureUnits = -1; // lazily queried GL capability (-1 = not queried yet)
+        std::shared_ptr<ElevationTextureCache> _elevationTextureCache;
         unsigned int _elevationVersion = 0;
         std::optional<std::chrono::steady_clock::time_point> _lastSurfaceResetTime;
         std::shared_ptr<LabelOcclusionState> _labelOcclusionState;

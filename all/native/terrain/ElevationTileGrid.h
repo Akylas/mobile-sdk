@@ -48,6 +48,16 @@ namespace carto {
         void sampleGradient(double internalX, double internalY, float& dhdx, float& dhdy) const;
 
         /**
+         * Encodes the grid as RGBA texture data (R = high byte, G = low byte of the quantized
+         * height, A = 255) plus decode coefficients so that
+         * meters = dot(RGBA texture sample normalized to [0,1], decode).
+         * The mapping is linear in every channel, so bilinear texture filtering commutes with
+         * decoding and a GPU CLAMP_TO_EDGE + LINEAR sample at
+         * uv = (pos - internalBounds.min) / internalBounds.size matches sampleHeight exactly.
+         */
+        void encodeTexture(std::vector<std::uint8_t>& rgbaData, std::array<float, 4>& decode) const;
+
+        /**
          * Decodes a DEM bitmap (mapbox/terrarium RGB encoded) into an elevation grid using
          * the given color component coefficients. Returns null if the bitmap has an unsupported format.
          */

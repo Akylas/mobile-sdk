@@ -70,6 +70,18 @@ namespace carto {
         dhdy = static_cast<float>((sampleHeight(internalX, internalY + texelY) - sampleHeight(internalX, internalY - texelY)) / (2 * texelY));
     }
 
+    void ElevationTileGrid::encodeTexture(std::vector<std::uint8_t>& rgbaData, std::array<float, 4>& decode) const {
+        rgbaData.resize(_heights.size() * 4);
+        for (std::size_t i = 0; i < _heights.size(); i++) {
+            std::uint16_t value = _heights[i];
+            rgbaData[i * 4 + 0] = static_cast<std::uint8_t>(value >> 8);
+            rgbaData[i * 4 + 1] = static_cast<std::uint8_t>(value & 255);
+            rgbaData[i * 4 + 2] = 0;
+            rgbaData[i * 4 + 3] = 255;
+        }
+        decode = { { 255.0f * 256.0f * QUANT_SCALE, 255.0f * QUANT_SCALE, 0.0f, QUANT_OFFSET } };
+    }
+
     std::shared_ptr<ElevationTileGrid> ElevationTileGrid::DecodeBitmap(const MapTile& tile, const MapBounds& internalBounds, const std::shared_ptr<Bitmap>& bitmap, const std::array<double, 4>& coeffs) {
         if (!bitmap) {
             return std::shared_ptr<ElevationTileGrid>();

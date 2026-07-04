@@ -1015,10 +1015,13 @@ namespace carto {
                 if (terrainOptions->isEnabled()) {
                     terrainMode = true;
                     bool depthWriteAssigned = false;
+                    int terrainRenderOrder = 0;
                     for (const std::shared_ptr<Layer>& layer : layers) {
                         if (auto tileLayer = std::dynamic_pointer_cast<TileLayer>(layer)) {
                             bool depthWrite = !depthWriteAssigned && tileLayer->isVisible() && tileLayer->getOpacity() >= 1.0f;
                             tileLayer->setTerrainDepthWriteMode(depthWrite);
+                            // stacking order for the fixed per-layer depth separation in GPU draping mode
+                            tileLayer->setTerrainRenderOrder(terrainRenderOrder++);
                             depthWriteAssigned = depthWriteAssigned || depthWrite;
                         }
                     }

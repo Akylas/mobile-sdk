@@ -52,8 +52,9 @@ def check(name, defs, vsh_parts, fsh_parts):
     ok = validate(name, "frag", f) and ok
 
 T = "TERRAIN_DEPTH_BIAS"
-for terrain in ([], [T]):
-    tag = "+terrain" if terrain else ""
+V = "TERRAIN"  # GPU draping: vertex-shader elevation texture displacement
+for terrain in ([], [T], [T, V]):
+    tag = ("+terrainvtf" if V in terrain else ("+terrain" if terrain else ""))
     # tilebackground: GEOMETRY2D lighting (per-vertex in the SDK)
     for pat in ([], ["PATTERN"]):
         defs = set(terrain) | set(pat) | {"LIGHTING_VSH"}
@@ -79,8 +80,12 @@ for terrain in ([], [T]):
         check("polygon%s+%s" % (tag, "".join(flags) or "base"), pdefs,
               [L2D_VSH, vt["polygonVsh"]], [vt["polygonFsh"]])
 
+# tilemask with GPU draping (TERRAIN only, no depth bias)
+check("tilemask+terrainvtf", {V}, [vt["backgroundVsh"]], [vt["backgroundFsh"]])
+
 # unchanged shaders, baseline sanity
 check("polygon3d", {"LIGHTING_VSH"}, [L3D_VSH, vt["polygon3DVsh"]], [vt["polygon3DFsh"]])
+check("polygon3d+terrainvtf", {"LIGHTING_VSH", V}, [L3D_VSH, vt["polygon3DVsh"]], [vt["polygon3DFsh"]])
 check("label", {"LIGHTING_VSH"}, [L2D_VSH, vt["labelVsh"]], [vt["labelFsh"]])
 check("blend", set(), [vt["blendVsh"]], [vt["blendFsh"]])
 
