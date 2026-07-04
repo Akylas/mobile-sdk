@@ -150,7 +150,7 @@ namespace carto {
             if (tile.getZoom() >= minZoom) {
                 grid = elevationManager->getTileGrid(tile, ElevationManager::LoadMode::CACHED_ONLY);
             }
-            int gridSize = calculateMeshGridSize(tile, grid, viewState, meshResolution);
+            int gridSize = calculateMeshGridSize(tile, grid, meshResolution);
 
             // Rebuild the mesh only when its inputs actually changed. This avoids rebuilding
             // every cached mesh each time a new elevation tile arrives during loading.
@@ -229,7 +229,7 @@ namespace carto {
         }
     }
 
-    int TerrainRenderer::calculateMeshGridSize(const MapTile& tile, const std::shared_ptr<ElevationTileGrid>& grid, const ViewState& viewState, int meshResolution) const {
+    int TerrainRenderer::calculateMeshGridSize(const MapTile& tile, const std::shared_ptr<ElevationTileGrid>& grid, int meshResolution) const {
         if (!grid || grid->getMaxHeight() - grid->getMinHeight() <= 0) {
             return 1;
         }
@@ -246,8 +246,10 @@ namespace carto {
         if (gridWidth > 0) {
             texelsPerTile = static_cast<int>(grid->getWidth() * tileSize / gridWidth + 0.5);
         }
-        int zoomDelta = std::min(3, std::max(0, static_cast<int>(viewState.getZoom()) - tile.getZoom()));
-        int gridSize = std::min(std::min(texelsPerTile, meshResolution) >> zoomDelta, MAX_MESH_GRID_SIZE);
+        // No distance-based coarsening: a pre-pass mesh coarser than the draped surfaces
+        // smooths out ridges in the depth buffer and lets geometry behind them show
+        // through (weak occlusion, visible especially at low zoom levels/grazing angles).
+        int gridSize = std::min(std::min(texelsPerTile, meshResolution), MAX_MESH_GRID_SIZE);
         return std::max(gridSize, MIN_MESH_GRID_SIZE);
     }
 

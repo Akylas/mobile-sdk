@@ -1,6 +1,8 @@
 #include "VectorLayer.h"
 #include "components/Exceptions.h"
 #include "components/CancelableThreadPool.h"
+#include "components/Options.h"
+#include "components/TerrainOptions.h"
 #include "datasources/VectorDataSource.h"
 #include "graphics/Bitmap.h"
 #include "layers/VectorElementEventListener.h"
@@ -167,11 +169,33 @@ namespace carto {
                 mapRenderer->setZBuffering(true);
             }
 
+            // In terrain mode, draped 2D elements sit exactly on the terrain surface and
+            // would z-fight the terrain depth pre-pass. Pull them slightly towards the
+            // viewer (slope-scaled) while the terrain pre-pass is pushed slightly away.
+            bool terrainDepthOffset = false;
+            if (auto options = getOptions()) {
+                if (options->getRenderProjectionMode() == RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
+                    if (auto terrainOptions = options->getTerrainOptions()) {
+                        terrainDepthOffset = terrainOptions->isEnabled();
+                    }
+                }
+            }
+            if (terrainDepthOffset) {
+                glEnable(GL_POLYGON_OFFSET_FILL);
+                glPolygonOffset(-1.0f, -2.0f);
+            }
+
             bool refresh = _billboardRenderer->onDrawFrame(deltaSeconds, billboardSorter, viewState);
             _geometryCollectionRenderer->onDrawFrame(deltaSeconds, viewState);
             _lineRenderer->onDrawFrame(deltaSeconds, viewState);
             _pointRenderer->onDrawFrame(deltaSeconds, viewState);
             _polygonRenderer->onDrawFrame(deltaSeconds, viewState);
+
+            if (terrainDepthOffset) {
+                glDisable(GL_POLYGON_OFFSET_FILL);
+                glPolygonOffset(0.0f, 0.0f);
+            }
+
             _polygon3DRenderer->onDrawFrame(deltaSeconds, viewState);
 
             if (zBuffering) {
