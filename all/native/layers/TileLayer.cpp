@@ -532,7 +532,9 @@ namespace carto {
             return;
         }
         
-        cglib::bbox3<double> tileBounds = getTileTransformer()->calculateTileBBox(vt::TileId(tile.getZoom(), tile.getX(), tile.getY()));
+        std::shared_ptr<vt::TileTransformer> tileTransformer = getTileTransformer();
+        vt::TileId vtTileId(tile.getZoom(), tile.getX(), tile.getY());
+        cglib::bbox3<double> tileBounds = tileTransformer->calculateTileBBox(vtTileId);
         cglib::vec3<double> tileCenter = tileBounds.center();
         cglib::bbox3<double> preloadingBounds(tileCenter + (tileBounds.min - tileCenter) * PRELOADING_TILE_SCALE, tileCenter + (tileBounds.max - tileCenter) * PRELOADING_TILE_SCALE);
 
@@ -541,10 +543,18 @@ namespace carto {
             return;
         }
         bool inVisibleFrustum = visibleFrustum.inside(tileBounds);
-        
-        // Map tile is visible, calculate distance using camera plane
+
+        // Map tile is visible, calculate distance using camera plane.
+        // Important: with terrain, the LOD center is calculated at surface level (not from
+        // the elevation-expanded bounding box) so that subdivision decisions do not change
+        // as elevation tiles get loaded - otherwise the visible tile set (and tile/elevation
+        // fetching) would keep churning while elevation data streams in.
+        cglib::vec3<double> lodCenter = tileCenter;
+        if (std::dynamic_pointer_cast<TerrainTileTransformer>(tileTransformer)) {
+            lodCenter = cglib::transform_point(cglib::vec3<double>(0.5, 0.5, 0), tileTransformer->calculateTileMatrix(vtTileId, 1.0f));
+        }
         const cglib::mat4x4<double>& mvpMat = viewState.getModelviewProjectionMat();
-        double tileW = tileCenter(0) * mvpMat(3, 0) + tileCenter(1) * mvpMat(3, 1) + tileCenter(2) * mvpMat(3, 2) + mvpMat(3, 3);
+        double tileW = lodCenter(0) * mvpMat(3, 0) + lodCenter(1) * mvpMat(3, 1) + lodCenter(2) * mvpMat(3, 2) + mvpMat(3, 3);
         double zoomDistance = tileW * std::pow(2.0f, tile.getZoom() - getZoomLevelBias());
         bool subDivide = zoomDistance < SUBDIVISION_THRESHOLD * Const::SQRT_2;
         int targetTileZoom = std::min(getMaxZoom(), static_cast<int>(viewState.getZoom() + getZoomLevelBias() + DISCRETE_ZOOM_LEVEL_BIAS));

@@ -16,7 +16,7 @@ namespace carto {
         _dataSource(dataSource),
         _elevationManager(dataSource ? std::make_shared<ElevationManager>(dataSource, elevationDecoder) : std::shared_ptr<ElevationManager>()),
         _enabled(true),
-        _meshResolution(64),
+        _meshResolution(32),
         _minZoom(5),
         _depthBias(0.0005f),
         _billboardOcclusionEnabled(true),

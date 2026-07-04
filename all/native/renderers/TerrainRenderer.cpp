@@ -196,11 +196,12 @@ namespace carto {
             return;
         }
 
-        // Same distance-based subdivision criterion as TileLayer::calculateVisibleTilesRecursive,
-        // so the terrain depth pre-pass LOD matches the LOD of the tile layers.
-        cglib::vec3<double> tileCenter = tileBounds.center();
+        // Same distance-based subdivision criterion as TileLayer::calculateVisibleTilesRecursive.
+        // Like there, the LOD center is at surface level so decisions are stable while
+        // elevation data streams in.
+        cglib::vec3<double> lodCenter(minX + size * 0.5, minY + size * 0.5, 0);
         const cglib::mat4x4<double>& mvpMat = viewState.getModelviewProjectionMat();
-        double tileW = tileCenter(0) * mvpMat(3, 0) + tileCenter(1) * mvpMat(3, 1) + tileCenter(2) * mvpMat(3, 2) + mvpMat(3, 3);
+        double tileW = lodCenter(0) * mvpMat(3, 0) + lodCenter(1) * mvpMat(3, 1) + lodCenter(2) * mvpMat(3, 2) + mvpMat(3, 3);
         double zoomDistance = tileW * std::pow(2.0, static_cast<double>(tile.getZoom()));
         bool subDivide = zoomDistance < Const::WORLD_SIZE * Const::SQRT_2;
 

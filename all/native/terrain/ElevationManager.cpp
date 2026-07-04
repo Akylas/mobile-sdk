@@ -17,7 +17,7 @@
 
 namespace carto {
 
-    static const std::size_t DEFAULT_CACHE_CAPACITY = 32 * 1024 * 1024;
+    static const std::size_t DEFAULT_CACHE_CAPACITY = 64 * 1024 * 1024;
     static const int FAILED_TILE_TTL_MILLISECONDS = 30 * 1000;
     static const int MAX_ANCESTOR_SEARCH_DEPTH = 8;
     static constexpr double NO_DATA_ELEVATION = -1000000.0;
@@ -318,8 +318,12 @@ namespace carto {
     }
 
     void ElevationManager::getMinMaxDisplayHeight(const MapTile& tile, double& minZ, double& maxZ) const {
-        double minMeters = DEFAULT_MIN_ELEVATION;
-        double maxMeters = std::max(static_cast<double>(_maxSeenElevation.load()), DEFAULT_MAX_ELEVATION);
+        // Fall back to the maximum elevation actually observed so far (starting flat) instead
+        // of a large conservative constant: a many-kilometers default bound would pull far
+        // tiles into the view frustum, causing them to fetch elevation data, which changes
+        // their bounds again - churning the visible tile set while data streams in.
+        double minMeters = 0;
+        double maxMeters = _maxSeenElevation.load();
         MapBounds bounds = TileUtils::CalculateMapTileBounds(tile.getFlipped(), _projection);
         if (std::shared_ptr<ElevationTileGrid> grid = getTileGrid(tile, LoadMode::CACHED_ONLY)) {
             minMeters = grid->getMinHeight();

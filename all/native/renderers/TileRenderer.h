@@ -88,7 +88,7 @@ namespace carto {
         bool initializeRenderer();
         void updateLabelOcclusionTest(const std::shared_ptr<vt::GLTileRenderer>& tileRenderer, const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions);
 
-        static constexpr int SURFACE_RESET_DELAY = 300; // minimum interval (ms) between elevation-driven tile surface rebuilds
+        static constexpr int SURFACE_RESET_DELAY = 500; // minimum interval (ms) between elevation-driven tile surface rebuilds
 
         static const std::string LIGHTING_SHADER_2D;
         static const std::string LIGHTING_SHADER_3D;

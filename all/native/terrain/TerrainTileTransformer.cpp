@@ -156,12 +156,14 @@ namespace carto {
 
     cglib::bbox3<double> TerrainTileTransformer::calculateTileBBox(const vt::TileId& tileId) const {
         cglib::bbox3<double> bbox = cglib::transform_bbox(cglib::bbox3<double>(cglib::vec3<double>(0, 0, 0), cglib::vec3<double>(1, 1, 0)), calculateTileMatrix(tileId, 1.0f));
-        int tileMask = (1 << tileId.zoom) - 1;
-        MapTile mapTile(tileId.x & tileMask, std::min(std::max(tileId.y, 0), tileMask), tileId.zoom, 0);
-        double minZ = 0, maxZ = 0;
-        _elevationManager->getMinMaxDisplayHeight(mapTile, minZ, maxZ);
-        bbox.add(cglib::vec3<double>(bbox.min(0), bbox.min(1), minZ));
-        bbox.add(cglib::vec3<double>(bbox.max(0), bbox.max(1), maxZ));
+        if (tileId.zoom >= _minZoom) {
+            int tileMask = (1 << tileId.zoom) - 1;
+            MapTile mapTile(tileId.x & tileMask, std::min(std::max(tileId.y, 0), tileMask), tileId.zoom, 0);
+            double minZ = 0, maxZ = 0;
+            _elevationManager->getMinMaxDisplayHeight(mapTile, minZ, maxZ);
+            bbox.add(cglib::vec3<double>(bbox.min(0), bbox.min(1), minZ));
+            bbox.add(cglib::vec3<double>(bbox.max(0), bbox.max(1), maxZ));
+        }
         return bbox;
     }
 

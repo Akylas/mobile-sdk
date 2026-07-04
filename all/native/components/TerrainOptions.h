@@ -94,7 +94,7 @@ namespace carto {
 
         /**
          * Returns the terrain mesh resolution.
-         * @return The maximum number of grid cells per tile edge used for terrain geometry. The default is 64.
+         * @return The maximum number of grid cells per tile edge used for terrain geometry. The default is 32.
          */
         int getMeshResolution() const;
         /**
