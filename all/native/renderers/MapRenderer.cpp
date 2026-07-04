@@ -602,12 +602,10 @@ namespace carto {
                 elevationManager->getDisplayHeightRange(cameraPos(1), minZ, maxZ);
                 _viewState.setTerrainHeightRange(static_cast<float>(minZ), static_cast<float>(maxZ));
 
-                double terrainZ = elevationManager->getDisplayHeight(cameraPos(0), cameraPos(1), ElevationManager::LoadMode::CACHED_ONLY);
-                double clampedZ = terrainZ + CAMERA_TERRAIN_CLEARANCE;
-                if (cameraPos(2) < clampedZ) {
-                    _viewState.setCameraPos(cglib::vec3<double>(cameraPos(0), cameraPos(1), clampedZ));
-                    _viewState.cameraChanged();
-                }
+                // Note: the camera is deliberately NOT clamped above the terrain here.
+                // ViewState maintains the invariant dist(camera, focus) == zoom0Distance/2^zoom;
+                // mutating the camera position outside of the camera event system breaks it and
+                // corrupts the view state. Flying the camera below terrain is a v1 limitation.
 
                 // Refresh vector layers when the elevation data changes (debounced), so that
                 // element draw data gets rebuilt with the new heights
@@ -1156,6 +1154,13 @@ namespace carto {
                 updateView = true;
             }
 
+            if (optionName.substr(0, 14) == "TerrainOptions") {
+                // Terrain changes (enabled state, exaggeration, mesh resolution, min zoom)
+                // require a new cull pass so that tile layers detect the configuration change
+                // and rebuild their tiles with/without terrain displacement
+                updateView = true;
+            }
+
             if (updateView) {
                 mapRenderer->viewChanged(false);
             } else {
@@ -1167,8 +1172,6 @@ namespace carto {
     const int MapRenderer::BILLBOARD_PLACEMENT_TASK_DELAY = 200;
 
     const int MapRenderer::VT_LABEL_PLACEMENT_TASK_DELAY = 200;
-
-    const double MapRenderer::CAMERA_TERRAIN_CLEARANCE = 0.5;
 
     const int MapRenderer::ELEVATION_REFRESH_DELAY = 500;
 

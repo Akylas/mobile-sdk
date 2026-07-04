@@ -182,7 +182,6 @@ namespace carto {
         static const int BILLBOARD_PLACEMENT_TASK_DELAY;
         static const int VT_LABEL_PLACEMENT_TASK_DELAY;
 
-        static const double CAMERA_TERRAIN_CLEARANCE; // minimum camera height above terrain, in internal units (~20m)
         static const int ELEVATION_REFRESH_DELAY; // milliseconds between vector layer refreshes caused by elevation data changes
 
         static const std::string BLEND_VERTEX_SHADER;
