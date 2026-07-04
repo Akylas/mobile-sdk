@@ -73,19 +73,13 @@ namespace carto {
     }
 
     double TerrainTileTransformer::TerrainVertexTransformer::calculateLocalHeight(const cglib::vec2<float>& pos) const {
-        // Plain bilinear elevation sample. This matches the GPU draping displacement
-        // (which REPLACES the z of draped geometry with the same bilinear texture sample),
-        // and is used directly for label anchors and hit testing.
-        if (!_grid) {
-            return 0.0;
-        }
-        double internalX = _tileOffsetInternal(0) + pos(0) * _tileScaleInternal;
-        double internalY = _tileOffsetInternal(1) + (1 - pos(1)) * _tileScaleInternal;
-        double meters = _grid->sampleHeight(internalX, internalY);
-
-        double cosLatitude = calculateMercatorCosine(internalY);
-        double internalHeight = meters * _exaggeration * _scale / EARTH_CIRCUMFERENCE / cosLatitude;
-        return internalHeight * _localFromInternal;
+        // Tile geometry is built FLAT: the GPU draping shader replaces the z of every
+        // draped vertex with the shared elevation texture sample, so sampling heights at
+        // build time would be wasted work (this was by far the most expensive part of
+        // terrain tile decodes and surface builds). Label anchors get their heights
+        // dynamically (GLTileRenderer label elevation provider), and hit test rays are
+        // pre-intersected with the terrain by the host renderer.
+        return 0.0;
     }
 
     double TerrainTileTransformer::TerrainVertexTransformer::calculateMercatorCosine(double internalY) const {

@@ -452,16 +452,34 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
 
         tileRenderer->setClickHandlerLayerFilter(_clickHandlerLayerFilter);
 
-        std::vector<cglib::ray3<double> > rays = { ray };
-        tileRenderer->findGeometryIntersections(rays, radius, radius, true, false, results);
+        // Tile geometry is built flat in terrain mode (heights are applied on the GPU):
+        // pre-intersect the ray with the terrain surface and pick vertically below the hit
+        cglib::ray3<double> geometryRay = ray;
+        if (auto options = _options.lock()) {
+            if (options->getRenderProjectionMode() == RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
+                if (auto terrainOptions = options->getTerrainOptions()) {
+                    if (terrainOptions->isEnabled()) {
+                        double t = 0;
+                        if (terrainOptions->getElevationManager()->intersectRay(ray, t)) {
+                            cglib::vec3<double> hitPos = ray(t);
+                            geometryRay = cglib::ray3<double>(cglib::vec3<double>(hitPos(0), hitPos(1), Const::MAX_HEIGHT), cglib::vec3<double>(0, 0, -1));
+                        }
+                    }
+                }
+            }
+        }
+
+        std::vector<cglib::ray3<double> > geometryRays = { geometryRay };
+        std::vector<cglib::ray3<double> > labelRays = { ray }; // labels are anchored at terrain height, use the original ray
+        tileRenderer->findGeometryIntersections(geometryRays, radius, radius, true, false, results);
         if (_labelOrder == 0) {
-            tileRenderer->findLabelIntersections(rays, radius, true, false, results);
+            tileRenderer->findLabelIntersections(labelRays, radius, true, false, results);
         }
         if (_buildingOrder == 0) {
-            tileRenderer->findGeometryIntersections(rays, radius, radius, false, true, results);
+            tileRenderer->findGeometryIntersections(geometryRays, radius, radius, false, true, results);
         }
         if (_labelOrder == 0) {
-            tileRenderer->findLabelIntersections(rays, radius, false, true, results);
+            tileRenderer->findLabelIntersections(labelRays, radius, false, true, results);
         }
     }
         
