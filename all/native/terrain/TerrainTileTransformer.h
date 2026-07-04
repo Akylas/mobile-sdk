@@ -53,6 +53,7 @@ namespace carto {
             const std::shared_ptr<ElevationTileGrid> _grid;
             const float _exaggeration;
             const float _divideThreshold; // in EPSG3857 meters; infinity disables subdivision
+            int _latticeCells = 0; // surface-mesh lattice cells per tile edge (0 = disabled)
             cglib::vec2<double> _tileOffsetInternal; // internal coordinates of the tile origin (min x, min y)
             double _tileScaleInternal;
             double _tileScaleMeters;

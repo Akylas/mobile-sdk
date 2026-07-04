@@ -22,6 +22,16 @@ namespace carto {
         _tileScaleInternal = zoomScale * _scale;
         _tileScaleMeters = EARTH_CIRCUMFERENCE * zoomScale;
         _localFromInternal = (1 << tileId.zoom) / _scale;
+        if (divideThreshold > 0 && std::isfinite(divideThreshold)) {
+            // The tesselation halves edges while they are longer than the threshold, so
+            // surface vertices lie on a power-of-two lattice; the clamp lattice must match
+            // exactly so that surface vertices stay on lattice nodes (and thus unchanged)
+            int cells = 1;
+            while (cells < (1 << 14) && _tileScaleMeters / cells > divideThreshold) {
+                cells <<= 1;
+            }
+            _latticeCells = cells;
+        }
     }
 
     cglib::vec3<float> TerrainTileTransformer::TerrainVertexTransformer::calculatePoint(const cglib::vec2<float>& pos) const {
@@ -79,6 +89,40 @@ namespace carto {
         double internalX = _tileOffsetInternal(0) + pos(0) * _tileScaleInternal;
         double internalY = _tileOffsetInternal(1) + (1 - pos(1)) * _tileScaleInternal;
         double meters = _grid->sampleHeight(internalX, internalY);
+
+        // Clamp geometry heights so that they never fall below the rendered terrain
+        // surface: the surface mesh samples the height field only at lattice nodes, so
+        // between nodes it can run above the full-resolution field (worst when the
+        // elevation data has more texels per tile than surface cells) - geometry sampling
+        // the full field there would be depth-clipped by the terrain ('holes' in roads
+        // around slope changes). Surface vertices lie exactly on lattice nodes where the
+        // bilinear interpolation equals the direct sample, so the surface itself (and its
+        // crack-free tile borders, which use direct samples at exact edge positions) is
+        // unaffected.
+        bool boundary = pos(0) == 0.0f || pos(0) == 1.0f || pos(1) == 0.0f || pos(1) == 1.0f;
+        if (_latticeCells > 0 && !boundary) {
+            double fx = pos(0) * _latticeCells;
+            double fy = pos(1) * _latticeCells;
+            double x0 = std::floor(fx);
+            double y0 = std::floor(fy);
+            double dx = fx - x0;
+            double dy = fy - y0;
+            if (dx > 0 || dy > 0) {
+                auto sampleNode = [this](double lx, double ly) -> double {
+                    double ix = _tileOffsetInternal(0) + (lx / _latticeCells) * _tileScaleInternal;
+                    double iy = _tileOffsetInternal(1) + (1.0 - ly / _latticeCells) * _tileScaleInternal;
+                    return _grid->sampleHeight(ix, iy);
+                };
+                double h00 = sampleNode(x0, y0);
+                double h10 = sampleNode(x0 + 1, y0);
+                double h01 = sampleNode(x0, y0 + 1);
+                double h11 = sampleNode(x0 + 1, y0 + 1);
+                double hbil = (h00 * (1 - dx) + h10 * dx) * (1 - dy) + (h01 * (1 - dx) + h11 * dx) * dy;
+                double twist = std::abs(h00 + h11 - h10 - h01);
+                meters = std::max(meters, hbil + 0.5 * twist);
+            }
+        }
+
         double cosLatitude = calculateMercatorCosine(internalY);
         double internalHeight = meters * _exaggeration * _scale / EARTH_CIRCUMFERENCE / cosLatitude;
         return internalHeight * _localFromInternal;
