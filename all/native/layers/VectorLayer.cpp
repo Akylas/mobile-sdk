@@ -179,12 +179,13 @@ namespace carto {
                     if (auto terrainOptions = options->getTerrainOptions()) {
                         if (terrainOptions->isEnabled()) {
                             terrainDepthOffset = true;
-                            // Element geometry is built once at full elevation resolution, but the
-                            // terrain surfaces get coarser (smoother) as the view zooms out - the
-                            // static element geometry then dips below the smoothed surface. A
-                            // constant clip-space bias larger than the tile geometry bias keeps
-                            // elements in front of the terrain across zoom levels.
-                            elementDepthBias = terrainOptions->getDepthBias() * 8.0f;
+                            // Element heights are the same bilinear elevation samples the GPU
+                            // draping shader renders (plus the small height lift), so only a
+                            // small constant separation is needed - a few tile-layer depth
+                            // deltas keep elements above the draped tile content. A large bias
+                            // would make elements visible through terrain ridges at distance
+                            // (the eye-space tolerance of a clip-space bias grows with z^2).
+                            elementDepthBias = 8.0f / 524288.0f;
                         }
                     }
                 }
@@ -194,8 +195,10 @@ namespace carto {
             _polygonRenderer->setDepthBias(elementDepthBias);
             _geometryCollectionRenderer->setDepthBias(elementDepthBias);
             if (terrainDepthOffset) {
+                // constant-only: a slope-scaled pull would let elements far behind a ridge
+                // jump in front of the written terrain depth at grazing angles
                 glEnable(GL_POLYGON_OFFSET_FILL);
-                glPolygonOffset(-1.0f, -2.0f);
+                glPolygonOffset(0.0f, -2.0f);
             }
 
             bool refresh = _billboardRenderer->onDrawFrame(deltaSeconds, billboardSorter, viewState);
