@@ -99,38 +99,85 @@ namespace carto {
     }
 
     void TerrainTileTransformer::TerrainVertexTransformer::tesselateTriangle(std::size_t i0, std::size_t i1, std::size_t i2, float dist01, float dist02, float dist12, vt::VertexArray<cglib::vec2<float>>& coords, vt::VertexArray<cglib::vec2<float>>& texCoords, vt::VertexArray<std::size_t>& indices) const {
-        if (dist01 > _divideThreshold || dist02 > _divideThreshold || dist12 > _divideThreshold) {
+        // Red-green refinement with an EDGE-LOCAL split rule: an edge is split at its
+        // midpoint if and only if IT is longer than the threshold. Both triangles sharing
+        // an edge therefore always make the same decision and the tesselation contains no
+        // T-vertices. This matters because the vertices are displaced (on the GPU) by
+        // sampled terrain heights: a T-vertex displaces to its sampled height while the
+        // neighbouring triangle's unsplit edge crosses that point at the interpolated
+        // height, opening background-colored cracks all over rugged terrain (the
+        // long-standing 'white triangles when zooming out' artifact).
+        bool split01 = dist01 > _divideThreshold;
+        bool split02 = dist02 > _divideThreshold;
+        bool split12 = dist12 > _divideThreshold;
+        if (!split01 && !split02 && !split12) {
+            indices.append(i0, i1, i2);
+            return;
+        }
+
+        auto splitEdge = [&](std::size_t ia, std::size_t ib) -> std::size_t {
             std::size_t iM = coords.size();
-            if (dist01 > dist02 && dist01 > dist12) {
-                coords.append((coords[i0] + coords[i1]) * 0.5f);
-                if (!texCoords.empty()) {
-                    texCoords.append((texCoords[i0] + texCoords[i1]) * 0.5f);
-                }
-                float dist2M = cglib::length(coords[iM] - coords[i2]) * static_cast<float>(_tileScaleMeters);
-                tesselateTriangle(i2, i0, iM, dist02, dist2M, dist01 * 0.5f, coords, texCoords, indices);
-                tesselateTriangle(i1, i2, iM, dist12, dist01 * 0.5f, dist2M, coords, texCoords, indices);
+            coords.append((coords[ia] + coords[ib]) * 0.5f);
+            if (!texCoords.empty()) {
+                texCoords.append((texCoords[ia] + texCoords[ib]) * 0.5f);
             }
-            else if (dist02 > dist12) {
-                coords.append((coords[i0] + coords[i2]) * 0.5f);
-                if (!texCoords.empty()) {
-                    texCoords.append((texCoords[i0] + texCoords[i2]) * 0.5f);
-                }
-                float dist1M = cglib::length(coords[iM] - coords[i1]) * static_cast<float>(_tileScaleMeters);
-                tesselateTriangle(i0, i1, iM, dist01, dist02 * 0.5f, dist1M, coords, texCoords, indices);
-                tesselateTriangle(i1, i2, iM, dist12, dist1M, dist02 * 0.5f, coords, texCoords, indices);
-            }
-            else {
-                coords.append((coords[i1] + coords[i2]) * 0.5f);
-                if (!texCoords.empty()) {
-                    texCoords.append((texCoords[i1] + texCoords[i2]) * 0.5f);
-                }
-                float dist0M = cglib::length(coords[iM] - coords[i0]) * static_cast<float>(_tileScaleMeters);
-                tesselateTriangle(i0, i1, iM, dist01, dist0M, dist12 * 0.5f, coords, texCoords, indices);
-                tesselateTriangle(i2, i0, iM, dist02, dist12 * 0.5f, dist0M, coords, texCoords, indices);
-            }
+            return iM;
+        };
+        auto edgeDist = [&](std::size_t ia, std::size_t ib) -> float {
+            return cglib::length(coords[ib] - coords[ia]) * static_cast<float>(_tileScaleMeters);
+        };
+
+        if (split01 && split02 && split12) {
+            // regular 1-to-4 split; the midsegments are exactly half the opposite edges
+            std::size_t m01 = splitEdge(i0, i1);
+            std::size_t m02 = splitEdge(i0, i2);
+            std::size_t m12 = splitEdge(i1, i2);
+            tesselateTriangle(i0, m01, m02, dist01 * 0.5f, dist02 * 0.5f, dist12 * 0.5f, coords, texCoords, indices);
+            tesselateTriangle(m01, i1, m12, dist01 * 0.5f, dist02 * 0.5f, dist12 * 0.5f, coords, texCoords, indices);
+            tesselateTriangle(m02, m12, i2, dist01 * 0.5f, dist02 * 0.5f, dist12 * 0.5f, coords, texCoords, indices);
+            tesselateTriangle(m01, m12, m02, dist02 * 0.5f, dist12 * 0.5f, dist01 * 0.5f, coords, texCoords, indices);
+        }
+        else if (split01 && split02) {
+            std::size_t m01 = splitEdge(i0, i1);
+            std::size_t m02 = splitEdge(i0, i2);
+            float distM01_2 = edgeDist(m01, i2);
+            tesselateTriangle(i0, m01, m02, dist01 * 0.5f, dist02 * 0.5f, dist12 * 0.5f, coords, texCoords, indices);
+            tesselateTriangle(m01, i1, i2, dist01 * 0.5f, distM01_2, dist12, coords, texCoords, indices);
+            tesselateTriangle(m01, i2, m02, distM01_2, dist12 * 0.5f, dist02 * 0.5f, coords, texCoords, indices);
+        }
+        else if (split01 && split12) {
+            std::size_t m01 = splitEdge(i0, i1);
+            std::size_t m12 = splitEdge(i1, i2);
+            float distM01_2 = edgeDist(m01, i2);
+            tesselateTriangle(m01, i1, m12, dist01 * 0.5f, dist02 * 0.5f, dist12 * 0.5f, coords, texCoords, indices);
+            tesselateTriangle(i0, m01, i2, dist01 * 0.5f, dist02, distM01_2, coords, texCoords, indices);
+            tesselateTriangle(m01, m12, i2, dist02 * 0.5f, distM01_2, dist12 * 0.5f, coords, texCoords, indices);
+        }
+        else if (split02 && split12) {
+            std::size_t m02 = splitEdge(i0, i2);
+            std::size_t m12 = splitEdge(i1, i2);
+            float distM02_1 = edgeDist(m02, i1);
+            tesselateTriangle(i0, i1, m02, dist01, dist02 * 0.5f, distM02_1, coords, texCoords, indices);
+            tesselateTriangle(i1, m12, m02, dist12 * 0.5f, distM02_1, dist01 * 0.5f, coords, texCoords, indices);
+            tesselateTriangle(m02, m12, i2, dist01 * 0.5f, dist02 * 0.5f, dist12 * 0.5f, coords, texCoords, indices);
+        }
+        else if (split01) {
+            std::size_t m01 = splitEdge(i0, i1);
+            float distM = edgeDist(m01, i2);
+            tesselateTriangle(i2, i0, m01, dist02, distM, dist01 * 0.5f, coords, texCoords, indices);
+            tesselateTriangle(i1, i2, m01, dist12, dist01 * 0.5f, distM, coords, texCoords, indices);
+        }
+        else if (split02) {
+            std::size_t m02 = splitEdge(i0, i2);
+            float distM = edgeDist(m02, i1);
+            tesselateTriangle(i0, i1, m02, dist01, dist02 * 0.5f, distM, coords, texCoords, indices);
+            tesselateTriangle(i1, i2, m02, dist12, distM, dist02 * 0.5f, coords, texCoords, indices);
         }
         else {
-            indices.append(i0, i1, i2);
+            std::size_t m12 = splitEdge(i1, i2);
+            float distM = edgeDist(m12, i0);
+            tesselateTriangle(i0, i1, m12, dist01, distM, dist12 * 0.5f, coords, texCoords, indices);
+            tesselateTriangle(i2, i0, m12, dist02, dist12 * 0.5f, distM, coords, texCoords, indices);
         }
     }
 
