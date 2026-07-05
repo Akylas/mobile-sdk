@@ -199,7 +199,13 @@ namespace carto {
                             // compress the depth range).
                             float tileSize = static_cast<float>(Const::WORLD_SIZE / std::pow(2.0, std::floor(viewState.getZoom())));
                             float projScaleZ = static_cast<float>(std::abs(viewState.getProjectionMat()(2, 2)));
-                            elementDepthBiasClip = 48.0f * 0.001f * tileSize * projScaleZ;
+                            // Quadratic slack law anchored at zoom 11 tiles (mirrors the vt
+                            // renderer): the mesh interpolation error is curvature limited and
+                            // shrinks ~quadratically with the cell size, and excess slack lets
+                            // elements bleed through ridge crests.
+                            float refTileSize = static_cast<float>(Const::WORLD_SIZE / 2048.0);
+                            float slackScale = tileSize * std::min(4.0f, tileSize / refTileSize);
+                            elementDepthBiasClip = 48.0f * 0.001f * slackScale * projScaleZ;
                         }
                     }
                 }

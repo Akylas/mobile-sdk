@@ -25,6 +25,7 @@
 %attribute(carto::TerrainOptions, float, Exaggeration, getExaggeration, setExaggeration)
 %attribute(carto::TerrainOptions, int, MeshResolution, getMeshResolution, setMeshResolution)
 %attribute(carto::TerrainOptions, int, MinZoom, getMinZoom, setMinZoom)
+%attribute(carto::TerrainOptions, int, MaxTileZoomOffset, getMaxTileZoomOffset, setMaxTileZoomOffset)
 %attribute(carto::TerrainOptions, float, DepthBias, getDepthBias, setDepthBias)
 %attribute(carto::TerrainOptions, bool, BillboardOcclusionEnabled, isBillboardOcclusionEnabled, setBillboardOcclusionEnabled)
 %std_exceptions(carto::TerrainOptions::TerrainOptions)

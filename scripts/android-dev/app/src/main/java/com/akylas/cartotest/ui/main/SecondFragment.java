@@ -216,6 +216,11 @@ public class SecondFragment extends Fragment {
         // (delegated through the cache wrapper); passing it explicitly works as well.
         terrainOptions = new com.carto.components.TerrainOptions(cachedDemSource, new TerrariumElevationDataDecoder());
         terrainOptions.setExaggeration(1.0f);
+        // Optional: cap terrain LOD tile detail at what flat rendering would show
+        // (offset 0), to hide LOD rings if the style renders differently at different
+        // tile zoom levels. Disabled: the LOD rings turned out not to be the cause of
+        // the washed-out alpine faces (style/hillshade appearance).
+        //terrainOptions.setMaxTileZoomOffset(0);
         mapView.getOptions().setTerrainOptions(terrainOptions);
 
         // Hillshade layer draped over the 3D terrain, sharing the elevation source
@@ -716,7 +721,7 @@ public class SecondFragment extends Fragment {
         }
 
         mapView.setFocusPos(new MapPos(5.72476358599884, 45.19272038067931), 0);
-        mapView.setZoom(15f, 0);
+        mapView.setZoom(12f, 0);
     }
 
 
@@ -744,7 +749,7 @@ public class SecondFragment extends Fragment {
         localSource.add(line);
 
         mapView.setFocusPos(new MapPos(5.72476358599884, 45.19272038067931), 0);
-        mapView.setZoom(15f, 0);
+        mapView.setZoom(12f, 0);
     }
 
 

@@ -502,6 +502,21 @@ namespace carto {
         _visibleTiles.clear();
         _preloadingTiles.clear();
 
+        // In terrain mode the distance-based LOD picks higher-zoom tiles near the camera
+        // than flat rendering would show at the same camera zoom; if the style renders
+        // differently at different tile zooms, the LOD rings become visible as patches.
+        // TerrainOptions::setMaxTileZoomOffset caps the tile detail relative to what flat
+        // rendering would use.
+        _terrainMaxTileZoom = 1000;
+        if (auto options = getOptions()) {
+            if (auto terrainOptions = options->getTerrainOptions()) {
+                if (terrainOptions->isEnabled() && terrainOptions->getMaxTileZoomOffset() < 100) {
+                    const ViewState& viewState = cullState->getViewState();
+                    _terrainMaxTileZoom = static_cast<int>(viewState.getZoom() + getZoomLevelBias() + DISCRETE_ZOOM_LEVEL_BIAS) + terrainOptions->getMaxTileZoomOffset();
+                }
+            }
+        }
+
         // Recursively calculate visible tiles
         calculateVisibleTilesRecursive(cullState, MapTile(0, 0, 0, _frameNr), _dataSource->getDataExtent());
         if (auto options = getOptions()) {
@@ -558,6 +573,7 @@ namespace carto {
         double zoomDistance = tileW * std::pow(2.0f, tile.getZoom() - getZoomLevelBias());
         bool subDivide = zoomDistance < SUBDIVISION_THRESHOLD * Const::SQRT_2;
         int targetTileZoom = std::min(getMaxZoom(), static_cast<int>(viewState.getZoom() + getZoomLevelBias() + DISCRETE_ZOOM_LEVEL_BIAS));
+        targetTileZoom = std::min(targetTileZoom, _terrainMaxTileZoom);
         if (getMinZoom() > tile.getZoom()) {
             subDivide = true;
         } else if (targetTileZoom <= tile.getZoom()) {

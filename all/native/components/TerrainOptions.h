@@ -119,6 +119,24 @@ namespace carto {
         void setMinZoom(int minZoom);
 
         /**
+         * Returns the maximum visible tile zoom offset, relative to the camera zoom level.
+         * @return The maximum tile zoom offset. The default is 100 (no cap).
+         */
+        int getMaxTileZoomOffset() const;
+        /**
+         * Sets the maximum visible tile zoom offset, relative to the camera zoom level.
+         * Terrain level-of-detail is distance based: tiles close to the camera (and mountain
+         * faces rising towards it) are shown at higher tile zoom levels than flat rendering
+         * would ever use at the same camera zoom. If the map style renders differently at
+         * different tile zoom levels, these LOD rings become visible as patches with hard
+         * boundaries. Offset 0 caps tile detail at the level flat rendering would show at
+         * the current camera zoom; positive values allow that many extra levels of detail
+         * near the camera. Values of 100 or more disable the cap.
+         * @param offset The new maximum tile zoom offset (values >= 100 disable the cap).
+         */
+        void setMaxTileZoomOffset(int offset);
+
+        /**
          * Returns the camera terrain clearance: the minimum height the camera is kept
          * above the terrain surface, in meters.
          * @return The camera clearance in meters. The default is 200. 0 disables camera terrain-following.
@@ -221,6 +239,7 @@ namespace carto {
         std::atomic<bool> _enabled;
         std::atomic<int> _meshResolution;
         std::atomic<int> _minZoom;
+        std::atomic<int> _maxTileZoomOffset;
         std::atomic<float> _depthBias;
         std::atomic<float> _cameraClearance;
         std::atomic<float> _cameraClampDuration;

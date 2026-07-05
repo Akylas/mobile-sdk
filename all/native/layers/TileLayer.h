@@ -438,6 +438,8 @@ namespace carto {
         int _maxOverzoomLevel;
         int _maxUnderzoomLevel;
 
+        int _terrainMaxTileZoom = 1000; // terrain-mode tile zoom cap (effectively none), recomputed per cull
+
         std::vector<MapTile> _visibleTiles;
         std::vector<MapTile> _preloadingTiles;
         std::unordered_map<MapTile, std::shared_ptr<UTFGridTile> > _utfGridTiles;

@@ -18,6 +18,7 @@ namespace carto {
         _enabled(true),
         _meshResolution(32),
         _minZoom(5),
+        _maxTileZoomOffset(100),
         _depthBias(0.0002f),
         _cameraClearance(200.0f),
         _cameraClampDuration(0.0f),
@@ -81,6 +82,17 @@ namespace carto {
         int zoom = std::min(24, std::max(0, minZoom));
         if (_minZoom.exchange(zoom) != zoom) {
             notifyOptionChanged("MinZoom");
+        }
+    }
+
+    int TerrainOptions::getMaxTileZoomOffset() const {
+        return _maxTileZoomOffset.load();
+    }
+
+    void TerrainOptions::setMaxTileZoomOffset(int offset) {
+        int value = std::min(100, std::max(-24, offset));
+        if (_maxTileZoomOffset.exchange(value) != value) {
+            notifyOptionChanged("MaxTileZoomOffset");
         }
     }
 
