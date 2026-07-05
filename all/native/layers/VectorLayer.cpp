@@ -37,6 +37,7 @@
 #include "vectorelements/Popup.h"
 #include "terrain/ElevationManager.h"
 #include "terrain/TerrainProjectionSurface.h"
+#include "utils/Const.h"
 #include "ui/VectorElementClickInfo.h"
 #include "utils/Log.h"
 
@@ -174,6 +175,7 @@ namespace carto {
             // viewer (slope-scaled) while the terrain pre-pass is pushed slightly away.
             bool terrainDepthOffset = false;
             float elementDepthBias = 0.0f;
+            float elementDepthBiasClip = 0.0f;
             if (auto options = getOptions()) {
                 if (options->getRenderProjectionMode() == RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
                     if (auto terrainOptions = options->getTerrainOptions()) {
@@ -186,14 +188,26 @@ namespace carto {
                             // would make elements visible through terrain ridges at distance
                             // (the eye-space tolerance of a clip-space bias grows with z^2).
                             elementDepthBias = 256.0f / 524288.0f;
+                            // Distance-proportional slack (mirrors the vt renderer's
+                            // TERRAIN_DEPTH_CLIP_SLACK): elements follow the full-resolution
+                            // height field while the rendered surface is the drawn LOD's
+                            // coarse mesh, whose deviation from it grows with the visible
+                            // tile cell size - i.e. with zoom-out and with distance (coarser
+                            // LOD rings), which a clip-constant shift (eye-distance
+                            // proportional) tracks. Scaled by the focus-zoom tile size and
+                            // the projection depth coefficient |m22| (near-top-down views
+                            // compress the depth range).
+                            float tileSize = static_cast<float>(Const::WORLD_SIZE / std::pow(2.0, std::floor(viewState.getZoom())));
+                            float projScaleZ = static_cast<float>(std::abs(viewState.getProjectionMat()(2, 2)));
+                            elementDepthBiasClip = 48.0f * 0.001f * tileSize * projScaleZ;
                         }
                     }
                 }
             }
-            _lineRenderer->setDepthBias(elementDepthBias);
-            _pointRenderer->setDepthBias(elementDepthBias);
-            _polygonRenderer->setDepthBias(elementDepthBias);
-            _geometryCollectionRenderer->setDepthBias(elementDepthBias);
+            _lineRenderer->setDepthBias(elementDepthBias, elementDepthBiasClip);
+            _pointRenderer->setDepthBias(elementDepthBias, elementDepthBiasClip);
+            _polygonRenderer->setDepthBias(elementDepthBias, elementDepthBiasClip);
+            _geometryCollectionRenderer->setDepthBias(elementDepthBias, elementDepthBiasClip);
             if (terrainDepthOffset) {
                 // constant-only: a slope-scaled pull would let elements far behind a ridge
                 // jump in front of the written terrain depth at grazing angles

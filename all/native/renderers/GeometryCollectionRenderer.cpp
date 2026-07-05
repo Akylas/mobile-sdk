@@ -43,10 +43,10 @@ namespace carto {
         _polygonRenderer.offsetLayerHorizontally(offset);
     }
 
-    void GeometryCollectionRenderer::setDepthBias(float depthBias) {
-        _pointRenderer.setDepthBias(depthBias);
-        _lineRenderer.setDepthBias(depthBias);
-        _polygonRenderer.setDepthBias(depthBias);
+    void GeometryCollectionRenderer::setDepthBias(float depthBias, float depthBiasClip) {
+        _pointRenderer.setDepthBias(depthBias, depthBiasClip);
+        _lineRenderer.setDepthBias(depthBias, depthBiasClip);
+        _polygonRenderer.setDepthBias(depthBias, depthBiasClip);
     }
 
     void GeometryCollectionRenderer::onDrawFrame(float deltaSeconds, const ViewState& viewState) {

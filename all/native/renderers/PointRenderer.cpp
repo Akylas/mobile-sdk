@@ -33,7 +33,9 @@ namespace carto {
         _a_texCoord(0),
         _u_mvpMat(0),
         _u_depthBias(0),
+        _u_depthBiasClip(0),
         _depthBias(0.0f),
+        _depthBiasClip(0.0f),
         _u_tex(0),
         _mutex()
     {
@@ -262,8 +264,9 @@ namespace carto {
         return false;
     }
 
-    void PointRenderer::setDepthBias(float depthBias) {
+    void PointRenderer::setDepthBias(float depthBias, float depthBiasClip) {
         _depthBias = depthBias;
+        _depthBiasClip = depthBiasClip;
     }
 
     bool PointRenderer::initializeRenderer() {
@@ -282,6 +285,7 @@ namespace carto {
             _a_texCoord = _shader->getAttribLoc("a_texCoord");
             _u_mvpMat = _shader->getUniformLoc("u_mvpMat");
             _u_depthBias = _shader->getUniformLoc("u_depthBias");
+            _u_depthBiasClip = _shader->getUniformLoc("u_depthBiasClip");
             _u_tex = _shader->getUniformLoc("u_tex");
        }
 
@@ -298,6 +302,7 @@ namespace carto {
         const cglib::mat4x4<float>& mvpMat = viewState.getRTEModelviewProjectionMat();
         glUniformMatrix4fv(_u_mvpMat, 1, GL_FALSE, mvpMat.data());
         glUniform1f(_u_depthBias, _depthBias);
+        glUniform1f(_u_depthBiasClip, _depthBiasClip);
         // Coords, texCoords, colors
         glEnableVertexAttribArray(_a_coord);
         glEnableVertexAttribArray(_a_texCoord);
@@ -356,11 +361,12 @@ namespace carto {
         varying vec4 v_color;
         uniform mat4 u_mvpMat;
         uniform float u_depthBias;
+        uniform float u_depthBiasClip;
         void main() {
             v_texCoord = a_texCoord;
             v_color = a_color;
             vec4 clipPos = u_mvpMat * a_coord;
-            clipPos.z -= u_depthBias * clipPos.w;
+            clipPos.z -= u_depthBias * clipPos.w + u_depthBiasClip;
             gl_Position = clipPos;
         }
     )GLSL";
