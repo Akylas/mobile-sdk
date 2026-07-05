@@ -292,6 +292,7 @@ namespace carto {
         }
         tileRenderer->setTerrainMode(terrainMode, terrainDepthBias);
         tileRenderer->setTerrainDepthWrite(terrainMode && _terrainDepthWriteMode);
+        tileRenderer->setDebugWireframe(false); // debug: terrain mesh wireframe + stencil overlay
         updateLabelOcclusionTest(tileRenderer, viewState, activeTerrainOptions);
 
 
