@@ -1025,22 +1025,22 @@ namespace carto {
                             depthWriteAssigned = depthWriteAssigned || depthWrite;
                         }
                     }
-                    // Terrain background: opaque base fill (color + depth) under all layers.
-                    // Keeps the terrain visible - and depth-occluding for vector elements
-                    // and billboards - even without any tile layer content above.
-                    bool depthSourceRendered = false;
-                    Color terrainBackgroundColor = terrainOptions->getBackgroundColor();
-                    if (terrainBackgroundColor.getA() > 0) {
+                    // Without a depth-write tile layer, render the terrain base fill
+                    // (color + depth) or the depth-only pre-pass from the standalone
+                    // terrain renderer. With a depth-write tile layer, that layer draws
+                    // the base fill itself with its own meshes (no cross-mesh z-fighting).
+                    if (!depthWriteAssigned) {
                         if (!_terrainRenderer) {
                             _terrainRenderer = std::make_unique<TerrainRenderer>();
                         }
-                        depthSourceRendered = _terrainRenderer->renderBackground(viewState, terrainOptions, _glResourceManager, terrainBackgroundColor);
-                    }
-                    if (!depthWriteAssigned && !depthSourceRendered) {
-                        if (!_terrainRenderer) {
-                            _terrainRenderer = std::make_unique<TerrainRenderer>();
+                        Color terrainBackgroundColor = terrainOptions->getBackgroundColor();
+                        bool depthSourceRendered = false;
+                        if (terrainBackgroundColor.getA() > 0) {
+                            depthSourceRendered = _terrainRenderer->renderBackground(viewState, terrainOptions, _glResourceManager, terrainBackgroundColor);
                         }
-                        _terrainRenderer->renderDepthPrepass(viewState, terrainOptions, _glResourceManager);
+                        if (!depthSourceRendered) {
+                            _terrainRenderer->renderDepthPrepass(viewState, terrainOptions, _glResourceManager);
+                        }
                     }
                     if (terrainOptions->isBillboardOcclusionEnabled()) {
                         // Pixel-exact terrain depth buffer for label/billboard occlusion tests
