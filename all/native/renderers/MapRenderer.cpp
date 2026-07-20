@@ -1025,7 +1025,18 @@ namespace carto {
                             depthWriteAssigned = depthWriteAssigned || depthWrite;
                         }
                     }
-                    if (!depthWriteAssigned) {
+                    // Terrain background: opaque base fill (color + depth) under all layers.
+                    // Keeps the terrain visible - and depth-occluding for vector elements
+                    // and billboards - even without any tile layer content above.
+                    bool depthSourceRendered = false;
+                    Color terrainBackgroundColor = terrainOptions->getBackgroundColor();
+                    if (terrainBackgroundColor.getA() > 0) {
+                        if (!_terrainRenderer) {
+                            _terrainRenderer = std::make_unique<TerrainRenderer>();
+                        }
+                        depthSourceRendered = _terrainRenderer->renderBackground(viewState, terrainOptions, _glResourceManager, terrainBackgroundColor);
+                    }
+                    if (!depthWriteAssigned && !depthSourceRendered) {
                         if (!_terrainRenderer) {
                             _terrainRenderer = std::make_unique<TerrainRenderer>();
                         }

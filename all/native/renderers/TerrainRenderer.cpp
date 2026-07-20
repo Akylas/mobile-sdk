@@ -62,7 +62,13 @@ namespace carto {
         glEnable(GL_POLYGON_OFFSET_FILL);
         glPolygonOffset(1.0f, 2.0f);
 
-        bool result = renderTiles(viewState, terrainOptions, glResourceManager);
+        bool result = false;
+        if (!_shader || !_shader->isValid()) {
+            _shader = glResourceManager->create<Shader>("terraindepth", TERRAIN_DEPTH_VERTEX_SHADER, TERRAIN_DEPTH_FRAGMENT_SHADER);
+        }
+        if (_shader) {
+            result = renderTiles(viewState, terrainOptions, glResourceManager, _shader);
+        }
 
         // Restore state expected by the layer renderers
         glDisable(GL_POLYGON_OFFSET_FILL);
@@ -73,6 +79,45 @@ namespace carto {
         glEnable(GL_CULL_FACE);
 
         GLContext::CheckGLError("TerrainRenderer::renderDepthPrepass");
+        return result;
+    }
+
+    bool TerrainRenderer::renderBackground(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager, const Color& color) {
+        if (!terrainOptions || !glResourceManager || viewState.getWidth() <= 0 || viewState.getHeight() <= 0) {
+            return false;
+        }
+
+        if (!_colorShader || !_colorShader->isValid()) {
+            _colorShader = glResourceManager->create<Shader>("terraincolor", TERRAIN_DEPTH_VERTEX_SHADER, TERRAIN_COLOR_FRAGMENT_SHADER);
+        }
+        if (!_colorShader) {
+            return false;
+        }
+
+        // Opaque terrain base fill, color AND depth: subsumes the depth pre-pass. The
+        // same slope-scaled depth push as the pre-pass keeps draped tile content (built
+        // from different tesselations of the same height field) in front of it.
+        glDepthMask(GL_TRUE);
+        glEnable(GL_DEPTH_TEST);
+        glDisable(GL_BLEND);
+        glDisable(GL_STENCIL_TEST);
+        glDisable(GL_CULL_FACE); // displaced surfaces can face away near ridge crests
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(1.0f, 2.0f);
+
+        glUseProgram(_colorShader->getProgId());
+        glUniform4f(_colorShader->getUniformLoc("u_color"), color.getR() / 255.0f, color.getG() / 255.0f, color.getB() / 255.0f, color.getA() / 255.0f);
+
+        bool result = renderTiles(viewState, terrainOptions, glResourceManager, _colorShader);
+
+        // Restore state expected by the layer renderers
+        glDisable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(0.0f, 0.0f);
+        glDepthMask(GL_FALSE);
+        glEnable(GL_BLEND);
+        glEnable(GL_CULL_FACE);
+
+        GLContext::CheckGLError("TerrainRenderer::renderBackground");
         return result;
     }
 
@@ -104,7 +149,13 @@ namespace carto {
         glEnable(GL_DEPTH_TEST);
         glDisable(GL_CULL_FACE); // displaced surfaces can face away near ridge crests
 
-        bool result = renderTiles(viewState, terrainOptions, glResourceManager);
+        bool result = false;
+        if (!_shader || !_shader->isValid()) {
+            _shader = glResourceManager->create<Shader>("terraindepth", TERRAIN_DEPTH_VERTEX_SHADER, TERRAIN_DEPTH_FRAGMENT_SHADER);
+        }
+        if (_shader) {
+            result = renderTiles(viewState, terrainOptions, glResourceManager, _shader);
+        }
 
         // Restore state
         glEnable(GL_CULL_FACE);
@@ -180,25 +231,18 @@ namespace carto {
         return depth * _depthFar;
     }
 
-    bool TerrainRenderer::renderTiles(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager) {
+    bool TerrainRenderer::renderTiles(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager, const std::shared_ptr<Shader>& shader) {
         std::shared_ptr<ElevationManager> elevationManager = terrainOptions->getElevationManager();
-
-        if (!_shader || !_shader->isValid()) {
-            _shader = glResourceManager->create<Shader>("terraindepth", TERRAIN_DEPTH_VERTEX_SHADER, TERRAIN_DEPTH_FRAGMENT_SHADER);
-        }
-        if (!_shader) {
-            return false;
-        }
 
         // Calculate visible terrain tiles
         std::vector<MapTile> tiles;
         calculateVisibleTiles(viewState, elevationManager, MapTile(0, 0, 0, 0), tiles);
 
-        glUseProgram(_shader->getProgId());
-        GLuint aCoord = _shader->getAttribLoc("a_coord");
-        GLuint uMVPMat = _shader->getUniformLoc("u_mvpMat");
+        glUseProgram(shader->getProgId());
+        GLuint aCoord = shader->getAttribLoc("a_coord");
+        GLuint uMVPMat = shader->getUniformLoc("u_mvpMat");
         glEnableVertexAttribArray(aCoord);
-        glUniform1f(_shader->getUniformLoc("u_far"), viewState.getFar());
+        glUniform1f(shader->getUniformLoc("u_far"), viewState.getFar());
 
         float exaggeration = elevationManager->getExaggeration();
         int minZoom = terrainOptions->getMinZoom();
@@ -421,6 +465,15 @@ namespace carto {
             vec4 pos = u_mvpMat * vec4(a_coord, 1.0);
             v_depth = pos.w / u_far;
             gl_Position = pos;
+        }
+    )GLSL";
+
+    const std::string TerrainRenderer::TERRAIN_COLOR_FRAGMENT_SHADER = R"GLSL(
+        #version 100
+        precision mediump float;
+        uniform vec4 u_color;
+        void main() {
+            gl_FragColor = u_color;
         }
     )GLSL";
 

@@ -8,6 +8,7 @@
 #define _CARTO_TERRAINRENDERER_H_
 
 #include "core/MapTile.h"
+#include "graphics/Color.h"
 #include "graphics/ViewState.h"
 
 #include <chrono>
@@ -50,6 +51,15 @@ namespace carto {
         bool renderDepthPrepass(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager);
 
         /**
+         * Renders the terrain surface as an opaque solid color into the currently bound
+         * framebuffer, writing terrain depth as well (it subsumes renderDepthPrepass).
+         * Keeps the terrain visible - and depth-occluding for vector elements and
+         * billboards - even without any raster or vector tile layer content above.
+         * GL state is restored on return. Returns true on success.
+         */
+        bool renderBackground(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager, const Color& color);
+
+        /**
          * Renders the packed terrain depth texture for post-processing. Returns true on success.
          * Leaves the previously bound framebuffer bound again on return.
          */
@@ -85,8 +95,9 @@ namespace carto {
 
         static const std::string TERRAIN_DEPTH_VERTEX_SHADER;
         static const std::string TERRAIN_DEPTH_FRAGMENT_SHADER;
+        static const std::string TERRAIN_COLOR_FRAGMENT_SHADER;
 
-        bool renderTiles(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager);
+        bool renderTiles(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager, const std::shared_ptr<Shader>& shader);
         void calculateVisibleTiles(const ViewState& viewState, const std::shared_ptr<ElevationManager>& elevationManager, const MapTile& tile, std::vector<MapTile>& tiles) const;
         std::shared_ptr<TileMesh> buildTileMesh(const MapTile& tile, const std::shared_ptr<ElevationTileGrid>& grid, const std::shared_ptr<ElevationManager>& elevationManager, int gridSize) const;
         int calculateMeshGridSize(const MapTile& tile, const std::shared_ptr<ElevationTileGrid>& grid, int meshResolution) const;
@@ -94,6 +105,7 @@ namespace carto {
 
         std::shared_ptr<FrameBuffer> _frameBuffer;
         std::shared_ptr<Shader> _shader;
+        std::shared_ptr<Shader> _colorShader;
         std::map<long long, MeshCacheEntry> _meshCache;
 
         std::vector<std::uint8_t> _depthData; // read-back packed depth (RGBA, BUFFER_DOWNSCALE resolution)

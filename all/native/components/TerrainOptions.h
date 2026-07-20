@@ -8,6 +8,7 @@
 #define _CARTO_TERRAINOPTIONS_H_
 
 #include "core/MapPos.h"
+#include "graphics/Color.h"
 
 #include <atomic>
 #include <memory>
@@ -117,6 +118,21 @@ namespace carto {
          * @param minZoom The new minimum zoom level (clamped to 0..24).
          */
         void setMinZoom(int minZoom);
+
+        /**
+         * Returns the terrain background color.
+         * @return The terrain background color. The default is transparent (no background).
+         */
+        Color getBackgroundColor() const;
+        /**
+         * Sets the terrain background color: an opaque base fill of the terrain surface
+         * drawn under all layers. It keeps the terrain shape visible (and its depth valid
+         * for vector element and billboard occlusion) even without any raster or vector
+         * tile layer content - without it the terrain is transparent wherever no layer
+         * paints. Transparent (the default) disables the fill.
+         * @param color The new terrain background color.
+         */
+        void setBackgroundColor(const Color& color);
 
         /**
          * Returns the maximum visible tile zoom offset, relative to the camera zoom level.
@@ -240,6 +256,7 @@ namespace carto {
         std::atomic<int> _meshResolution;
         std::atomic<int> _minZoom;
         std::atomic<int> _maxTileZoomOffset;
+        std::atomic<int> _backgroundColorARGB;
         std::atomic<float> _depthBias;
         std::atomic<float> _cameraClearance;
         std::atomic<float> _cameraClampDuration;

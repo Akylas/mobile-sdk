@@ -293,7 +293,7 @@ namespace carto {
         tileRenderer->setTerrainMode(terrainMode, terrainDepthBias);
         tileRenderer->setTerrainDepthWrite(terrainMode && _terrainDepthWriteMode);
         tileRenderer->setDebugWireframe(false); // debug: terrain mesh wireframe + stencil overlay
-        tileRenderer->setDebugSurfacePrefill(terrainMode && _terrainRenderOrder == 0); // DEBUG: opaque magenta terrain pre-fill under the style (bottom tile layer only)
+        tileRenderer->setDebugSurfacePrefill(false); // debug: facing-coded terrain pre-fill (magenta front / cyan back)
         updateLabelOcclusionTest(tileRenderer, viewState, activeTerrainOptions);
 
 

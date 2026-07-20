@@ -19,6 +19,7 @@ namespace carto {
         _meshResolution(32),
         _minZoom(5),
         _maxTileZoomOffset(100),
+        _backgroundColorARGB(0),
         _depthBias(0.0002f),
         _cameraClearance(200.0f),
         _cameraClampDuration(0.0f),
@@ -82,6 +83,17 @@ namespace carto {
         int zoom = std::min(24, std::max(0, minZoom));
         if (_minZoom.exchange(zoom) != zoom) {
             notifyOptionChanged("MinZoom");
+        }
+    }
+
+    Color TerrainOptions::getBackgroundColor() const {
+        return Color(_backgroundColorARGB.load());
+    }
+
+    void TerrainOptions::setBackgroundColor(const Color& color) {
+        int value = color.getARGB();
+        if (_backgroundColorARGB.exchange(value) != value) {
+            notifyOptionChanged("BackgroundColor");
         }
     }
 
