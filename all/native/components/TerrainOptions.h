@@ -135,6 +135,22 @@ namespace carto {
         void setBackgroundColor(const Color& color);
 
         /**
+         * Returns the terrain background bitmap state.
+         * @return True if the map background bitmap is draped over the terrain as the base fill. The default is false.
+         */
+        bool isBackgroundBitmapEnabled() const;
+        /**
+         * Sets the terrain background bitmap state. When enabled, the map background bitmap
+         * (Options::getBackgroundBitmap, the repeating pattern flat maps show below the tiles)
+         * is draped over the terrain surface as the base fill drawn under all layers,
+         * instead of the solid background color. Like the background color fill, it keeps
+         * the terrain shape visible (and its depth valid for occlusion) where no layer
+         * paints, and shows through translucent tile layer content.
+         * @param enabled The new background bitmap state.
+         */
+        void setBackgroundBitmapEnabled(bool enabled);
+
+        /**
          * Returns the maximum visible tile zoom offset, relative to the camera zoom level.
          * @return The maximum tile zoom offset. The default is 100 (no cap).
          */
@@ -257,6 +273,7 @@ namespace carto {
         std::atomic<int> _minZoom;
         std::atomic<int> _maxTileZoomOffset;
         std::atomic<int> _backgroundColorARGB;
+        std::atomic<bool> _backgroundBitmapEnabled;
         std::atomic<float> _depthBias;
         std::atomic<float> _cameraClearance;
         std::atomic<float> _cameraClampDuration;

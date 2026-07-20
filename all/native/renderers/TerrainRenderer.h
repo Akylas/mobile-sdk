@@ -12,6 +12,7 @@
 #include "graphics/ViewState.h"
 
 #include <chrono>
+#include <functional>
 #include <map>
 #include <memory>
 #include <vector>
@@ -20,11 +21,13 @@
 #include <cglib/mat.h>
 
 namespace carto {
+    class Bitmap;
     class ElevationManager;
     class ElevationTileGrid;
     class TerrainOptions;
     class FrameBuffer;
     class Shader;
+    class Texture;
     class GLResourceManager;
 
     /**
@@ -52,12 +55,23 @@ namespace carto {
 
         /**
          * Renders the terrain surface as an opaque solid color into the currently bound
-         * framebuffer, writing terrain depth as well (it subsumes renderDepthPrepass).
-         * Keeps the terrain visible - and depth-occluding for vector elements and
-         * billboards - even without any raster or vector tile layer content above.
+         * framebuffer. The fill is always depth-resolved internally (near slopes win over
+         * far slopes). With keepDepth, the terrain depth stays in the depth buffer and
+         * subsumes renderDepthPrepass (used when no tile layer provides the terrain
+         * depth). Without keepDepth the depth buffer is cleared afterwards: the fill is
+         * color-only and can not depth-clip the differently-tesselated tile layer
+         * content drawn above it - the tile layer surface pre-passes provide the depth.
          * GL state is restored on return. Returns true on success.
          */
-        bool renderBackground(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager, const Color& color);
+        bool renderBackground(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager, const Color& color, bool keepDepth);
+
+        /**
+         * Renders the terrain surface with the given repeating background bitmap draped
+         * over it (the same world-anchored tiling the flat-map BackgroundRenderer uses) -
+         * the bitmap variant of the color background, with the same keepDepth semantics.
+         * GL state is restored on return. Returns true on success.
+         */
+        bool renderBackground(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager, const std::shared_ptr<Bitmap>& bitmap, bool keepDepth);
 
         /**
          * Renders the packed terrain depth texture for post-processing. Returns true on success.
@@ -96,8 +110,10 @@ namespace carto {
         static const std::string TERRAIN_DEPTH_VERTEX_SHADER;
         static const std::string TERRAIN_DEPTH_FRAGMENT_SHADER;
         static const std::string TERRAIN_COLOR_FRAGMENT_SHADER;
+        static const std::string TERRAIN_BITMAP_VERTEX_SHADER;
+        static const std::string TERRAIN_BITMAP_FRAGMENT_SHADER;
 
-        bool renderTiles(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager, const std::shared_ptr<Shader>& shader);
+        bool renderTiles(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager, const std::shared_ptr<Shader>& shader, const std::function<void(const MapTile&)>& tileUniformsFn = std::function<void(const MapTile&)>());
         void calculateVisibleTiles(const ViewState& viewState, const std::shared_ptr<ElevationManager>& elevationManager, const MapTile& tile, std::vector<MapTile>& tiles) const;
         std::shared_ptr<TileMesh> buildTileMesh(const MapTile& tile, const std::shared_ptr<ElevationTileGrid>& grid, const std::shared_ptr<ElevationManager>& elevationManager, int gridSize) const;
         int calculateMeshGridSize(const MapTile& tile, const std::shared_ptr<ElevationTileGrid>& grid, int meshResolution) const;
@@ -106,6 +122,9 @@ namespace carto {
         std::shared_ptr<FrameBuffer> _frameBuffer;
         std::shared_ptr<Shader> _shader;
         std::shared_ptr<Shader> _colorShader;
+        std::shared_ptr<Shader> _bitmapShader;
+        std::shared_ptr<Bitmap> _backgroundBitmap; // source of _backgroundTex, for change detection
+        std::shared_ptr<Texture> _backgroundTex;
         std::map<long long, MeshCacheEntry> _meshCache;
 
         std::vector<std::uint8_t> _depthData; // read-back packed depth (RGBA, BUFFER_DOWNSCALE resolution)

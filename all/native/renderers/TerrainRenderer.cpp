@@ -2,10 +2,12 @@
 #include "components/Options.h"
 #include "components/TerrainOptions.h"
 #include "datasources/TileDataSource.h"
+#include "graphics/Bitmap.h"
 #include "renderers/utils/FrameBuffer.h"
 #include "renderers/utils/GLContext.h"
 #include "renderers/utils/GLResourceManager.h"
 #include "renderers/utils/Shader.h"
+#include "renderers/utils/Texture.h"
 #include "terrain/ElevationManager.h"
 #include "terrain/ElevationTileGrid.h"
 #include "utils/Const.h"
@@ -82,7 +84,7 @@ namespace carto {
         return result;
     }
 
-    bool TerrainRenderer::renderBackground(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager, const Color& color) {
+    bool TerrainRenderer::renderBackground(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager, const Color& color, bool keepDepth) {
         if (!terrainOptions || !glResourceManager || viewState.getWidth() <= 0 || viewState.getHeight() <= 0) {
             return false;
         }
@@ -94,9 +96,10 @@ namespace carto {
             return false;
         }
 
-        // Opaque terrain base fill, color AND depth: subsumes the depth pre-pass. The
-        // same slope-scaled depth push as the pre-pass keeps draped tile content (built
-        // from different tesselations of the same height field) in front of it.
+        // Opaque terrain base fill. Depth is used DURING the pass so that near slopes
+        // win over far slopes; with keepDepth it also subsumes the depth pre-pass. The
+        // slope-scaled depth push keeps draped tile content (built from different
+        // tesselations of the same height field) in front of the kept depth.
         glDepthMask(GL_TRUE);
         glEnable(GL_DEPTH_TEST);
         glDisable(GL_BLEND);
@@ -110,6 +113,14 @@ namespace carto {
 
         bool result = renderTiles(viewState, terrainOptions, glResourceManager, _colorShader);
 
+        // Color-only mode: the tile layer surface pre-passes provide the terrain depth
+        // with their own (differently tesselated) meshes - this fill's depth must not
+        // survive, or it would depth-clip the tile content in triangle-shaped patches
+        // wherever the meshes disagree.
+        if (!keepDepth) {
+            glClear(GL_DEPTH_BUFFER_BIT);
+        }
+
         // Restore state expected by the layer renderers
         glDisable(GL_POLYGON_OFFSET_FILL);
         glPolygonOffset(0.0f, 0.0f);
@@ -118,6 +129,78 @@ namespace carto {
         glEnable(GL_CULL_FACE);
 
         GLContext::CheckGLError("TerrainRenderer::renderBackground");
+        return result;
+    }
+
+    bool TerrainRenderer::renderBackground(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager, const std::shared_ptr<Bitmap>& bitmap, bool keepDepth) {
+        if (!terrainOptions || !glResourceManager || !bitmap || viewState.getWidth() <= 0 || viewState.getHeight() <= 0) {
+            return false;
+        }
+
+        if (!_bitmapShader || !_bitmapShader->isValid()) {
+            _bitmapShader = glResourceManager->create<Shader>("terrainbitmap", TERRAIN_BITMAP_VERTEX_SHADER, TERRAIN_BITMAP_FRAGMENT_SHADER);
+        }
+        if (!_bitmapShader) {
+            return false;
+        }
+        if (_backgroundBitmap != bitmap || !_backgroundTex || !_backgroundTex->isValid()) {
+            _backgroundTex = glResourceManager->create<Texture>(bitmap, true, true);
+            _backgroundBitmap = bitmap;
+        }
+        if (!_backgroundTex) {
+            return false;
+        }
+
+        // Opaque terrain base fill from the repeating background bitmap, color AND depth
+        // (the bitmap variant of the color fill; same slope-scaled depth push).
+        glDepthMask(GL_TRUE);
+        glEnable(GL_DEPTH_TEST);
+        glDisable(GL_BLEND);
+        glDisable(GL_STENCIL_TEST);
+        glDisable(GL_CULL_FACE); // displaced surfaces can face away near ridge crests
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(1.0f, 2.0f);
+
+        glUseProgram(_bitmapShader->getProgId());
+        glUniform1i(_bitmapShader->getUniformLoc("u_tex"), 0);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, _backgroundTex->getTexId());
+
+        // World-anchored repeating pattern, matching the flat-map BackgroundRenderer:
+        // the bitmap repeats once per map tile of the current (integer) zoom level.
+        // The per-tile uv transform is reduced modulo 1 in double precision on the CPU,
+        // so the shader only ever interpolates small uv values (no precision jitter).
+        double uvWorldScale = static_cast<double>(1 << static_cast<int>(viewState.getZoom())) / Const::WORLD_SIZE;
+        GLuint uUVOffsetScale = _bitmapShader->getUniformLoc("u_uvOffsetScale");
+        auto tileUniformsFn = [&](const MapTile& tile) {
+            int tileMask = (1 << tile.getZoom()) - 1;
+            double zoomScale = 1.0 / (1 << tile.getZoom());
+            double originX = (tile.getX() * zoomScale - 0.5) * Const::WORLD_SIZE;
+            double originY = ((tileMask - tile.getY()) * zoomScale - 0.5) * Const::WORLD_SIZE;
+            double size = zoomScale * Const::WORLD_SIZE;
+            double offsetS = originX * uvWorldScale;
+            double offsetT = originY * uvWorldScale;
+            offsetS -= std::floor(offsetS);
+            offsetT -= std::floor(offsetT);
+            glUniform4f(uUVOffsetScale, static_cast<float>(offsetS), static_cast<float>(offsetT), static_cast<float>(size * uvWorldScale), static_cast<float>(size * uvWorldScale));
+        };
+
+        bool result = renderTiles(viewState, terrainOptions, glResourceManager, _bitmapShader, tileUniformsFn);
+
+        // Color-only mode: see the color overload - the fill depth must not survive
+        // when the tile layer pre-passes provide the terrain depth.
+        if (!keepDepth) {
+            glClear(GL_DEPTH_BUFFER_BIT);
+        }
+
+        // Restore state expected by the layer renderers
+        glDisable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(0.0f, 0.0f);
+        glDepthMask(GL_FALSE);
+        glEnable(GL_BLEND);
+        glEnable(GL_CULL_FACE);
+
+        GLContext::CheckGLError("TerrainRenderer::renderBackground(bitmap)");
         return result;
     }
 
@@ -231,7 +314,7 @@ namespace carto {
         return depth * _depthFar;
     }
 
-    bool TerrainRenderer::renderTiles(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager, const std::shared_ptr<Shader>& shader) {
+    bool TerrainRenderer::renderTiles(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager, const std::shared_ptr<Shader>& shader, const std::function<void(const MapTile&)>& tileUniformsFn) {
         std::shared_ptr<ElevationManager> elevationManager = terrainOptions->getElevationManager();
 
         // Calculate visible terrain tiles
@@ -278,6 +361,9 @@ namespace carto {
 
             cglib::mat4x4<float> tileMVPMat = cglib::mat4x4<float>::convert(mvpMat * calculateTileMatrix(tile));
             glUniformMatrix4fv(uMVPMat, 1, GL_FALSE, tileMVPMat.data());
+            if (tileUniformsFn) {
+                tileUniformsFn(tile);
+            }
             glVertexAttribPointer(aCoord, 3, GL_FLOAT, GL_FALSE, 0, mesh->vertices.data());
             glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(mesh->indices.size()), GL_UNSIGNED_SHORT, mesh->indices.data());
         }
@@ -474,6 +560,32 @@ namespace carto {
         uniform vec4 u_color;
         void main() {
             gl_FragColor = u_color;
+        }
+    )GLSL";
+
+    const std::string TerrainRenderer::TERRAIN_BITMAP_VERTEX_SHADER = R"GLSL(
+        #version 100
+        attribute vec3 a_coord;
+        uniform mat4 u_mvpMat;
+        uniform float u_far;
+        uniform vec4 u_uvOffsetScale;
+        varying vec2 v_uv;
+        varying float v_depth;
+        void main() {
+            v_uv = u_uvOffsetScale.xy + a_coord.xy * u_uvOffsetScale.zw;
+            vec4 pos = u_mvpMat * vec4(a_coord, 1.0);
+            v_depth = pos.w / u_far; // keeps u_far active; renderTiles sets it for every shader
+            gl_Position = pos;
+        }
+    )GLSL";
+
+    const std::string TerrainRenderer::TERRAIN_BITMAP_FRAGMENT_SHADER = R"GLSL(
+        #version 100
+        precision mediump float;
+        uniform sampler2D u_tex;
+        varying vec2 v_uv;
+        void main() {
+            gl_FragColor = texture2D(u_tex, v_uv);
         }
     )GLSL";
 

@@ -294,15 +294,11 @@ namespace carto {
         tileRenderer->setTerrainDepthWrite(terrainMode && _terrainDepthWriteMode);
         tileRenderer->setDebugWireframe(false); // debug: terrain mesh wireframe + stencil overlay
         tileRenderer->setDebugSurfacePrefill(false); // debug: facing-coded terrain pre-fill (magenta front / cyan back)
-        vt::Color terrainBackgroundColor;
-        if (terrainMode && _terrainDepthWriteMode && activeTerrainOptions) {
-            // The depth-write layer renders the terrain base fill together with its
-            // surface depth pre-pass (same meshes as the draped content - no z-fighting)
-            Color color = activeTerrainOptions->getBackgroundColor();
-            float a = color.getA() / 255.0f;
-            terrainBackgroundColor = vt::Color(color.getR() / 255.0f * a, color.getG() / 255.0f * a, color.getB() / 255.0f * a, a);
-        }
-        tileRenderer->setTerrainBackgroundColor(terrainBackgroundColor);
+        // The terrain base fill (color or the map background bitmap) is rendered
+        // globally by MapRenderer BEFORE all tile layers, so it stays visible behind
+        // translucent tile layer content regardless of the layer stacking order.
+        // The per-layer surface pre-pass here stays depth-only.
+        tileRenderer->setTerrainBackgroundColor(vt::Color());
         updateLabelOcclusionTest(tileRenderer, viewState, activeTerrainOptions);
 
 

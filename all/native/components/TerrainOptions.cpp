@@ -20,6 +20,7 @@ namespace carto {
         _minZoom(5),
         _maxTileZoomOffset(100),
         _backgroundColorARGB(0),
+        _backgroundBitmapEnabled(false),
         _depthBias(0.0002f),
         _cameraClearance(200.0f),
         _cameraClampDuration(0.0f),
@@ -94,6 +95,16 @@ namespace carto {
         int value = color.getARGB();
         if (_backgroundColorARGB.exchange(value) != value) {
             notifyOptionChanged("BackgroundColor");
+        }
+    }
+
+    bool TerrainOptions::isBackgroundBitmapEnabled() const {
+        return _backgroundBitmapEnabled.load();
+    }
+
+    void TerrainOptions::setBackgroundBitmapEnabled(bool enabled) {
+        if (_backgroundBitmapEnabled.exchange(enabled) != enabled) {
+            notifyOptionChanged("BackgroundBitmapEnabled");
         }
     }
 

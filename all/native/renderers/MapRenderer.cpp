@@ -1025,20 +1025,38 @@ namespace carto {
                             depthWriteAssigned = depthWriteAssigned || depthWrite;
                         }
                     }
-                    // Without a depth-write tile layer, render the terrain base fill
-                    // (color + depth) or the depth-only pre-pass from the standalone
-                    // terrain renderer. With a depth-write tile layer, that layer draws
-                    // the base fill itself with its own meshes (no cross-mesh z-fighting).
-                    if (!depthWriteAssigned) {
+                    // Terrain base fill, rendered GLOBALLY before all tile layers: this
+                    // way it shows through translucent tile layer content (e.g. a
+                    // semi-transparent vector tile style or a hillshade layer)
+                    // regardless of the layer stacking order, and guarantees the terrain
+                    // is always painted with a solid base. When enabled, the map
+                    // background bitmap is draped over the terrain instead of the solid
+                    // color. With a depth-write tile layer, the fill is COLOR-ONLY (its
+                    // depth is discarded): the tile layer surface pre-passes provide the
+                    // terrain depth with their own meshes, and any kept fill depth would
+                    // clip the differently-tesselated tile content in triangle-shaped
+                    // patches. Without one, the fill (or the depth-only pre-pass) is the
+                    // terrain depth source for element/billboard occlusion.
+                    bool depthSourceRendered = false;
+                    {
                         if (!_terrainRenderer) {
                             _terrainRenderer = std::make_unique<TerrainRenderer>();
                         }
-                        Color terrainBackgroundColor = terrainOptions->getBackgroundColor();
-                        bool depthSourceRendered = false;
-                        if (terrainBackgroundColor.getA() > 0) {
-                            depthSourceRendered = _terrainRenderer->renderBackground(viewState, terrainOptions, _glResourceManager, terrainBackgroundColor);
+                        bool keepDepth = !depthWriteAssigned;
+                        bool backgroundRendered = false;
+                        if (terrainOptions->isBackgroundBitmapEnabled()) {
+                            if (std::shared_ptr<Bitmap> backgroundBitmap = _options->getBackgroundBitmap()) {
+                                backgroundRendered = _terrainRenderer->renderBackground(viewState, terrainOptions, _glResourceManager, backgroundBitmap, keepDepth);
+                            }
                         }
-                        if (!depthSourceRendered) {
+                        if (!backgroundRendered) {
+                            Color terrainBackgroundColor = terrainOptions->getBackgroundColor();
+                            if (terrainBackgroundColor.getA() > 0) {
+                                backgroundRendered = _terrainRenderer->renderBackground(viewState, terrainOptions, _glResourceManager, terrainBackgroundColor, keepDepth);
+                            }
+                        }
+                        depthSourceRendered = backgroundRendered && keepDepth;
+                        if (!depthSourceRendered && !depthWriteAssigned) {
                             _terrainRenderer->renderDepthPrepass(viewState, terrainOptions, _glResourceManager);
                         }
                     }
