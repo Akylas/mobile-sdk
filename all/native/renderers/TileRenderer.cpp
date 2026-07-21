@@ -272,10 +272,14 @@ namespace carto {
                     terrainTextureProvider = [elevationTextureCache](const vt::TileId& tileId, vt::GLTileRenderer::TerrainTexture& terrainTexture) {
                         return elevationTextureCache->getTexture(tileId, terrainTexture);
                     };
-                    // Heights agree exactly between layers in GPU draping mode, so layers are
-                    // separated by a fixed clip-space delta by their stacking order (the vt
-                    // renderer adds per-sublayer deltas and the geometry slack on top).
-                    terrainDepthBias = static_cast<float>(_terrainRenderOrder) * 128.0f / 524288.0f;
+                    // Every terrain tile layer works in its own depth domain (the vt
+                    // renderer clears the depth buffer and renders its reference surface
+                    // pre-pass before its content, which then WRITES its real depth -
+                    // tangram-style). Cross-layer stacking is pure painter's order, so no
+                    // per-layer depth stride is needed - and any constant-NDC stride
+                    // would shift the final depth domain away from what vector elements
+                    // depth-test against after the tile layers.
+                    terrainDepthBias = 0.0f;
                 }
             }
         }
