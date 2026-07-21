@@ -479,11 +479,25 @@ namespace carto {
     
     void MapRenderer::onSurfaceCreated() {
         ThreadUtils::SetThreadPriority(ThreadPriority::MAXIMUM);
-        
+
         GLContext::LoadExtensions();
-    
+
         glPixelStorei(GL_PACK_ALIGNMENT, 1);
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+        // One-time GL context diagnostics: the depth/stencil resolution and the vertex
+        // texture unit count determine which terrain depth model is in effect and how
+        // much depth slack it actually has - essential when debugging device-specific
+        // terrain occlusion issues (emulator and device configs often differ).
+        {
+            GLint depthBits = 0, stencilBits = 0, maxVertexTextureUnits = 0;
+            glGetIntegerv(GL_DEPTH_BITS, &depthBits);
+            glGetIntegerv(GL_STENCIL_BITS, &stencilBits);
+            glGetIntegerv(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS, &maxVertexTextureUnits);
+            const GLubyte* renderer = glGetString(GL_RENDERER);
+            Log::Infof("MapRenderer::onSurfaceCreated: renderer '%s', depth bits %d, stencil bits %d, vertex texture units %d",
+                renderer ? reinterpret_cast<const char*>(renderer) : "?", depthBits, stencilBits, maxVertexTextureUnits);
+        }
 
         // If the surface was lost, properly signal about this
         if (_surfaceCreated) {

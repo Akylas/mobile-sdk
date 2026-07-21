@@ -84,6 +84,7 @@ namespace carto {
         double texelX = (bounds.getMax().getX() - bounds.getMin().getX()) / entry.grid->getWidth();
         double texelY = (bounds.getMax().getY() - bounds.getMin().getY()) / entry.grid->getHeight();
         terrainTexture.textureId = entry.texture->getTexId();
+        terrainTexture.textureSize = cglib::vec2<int>(entry.grid->getWidth() + 2, entry.grid->getHeight() + 2);
         terrainTexture.internalOrigin = cglib::vec2<double>(bounds.getMin().getX() - texelX, bounds.getMin().getY() - texelY);
         terrainTexture.internalSize = cglib::vec2<double>(bounds.getMax().getX() - bounds.getMin().getX() + 2 * texelX, bounds.getMax().getY() - bounds.getMin().getY() + 2 * texelY);
         terrainTexture.decode = cglib::vec4<float>(entry.decode[0], entry.decode[1], entry.decode[2], entry.decode[3]);
