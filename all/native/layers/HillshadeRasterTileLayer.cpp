@@ -10,6 +10,7 @@
 #include "rastertiles/MapBoxElevationDataDecoder.h"
 #include "projections/EPSG3857.h"
 #include "projections/Projection.h"
+#include "terrain/ElevationManager.h"
 
 #include <array>
 #include <algorithm>
@@ -24,62 +25,6 @@
 #include <vt/TileLayerBuilder.h>
 #include <vt/NormalMapBuilder.h>
 #include <vt/TileLayerBuilder.h>
-
-namespace {
-
-
-
-    std::array<std::uint8_t, 4> readTileBitmapColor(const std::shared_ptr<carto::Bitmap>& bitmap, int x, int y) {
-        x = std::max(0, std::min(x, (int)bitmap->getWidth() - 1));
-        y = bitmap->getHeight() - 1 - std::max(0, std::min(y, (int)bitmap->getHeight() - 1));
-
-        switch (bitmap->getColorFormat()) {
-            case carto::ColorFormat::COLOR_FORMAT_GRAYSCALE:
-            {
-                std::uint8_t val = bitmap->getPixelData()[y * bitmap->getWidth() + x];
-                return std::array<std::uint8_t, 4> { { val, val, val, 255 } };
-            }
-        case carto::ColorFormat::COLOR_FORMAT_RGB:
-            {
-                const std::uint8_t* valPtr = &bitmap->getPixelData()[(y * bitmap->getWidth() + x) * 3];
-                return std::array<std::uint8_t, 4> { { valPtr[0], valPtr[1], valPtr[2], 255 } };
-            }
-        case  carto::ColorFormat::COLOR_FORMAT_RGBA:
-            {
-                const std::uint8_t* valPtr = &bitmap->getPixelData()[(y * bitmap->getWidth() + x) * 4];
-                return std::array<std::uint8_t, 4> { { valPtr[0], valPtr[1], valPtr[2], valPtr[3] } };
-            }
-        default:
-            break;
-        }
-        return std::array<std::uint8_t, 4> { { 0, 0, 0, 0 } };
-    }
-
-    std::array<std::uint8_t, 4> readTileBitmapColor(const std::shared_ptr<carto::Bitmap>& bitmap, float x, float y) {
-        std::array<float, 4> result { { 0, 0, 0, 0 } };
-        for (int dy = 0; dy < 2; dy++) {
-            for (int dx = 0; dx < 2; dx++) {
-                int x0 = static_cast<int>(std::floor(x));
-                int y0 = static_cast<int>(std::floor(y));
-
-                std::array<std::uint8_t, 4> color = readTileBitmapColor(bitmap, x0 + dx, y0 + dy);
-                for (int i = 0; i < 4; i++) {
-                    result[i] += color[i] * (dx == 0 ? x0 + 1.0f - x : x - x0) * (dy == 0 ? y0 + 1.0f - y : y - y0);
-                }
-            }
-        }
-        return std::array<std::uint8_t, 4> { { static_cast<std::uint8_t>(result[0]), static_cast<std::uint8_t>(result[1]), static_cast<std::uint8_t>(result[2]), static_cast<std::uint8_t>(result[3]) } };
-    }
-
-    double readPixelAltitude(const std::shared_ptr<carto::Bitmap>& tileBitmap, const carto::MapBounds& tileBounds, const carto::MapPos& pos, const std::array<double, 4>& components) {
-        int tileSize = tileBitmap->getWidth();
-        float pixelX = (pos.getX() - tileBounds.getMin().getX()) / (tileBounds.getMax().getX() - tileBounds.getMin().getX()) * tileSize;
-        float pixelY = tileSize - (pos.getY() - tileBounds.getMin().getY()) / (tileBounds.getMax().getY() - tileBounds.getMin().getY()) * tileSize;
-        std::array<std::uint8_t, 4> interpolatedComponents = readTileBitmapColor(tileBitmap, std::round(pixelX), std::round(pixelY));
-        double altitude = (components[0] * interpolatedComponents[0] + components[1] * interpolatedComponents[1] + components[2] * interpolatedComponents[2] + components[3] * interpolatedComponents[3]/255.0f);
-        return altitude;
-    }
-}
 
 namespace carto
 {
@@ -338,129 +283,21 @@ namespace carto
         return tileBitmap;
     }
 
+    std::shared_ptr<ElevationManager> HillshadeRasterTileLayer::getElevationManager() const {
+        std::lock_guard<std::recursive_mutex> lock(_mutex);
+        if (!_elevationManager) {
+            _elevationManager = std::make_shared<ElevationManager>(getDataSource(), _elevationDecoder);
+        }
+        return _elevationManager;
+    }
+
     double HillshadeRasterTileLayer::getElevation(const MapPos &pos) const
     {
-        std::shared_ptr<TileDataSource> dataSource = getDataSource();
-
-        std::shared_ptr<ElevationDecoder> decoder = _elevationDecoder;
-        std::string decoderType = _dataSource->getEncoding();
-        // Use static cached decoder instances to avoid repeated allocations
-        if (decoderType == "terrarium") {
-            static std::shared_ptr<ElevationDecoder> terrariumDecoder = std::make_shared<TerrariumElevationDataDecoder>();
-            decoder = terrariumDecoder;
-        } else if (decoderType == "mapbox") {
-            static std::shared_ptr<ElevationDecoder> mapboxDecoder = std::make_shared<MapBoxElevationDataDecoder>();
-            decoder = mapboxDecoder;
-        }
-        if (!decoder) {
-            static std::shared_ptr<ElevationDecoder> mapboxDecoder = std::make_shared<MapBoxElevationDataDecoder>();
-            decoder = mapboxDecoder;
-        }
-
-        // we need to transform pos to dataSource projection
-        // TODO: how to check if pos is in Wgs84?
-        std::shared_ptr<Projection> projection = dataSource->getProjection();
-        MapPos dataSourcePos = projection->fromWgs84(pos);
-
-        // The tile is flipped so to get the bitmap we need to flip it
-        MapTile mapTile = TileUtils::CalculateMapTile(dataSourcePos, dataSource->getMaxZoom(), projection);
-        MapTile flippedMapTile = mapTile.getFlipped();
-
-        std::shared_ptr<TileData> tileData = _dataSource->loadTile(flippedMapTile);
-        while(tileData && tileData->isReplaceWithParent()) {
-            mapTile = mapTile.getParent();
-            flippedMapTile = mapTile.getFlipped();
-            tileData = _dataSource->loadTile(flippedMapTile);
-        }
-        if (!tileData) {
-            Log::Error("ElevationDecoder::getElevation: no tile found to get elevation");
-            return -1000000;
-        }
-        std::shared_ptr<Bitmap> tileBitmap = getTileDataBitmap(tileData);
-        if (!tileBitmap) {
-            Log::Error("ElevationDecoder::getElevation: Null tile bitmap");
-            return -1000000;
-        }
-
-        std::array<double, 4> components = decoder->getColorComponentCoefficients();
-        return readPixelAltitude(tileBitmap, TileUtils::CalculateMapTileBounds(mapTile, projection), dataSourcePos, components);
+        return getElevationManager()->getElevation(pos);
     }
+
     std::vector<double> HillshadeRasterTileLayer::getElevations(const std::vector<MapPos> poses) const
     {
-        std::shared_ptr<TileDataSource> dataSource = getDataSource();
-        std::vector<double> results;
-
-        std::shared_ptr<ElevationDecoder> decoder = _elevationDecoder;
-        std::string decoderType = _dataSource->getEncoding();
-        // Use static cached decoder instances to avoid repeated allocations
-        if (decoderType == "terrarium") {
-            static std::shared_ptr<ElevationDecoder> terrariumDecoder = std::make_shared<TerrariumElevationDataDecoder>();
-            decoder = terrariumDecoder;
-        } else if (decoderType == "mapbox") {
-            static std::shared_ptr<ElevationDecoder> mapboxDecoder = std::make_shared<MapBoxElevationDataDecoder>();
-            decoder = mapboxDecoder;
-        }
-        if (!decoder) {
-            static std::shared_ptr<ElevationDecoder> mapboxDecoder = std::make_shared<MapBoxElevationDataDecoder>();
-            decoder = mapboxDecoder;
-        }
-
-        std::map<long long, std::pair<MapBounds, std::shared_ptr<Bitmap>>> indexedTiles;
-        std::shared_ptr<Projection> projection = dataSource->getProjection();
-        std::array<double, 4> components = decoder->getColorComponentCoefficients();
-        for (auto it = poses.begin(); it != poses.end(); it++) {
-            // TODO: how to check if pos is in Wgs84?
-            MapPos dataSourcePos = projection->fromWgs84(*it);
-            MapTile mapTile = TileUtils::CalculateMapTile(dataSourcePos, dataSource->getMaxZoom(), projection);
-
-            long long tileId = mapTile.getTileId();
-            std::map<long long, std::pair<MapBounds, std::shared_ptr<Bitmap>>>::iterator iter(indexedTiles.find(tileId));
-            std::shared_ptr<TileData> tileData;
-            if (iter == indexedTiles.end()) {
-                // no cached bitmap found lets get it from TileData
-                // The tile is flipped so to get the bitmap we need to flip it
-                MapTile flippedMapTile = mapTile.getFlipped();
-                tileData = _dataSource->loadTile(flippedMapTile);
-                // get the parent tile if necessary
-                while(tileData && tileData->isReplaceWithParent()) {
-                    mapTile = mapTile.getParent();
-                    tileId = mapTile.getTileId();
-                    iter = (indexedTiles.find(tileId));
-                    // if the parent tile is cached let's stop
-                    if (iter != indexedTiles.end()) {
-                        break;
-                    }
-                    flippedMapTile = mapTile.getFlipped();
-                    tileData = _dataSource->loadTile(flippedMapTile);
-                }
-            }
-
-            if (iter != indexedTiles.end()) {
-                // we found a cached bitmap
-                std::pair<MapBounds, std::shared_ptr<Bitmap>> pair = iter->second;
-                const std::shared_ptr<Bitmap>& tileBitmap = pair.second;
-                const MapBounds& tileBounds = pair.first;
-                double altitude = readPixelAltitude(tileBitmap, tileBounds, dataSourcePos, components);
-                results.push_back(altitude);
-                continue;
-            }
-            if (tileData) {
-                // read from the tile data
-                // then put the bitmap in the cache for next points
-                long long tileId = mapTile.getTileId();
-                std::shared_ptr<Bitmap> tileBitmap = getTileDataBitmap(tileData);
-                MapBounds tileBounds = TileUtils::CalculateMapTileBounds(mapTile, projection);
-                std::pair<MapBounds, std::shared_ptr<Bitmap>> pair = std::make_pair(tileBounds, tileBitmap);
-                indexedTiles.insert(std::pair<long long, std::pair<MapBounds, std::shared_ptr<Bitmap>>>(tileId, pair));
-                double altitude = readPixelAltitude(tileBitmap, tileBounds, dataSourcePos, components);
-                results.push_back(altitude);
-            } else {
-                // in case we did not find an elevation still return something
-                // so that the user can now for which point each elevation was
-                results.push_back(-1000000);
-            }
-
-        }
-        return results;
+        return getElevationManager()->getElevations(poses);
     }
 } // namespace carto

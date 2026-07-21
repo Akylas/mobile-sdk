@@ -3,7 +3,7 @@
 
 %module MapRenderer
 
-!proxy_imports(carto::MapRenderer, core.MapPos, core.MapBounds, core.ScreenPos, graphics.ViewState, renderers.MapRendererListener, renderers.RendererCaptureListener, renderers.RedrawRequestListener)
+!proxy_imports(carto::MapRenderer, core.MapPos, core.MapBounds, core.ScreenPos, graphics.ViewState, renderers.MapRendererListener, renderers.PostProcessEffect, renderers.RendererCaptureListener, renderers.RedrawRequestListener)
 
 %{
 #include "renderers/MapRenderer.h"
@@ -19,6 +19,7 @@
 %import "core/ScreenPos.i"
 %import "graphics/ViewState.i"
 %import "renderers/MapRendererListener.i"
+%import "renderers/PostProcessEffect.i"
 %import "renderers/RendererCaptureListener.i"
 %import "renderers/RedrawRequestListener.i"
 

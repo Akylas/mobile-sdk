@@ -62,6 +62,9 @@ namespace carto {
     }
     
     Options::~Options() {
+        if (_terrainOptions && _terrainOptionsListener) {
+            _terrainOptions->unregisterOnChangeListener(_terrainOptionsListener);
+        }
     }
         
     Color Options::getAmbientLightColor() const {
@@ -697,6 +700,41 @@ namespace carto {
     std::shared_ptr<ProjectionSurface> Options::getProjectionSurface() const {
         std::lock_guard<std::mutex> lock(_mutex);
         return _projectionSurface;
+    }
+
+    std::shared_ptr<TerrainOptions> Options::getTerrainOptions() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        return _terrainOptions;
+    }
+
+    void Options::setTerrainOptions(const std::shared_ptr<TerrainOptions>& terrainOptions) {
+        struct TerrainOptionsListener : TerrainOptions::OnChangeListener {
+            explicit TerrainOptionsListener(Options& options) : _options(options) { }
+
+            virtual void onTerrainOptionChanged(const std::string& optionName) override {
+                _options.notifyOptionChanged("TerrainOptions." + optionName);
+            }
+
+        private:
+            Options& _options;
+        };
+
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            if (_terrainOptions == terrainOptions) {
+                return;
+            }
+            if (_terrainOptions && _terrainOptionsListener) {
+                _terrainOptions->unregisterOnChangeListener(_terrainOptionsListener);
+                _terrainOptionsListener.reset();
+            }
+            _terrainOptions = terrainOptions;
+            if (_terrainOptions) {
+                _terrainOptionsListener = std::make_shared<TerrainOptionsListener>(*this);
+                _terrainOptions->registerOnChangeListener(_terrainOptionsListener);
+            }
+        }
+        notifyOptionChanged("TerrainOptions");
     }
     
     void Options::setLayersLabelsProcessedInReverseOrder(bool enabled) {

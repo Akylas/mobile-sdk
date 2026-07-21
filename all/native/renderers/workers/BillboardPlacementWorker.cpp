@@ -1,6 +1,8 @@
 #include "BillboardPlacementWorker.h"
+#include "components/Options.h"
 #include "renderers/BillboardRenderer.h"
 #include "renderers/MapRenderer.h"
+#include "terrain/ElevationManager.h"
 #include "renderers/drawdatas/BillboardDrawData.h"
 #include "renderers/drawdatas/NMLModelDrawData.h"
 #include "utils/Log.h"
@@ -97,6 +99,12 @@ namespace carto {
         }
 
         std::vector<std::shared_ptr<BillboardDrawData> > billboardDrawDatas = mapRenderer->getBillboardDrawDatas();
+
+        // Terrain occlusion pass: test the sight line from the camera to each billboard anchor
+        // against the terrain. State-dependent up-offsets provide hysteresis against flickering.
+        if (calculateTerrainOcclusion(billboardDrawDatas, mapRenderer)) {
+            mapRenderer->requestRedraw();
+        }
 
         bool calculate = false;
         for (const std::shared_ptr<BillboardDrawData>& drawData : billboardDrawDatas) {
@@ -204,6 +212,43 @@ namespace carto {
         }
 
         return true;
+    }
+
+    bool BillboardPlacementWorker::calculateTerrainOcclusion(const std::vector<std::shared_ptr<BillboardDrawData> >& billboardDrawDatas, const std::shared_ptr<MapRenderer>& mapRenderer) const {
+        std::shared_ptr<ElevationManager> elevationManager;
+        if (std::shared_ptr<Options> options = mapRenderer->getOptions()) {
+            if (options->getRenderProjectionMode() == RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
+                if (std::shared_ptr<TerrainOptions> terrainOptions = options->getTerrainOptions()) {
+                    if (terrainOptions->isEnabled() && terrainOptions->isBillboardOcclusionEnabled()) {
+                        elevationManager = terrainOptions->getElevationManager();
+                    }
+                }
+            }
+        }
+
+        bool changed = false;
+        ViewState viewState = mapRenderer->getViewState();
+        cglib::vec3<double> cameraPos = viewState.getCameraPos();
+        for (const std::shared_ptr<BillboardDrawData>& drawData : billboardDrawDatas) {
+            bool occluded = false;
+            if (elevationManager) {
+                bool wasOccluded = drawData->isTerrainOccluded();
+                cglib::vec3<double> pos = drawData->getPos();
+                double dist = cglib::length(pos - cameraPos);
+                // Hysteresis: a visible billboard is tested at a raised point (harder to occlude),
+                // an occluded one close to its anchor (harder to become visible again)
+                double upOffset = dist * (wasOccluded ? 0.001 : 0.005);
+                cglib::vec3<double> target = pos + cglib::vec3<double>(0, 0, upOffset);
+                cglib::ray3<double> ray(cameraPos, target - cameraPos);
+                double t = 0;
+                occluded = elevationManager->intersectRay(ray, t) && t > 0 && t < 0.995;
+            }
+            if (occluded != drawData->isTerrainOccluded()) {
+                drawData->setTerrainOccluded(occluded);
+                changed = true;
+            }
+        }
+        return changed;
     }
 
 }

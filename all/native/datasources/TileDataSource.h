@@ -88,7 +88,7 @@ namespace carto {
          * Gets the current encoding type.
          * @return The encoding type, or empty string if not set.
          */
-        std::string getEncoding() const;
+        virtual std::string getEncoding() const;
 
         /**
          * Returns the extent of the tiles in this data source.

@@ -1,6 +1,7 @@
 #include "TouchHandler.h"
 #include "components/Options.h"
 #include "graphics/ViewState.h"
+#include "terrain/ElevationManager.h"
 #include "layers/Layer.h"
 #include "projections/Projection.h"
 #include "projections/ProjectionSurface.h"
@@ -24,6 +25,7 @@ namespace carto {
 
     TouchHandler::TouchHandler(const std::shared_ptr<MapRenderer>& mapRenderer, const std::shared_ptr<Options>& options) :
         _gestureMode(SINGLE_POINTER_CLICK_GUESS),
+        _gestureAnchorHeight(0.0),
         _prevScreenPos1(0, 0),
         _prevScreenPos2(0, 0),
         _swipe1(0, 0),
@@ -257,6 +259,7 @@ namespace carto {
             _mapRenderer->getAnimationHandler().stopZoom();
             
             if (_options->getPivotMode() != PivotMode::PIVOT_MODE_TOUCHPOINT || isValidScreenPosition(screenPos, viewState)) {
+                updateGestureAnchorHeight(screenPos, viewState);
                 MapPos targetPos = (_options->getPivotMode() == PivotMode::PIVOT_MODE_TOUCHPOINT ? mapScreenPosition(screenPos, viewState) : projectionSurface->calculateMapPos(viewState.getFocusPos()));
 
                 CameraZoomEvent cameraZoomTargetEvent;
@@ -557,6 +560,7 @@ namespace carto {
             return;
         }
 
+        updateGestureAnchorHeight(screenPos, viewState);
         MapPos targetPos = (_options->getPivotMode() == PivotMode::PIVOT_MODE_TOUCHPOINT ? mapScreenPosition(screenPos, viewState) : projectionSurface->calculateMapPos(viewState.getFocusPos()));
 
         CameraZoomEvent cameraZoomTargetEvent;
@@ -677,8 +681,33 @@ namespace carto {
     }
 
     MapPos TouchHandler::mapScreenPosition(const ScreenPos& screenPos, const ViewState& viewState) const {
-        cglib::vec3<double> pos = viewState.screenToWorld(cglib::vec2<float>(screenPos.getX(), screenPos.getY()), 0);
+        cglib::vec3<double> pos = viewState.screenToWorld(cglib::vec2<float>(screenPos.getX(), screenPos.getY()), _gestureAnchorHeight.load());
         return viewState.getProjectionSurface()->calculateMapPos(pos);
+    }
+
+    double TouchHandler::calculateTerrainHeight(const ScreenPos& screenPos, const ViewState& viewState) const {
+        if (_options->getRenderProjectionMode() != RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
+            return 0;
+        }
+        std::shared_ptr<TerrainOptions> terrainOptions = _options->getTerrainOptions();
+        if (!terrainOptions || !terrainOptions->isEnabled()) {
+            return 0;
+        }
+
+        cglib::vec3<double> worldPos = viewState.screenToWorld(cglib::vec2<float>(screenPos.getX(), screenPos.getY()), 0);
+        if (std::isnan(cglib::norm(worldPos))) {
+            return 0;
+        }
+        cglib::ray3<double> ray(viewState.getCameraPos(), worldPos - viewState.getCameraPos());
+        double t = 0;
+        if (terrainOptions->getElevationManager()->intersectRay(ray, t) && t > 0) {
+            return ray(t)(2);
+        }
+        return 0;
+    }
+
+    void TouchHandler::updateGestureAnchorHeight(const ScreenPos& screenPos, const ViewState& viewState) {
+        _gestureAnchorHeight.store(calculateTerrainHeight(screenPos, viewState));
     }
 
     void TouchHandler::handleClick(const ClickInfo& clickInfo, const ScreenPos& screenPos) {
@@ -686,6 +715,7 @@ namespace carto {
         if (!isValidScreenPosition(screenPos, viewState)) {
             return;
         }
+        updateGestureAnchorHeight(screenPos, viewState);
         MapPos mapPos = mapScreenPosition(screenPos, viewState);
 
         // Find all intersected elements
@@ -715,8 +745,9 @@ namespace carto {
         std::lock_guard<std::recursive_mutex> lock(_mutex);
         _prevScreenPos1 = screenPos;
         _gestureMode = SINGLE_POINTER_PAN;
+        updateGestureAnchorHeight(screenPos, _mapRenderer->getViewState());
     }
-    
+
     void TouchHandler::startDualPointer(const ScreenPos& screenPos1, const ScreenPos& screenPos2) {
         std::lock_guard<std::recursive_mutex> lock(_mutex);
         _swipe1 = cglib::vec2<float>(0, 0);
@@ -724,6 +755,8 @@ namespace carto {
         _prevScreenPos1 = screenPos1;
         _prevScreenPos2 = screenPos2;
         _gestureMode = DUAL_POINTER_GUESS;
+        ScreenPos middlePos((screenPos1.getX() + screenPos2.getX()) * 0.5f, (screenPos1.getY() + screenPos2.getY()) * 0.5f);
+        updateGestureAnchorHeight(middlePos, _mapRenderer->getViewState());
     }
 
     void TouchHandler::registerOnTouchListener(const std::shared_ptr<OnTouchListener>& listener) {

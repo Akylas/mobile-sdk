@@ -1,6 +1,8 @@
 #include "VectorLayer.h"
 #include "components/Exceptions.h"
 #include "components/CancelableThreadPool.h"
+#include "components/Options.h"
+#include "components/TerrainOptions.h"
 #include "datasources/VectorDataSource.h"
 #include "graphics/Bitmap.h"
 #include "layers/VectorElementEventListener.h"
@@ -33,6 +35,9 @@
 #include "vectorelements/Polygon3D.h"
 #include "vectorelements/Polygon.h"
 #include "vectorelements/Popup.h"
+#include "terrain/ElevationManager.h"
+#include "terrain/TerrainProjectionSurface.h"
+#include "utils/Const.h"
 #include "ui/VectorElementClickInfo.h"
 #include "utils/Log.h"
 
@@ -165,11 +170,76 @@ namespace carto {
                 mapRenderer->setZBuffering(true);
             }
 
+            // In terrain mode, draped 2D elements sit exactly on the terrain surface and
+            // would z-fight the terrain depth pre-pass. Pull them slightly towards the
+            // viewer (slope-scaled) while the terrain pre-pass is pushed slightly away.
+            bool terrainDepthOffset = false;
+            float elementDepthBias = 0.0f;
+            float elementDepthBiasClip = 0.0f;
+            if (auto options = getOptions()) {
+                if (options->getRenderProjectionMode() == RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
+                    if (auto terrainOptions = options->getTerrainOptions()) {
+                        if (terrainOptions->isEnabled()) {
+                            terrainDepthOffset = true;
+                            // Element heights are the same bilinear elevation samples the GPU
+                            // draping shader renders (plus the small height lift), so only a
+                            // small constant separation is needed - a few tile-layer depth
+                            // deltas keep elements above the draped tile content. A large bias
+                            // would make elements visible through terrain ridges at distance
+                            // (the eye-space tolerance of a clip-space bias grows with z^2).
+                            elementDepthBias = 2.0f / 524288.0f;
+                            // Distance-proportional slack (mirrors the vt renderer's
+                            // TERRAIN_DEPTH_CLIP_SLACK): elements follow the full-resolution
+                            // height field while the rendered surface is the drawn LOD's
+                            // coarse mesh, whose deviation from it grows with the visible
+                            // tile cell size - i.e. with zoom-out and with distance (coarser
+                            // LOD rings), which a clip-constant shift (eye-distance
+                            // proportional) tracks. Scaled by the focus-zoom tile size and
+                            // the projection depth coefficient |m22| (near-top-down views
+                            // compress the depth range).
+                            float tileSize = static_cast<float>(Const::WORLD_SIZE / std::pow(2.0, std::floor(viewState.getZoom())));
+                            float projScaleZ = static_cast<float>(std::abs(viewState.getProjectionMat()(2, 2)));
+                            // Quadratic slack law anchored at zoom 11 tiles (mirrors the vt
+                            // renderer): the mesh interpolation error is curvature limited and
+                            // shrinks ~quadratically with the cell size, and excess slack lets
+                            // elements bleed through ridge crests.
+                            float refTileSize = static_cast<float>(Const::WORLD_SIZE / 2048.0);
+                            float slackScale = tileSize * std::min(4.0f, tileSize / refTileSize);
+                            // Elements are subdivided to ~the elevation texel size and
+                            // sample the full-resolution height field, so their deviation
+                            // from the rendered surfaces is dominated by the SURFACE cell
+                            // error - which shrinks quadratically with the terrain mesh
+                            // resolution (mirrors the vt renderer slack scaling; requires
+                            // the terrain-mode overzoomed target tiles so that the LAST
+                            // tile layer's surfaces are actually that fine near the camera).
+                            float resolutionRatio = 32.0f / std::max(32, terrainOptions->getMeshResolution());
+                            elementDepthBiasClip = 12.0f * 0.001f * slackScale * projScaleZ * resolutionRatio * resolutionRatio;
+                        }
+                    }
+                }
+            }
+            _lineRenderer->setDepthBias(elementDepthBias, elementDepthBiasClip);
+            _pointRenderer->setDepthBias(elementDepthBias, elementDepthBiasClip);
+            _polygonRenderer->setDepthBias(elementDepthBias, elementDepthBiasClip);
+            _geometryCollectionRenderer->setDepthBias(elementDepthBias, elementDepthBiasClip);
+            if (terrainDepthOffset) {
+                // constant-only: a slope-scaled pull would let elements far behind a ridge
+                // jump in front of the written terrain depth at grazing angles
+                glEnable(GL_POLYGON_OFFSET_FILL);
+                glPolygonOffset(0.0f, -2.0f);
+            }
+
             bool refresh = _billboardRenderer->onDrawFrame(deltaSeconds, billboardSorter, viewState);
             _geometryCollectionRenderer->onDrawFrame(deltaSeconds, viewState);
             _lineRenderer->onDrawFrame(deltaSeconds, viewState);
             _pointRenderer->onDrawFrame(deltaSeconds, viewState);
             _polygonRenderer->onDrawFrame(deltaSeconds, viewState);
+
+            if (terrainDepthOffset) {
+                glDisable(GL_POLYGON_OFFSET_FILL);
+                glPolygonOffset(0.0f, 0.0f);
+            }
+
             _polygon3DRenderer->onDrawFrame(deltaSeconds, viewState);
 
             if (zBuffering) {
@@ -267,7 +337,7 @@ namespace carto {
             return;
         }
 
-        std::shared_ptr<ProjectionSurface> projectionSurface = viewState.getProjectionSurface();
+        std::shared_ptr<ProjectionSurface> projectionSurface = getElementProjectionSurface(viewState.getProjectionSurface());
         if (!projectionSurface) {
             return;
         }
@@ -338,11 +408,32 @@ namespace carto {
         return billboardsChanged;
     }
     
+    std::shared_ptr<ProjectionSurface> VectorLayer::getElementProjectionSurface(const std::shared_ptr<ProjectionSurface>& baseProjectionSurface) const {
+        std::shared_ptr<Options> options = getOptions();
+        if (!options || !baseProjectionSurface || options->getRenderProjectionMode() != RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
+            return baseProjectionSurface;
+        }
+        std::shared_ptr<TerrainOptions> terrainOptions = options->getTerrainOptions();
+        if (!terrainOptions || !terrainOptions->isEnabled()) {
+            return baseProjectionSurface;
+        }
+
+        // Elements are placed on the displaced terrain surface. A new surface instance is
+        // created when the elevation data changes; the projection-surface identity checks
+        // then trigger a rebuild of the element draw data.
+        std::shared_ptr<ElevationManager> elevationManager = terrainOptions->getElevationManager();
+        std::lock_guard<std::recursive_mutex> lock(_mutex);
+        if (!_terrainProjectionSurface || _terrainProjectionSurface->getElevationManager() != elevationManager || _terrainProjectionSurface->getElevationVersion() != elevationManager->getVersion()) {
+            _terrainProjectionSurface = std::make_shared<TerrainProjectionSurface>(elevationManager);
+        }
+        return _terrainProjectionSurface;
+    }
+
     bool VectorLayer::syncRendererElement(const std::shared_ptr<VectorElement>& element, const ViewState& viewState, bool remove) {
         bool visible = element->isVisible() && isVisible() && getVisibleZoomRange().inRange(viewState.getZoom());
         bool billboardsChanged = false;
-        
-        std::shared_ptr<ProjectionSurface> projectionSurface = viewState.getProjectionSurface();
+
+        std::shared_ptr<ProjectionSurface> projectionSurface = getElementProjectionSurface(viewState.getProjectionSurface());
         if (!projectionSurface) {
             return false;
         }
@@ -569,6 +660,26 @@ namespace carto {
         std::shared_ptr<VectorData> vectorData = layer->_dataSource->loadElements(cullState);
         if (!vectorData) {
             return false;
+        }
+
+        // Warm up the elevation grid cache over the visible area (this runs on a background
+        // thread and may block on IO): element draw data is then built with complete heights
+        // in one pass, avoiding transient half-draped geometry (e.g. near-vertical line
+        // segments between vertices with and without loaded elevation data).
+        if (auto options = layer->getOptions()) {
+            if (auto terrainOptions = options->getTerrainOptions()) {
+                if (terrainOptions->isEnabled() && !isCanceled()) {
+                    const std::shared_ptr<ElevationManager>& elevationManager = terrainOptions->getElevationManager();
+                    const MapBounds& bounds = cullState->getEnvelope().getBounds();
+                    for (int yi = 0; yi <= 3; yi++) {
+                        for (int xi = 0; xi <= 3; xi++) {
+                            double x = bounds.getMin().getX() + (bounds.getMax().getX() - bounds.getMin().getX()) * xi / 3.0;
+                            double y = bounds.getMin().getY() + (bounds.getMax().getY() - bounds.getMin().getY()) * yi / 3.0;
+                            elevationManager->getElevationMeters(x, y, ElevationManager::LoadMode::ALLOW_LOAD);
+                        }
+                    }
+                }
+            }
         }
 
         const ViewState& viewState = cullState->getViewState();

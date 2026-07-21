@@ -175,6 +175,14 @@ namespace carto {
          * @return The far plane distance.
          */
         float getFar() const;
+
+        /**
+         * Sets the terrain height range (in internal units). The range extends the
+         * near/far plane calculation so that displaced terrain is not clipped.
+         * @param minZ The minimum terrain height.
+         * @param maxZ The maximum terrain height.
+         */
+        void setTerrainHeightRange(float minZ, float maxZ);
     
         /**
          * Returns the vertical field of view angle.
@@ -400,6 +408,9 @@ namespace carto {
         float _near;
         float _far;
         bool _skyVisible;
+
+        float _terrainHeightMin = 0.0f;
+        float _terrainHeightMax = 0.0f;
     
         int _fovY;
         float _halfFOVY;
