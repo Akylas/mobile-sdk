@@ -458,7 +458,8 @@ namespace carto {
         gridSize = std::max(1, gridSize);
         int rowSize = gridSize + 1;
 
-        mesh->vertices.reserve(rowSize * rowSize * 3);
+        mesh->vertices.reserve((rowSize * rowSize + 8 * rowSize) * 3); // grid + skirt vertices
+        double minLocalZ = 0;
         for (int gy = 0; gy <= gridSize; gy++) {
             for (int gx = 0; gx <= gridSize; gx++) {
                 double x = static_cast<double>(gx) / gridSize;
@@ -470,13 +471,14 @@ namespace carto {
                     double meters = grid->sampleHeight(internalX, internalY);
                     localZ = meters * exaggeration * elevationManager->getDisplayScale(internalY) * localFromInternal;
                 }
+                minLocalZ = std::min(minLocalZ, localZ);
                 mesh->vertices.push_back(static_cast<float>(x));
                 mesh->vertices.push_back(static_cast<float>(y));
                 mesh->vertices.push_back(static_cast<float>(localZ));
             }
         }
 
-        mesh->indices.reserve(gridSize * gridSize * 6);
+        mesh->indices.reserve(gridSize * gridSize * 6 + gridSize * 4 * 6);
         for (int gy = 0; gy < gridSize; gy++) {
             for (int gx = 0; gx < gridSize; gx++) {
                 unsigned short i00 = static_cast<unsigned short>(gy * rowSize + gx);
@@ -487,12 +489,39 @@ namespace carto {
             }
         }
 
-        // NO tile border skirts, same lesson as the vt tile surfaces: viewed edge-on
-        // (low camera looking along the terrain), a skirt wall at a tile boundary above
-        // a valley rasterizes as a solid wall covering the whole valley - in the base
-        // fill it paints a background-colored wall over the map, and in the kept-depth
-        // paths it falsely occludes everything behind the boundary. The sub-pixel
-        // cross-LOD cracks skirts would plug are far less objectionable.
+        // Skirts: extrude the tile edges downwards to cover cracks between neighboring
+        // tiles of different resolutions in the depth buffer.
+        if (grid) {
+            double skirtZ = minLocalZ - 0.05;
+            auto addSkirt = [&](const std::vector<unsigned short>& edge, bool flip) {
+                for (std::size_t i = 0; i + 1 < edge.size(); i++) {
+                    unsigned short i0 = edge[i];
+                    unsigned short i1 = edge[i + 1];
+                    unsigned short s0 = static_cast<unsigned short>(mesh->vertices.size() / 3);
+                    for (unsigned short idx : { i0, i1 }) {
+                        mesh->vertices.push_back(mesh->vertices[idx * 3 + 0]);
+                        mesh->vertices.push_back(mesh->vertices[idx * 3 + 1]);
+                        mesh->vertices.push_back(static_cast<float>(skirtZ));
+                    }
+                    if (flip) {
+                        mesh->indices.insert(mesh->indices.end(), { i0, s0, static_cast<unsigned short>(s0 + 1), i0, static_cast<unsigned short>(s0 + 1), i1 });
+                    } else {
+                        mesh->indices.insert(mesh->indices.end(), { i0, static_cast<unsigned short>(s0 + 1), s0, i0, i1, static_cast<unsigned short>(s0 + 1) });
+                    }
+                }
+            };
+            std::vector<unsigned short> south, north, west, east;
+            for (int g = 0; g <= gridSize; g++) {
+                south.push_back(static_cast<unsigned short>(g));
+                north.push_back(static_cast<unsigned short>(gridSize * rowSize + g));
+                west.push_back(static_cast<unsigned short>(g * rowSize));
+                east.push_back(static_cast<unsigned short>(g * rowSize + gridSize));
+            }
+            addSkirt(south, false);
+            addSkirt(north, true);
+            addSkirt(west, true);
+            addSkirt(east, false);
+        }
 
         return mesh;
     }
