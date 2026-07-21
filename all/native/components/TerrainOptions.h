@@ -107,6 +107,23 @@ namespace carto {
         void setMeshResolution(int meshResolution);
 
         /**
+         * Returns whether terrain surfaces use a shared regular grid.
+         * @return True if a shared regular grid mesh is used, false for per-tile adaptive tesselation. The default is false.
+         */
+        bool isRegularGridEnabled() const;
+        /**
+         * Enables or disables the shared regular grid terrain surface mode. When enabled, a single
+         * regular MeshResolution x MeshResolution grid is built once and reused for every tile
+         * (tangram-style GPU draping), eliminating per-tile surface tesselation - faster, but
+         * adjacent tiles at different zoom levels may show thin cracks at their shared edges. When
+         * disabled, per-tile adaptive (red-green) tesselation is used, which is crack-free across
+         * zoom levels at the cost of per-tile CPU work. Only takes effect in GPU draping mode
+         * (vertex texture fetch supported, planar projection).
+         * @param regularGridEnabled True to use the shared regular grid, false for adaptive tesselation.
+         */
+        void setRegularGridEnabled(bool regularGridEnabled);
+
+        /**
          * Returns the minimum tile zoom level with 3D terrain.
          * @return The minimum zoom level. The default is 5.
          */
@@ -270,6 +287,7 @@ namespace carto {
 
         std::atomic<bool> _enabled;
         std::atomic<int> _meshResolution;
+        std::atomic<bool> _regularGridEnabled;
         std::atomic<int> _minZoom;
         std::atomic<int> _maxTileZoomOffset;
         std::atomic<int> _backgroundColorARGB;

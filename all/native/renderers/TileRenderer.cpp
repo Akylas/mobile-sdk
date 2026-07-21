@@ -305,6 +305,10 @@ namespace carto {
             terrainSlackScale = resolutionRatio * resolutionRatio;
         }
         tileRenderer->setTerrainSlackScale(terrainSlackScale);
+        // Shared regular grid surfaces (tangram-style): one grid built once and reused for
+        // every tile, instead of per-tile adaptive tesselation. Only in GPU draping mode.
+        bool regularGrid = terrainMode && activeTerrainOptions && activeTerrainOptions->isRegularGridEnabled() && (bool) terrainTextureProvider;
+        tileRenderer->setTerrainRegularGrid(regularGrid, activeTerrainOptions ? activeTerrainOptions->getMeshResolution() : 0);
         tileRenderer->setTerrainDepthWrite(terrainMode && _terrainDepthWriteMode);
         tileRenderer->setDebugWireframe(false); // debug: terrain mesh wireframe + stencil overlay
         tileRenderer->setDebugSurfacePrefill(false); // debug: facing-coded terrain pre-fill (magenta front / cyan back)

@@ -17,6 +17,7 @@ namespace carto {
         _elevationManager(dataSource ? std::make_shared<ElevationManager>(dataSource, elevationDecoder) : std::shared_ptr<ElevationManager>()),
         _enabled(true),
         _meshResolution(32),
+        _regularGridEnabled(false),
         _minZoom(5),
         _maxTileZoomOffset(100),
         _backgroundColorARGB(0),
@@ -73,6 +74,16 @@ namespace carto {
         int resolution = std::min(256, std::max(2, meshResolution));
         if (_meshResolution.exchange(resolution) != resolution) {
             notifyOptionChanged("MeshResolution");
+        }
+    }
+
+    bool TerrainOptions::isRegularGridEnabled() const {
+        return _regularGridEnabled.load();
+    }
+
+    void TerrainOptions::setRegularGridEnabled(bool regularGridEnabled) {
+        if (_regularGridEnabled.exchange(regularGridEnabled) != regularGridEnabled) {
+            notifyOptionChanged("RegularGridEnabled");
         }
     }
 
