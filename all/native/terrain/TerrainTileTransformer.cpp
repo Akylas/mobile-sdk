@@ -181,11 +181,12 @@ namespace carto {
         }
     }
 
-    TerrainTileTransformer::TerrainTileTransformer(float scale, const std::shared_ptr<ElevationManager>& elevationManager, int meshResolution, int minZoom) :
+    TerrainTileTransformer::TerrainTileTransformer(float scale, const std::shared_ptr<ElevationManager>& elevationManager, int meshResolution, int minZoom, bool regularGrid) :
         _scale(scale),
         _elevationManager(elevationManager),
         _meshResolution(std::max(1, meshResolution)),
-        _minZoom(minZoom)
+        _minZoom(minZoom),
+        _regularGrid(regularGrid)
     {
     }
 
@@ -239,8 +240,13 @@ namespace carto {
             grid = _elevationManager->getTileGrid(mapTile, ElevationManager::LoadMode::CACHED_ONLY);
         }
 
+        // Regular-grid surface mode: the reference surface is a shared grid (built in the
+        // renderer, not via this transformer), and draped geometry is lattice-clamped to it
+        // in the vertex shader. Vector geometry therefore keeps its source vertex density -
+        // no terrain subdivision at decode (tangram-style) - which is the decode-time cost
+        // that CARTO pays over tangram. divideThreshold stays infinite = never split.
         float divideThreshold = std::numeric_limits<float>::infinity();
-        if (grid && grid->getMaxHeight() - grid->getMinHeight() > FLAT_HEIGHT_RANGE_EPSILON) {
+        if (!_regularGrid && grid && grid->getMaxHeight() - grid->getMinHeight() > FLAT_HEIGHT_RANGE_EPSILON) {
             double tileScaleMeters = EARTH_CIRCUMFERENCE / (1 << tileId.zoom);
             double threshold = tileScaleMeters / _meshResolution;
 

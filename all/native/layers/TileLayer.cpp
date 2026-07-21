@@ -259,7 +259,8 @@ namespace carto {
             float terrainExaggeration = terrainOptions ? terrainOptions->getExaggeration() : 1.0f;
             int terrainMeshResolution = terrainOptions ? terrainOptions->getMeshResolution() : 0;
             int terrainMinZoom = terrainOptions ? terrainOptions->getMinZoom() : 0;
-            if (_terrainOptions.lock() != terrainOptions || _terrainEnabled != terrainEnabled || _terrainExaggeration != terrainExaggeration || _terrainMeshResolution != terrainMeshResolution || _terrainMinZoom != terrainMinZoom) {
+            bool terrainRegularGrid = terrainOptions && terrainOptions->isRegularGridEnabled();
+            if (_terrainOptions.lock() != terrainOptions || _terrainEnabled != terrainEnabled || _terrainExaggeration != terrainExaggeration || _terrainMeshResolution != terrainMeshResolution || _terrainMinZoom != terrainMinZoom || _terrainRegularGrid != terrainRegularGrid) {
                 clearTileCaches(true);
                 resetTileTransformer();
                 _terrainOptions = terrainOptions;
@@ -267,6 +268,7 @@ namespace carto {
                 _terrainExaggeration = terrainExaggeration;
                 _terrainMeshResolution = terrainMeshResolution;
                 _terrainMinZoom = terrainMinZoom;
+                _terrainRegularGrid = terrainRegularGrid;
             }
         }
 
@@ -773,7 +775,7 @@ namespace carto {
             }
             else if (auto terrainOptions = options->getTerrainOptions()) {
                 if (terrainOptions->isEnabled()) {
-                    tileTransformer = std::make_shared<TerrainTileTransformer>(static_cast<float>(Const::WORLD_SIZE), terrainOptions->getElevationManager(), terrainOptions->getMeshResolution(), terrainOptions->getMinZoom());
+                    tileTransformer = std::make_shared<TerrainTileTransformer>(static_cast<float>(Const::WORLD_SIZE), terrainOptions->getElevationManager(), terrainOptions->getMeshResolution(), terrainOptions->getMinZoom(), terrainOptions->isRegularGridEnabled());
                 }
             }
         }
