@@ -295,6 +295,16 @@ namespace carto {
             tileRenderer->setLabelElevationProvider(std::function<double(const cglib::vec3<double>&)>(), 0);
         }
         tileRenderer->setTerrainMode(terrainMode, terrainDepthBias);
+        // The geometry-vs-surface chord error shrinks quadratically with the mesh
+        // resolution (both the tile surfaces and the draped geometry tesselate to
+        // tileMeters/meshResolution cells), so the depth slack can shrink with it.
+        // The default resolution 32 maps to factor 1 (the calibrated slack).
+        float terrainSlackScale = 1.0f;
+        if (terrainMode && activeTerrainOptions) {
+            float resolutionRatio = 32.0f / std::max(32, activeTerrainOptions->getMeshResolution());
+            terrainSlackScale = resolutionRatio * resolutionRatio;
+        }
+        tileRenderer->setTerrainSlackScale(terrainSlackScale);
         tileRenderer->setTerrainDepthWrite(terrainMode && _terrainDepthWriteMode);
         tileRenderer->setDebugWireframe(false); // debug: terrain mesh wireframe + stencil overlay
         tileRenderer->setDebugSurfacePrefill(false); // debug: facing-coded terrain pre-fill (magenta front / cyan back)

@@ -187,7 +187,7 @@ namespace carto {
                             // deltas keep elements above the draped tile content. A large bias
                             // would make elements visible through terrain ridges at distance
                             // (the eye-space tolerance of a clip-space bias grows with z^2).
-                            elementDepthBias = 64.0f / 524288.0f;
+                            elementDepthBias = 2.0f / 524288.0f;
                             // Distance-proportional slack (mirrors the vt renderer's
                             // TERRAIN_DEPTH_CLIP_SLACK): elements follow the full-resolution
                             // height field while the rendered surface is the drawn LOD's
@@ -205,6 +205,9 @@ namespace carto {
                             // elements bleed through ridge crests.
                             float refTileSize = static_cast<float>(Const::WORLD_SIZE / 2048.0);
                             float slackScale = tileSize * std::min(4.0f, tileSize / refTileSize);
+                            // NOT scaled by the terrain mesh resolution: the element chord
+                            // error is governed by the element's own tesselation spacing,
+                            // which does not follow TerrainOptions.meshResolution.
                             elementDepthBiasClip = 12.0f * 0.001f * slackScale * projScaleZ;
                         }
                     }
