@@ -205,10 +205,15 @@ namespace carto {
                             // elements bleed through ridge crests.
                             float refTileSize = static_cast<float>(Const::WORLD_SIZE / 2048.0);
                             float slackScale = tileSize * std::min(4.0f, tileSize / refTileSize);
-                            // NOT scaled by the terrain mesh resolution: the element chord
-                            // error is governed by the element's own tesselation spacing,
-                            // which does not follow TerrainOptions.meshResolution.
-                            elementDepthBiasClip = 12.0f * 0.001f * slackScale * projScaleZ;
+                            // Elements are subdivided to ~the elevation texel size and
+                            // sample the full-resolution height field, so their deviation
+                            // from the rendered surfaces is dominated by the SURFACE cell
+                            // error - which shrinks quadratically with the terrain mesh
+                            // resolution (mirrors the vt renderer slack scaling; requires
+                            // the terrain-mode overzoomed target tiles so that the LAST
+                            // tile layer's surfaces are actually that fine near the camera).
+                            float resolutionRatio = 32.0f / std::max(32, terrainOptions->getMeshResolution());
+                            elementDepthBiasClip = 12.0f * 0.001f * slackScale * projScaleZ * resolutionRatio * resolutionRatio;
                         }
                     }
                 }

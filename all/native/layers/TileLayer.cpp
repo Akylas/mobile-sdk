@@ -508,11 +508,23 @@ namespace carto {
         // TerrainOptions::setMaxTileZoomOffset caps the tile detail relative to what flat
         // rendering would use.
         _terrainMaxTileZoom = 1000;
+        _terrainOverzoomTargets = false;
         if (auto options = getOptions()) {
             if (auto terrainOptions = options->getTerrainOptions()) {
-                if (terrainOptions->isEnabled() && terrainOptions->getMaxTileZoomOffset() < 100) {
-                    const ViewState& viewState = cullState->getViewState();
-                    _terrainMaxTileZoom = static_cast<int>(viewState.getZoom() + getZoomLevelBias() + DISCRETE_ZOOM_LEVEL_BIAS) + terrainOptions->getMaxTileZoomOffset();
+                if (terrainOptions->isEnabled()) {
+                    // Terrain mode: allow target tiles BEYOND the data source maximum
+                    // zoom (fed from ancestor tiles by the regular overzoom machinery).
+                    // The tile surfaces are the terrain depth occluders and their
+                    // tesselation is proportional to the tile size - capping targets at
+                    // the data source maximum (e.g. a z12 DEM-derived hillshade under a
+                    // z15 camera) leaves cells many times coarser than the base map's,
+                    // and the resulting blunted ridges are leaky occluders that content
+                    // and vector elements show through near crests.
+                    _terrainOverzoomTargets = true;
+                    if (terrainOptions->getMaxTileZoomOffset() < 100) {
+                        const ViewState& viewState = cullState->getViewState();
+                        _terrainMaxTileZoom = static_cast<int>(viewState.getZoom() + getZoomLevelBias() + DISCRETE_ZOOM_LEVEL_BIAS) + terrainOptions->getMaxTileZoomOffset();
+                    }
                 }
             }
         }
@@ -572,7 +584,8 @@ namespace carto {
         double tileW = lodCenter(0) * mvpMat(3, 0) + lodCenter(1) * mvpMat(3, 1) + lodCenter(2) * mvpMat(3, 2) + mvpMat(3, 3);
         double zoomDistance = tileW * std::pow(2.0f, tile.getZoom() - getZoomLevelBias());
         bool subDivide = zoomDistance < SUBDIVISION_THRESHOLD * Const::SQRT_2;
-        int targetTileZoom = std::min(getMaxZoom(), static_cast<int>(viewState.getZoom() + getZoomLevelBias() + DISCRETE_ZOOM_LEVEL_BIAS));
+        int maxTargetZoom = getMaxZoom() + (_terrainOverzoomTargets ? getMaxOverzoomLevel() : 0);
+        int targetTileZoom = std::min(maxTargetZoom, static_cast<int>(viewState.getZoom() + getZoomLevelBias() + DISCRETE_ZOOM_LEVEL_BIAS));
         targetTileZoom = std::min(targetTileZoom, _terrainMaxTileZoom);
         if (getMinZoom() > tile.getZoom()) {
             subDivide = true;
