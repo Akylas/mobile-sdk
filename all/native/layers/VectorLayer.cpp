@@ -183,11 +183,14 @@ namespace carto {
                             terrainDepthOffset = true;
                             // Element heights are the same bilinear elevation samples the GPU
                             // draping shader renders (plus the small height lift), so only a
-                            // small constant separation is needed - a few tile-layer depth
-                            // deltas keep elements above the draped tile content. A large bias
-                            // would make elements visible through terrain ridges at distance
-                            // (the eye-space tolerance of a clip-space bias grows with z^2).
-                            elementDepthBias = 64.0f / 524288.0f;
+                            // small constant equality slack against the terrain surface depth
+                            // is needed - elements draw AFTER the tile layers, so painter's
+                            // order already puts them on top of draped content. A large bias
+                            // makes elements visible through terrain ridges at distance: the
+                            // eye-space tolerance of a constant-NDC bias grows as
+                            // distance^2/near, i.e. tens of meters at km ranges when the
+                            // camera flies low (small near plane).
+                            elementDepthBias = 4.0f / 524288.0f;
                             // Distance-proportional slack (mirrors the vt renderer's
                             // TERRAIN_DEPTH_CLIP_SLACK): elements follow the full-resolution
                             // height field while the rendered surface is the drawn LOD's

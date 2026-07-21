@@ -272,10 +272,14 @@ namespace carto {
                     terrainTextureProvider = [elevationTextureCache](const vt::TileId& tileId, vt::GLTileRenderer::TerrainTexture& terrainTexture) {
                         return elevationTextureCache->getTexture(tileId, terrainTexture);
                     };
-                    // Heights agree exactly between layers in GPU draping mode, so layers are
-                    // separated by a fixed clip-space delta by their stacking order (the vt
-                    // renderer adds per-sublayer deltas and the geometry slack on top).
-                    terrainDepthBias = static_cast<float>(_terrainRenderOrder) * 128.0f / 524288.0f;
+                    // Every terrain tile layer re-writes the depth with its OWN meshes in
+                    // its surface pre-pass, so no cross-layer depth separation is needed -
+                    // painter's order already stacks the layers (content never writes
+                    // depth). Any constant-NDC stride here turns into an eye-space
+                    // tolerance growing as distance^2/near_plane and lets far-slope
+                    // content of upper layers bleed through ridges when the camera flies
+                    // low (small near plane) - the 'see-through mountains' artifact.
+                    terrainDepthBias = 0.0f;
                 }
             }
         }
