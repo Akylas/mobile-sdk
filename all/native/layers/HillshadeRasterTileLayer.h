@@ -15,6 +15,8 @@
 #include <atomic>
 
 namespace carto {
+    class ElevationManager;
+
     namespace HillshadeMethod {
         /**
         * Hillshade rendering method.
@@ -174,8 +176,11 @@ namespace carto {
 
         std::shared_ptr<Bitmap> getTileDataBitmap(std::shared_ptr<TileData> tileData) const;
         std::shared_ptr<Bitmap> getMapTileBitmap(const MapTile& mapTile) const;
+        std::shared_ptr<ElevationManager> getElevationManager() const;
 
         const std::shared_ptr<ElevationDecoder> _elevationDecoder;
+
+        mutable std::shared_ptr<ElevationManager> _elevationManager;
    
         std::atomic<float> _contrast;
         std::atomic<bool> _exagerateHeightScaleEnabled;

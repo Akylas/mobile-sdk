@@ -11,6 +11,7 @@
 #include "graphics/ViewState.h"
 #include "renderers/utils/GLResource.h"
 
+#include <chrono>
 #include <memory>
 #include <mutex>
 #include <map>
@@ -28,8 +29,10 @@
 #include <vt/GLTileRenderer.h>
 
 namespace carto {
+    class ElevationTextureCache;
     class Options;
     class MapRenderer;
+    class TerrainOptions;
     class TileDrawData;
     class ViewState;
     class VTRenderer;
@@ -49,6 +52,8 @@ namespace carto {
         void setTileTransformer(const std::shared_ptr<vt::TileTransformer>& tileTransformer);
     
         void setInteractionMode(bool enabled);
+        void setTerrainDepthWriteMode(bool enabled);
+        void setTerrainRenderOrder(int order);
         void setLayerBlendingSpeed(float speed);
         void setLabelBlendingSpeed(float speed);
         void setLabelOrder(int order);
@@ -81,7 +86,13 @@ namespace carto {
         static Color evaluateColorFunc(const vt::ColorFunction& colorFunc, const ViewState& viewState);
 
     private:
+        struct LabelOcclusionState;
+
         bool initializeRenderer();
+        bool isPlanarTerrainMode() const;
+        void updateLabelOcclusionTest(const std::shared_ptr<vt::GLTileRenderer>& tileRenderer, const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions);
+
+        static constexpr int SURFACE_RESET_DELAY = 500; // minimum interval (ms) between elevation-driven tile surface rebuilds
 
         static const std::string LIGHTING_SHADER_2D;
         static const std::string LIGHTING_SHADER_3D;
@@ -114,6 +125,13 @@ namespace carto {
         double _mapRotation;
         int _hillshadeMethod;
         float _hillshadeExaggeration;
+        bool _terrainDepthWriteMode = false;
+        int _terrainRenderOrder = 0;
+        int _maxVertexTextureUnits = -1; // lazily queried GL capability (-1 = not queried yet)
+        std::shared_ptr<ElevationTextureCache> _elevationTextureCache;
+        unsigned int _elevationVersion = 0;
+        std::optional<std::chrono::steady_clock::time_point> _lastSurfaceResetTime;
+        std::shared_ptr<LabelOcclusionState> _labelOcclusionState;
 
         std::map<vt::TileId, std::shared_ptr<const vt::Tile> > _tiles;
         

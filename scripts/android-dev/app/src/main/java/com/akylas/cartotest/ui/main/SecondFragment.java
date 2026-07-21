@@ -172,7 +172,7 @@ public class SecondFragment extends Fragment {
                 " " : "");
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.O)
+    @RequiresApi(api = Build.VERSION_CODES.R)
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
 //        if (requestCode == REQUEST_PERMISSIONS_CODE_WRITE_STORAGE) {
@@ -202,6 +202,168 @@ public class SecondFragment extends Fragment {
 //
 //        }
     }
+    com.carto.components.TerrainOptions terrainOptions;
+    TextView terrainZoomText;
+
+    void addTerrain(View view) {
+        // Shared elevation source: used simultaneously by the 3D terrain and the hillshade layer.
+        // The memory cache avoids downloading/decoding each elevation tile twice.
+        final HTTPTileDataSource demSource = new HTTPTileDataSource(1, 12, "https://tiles.mapterhorn.com/{z}/{x}/{y}.webp");
+        demSource.setEncoding("terrarium");
+        final com.carto.datasources.MemoryCacheTileDataSource cachedDemSource = new com.carto.datasources.MemoryCacheTileDataSource(demSource);
+
+        // 3D terrain. The decoder is resolved from the data source "encoding" setting
+        // (delegated through the cache wrapper); passing it explicitly works as well.
+        terrainOptions = new com.carto.components.TerrainOptions(cachedDemSource, new TerrariumElevationDataDecoder());
+        terrainOptions.setExaggeration(1.0f);
+        // Optional: cap terrain LOD tile detail at what flat rendering would show
+        // (offset 0), to hide LOD rings if the style renders differently at different
+        // tile zoom levels. Disabled: the LOD rings turned out not to be the cause of
+        // the washed-out alpine faces (style/hillshade appearance).
+        //terrainOptions.setMaxTileZoomOffset(0);
+        mapView.getOptions().setTerrainOptions(terrainOptions);
+
+        // Hillshade layer draped over the 3D terrain, sharing the elevation source
+        final HillshadeRasterTileLayer hillshade = new HillshadeRasterTileLayer(cachedDemSource, new TerrariumElevationDataDecoder());
+        hillshade.setHillshadeMethod(HillshadeMethod.IGOR);
+        hillshade.setContrast(0.5f);
+        hillshade.setHeightScale(0.02f);
+        mapView.getLayers().add(hillshade);
+
+        addTerrainTestElements();
+        addTerrainControls(view);
+
+        // Start tilted over the Alps (Grenoble). Note: setFocusPos expects base projection
+        // coordinates, so WGS84 positions must be converted first.
+        Projection proj = mapView.getOptions().getBaseProjection();
+        mapView.setFocusPos(proj.fromWgs84(new MapPos(5.72476358599884, 45.19272038067931)), 0);
+        mapView.setZoom(12f, 0);
+        mapView.setTilt(35f, 0);
+    }
+
+    void addTerrainTestElements() {
+        // Vector elements draped on the terrain: markers on summits (test billboard
+        // occlusion by orbiting around a ridge) and a line crossing the Isere valley.
+        final Projection proj = mapView.getOptions().getBaseProjection();
+        LocalVectorDataSource source = new LocalVectorDataSource(proj);
+
+        com.carto.styles.MarkerStyleBuilder markerStyle = new com.carto.styles.MarkerStyleBuilder();
+        markerStyle.setSize(24);
+        markerStyle.setColor(new Color((short) 255, (short) 0, (short) 0, (short) 255));
+        double[][] peaks = {
+                { 5.7869, 45.2876 }, // Chamechaude
+                { 5.9207, 45.2989 }, // Dent de Crolles
+                { 5.5433, 45.1861 }, // Le Moucherotte
+                { 5.7247, 45.1988 }, // Bastille above Grenoble
+        };
+        for (double[] p : peaks) {
+            source.add(new com.carto.vectorelements.Marker(proj.fromWgs84(new MapPos(p[0], p[1])), markerStyle.buildStyle()));
+        }
+
+        LineStyleBuilder lineStyle = new LineStyleBuilder();
+        lineStyle.setWidth(8);
+        lineStyle.setColor(new Color((short) 0, (short) 90, (short) 255, (short) 255));
+        MapPosVector linePoses = new MapPosVector();
+        linePoses.add(proj.fromWgs84(new MapPos(5.6800, 45.1600)));
+        linePoses.add(proj.fromWgs84(new MapPos(5.7247, 45.1927)));
+        linePoses.add(proj.fromWgs84(new MapPos(5.7869, 45.2876)));
+        source.add(new Line(linePoses, lineStyle.buildStyle()));
+
+        mapView.getLayers().add(new VectorLayer(source));
+    }
+
+    void addTerrainControls(View view) {
+        final android.content.Context context = getContext();
+        android.widget.LinearLayout panel = new android.widget.LinearLayout(context);
+        panel.setOrientation(android.widget.LinearLayout.VERTICAL);
+        panel.setBackgroundColor(0xA0FFFFFF);
+        panel.setPadding(10, 10, 10, 10);
+
+        terrainZoomText = new TextView(context);
+        terrainZoomText.setText("zoom -");
+        panel.addView(terrainZoomText);
+
+        final CheckBox terrainCheck = new CheckBox(context);
+        terrainCheck.setText("3D terrain");
+        terrainCheck.setChecked(terrainOptions.isEnabled());
+        terrainCheck.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                terrainOptions.setEnabled(isChecked); // 2D <-> 3D switch
+                mapView.requestRender();
+            }
+        });
+        panel.addView(terrainCheck);
+
+        final CheckBox occlusionCheck = new CheckBox(context);
+        occlusionCheck.setText("terrain occlusion");
+        occlusionCheck.setChecked(terrainOptions.isBillboardOcclusionEnabled());
+        occlusionCheck.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                terrainOptions.setBillboardOcclusionEnabled(isChecked);
+                mapView.requestRender();
+            }
+        });
+        panel.addView(occlusionCheck);
+
+        final CheckBox reliefCheck = new CheckBox(context);
+        reliefCheck.setText("relief outline");
+        reliefCheck.setChecked(false);
+        reliefCheck.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                toggleReliefOutlineEffect();
+                mapView.requestRender();
+            }
+        });
+        panel.addView(reliefCheck);
+
+        final TextView exText = new TextView(context);
+        exText.setText("exaggeration 1.0 (release to apply)");
+        panel.addView(exText);
+        final SeekBar exSeek = new SeekBar(context);
+        exSeek.setMax(300);
+        exSeek.setProgress(100);
+        exSeek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                exText.setText(String.format("exaggeration %.1f (release to apply)", progress / 100.0f));
+            }
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+            }
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                // Applying exaggeration re-tesselates loaded tiles, so apply on release only
+                terrainOptions.setExaggeration(seekBar.getProgress() / 100.0f);
+                mapView.requestRender();
+            }
+        });
+        panel.addView(exSeek, new android.widget.LinearLayout.LayoutParams(500, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        androidx.constraintlayout.widget.ConstraintLayout root = view.findViewById(R.id.main);
+        androidx.constraintlayout.widget.ConstraintLayout.LayoutParams lp = new androidx.constraintlayout.widget.ConstraintLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID;
+        lp.startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID;
+        lp.bottomMargin = 180;
+        lp.leftMargin = 10;
+        root.addView(panel, lp);
+    }
+
+    void toggleReliefOutlineEffect() {
+        // PeakFinder-style relief outline post-process effect demo
+        com.carto.renderers.MapRenderer renderer = mapView.getMapRenderer();
+        if (renderer.getPostProcessEffect() == null) {
+            com.carto.renderers.PostProcessEffect effect = com.carto.renderers.PostProcessEffect.createReliefOutlineEffect();
+            effect.setFloatParameter("uIntensity", 1.0f);
+            renderer.setPostProcessEffect(effect);
+        } else {
+            renderer.setPostProcessEffect(null);
+        }
+    }
+
     void addHillshadeLayer(View view, String dataPath) {
         MBTilesTileDataSource hillshadeSourceFrance = null;
         HTTPTileDataSource hillshadeSource = null;
@@ -210,6 +372,7 @@ public class SecondFragment extends Fragment {
 //            hillshadeSourceFrance = new MBTilesTileDataSource( dataPath+"/france_terrain.etiles");
 //            hillshadeSourceWorld = new MBTilesTileDataSource( dataPath+"/world_terrain.etiles");
             hillshadeSource = new HTTPTileDataSource(1, 16, "https://tiles.mapterhorn.com/{z}/{x}/{y}.webp");
+            hillshadeSource.setEncoding("terrarium");
             //        HTTPTileDataSource hillshadeSource =   new HTTPTileDataSource(1, 15, "https://api.mapbox.com/v4/mapbox.terrain-rgb/{z}/{x}/{y}.pngraw?access_token=pk.eyJ1IjoiYWt5bGFzIiwiYSI6IkVJVFl2OXMifQ.TGtrEmByO3-99hA0EI44Ew");
         } catch (Exception e) {
             e.printStackTrace();
@@ -217,10 +380,11 @@ public class SecondFragment extends Fragment {
 //        hillshadeSourceWorld.setMaxOverzoomLevel(1);
 //        dataSource.add(hillshadeSourceFrance, "wzAzMzDAwMBwwwXFfBcVXAzAxE8BcVfMxXFXMBFfxVVVwMzMBMVwMB8RVPHFV9QQ1xDUPwMDFfMRwFVzwFXMVxFVUz/MQD1BAPXENQTMQAP1dA1xV9AxExFc1NQDXNQDUxAAAPD/ww3BV8FxVfDAcVwVcwMMFwXwxV8BwVV/FVVV/DMBXwXFV8DBcMFVX/AcEXBV8MED0Q0QH9ENED0Q0AN1fVNQDV1dU/VNQA9EAP1dU11AAB9/RDRAw0QN1dEfBDRcEDfDRcEEdw0QfRR0QP1111FXdXV0DXV1T1TUNAPXRNQA/MQD1FMQDdXRM1EN0DUAP9Q0AAAP3V1DUPUAPXUNA3QAAAAAAAAA%");
 //        dataSource.add(hillshadeSourceWorld);
-        final TerrariumElevationDataDecoder elevationDecoder = new TerrariumElevationDataDecoder();
-        final HillshadeRasterTileLayer layer = hillshadeLayer = new HillshadeRasterTileLayer(hillshadeSource, elevationDecoder);
+//        final TerrariumElevationDataDecoder elevationDecoder = new TerrariumElevationDataDecoder();
+        final HillshadeRasterTileLayer layer = hillshadeLayer = new HillshadeRasterTileLayer(hillshadeSource);
         layer.setPreloading(true);
 //        layer.setContrast(0.3f);
+
         layer.setHillshadeMethod(HillshadeMethod.IGOR);
         layer.setContrast( 0.5f);
         layer.setHeightScale(0.02f);
@@ -378,8 +542,8 @@ public class SecondFragment extends Fragment {
         MBTilesTileDataSource sourceWorld = null;
         MBVectorTileDecoder decoder = null;
         try {
-            sourceHTTP = new HTTPTileDataSource(0,19,"https://demo-bucket.protomaps.com/v4.pmtiles");
-//            sourceHTTP = new HTTPTileDataSource(0,19,"https://a.tile.openstreetmap.org/{z}/{x}/{y}.png");
+//            sourceHTTP = new HTTPTileDataSource(0,19,"https://demo-bucket.protomaps.com/v4.pmtiles");
+            sourceHTTP = new HTTPTileDataSource(0,14,"https://tiles.openfreemap.org/planet/latest/{z}/{x}/{y}.pbf");
             StringMap headers = new StringMap();
             headers.set("User-Agent", "AlpiMaps");
             sourceHTTP.setHTTPHeaders(headers);
@@ -444,8 +608,9 @@ public class SecondFragment extends Fragment {
 
 
         addMap(dataPath);
+        addTerrain(view);
 //        addRoutes(dataPath);
-        addHillshadeLayer(view, dataPath);
+//        addHillshadeLayer(view, dataPath);
 
 //        try {
 //            MBTilesTileDataSource dataSource = new MBTilesTileDataSource(dataPath+"/france/france_terrain.etiles");
@@ -474,7 +639,11 @@ public class SecondFragment extends Fragment {
                 getActivity().runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        textZoom.setText(String.format("z=%.2f", mapView.getZoom()));
+                        String zoomStr = String.format("z=%.2f tilt=%.0f", mapView.getZoom(), mapView.getTilt());
+                        textZoom.setText(zoomStr);
+                        if (terrainZoomText != null) {
+                            terrainZoomText.setText(zoomStr);
+                        }
                     }
                 });
             }
@@ -482,8 +651,27 @@ public class SecondFragment extends Fragment {
             @Override
             public void onMapClicked(MapClickInfo mapClickInfo) {
                 super.onMapClicked(mapClickInfo);
-                MapPos clickPos = mapClickInfo.getClickPos();
-//                Log.d(TAG, "elevation " + layer.getElevation(new MapPos(5.722772489758224, 45.182362864932706)));
+                final MapPos clickPos = mapClickInfo.getClickPos();
+                if (terrainOptions == null) {
+                    return;
+                }
+                // Terrain-aware picking: clickPos already resolves to the terrain surface.
+                // Read the elevation on a background thread (may block on tile loading).
+                final MapPos wgs84Pos = mapView.getOptions().getBaseProjection().toWgs84(clickPos);
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        final double elevation = terrainOptions.getElevation(wgs84Pos);
+                        getActivity().runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                android.widget.Toast.makeText(getContext(),
+                                        String.format("%.5f, %.5f: %.0f m", wgs84Pos.getY(), wgs84Pos.getX(), elevation),
+                                        android.widget.Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                    }
+                }).start();
             }
         });
 
@@ -533,7 +721,7 @@ public class SecondFragment extends Fragment {
         }
 
         mapView.setFocusPos(new MapPos(5.72476358599884, 45.19272038067931), 0);
-        mapView.setZoom(15f, 0);
+        mapView.setZoom(12f, 0);
     }
 
 
@@ -561,7 +749,7 @@ public class SecondFragment extends Fragment {
         localSource.add(line);
 
         mapView.setFocusPos(new MapPos(5.72476358599884, 45.19272038067931), 0);
-        mapView.setZoom(15f, 0);
+        mapView.setZoom(12f, 0);
     }
 
 
@@ -813,7 +1001,7 @@ public class SecondFragment extends Fragment {
                 // Online routing via Valhalla API (no MBTiles needed for the demo)
                 ValhallaOnlineRoutingService service = new ValhallaOnlineRoutingService(
                         "https://valhalla.openstreetmap.de",
-                        (url, body) -> {
+                        (url, body, headers) -> {
                             try {
                                 // Minimal synchronous HTTP POST using java.net
                                 java.net.URL netUrl = new java.net.URL(url);

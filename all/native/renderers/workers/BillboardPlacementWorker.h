@@ -15,6 +15,7 @@
 #include <condition_variable>
 #include <memory>
 #include <mutex>
+#include <vector>
 
 namespace carto {
     class Billboard;
@@ -38,8 +39,9 @@ namespace carto {
     
     private:
         void run();
-        
+
         bool calculateBillboardPlacement();
+        bool calculateTerrainOcclusion(const std::vector<std::shared_ptr<BillboardDrawData> >& billboardDrawDatas, const std::shared_ptr<MapRenderer>& mapRenderer) const;
         
         bool _stop;
         bool _idle;

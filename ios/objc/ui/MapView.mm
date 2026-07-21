@@ -92,13 +92,23 @@ static const int NATIVE_NO_COORDINATE = -1;
 }
 
 -(void)initContext {
+    // Prefer an OpenGL ES 3.0 context: the rendering code uses the ES 2.0 API subset,
+    // but ES3-class contexts guarantee vertex texture fetch (GPU terrain draping).
 #ifdef _CARTO_USE_METALANGLE
-    NTGLContext* context = [[NTGLContext alloc] initWithAPI:kMGLRenderingAPIOpenGLES2];
+    NTGLContext* context = [[NTGLContext alloc] initWithAPI:kMGLRenderingAPIOpenGLES3];
+    if (!context) {
+        carto::Log::Warn("MapView::initContext: Failed to create OpenGL ES 3.0 context, falling back to ES 2.0");
+        context = [[NTGLContext alloc] initWithAPI:kMGLRenderingAPIOpenGLES2];
+    }
 #else
-    NTGLContext* context = [[NTGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
+    NTGLContext* context = [[NTGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES3];
+    if (!context) {
+        carto::Log::Warn("MapView::initContext: Failed to create OpenGL ES 3.0 context, falling back to ES 2.0");
+        context = [[NTGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
+    }
 #endif
     if (!context) {
-        carto::Log::Fatal("MapView::initContext: Failed to create OpenGL ES 2.0 context");
+        carto::Log::Fatal("MapView::initContext: Failed to create OpenGL ES context");
     }
 
     self.context = context;

@@ -24,6 +24,7 @@ namespace carto {
     class CullState;
     class GLResourceManager;
     class ProjectionSurface;
+    class TerrainOptions;
     class TileRenderer;
     class TileLoadListener;
     class UTFGridTile;
@@ -370,6 +371,18 @@ namespace carto {
         std::shared_ptr<vt::TileTransformer> getTileTransformer() const;
         void resetTileTransformer();
 
+    public:
+        /**
+         * Marks/unmarks this layer as the terrain depth-write layer. Internal method.
+         */
+        void setTerrainDepthWriteMode(bool enabled);
+        /**
+         * Sets the layer stacking order used for terrain depth separation in GPU draping mode. Internal method.
+         */
+        void setTerrainRenderOrder(int order);
+
+    protected:
+
         const DirectorPtr<TileDataSource> _dataSource;
         std::shared_ptr<DataSourceListener> _dataSourceListener;
 
@@ -425,6 +438,9 @@ namespace carto {
         int _maxOverzoomLevel;
         int _maxUnderzoomLevel;
 
+        int _terrainMaxTileZoom = 1000; // terrain-mode tile zoom cap (effectively none), recomputed per cull
+        bool _terrainOverzoomTargets = false; // terrain mode: target tiles may exceed the data source max zoom (overzoom-fed)
+
         std::vector<MapTile> _visibleTiles;
         std::vector<MapTile> _preloadingTiles;
         std::unordered_map<MapTile, std::shared_ptr<UTFGridTile> > _utfGridTiles;
@@ -432,6 +448,12 @@ namespace carto {
 
         std::weak_ptr<GLResourceManager> _glResourceManager;
         std::weak_ptr<ProjectionSurface> _projectionSurface;
+
+        std::weak_ptr<TerrainOptions> _terrainOptions;
+        bool _terrainEnabled = false;
+        float _terrainExaggeration = 1.0f;
+        int _terrainMeshResolution = 0;
+        int _terrainMinZoom = 0;
     };
     
 }

@@ -6,9 +6,12 @@
 #include "projections/PlanarProjectionSurface.h"
 #include "renderers/MapRenderer.h"
 #include "renderers/drawdatas/TileDrawData.h"
+#include "renderers/TerrainRenderer.h"
+#include "renderers/utils/ElevationTextureCache.h"
 #include "renderers/utils/GLResourceManager.h"
 #include "renderers/utils/VTRenderer.h"
 #include "layers/HillshadeRasterTileLayer.h"
+#include "terrain/ElevationManager.h"
 #include "utils/Const.h"
 #include "utils/Log.h"
 #include "utils/Const.h"
@@ -19,11 +22,19 @@
 #include <vt/GLExtensions.h>
 
 #include <cmath>
+#include <unordered_map>
 
 #include <cglib/mat.h>
 
 namespace carto {
-    
+
+    struct TileRenderer::LabelOcclusionState {
+        std::mutex mutex;
+        cglib::vec3<double> cameraPos = cglib::vec3<double>(0, 0, 0);
+        unsigned int elevationVersion = 0;
+        std::unordered_map<long long, bool> results;
+    };
+
     TileRenderer::TileRenderer() :
         _mapRenderer(),
         _options(),
@@ -81,6 +92,16 @@ namespace carto {
     void TileRenderer::setInteractionMode(bool enabled) {
         std::lock_guard<std::mutex> lock(_mutex);
         _interactionMode = enabled;
+    }
+
+    void TileRenderer::setTerrainRenderOrder(int order) {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _terrainRenderOrder = order;
+    }
+
+    void TileRenderer::setTerrainDepthWriteMode(bool enabled) {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _terrainDepthWriteMode = enabled;
     }
     
     void TileRenderer::setLayerBlendingSpeed(float speed) {
@@ -179,12 +200,120 @@ namespace carto {
         }
 
         cglib::mat4x4<double> modelViewMat = viewState.getModelviewMat() * cglib::translate4_matrix(cglib::vec3<double>(_horizontalLayerOffset, 0, 0));
-        tileRenderer->setViewState(vt::ViewState(viewState.getProjectionMat(), modelViewMat, viewState.getZoom(), viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewState.getNormalizedResolution()));
+        vt::ViewState vtViewState(viewState.getProjectionMat(), modelViewMat, viewState.getZoom(), viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewState.getNormalizedResolution());
+        vtViewState.planarTerrain = isPlanarTerrainMode(); // labels rescale by view depth so terrain elevation does not blow up their screen size
+        tileRenderer->setViewState(vtViewState);
         tileRenderer->setInteractionMode(_interactionMode);
         tileRenderer->setRasterFilterMode(_rasterFilterMode);
         tileRenderer->setLayerBlendingSpeed(_layerBlendingSpeed);
         tileRenderer->setLabelBlendingSpeed(_labelBlendingSpeed);
         tileRenderer->setRendererLayerFilter(_rendererLayerFilter);
+
+        // Terrain state: enable depth-based terrain rendering and rebuild tile surfaces
+        // when the elevation data changes (new DEM tiles, exaggeration change). The rebuild
+        // is debounced: during the initial load a new elevation tile may arrive almost every
+        // frame and rebuilding all surfaces each time would kill interactivity.
+        bool terrainMode = false;
+        float terrainDepthBias = 0.0f;
+        std::shared_ptr<TerrainOptions> activeTerrainOptions;
+        if (auto options = _options.lock()) {
+            if (options->getRenderProjectionMode() == RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
+                if (auto terrainOptions = options->getTerrainOptions()) {
+                    if (terrainOptions->isEnabled()) {
+                        terrainMode = true;
+                        // Tile geometry lies exactly on the terrain surfaces (same transformer and
+                        // tesselation), so it only needs a small equality slack - the slope-scaled
+                        // polygon offset in the vt renderer provides the distance-stable pull
+                        // towards the viewer. A large constant clip-space bias would translate to
+                        // hundreds of meters of depth tolerance at far distances (see-through ridges).
+                        terrainDepthBias = terrainOptions->getDepthBias() * 0.1f;
+                        activeTerrainOptions = terrainOptions;
+                        unsigned int elevationVersion = terrainOptions->getElevationManager()->getVersion();
+                        if (elevationVersion != _elevationVersion) {
+                            auto now = std::chrono::steady_clock::now();
+                            if (!_lastSurfaceResetTime || now - *_lastSurfaceResetTime > std::chrono::milliseconds(SURFACE_RESET_DELAY)) {
+                                _elevationVersion = elevationVersion;
+                                _lastSurfaceResetTime = now;
+                                tileRenderer->resetTileSurfaces();
+                            } else if (auto mapRenderer = _mapRenderer.lock()) {
+                                mapRenderer->requestRedraw(); // apply the pending rebuild on a later frame
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // GPU terrain draping: provide elevation textures so that draped geometry is
+        // displaced in the vertex shader - every layer samples the same textures, so all
+        // layers agree on heights exactly. Requires vertex texture fetch support;
+        // without it the CPU displacement path with polygon offsets stays active.
+        vt::GLTileRenderer::TerrainTextureProvider terrainTextureProvider;
+        if (terrainMode && activeTerrainOptions) {
+            if (_maxVertexTextureUnits < 0) {
+                GLint maxVertexTextureUnits = 0;
+                glGetIntegerv(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS, &maxVertexTextureUnits);
+                _maxVertexTextureUnits = maxVertexTextureUnits;
+                if (maxVertexTextureUnits <= 0) {
+                    Log::Warn("TileRenderer::onDrawFrame: No vertex texture support, using CPU terrain displacement");
+                }
+            }
+            if (_maxVertexTextureUnits > 0) {
+                std::shared_ptr<ElevationManager> elevationManager = activeTerrainOptions->getElevationManager();
+                if (_elevationTextureCache && _elevationTextureCache->getElevationManager() != elevationManager) {
+                    _elevationTextureCache.reset();
+                }
+                if (!_elevationTextureCache && elevationManager) {
+                    if (auto mapRenderer = _mapRenderer.lock()) {
+                        _elevationTextureCache = std::make_shared<ElevationTextureCache>(elevationManager, mapRenderer->getGLResourceManager());
+                    }
+                }
+                if (_elevationTextureCache) {
+                    std::shared_ptr<ElevationTextureCache> elevationTextureCache = _elevationTextureCache;
+                    terrainTextureProvider = [elevationTextureCache](const vt::TileId& tileId, vt::GLTileRenderer::TerrainTexture& terrainTexture) {
+                        return elevationTextureCache->getTexture(tileId, terrainTexture);
+                    };
+                    // Every terrain tile layer works in its own depth domain (the vt
+                    // renderer clears the depth buffer and renders its reference surface
+                    // pre-pass before its content, which then WRITES its real depth -
+                    // tangram-style). Cross-layer stacking is pure painter's order, so no
+                    // per-layer depth stride is needed - and any constant-NDC stride
+                    // would shift the final depth domain away from what vector elements
+                    // depth-test against after the tile layers.
+                    terrainDepthBias = 0.0f;
+                }
+            }
+        }
+        tileRenderer->setTerrainTextureProvider(terrainTextureProvider);
+        if (terrainMode && activeTerrainOptions) {
+            // Labels are anchored when their tile is decoded, possibly before elevation
+            // data arrives - re-anchor them whenever the elevation version changes
+            std::shared_ptr<ElevationManager> elevationManager = activeTerrainOptions->getElevationManager();
+            tileRenderer->setLabelElevationProvider([elevationManager](const cglib::vec3<double>& pos) {
+                return elevationManager->getDisplayHeight(pos(0), pos(1), ElevationManager::LoadMode::CACHED_ONLY);
+            }, elevationManager->getVersion());
+        } else {
+            tileRenderer->setLabelElevationProvider(std::function<double(const cglib::vec3<double>&)>(), 0);
+        }
+        tileRenderer->setTerrainMode(terrainMode, terrainDepthBias);
+        // The geometry-vs-surface chord error shrinks quadratically with the mesh
+        // resolution (both the tile surfaces and the draped geometry tesselate to
+        // tileMeters/meshResolution cells), so the depth slack can shrink with it.
+        // The default resolution 32 maps to factor 1 (the calibrated slack).
+        float terrainSlackScale = 1.0f;
+        if (terrainMode && activeTerrainOptions) {
+            float resolutionRatio = 32.0f / std::max(32, activeTerrainOptions->getMeshResolution());
+            terrainSlackScale = resolutionRatio * resolutionRatio;
+        }
+        tileRenderer->setTerrainSlackScale(terrainSlackScale);
+        tileRenderer->setTerrainDepthWrite(terrainMode && _terrainDepthWriteMode);
+        tileRenderer->setDebugWireframe(false); // debug: terrain mesh wireframe + stencil overlay
+        tileRenderer->setDebugSurfacePrefill(false); // debug: facing-coded terrain pre-fill (magenta front / cyan back)
+        // The terrain base fill (color or the map background bitmap) is rendered
+        // globally by MapRenderer BEFORE all tile layers, so it stays visible behind
+        // translucent tile layer content regardless of the layer stacking order.
+        // The per-layer surface pre-pass here stays depth-only.
+        tileRenderer->setTerrainBackgroundColor(vt::Color());
+        updateLabelOcclusionTest(tileRenderer, viewState, activeTerrainOptions);
 
 
         _mapRotation = viewState.getRotation();
@@ -291,8 +420,10 @@ namespace carto {
         if (!tileRenderer) {
             return false;
         }
-        culler.setViewState(vt::ViewState(viewState.getProjectionMat(), modelViewMat, viewState.getZoom(),
-viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewState.getNormalizedResolution()));
+        vt::ViewState cullViewState(viewState.getProjectionMat(), modelViewMat, viewState.getZoom(),
+viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewState.getNormalizedResolution());
+        cullViewState.planarTerrain = isPlanarTerrainMode(); // keep culling envelopes consistent with the rendered label sizes
+        culler.setViewState(cullViewState);
 
         try {
             tileRenderer->cullLabels(culler);
@@ -343,16 +474,34 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
 
         tileRenderer->setClickHandlerLayerFilter(_clickHandlerLayerFilter);
 
-        std::vector<cglib::ray3<double> > rays = { ray };
-        tileRenderer->findGeometryIntersections(rays, radius, radius, true, false, results);
+        // Tile geometry is built flat in terrain mode (heights are applied on the GPU):
+        // pre-intersect the ray with the terrain surface and pick vertically below the hit
+        cglib::ray3<double> geometryRay = ray;
+        if (auto options = _options.lock()) {
+            if (options->getRenderProjectionMode() == RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
+                if (auto terrainOptions = options->getTerrainOptions()) {
+                    if (terrainOptions->isEnabled()) {
+                        double t = 0;
+                        if (terrainOptions->getElevationManager()->intersectRay(ray, t)) {
+                            cglib::vec3<double> hitPos = ray(t);
+                            geometryRay = cglib::ray3<double>(cglib::vec3<double>(hitPos(0), hitPos(1), Const::MAX_HEIGHT), cglib::vec3<double>(0, 0, -1));
+                        }
+                    }
+                }
+            }
+        }
+
+        std::vector<cglib::ray3<double> > geometryRays = { geometryRay };
+        std::vector<cglib::ray3<double> > labelRays = { ray }; // labels are anchored at terrain height, use the original ray
+        tileRenderer->findGeometryIntersections(geometryRays, radius, radius, true, false, results);
         if (_labelOrder == 0) {
-            tileRenderer->findLabelIntersections(rays, radius, true, false, results);
+            tileRenderer->findLabelIntersections(labelRays, radius, true, false, results);
         }
         if (_buildingOrder == 0) {
-            tileRenderer->findGeometryIntersections(rays, radius, radius, false, true, results);
+            tileRenderer->findGeometryIntersections(geometryRays, radius, radius, false, true, results);
         }
         if (_labelOrder == 0) {
-            tileRenderer->findLabelIntersections(rays, radius, false, true, results);
+            tileRenderer->findLabelIntersections(labelRays, radius, false, true, results);
         }
     }
         
@@ -399,6 +548,104 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
         vt::ViewState vtViewState(viewState.getProjectionMat(), modelViewMat, viewState.getZoom(),
 viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewState.getNormalizedResolution());
         return Color(colorFunc(vtViewState).value());
+    }
+
+    bool TileRenderer::isPlanarTerrainMode() const {
+        if (auto options = _options.lock()) {
+            if (options->getRenderProjectionMode() == RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
+                if (auto terrainOptions = options->getTerrainOptions()) {
+                    return terrainOptions->isEnabled();
+                }
+            }
+        }
+        return false;
+    }
+
+    void TileRenderer::updateLabelOcclusionTest(const std::shared_ptr<vt::GLTileRenderer>& tileRenderer, const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions) {
+        if (!terrainOptions || !terrainOptions->isBillboardOcclusionEnabled()) {
+            _labelOcclusionState.reset();
+            tileRenderer->setLabelOcclusionTest(std::function<bool(const cglib::vec3<double>&)>());
+            return;
+        }
+
+        // Preferred path: pixel-exact occlusion against the read-back terrain depth buffer
+        // (rendered by MapRenderer each frame) - matches what is actually on screen and is
+        // much cheaper than ray-marching the elevation grids per label.
+        if (auto mapRenderer = _mapRenderer.lock()) {
+            if (mapRenderer->getTerrainRenderer() != nullptr) {
+                {
+                    _labelOcclusionState.reset();
+                    cglib::mat4x4<double> mvpMat = viewState.getModelviewProjectionMat();
+                    float screenWidth = static_cast<float>(viewState.getWidth());
+                    float screenHeight = static_cast<float>(viewState.getHeight());
+                    std::weak_ptr<MapRenderer> mapRendererWeak = _mapRenderer;
+                    tileRenderer->setLabelOcclusionTest([mapRendererWeak, mvpMat, screenWidth, screenHeight](const cglib::vec3<double>& pos) {
+                        auto mapRenderer = mapRendererWeak.lock();
+                        if (!mapRenderer) {
+                            return false;
+                        }
+                        TerrainRenderer* terrainRenderer = mapRenderer->getTerrainRenderer();
+                        if (!terrainRenderer) {
+                            return false;
+                        }
+                        cglib::vec4<double> clipPos = cglib::transform(cglib::vec4<double>(pos(0), pos(1), pos(2), 1), mvpMat);
+                        if (clipPos(3) <= 0) {
+                            return false;
+                        }
+                        float screenX = static_cast<float>((clipPos(0) / clipPos(3) * 0.5 + 0.5) * screenWidth);
+                        float screenY = static_cast<float>((0.5 - clipPos(1) / clipPos(3) * 0.5) * screenHeight);
+                        float depthW = terrainRenderer->getDepthW(screenX, screenY);
+                        // occluded if clearly behind the terrain at this pixel (labels are
+                        // anchored ON the terrain, so allow a small relative tolerance)
+                        return static_cast<float>(clipPos(3)) > depthW * 1.02f;
+                    });
+                    return;
+                }
+            }
+        }
+
+        std::shared_ptr<ElevationManager> elevationManager = terrainOptions->getElevationManager();
+        if (!_labelOcclusionState) {
+            _labelOcclusionState = std::make_shared<LabelOcclusionState>();
+        }
+        std::shared_ptr<LabelOcclusionState> state = _labelOcclusionState;
+
+        // Invalidate cached results when the camera moves significantly or the elevation data changes
+        cglib::vec3<double> cameraPos = viewState.getCameraPos();
+        double moveThreshold = 0.01 * cglib::length(viewState.getFocusPos() - cameraPos);
+        unsigned int elevationVersion = elevationManager->getVersion();
+        {
+            std::lock_guard<std::mutex> lock(state->mutex);
+            if (cglib::length(cameraPos - state->cameraPos) > moveThreshold || elevationVersion != state->elevationVersion) {
+                state->results.clear();
+                state->cameraPos = cameraPos;
+                state->elevationVersion = elevationVersion;
+            }
+        }
+
+        tileRenderer->setLabelOcclusionTest([state, elevationManager, cameraPos](const cglib::vec3<double>& pos) -> bool {
+            // Quantize the position for caching (roughly 4m grid)
+            const double QUANT = 10.0;
+            long long key = (static_cast<long long>(pos(0) * QUANT) * 73856093LL) ^ (static_cast<long long>(pos(1) * QUANT) * 19349663LL) ^ (static_cast<long long>(pos(2) * QUANT) * 83492791LL);
+            {
+                std::lock_guard<std::mutex> lock(state->mutex);
+                auto it = state->results.find(key);
+                if (it != state->results.end()) {
+                    return it->second;
+                }
+            }
+
+            double dist = cglib::length(pos - cameraPos);
+            cglib::vec3<double> target = pos + cglib::vec3<double>(0, 0, dist * 0.005);
+            cglib::ray3<double> ray(cameraPos, target - cameraPos);
+            double t = 0;
+            bool occluded = elevationManager->intersectRay(ray, t) && t > 0 && t < 0.995;
+            {
+                std::lock_guard<std::mutex> lock(state->mutex);
+                state->results[key] = occluded;
+            }
+            return occluded;
+        });
     }
 
     bool TileRenderer::initializeRenderer() {

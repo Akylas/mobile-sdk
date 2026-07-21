@@ -1,0 +1,287 @@
+/*
+ * Copyright (c) 2016 CartoDB. All rights reserved.
+ * Copying and using this code is allowed only according
+ * to license terms, as given in https://cartodb.com/terms/
+ */
+
+#ifndef _CARTO_TERRAINOPTIONS_H_
+#define _CARTO_TERRAINOPTIONS_H_
+
+#include "core/MapPos.h"
+#include "graphics/Color.h"
+
+#include <atomic>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <vector>
+
+namespace carto {
+    class TileDataSource;
+    class ElevationDecoder;
+    class ElevationManager;
+
+    /**
+     * 3D terrain configuration, attached to the map via Options::setTerrainOptions.
+     * The elevation data source can be shared with a HillshadeRasterTileLayer, in which case
+     * both features use the same tiles (ideally the data source should be wrapped in a
+     * MemoryCacheTileDataSource to avoid duplicate loads).
+     * Note: this class is experimental and may change or even be removed in future SDK versions.
+     */
+    class TerrainOptions {
+    public:
+        /**
+         * Interface for monitoring terrain option change events. Internal.
+         */
+        struct OnChangeListener {
+            virtual ~OnChangeListener() { }
+
+            /**
+             * Listener method that gets called when a terrain option has changed.
+             * @param optionName The name of the option that has changed.
+             */
+            virtual void onTerrainOptionChanged(const std::string& optionName) = 0;
+        };
+
+        /**
+         * Constructs a TerrainOptions object from an elevation data source.
+         * The elevation decoder is resolved from the data source "encoding" setting
+         * ("mapbox" or "terrarium"), defaulting to the MapBox encoding.
+         * @param dataSource The data source with RGB-encoded elevation tiles.
+         */
+        explicit TerrainOptions(const std::shared_ptr<TileDataSource>& dataSource);
+        /**
+         * Constructs a TerrainOptions object from an elevation data source and an explicit decoder.
+         * @param dataSource The data source with RGB-encoded elevation tiles.
+         * @param elevationDecoder The decoder for the elevation tile encoding.
+         */
+        TerrainOptions(const std::shared_ptr<TileDataSource>& dataSource, const std::shared_ptr<ElevationDecoder>& elevationDecoder);
+        virtual ~TerrainOptions();
+
+        /**
+         * Returns the elevation data source.
+         * @return The elevation data source.
+         */
+        std::shared_ptr<TileDataSource> getDataSource() const;
+        /**
+         * Returns the elevation decoder.
+         * @return The elevation decoder.
+         */
+        std::shared_ptr<ElevationDecoder> getElevationDecoder() const;
+
+        /**
+         * Returns the enabled state of the terrain.
+         * @return True if 3D terrain rendering is enabled. The default is true.
+         */
+        bool isEnabled() const;
+        /**
+         * Sets the enabled state of the terrain. If disabled, the map renders flat,
+         * but the elevation data source stays attached.
+         * @param enabled The new enabled state.
+         */
+        void setEnabled(bool enabled);
+
+        /**
+         * Returns the terrain height exaggeration factor.
+         * @return The exaggeration factor. The default is 1.0.
+         */
+        float getExaggeration() const;
+        /**
+         * Sets the terrain height exaggeration factor. 1.0 means true-to-scale heights.
+         * Note: changing the exaggeration triggers a re-tesselation of loaded tiles, which is a relatively expensive operation.
+         * @param exaggeration The new exaggeration factor.
+         */
+        void setExaggeration(float exaggeration);
+
+        /**
+         * Returns the terrain mesh resolution.
+         * @return The maximum number of grid cells per tile edge used for terrain geometry. The default is 32.
+         */
+        int getMeshResolution() const;
+        /**
+         * Sets the terrain mesh resolution. Higher values give more detailed terrain
+         * at the cost of memory and CPU. The effective resolution is also limited by
+         * the resolution of the elevation tiles.
+         * @param meshResolution The new mesh resolution (clamped to 2..256).
+         */
+        void setMeshResolution(int meshResolution);
+
+        /**
+         * Returns the minimum tile zoom level with 3D terrain.
+         * @return The minimum zoom level. The default is 5.
+         */
+        int getMinZoom() const;
+        /**
+         * Sets the minimum tile zoom level with 3D terrain. Tiles below this zoom level render flat
+         * and do not fetch elevation data. Terrain displacement is invisible at low zoom levels anyway,
+         * so this limits the number of elevation tiles fetched and processed for far-away/zoomed-out views.
+         * @param minZoom The new minimum zoom level (clamped to 0..24).
+         */
+        void setMinZoom(int minZoom);
+
+        /**
+         * Returns the terrain background color.
+         * @return The terrain background color. The default is transparent (no background).
+         */
+        Color getBackgroundColor() const;
+        /**
+         * Sets the terrain background color: an opaque base fill of the terrain surface
+         * drawn under all layers. It keeps the terrain shape visible (and its depth valid
+         * for vector element and billboard occlusion) even without any raster or vector
+         * tile layer content - without it the terrain is transparent wherever no layer
+         * paints. Transparent (the default) disables the fill.
+         * @param color The new terrain background color.
+         */
+        void setBackgroundColor(const Color& color);
+
+        /**
+         * Returns the terrain background bitmap state.
+         * @return True if the map background bitmap is draped over the terrain as the base fill. The default is false.
+         */
+        bool isBackgroundBitmapEnabled() const;
+        /**
+         * Sets the terrain background bitmap state. When enabled, the map background bitmap
+         * (Options::getBackgroundBitmap, the repeating pattern flat maps show below the tiles)
+         * is draped over the terrain surface as the base fill drawn under all layers,
+         * instead of the solid background color. Like the background color fill, it keeps
+         * the terrain shape visible (and its depth valid for occlusion) where no layer
+         * paints, and shows through translucent tile layer content.
+         * @param enabled The new background bitmap state.
+         */
+        void setBackgroundBitmapEnabled(bool enabled);
+
+        /**
+         * Returns the maximum visible tile zoom offset, relative to the camera zoom level.
+         * @return The maximum tile zoom offset. The default is 100 (no cap).
+         */
+        int getMaxTileZoomOffset() const;
+        /**
+         * Sets the maximum visible tile zoom offset, relative to the camera zoom level.
+         * Terrain level-of-detail is distance based: tiles close to the camera (and mountain
+         * faces rising towards it) are shown at higher tile zoom levels than flat rendering
+         * would ever use at the same camera zoom. If the map style renders differently at
+         * different tile zoom levels, these LOD rings become visible as patches with hard
+         * boundaries. Offset 0 caps tile detail at the level flat rendering would show at
+         * the current camera zoom; positive values allow that many extra levels of detail
+         * near the camera. Values of 100 or more disable the cap.
+         * @param offset The new maximum tile zoom offset (values >= 100 disable the cap).
+         */
+        void setMaxTileZoomOffset(int offset);
+
+        /**
+         * Returns the camera terrain clearance: the minimum height the camera is kept
+         * above the terrain surface, in meters.
+         * @return The camera clearance in meters. The default is 200. 0 disables camera terrain-following.
+         */
+        float getCameraClearance() const;
+        /**
+         * Sets the camera terrain clearance: the minimum height the camera is kept above
+         * the terrain surface, in meters. When the camera would dive below this, it is
+         * corrected by zooming out through the normal camera event path.
+         * @param clearance The new clearance in meters. 0 disables camera terrain-following.
+         */
+        void setCameraClearance(float clearance);
+
+        /**
+         * Returns the duration of the camera terrain-following correction animation.
+         * @return The correction duration in seconds. The default is 0 (instant correction).
+         */
+        float getCameraClampDuration() const;
+        /**
+         * Sets the duration of the camera terrain-following correction animation.
+         * @param duration The new duration in seconds. 0 applies corrections instantly.
+         */
+        void setCameraClampDuration(float duration);
+
+        /**
+         * Returns the clip-space depth bias used when depth-testing draped 2D geometry against the terrain.
+         * @return The depth bias. The default is 0.0002.
+         */
+        float getDepthBias() const;
+        /**
+         * Sets the clip-space depth bias used when depth-testing draped 2D geometry against the terrain.
+         * Larger values prevent draped layers from being clipped by the terrain surface itself,
+         * at the cost of geometry slightly behind terrain ridges 'shining through' near silhouettes.
+         * @param depthBias The new depth bias (clamped to 0..0.01).
+         */
+        void setDepthBias(float depthBias);
+
+        /**
+         * Returns the billboard/label terrain occlusion state.
+         * @return True if billboards and labels hidden behind terrain are faded out. The default is true.
+         */
+        bool isBillboardOcclusionEnabled() const;
+        /**
+         * Sets the billboard/label terrain occlusion state.
+         * @param enabled The new occlusion state.
+         */
+        void setBillboardOcclusionEnabled(bool enabled);
+
+        /**
+         * Returns the capacity of the decoded elevation tile cache in bytes.
+         * @return The cache capacity in bytes. The default is 32MB.
+         */
+        std::size_t getElevationCacheCapacity() const;
+        /**
+         * Sets the capacity of the decoded elevation tile cache in bytes.
+         * @param capacityInBytes The new cache capacity in bytes.
+         */
+        void setElevationCacheCapacity(std::size_t capacityInBytes);
+
+        /**
+         * Returns the terrain elevation in meters at the given position.
+         * The position is expected to be in WGS84 coordinates.
+         * Note: this method may block on network/IO if the elevation tile is not cached.
+         * @param pos The position to query.
+         * @return The elevation in meters, or -1000000 if no elevation data is available.
+         */
+        double getElevation(const MapPos& pos) const;
+        /**
+         * Returns terrain elevations in meters at the given positions (WGS84).
+         * One value is returned for every input position, in the input order.
+         * Note: this method may block on network/IO if the elevation tiles are not cached.
+         * @param poses The positions to query.
+         * @return The elevations in meters (-1000000 where no data is available).
+         */
+        std::vector<double> getElevations(const std::vector<MapPos>& poses) const;
+
+        /**
+         * Returns the elevation manager. Internal method.
+         * @return The elevation manager.
+         */
+        std::shared_ptr<ElevationManager> getElevationManager() const;
+
+        /**
+         * Registers listener for terrain option change events. Internal method.
+         * @param listener The listener for change events.
+         */
+        void registerOnChangeListener(const std::shared_ptr<OnChangeListener>& listener);
+        /**
+         * Unregisters listener from terrain option change events. Internal method.
+         * @param listener The previously added listener.
+         */
+        void unregisterOnChangeListener(const std::shared_ptr<OnChangeListener>& listener);
+
+    private:
+        void notifyOptionChanged(const std::string& optionName);
+
+        const std::shared_ptr<TileDataSource> _dataSource;
+        const std::shared_ptr<ElevationManager> _elevationManager;
+
+        std::atomic<bool> _enabled;
+        std::atomic<int> _meshResolution;
+        std::atomic<int> _minZoom;
+        std::atomic<int> _maxTileZoomOffset;
+        std::atomic<int> _backgroundColorARGB;
+        std::atomic<bool> _backgroundBitmapEnabled;
+        std::atomic<float> _depthBias;
+        std::atomic<float> _cameraClearance;
+        std::atomic<float> _cameraClampDuration;
+        std::atomic<bool> _billboardOcclusionEnabled;
+
+        std::vector<std::shared_ptr<OnChangeListener> > _onChangeListeners;
+        mutable std::mutex _onChangeListenersMutex;
+    };
+}
+
+#endif

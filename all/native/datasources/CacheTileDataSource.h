@@ -21,8 +21,15 @@ namespace carto {
 
         virtual int getMinZoom() const;
         virtual int getMaxZoom() const;
-        
+
         virtual MapBounds getDataExtent() const;
+
+        /**
+         * Returns the encoding of this data source, falling back to the encoding
+         * of the wrapped data source when not explicitly set on the cache.
+         * @return The encoding type, or empty string if not set.
+         */
+        virtual std::string getEncoding() const;
 
         virtual void notifyTilesChanged(bool removeTiles);
 

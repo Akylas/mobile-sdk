@@ -7,6 +7,8 @@
 #include "core/ScreenBounds.h"
 #include "graphics/Bitmap.h"
 #include "layers/Layer.h"
+#include "layers/TileLayer.h"
+#include "layers/VectorLayer.h"
 #include "projections/Projection.h"
 #include "projections/ProjectionSurface.h"
 #include "renderers/BillboardRenderer.h"
@@ -23,6 +25,9 @@
 #include "renderers/utils/GLContext.h"
 #include "renderers/utils/GLResourceManager.h"
 #include "renderers/utils/FrameBuffer.h"
+#include "renderers/PostProcessEffect.h"
+#include "renderers/TerrainRenderer.h"
+#include "terrain/ElevationManager.h"
 #include "renderers/utils/Shader.h"
 #include "renderers/utils/Texture.h"
 #include "renderers/workers/BillboardPlacementWorker.h"
@@ -474,11 +479,25 @@ namespace carto {
     
     void MapRenderer::onSurfaceCreated() {
         ThreadUtils::SetThreadPriority(ThreadPriority::MAXIMUM);
-        
+
         GLContext::LoadExtensions();
-    
+
         glPixelStorei(GL_PACK_ALIGNMENT, 1);
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+        // One-time GL context diagnostics: the depth/stencil resolution and the vertex
+        // texture unit count determine which terrain depth model is in effect and how
+        // much depth slack it actually has - essential when debugging device-specific
+        // terrain occlusion issues (emulator and device configs often differ).
+        {
+            GLint depthBits = 0, stencilBits = 0, maxVertexTextureUnits = 0;
+            glGetIntegerv(GL_DEPTH_BITS, &depthBits);
+            glGetIntegerv(GL_STENCIL_BITS, &stencilBits);
+            glGetIntegerv(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS, &maxVertexTextureUnits);
+            const GLubyte* renderer = glGetString(GL_RENDERER);
+            Log::Infof("MapRenderer::onSurfaceCreated: renderer '%s', depth bits %d, stencil bits %d, vertex texture units %d",
+                renderer ? reinterpret_cast<const char*>(renderer) : "?", depthBits, stencilBits, maxVertexTextureUnits);
+        }
 
         // If the surface was lost, properly signal about this
         if (_surfaceCreated) {
@@ -581,6 +600,48 @@ namespace carto {
         ViewState viewState;
         {
             std::lock_guard<std::recursive_mutex> lock(_mutex);
+
+            // Terrain: extend view distances by the terrain height range and keep
+            // the camera above the terrain surface.
+            std::shared_ptr<ElevationManager> elevationManager;
+            if (_options->getRenderProjectionMode() == RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
+                if (auto terrainOptions = _options->getTerrainOptions()) {
+                    if (terrainOptions->isEnabled()) {
+                        elevationManager = terrainOptions->getElevationManager();
+                    }
+                }
+            }
+            if (elevationManager) {
+                cglib::vec3<double> cameraPos = _viewState.getCameraPos();
+                double minZ = 0, maxZ = 0;
+                elevationManager->getDisplayHeightRange(cameraPos(1), minZ, maxZ);
+                _viewState.setTerrainHeightRange(static_cast<float>(minZ), static_cast<float>(maxZ));
+
+                // Note: the camera is deliberately NOT clamped above the terrain here.
+                // ViewState maintains the invariant dist(camera, focus) == zoom0Distance/2^zoom;
+                // mutating the camera position outside of the camera event system breaks it and
+                // corrupts the view state. Flying the camera below terrain is a v1 limitation.
+
+                // Refresh vector layers when the elevation data changes (debounced), so that
+                // element draw data gets rebuilt with the new heights
+                unsigned int elevationVersion = elevationManager->getVersion();
+                if (elevationVersion != _layersElevationVersion) {
+                    if (!_lastElevationRefreshTime || currentTime - *_lastElevationRefreshTime > std::chrono::milliseconds(ELEVATION_REFRESH_DELAY)) {
+                        _layersElevationVersion = elevationVersion;
+                        _lastElevationRefreshTime = currentTime;
+                        for (const std::shared_ptr<Layer>& layer : _layers->getAll()) {
+                            if (std::dynamic_pointer_cast<VectorLayer>(layer)) {
+                                layer->refresh();
+                            }
+                        }
+                    } else {
+                        requestRedraw(); // check again on the next frame
+                    }
+                }
+            } else {
+                _viewState.setTerrainHeightRange(0.0f, 0.0f);
+            }
+
             _viewState.calculateViewState(*_options);
             viewState = _viewState;
             _viewState.setHorizontalLayerOffsetDir(0);
@@ -590,11 +651,21 @@ namespace carto {
         _animationHandler.calculate(viewState, deltaSeconds);
         _kineticEventHandler.calculate(viewState, deltaSeconds);
 
+        // If a post-process effect is set, render the frame into an offscreen buffer
+        std::shared_ptr<PostProcessEffect> postProcessEffect = getPostProcessEffect();
+        if (postProcessEffect) {
+            clearAndBindScreenFBO(_options->getClearColor(), true, false);
+        }
+
         // Render everything
         initializeRenderState();
         _backgroundRenderer.onDrawFrame(viewState);
         drawLayers(deltaSeconds, viewState);
-    
+
+        if (postProcessEffect) {
+            applyPostProcessEffect(postProcessEffect, viewState);
+        }
+
         // Callback for synchronized rendering
         if (mapRendererListener) {
             mapRendererListener->onAfterDrawFrame();
@@ -674,6 +745,125 @@ namespace carto {
         }
 
         GLContext::CheckGLError("MapRenderer::clearAndBindScreenFBO");
+    }
+
+    std::shared_ptr<PostProcessEffect> MapRenderer::getPostProcessEffect() const {
+        std::lock_guard<std::recursive_mutex> lock(_mutex);
+        return _postProcessEffect;
+    }
+
+    void MapRenderer::setPostProcessEffect(const std::shared_ptr<PostProcessEffect>& postProcessEffect) {
+        {
+            std::lock_guard<std::recursive_mutex> lock(_mutex);
+            if (_postProcessEffect == postProcessEffect) {
+                return;
+            }
+            _postProcessEffect = postProcessEffect;
+            _postProcessStartTime = std::chrono::steady_clock::now();
+        }
+        requestRedraw();
+    }
+
+    void MapRenderer::applyPostProcessEffect(const std::shared_ptr<PostProcessEffect>& effect, const ViewState& viewState) {
+        static const GLfloat screenVertices[8] = { -1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, 1.0f, 1.0f };
+
+        if (_screenBoundFBOs.empty()) {
+            Log::Error("MapRenderer::applyPostProcessEffect: No bound FBOs");
+            return;
+        }
+
+        // Optional terrain depth pre-pass (renders into its own FBO and restores the binding)
+        GLuint terrainDepthTex = 0;
+        if (effect->isTerrainDepthRequired()) {
+            std::shared_ptr<TerrainOptions> terrainOptions;
+            if (_options->getRenderProjectionMode() == RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
+                terrainOptions = _options->getTerrainOptions();
+            }
+            if (terrainOptions && terrainOptions->isEnabled()) {
+                if (!_terrainRenderer) {
+                    _terrainRenderer = std::make_unique<TerrainRenderer>();
+                }
+                if (_terrainRenderer->renderDepthTexture(viewState, terrainOptions, _glResourceManager)) {
+                    terrainDepthTex = _terrainRenderer->getDepthTextureId();
+                }
+            }
+        }
+
+        GLuint prevBoundFBO = _screenBoundFBOs.back().first;
+        GLuint bufferMask = _screenBoundFBOs.back().second;
+        _screenBoundFBOs.pop_back();
+
+        std::shared_ptr<FrameBuffer>& frameBuffer = _screenFrameBuffers[bufferMask];
+        if (!frameBuffer || !frameBuffer->isValid()) {
+            return; // should not happen, just safety
+        }
+        if (bufferMask & (GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)) {
+            frameBuffer->discard(false, (bufferMask & GL_DEPTH_BUFFER_BIT) != 0, (bufferMask & GL_STENCIL_BUFFER_BIT) != 0);
+        }
+
+        glBindFramebuffer(GL_FRAMEBUFFER, prevBoundFBO);
+
+        // Compile the effect shader on demand
+        if (!_postProcessShader || !_postProcessShader->isValid() || _postProcessShaderName != effect->getName()) {
+            _postProcessShader = _glResourceManager->create<Shader>("postprocess_" + effect->getName(), POST_PROCESS_VERTEX_SHADER, effect->getFragmentShader());
+            _postProcessShaderName = effect->getName();
+        }
+        if (!_postProcessShader) {
+            return;
+        }
+
+        glDisable(GL_BLEND);
+
+        GLuint progId = _postProcessShader->getProgId();
+        glUseProgram(progId);
+
+        glVertexAttribPointer(_postProcessShader->getAttribLoc("a_coord"), 2, GL_FLOAT, GL_FALSE, 0, screenVertices);
+        glEnableVertexAttribArray(_postProcessShader->getAttribLoc("a_coord"));
+
+        // Effects declare only the uniforms they use, so query the locations directly
+        GLint loc = glGetUniformLocation(progId, "uColorTex");
+        if (loc >= 0) {
+            glUniform1i(loc, 0);
+        }
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, frameBuffer->getColorTexId());
+        if (terrainDepthTex != 0 && (loc = glGetUniformLocation(progId, "uTerrainDepthTex")) >= 0) {
+            glUniform1i(loc, 1);
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, terrainDepthTex);
+            glActiveTexture(GL_TEXTURE0);
+        }
+
+        if ((loc = glGetUniformLocation(progId, "uInvScreenSize")) >= 0) {
+            glUniform2f(loc, 1.0f / _viewState.getWidth(), 1.0f / _viewState.getHeight());
+        }
+        if ((loc = glGetUniformLocation(progId, "uNear")) >= 0) {
+            glUniform1f(loc, viewState.getNear());
+        }
+        if ((loc = glGetUniformLocation(progId, "uFar")) >= 0) {
+            glUniform1f(loc, viewState.getFar());
+        }
+        if ((loc = glGetUniformLocation(progId, "uTime")) >= 0) {
+            float time = 0;
+            if (_postProcessStartTime) {
+                time = std::chrono::duration_cast<std::chrono::duration<float> >(std::chrono::steady_clock::now() - *_postProcessStartTime).count();
+            }
+            glUniform1f(loc, time);
+        }
+
+        for (const auto& param : effect->getFloatParameters()) {
+            if ((loc = glGetUniformLocation(progId, param.first.c_str())) >= 0) {
+                glUniform1f(loc, param.second);
+            }
+        }
+
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glDisableVertexAttribArray(_postProcessShader->getAttribLoc("a_coord"));
+        glEnable(GL_BLEND);
+
+        GLContext::CheckGLError("MapRenderer::applyPostProcessEffect");
     }
 
     void MapRenderer::blendAndUnbindScreenFBO(float opacity) {
@@ -827,6 +1017,102 @@ namespace carto {
     void MapRenderer::drawLayers(float deltaSeconds, const ViewState& viewState) {
         std::vector<std::shared_ptr<Layer> > layers = _layers->getAll();
 
+        // Terrain depth source: the FIRST suitable tile layer writes the depth of its
+        // draped background/raster surfaces - the depth source is then bit-exact with the
+        // rendered terrain, so draped geometry, other layers and vector elements can
+        // depth-test against it without mesh-mismatch artifacts (sinking/see-through).
+        // Only when no tile layer is available, a separate approximate terrain depth
+        // pre-pass is rendered instead.
+        bool terrainMode = false;
+        if (_options->getRenderProjectionMode() == RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
+            if (auto terrainOptions = _options->getTerrainOptions()) {
+                if (terrainOptions->isEnabled()) {
+                    terrainMode = true;
+                    bool depthWriteAssigned = false;
+                    int terrainRenderOrder = 0;
+                    for (const std::shared_ptr<Layer>& layer : layers) {
+                        if (auto tileLayer = std::dynamic_pointer_cast<TileLayer>(layer)) {
+                            bool depthWrite = !depthWriteAssigned && tileLayer->isVisible() && tileLayer->getOpacity() >= 1.0f;
+                            tileLayer->setTerrainDepthWriteMode(depthWrite);
+                            // stacking order for the fixed per-layer depth separation in GPU draping mode
+                            tileLayer->setTerrainRenderOrder(terrainRenderOrder++);
+                            depthWriteAssigned = depthWriteAssigned || depthWrite;
+                        }
+                    }
+                    // Terrain base fill, rendered GLOBALLY before all tile layers: this
+                    // way it shows through translucent tile layer content (e.g. a
+                    // semi-transparent vector tile style or a hillshade layer)
+                    // regardless of the layer stacking order, and guarantees the terrain
+                    // is always painted with a solid base. When enabled, the map
+                    // background bitmap is draped over the terrain instead of the solid
+                    // color. With a depth-write tile layer, the fill is COLOR-ONLY (its
+                    // depth is discarded): the tile layer surface pre-passes provide the
+                    // terrain depth with their own meshes, and any kept fill depth would
+                    // clip the differently-tesselated tile content in triangle-shaped
+                    // patches. Without one, the fill (or the depth-only pre-pass) is the
+                    // terrain depth source for element/billboard occlusion.
+                    bool depthSourceRendered = false;
+                    {
+                        if (!_terrainRenderer) {
+                            _terrainRenderer = std::make_unique<TerrainRenderer>();
+                        }
+                        bool keepDepth = !depthWriteAssigned;
+                        bool backgroundRendered = false;
+                        if (terrainOptions->isBackgroundBitmapEnabled()) {
+                            if (std::shared_ptr<Bitmap> backgroundBitmap = _options->getBackgroundBitmap()) {
+                                backgroundRendered = _terrainRenderer->renderBackground(viewState, terrainOptions, _glResourceManager, backgroundBitmap, keepDepth);
+                            }
+                        }
+                        if (!backgroundRendered) {
+                            Color terrainBackgroundColor = terrainOptions->getBackgroundColor();
+                            if (terrainBackgroundColor.getA() > 0) {
+                                backgroundRendered = _terrainRenderer->renderBackground(viewState, terrainOptions, _glResourceManager, terrainBackgroundColor, keepDepth);
+                            }
+                        }
+                        depthSourceRendered = backgroundRendered && keepDepth;
+                        if (!depthSourceRendered && !depthWriteAssigned) {
+                            _terrainRenderer->renderDepthPrepass(viewState, terrainOptions, _glResourceManager);
+                        }
+                    }
+                    if (terrainOptions->isBillboardOcclusionEnabled()) {
+                        // Pixel-exact terrain depth buffer for label/billboard occlusion tests
+                        if (!_terrainRenderer) {
+                            _terrainRenderer = std::make_unique<TerrainRenderer>();
+                        }
+                        _terrainRenderer->updateDepthBuffer(viewState, terrainOptions, _glResourceManager);
+                    }
+
+                    // Camera terrain-following: keep the camera at least the configured
+                    // clearance above the terrain surface. The correction goes through the
+                    // normal camera event path (a zoom-out; instant by default, optionally
+                    // animated), never by mutating the view state directly.
+                    float cameraClearance = terrainOptions->getCameraClearance();
+                    float clampDuration = terrainOptions->getCameraClampDuration();
+                    auto now = std::chrono::steady_clock::now();
+                    bool debounced = (clampDuration > 0 && now - _lastTerrainCameraClampTime < std::chrono::milliseconds(static_cast<int>(clampDuration * 1000)));
+                    if (cameraClearance > 0 && !debounced) {
+                        std::shared_ptr<ElevationManager> elevationManager = terrainOptions->getElevationManager();
+                        cglib::vec3<double> cameraPos = viewState.getCameraPos();
+                        double terrainZ = elevationManager->getDisplayHeight(cameraPos(0), cameraPos(1), ElevationManager::LoadMode::CACHED_ONLY);
+                        double minCameraZ = terrainZ + cameraClearance * elevationManager->getDisplayScale(cameraPos(1));
+                        if (cameraPos(2) > 0 && cameraPos(2) < minCameraZ) {
+                            _lastTerrainCameraClampTime = now;
+                            CameraZoomEvent zoomEvent;
+                            zoomEvent.setZoomDelta(static_cast<float>(std::log2(cameraPos(2) / minCameraZ)) * 1.05f); // negative: zoom out just past the clearance
+                            calculateCameraEvent(zoomEvent, clampDuration, false);
+                        }
+                    }
+                }
+            }
+        }
+        if (!terrainMode) {
+            for (const std::shared_ptr<Layer>& layer : layers) {
+                if (auto tileLayer = std::dynamic_pointer_cast<TileLayer>(layer)) {
+                    tileLayer->setTerrainDepthWriteMode(false);
+                }
+            }
+        }
+
         // Create new billboard sorter instance
         std::vector<std::shared_ptr<BillboardDrawData> > billboardDrawDatas;
         {
@@ -963,6 +1249,13 @@ namespace carto {
                 updateView = true;
             }
 
+            if (optionName.substr(0, 14) == "TerrainOptions") {
+                // Terrain changes (enabled state, exaggeration, mesh resolution, min zoom)
+                // require a new cull pass so that tile layers detect the configuration change
+                // and rebuild their tiles with/without terrain displacement
+                updateView = true;
+            }
+
             if (updateView) {
                 mapRenderer->viewChanged(false);
             } else {
@@ -975,12 +1268,22 @@ namespace carto {
 
     const int MapRenderer::VT_LABEL_PLACEMENT_TASK_DELAY = 200;
 
+    const int MapRenderer::ELEVATION_REFRESH_DELAY = 500;
+
     const std::string MapRenderer::BLEND_VERTEX_SHADER = R"GLSL(
         #version 100
         attribute vec2 a_coord;
         uniform mat4 u_mvpMat;
         void main() {
             gl_Position = u_mvpMat * vec4(a_coord, 0.0, 1.0);
+        }
+    )GLSL";
+
+    const std::string MapRenderer::POST_PROCESS_VERTEX_SHADER = R"GLSL(
+        #version 100
+        attribute vec2 a_coord;
+        void main() {
+            gl_Position = vec4(a_coord, 0.0, 1.0);
         }
     )GLSL";
 
