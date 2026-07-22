@@ -240,20 +240,29 @@ namespace carto {
             grid = _elevationManager->getTileGrid(mapTile, ElevationManager::LoadMode::CACHED_ONLY);
         }
 
-        // Regular-grid surface mode: the reference surface is a shared grid (built in the
-        // renderer, not via this transformer), and draped geometry is lattice-clamped to it
-        // in the vertex shader. Vector geometry therefore keeps its source vertex density -
-        // no terrain subdivision at decode (tangram-style) - which is the decode-time cost
-        // that CARTO pays over tangram. divideThreshold stays infinite = never split.
         float divideThreshold = std::numeric_limits<float>::infinity();
-        if (!_regularGrid && grid && grid->getMaxHeight() - grid->getMinHeight() > FLAT_HEIGHT_RANGE_EPSILON) {
+        if (grid && grid->getMaxHeight() - grid->getMinHeight() > FLAT_HEIGHT_RANGE_EPSILON) {
             double tileScaleMeters = EARTH_CIRCUMFERENCE / (1 << tileId.zoom);
             double threshold = tileScaleMeters / _meshResolution;
 
-            // No point in subdividing finer than the elevation grid resolution
-            double gridInternalWidth = grid->getInternalBounds().getMax().getX() - grid->getInternalBounds().getMin().getX();
-            double demTexelMeters = gridInternalWidth / grid->getWidth() * EARTH_CIRCUMFERENCE / _scale;
-            divideThreshold = static_cast<float>(std::max(threshold, demTexelMeters));
+            if (_regularGrid) {
+                // Regular-grid surface mode: the reference surface is a shared grid of
+                // _meshResolution cells built in the renderer, and it is used as a depth
+                // pre-pass occluder. Draped geometry must therefore still follow that
+                // surface: a fill left at its source density would be a few large flat
+                // triangles that sag below the bulging grid surface over convex terrain and
+                // get depth-occluded (landcover holes). Subdivide to exactly one grid cell
+                // so every sub-vertex lattice-clamps onto the grid surface; the shared grid
+                // (no per-tile red-green tesselation) and the lattice clamp are the wins.
+                // Do NOT clamp to the DEM texel size here: the grid, not the DEM, is the
+                // surface geometry the draped content is tested against.
+                divideThreshold = static_cast<float>(threshold);
+            } else {
+                // No point in subdividing finer than the elevation grid resolution
+                double gridInternalWidth = grid->getInternalBounds().getMax().getX() - grid->getInternalBounds().getMin().getX();
+                double demTexelMeters = gridInternalWidth / grid->getWidth() * EARTH_CIRCUMFERENCE / _scale;
+                divideThreshold = static_cast<float>(std::max(threshold, demTexelMeters));
+            }
         }
 
         return std::make_shared<TerrainVertexTransformer>(tileId, _scale, std::move(grid), _elevationManager->getExaggeration(), divideThreshold);

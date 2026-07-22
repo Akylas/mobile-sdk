@@ -80,7 +80,7 @@ namespace carto {
         const std::shared_ptr<ElevationManager> _elevationManager;
         const int _meshResolution;
         const int _minZoom; // tiles below this zoom level are rendered flat
-        const bool _regularGrid; // shared regular-grid surface mode: skip vector geometry subdivision (kept source density, tangram-style)
+        const bool _regularGrid; // shared regular-grid surface mode: subdivide draped geometry to one grid cell (follow the shared grid surface), no DEM-texel floor
     };
 }
 
