@@ -63,6 +63,10 @@ namespace carto {
         void setNormalMapHighlightColor(const Color& color);
         void setNormalMapAccentColor(const Color& color);
         void setNormalMapLightingShader(const std::string& shader);
+        void setNormalMapElevationEncoded(bool enabled);
+        void setNormalMapContourInterval(float interval);
+        void setNormalMapContourColor(const Color& color);
+        void setNormalMapContourWidth(float width);
         void setNormalIlluminationMapRotationEnabled(bool enabled);
         void setNormalIlluminationDirection(MapVec direction);
         void setHillshadeMethod(int method);
@@ -113,6 +117,10 @@ namespace carto {
         Color _normalMapAccentColor;
         Color _normalMapHighlightColor;
         std::string _normalMapLightingShader;
+        bool _normalMapElevationEncoded = false;
+        float _normalMapContourInterval = 0.0f; // meters; <= 0 disables contour lines
+        Color _normalMapContourColor;
+        float _normalMapContourWidth = 0.75f; // contour half-width in screen pixels
         std::optional<std::regex> _rendererLayerFilter;
         std::optional<std::regex> _clickHandlerLayerFilter;
 

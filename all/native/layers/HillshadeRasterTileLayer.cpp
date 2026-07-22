@@ -29,7 +29,7 @@
 namespace carto
 {
 
-    HillshadeRasterTileLayer::HillshadeRasterTileLayer(const std::shared_ptr<TileDataSource> &dataSource, const std::shared_ptr<ElevationDecoder> &elevationDecoder) : RasterTileLayer(dataSource),
+    HillshadeRasterTileLayer::HillshadeRasterTileLayer(const std::shared_ptr<TileDataSource> &dataSource, const std::shared_ptr<ElevationDecoder> &elevationDecoder) : CustomRasterTileLayer(dataSource),
         _elevationDecoder(elevationDecoder),
         _contrast(0.5f),
         _heightScale(0.09f),
@@ -40,11 +40,16 @@ namespace carto
         _highlightColor(Color(255, 255, 255, 255)),
         _illuminationDirection(MapVec(-0.42261826, 0.90630779, -0.70710678)),  // azimuth=335°, altitude=45° (MapLibre defaults)
         _illuminationMapRotationEnabled(true),
-        _hillshadeMethod(HillshadeMethod::HillshadeMethod::STANDARD)
+        _hillshadeMethod(HillshadeMethod::HillshadeMethod::STANDARD),
+        _contourEnabled(false),
+        _elevationEncodingEnabled(false),
+        _contourInterval(100.0f),
+        _contourColor(Color(0xC5, 0x60, 0x08, 0xff)),
+        _contourWidth(0.75f)
     {
         setTileBlendingSpeed(0.0f);
     }
-    HillshadeRasterTileLayer::HillshadeRasterTileLayer(const std::shared_ptr<TileDataSource> &dataSource) : RasterTileLayer(dataSource),
+    HillshadeRasterTileLayer::HillshadeRasterTileLayer(const std::shared_ptr<TileDataSource> &dataSource) : CustomRasterTileLayer(dataSource),
         _elevationDecoder(nullptr),
         _contrast(0.5f),
         _heightScale(1.0f),
@@ -55,7 +60,12 @@ namespace carto
         _highlightColor(Color(255, 255, 255, 255)),
         _illuminationDirection(MapVec(-0.42261826, 0.90630779, -0.70710678)),  // azimuth=335°, altitude=45° (MapLibre defaults)
         _illuminationMapRotationEnabled(true),
-        _hillshadeMethod(HillshadeMethod::HillshadeMethod::STANDARD)
+        _hillshadeMethod(HillshadeMethod::HillshadeMethod::STANDARD),
+        _contourEnabled(false),
+        _elevationEncodingEnabled(false),
+        _contourInterval(100.0f),
+        _contourColor(Color(0xC5, 0x60, 0x08, 0xff)),
+        _contourWidth(0.75f)
     {
         setTileBlendingSpeed(0.0f);
     }
@@ -160,6 +170,53 @@ namespace carto
         redraw();
     }
 
+    bool HillshadeRasterTileLayer::isElevationEncodingEnabled() const {
+        return _elevationEncodingEnabled.load();
+    }
+
+    void HillshadeRasterTileLayer::setElevationEncodingEnabled(bool enabled) {
+        _elevationEncodingEnabled.store(enabled);
+        updateTiles(false); // format change (elevation packed into the normal map)
+    }
+
+    bool HillshadeRasterTileLayer::isContourEnabled() const {
+        return _contourEnabled.load();
+    }
+
+    void HillshadeRasterTileLayer::setContourEnabled(bool enabled) {
+        _contourEnabled.store(enabled);
+        // Toggling contours changes the normal map encoding (elevation packed into B/A), so the
+        // tiles must be rebuilt (as with setContrast, which is also baked into the normal map).
+        updateTiles(false);
+    }
+
+    float HillshadeRasterTileLayer::getContourInterval() const {
+        return _contourInterval.load();
+    }
+
+    void HillshadeRasterTileLayer::setContourInterval(float interval) {
+        _contourInterval.store(interval);
+        redraw();
+    }
+
+    Color HillshadeRasterTileLayer::getContourColor() const {
+        return _contourColor.load();
+    }
+
+    void HillshadeRasterTileLayer::setContourColor(const Color& color) {
+        _contourColor.store(color);
+        redraw();
+    }
+
+    float HillshadeRasterTileLayer::getContourWidth() const {
+        return _contourWidth.load();
+    }
+
+    void HillshadeRasterTileLayer::setContourWidth(float width) {
+        _contourWidth.store(width);
+        redraw();
+    }
+
     bool HillshadeRasterTileLayer::onDrawFrame(float deltaSeconds, BillboardSorter &billboardSorter, const ViewState &viewState)
     {
         updateTileLoadListener();
@@ -179,6 +236,10 @@ namespace carto
             _tileRenderer->setNormalMapShadowColor(getShadowColor());
             _tileRenderer->setNormalMapAccentColor(getAccentColor());
             _tileRenderer->setNormalMapHighlightColor(getHighlightColor());
+            _tileRenderer->setNormalMapElevationEncoded(isElevationEncoded());
+            _tileRenderer->setNormalMapContourInterval(isContourEnabled() ? getContourInterval() : 0.0f);
+            _tileRenderer->setNormalMapContourColor(getContourColor());
+            _tileRenderer->setNormalMapContourWidth(getContourWidth());
             _tileRenderer->setNormalIlluminationDirection(getIlluminationDirection());
             _tileRenderer->setNormalIlluminationMapRotationEnabled(getIlluminationMapRotationEnabled());
 
@@ -218,6 +279,7 @@ namespace carto
     std::shared_ptr<vt::Tile> HillshadeRasterTileLayer::createVectorTile(const MapTile& subTile, const MapTile& tile, const std::shared_ptr<TileData>& tileData, const std::shared_ptr<Bitmap>& bitmap, const std::shared_ptr<vt::TileTransformer>& tileTransformer) const {
         std::uint8_t alpha = 0;
         std::array<float, 4> scales;
+        std::array<float, 4> elevationCoeffs = { { 0.0f, 0.0f, 0.0f, 0.0f } };
         {
             // Try to get decoder type from tile metadata first, fallback to layer's decoder
             std::shared_ptr<ElevationDecoder> decoder = _elevationDecoder;
@@ -240,6 +302,8 @@ namespace carto
                 decoder = mapboxDecoder;
             }
             scales = decoder->getVectorTileScales();
+            std::array<double, 4> rawCoeffs = decoder->getColorComponentCoefficients();
+            elevationCoeffs = { { static_cast<float>(rawCoeffs[0]), static_cast<float>(rawCoeffs[1]), static_cast<float>(rawCoeffs[2]), static_cast<float>(rawCoeffs[3]) } };
             alpha = static_cast<std::uint8_t>(getContrast() * 255.0f);
             float heightScale = decoder->getMinimumHeightScale();
             float scale = heightScale * static_cast<float>(bitmap->getHeight() * std::pow(2.0, tile.getZoom()) / 40075016.6855785);
@@ -258,7 +322,7 @@ namespace carto
         auto rgbaBitmapDataPtr = reinterpret_cast<const std::uint32_t*>(rgbaBitmap->getPixelData().data());
         std::vector<std::uint32_t> rgbaBitmapData(rgbaBitmapDataPtr, rgbaBitmapDataPtr + rgbaBitmap->getWidth() * rgbaBitmap->getHeight());
         auto vtBitmap = std::make_shared<vt::Bitmap>(rgbaBitmap->getWidth(), rgbaBitmap->getHeight(), std::move(rgbaBitmapData));
-        vt::NormalMapBuilder normalMapBuilder(scales, alpha);
+        vt::NormalMapBuilder normalMapBuilder(scales, alpha, isElevationEncoded(), elevationCoeffs);
         std::shared_ptr<const vt::Bitmap> normalMap = normalMapBuilder.buildNormalMapFromHeightMap(vtTileId, vtTileId, vtBitmap);
         auto normalMapDataPtr = reinterpret_cast<const std::uint8_t*>(normalMap->data.data());
         std::vector<std::uint8_t> normalMapData(normalMapDataPtr, normalMapDataPtr + normalMap->data.size() * sizeof(std::uint32_t));
