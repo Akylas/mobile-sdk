@@ -39,6 +39,7 @@ import com.carto.core.ScreenBounds;
 import com.carto.core.StringMap;
 import com.carto.core.StringVector;
 import com.carto.core.Variant;
+import com.carto.datasources.ContourTileDataSource;
 import com.carto.datasources.GeoJSONVectorTileDataSource;
 import com.carto.datasources.HTTPTileDataSource;
 import com.carto.datasources.MergedMBVTTileDataSource;
@@ -59,6 +60,7 @@ import com.carto.geometry.PolygonGeometry;
 import com.carto.geometry.VectorTileFeatureCollection;
 import com.carto.graphics.Color;
 import com.carto.layers.HillshadeMethod;
+import com.carto.layers.CustomRasterTileLayer;
 import com.carto.layers.HillshadeRasterTileLayer;
 import com.carto.layers.RasterTileFilterMode;
 import com.carto.layers.RasterTileLayer;
@@ -90,6 +92,7 @@ import com.carto.vectortiles.MBVectorTileDecoder;
 import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -205,7 +208,7 @@ public class SecondFragment extends Fragment {
     com.carto.components.TerrainOptions terrainOptions;
     TextView terrainZoomText;
 
-    void addTerrain(View view) {
+    void addTerrain(View view, String dataPath) {
         // Shared elevation source: used simultaneously by the 3D terrain and the hillshade layer.
         // The memory cache avoids downloading/decoding each elevation tile twice.
         final HTTPTileDataSource demSource = new HTTPTileDataSource(1, 12, "https://tiles.mapterhorn.com/{z}/{x}/{y}.webp");
@@ -216,19 +219,131 @@ public class SecondFragment extends Fragment {
         // (delegated through the cache wrapper); passing it explicitly works as well.
         terrainOptions = new com.carto.components.TerrainOptions(cachedDemSource, new TerrariumElevationDataDecoder());
         terrainOptions.setExaggeration(1.0f);
+        terrainOptions.setMeshResolution(64);
         // Optional: cap terrain LOD tile detail at what flat rendering would show
         // (offset 0), to hide LOD rings if the style renders differently at different
         // tile zoom levels. Disabled: the LOD rings turned out not to be the cause of
         // the washed-out alpine faces (style/hillshade appearance).
         //terrainOptions.setMaxTileZoomOffset(0);
+
+//        terrainOptions.setRegularGridEnabled(true);
+        terrainOptions.setPainterOrderDepthEnabled(true);
         mapView.getOptions().setTerrainOptions(terrainOptions);
 
         // Hillshade layer draped over the 3D terrain, sharing the elevation source
         final HillshadeRasterTileLayer hillshade = new HillshadeRasterTileLayer(cachedDemSource, new TerrariumElevationDataDecoder());
         hillshade.setHillshadeMethod(HillshadeMethod.IGOR);
         hillshade.setContrast(0.5f);
-        hillshade.setHeightScale(0.02f);
+        hillshade.setHeightScale(0.05f);
+        // Piece 1+2: GPU contour lines drawn IN the hillshade pass. The normal map encodes the
+        // absolute elevation, and the hillshade fragment shader draws anti-aliased contour lines from
+        // it (tangram/ascendmaps style). This is the shader alternative to the ContourTileDataSource
+        // geometry path below: cheaper, no labels, not styled from CartoCSS. Unlike the geometry path
+        // it is unaffected by the DEM/tile zoom (drawn per fragment at a fixed metre interval).
+//        hillshade.setContourEnabled(true);
+//        hillshade.setContourInterval(100f);
+//        hillshade.setContourColor(new Color((short) 0xC5, (short) 0x60, (short) 0x08, (short) 0xFF));
+//        hillshade.setContourWidth(0.8f);
+
+        // --- Fully CUSTOM per-zoom "div" contour shader (Piece 1+2, configurable) ---------------
+        // A custom normal-map lighting shader can call getElevation() (metres at the fragment) and
+        // getMapZoom() (fractional map zoom), so it picks the interval per zoom and draws several line
+        // weights ("div"). To use it instead of the built-in contours: keep elevation encoding on, turn
+        // the built-in contours OFF, and set the shader. (Uncomment to try.)
+        // hillshade.setContourEnabled(false);
+//         hillshade.setElevationEncodingEnabled(true);
+//         // Contour-ONLY custom shader: returns PREMULTIPLIED color and is fully TRANSPARENT where there
+//         // is no line (alpha = coverage), so the map below shows through. Returning an opaque base (as a
+//         // "grey hillshade") is what caused the grey wash. To also draw hillshade, composite the lines
+//         // OVER a slope-based shadow whose alpha is 0 on flat/lit ground (not a constant).
+//         hillshade.setNormalMapLightingShader(
+//             "vec4 applyLighting(lowp vec4 color, mediump vec3 normal, mediump vec3 surfaceNormal, mediump float intensity) {\n" +
+//             "  float e = getElevation();\n" +
+//             "  float z = getMapZoom();\n" +
+//             "  float aa = max(fwidth(e), 1e-4);\n" +
+//             "  float interval = z >= 14.0 ? 25.0 : (z >= 12.0 ? 50.0 : 100.0);\n" +   // per-zoom div
+//             "  float f1 = fract(e / interval); float d1 = min(f1, 1.0 - f1) * interval;\n" +
+//             "  float minor = clamp(0.6 - d1 / aa, 0.0, 1.0);\n" +
+//             "  float majorI = interval * 5.0;\n" +
+//             "  float f2 = fract(e / majorI); float d2 = min(f2, 1.0 - f2) * majorI;\n" +
+//             "  float major = clamp(1.2 - d2 / aa, 0.0, 1.0);\n" +
+//             "  float cov = max(minor * 0.5, major);\n" +           // line coverage (0 where no line)
+//             "  vec3 cc = vec3(0.77, 0.38, 0.03);\n" +
+//             "  return vec4(cc * cov, cov);\n" +                    // premultiplied, transparent elsewhere
+//             "}\n");
+
         mapView.getLayers().add(hillshade);
+
+        // --- General CustomRasterTileLayer: run ANY custom "filter" shader over ANY raster source -----
+        // The base class of HillshadeRasterTileLayer. The shader gets getRawColor() (the untouched RGBA
+        // texel), getMapZoom() and vUV, and returns a PREMULTIPLIED color. Here: a hypsometric tint that
+        // decodes terrarium elevation from the raw RGB terrain tile and colors it by height. (Uncomment.)
+         final CustomRasterTileLayer tinted = new CustomRasterTileLayer(cachedDemSource);
+         tinted.setShaderSource(
+             "vec4 applyLighting(lowp vec4 color, mediump vec3 normal, mediump vec3 surfaceNormal, mediump float intensity) {\n" +
+             "  vec4 c = getRawColor();\n" +
+             "  float h = (c.r * 255.0 * 256.0 + c.g * 255.0 + c.b * 255.0 / 256.0) - 32768.0;\n" + // terrarium metres
+             "  float t = clamp(h / 3000.0, 0.0, 1.0);\n" +
+             "  vec3 col = mix(vec3(0.2, 0.4, 0.8), vec3(0.9, 0.9, 0.4), t);\n" +          // blue -> yellow
+             "  col = mix(col, vec3(0.5, 0.3, 0.1), clamp((h - 1500.0) / 1500.0, 0.0, 1.0));\n" + // -> brown high
+             "  return vec4(col, 1.0);\n" +
+             "}\n");
+         mapView.getLayers().add(tinted);
+
+        // Piece 3 test: on-the-fly contour lines generated from the SAME shared elevation
+        // source (no second download/decode of terrain tiles). The generated vector tiles
+        // expose 'ele' (elevation in m) and 'div' (importance = largest nice divisor), so the
+        // whole look is driven from CartoCSS - here line width/opacity scale by 'div'.
+        // IMPORTANT: in CartoCSS 'zoom' means the TILE zoom, not the camera zoom. Contour tiles are
+        // generated at the DEM source's zoom, so the DEM source max zoom must be high enough for the
+        // per-zoom style rules ([div=10][zoom>=14] ...) to ever fire and for detail to change as you
+        // zoom. The 3D terrain DEM is capped at z12, so use a DEDICATED higher-zoom DEM source for
+        // contours (same tiles, just allowed deeper). generation interval: z<=12 100 m, z13 50 m, z>=14 10 m.
+        final HTTPTileDataSource contourDemSource = new HTTPTileDataSource(5, 12, "https://tiles.mapterhorn.com/{z}/{x}/{y}.webp");
+        contourDemSource.setEncoding("terrarium");
+        final com.carto.datasources.MemoryCacheTileDataSource cachedContourDemSource = new com.carto.datasources.MemoryCacheTileDataSource(contourDemSource);
+        final ContourTileDataSource contourSource = new ContourTileDataSource(cachedContourDemSource);
+        contourSource.setEncoding("terrarium");
+        contourSource.setBaseInterval(10f);
+        // Perf knobs: the DEM is subsampled to at most 'resolution' samples/side before tracing,
+        // and geometry is simplified by 'simplifyTolerance' tile pixels. Lower resolution / higher
+        // tolerance => far fewer line vertices to trace, upload and drape over the 3D terrain.
+        contourSource.setResolution(96);
+        contourSource.setSimplifyTolerance(1.5f);
+        // Fetch E/N/NE neighbour DEM tiles so contour lines meet across tile boundaries (removes seams).
+        // Costs up to 3 extra DEM fetches/decodes per tile (usually cached).
+        contourSource.setSeamlessEdgesEnabled(true);
+        // Contours are generated only at zoom >= MinVisibleZoom (default 12). This style has no zoom filter,
+        // so lower it to see contours below z12 too. (At very low zoom a tile spans huge relief; the source
+        // caps levels per tile. CartoCSS 'zoom' is the TILE zoom, so add zoom rules if you want per-zoom style.)
+        contourSource.setMinVisibleZoom(contourDemSource.getMinZoom());
+//        try {
+                    String contourCss =
+                "#contour {\n" +
+                "  line-color: #C56008;\n" +
+                "  line-width: 0.8;\n" +
+                "  line-opacity: 0.4;\n" +
+                "  [div>=50]  { line-opacity: 0.7; line-width: 1.0; }\n" +
+                "  [div>=100] { line-opacity: 0.9; line-width: 1.4; }\n" +
+                "  [div>=500] { line-width: 2.0; }\n" +
+                // Labels need a font asset package (text-face-name -> a bundled font); enable
+                // once a decoder with fonts is used:
+                // "  text-name: [ele] + ' m';\n" +
+                // "  text-face-name: \"fonts/NotoSans-Regular.ttf\";\n" +
+                // "  text-placement: line;\n" +
+                // "  text-size: 10;\n" +
+                // "  text-fill: #C56008;\n" +
+                // "  text-halo-fill: #ffffff;\n" +
+                // "  text-halo-radius: 1.5;\n" +
+                "}\n";
+        MBVectorTileDecoder decoder = new MBVectorTileDecoder(new CartoCSSStyleSet(contourCss));
+            final VectorTileLayer contourLayer = new VectorTileLayer(contourSource, decoder);
+//            mapView.getLayers().add(contourLayer);
+
+//        } catch (IOException e) {
+//            throw new RuntimeException(e);
+//        }
+
 
         addTerrainTestElements();
         addTerrainControls(view);
@@ -236,8 +351,8 @@ public class SecondFragment extends Fragment {
         // Start tilted over the Alps (Grenoble). Note: setFocusPos expects base projection
         // coordinates, so WGS84 positions must be converted first.
         Projection proj = mapView.getOptions().getBaseProjection();
-        mapView.setFocusPos(proj.fromWgs84(new MapPos(5.72476358599884, 45.19272038067931)), 0);
-        mapView.setZoom(12f, 0);
+        mapView.setFocusPos(proj.fromWgs84(new MapPos(5.770689, 45.232494)), 0);
+        mapView.setZoom(13.80f, 0);
         mapView.setTilt(35f, 0);
     }
 
@@ -533,6 +648,20 @@ public class SecondFragment extends Fragment {
         });
 
     }
+
+    MBVectorTileDecoder decoder = null;
+    MBVectorTileDecoder getStyleDecoder(String dataPath) throws IOException {
+        if (decoder == null) {
+            final File file = new File(dataPath+"/osm.zip");
+            final FileInputStream stream = new java.io.FileInputStream(file);
+            final DataInputStream dataInputStream = new java.io.DataInputStream(stream);
+            final byte[] bytes = new byte[(int)file.length()];
+            dataInputStream.readFully(bytes);
+            decoder = new MBVectorTileDecoder(new CompiledStyleSet(new ZippedAssetPackage(new com.carto.core.BinaryData(bytes))));
+
+        }
+        return decoder;
+    }
     TileLayer mainMapLayer;
     void addMap(String dataPath) {
         MultiTileDataSource  dataSource = new MultiTileDataSource();
@@ -540,23 +669,16 @@ public class SecondFragment extends Fragment {
         MBTilesTileDataSource sourceItaly = null;
         MBTilesTileDataSource sourceFranceContours = null;
         MBTilesTileDataSource sourceWorld = null;
-        MBVectorTileDecoder decoder = null;
         try {
 //            sourceHTTP = new HTTPTileDataSource(0,19,"https://demo-bucket.protomaps.com/v4.pmtiles");
             sourceHTTP = new HTTPTileDataSource(0,14,"https://tiles.openfreemap.org/planet/latest/{z}/{x}/{y}.pbf");
             StringMap headers = new StringMap();
             headers.set("User-Agent", "AlpiMaps");
             sourceHTTP.setHTTPHeaders(headers);
-//            sourceFrance = new MBTilesTileDataSource( dataPath+"/france/france.mbtiles");
-//            sourceItaly = new MBTilesTileDataSource( dataPath+"/netherlands/netherlands.mbtiles");
-//            sourceFranceContours = new MBTilesTileDataSource( dataPath+"/france/france_contours.mbtiles");
-//            sourceWorld = new MBTilesTileDataSource( dataPath+"/world.mbtiles");france
-            final File file = new File(dataPath+"/osm.zip");
-            final FileInputStream stream = new java.io.FileInputStream(file);
-            final DataInputStream dataInputStream = new java.io.DataInputStream(stream);
-            final byte[] bytes = new byte[(int)file.length()];
-            dataInputStream.readFully(bytes);
-            decoder = new MBVectorTileDecoder(new CompiledStyleSet(new ZippedAssetPackage(new com.carto.core.BinaryData(bytes))));
+            MBVectorTileDecoder decoder = getStyleDecoder(dataPath);
+            mainMapLayer  = new VectorTileLayer(sourceHTTP, decoder);
+            mapView.getLayers().add(mainMapLayer);
+
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -566,9 +688,7 @@ public class SecondFragment extends Fragment {
 //        dataSource.add(mergedSource);
 //        dataSource.add(sourceItaly);
 //        dataSource.add(sourceWorld);
-        mainMapLayer  = new VectorTileLayer(sourceHTTP, decoder);
 //        mainMapLayer  = new RasterTileLayer(sourceHTTP);
-        mapView.getLayers().add(mainMapLayer);
     }
     void addRoutes(String dataPath) {
         MultiTileDataSource  dataSource = new MultiTileDataSource();
@@ -608,7 +728,7 @@ public class SecondFragment extends Fragment {
 
 
         addMap(dataPath);
-        addTerrain(view);
+        addTerrain(view, dataPath);
 //        addRoutes(dataPath);
 //        addHillshadeLayer(view, dataPath);
 
@@ -636,6 +756,8 @@ public class SecondFragment extends Fragment {
             @Override
             public void onMapMoved() {
                 super.onMapMoved();
+                Log.d(TAG, String.format("lat=%.6f lng=%.6f rotation=%.2f z=%.2f tilt=%.0f", mapView.getFocusPos().getY(), mapView.getFocusPos().getX(), mapView.getMapRotation(),  mapView.getZoom(), mapView.getTilt()
+                ));
                 getActivity().runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
