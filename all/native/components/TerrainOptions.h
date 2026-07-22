@@ -124,6 +124,22 @@ namespace carto {
         void setRegularGridEnabled(bool regularGridEnabled);
 
         /**
+         * Returns whether the painter-order terrain depth model is used.
+         * @return True if painter-order depth is used, false for the surface-occluder model. The default is false.
+         */
+        bool isPainterOrderDepthEnabled() const;
+        /**
+         * Enables or disables the tangram-style painter-order terrain depth model. When enabled, the
+         * terrain surface is the bottom painter layer and draped content is separated by a fixed
+         * per-layer clip-space delta instead of being depth-tested against a surface pre-pass occluder,
+         * which removes the distance-growing depth slack (no see-through band). Implies (and forces)
+         * RegularGridEnabled. Only takes effect in GPU draping mode (vertex texture fetch, planar).
+         * Experimental.
+         * @param painterOrderDepthEnabled True to use painter-order depth, false for the occluder model.
+         */
+        void setPainterOrderDepthEnabled(bool painterOrderDepthEnabled);
+
+        /**
          * Returns the minimum tile zoom level with 3D terrain.
          * @return The minimum zoom level. The default is 5.
          */
@@ -288,6 +304,7 @@ namespace carto {
         std::atomic<bool> _enabled;
         std::atomic<int> _meshResolution;
         std::atomic<bool> _regularGridEnabled;
+        std::atomic<bool> _painterOrderDepthEnabled;
         std::atomic<int> _minZoom;
         std::atomic<int> _maxTileZoomOffset;
         std::atomic<int> _backgroundColorARGB;

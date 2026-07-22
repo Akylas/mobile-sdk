@@ -18,6 +18,7 @@ namespace carto {
         _enabled(true),
         _meshResolution(32),
         _regularGridEnabled(false),
+        _painterOrderDepthEnabled(false),
         _minZoom(5),
         _maxTileZoomOffset(100),
         _backgroundColorARGB(0),
@@ -84,6 +85,16 @@ namespace carto {
     void TerrainOptions::setRegularGridEnabled(bool regularGridEnabled) {
         if (_regularGridEnabled.exchange(regularGridEnabled) != regularGridEnabled) {
             notifyOptionChanged("RegularGridEnabled");
+        }
+    }
+
+    bool TerrainOptions::isPainterOrderDepthEnabled() const {
+        return _painterOrderDepthEnabled.load();
+    }
+
+    void TerrainOptions::setPainterOrderDepthEnabled(bool painterOrderDepthEnabled) {
+        if (_painterOrderDepthEnabled.exchange(painterOrderDepthEnabled) != painterOrderDepthEnabled) {
+            notifyOptionChanged("PainterOrderDepthEnabled");
         }
     }
 

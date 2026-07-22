@@ -259,7 +259,7 @@ namespace carto {
             float terrainExaggeration = terrainOptions ? terrainOptions->getExaggeration() : 1.0f;
             int terrainMeshResolution = terrainOptions ? terrainOptions->getMeshResolution() : 0;
             int terrainMinZoom = terrainOptions ? terrainOptions->getMinZoom() : 0;
-            bool terrainRegularGrid = terrainOptions && terrainOptions->isRegularGridEnabled();
+            bool terrainRegularGrid = terrainOptions && (terrainOptions->isRegularGridEnabled() || terrainOptions->isPainterOrderDepthEnabled());
             if (_terrainOptions.lock() != terrainOptions || _terrainEnabled != terrainEnabled || _terrainExaggeration != terrainExaggeration || _terrainMeshResolution != terrainMeshResolution || _terrainMinZoom != terrainMinZoom || _terrainRegularGrid != terrainRegularGrid) {
                 clearTileCaches(true);
                 resetTileTransformer();
@@ -775,7 +775,7 @@ namespace carto {
             }
             else if (auto terrainOptions = options->getTerrainOptions()) {
                 if (terrainOptions->isEnabled()) {
-                    tileTransformer = std::make_shared<TerrainTileTransformer>(static_cast<float>(Const::WORLD_SIZE), terrainOptions->getElevationManager(), terrainOptions->getMeshResolution(), terrainOptions->getMinZoom(), terrainOptions->isRegularGridEnabled());
+                    tileTransformer = std::make_shared<TerrainTileTransformer>(static_cast<float>(Const::WORLD_SIZE), terrainOptions->getElevationManager(), terrainOptions->getMeshResolution(), terrainOptions->getMinZoom(), terrainOptions->isRegularGridEnabled() || terrainOptions->isPainterOrderDepthEnabled());
                 }
             }
         }
