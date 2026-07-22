@@ -20,6 +20,7 @@
 #include <vt/LabelCuller.h>
 #include <vt/TileTransformer.h>
 #include <vt/GLExtensions.h>
+#include <vt/NormalMapBuilder.h>
 
 #include <cmath>
 #include <unordered_map>
@@ -152,6 +153,22 @@ namespace carto {
             _normalMapLightingShader = newValue;
             _vtRenderer.reset();
         }
+    }
+    void TileRenderer::setNormalMapElevationEncoded(bool enabled) {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _normalMapElevationEncoded = enabled;
+    }
+    void TileRenderer::setNormalMapContourInterval(float interval) {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _normalMapContourInterval = interval;
+    }
+    void TileRenderer::setNormalMapContourColor(const Color& color) {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _normalMapContourColor = color;
+    }
+    void TileRenderer::setNormalMapContourWidth(float width) {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _normalMapContourWidth = width;
     }
     void TileRenderer::setNormalIlluminationDirection(MapVec direction) {
         std::lock_guard<std::mutex> lock(_mutex);
@@ -700,6 +717,16 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
                     glUniform3fv(glGetUniformLocation(shaderProgram, "u_lightDir"), 1, _normalLightDir.data() );
                     glUniform1i(glGetUniformLocation(shaderProgram, "u_method"), (_hillshadeMethod));
                     glUniform1f(glGetUniformLocation(shaderProgram, "u_exaggeration"), _hillshadeExaggeration);
+                    // Elevation-encoded normal map + contour lines (opt-in). These uniforms have no
+                    // effect unless the normal map was built with elevation encoding (see HillshadeRasterTileLayer).
+                    glUniform1f(glGetUniformLocation(shaderProgram, "u_elevationEncoded"), _normalMapElevationEncoded ? 1.0f : 0.0f);
+                    glUniform2f(glGetUniformLocation(shaderProgram, "u_elevationDecode"), vt::NormalMapBuilder::ELEVATION_SCALE, vt::NormalMapBuilder::ELEVATION_OFFSET);
+                    glUniform1f(glGetUniformLocation(shaderProgram, "u_contrast"), _hillshadeExaggeration);
+                    glUniform4f(glGetUniformLocation(shaderProgram, "u_contourColor"), _normalMapContourColor.getR() / 255.0f, _normalMapContourColor.getG() / 255.0f, _normalMapContourColor.getB() / 255.0f, _normalMapContourColor.getA() / 255.0f);
+                    glUniform1f(glGetUniformLocation(shaderProgram, "u_contourInterval"), _normalMapContourInterval);
+                    glUniform1f(glGetUniformLocation(shaderProgram, "u_contourWidth"), _normalMapContourWidth);
+                    // Current fractional map zoom, for per-zoom custom normal-map shaders (getMapZoom()).
+                    glUniform1f(glGetUniformLocation(shaderProgram, "u_zoom"), viewState.zoom);
             });
             tileRenderer->setLightingShaderNormalMap(lightingShaderNormalMap);
         }

@@ -3,7 +3,7 @@
 
 %module HillshadeRasterTileLayer
 
-!proxy_imports(carto::HillshadeRasterTileLayer, core.MapPos, core.MapVec, core.MapPosVector, core.DoubleVector, datasources.TileDataSource, rastertiles.ElevationDecoder, graphics.Color, layers.RasterTileLayer)
+!proxy_imports(carto::HillshadeRasterTileLayer, core.MapPos, core.MapVec, core.MapPosVector, core.DoubleVector, datasources.TileDataSource, rastertiles.ElevationDecoder, graphics.Color, layers.CustomRasterTileLayer)
 
 %{
 #include "layers/HillshadeRasterTileLayer.h"
@@ -17,7 +17,7 @@
 %import "datasources/TileDataSource.i"
 %import "rastertiles/ElevationDecoder.i"
 %import "graphics/Color.i"
-%import "layers/RasterTileLayer.i"
+%import "layers/CustomRasterTileLayer.i"
 %import "core/DoubleVector.i"
 
 !enum(carto::HillshadeMethod::HillshadeMethod)
@@ -33,6 +33,11 @@
 %attributeval(carto::HillshadeRasterTileLayer, carto::Color, HighlightColor, getHighlightColor, setHighlightColor)
 %attributeval(carto::HillshadeRasterTileLayer, carto::Color, AccentColor, getAccentColor, setAccentColor)
 %attributeval(carto::HillshadeRasterTileLayer, std::string, NormalMapLightingShader, getNormalMapLightingShader, setNormalMapLightingShader)
+%attribute(carto::HillshadeRasterTileLayer, bool, ElevationEncodingEnabled, isElevationEncodingEnabled, setElevationEncodingEnabled)
+%attribute(carto::HillshadeRasterTileLayer, bool, ContourEnabled, isContourEnabled, setContourEnabled)
+%attribute(carto::HillshadeRasterTileLayer, float, ContourInterval, getContourInterval, setContourInterval)
+%attributeval(carto::HillshadeRasterTileLayer, carto::Color, ContourColor, getContourColor, setContourColor)
+%attribute(carto::HillshadeRasterTileLayer, float, ContourWidth, getContourWidth, setContourWidth)
 %std_exceptions(carto::HillshadeRasterTileLayer::HillshadeRasterTileLayer)
 
 %include "layers/HillshadeRasterTileLayer.h"

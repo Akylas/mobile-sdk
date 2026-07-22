@@ -9,7 +9,7 @@
 
 #include "graphics/Color.h"
 #include "components/DirectorPtr.h"
-#include "layers/RasterTileLayer.h"
+#include "layers/CustomRasterTileLayer.h"
 #include "rastertiles/ElevationDecoder.h"
 
 #include <atomic>
@@ -50,7 +50,7 @@ namespace carto {
      * The shading is based on the direction of the main light source, which can be configured using Options class.
      * Note: this class is experimental and may change or even be removed in future SDK versions.
      */
-    class HillshadeRasterTileLayer : public RasterTileLayer {
+    class HillshadeRasterTileLayer : public CustomRasterTileLayer {
     public:
         /**
          * Constructs a HillshadeRasterTileLayer object from a data source.
@@ -166,6 +166,63 @@ namespace carto {
          */
         void setHillshadeMethod(HillshadeMethod::HillshadeMethod method);
 
+        /**
+         * Returns whether the normal map encodes absolute elevation (so a custom normal-map lighting
+         * shader can call getElevation()).
+         * @return True if elevation encoding is enabled. Default is false.
+         */
+        bool isElevationEncodingEnabled() const;
+        /**
+         * Sets whether the normal map encodes absolute elevation in addition to the surface normal.
+         * Required for a custom normal-map lighting shader that reads getElevation()/getMapZoom() (e.g.
+         * to draw its own per-zoom contour lines). Enabling contour lines turns this on implicitly.
+         * @param enabled True to encode elevation into the normal map.
+         */
+        void setElevationEncodingEnabled(bool enabled);
+
+        /**
+         * Returns whether GPU contour lines are drawn over the hillshade.
+         * @return True if contour lines are enabled. Default is false.
+         */
+        bool isContourEnabled() const;
+        /**
+         * Sets whether to draw anti-aliased contour lines over the hillshade, computed in the shader
+         * from the elevation data. Enabling this makes the normal map encode absolute elevation (which
+         * is also available to a custom normal-map lighting shader). Note: this class is experimental.
+         * @param enabled True to draw contour lines.
+         */
+        void setContourEnabled(bool enabled);
+        /**
+         * Returns the spacing between contour lines in meters.
+         * @return The contour interval in meters. Default is 100.
+         */
+        float getContourInterval() const;
+        /**
+         * Sets the spacing between contour lines in meters.
+         * @param interval The contour interval in meters.
+         */
+        void setContourInterval(float interval);
+        /**
+         * Returns the contour line color.
+         * @return The contour line color.
+         */
+        Color getContourColor() const;
+        /**
+         * Sets the contour line color.
+         * @param color The contour line color.
+         */
+        void setContourColor(const Color& color);
+        /**
+         * Returns the contour line half-width in screen pixels.
+         * @return The contour line width. Default is 0.75.
+         */
+        float getContourWidth() const;
+        /**
+         * Sets the contour line half-width in screen pixels.
+         * @param width The contour line width in pixels.
+         */
+        void setContourWidth(float width);
+
         double getElevation(const MapPos& pos) const;
         std::vector<double> getElevations(const std::vector<MapPos> poses) const;
 
@@ -192,6 +249,15 @@ namespace carto {
         std::atomic<MapVec> _illuminationDirection;
         std::atomic<bool> _illuminationMapRotationEnabled;
         std::atomic<HillshadeMethod::HillshadeMethod> _hillshadeMethod;
+        std::atomic<bool> _contourEnabled;
+        std::atomic<bool> _elevationEncodingEnabled;
+        std::atomic<float> _contourInterval;
+        std::atomic<Color> _contourColor;
+        std::atomic<float> _contourWidth;
+
+        // Elevation is packed into the normal map when contours are on or when explicitly requested
+        // for a custom shader.
+        bool isElevationEncoded() const { return _contourEnabled.load() || _elevationEncodingEnabled.load(); }
     };
     
 }
