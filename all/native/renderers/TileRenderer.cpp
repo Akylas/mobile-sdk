@@ -305,10 +305,15 @@ namespace carto {
             terrainSlackScale = resolutionRatio * resolutionRatio;
         }
         tileRenderer->setTerrainSlackScale(terrainSlackScale);
+        // Painter-order depth model (tangram-style): the surface is the bottom painter
+        // layer and content is separated by a per-layer clip delta (no occluder, no slack).
+        // Implies the shared regular grid. Only in GPU draping mode.
+        bool painterOrder = terrainMode && activeTerrainOptions && activeTerrainOptions->isPainterOrderDepthEnabled() && (bool) terrainTextureProvider;
         // Shared regular grid surfaces (tangram-style): one grid built once and reused for
         // every tile, instead of per-tile adaptive tesselation. Only in GPU draping mode.
-        bool regularGrid = terrainMode && activeTerrainOptions && activeTerrainOptions->isRegularGridEnabled() && (bool) terrainTextureProvider;
+        bool regularGrid = painterOrder || (terrainMode && activeTerrainOptions && activeTerrainOptions->isRegularGridEnabled() && (bool) terrainTextureProvider);
         tileRenderer->setTerrainRegularGrid(regularGrid, activeTerrainOptions ? activeTerrainOptions->getMeshResolution() : 0);
+        tileRenderer->setTerrainPainterOrder(painterOrder);
         tileRenderer->setTerrainDepthWrite(terrainMode && _terrainDepthWriteMode);
         tileRenderer->setDebugWireframe(false); // debug: terrain mesh wireframe + stencil overlay
         tileRenderer->setDebugSurfacePrefill(false); // debug: facing-coded terrain pre-fill (magenta front / cyan back)
