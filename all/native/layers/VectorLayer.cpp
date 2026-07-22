@@ -174,12 +174,22 @@ namespace carto {
             // would z-fight the terrain depth pre-pass. Pull them slightly towards the
             // viewer (slope-scaled) while the terrain pre-pass is pushed slightly away.
             bool terrainDepthOffset = false;
+            bool terrainPainterOrder = false;
             float elementDepthBias = 0.0f;
             float elementDepthBiasClip = 0.0f;
             if (auto options = getOptions()) {
                 if (options->getRenderProjectionMode() == RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
                     if (auto terrainOptions = options->getTerrainOptions()) {
-                        if (terrainOptions->isEnabled()) {
+                        if (terrainOptions->isEnabled() && terrainOptions->isPainterOrderDepthEnabled()) {
+                            // Painter-order: the vt renderer pushes the terrain surface BACK to
+                            // give draped content clearance, so elements draw at their REAL depth
+                            // (no forward bias/slack). Nothing is pulled towards the viewer, so an
+                            // element can not leak in front of a near ridge; the pushed-back
+                            // surface keeps it above the coincident tile content.
+                            terrainPainterOrder = true;
+                            elementDepthBias = 0.0f;
+                            elementDepthBiasClip = 0.0f;
+                        } else if (terrainOptions->isEnabled()) {
                             terrainDepthOffset = true;
                             // Element heights are the same bilinear elevation samples the GPU
                             // draping shader renders (plus the small height lift), so only a
