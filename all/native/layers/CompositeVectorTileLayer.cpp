@@ -100,6 +100,7 @@ namespace carto {
         }
 
         std::shared_ptr<Layer> childLayer;
+        float baseHeightScale = 1.0f;
         if (type == CompositeSourceType::COMPOSITE_SOURCE_TYPE_RASTER) {
             childLayer = std::make_shared<RasterTileLayer>(dataSource);
         } else { // HILLSHADE
@@ -107,14 +108,18 @@ namespace carto {
             if (!elevDecoder) {
                 elevDecoder = resolveElevationDecoder(dataSource);
             }
-            childLayer = elevDecoder ? std::make_shared<HillshadeRasterTileLayer>(dataSource, elevDecoder)
-                                     : std::make_shared<HillshadeRasterTileLayer>(dataSource);
+            auto hillshade = elevDecoder ? std::make_shared<HillshadeRasterTileLayer>(dataSource, elevDecoder)
+                                         : std::make_shared<HillshadeRasterTileLayer>(dataSource);
+            // The natural hillshade height scale is small (~0.09 with a decoder); 'hillshade-exaggeration'
+            // is a multiplier of this default so exaggeration=1 keeps the normal look.
+            baseHeightScale = hillshade->getHeightScale();
+            childLayer = hillshade;
         }
 
         {
             std::lock_guard<std::recursive_mutex> lock(_sourceMutex);
             removeExternalDataSource(name); // replace if it exists
-            _externalSources.push_back({ name, type, dataSource, childLayer });
+            _externalSources.push_back({ name, type, dataSource, childLayer, baseHeightScale });
             if (_componentsSet) {
                 wireChild(childLayer);
             }
@@ -163,6 +168,7 @@ namespace carto {
                 }
                 _externalSources.erase(it);
                 _lastVectorConfig.erase(name);
+                _lastChildConfig.erase(name);
                 rebuildDrawItems();
                 removed = true;
             }
@@ -441,6 +447,26 @@ namespace carto {
             auto it = config.values.find(key);
             return it != config.values.end() ? &it->second : nullptr;
         };
+        // Some hillshade setters re-decode the tile (setHeightScale/setContrast/setContourEnabled call
+        // updateTiles). Applying those every frame with a zoom-interpolated value would re-decode
+        // continuously, so they are applied only when the value actually changes. Cheap setters
+        // (opacity, colors, method, illumination, contour width/color, filter mode = redraw only) are
+        // applied every frame so they stay smooth.
+        std::map<std::string, float>& applied = _lastChildConfig[source.name];
+        auto changedFloat = [&](const std::string& key, float& out) {
+            const mvt::Value* v = getValue(key);
+            if (!v) {
+                return false;
+            }
+            float value = valueToFloat(*v, 0.0f);
+            auto it = applied.find(key);
+            if (it != applied.end() && it->second == value) {
+                return false;
+            }
+            applied[key] = value;
+            out = value;
+            return true;
+        };
 
         if (source.type == CompositeSourceType::COMPOSITE_SOURCE_TYPE_RASTER) {
             auto raster = std::static_pointer_cast<RasterTileLayer>(source.childLayer);
@@ -450,20 +476,26 @@ namespace carto {
             }
         } else if (source.type == CompositeSourceType::COMPOSITE_SOURCE_TYPE_HILLSHADE) {
             auto hillshade = std::static_pointer_cast<HillshadeRasterTileLayer>(source.childLayer);
-            if (const mvt::Value* v = getValue("opacity"))      { hillshade->setOpacity(valueToFloat(*v, 1.0f)); }
-            if (const mvt::Value* v = getValue("exaggeration"))  { hillshade->setHeightScale(valueToFloat(*v, 1.0f)); }
-            else if (const mvt::Value* v = getValue("height-scale")) { hillshade->setHeightScale(valueToFloat(*v, 1.0f)); }
-            if (const mvt::Value* v = getValue("contrast"))     { hillshade->setContrast(valueToFloat(*v, 0.5f)); }
+            if (const mvt::Value* v = getValue("opacity")) { hillshade->setOpacity(valueToFloat(*v, 1.0f)); }
+
+            float f = 0.0f;
+            // exaggeration multiplies the layer's natural height scale (~0.09); height-scale sets it raw.
+            if (getValue("exaggeration")) {
+                if (changedFloat("exaggeration", f)) { hillshade->setHeightScale(source.baseHeightScale * f); }
+            } else if (getValue("height-scale")) {
+                if (changedFloat("height-scale", f)) { hillshade->setHeightScale(f); }
+            }
+            if (changedFloat("contrast", f)) { hillshade->setContrast(f); }
+            if (changedFloat("contour-interval", f)) {
+                hillshade->setContourEnabled(f > 0.0f);
+                if (f > 0.0f) { hillshade->setContourInterval(f); }
+            }
+
             if (const mvt::Value* v = getValue("shadow-color"))    { hillshade->setShadowColor(parseColorValue(*v, Color(0, 0, 0, 255))); }
             if (const mvt::Value* v = getValue("highlight-color")) { hillshade->setHighlightColor(parseColorValue(*v, Color(255, 255, 255, 255))); }
             if (const mvt::Value* v = getValue("accent-color"))    { hillshade->setAccentColor(parseColorValue(*v, Color(0, 0, 0, 255))); }
             if (const mvt::Value* v = getValue("method")) {
                 if (auto str = std::get_if<std::string>(v)) { hillshade->setHillshadeMethod(parseHillshadeMethod(*str)); }
-            }
-            if (const mvt::Value* v = getValue("contour-interval")) {
-                float interval = valueToFloat(*v, 0.0f);
-                hillshade->setContourEnabled(interval > 0.0f);
-                if (interval > 0.0f) { hillshade->setContourInterval(interval); }
             }
             if (const mvt::Value* v = getValue("contour-color")) { hillshade->setContourColor(parseColorValue(*v, Color(0xC5, 0x60, 0x08, 0xff))); }
             if (const mvt::Value* v = getValue("contour-width")) { hillshade->setContourWidth(valueToFloat(*v, 1.0f)); }

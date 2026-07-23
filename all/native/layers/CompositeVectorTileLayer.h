@@ -134,6 +134,7 @@ namespace carto {
             CompositeSourceType::CompositeSourceType type;
             std::shared_ptr<TileDataSource> dataSource;
             std::shared_ptr<Layer> childLayer; // raster/hillshade child; null for merged vector
+            float baseHeightScale = 1.0f;      // hillshade's default heightScale; exaggeration multiplies it
         };
 
         // One ordered draw step after the layer's own group-0 render: either an external
@@ -170,6 +171,7 @@ namespace carto {
         std::vector<ExternalSource> _externalSources;
         std::vector<DrawItem> _drawItems;
         std::map<std::string, std::map<std::string, float> > _lastVectorConfig; // per-source applied contour params
+        std::map<std::string, std::map<std::string, float> > _lastChildConfig;  // per-source last-applied decode-affecting values (avoid per-frame re-decode)
         bool _singlePassRenderingEnabled;
 
         // Cached component handles for wiring child layers added after setComponents().
