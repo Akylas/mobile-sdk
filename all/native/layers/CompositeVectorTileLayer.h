@@ -101,14 +101,16 @@ namespace carto {
         std::vector<std::string> getExternalDataSourceNames() const;
 
         /**
-         * Returns whether single-pass segmented rendering is enabled (Milestone 6, optional).
-         * @return True if single-pass rendering is enabled. The default is false.
+         * Returns whether single-pass rendering is enabled.
+         * @return True if single-pass rendering is enabled. The default is true.
          */
         bool isSinglePassRenderingEnabled() const;
         /**
-         * Sets whether to use the optional single-pass segmented renderer instead of the
-         * default one-vt-pass-per-segment path. Intended for A/B comparison; currently a
-         * no-op placeholder until the single-pass renderer lands.
+         * Sets the rendering strategy. When enabled (the default), the master style is decoded once
+         * and each style-layer group is drawn as a layer-index range on a single renderer, with the
+         * external children interleaved and labels drawn once on top. When disabled, each group is
+         * decoded and rendered by its own internal VectorTileLayer (more decoding, but per-group
+         * label placement). Note: with single-pass, keep this layer's opacity at 1.0.
          * @param enabled True to enable single-pass rendering.
          */
         void setSinglePassRenderingEnabled(bool enabled);

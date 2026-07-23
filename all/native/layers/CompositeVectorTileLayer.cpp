@@ -79,7 +79,7 @@ namespace carto {
         _externalSources(),
         _drawItems(),
         _lastVectorConfig(),
-        _singlePassRenderingEnabled(false),
+        _singlePassRenderingEnabled(true),
         _componentsSet(false),
         _childOptions(),
         _childMapRenderer(),
