@@ -10,10 +10,12 @@
 #include "graphics/ViewState.h"
 #include "graphics/Color.h"
 #include "core/MapRange.h"
+#include "core/MapVec.h"
 #include "components/Exceptions.h"
 #include "utils/Log.h"
 
 #include <algorithm>
+#include <cmath>
 #include <variant>
 
 #include <mapnikvt/Value.h>
@@ -461,7 +463,12 @@ namespace carto {
             }
             if (const mvt::Value* v = getValue("contour-color")) { hillshade->setContourColor(parseColorValue(*v, Color(0xC5, 0x60, 0x08, 0xff))); }
             if (const mvt::Value* v = getValue("contour-width")) { hillshade->setContourWidth(valueToFloat(*v, 1.0f)); }
-            // TODO: illumination-direction (azimuth degrees) -> setIlluminationDirection(MapVec).
+            if (const mvt::Value* v = getValue("illumination-direction")) {
+                // Azimuth in degrees (0 = north, clockwise) at a fixed 45 deg altitude, matching the
+                // HillshadeRasterTileLayer default direction convention (sin az, cos az, -sin alt).
+                double azimuth = valueToFloat(*v, 335.0f) * M_PI / 180.0;
+                hillshade->setIlluminationDirection(MapVec(std::sin(azimuth), std::cos(azimuth), -0.70710678));
+            }
         }
     }
 
