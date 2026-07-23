@@ -666,6 +666,28 @@ layer.removeExternalDataSource("satellite");         // dynamic remove
 
 ---
 
+## Final rendering architecture (after device testing)
+
+The `rendererLayerFilter` is applied at **tile-build time** (`GLTileRenderer::setVisibleTiles`),
+not per draw call, so a single renderer cannot be re-filtered per frame. The layer therefore
+renders **one stable-filtered layer per style-layer group**:
+
+- Group 0 (style layers before the first external slot) renders on the composite itself.
+- Each later group renders on an internal `VectorTileLayer` over the base source with a fixed
+  filter. Empty intermediate groups create no layer (and empty filters use a true never-match
+  `[^\s\S]`, because `regex_match` full-matches `""` — the per-tile background layer's name — so
+  a naive empty filter would paint the opaque map background over earlier groups).
+- Each external source is a child at its named slot: raster → `RasterTileLayer`, hillshade →
+  `HillshadeRasterTileLayer`, vector/contour → its own `VectorTileLayer` over its own source
+  (master decoder, filtered to its layer name, carrying its `MaxOverzoomLevel`). Vector children
+  are **not merged**, so e.g. contours overzoom (z13+ from z12 DEM) via the child layer.
+- Draw order per frame: group 0, then the draw items in style order (child / group / child ...),
+  pure painter order (consistent with the terrain depth model). Raster/hillshade children gate on
+  their config symbolizer's zoom/nuti visibility; vector children draw always (zoom-filtered by
+  their own decode).
+
+Cost: one vt **decode per group + per vector child**; share network with a cache on the source.
+
 ## Milestones
 
 1. **[DONE]** libs-carto config symbolizers (A.1–A.3) + `resolveLayerConfig` (A.4).
@@ -696,8 +718,11 @@ layer.removeExternalDataSource("satellite");         // dynamic remove
    per-source change tracking to avoid setter→reload loops) applies `ContourConfigSymbolizer`
    values (`contour-base-interval`/`resolution`/`min-visible-zoom`/`simplify-tolerance`,
    nuti-aware, evaluated at a neutral zoom) to a `ContourTileDataSource`. Compiles.
-4. **Terrain** (`onDrawFrame3D`): children drape correctly; **on-device validation**
-   (emulator ≠ device for depth — per prior terrain rounds).
+4. **Terrain** (`onDrawFrame3D`): renderComposite already forwards `onDrawFrame3D` to group 0,
+   the internal group layers and the external children in painter order (the terrain depth model
+   is cross-layer painter order, so this should hold). NEEDS on-device validation: enable terrain
+   in the demo (TerrainOptions on Options) alongside `addCompositeMap`, without the separate
+   `addTerrain` hillshade layer. Watch for depth/see-through between groups (emulator vs device).
 5. **[DEMO PREPPED]** SWIG + demo (C, D). `addCompositeMap(dataPath)` added to
    `SecondFragment.java` (uncommitted, per the never-commit-SecondFragment rule): a
    self-contained CartoCSS over the OpenMapTiles schema (openfreemap) with `#hillshade`
