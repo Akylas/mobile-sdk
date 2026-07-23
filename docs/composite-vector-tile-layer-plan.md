@@ -690,8 +690,12 @@ layer.removeExternalDataSource("satellite");         // dynamic remove
    `clang -fsyntax-only`. TODO (needs a real build/device): runtime verify slot ordering,
    per-frame opacity/exaggeration, zoom/nuti visibility; illumination-direction mapping;
    interaction of the composite's own rendererLayerFilter with segment filters.
-3. **Merged vector + contour** (B.1 rebuild path): `#contour` styled by master CSS;
-   optional contour config symbolizer for datasource params.
+3. **[DONE]** Merged vector + contour. `addVectorDataSource` folds any MBVT source
+   (incl. `ContourTileDataSource`) into the master via `DynamicMergedMBVTTileDataSource`,
+   styled by the master CSS. `applyVectorSourceConfigs()` (called from `loadData`, with
+   per-source change tracking to avoid setter→reload loops) applies `ContourConfigSymbolizer`
+   values (`contour-base-interval`/`resolution`/`min-visible-zoom`/`simplify-tolerance`,
+   nuti-aware, evaluated at a neutral zoom) to a `ContourTileDataSource`. Compiles.
 4. **Terrain** (`onDrawFrame3D`): children drape correctly; **on-device validation**
    (emulator ≠ device for depth — per prior terrain rounds).
 5. **SWIG + demo + docs** (C, D): Android demo style with all three source kinds and a

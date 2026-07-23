@@ -148,11 +148,16 @@ namespace carto {
         void rebuildRenderSteps();
         const ExternalSource* findExternalSource(const std::string& name) const;
         void applyConfig(const ExternalSource& source, const mvt::ResolvedLayerConfig& config, const ViewState& viewState);
+        // Applies '#name' config symbolizer values to merged vector sources whose generation
+        // parameters live on the data source (currently ContourTileDataSource). Called off the
+        // render thread (from loadData); only re-applies changed values to avoid reload loops.
+        void applyVectorSourceConfigs();
         bool renderSegmented(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState, bool terrain);
 
         std::shared_ptr<DynamicMergedMBVTTileDataSource> _mergedDataSource;
         std::vector<ExternalSource> _externalSources;
         std::vector<RenderStep> _renderSteps;
+        std::map<std::string, std::map<std::string, float> > _lastVectorConfig; // per-source applied contour params
         bool _singlePassRenderingEnabled;
 
         // Cached component handles for wiring child layers added after setComponents().

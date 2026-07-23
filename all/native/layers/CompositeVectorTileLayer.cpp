@@ -1,5 +1,6 @@
 #include "CompositeVectorTileLayer.h"
 #include "datasources/DynamicMergedMBVTTileDataSource.h"
+#include "datasources/ContourTileDataSource.h"
 #include "layers/RasterTileLayer.h"
 #include "layers/HillshadeRasterTileLayer.h"
 #include "vectortiles/MBVectorTileDecoder.h"
@@ -133,6 +134,7 @@ namespace carto {
             _mergedDataSource->addDataSource(name, dataSource); // notifies -> master tiles reload
             rebuildRenderSteps();
         }
+        applyVectorSourceConfigs();
         refresh();
     }
 
@@ -150,6 +152,7 @@ namespace carto {
                     }
                 }
                 _externalSources.erase(it);
+                _lastVectorConfig.erase(name);
                 rebuildRenderSteps();
                 removed = true;
             }
@@ -226,6 +229,10 @@ namespace carto {
 
     void CompositeVectorTileLayer::loadData(const std::shared_ptr<CullState>& cullState) {
         VectorTileLayer::loadData(cullState);
+
+        // Re-apply merged-vector (contour) generation parameters in case the style / nuti
+        // parameters changed (a change triggers a decoder update -> tile reload -> loadData).
+        applyVectorSourceConfigs();
 
         std::lock_guard<std::recursive_mutex> lock(_sourceMutex);
         for (const ExternalSource& s : _externalSources) {
@@ -368,6 +375,49 @@ namespace carto {
             if (const mvt::Value* v = getValue("contour-color")) { hillshade->setContourColor(parseColorValue(*v, Color(0xC5, 0x60, 0x08, 0xff))); }
             if (const mvt::Value* v = getValue("contour-width")) { hillshade->setContourWidth(valueToFloat(*v, 1.0f)); }
             // TODO: illumination-direction (azimuth degrees) -> setIlluminationDirection(MapVec).
+        }
+    }
+
+    void CompositeVectorTileLayer::applyVectorSourceConfigs() {
+        auto decoder = std::dynamic_pointer_cast<MBVectorTileDecoder>(getTileDecoder());
+        if (!decoder) {
+            return;
+        }
+
+        std::lock_guard<std::recursive_mutex> lock(_sourceMutex);
+        for (const ExternalSource& s : _externalSources) {
+            if (s.type != CompositeSourceType::COMPOSITE_SOURCE_TYPE_VECTOR) {
+                continue;
+            }
+            auto contour = std::dynamic_pointer_cast<ContourTileDataSource>(s.dataSource);
+            if (!contour) {
+                continue;
+            }
+            // Contour generation parameters are not per-frame (changing them regenerates
+            // tiles), so evaluate at a neutral zoom; nuti parameters still apply.
+            mvt::ResolvedLayerConfig config = decoder->resolveLayerConfig(s.name, 0.0f);
+            std::map<std::string, float>& applied = _lastVectorConfig[s.name];
+
+            auto changed = [&](const std::string& key, float& outValue) {
+                auto it = config.values.find(key);
+                if (it == config.values.end()) {
+                    return false;
+                }
+                float value = valueToFloat(it->second, 0.0f);
+                auto ait = applied.find(key);
+                if (ait != applied.end() && ait->second == value) {
+                    return false;
+                }
+                applied[key] = value;
+                outValue = value;
+                return true;
+            };
+
+            float value = 0.0f;
+            if (changed("base-interval", value))      { contour->setBaseInterval(value); }
+            if (changed("resolution", value))         { contour->setResolution(static_cast<int>(value)); }
+            if (changed("min-visible-zoom", value))   { contour->setMinVisibleZoom(static_cast<int>(value)); }
+            if (changed("simplify-tolerance", value)) { contour->setSimplifyTolerance(value); }
         }
     }
 
