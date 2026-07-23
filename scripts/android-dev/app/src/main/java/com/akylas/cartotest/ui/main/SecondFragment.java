@@ -60,6 +60,8 @@ import com.carto.geometry.PolygonGeometry;
 import com.carto.geometry.VectorTileFeatureCollection;
 import com.carto.graphics.Color;
 import com.carto.layers.HillshadeMethod;
+import com.carto.layers.CompositeVectorTileLayer;
+import com.carto.layers.CompositeSourceType;
 import com.carto.layers.CustomRasterTileLayer;
 import com.carto.layers.HillshadeRasterTileLayer;
 import com.carto.layers.RasterTileFilterMode;
@@ -690,6 +692,181 @@ public class SecondFragment extends Fragment {
 //        dataSource.add(sourceWorld);
 //        mainMapLayer  = new RasterTileLayer(sourceHTTP);
     }
+    // ---------------------------------------------------------------------------------------------
+    // CompositeVectorTileLayer demo: one vector-tile layer that weaves external sources (hillshade,
+    // raster, contour) into the master style's layer order. Placement of each external source is
+    // the position of its '#name' first-reference in the CartoCSS below; per-source settings come
+    // from the matching '#name { ... }' block, with zoom-dependent expressions.
+    //
+    // Uses a self-contained CartoCSS over the OpenMapTiles schema (openfreemap) so it does not
+    // depend on osm.zip internals. Text is omitted to avoid needing a font asset package.
+    // NOTE: nuti:: parameters need a project-bundle style (loadMapProject) - a raw CartoCSS string
+    // cannot declare them - so this demo uses zoom-based visibility/config only.
+    // ---------------------------------------------------------------------------------------------
+    CompositeVectorTileLayer compositeLayer;
+    void addCompositeMap(String dataPath) {
+        // Master vector source: OpenMapTiles vector tiles.
+        HTTPTileDataSource baseSource = new HTTPTileDataSource(0, 14, "https://tiles.openfreemap.org/planet/latest/{z}/{x}/{y}.pbf");
+        StringMap headers = new StringMap();
+        headers.set("User-Agent", "AlpiMaps/1.4 (contact: contact@akylas.fr)");
+//        baseSource.setHTTPHeaders(headers);
+        PersistentCacheTileDataSource baseSourceCached = new PersistentCacheTileDataSource(baseSource, getContext().getExternalFilesDir(null) + "/openfreemap_vect.db");
+
+        // First-reference order = slot order: water, landcover, HILLSHADE, SATELLITE,
+        // transportation, building, CONTOUR.
+        String css = String.join("\n",
+            "Map { background-color: #eef2f0; }",
+            "#water { polygon-fill: #9cc3e0; }",
+            "#landcover { polygon-fill: #dbe8cc; }",
+            // hillshade woven above land/water fills, below roads; exaggeration ramps with zoom.
+            "#hillshade[zoom>=4][zoom<=16] {",
+            "  hillshade-opacity: linear([view::zoom], (11, 0.6), (12, 1));",
+            "  hillshade-exaggeration: linear([view::zoom], (11, 0.6), (12, 1.4));",
+            "  hillshade-illumination-direction: 365;",
+            "  hillshade-shadow-color: #103040;",
+            "}",
+                "#satellite[zoom>=13] { raster-opacity: 0.55; raster-comp-op: src-over; }",
+                "#contour[zoom>=5] {",
+                "  line-color: #9a5a12; line-width: 0.8; line-opacity: 0.7;",
+                "  contour-base-interval: 20;",
+                "}",
+            // satellite raster overlay, faint, only high zoom.
+            "#transportation { line-color: #ffffff; line-width: 1.2; }",
+            "#transportation['class'='motorway'] { line-color: #e27d60; line-width: 3; }",
+            "#transportation['class'='primary'] { line-color: #f4c06a; line-width: 2; }",
+            "#building[zoom>=14] { polygon-fill: #d9cfc4; }"
+            // contour lines: merged vector source, styled with normal line symbolizer; the
+            // contour-base-interval config drives the ContourTileDataSource generation.
+
+        );
+        MBVectorTileDecoder styleDecoder = new MBVectorTileDecoder(new CartoCSSStyleSet(css));
+
+        compositeLayer = new CompositeVectorTileLayer(baseSourceCached, styleDecoder);
+
+        // Shared terrarium-encoded DEM for both hillshade and contours (fetched once).
+        HTTPTileDataSource demSource = new HTTPTileDataSource(1, 12, "https://tiles.mapterhorn.com/{z}/{x}/{y}.webp");
+        demSource.setEncoding("terrarium");
+        PersistentCacheTileDataSource cachedDem = new PersistentCacheTileDataSource(demSource, getContext().getExternalFilesDir(null) + "/mapterhorn.db");
+
+        // contour: merged into the master source and styled by '#contour'.
+        ContourTileDataSource contour = new ContourTileDataSource(cachedDem);
+        contour.setMinVisibleZoom(5);
+        contour.setMaxOverzoomLevel(15);
+//        compositeLayer.addVectorDataSource("contour", contour);
+        // hillshade: decoder resolved from the DEM source 'encoding' (terrarium) - no decoder arg.
+        compositeLayer.addExternalDataSource("hillshade", cachedDem, CompositeSourceType.COMPOSITE_SOURCE_TYPE_HILLSHADE);
+        // satellite: a raster source drawn at the '#satellite' slot with the style opacity.
+        HTTPTileDataSource satSource = new HTTPTileDataSource(0, 19, "https://tile.openstreetmap.org/{z}/{x}/{y}.png");
+        satSource.setHTTPHeaders(headers);
+        PersistentCacheTileDataSource cachedSat = new PersistentCacheTileDataSource(satSource, getContext().getExternalFilesDir(null) + "/openstreetmap.db");
+//        compositeLayer.addExternalDataSource("satellite", cachedSat, CompositeSourceType.COMPOSITE_SOURCE_TYPE_RASTER);
+
+        mapView.getLayers().add(compositeLayer);
+
+        // 3D terrain. The decoder is resolved from the data source "encoding" setting
+        // (delegated through the cache wrapper); passing it explicitly works as well.
+        terrainOptions = new com.carto.components.TerrainOptions(cachedDem, new TerrariumElevationDataDecoder());
+        terrainOptions.setExaggeration(1.0f);
+        terrainOptions.setMeshResolution(64);
+//        terrainOptions.set
+        // Optional: cap terrain LOD tile detail at what flat rendering would show
+        // (offset 0), to hide LOD rings if the style renders differently at different
+        // tile zoom levels. Disabled: the LOD rings turned out not to be the cause of
+        // the washed-out alpine faces (style/hillshade appearance).
+        //terrainOptions.setMaxTileZoomOffset(0);
+//        terrainOptions.setBackgroundColor(new Color((short) 255, (short)0,(short)0,(short)255));
+//        terrainOptions.setRegularGridEnabled(true);
+        terrainOptions.setPainterOrderDepthEnabled(true);
+        mapView.getOptions().setTerrainOptions(terrainOptions);
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // CompositeVectorTileLayer + nuti parameter demo.
+    // nuti parameters must be declared in a project-bundle style (raw CartoCSS strings cannot declare
+    // them). Here the style is built in-memory (project.json + style.mss zipped) so no external file
+    // is needed. The project declares a boolean nuti parameter 'show_relief'; the hillshade slot is
+    // gated by #hillshade[nuti::show_relief=true]. A repeating handler flips the parameter every few
+    // seconds via decoder.setStyleParameter to demonstrate runtime, user-setting-driven visibility.
+    // ---------------------------------------------------------------------------------------------
+    MBVectorTileDecoder nutiDecoder;
+    boolean nutiReliefOn = true;
+    void addCompositeMapNuti(String dataPath) {
+        // Master vector source (OpenMapTiles), cached so all group sub-layers share one fetch.
+        HTTPTileDataSource baseSource = new HTTPTileDataSource(0, 14, "https://tiles.openfreemap.org/planet/latest/{z}/{x}/{y}.pbf");
+        PersistentCacheTileDataSource baseSourceCached = new PersistentCacheTileDataSource(baseSource, getContext().getExternalFilesDir(null) + "/openfreemap_vect.db");
+
+        // project.json: 'layers' is TOP->BOTTOM (reversed into draw order), plus the nuti parameter.
+        String projectJson = String.join("\n",
+            "{",
+            "  \"styles\": [\"style.mss\"],",
+            "  \"layers\": [\"contour\", \"building\", \"transportation\", \"satellite\", \"hillshade\", \"landcover\", \"water\"],",
+            "  \"nutiparameters\": { \"show_relief\": { \"default\": true } }",
+            "}");
+        String mss = String.join("\n",
+            "Map { background-color: #eef2f0; }",
+            "#water { polygon-fill: #9cc3e0; }",
+            "#landcover { polygon-fill: #dbe8cc; }",
+            // hillshade only when the 'show_relief' user setting is on
+            "#hillshade['nuti::show_relief'=true][zoom>=4] {",
+            "  hillshade-opacity: linear([view::zoom], (4, 0.5), (12, 0.9));",
+            "  hillshade-exaggeration: linear([view::zoom], (4, 0.6), (12, 1.4));",
+            "  hillshade-illumination-direction: 315;",
+            "  hillshade-shadow-color: #103040;",
+            "}",
+            "#satellite[zoom>=13] { raster-opacity: 0.45; }",
+            "#transportation { line-color: #ffffff; line-width: 1.2; }",
+            "#transportation['class'='motorway'] { line-color: #e27d60; line-width: 3; }",
+            "#building[zoom>=14] { polygon-fill: #d9cfc4; }",
+            "#contour[zoom>=12] { line-color: #9a5a12; line-width: 0.8; line-opacity: 0.7; }");
+
+        MBVectorTileDecoder styleDecoder = null;
+        try {
+            java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+            java.util.zip.ZipOutputStream zos = new java.util.zip.ZipOutputStream(bos);
+            String[][] entries = new String[][] { { "project.json", projectJson }, { "style.mss", mss } };
+            for (String[] entry : entries) {
+                zos.putNextEntry(new java.util.zip.ZipEntry(entry[0]));
+                zos.write(entry[1].getBytes("UTF-8"));
+                zos.closeEntry();
+            }
+            zos.close();
+            CompiledStyleSet styleSet = new CompiledStyleSet(new ZippedAssetPackage(new com.carto.core.BinaryData(bos.toByteArray())));
+            styleDecoder = new MBVectorTileDecoder(styleSet);
+        } catch (java.io.IOException e) {
+            e.printStackTrace();
+            return;
+        }
+        nutiDecoder = styleDecoder;
+
+        compositeLayer = new CompositeVectorTileLayer(baseSourceCached, styleDecoder);
+
+        // Shared terrarium DEM for hillshade + contours.
+        HTTPTileDataSource demSource = new HTTPTileDataSource(1, 12, "https://tiles.mapterhorn.com/{z}/{x}/{y}.webp");
+        demSource.setEncoding("terrarium");
+        PersistentCacheTileDataSource cachedDem = new PersistentCacheTileDataSource(demSource, getContext().getExternalFilesDir(null) + "/mapterhorn.db");
+
+        compositeLayer.addExternalDataSource("hillshade", cachedDem, CompositeSourceType.COMPOSITE_SOURCE_TYPE_HILLSHADE);
+
+        ContourTileDataSource contour = new ContourTileDataSource(cachedDem);
+        contour.setMinVisibleZoom(12);
+        contour.setMaxOverzoomLevel(15);
+        compositeLayer.addVectorDataSource("contour", contour);
+
+        mapView.getLayers().add(compositeLayer);
+
+        // Demo: flip the 'show_relief' user setting every 3s so the hillshade fades in/out live.
+        final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                nutiReliefOn = !nutiReliefOn;
+                nutiDecoder.setStyleParameter("show_relief", Boolean.toString(nutiReliefOn));
+                Log.d(TAG, "nuti show_relief=" + nutiReliefOn);
+                handler.postDelayed(this, 3000);
+            }
+        }, 3000);
+    }
+
     void addRoutes(String dataPath) {
         MultiTileDataSource  dataSource = new MultiTileDataSource();
         MBTilesTileDataSource sourceFrance = null;
@@ -727,8 +904,11 @@ public class SecondFragment extends Fragment {
         String dataPath = Paths.get(externalPath.getAbsolutePath(), "../../../../alpimaps_mbtiles").normalize().toString();
 
 
-        addMap(dataPath);
-        addTerrain(view, dataPath);
+        // --- CompositeVectorTileLayer demo (2D). Comment this and restore addMap/addTerrain to go back. ---
+        addCompositeMapNuti(dataPath); // nuti-parameter demo: relief toggles every 3s
+//        addCompositeMap(dataPath);
+//        addMap(dataPath);
+//        addTerrain(view, dataPath);
 //        addRoutes(dataPath);
 //        addHillshadeLayer(view, dataPath);
 
@@ -1090,6 +1270,7 @@ public class SecondFragment extends Fragment {
         options.setRestrictedPanning(true);
         options.setSeamlessPanning(true);
         options.setRotatable(true);
+        options.setTiltRange(new MapRange(10, 90));
 //        options.setTileThreadPoolSize(1);
 
 //        options.setRenderProjectionMode(RenderProjectionMode.RENDER_PROJECTION_MODE_SPHERICAL);
