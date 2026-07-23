@@ -29,7 +29,7 @@ namespace carto {
     public:
         class TerrainVertexTransformer final : public VertexTransformer {
         public:
-            TerrainVertexTransformer(const vt::TileId& tileId, double scale, std::shared_ptr<ElevationTileGrid> grid, float exaggeration, float divideThreshold);
+            TerrainVertexTransformer(const vt::TileId& tileId, double scale, std::shared_ptr<ElevationTileGrid> grid, float exaggeration, float divideThreshold, float lineDivideThreshold);
             virtual ~TerrainVertexTransformer() = default;
 
             virtual cglib::vec3<float> calculatePoint(const cglib::vec2<float>& pos) const override;
@@ -52,7 +52,8 @@ namespace carto {
             const double _scale;
             const std::shared_ptr<ElevationTileGrid> _grid;
             const float _exaggeration;
-            const float _divideThreshold; // in EPSG3857 meters; infinity disables subdivision
+            const float _divideThreshold; // triangle subdivision, EPSG3857 meters; infinity disables subdivision
+            const float _lineDivideThreshold; // line subdivision, EPSG3857 meters; finer than the triangle threshold in regular-grid mode
             cglib::vec2<double> _tileOffsetInternal; // internal coordinates of the tile origin (min x, min y)
             double _tileScaleInternal;
             double _tileScaleMeters;
@@ -75,6 +76,12 @@ namespace carto {
 
     private:
         static constexpr float FLAT_HEIGHT_RANGE_EPSILON = 0.001f;
+        // Regular-grid draped LINES are subdivided this fraction of a surface grid cell
+        // (< 1 = finer than the grid) so segments stop chording the cell's anti-diagonal fold
+        // and cracking under zero-slack painter-order depth. Lower = fewer cracks, more line
+        // vertices (lines are 1D, cheap). Triangles stay at one cell (their sag is bounded and
+        // subdividing area content 1/factor^2 is expensive). Decoupled from the surface grid.
+        static constexpr double REGULAR_GRID_LINE_SUBDIVISION = 0.35;
 
         const double _scale;
         const std::shared_ptr<ElevationManager> _elevationManager;
