@@ -698,8 +698,30 @@ layer.removeExternalDataSource("satellite");         // dynamic remove
    nuti-aware, evaluated at a neutral zoom) to a `ContourTileDataSource`. Compiles.
 4. **Terrain** (`onDrawFrame3D`): children drape correctly; **on-device validation**
    (emulator ≠ device for depth — per prior terrain rounds).
-5. **SWIG + demo + docs** (C, D): Android demo style with all three source kinds and a
-   nuti toggle slider.
+5. **[DEMO PREPPED]** SWIG + demo (C, D). `addCompositeMap(dataPath)` added to
+   `SecondFragment.java` (uncommitted, per the never-commit-SecondFragment rule): a
+   self-contained CartoCSS over the OpenMapTiles schema (openfreemap) with `#hillshade`
+   (zoom-ramped exaggeration), `#satellite` (raster, faint, z>=13) and `#contour`
+   (line + `contour-base-interval`) woven by first-reference order; hillshade decoder
+   resolved from the DEM `encoding`; contour merged. Build steps below. Runtime verify +
+   nuti (needs a project-bundle style) still pending on device.
+
+### Build / run the demo
+
+```sh
+# 1. Regenerate SWIG proxies (gradle does NOT run swig)
+cd scripts && python3 swigpp-java.py \
+  --profile "standard+valhalla+geocoding+routing+packagemanager" \
+  --swig /Volumes/dev/carto/mobile-swig/swig
+# 2. Build the native libs + APK
+cd scripts/android-dev && ./gradlew :app:assembleDebug -x lint
+# 3. Install; the demo entry is proceedWithSdCard -> addCompositeMap.
+#    To go back to the normal map, restore addMap/addTerrain in proceedWithSdCard.
+```
+
+Expected: base fills (water/landcover) → hillshade shading → faint satellite (z>=13) →
+roads → buildings + contour lines (z>=12). Panning/zooming should keep the hillshade under
+the roads; exaggeration should increase with zoom.
 6. **Single-pass segmented renderer** (perf, see open point 5): give `TileRenderer` /
    `vt::GLTileRenderer` the ability to draw several disjoint style-layer filter ranges,
    with the external children interleaved, inside **one** `startFrame`/`endFrame` instead
