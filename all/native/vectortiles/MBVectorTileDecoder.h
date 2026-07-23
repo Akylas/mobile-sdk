@@ -132,6 +132,16 @@ namespace carto {
          */
         mvt::ResolvedLayerConfig resolveLayerConfig(const std::string& layerName, float viewZoom) const;
 
+        /**
+         * Returns the { minZoom, maxZoom } range over which the named style layer's config
+         * symbolizer rules are active. Used by CompositeVectorTileLayer to constrain an
+         * external source child layer's visible zoom range. Returns { 0, 24 } if the layer
+         * has no config rules. Note: for internal use, not exposed to the public API.
+         * @param layerName The style layer name.
+         * @return A two-element vector { minZoom, maxZoom }.
+         */
+        std::vector<int> getStyleLayerZoomRange(const std::string& layerName) const;
+
 
         /**
          * Returns the value of feature id override flag. This is intended for cases when feature ids in tile are not globally unique.

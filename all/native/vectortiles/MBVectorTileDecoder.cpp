@@ -201,6 +201,16 @@ namespace carto {
         return mvt::resolveLayerConfig(*_map, layerName, viewZoom, nutiValues);
     }
 
+    std::vector<int> MBVectorTileDecoder::getStyleLayerZoomRange(const std::string& layerName) const {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (!_map) {
+            return { 0, 24 };
+        }
+        std::pair<int, int> range = mvt::resolveLayerZoomRange(*_map, layerName);
+        return { range.first, range.second };
+    }
+
     void MBVectorTileDecoder::updateSymbolizer() {
         auto parameterValueMap = std::make_shared<std::map<std::string, mvt::Value>>(*_symbolizerContextSettings->getNutiParameterValueMap());
         for (auto it2 = _parameterValueMap.begin(); it2 != _parameterValueMap.end(); it2++) {

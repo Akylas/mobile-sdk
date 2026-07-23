@@ -135,28 +135,38 @@ namespace carto {
             std::shared_ptr<Layer> childLayer; // raster/hillshade child; null for merged vector
         };
 
-        struct RenderStep {
-            std::optional<std::regex> vtFilter; // filter for the vt style-layer group before the child
-            bool hasVtGroup = false;
-            std::string childSlot;              // raster/hillshade source name to draw after the group ("" = none)
+        // One ordered draw step after the layer's own group-0 render: either an external
+        // raster/hillshade child, or an internal VectorTileLayer rendering a later style-layer
+        // group with a fixed rendererLayerFilter (the filter is applied at tile-build time, so
+        // each group needs its own stable-filtered layer - a single renderer cannot be
+        // re-filtered per frame).
+        enum DrawItemKind { DRAW_ITEM_EXTERNAL, DRAW_ITEM_VT_GROUP };
+        struct DrawItem {
+            DrawItemKind kind;
+            std::string slot;                  // external source name (DRAW_ITEM_EXTERNAL)
+            std::shared_ptr<Layer> groupLayer; // internal group layer (DRAW_ITEM_VT_GROUP); held as
+                                               // Layer so protected virtuals are reachable via friend
         };
 
         static std::shared_ptr<ElevationDecoder> resolveElevationDecoder(const std::shared_ptr<TileDataSource>& dataSource);
+        static std::string buildFilterString(const std::vector<std::string>& group);
 
         void wireChild(const std::shared_ptr<Layer>& child);
         void unwireChild(const std::shared_ptr<Layer>& child);
-        void rebuildRenderSteps();
+        std::shared_ptr<Layer> makeGroupLayer(const std::string& filter);
+        void rebuildDrawItems();
+        void applyExternalChildZoomRange(const ExternalSource& source);
         const ExternalSource* findExternalSource(const std::string& name) const;
         void applyConfig(const ExternalSource& source, const mvt::ResolvedLayerConfig& config, const ViewState& viewState);
         // Applies '#name' config symbolizer values to merged vector sources whose generation
         // parameters live on the data source (currently ContourTileDataSource). Called off the
         // render thread (from loadData); only re-applies changed values to avoid reload loops.
         void applyVectorSourceConfigs();
-        bool renderSegmented(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState, bool terrain);
+        bool renderComposite(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState, bool terrain);
 
         std::shared_ptr<DynamicMergedMBVTTileDataSource> _mergedDataSource;
         std::vector<ExternalSource> _externalSources;
-        std::vector<RenderStep> _renderSteps;
+        std::vector<DrawItem> _drawItems;
         std::map<std::string, std::map<std::string, float> > _lastVectorConfig; // per-source applied contour params
         bool _singlePassRenderingEnabled;
 

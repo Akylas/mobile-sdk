@@ -3,7 +3,7 @@
 
 %module CompositeVectorTileLayer
 
-!proxy_imports(carto::CompositeVectorTileLayer, datasources.TileDataSource, layers.VectorTileLayer, vectortiles.VectorTileDecoder, rastertiles.ElevationDecoder)
+!proxy_imports(carto::CompositeVectorTileLayer, datasources.TileDataSource, layers.VectorTileLayer, vectortiles.VectorTileDecoder, rastertiles.ElevationDecoder, core.StringVector)
 
 %{
 #include "layers/CompositeVectorTileLayer.h"
@@ -20,6 +20,7 @@
 %import "datasources/TileDataSource.i"
 %import "vectortiles/VectorTileDecoder.i"
 %import "rastertiles/ElevationDecoder.i"
+%import "core/StringVector.i"
 
 !enum(carto::CompositeSourceType::CompositeSourceType)
 !polymorphic_shared_ptr(carto::CompositeVectorTileLayer, layers.CompositeVectorTileLayer)

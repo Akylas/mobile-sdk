@@ -7,10 +7,10 @@
 #include "rastertiles/ElevationDecoder.h"
 #include "rastertiles/TerrariumElevationDataDecoder.h"
 #include "rastertiles/MapBoxElevationDataDecoder.h"
-#include "renderers/TileRenderer.h"
 #include "renderers/MapRenderer.h"
 #include "graphics/ViewState.h"
 #include "graphics/Color.h"
+#include "core/MapRange.h"
 #include "components/Exceptions.h"
 #include "utils/Log.h"
 
@@ -75,7 +75,8 @@ namespace carto {
         VectorTileLayer(std::make_shared<DynamicMergedMBVTTileDataSource>(dataSource), decoder),
         _mergedDataSource(),
         _externalSources(),
-        _renderSteps(),
+        _drawItems(),
+        _lastVectorConfig(),
         _singlePassRenderingEnabled(false),
         _componentsSet(false),
         _childOptions(),
@@ -84,7 +85,7 @@ namespace carto {
         _sourceMutex()
     {
         _mergedDataSource = std::static_pointer_cast<DynamicMergedMBVTTileDataSource>(getDataSource());
-        rebuildRenderSteps();
+        rebuildDrawItems();
     }
 
     CompositeVectorTileLayer::~CompositeVectorTileLayer() {
@@ -103,12 +104,12 @@ namespace carto {
         if (type == CompositeSourceType::COMPOSITE_SOURCE_TYPE_RASTER) {
             childLayer = std::make_shared<RasterTileLayer>(dataSource);
         } else { // HILLSHADE
-            std::shared_ptr<ElevationDecoder> decoder = elevationDecoder;
-            if (!decoder) {
-                decoder = resolveElevationDecoder(dataSource);
+            std::shared_ptr<ElevationDecoder> elevDecoder = elevationDecoder;
+            if (!elevDecoder) {
+                elevDecoder = resolveElevationDecoder(dataSource);
             }
-            childLayer = decoder ? std::make_shared<HillshadeRasterTileLayer>(dataSource, decoder)
-                                 : std::make_shared<HillshadeRasterTileLayer>(dataSource);
+            childLayer = elevDecoder ? std::make_shared<HillshadeRasterTileLayer>(dataSource, elevDecoder)
+                                     : std::make_shared<HillshadeRasterTileLayer>(dataSource);
         }
 
         {
@@ -118,7 +119,7 @@ namespace carto {
             if (_componentsSet) {
                 wireChild(childLayer);
             }
-            rebuildRenderSteps();
+            rebuildDrawItems();
         }
         refresh();
     }
@@ -131,8 +132,8 @@ namespace carto {
             std::lock_guard<std::recursive_mutex> lock(_sourceMutex);
             removeExternalDataSource(name);
             _externalSources.push_back({ name, CompositeSourceType::COMPOSITE_SOURCE_TYPE_VECTOR, dataSource, std::shared_ptr<Layer>() });
-            _mergedDataSource->addDataSource(name, dataSource); // notifies -> master tiles reload
-            rebuildRenderSteps();
+            _mergedDataSource->addDataSource(name, dataSource); // notifies -> master + group tiles reload
+            rebuildDrawItems();
         }
         applyVectorSourceConfigs();
         refresh();
@@ -153,7 +154,7 @@ namespace carto {
                 }
                 _externalSources.erase(it);
                 _lastVectorConfig.erase(name);
-                rebuildRenderSteps();
+                rebuildDrawItems();
                 removed = true;
             }
         }
@@ -193,6 +194,18 @@ namespace carto {
         return std::make_shared<TerrariumElevationDataDecoder>();
     }
 
+    std::string CompositeVectorTileLayer::buildFilterString(const std::vector<std::string>& group) {
+        if (group.empty()) {
+            return "$^"; // impossible anchor sequence -> matches no layer name (empty group renders nothing)
+        }
+        std::string pattern = "^(";
+        for (std::size_t i = 0; i < group.size(); i++) {
+            pattern += (i ? "|" : "") + group[i];
+        }
+        pattern += ")";
+        return pattern;
+    }
+
     void CompositeVectorTileLayer::wireChild(const std::shared_ptr<Layer>& child) {
         if (!child) {
             return;
@@ -206,6 +219,93 @@ namespace carto {
             return;
         }
         child->unregisterDataSourceListener();
+    }
+
+    std::shared_ptr<Layer> CompositeVectorTileLayer::makeGroupLayer(const std::string& filter) {
+        // Internal group layer: same merged source + decoder as this layer, with a fixed
+        // rendererLayerFilter. Shares the master data source so a source change reloads all groups.
+        auto groupLayer = std::make_shared<VectorTileLayer>(getDataSource(), getTileDecoder());
+        groupLayer->setRendererLayerFilter(filter);
+        groupLayer->setLabelRenderOrder(getLabelRenderOrder());
+        groupLayer->setBuildingRenderOrder(getBuildingRenderOrder());
+        std::shared_ptr<Layer> child = groupLayer;
+        if (_componentsSet) {
+            wireChild(child);
+        }
+        return child;
+    }
+
+    void CompositeVectorTileLayer::applyExternalChildZoomRange(const ExternalSource& source) {
+        auto decoder = std::dynamic_pointer_cast<MBVectorTileDecoder>(getTileDecoder());
+        if (!decoder || !source.childLayer) {
+            return;
+        }
+        std::vector<int> range = decoder->getStyleLayerZoomRange(source.name);
+        if (range.size() == 2) {
+            source.childLayer->setVisibleZoomRange(MapRange(static_cast<float>(range[0]), static_cast<float>(range[1])));
+        }
+    }
+
+    void CompositeVectorTileLayer::rebuildDrawItems() {
+        // Caller holds _sourceMutex (or is the constructor).
+
+        // Drop previous internal group layers.
+        for (const DrawItem& item : _drawItems) {
+            if (item.groupLayer && _componentsSet) {
+                unwireChild(item.groupLayer);
+            }
+        }
+        _drawItems.clear();
+
+        auto decoder = std::dynamic_pointer_cast<MBVectorTileDecoder>(getTileDecoder());
+        if (!decoder) {
+            VectorTileLayer::setRendererLayerFilter("");
+            return;
+        }
+        std::vector<std::string> order = decoder->getStyleLayerNames();
+
+        // Constrain each external child's visible zoom range to the style's config-rule range.
+        for (const ExternalSource& s : _externalSources) {
+            if (s.childLayer) {
+                applyExternalChildZoomRange(s);
+            }
+        }
+
+        auto isChildSlot = [&](const std::string& layerName) {
+            const ExternalSource* s = findExternalSource(layerName);
+            return s && s->childLayer && s->type != CompositeSourceType::COMPOSITE_SOURCE_TYPE_VECTOR;
+        };
+
+        std::vector<std::string> group;
+        bool firstSlotSeen = false;
+        for (const std::string& layerName : order) {
+            if (isChildSlot(layerName)) {
+                if (!firstSlotSeen) {
+                    // Group 0 renders on this layer itself.
+                    VectorTileLayer::setRendererLayerFilter(buildFilterString(group));
+                    firstSlotSeen = true;
+                } else {
+                    _drawItems.push_back({ DRAW_ITEM_VT_GROUP, std::string(), makeGroupLayer(buildFilterString(group)) });
+                }
+                _drawItems.push_back({ DRAW_ITEM_EXTERNAL, layerName, std::shared_ptr<Layer>() });
+                group.clear();
+            } else {
+                group.push_back(layerName);
+            }
+        }
+        if (!firstSlotSeen) {
+            // No external child slots: render everything on this layer, no interleaving.
+            VectorTileLayer::setRendererLayerFilter("");
+        } else if (!group.empty()) {
+            _drawItems.push_back({ DRAW_ITEM_VT_GROUP, std::string(), makeGroupLayer(buildFilterString(group)) });
+        }
+
+        // Warn about registered raster/hillshade sources that have no slot in the style order.
+        for (const ExternalSource& s : _externalSources) {
+            if (s.childLayer && s.type != CompositeSourceType::COMPOSITE_SOURCE_TYPE_VECTOR && std::find(order.begin(), order.end(), s.name) == order.end()) {
+                Log::Warnf("CompositeVectorTileLayer: external source '%s' is not listed in the style 'layers' - it will not be drawn", s.name.c_str());
+            }
+        }
     }
 
     void CompositeVectorTileLayer::setComponents(const std::shared_ptr<CancelableThreadPool>& envelopeThreadPool,
@@ -225,6 +325,11 @@ namespace carto {
                 wireChild(s.childLayer);
             }
         }
+        for (const DrawItem& item : _drawItems) {
+            if (item.groupLayer) {
+                wireChild(item.groupLayer);
+            }
+        }
     }
 
     void CompositeVectorTileLayer::loadData(const std::shared_ptr<CullState>& cullState) {
@@ -240,6 +345,11 @@ namespace carto {
                 s.childLayer->loadData(cullState);
             }
         }
+        for (const DrawItem& item : _drawItems) {
+            if (item.groupLayer) {
+                item.groupLayer->loadData(cullState);
+            }
+        }
     }
 
     void CompositeVectorTileLayer::offsetLayerHorizontally(double offset) {
@@ -251,6 +361,11 @@ namespace carto {
                 s.childLayer->offsetLayerHorizontally(offset);
             }
         }
+        for (const DrawItem& item : _drawItems) {
+            if (item.groupLayer) {
+                item.groupLayer->offsetLayerHorizontally(offset);
+            }
+        }
     }
 
     bool CompositeVectorTileLayer::isUpdateInProgress() const {
@@ -260,6 +375,11 @@ namespace carto {
         std::lock_guard<std::recursive_mutex> lock(_sourceMutex);
         for (const ExternalSource& s : _externalSources) {
             if (s.childLayer && s.childLayer->isUpdateInProgress()) {
+                return true;
+            }
+        }
+        for (const DrawItem& item : _drawItems) {
+            if (item.groupLayer && item.groupLayer->isUpdateInProgress()) {
                 return true;
             }
         }
@@ -275,72 +395,24 @@ namespace carto {
                 s.childLayer->calculateRayIntersectedElements(ray, viewState, results);
             }
         }
+        for (const DrawItem& item : _drawItems) {
+            if (item.groupLayer) {
+                item.groupLayer->calculateRayIntersectedElements(ray, viewState, results);
+            }
+        }
     }
 
     bool CompositeVectorTileLayer::onDrawFrame(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState) {
-        return renderSegmented(deltaSeconds, billboardSorter, viewState, false);
+        return renderComposite(deltaSeconds, billboardSorter, viewState, false);
     }
 
     bool CompositeVectorTileLayer::onDrawFrame3D(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState) {
-        return renderSegmented(deltaSeconds, billboardSorter, viewState, true);
+        return renderComposite(deltaSeconds, billboardSorter, viewState, true);
     }
 
     const CompositeVectorTileLayer::ExternalSource* CompositeVectorTileLayer::findExternalSource(const std::string& name) const {
         auto it = std::find_if(_externalSources.begin(), _externalSources.end(), [&](const ExternalSource& s) { return s.name == name; });
         return it != _externalSources.end() ? &(*it) : nullptr;
-    }
-
-    void CompositeVectorTileLayer::rebuildRenderSteps() {
-        // Caller holds _sourceMutex (or is the constructor).
-        _renderSteps.clear();
-
-        auto decoder = std::dynamic_pointer_cast<MBVectorTileDecoder>(getTileDecoder());
-        if (!decoder) {
-            return;
-        }
-        std::vector<std::string> order = decoder->getStyleLayerNames();
-
-        auto isChildSlot = [&](const std::string& layerName) {
-            const ExternalSource* s = findExternalSource(layerName);
-            return s && s->childLayer && s->type != CompositeSourceType::COMPOSITE_SOURCE_TYPE_VECTOR;
-        };
-
-        auto buildFilter = [](const std::vector<std::string>& group) -> std::optional<std::regex> {
-            if (group.empty()) {
-                return std::nullopt;
-            }
-            std::string pattern = "^(";
-            for (std::size_t i = 0; i < group.size(); i++) {
-                pattern += (i ? "|" : "") + group[i];
-            }
-            pattern += ")";
-            return std::regex(pattern, std::regex::ECMAScript);
-        };
-
-        std::vector<std::string> group;
-        for (const std::string& layerName : order) {
-            if (isChildSlot(layerName)) {
-                RenderStep step;
-                step.vtFilter = buildFilter(group);
-                step.hasVtGroup = !group.empty();
-                step.childSlot = layerName;
-                _renderSteps.push_back(std::move(step));
-                group.clear();
-            } else {
-                group.push_back(layerName);
-            }
-        }
-        RenderStep tail;
-        tail.vtFilter = buildFilter(group);
-        tail.hasVtGroup = !group.empty();
-        _renderSteps.push_back(std::move(tail));
-
-        // Warn about registered raster/hillshade sources that have no slot in the style order.
-        for (const ExternalSource& s : _externalSources) {
-            if (s.childLayer && std::find(order.begin(), order.end(), s.name) == order.end()) {
-                Log::Warnf("CompositeVectorTileLayer: external source '%s' is not listed in the style 'layers' - it will not be drawn", s.name.c_str());
-            }
-        }
     }
 
     void CompositeVectorTileLayer::applyConfig(const ExternalSource& source, const mvt::ResolvedLayerConfig& config, const ViewState& viewState) {
@@ -421,57 +493,38 @@ namespace carto {
         }
     }
 
-    bool CompositeVectorTileLayer::renderSegmented(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState, bool terrain) {
+    bool CompositeVectorTileLayer::renderComposite(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState, bool terrain) {
         auto decoder = std::dynamic_pointer_cast<MBVectorTileDecoder>(getTileDecoder());
 
         std::lock_guard<std::recursive_mutex> lock(_sourceMutex);
 
-        bool hasChildSteps = std::any_of(_renderSteps.begin(), _renderSteps.end(), [](const RenderStep& s) { return !s.childSlot.empty(); });
-        if (!decoder || !hasChildSteps) {
-            // No interleaving needed - behave exactly as a plain VectorTileLayer.
-            return terrain ? VectorTileLayer::onDrawFrame3D(deltaSeconds, billboardSorter, viewState)
-                           : VectorTileLayer::onDrawFrame(deltaSeconds, billboardSorter, viewState);
-        }
+        // Group 0 renders on this layer itself (with the group-0 rendererLayerFilter set in
+        // rebuildDrawItems). When there are no external child slots, this draws everything.
+        bool refresh = terrain ? VectorTileLayer::onDrawFrame3D(deltaSeconds, billboardSorter, viewState)
+                               : VectorTileLayer::onDrawFrame(deltaSeconds, billboardSorter, viewState);
 
-        auto mapRenderer = getMapRenderer();
-        if (!mapRenderer) {
-            return false;
-        }
-
-        float opacity = getOpacity();
-        if (opacity < 1.0f) {
-            mapRenderer->clearAndBindScreenFBO(Color(0, 0, 0, 0), true, true);
-        }
-
-        _tileRenderer->setLabelOrder(static_cast<int>(getLabelRenderOrder()));
-        _tileRenderer->setBuildingOrder(static_cast<int>(getBuildingRenderOrder()));
-        _tileRenderer->setLayerBlendingSpeed(getLayerBlendingSpeed());
-        _tileRenderer->setLabelBlendingSpeed(getLabelBlendingSpeed());
-
-        bool refresh = false;
-        for (const RenderStep& step : _renderSteps) {
-            if (step.hasVtGroup) {
-                _tileRenderer->setRendererLayerFilter(step.vtFilter);
-                refresh = (terrain ? _tileRenderer->onDrawFrame3D(deltaSeconds, viewState)
-                                   : _tileRenderer->onDrawFrame(deltaSeconds, viewState)) || refresh;
-            }
-            if (!step.childSlot.empty()) {
-                const ExternalSource* source = findExternalSource(step.childSlot);
-                if (source && source->childLayer) {
-                    mvt::ResolvedLayerConfig config = decoder->resolveLayerConfig(step.childSlot, viewState.getZoom());
-                    applyConfig(*source, config, viewState);
-                    if (config.visible) {
-                        refresh = (terrain ? source->childLayer->onDrawFrame3D(deltaSeconds, billboardSorter, viewState)
-                                           : source->childLayer->onDrawFrame(deltaSeconds, billboardSorter, viewState)) || refresh;
-                    }
+        for (const DrawItem& item : _drawItems) {
+            if (item.kind == DRAW_ITEM_VT_GROUP) {
+                if (item.groupLayer) {
+                    refresh = (terrain ? item.groupLayer->onDrawFrame3D(deltaSeconds, billboardSorter, viewState)
+                                       : item.groupLayer->onDrawFrame(deltaSeconds, billboardSorter, viewState)) || refresh;
                 }
+                continue;
             }
-        }
-
-        _tileRenderer->setRendererLayerFilter(std::nullopt);
-
-        if (opacity < 1.0f) {
-            mapRenderer->blendAndUnbindScreenFBO(opacity);
+            const ExternalSource* source = findExternalSource(item.slot);
+            if (!source || !source->childLayer) {
+                continue;
+            }
+            bool visible = true;
+            if (decoder) {
+                mvt::ResolvedLayerConfig config = decoder->resolveLayerConfig(item.slot, viewState.getZoom());
+                applyConfig(*source, config, viewState);
+                visible = config.visible;
+            }
+            if (visible) {
+                refresh = (terrain ? source->childLayer->onDrawFrame3D(deltaSeconds, billboardSorter, viewState)
+                                   : source->childLayer->onDrawFrame(deltaSeconds, billboardSorter, viewState)) || refresh;
+            }
         }
         return refresh;
     }
