@@ -549,14 +549,6 @@ namespace carto {
                 mvt::ResolvedLayerConfig config = decoder->resolveLayerConfig(item.slot, viewState.getZoom());
                 applyConfig(*source, config, viewState);
                 visible = config.visible;
-                { // TEMP DEBUG: verify per-zoom config evaluation (remove after diagnosis)
-                    auto oit = config.values.find("opacity");
-                    auto eit = config.values.find("exaggeration");
-                    float op = oit != config.values.end() ? valueToFloat(oit->second, -1.0f) : -1.0f;
-                    float ex = eit != config.values.end() ? valueToFloat(eit->second, -1.0f) : -1.0f;
-                    Log::Infof("CompositeVectorTileLayer[DEBUG] slot=%s viewZoom=%.3f visible=%d opacity=%.3f exaggeration=%.3f",
-                               item.slot.c_str(), viewState.getZoom(), (int)visible, op, ex);
-                }
             }
             if (visible) {
                 refresh = (terrain ? source->childLayer->onDrawFrame3D(deltaSeconds, billboardSorter, viewState)
