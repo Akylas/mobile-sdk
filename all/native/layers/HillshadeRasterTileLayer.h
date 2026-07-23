@@ -83,6 +83,20 @@ namespace carto {
         void setHeightScale(float heightScale);
 
         /**
+         * Returns the per-frame relief exaggeration factor. Unlike height scale this is a shader
+         * uniform applied at render time (no tile re-decode), so it can be animated smoothly.
+         * @return The exaggeration factor. Default is 1.0.
+         */
+        float getExaggeration() const;
+        /**
+         * Sets the per-frame relief exaggeration factor. Scales the hillshade slope/intensity in the
+         * shader without re-decoding tiles, so it can change smoothly (e.g. with zoom). 1.0 leaves the
+         * appearance unchanged.
+         * @param exaggeration The exaggeration factor.
+         */
+        void setExaggeration(float exaggeration);
+
+        /**
          * Returns the shading color of areas that face away from the light source.
          * @return The shadow color of the layer.
          */
@@ -242,6 +256,8 @@ namespace carto {
         std::atomic<float> _contrast;
         std::atomic<bool> _exagerateHeightScaleEnabled;
         std::atomic<float> _heightScale;
+
+        std::atomic<float> _exaggeration;
         std::string _normalMapLightingShader;
         std::atomic<Color> _shadowColor;
         std::atomic<Color> _accentColor;

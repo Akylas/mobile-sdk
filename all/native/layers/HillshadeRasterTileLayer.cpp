@@ -33,6 +33,7 @@ namespace carto
         _elevationDecoder(elevationDecoder),
         _contrast(0.5f),
         _heightScale(0.09f),
+        _exaggeration(1.0f),
         _exagerateHeightScaleEnabled(true),
         _normalMapLightingShader(),
         _accentColor(Color(0, 0, 0, 255)),
@@ -53,6 +54,7 @@ namespace carto
         _elevationDecoder(nullptr),
         _contrast(0.5f),
         _heightScale(1.0f),
+        _exaggeration(1.0f),
         _exagerateHeightScaleEnabled(true),
         _normalMapLightingShader(),
         _accentColor(Color(0, 0, 0, 255)),
@@ -91,6 +93,15 @@ namespace carto
     void HillshadeRasterTileLayer::setHeightScale(float heightScale) {
         _heightScale.store(heightScale);
         updateTiles(false);
+    }
+
+    float HillshadeRasterTileLayer::getExaggeration() const {
+        return _exaggeration.load();
+    }
+
+    void HillshadeRasterTileLayer::setExaggeration(float exaggeration) {
+        _exaggeration.store(exaggeration);
+        redraw(); // per-frame shader uniform only; no tile re-decode
     }
 
     Color HillshadeRasterTileLayer::getShadowColor() const {
@@ -263,7 +274,7 @@ namespace carto
                     break;
             }
             _tileRenderer->setHillshadeMethod(hillshadeMethod);
-            _tileRenderer->setHillshadeExaggeration(getContrast());
+            _tileRenderer->setHillshadeExaggeration(getContrast() * getExaggeration());
             bool refresh = _tileRenderer->onDrawFrame(deltaSeconds, viewState);
 
             if (opacity < 1.0f)

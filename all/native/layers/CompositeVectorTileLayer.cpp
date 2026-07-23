@@ -100,7 +100,6 @@ namespace carto {
         }
 
         std::shared_ptr<Layer> childLayer;
-        float baseHeightScale = 1.0f;
         if (type == CompositeSourceType::COMPOSITE_SOURCE_TYPE_RASTER) {
             childLayer = std::make_shared<RasterTileLayer>(dataSource);
         } else { // HILLSHADE
@@ -108,18 +107,14 @@ namespace carto {
             if (!elevDecoder) {
                 elevDecoder = resolveElevationDecoder(dataSource);
             }
-            auto hillshade = elevDecoder ? std::make_shared<HillshadeRasterTileLayer>(dataSource, elevDecoder)
-                                         : std::make_shared<HillshadeRasterTileLayer>(dataSource);
-            // The natural hillshade height scale is small (~0.09 with a decoder); 'hillshade-exaggeration'
-            // is a multiplier of this default so exaggeration=1 keeps the normal look.
-            baseHeightScale = hillshade->getHeightScale();
-            childLayer = hillshade;
+            childLayer = elevDecoder ? std::make_shared<HillshadeRasterTileLayer>(dataSource, elevDecoder)
+                                     : std::make_shared<HillshadeRasterTileLayer>(dataSource);
         }
 
         {
             std::lock_guard<std::recursive_mutex> lock(_sourceMutex);
             removeExternalDataSource(name); // replace if it exists
-            _externalSources.push_back({ name, type, dataSource, childLayer, baseHeightScale });
+            _externalSources.push_back({ name, type, dataSource, childLayer });
             if (_componentsSet) {
                 wireChild(childLayer);
             }
@@ -469,11 +464,12 @@ namespace carto {
         } else if (source.type == CompositeSourceType::COMPOSITE_SOURCE_TYPE_HILLSHADE) {
             auto hillshade = std::static_pointer_cast<HillshadeRasterTileLayer>(source.childLayer);
             if (const mvt::Value* v = getValue("opacity")) { hillshade->setOpacity(valueToFloat(*v, 1.0f)); }
+            // exaggeration is a per-frame shader uniform (no re-decode) -> animates smoothly with zoom.
+            if (const mvt::Value* v = getValue("exaggeration")) { hillshade->setExaggeration(valueToFloat(*v, 1.0f)); }
 
             if (decodeZoomChanged) { // decode-bound: only at integer zoom crossings (aligned with tile reload)
-                // exaggeration multiplies the layer's natural height scale (~0.09); height-scale sets it raw.
-                if (const mvt::Value* v = getValue("exaggeration")) { hillshade->setHeightScale(source.baseHeightScale * valueToFloat(*v, 1.0f)); }
-                else if (const mvt::Value* v = getValue("height-scale")) { hillshade->setHeightScale(valueToFloat(*v, 1.0f)); }
+                // height-scale is the raw normal-map height scale (baked at decode; steps with zoom).
+                if (const mvt::Value* v = getValue("height-scale")) { hillshade->setHeightScale(valueToFloat(*v, 1.0f)); }
                 if (const mvt::Value* v = getValue("contrast")) { hillshade->setContrast(valueToFloat(*v, 0.5f)); }
                 if (const mvt::Value* v = getValue("contour-interval")) {
                     float interval = valueToFloat(*v, 0.0f);

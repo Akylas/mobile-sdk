@@ -134,7 +134,6 @@ namespace carto {
             CompositeSourceType::CompositeSourceType type;
             std::shared_ptr<TileDataSource> dataSource;
             std::shared_ptr<Layer> childLayer; // raster/hillshade child; null for merged vector
-            float baseHeightScale = 1.0f;      // hillshade's default heightScale; exaggeration multiplies it
         };
 
         // One ordered draw step after the layer's own group-0 render: either an external
