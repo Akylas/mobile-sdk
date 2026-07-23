@@ -72,6 +72,9 @@ namespace carto {
         void setHillshadeMethod(int method);
         void setHillshadeExaggeration(float exaggeration);
         void setRendererLayerFilter(const std::optional<std::regex>& filter);
+        // Per-frame layer-index gate: draw only tile layers with layerIndex in [first, second).
+        // nullopt (default) = no effect. Used by CompositeVectorTileLayer single-pass rendering.
+        void setRendererLayerIndexRange(const std::optional<std::pair<int, int> >& range);
         void setClickHandlerLayerFilter(const std::optional<std::regex>& filter);
 
         void offsetLayerHorizontally(double offset);
@@ -122,6 +125,7 @@ namespace carto {
         Color _normalMapContourColor;
         float _normalMapContourWidth = 0.75f; // contour half-width in screen pixels
         std::optional<std::regex> _rendererLayerFilter;
+        std::optional<std::pair<int, int> > _rendererLayerIndexRange;
         std::optional<std::regex> _clickHandlerLayerFilter;
 
         double _horizontalLayerOffset;
