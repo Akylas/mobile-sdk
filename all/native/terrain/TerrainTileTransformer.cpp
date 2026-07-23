@@ -182,12 +182,13 @@ namespace carto {
         }
     }
 
-    TerrainTileTransformer::TerrainTileTransformer(float scale, const std::shared_ptr<ElevationManager>& elevationManager, int meshResolution, int minZoom, bool regularGrid) :
+    TerrainTileTransformer::TerrainTileTransformer(float scale, const std::shared_ptr<ElevationManager>& elevationManager, int meshResolution, int minZoom, bool regularGrid, bool sourceDensity) :
         _scale(scale),
         _elevationManager(elevationManager),
         _meshResolution(std::max(1, meshResolution)),
         _minZoom(minZoom),
-        _regularGrid(regularGrid)
+        _regularGrid(regularGrid),
+        _sourceDensity(sourceDensity)
     {
     }
 
@@ -243,6 +244,13 @@ namespace carto {
 
         float divideThreshold = std::numeric_limits<float>::infinity();
         float lineDivideThreshold = std::numeric_limits<float>::infinity();
+        // Source-density (tangram) mode: do NOT subdivide draped content to follow the surface.
+        // Leave it at source density (infinite threshold = no splits) and let the GPU draping
+        // shader displace each vertex; the surface occluder stays fine and a lifting depth slack
+        // (GLTileRenderer source-density draw path) keeps the un-subdivided content above it.
+        if (_sourceDensity) {
+            return std::make_shared<TerrainVertexTransformer>(tileId, _scale, std::move(grid), _elevationManager->getExaggeration(), divideThreshold, lineDivideThreshold);
+        }
         if (grid && grid->getMaxHeight() - grid->getMinHeight() > FLAT_HEIGHT_RANGE_EPSILON) {
             double tileScaleMeters = EARTH_CIRCUMFERENCE / (1 << tileId.zoom);
             double threshold = tileScaleMeters / _meshResolution;

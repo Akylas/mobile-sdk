@@ -60,7 +60,7 @@ namespace carto {
             double _localFromInternal;
         };
 
-        TerrainTileTransformer(float scale, const std::shared_ptr<ElevationManager>& elevationManager, int meshResolution, int minZoom, bool regularGrid);
+        TerrainTileTransformer(float scale, const std::shared_ptr<ElevationManager>& elevationManager, int meshResolution, int minZoom, bool regularGrid, bool sourceDensity);
         virtual ~TerrainTileTransformer() = default;
 
         std::shared_ptr<ElevationManager> getElevationManager() const { return _elevationManager; }
@@ -88,6 +88,7 @@ namespace carto {
         const int _meshResolution;
         const int _minZoom; // tiles below this zoom level are rendered flat
         const bool _regularGrid; // shared regular-grid surface mode: subdivide draped geometry to one grid cell (follow the shared grid surface), no DEM-texel floor
+        const bool _sourceDensity; // source-density (tangram) mode: do not subdivide draped content at all; GPU-displace at source density + lifting depth slack
     };
 }
 

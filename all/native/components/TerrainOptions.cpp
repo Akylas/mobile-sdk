@@ -19,6 +19,8 @@ namespace carto {
         _meshResolution(32),
         _regularGridEnabled(false),
         _painterOrderDepthEnabled(false),
+        _sourceDensityDrapingEnabled(false),
+        _sourceDensityDrapeSlack(12.0f),
         _minZoom(5),
         _maxTileZoomOffset(100),
         _backgroundColorARGB(0),
@@ -95,6 +97,27 @@ namespace carto {
     void TerrainOptions::setPainterOrderDepthEnabled(bool painterOrderDepthEnabled) {
         if (_painterOrderDepthEnabled.exchange(painterOrderDepthEnabled) != painterOrderDepthEnabled) {
             notifyOptionChanged("PainterOrderDepthEnabled");
+        }
+    }
+
+    bool TerrainOptions::isSourceDensityDrapingEnabled() const {
+        return _sourceDensityDrapingEnabled.load();
+    }
+
+    void TerrainOptions::setSourceDensityDrapingEnabled(bool enabled) {
+        if (_sourceDensityDrapingEnabled.exchange(enabled) != enabled) {
+            notifyOptionChanged("SourceDensityDrapingEnabled");
+        }
+    }
+
+    float TerrainOptions::getSourceDensityDrapeSlack() const {
+        return _sourceDensityDrapeSlack.load();
+    }
+
+    void TerrainOptions::setSourceDensityDrapeSlack(float slack) {
+        float clamped = std::min(256.0f, std::max(0.0f, slack));
+        if (_sourceDensityDrapeSlack.exchange(clamped) != clamped) {
+            notifyOptionChanged("SourceDensityDrapeSlack");
         }
     }
 

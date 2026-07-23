@@ -331,6 +331,10 @@ namespace carto {
         bool regularGrid = painterOrder || (terrainMode && activeTerrainOptions && activeTerrainOptions->isRegularGridEnabled() && (bool) terrainTextureProvider);
         tileRenderer->setTerrainRegularGrid(regularGrid, activeTerrainOptions ? activeTerrainOptions->getMeshResolution() : 0);
         tileRenderer->setTerrainPainterOrder(painterOrder);
+        // Source-density (tangram) draping: content is left at source density (no per-tile
+        // subdivision) and lifted above the surface occluder by a distance-scaled slack.
+        bool sourceDensity = terrainMode && activeTerrainOptions && activeTerrainOptions->isSourceDensityDrapingEnabled() && (bool) terrainTextureProvider;
+        tileRenderer->setTerrainSourceDensityDrape(sourceDensity, activeTerrainOptions ? activeTerrainOptions->getSourceDensityDrapeSlack() : 0.0f);
         tileRenderer->setTerrainDepthWrite(terrainMode && _terrainDepthWriteMode);
         tileRenderer->setDebugWireframe(false); // debug: terrain mesh wireframe + stencil overlay
         tileRenderer->setDebugSurfacePrefill(false); // debug: facing-coded terrain pre-fill (magenta front / cyan back)
