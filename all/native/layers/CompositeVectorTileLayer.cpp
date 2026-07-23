@@ -1,5 +1,4 @@
 #include "CompositeVectorTileLayer.h"
-#include "datasources/DynamicMergedMBVTTileDataSource.h"
 #include "datasources/ContourTileDataSource.h"
 #include "layers/RasterTileLayer.h"
 #include "layers/HillshadeRasterTileLayer.h"
@@ -72,8 +71,7 @@ namespace carto {
     }
 
     CompositeVectorTileLayer::CompositeVectorTileLayer(const std::shared_ptr<TileDataSource>& dataSource, const std::shared_ptr<VectorTileDecoder>& decoder) :
-        VectorTileLayer(std::make_shared<DynamicMergedMBVTTileDataSource>(dataSource), decoder),
-        _mergedDataSource(),
+        VectorTileLayer(dataSource, decoder),
         _externalSources(),
         _drawItems(),
         _lastVectorConfig(),
@@ -84,7 +82,6 @@ namespace carto {
         _childTouchHandler(),
         _sourceMutex()
     {
-        _mergedDataSource = std::static_pointer_cast<DynamicMergedMBVTTileDataSource>(getDataSource());
         rebuildDrawItems();
     }
 
@@ -128,11 +125,25 @@ namespace carto {
         if (!dataSource) {
             throw NullArgumentException("Null dataSource");
         }
+
+        // A vector source is drawn as its own child VectorTileLayer over its own source, using the
+        // master decoder and filtered to its own layer name. Kept separate (not merged) so it can
+        // overzoom independently - e.g. a ContourTileDataSource renders z13+ from z12 DEM data via
+        // the child layer's MaxOverzoomLevel, without needing the DEM at the target zoom.
+        auto childVectorLayer = std::make_shared<VectorTileLayer>(dataSource, getTileDecoder());
+        childVectorLayer->setRendererLayerFilter("^(" + name + ")$");
+        childVectorLayer->setMaxOverzoomLevel(dataSource->getMaxOverzoomLevel());
+        childVectorLayer->setLabelRenderOrder(getLabelRenderOrder());
+        childVectorLayer->setBuildingRenderOrder(getBuildingRenderOrder());
+        std::shared_ptr<Layer> childLayer = childVectorLayer;
+
         {
             std::lock_guard<std::recursive_mutex> lock(_sourceMutex);
             removeExternalDataSource(name);
-            _externalSources.push_back({ name, CompositeSourceType::COMPOSITE_SOURCE_TYPE_VECTOR, dataSource, std::shared_ptr<Layer>() });
-            _mergedDataSource->addDataSource(name, dataSource); // notifies -> master + group tiles reload
+            _externalSources.push_back({ name, CompositeSourceType::COMPOSITE_SOURCE_TYPE_VECTOR, dataSource, childLayer });
+            if (_componentsSet) {
+                wireChild(childLayer);
+            }
             rebuildDrawItems();
         }
         applyVectorSourceConfigs();
@@ -145,12 +156,8 @@ namespace carto {
             std::lock_guard<std::recursive_mutex> lock(_sourceMutex);
             auto it = std::find_if(_externalSources.begin(), _externalSources.end(), [&](const ExternalSource& s) { return s.name == name; });
             if (it != _externalSources.end()) {
-                if (it->type == CompositeSourceType::COMPOSITE_SOURCE_TYPE_VECTOR) {
-                    _mergedDataSource->removeDataSource(name);
-                } else if (it->childLayer) {
-                    if (_componentsSet) {
-                        unwireChild(it->childLayer);
-                    }
+                if (it->childLayer && _componentsSet) {
+                    unwireChild(it->childLayer);
                 }
                 _externalSources.erase(it);
                 _lastVectorConfig.erase(name);
@@ -196,13 +203,18 @@ namespace carto {
 
     std::string CompositeVectorTileLayer::buildFilterString(const std::vector<std::string>& group) {
         if (group.empty()) {
-            return "$^"; // impossible anchor sequence -> matches no layer name (empty group renders nothing)
+            // Match nothing. Note: the filter is tested with std::regex_match (full match) and the
+            // per-tile background layer has an EMPTY name (TileReader), so a filter that full-matches
+            // "" (e.g. "$^") would draw the opaque background and overpaint earlier groups. This
+            // char class requires exactly one char that is neither \s nor \S -> matches no string,
+            // not even "".
+            return "[^\\s\\S]";
         }
         std::string pattern = "^(";
         for (std::size_t i = 0; i < group.size(); i++) {
             pattern += (i ? "|" : "") + group[i];
         }
-        pattern += ")";
+        pattern += ")$";
         return pattern;
     }
 
@@ -273,7 +285,7 @@ namespace carto {
 
         auto isChildSlot = [&](const std::string& layerName) {
             const ExternalSource* s = findExternalSource(layerName);
-            return s && s->childLayer && s->type != CompositeSourceType::COMPOSITE_SOURCE_TYPE_VECTOR;
+            return s && s->childLayer; // raster / hillshade / vector children all occupy a slot
         };
 
         std::vector<std::string> group;
@@ -281,10 +293,13 @@ namespace carto {
         for (const std::string& layerName : order) {
             if (isChildSlot(layerName)) {
                 if (!firstSlotSeen) {
-                    // Group 0 renders on this layer itself.
+                    // Group 0 renders on this layer itself (never-match if empty, so nothing -
+                    // not even the empty-named background layer - is drawn).
                     VectorTileLayer::setRendererLayerFilter(buildFilterString(group));
                     firstSlotSeen = true;
-                } else {
+                } else if (!group.empty()) {
+                    // A non-empty intermediate group gets its own stable-filtered layer. Empty
+                    // intermediate groups are skipped entirely (no layer to fetch/decode/overpaint).
                     _drawItems.push_back({ DRAW_ITEM_VT_GROUP, std::string(), makeGroupLayer(buildFilterString(group)) });
                 }
                 _drawItems.push_back({ DRAW_ITEM_EXTERNAL, layerName, std::shared_ptr<Layer>() });
@@ -300,9 +315,9 @@ namespace carto {
             _drawItems.push_back({ DRAW_ITEM_VT_GROUP, std::string(), makeGroupLayer(buildFilterString(group)) });
         }
 
-        // Warn about registered raster/hillshade sources that have no slot in the style order.
+        // Warn about registered sources that have no slot in the style order.
         for (const ExternalSource& s : _externalSources) {
-            if (s.childLayer && s.type != CompositeSourceType::COMPOSITE_SOURCE_TYPE_VECTOR && std::find(order.begin(), order.end(), s.name) == order.end()) {
+            if (s.childLayer && std::find(order.begin(), order.end(), s.name) == order.end()) {
                 Log::Warnf("CompositeVectorTileLayer: external source '%s' is not listed in the style 'layers' - it will not be drawn", s.name.c_str());
             }
         }
@@ -516,7 +531,10 @@ namespace carto {
                 continue;
             }
             bool visible = true;
-            if (decoder) {
+            // Raster/hillshade children are gated by their config symbolizer's zoom/nuti visibility.
+            // Vector children have no config symbolizer (they are styled by normal line/text rules,
+            // which the child's own decode already zoom-filters), so they always draw.
+            if (source->type != CompositeSourceType::COMPOSITE_SOURCE_TYPE_VECTOR && decoder) {
                 mvt::ResolvedLayerConfig config = decoder->resolveLayerConfig(item.slot, viewState.getZoom());
                 applyConfig(*source, config, viewState);
                 visible = config.visible;

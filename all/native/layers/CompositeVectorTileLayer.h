@@ -20,7 +20,6 @@ namespace carto {
     class TileDataSource;
     class VectorTileDecoder;
     class ElevationDecoder;
-    class DynamicMergedMBVTTileDataSource;
     namespace mvt { struct ResolvedLayerConfig; }
 
     namespace CompositeSourceType {
@@ -37,8 +36,10 @@ namespace carto {
              */
             COMPOSITE_SOURCE_TYPE_HILLSHADE,
             /**
-             * Another MBVT/protobuf source (including ContourTileDataSource), merged into the
-             * master source and styled by the master CartoCSS. Has no separate child layer.
+             * Another MBVT/protobuf source (including ContourTileDataSource), drawn at its style
+             * slot as its own child VectorTileLayer using the master decoder, filtered to its own
+             * layer name. Kept separate (not merged) so it overzooms independently via its own
+             * MaxOverzoomLevel and does not need the DEM at the target zoom.
              */
             COMPOSITE_SOURCE_TYPE_VECTOR
         };
@@ -164,7 +165,6 @@ namespace carto {
         void applyVectorSourceConfigs();
         bool renderComposite(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState, bool terrain);
 
-        std::shared_ptr<DynamicMergedMBVTTileDataSource> _mergedDataSource;
         std::vector<ExternalSource> _externalSources;
         std::vector<DrawItem> _drawItems;
         std::map<std::string, std::map<std::string, float> > _lastVectorConfig; // per-source applied contour params
