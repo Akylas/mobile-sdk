@@ -203,18 +203,22 @@ namespace carto {
         return std::make_shared<TerrariumElevationDataDecoder>();
     }
 
-    std::string CompositeVectorTileLayer::buildFilterString(const std::vector<std::string>& group) {
+    std::string CompositeVectorTileLayer::buildFilterString(const std::vector<std::string>& group, bool includeBackground) {
+        // The filter is tested with std::regex_match (full match) and the per-tile background layer
+        // has an EMPTY name (TileReader). So "^$" matches ONLY the background, and a trailing empty
+        // alternative "(...|)" additionally matches it. Non-bottom groups must NOT match "" or they
+        // would paint the opaque background over earlier groups.
         if (group.empty()) {
-            // Match nothing. Note: the filter is tested with std::regex_match (full match) and the
-            // per-tile background layer has an EMPTY name (TileReader), so a filter that full-matches
-            // "" (e.g. "$^") would draw the opaque background and overpaint earlier groups. This
-            // char class requires exactly one char that is neither \s nor \S -> matches no string,
-            // not even "".
-            return "[^\\s\\S]";
+            // Bottom group with no style layers still draws the background; other empty groups match
+            // nothing ("[^\\s\\S]" requires one impossible char, so it matches no string, not even "").
+            return includeBackground ? "^$" : "[^\\s\\S]";
         }
         std::string pattern = "^(";
         for (std::size_t i = 0; i < group.size(); i++) {
             pattern += (i ? "|" : "") + group[i];
+        }
+        if (includeBackground) {
+            pattern += "|"; // empty alternative -> also matches the empty-named background layer
         }
         pattern += ")$";
         return pattern;
@@ -295,9 +299,9 @@ namespace carto {
         for (const std::string& layerName : order) {
             if (isChildSlot(layerName)) {
                 if (!firstSlotSeen) {
-                    // Group 0 renders on this layer itself (never-match if empty, so nothing -
-                    // not even the empty-named background layer - is drawn).
-                    VectorTileLayer::setRendererLayerFilter(buildFilterString(group));
+                    // Group 0 renders on this layer itself. It also draws the style background
+                    // (includeBackground), so the Map background-color appears once at the bottom.
+                    VectorTileLayer::setRendererLayerFilter(buildFilterString(group, /*includeBackground=*/true));
                     firstSlotSeen = true;
                 } else if (!group.empty()) {
                     // A non-empty intermediate group gets its own stable-filtered layer. Empty

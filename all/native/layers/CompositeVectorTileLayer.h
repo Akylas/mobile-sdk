@@ -150,7 +150,9 @@ namespace carto {
         };
 
         static std::shared_ptr<ElevationDecoder> resolveElevationDecoder(const std::shared_ptr<TileDataSource>& dataSource);
-        static std::string buildFilterString(const std::vector<std::string>& group);
+        // includeBackground: also match the empty-named per-tile background layer (only the bottom
+        // group 0 should, so the style Map background-color is drawn once at the bottom).
+        static std::string buildFilterString(const std::vector<std::string>& group, bool includeBackground = false);
 
         void wireChild(const std::shared_ptr<Layer>& child);
         void unwireChild(const std::shared_ptr<Layer>& child);
