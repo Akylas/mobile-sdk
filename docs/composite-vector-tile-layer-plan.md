@@ -764,6 +764,11 @@ the roads; exaggeration should increase with zoom.
    terrain history shows emulator passes do not guarantee device correctness) - do not merge from
    a headless/emulator-only check.
 
+**See [composite-vector-tile-layer-config.md](composite-vector-tile-layer-config.md)** for the
+full style configuration reference (all `raster-*`/`hillshade-*`/`contour-*` properties, smooth
+vs per-zoom-level timing, `[view::zoom]`/interpolation syntax, and a self-contained in-memory
+nuti-bundle demo).
+
 **nuti-parameter visibility** works today with **project-bundle styles** (a zip/asset package whose
 project JSON declares `nutiparameters`, e.g. the app's osm.zip): `resolveLayerConfig` evaluates
 `[nuti::x=...]` predicates against the decoder's nuti value map, and `decoder.setStyleParameter`
