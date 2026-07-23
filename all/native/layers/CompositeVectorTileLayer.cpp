@@ -3,6 +3,7 @@
 #include "layers/RasterTileLayer.h"
 #include "layers/HillshadeRasterTileLayer.h"
 #include "vectortiles/MBVectorTileDecoder.h"
+#include "renderers/TileRenderer.h"
 #include "rastertiles/ElevationDecoder.h"
 #include "rastertiles/TerrariumElevationDataDecoder.h"
 #include "rastertiles/MapBoxElevationDataDecoder.h"
@@ -16,6 +17,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <variant>
 
 #include <mapnikvt/Value.h>
@@ -189,8 +191,15 @@ namespace carto {
     }
 
     void CompositeVectorTileLayer::setSinglePassRenderingEnabled(bool enabled) {
-        std::lock_guard<std::recursive_mutex> lock(_sourceMutex);
-        _singlePassRenderingEnabled = enabled;
+        {
+            std::lock_guard<std::recursive_mutex> lock(_sourceMutex);
+            if (_singlePassRenderingEnabled == enabled) {
+                return;
+            }
+            _singlePassRenderingEnabled = enabled;
+            rebuildDrawItems(); // switch between per-group layers and single-pass segments
+        }
+        refresh();
     }
 
     std::shared_ptr<ElevationDecoder> CompositeVectorTileLayer::resolveElevationDecoder(const std::shared_ptr<TileDataSource>& dataSource) {
@@ -288,6 +297,14 @@ namespace carto {
             if (s.childLayer) {
                 applyExternalChildZoomRange(s);
             }
+        }
+
+        _singlePassSegments.clear();
+        if (_singlePassRenderingEnabled) {
+            // Single-pass: no per-group layers; this layer renders all groups via layer-index ranges.
+            VectorTileLayer::setRendererLayerFilter(""); // no build-time filter - the range gate selects
+            rebuildSinglePassSegments(order);
+            return;
         }
 
         auto isChildSlot = [&](const std::string& layerName) {
@@ -538,13 +555,38 @@ namespace carto {
         }
     }
 
-    bool CompositeVectorTileLayer::renderComposite(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState, bool terrain) {
-        auto decoder = std::dynamic_pointer_cast<MBVectorTileDecoder>(getTileDecoder());
+    bool CompositeVectorTileLayer::drawExternalChild(const std::string& slot, float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState, bool terrain) {
+        const ExternalSource* source = findExternalSource(slot);
+        if (!source || !source->childLayer) {
+            return false;
+        }
+        bool visible = true;
+        // Raster/hillshade children are gated by their config symbolizer's zoom/nuti visibility.
+        // Vector children have no config symbolizer (they are styled by normal line/text rules,
+        // which the child's own decode already zoom-filters), so they always draw.
+        if (source->type != CompositeSourceType::COMPOSITE_SOURCE_TYPE_VECTOR) {
+            if (auto decoder = std::dynamic_pointer_cast<MBVectorTileDecoder>(getTileDecoder())) {
+                mvt::ResolvedLayerConfig config = decoder->resolveLayerConfig(slot, viewState.getZoom());
+                applyConfig(*source, config, viewState);
+                visible = config.visible;
+            }
+        }
+        if (!visible) {
+            return false;
+        }
+        return terrain ? source->childLayer->onDrawFrame3D(deltaSeconds, billboardSorter, viewState)
+                       : source->childLayer->onDrawFrame(deltaSeconds, billboardSorter, viewState);
+    }
 
+    bool CompositeVectorTileLayer::renderComposite(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState, bool terrain) {
         std::lock_guard<std::recursive_mutex> lock(_sourceMutex);
 
-        // Group 0 renders on this layer itself (with the group-0 rendererLayerFilter set in
-        // rebuildDrawItems). When there are no external child slots, this draws everything.
+        if (_singlePassRenderingEnabled) {
+            return renderSinglePass(deltaSeconds, billboardSorter, viewState, terrain);
+        }
+
+        // Multi-layer: group 0 renders on this layer itself (with the group-0 rendererLayerFilter set
+        // in rebuildDrawItems), later groups on internal layers, external children between.
         bool refresh = terrain ? VectorTileLayer::onDrawFrame3D(deltaSeconds, billboardSorter, viewState)
                                : VectorTileLayer::onDrawFrame(deltaSeconds, billboardSorter, viewState);
 
@@ -556,25 +598,67 @@ namespace carto {
                 }
                 continue;
             }
-            const ExternalSource* source = findExternalSource(item.slot);
-            if (!source || !source->childLayer) {
-                continue;
-            }
-            bool visible = true;
-            // Raster/hillshade children are gated by their config symbolizer's zoom/nuti visibility.
-            // Vector children have no config symbolizer (they are styled by normal line/text rules,
-            // which the child's own decode already zoom-filters), so they always draw.
-            if (source->type != CompositeSourceType::COMPOSITE_SOURCE_TYPE_VECTOR && decoder) {
-                mvt::ResolvedLayerConfig config = decoder->resolveLayerConfig(item.slot, viewState.getZoom());
-                applyConfig(*source, config, viewState);
-                visible = config.visible;
-            }
-            if (visible) {
-                refresh = (terrain ? source->childLayer->onDrawFrame3D(deltaSeconds, billboardSorter, viewState)
-                                   : source->childLayer->onDrawFrame(deltaSeconds, billboardSorter, viewState)) || refresh;
-            }
+            refresh = drawExternalChild(item.slot, deltaSeconds, billboardSorter, viewState, terrain) || refresh;
         }
         return refresh;
+    }
+
+    bool CompositeVectorTileLayer::renderSinglePass(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState, bool terrain) {
+        // Caller holds _sourceMutex. This layer decodes once and draws each segment as a layer-index
+        // range on its own renderer (the render-time gate), with external children between. Labels are
+        // rendered once, on the last segment, on top (this layer's labelRenderOrder is hidden on the
+        // other segments). The frame delta is passed only to the first segment so blend/animation state
+        // advances once per frame rather than once per segment.
+        if (_singlePassSegments.empty()) {
+            return terrain ? VectorTileLayer::onDrawFrame3D(deltaSeconds, billboardSorter, viewState)
+                           : VectorTileLayer::onDrawFrame(deltaSeconds, billboardSorter, viewState);
+        }
+
+        VectorTileRenderOrder::VectorTileRenderOrder savedLabelOrder = getLabelRenderOrder();
+        bool refresh = false;
+        for (std::size_t i = 0; i < _singlePassSegments.size(); i++) {
+            const SinglePassSegment& segment = _singlePassSegments[i];
+            bool lastSegment = (i + 1 == _singlePassSegments.size());
+
+            _tileRenderer->setRendererLayerIndexRange(std::make_pair(segment.loIndex, segment.hiIndex));
+            setLabelRenderOrder(lastSegment ? savedLabelOrder : VectorTileRenderOrder::VECTOR_TILE_RENDER_ORDER_HIDDEN);
+
+            float segmentDelta = (i == 0) ? deltaSeconds : 0.0f;
+            refresh = (terrain ? VectorTileLayer::onDrawFrame3D(segmentDelta, billboardSorter, viewState)
+                               : VectorTileLayer::onDrawFrame(segmentDelta, billboardSorter, viewState)) || refresh;
+
+            if (!segment.childSlot.empty()) {
+                refresh = drawExternalChild(segment.childSlot, deltaSeconds, billboardSorter, viewState, terrain) || refresh;
+            }
+        }
+        _tileRenderer->setRendererLayerIndexRange(std::nullopt);
+        setLabelRenderOrder(savedLabelOrder);
+        return refresh;
+    }
+
+    void CompositeVectorTileLayer::rebuildSinglePassSegments(const std::vector<std::string>& order) {
+        // Caller holds _sourceMutex. Style layer at position i has tile layerIndex in
+        // [i*65536, (i+1)*65536) (TileReader: styleLayerIdx = layerNum*65536 + ...). A group covering
+        // positions [a, b) is the layer-index range [a*65536, b*65536); segment 0 starts at INT_MIN so
+        // the empty-named background layer (layerIndex -1) is drawn in the bottom segment.
+        _singlePassSegments.clear();
+
+        std::vector<std::pair<int, std::string> > slots; // (style position, external source name)
+        for (int i = 0; i < static_cast<int>(order.size()); i++) {
+            const ExternalSource* source = findExternalSource(order[i]);
+            if (source && source->childLayer) {
+                slots.emplace_back(i, order[i]);
+            }
+        }
+
+        int lo = std::numeric_limits<int>::min();
+        for (const std::pair<int, std::string>& slot : slots) {
+            int hi = slot.first * 65536;
+            _singlePassSegments.push_back({ lo, hi, slot.second });
+            lo = hi;
+        }
+        // Trailing segment: everything after the last slot; carries the single label pass.
+        _singlePassSegments.push_back({ lo, std::numeric_limits<int>::max(), std::string() });
     }
 
 }

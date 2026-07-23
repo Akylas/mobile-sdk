@@ -149,6 +149,16 @@ namespace carto {
                                                // Layer so protected virtuals are reachable via friend
         };
 
+        // Single-pass mode: this layer decodes once and draws each style-layer group as a
+        // layer-index range on its own renderer (render-time gate), with the external children
+        // between and labels rendered once on the last segment. Avoids the per-group decode of the
+        // default multi-layer path. Opt-in via setSinglePassRenderingEnabled.
+        struct SinglePassSegment {
+            int loIndex;           // draw self tile layers with layerIndex in [loIndex, hiIndex)
+            int hiIndex;
+            std::string childSlot; // external child drawn after this segment ("" = none)
+        };
+
         static std::shared_ptr<ElevationDecoder> resolveElevationDecoder(const std::shared_ptr<TileDataSource>& dataSource);
         // includeBackground: also match the empty-named per-tile background layer (only the bottom
         // group 0 should, so the style Map background-color is drawn once at the bottom).
@@ -166,9 +176,13 @@ namespace carto {
         // render thread (from loadData); only re-applies changed values to avoid reload loops.
         void applyVectorSourceConfigs();
         bool renderComposite(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState, bool terrain);
+        bool renderSinglePass(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState, bool terrain);
+        bool drawExternalChild(const std::string& slot, float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState, bool terrain);
+        void rebuildSinglePassSegments(const std::vector<std::string>& order); // fills _singlePassSegments from style order
 
         std::vector<ExternalSource> _externalSources;
         std::vector<DrawItem> _drawItems;
+        std::vector<SinglePassSegment> _singlePassSegments;
         std::map<std::string, std::map<std::string, float> > _lastVectorConfig; // per-source applied contour params
         std::map<std::string, std::map<std::string, float> > _lastChildConfig;  // per-source last-applied decode-affecting values (avoid per-frame re-decode)
         bool _singlePassRenderingEnabled;
