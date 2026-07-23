@@ -747,13 +747,37 @@ cd scripts/android-dev && ./gradlew :app:assembleDebug -x lint
 Expected: base fills (water/landcover) → hillshade shading → faint satellite (z>=13) →
 roads → buildings + contour lines (z>=12). Panning/zooming should keep the hillshade under
 the roads; exaggeration should increase with zoom.
-6. **Single-pass segmented renderer** (perf, see open point 5): give `TileRenderer` /
-   `vt::GLTileRenderer` the ability to draw several disjoint style-layer filter ranges,
-   with the external children interleaved, inside **one** `startFrame`/`endFrame` instead
-   of N+1 full passes. Keep it behind a toggle on `CompositeVectorTileLayer` (e.g.
-   `setSinglePassRenderingEnabled(bool)`, default off initially) so the N+1-pass path and
-   the single-pass path can be A/B compared on device before picking the default. Scope to
-   this layer only (no change to plain `VectorTileLayer` behavior).
+6. **Single-pass segmented renderer** (perf, optional, NOT STARTED). Current cost: the master
+   style is decoded once per group (groups = external raster/hillshade/vector slots + 1), because
+   each group is a separate `VectorTileLayer` (the `rendererLayerFilter` is build-time, so one
+   renderer cannot draw disjoint ranges per frame). For typical styles with a few slots this is a
+   few decodes; it grows with the number of interleaved sources.
+   The fix is a **render-time** (not build-time) layer-index gate in `vt::GLTileRenderer`: let one
+   renderer hold all decoded layers and draw a `[minLayerIdx, maxLayerIdx)` range per draw call,
+   with children between. Integration points (all must honor the range consistently):
+   `renderGeometry`/`renderLabels` loops over `renderTile.renderLayers`
+   (GLTileRenderer.cpp:663/734/814/1362/1507/1666/1710) AND the blend-node construction
+   (~1362-1400). Style layer boundaries come from the `layerIdx = layerNum*65536+...` encoding
+   (TileReader.cpp:36), so a slot at style position p bounds a group at `layerIdx < p*65536`.
+   Keep it behind `setSinglePassRenderingEnabled` (already stubbed, default off) and A/B on device
+   before making it default. **Requires on-device validation** (this is the GL hot path; the
+   terrain history shows emulator passes do not guarantee device correctness) - do not merge from
+   a headless/emulator-only check.
+
+**nuti-parameter visibility** works today with **project-bundle styles** (a zip/asset package whose
+project JSON declares `nutiparameters`, e.g. the app's osm.zip): `resolveLayerConfig` evaluates
+`[nuti::x=...]` predicates against the decoder's nuti value map, and `decoder.setStyleParameter`
+toggles them live. It is NOT available with a **raw CartoCSS string** decoder, because
+`CartoCSSMapLoader::loadMap` passes no `nutiParameters` (only `loadMapProject` reads them,
+CartoCSSMapLoader.cpp:133). The demo uses a raw string for self-containment, so it demos zoom-based
+config only. A future enhancement could let raw CartoCSS / the decoder declare nuti params
+programmatically.
+
+## Status: feature complete (2D + 3D terrain), verified on device
+
+Milestones 1-5 done and device-verified (base fills, hillshade woven under roads, satellite raster
+with zoom gating, contour lines with overzoom, style background, 3D terrain). Remaining is the
+optional single-pass perf project (6) and the raw-string nuti enhancement, both above.
 
 ## Open points (leaning defaults)
 
