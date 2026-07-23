@@ -146,17 +146,17 @@ namespace carto {
         bool isSourceDensityDrapingEnabled() const;
         /**
          * Enables or disables source-density draping (experimental, tangram-ng model). When enabled,
-         * draped vector content is NOT subdivided to follow the terrain surface at tile build time -
-         * it is left at its source density and displaced per-vertex by the GPU draping shader, exactly
-         * like tangram. This removes the per-tile red-green tesselation, which is the dominant CPU cost
-         * of terrain vs flat rendering, giving near-flat tile decode speed. The trade-off: content only
-         * follows the terrain at its own vertex resolution (long segments / coarse fills fly straight
-         * over dips instead of hugging), and it needs a lifting depth slack (SourceDensityDrapeSlack) so
-         * the un-subdivided content clears the fine surface occluder without holes; a larger slack fills
-         * holes but lets content further behind a ridge shine through. The terrain surface itself stays
-         * at MeshResolution (the shared grid occluder is unaffected). Requires RegularGridEnabled or
-         * PainterOrderDepthEnabled. Only takes effect in GPU draping mode (vertex texture fetch, planar).
-         * @param enabled True to leave draped content at source density, false to subdivide it.
+         * draped polygon FILLS are NOT subdivided to follow the terrain surface at tile build time -
+         * they are left at source density and displaced per-vertex by the GPU draping shader. Fills are
+         * the dominant CPU cost of terrain vs flat rendering (a full-tile fill red-green splits to
+         * ~MeshResolution^2 triangles), so skipping their subdivision gives near-flat tile decode speed.
+         * LINES stay subdivided (they are cheap and must hug the terrain closely - contours lie exactly
+         * on the surface). The un-subdivided fills need a lifting depth slack (SourceDensityDrapeSlack)
+         * to clear the fine surface occluder without holes; a larger slack fills holes but lets fills
+         * further behind a ridge shine through. The terrain surface itself stays at MeshResolution (the
+         * shared grid occluder is unaffected). Requires RegularGridEnabled or PainterOrderDepthEnabled.
+         * Only takes effect in GPU draping mode (vertex texture fetch, planar).
+         * @param enabled True to leave draped fills at source density, false to subdivide them.
          */
         void setSourceDensityDrapingEnabled(bool enabled);
 
@@ -166,11 +166,12 @@ namespace carto {
          */
         float getSourceDensityDrapeSlack() const;
         /**
-         * Sets the lifting depth slack applied to source-density draped content, in the same clip units
+         * Sets the lifting depth slack applied to source-density draped FILLS, in the same clip units
          * as the internal terrain slack (scaled by tile size and projection depth so it grows with
-         * distance, tracking the chord sag of un-subdivided content below the surface). Only used when
-         * SourceDensityDrapingEnabled is true. Increase until holes over convex terrain disappear;
-         * decrease to reduce content shining through behind ridges. Typical range 4..64.
+         * distance, tracking the chord sag of un-subdivided fills below the surface). Only used when
+         * SourceDensityDrapingEnabled is true; lines are unaffected (they stay subdivided). Increase
+         * until holes over convex terrain/landcover disappear; decrease to reduce fills shining through
+         * behind ridges. Typical range 4..64.
          * @param slack The new drape slack in clip units (clamped to 0..256).
          */
         void setSourceDensityDrapeSlack(float slack);

@@ -244,13 +244,6 @@ namespace carto {
 
         float divideThreshold = std::numeric_limits<float>::infinity();
         float lineDivideThreshold = std::numeric_limits<float>::infinity();
-        // Source-density (tangram) mode: do NOT subdivide draped content to follow the surface.
-        // Leave it at source density (infinite threshold = no splits) and let the GPU draping
-        // shader displace each vertex; the surface occluder stays fine and a lifting depth slack
-        // (GLTileRenderer source-density draw path) keeps the un-subdivided content above it.
-        if (_sourceDensity) {
-            return std::make_shared<TerrainVertexTransformer>(tileId, _scale, std::move(grid), _elevationManager->getExaggeration(), divideThreshold, lineDivideThreshold);
-        }
         if (grid && grid->getMaxHeight() - grid->getMinHeight() > FLAT_HEIGHT_RANGE_EPSILON) {
             double tileScaleMeters = EARTH_CIRCUMFERENCE / (1 << tileId.zoom);
             double threshold = tileScaleMeters / _meshResolution;
@@ -276,7 +269,15 @@ namespace carto {
                 // AND subdivides fills the same amount. Instead subdivide only the LINES finer
                 // than the grid (cheap, 1D); the sag falls linearly with the sub-segment length
                 // at no surface-grid cost. Fills stay at one cell (their sag is bounded there).
-                divideThreshold = static_cast<float>(threshold);
+                //
+                // Source-density (tangram) mode targets the expensive part - the fills (a full
+                // tile fill red-green splits to ~meshResolution^2 triangles). It skips FILL
+                // subdivision (source density, lifted by a per-draw fill slack in the renderer)
+                // but KEEPS line subdivision: lines are cheap (1D) and MUST follow the terrain
+                // closely (contours lie exactly on the surface - un-subdivided they need a huge
+                // lift slack that shines everything through). So only the fill threshold goes to
+                // infinity here; the line threshold is unchanged.
+                divideThreshold = _sourceDensity ? std::numeric_limits<float>::infinity() : static_cast<float>(threshold);
                 lineDivideThreshold = static_cast<float>(threshold * REGULAR_GRID_LINE_SUBDIVISION);
             } else {
                 // No point in subdividing finer than the elevation grid resolution
