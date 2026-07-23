@@ -46,6 +46,9 @@
 %ignore carto::MBVectorTileDecoder::getSymbolizerContextSettings;
 %ignore carto::MBVectorTileDecoder::loadMapnikMap;
 %ignore carto::MBVectorTileDecoder::loadCartoCSSMap;
+%ignore carto::MBVectorTileDecoder::getStyleLayerNames;
+%ignore carto::MBVectorTileDecoder::resolveLayerConfig;
+%ignore carto::MBVectorTileDecoder::getStyleLayerZoomRange;
 
 %include "vectortiles/MBVectorTileDecoder.h"
 

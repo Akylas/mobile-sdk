@@ -17,6 +17,7 @@
 #include <variant>
 
 #include <mapnikvt/Value.h>
+#include <mapnikvt/LayerConfigResolver.h>
 
 namespace carto {
     namespace mvt {
@@ -109,6 +110,37 @@ namespace carto {
          * @param params The getStyleParameters to set.
          */
         void setJSONStyleParameters(const std::string& params);
+
+        /**
+         * Returns the ordered list of style layer names as declared by the style (the
+         * project JSON "layers" array). This defines both the draw order and which layers
+         * exist. Used by CompositeVectorTileLayer to place external data sources in the
+         * layer order. Note: for internal use, not exposed to the public API.
+         * @return The ordered style layer names.
+         */
+        std::vector<std::string> getStyleLayerNames() const;
+
+        /**
+         * Evaluates the config symbolizer(s) of the named style layer (raster / hillshade /
+         * contour) at the given fractional view zoom and the current style parameter (nuti)
+         * state, without decoding a tile. Honors rule zoom ranges and filter predicates.
+         * Used by CompositeVectorTileLayer to drive external data source settings per frame.
+         * Note: for internal use, not exposed to the public API.
+         * @param layerName The style layer name.
+         * @param viewZoom The fractional view zoom.
+         * @return The resolved configuration (visible flag + evaluated property values).
+         */
+        mvt::ResolvedLayerConfig resolveLayerConfig(const std::string& layerName, float viewZoom) const;
+
+        /**
+         * Returns the { minZoom, maxZoom } range over which the named style layer's config
+         * symbolizer rules are active. Used by CompositeVectorTileLayer to constrain an
+         * external source child layer's visible zoom range. Returns { 0, 24 } if the layer
+         * has no config rules. Note: for internal use, not exposed to the public API.
+         * @param layerName The style layer name.
+         * @return A two-element vector { minZoom, maxZoom }.
+         */
+        std::vector<int> getStyleLayerZoomRange(const std::string& layerName) const;
 
 
         /**

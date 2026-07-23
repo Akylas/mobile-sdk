@@ -162,6 +162,7 @@ namespace carto {
         friend class MapRenderer;
         friend class BackgroundRenderer;
         friend class TouchHandler;
+        friend class CompositeVectorTileLayer; // forwards lifecycle/draw to owned child layers
     
         Layer();
         

@@ -25,6 +25,7 @@
 
 %attribute(carto::HillshadeRasterTileLayer, float, Contrast, getContrast, setContrast)
 %attribute(carto::HillshadeRasterTileLayer, float, HeightScale, getHeightScale, setHeightScale)
+%attribute(carto::HillshadeRasterTileLayer, float, Exaggeration, getExaggeration, setExaggeration)
 %attribute(carto::HillshadeRasterTileLayer, carto::MapVec, IlluminationDirection, getIlluminationDirection, setIlluminationDirection)
 %attribute(carto::HillshadeRasterTileLayer, bool, IlluminationMapRotationEnabled, getIlluminationMapRotationEnabled, setIlluminationMapRotationEnabled)
 %attribute(carto::HillshadeRasterTileLayer, bool, ExagerateHeightScaleEnabled, getExagerateHeightScaleEnabled, setExagerateHeightScaleEnabled)

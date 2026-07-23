@@ -174,6 +174,43 @@ namespace carto {
         return std::string();
     }
 
+    std::vector<std::string> MBVectorTileDecoder::getStyleLayerNames() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        std::vector<std::string> names;
+        if (_map) {
+            for (const std::shared_ptr<mvt::Layer>& layer : _map->getLayers()) {
+                names.push_back(layer->getName());
+            }
+        }
+        return names;
+    }
+
+    mvt::ResolvedLayerConfig MBVectorTileDecoder::resolveLayerConfig(const std::string& layerName, float viewZoom) const {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (!_map) {
+            return mvt::ResolvedLayerConfig();
+        }
+        // Effective nuti value map: style defaults overlaid with runtime overrides (same as
+        // updateSymbolizer()).
+        auto nutiValues = std::make_shared<std::map<std::string, mvt::Value>>(*_symbolizerContextSettings->getNutiParameterValueMap());
+        for (auto it = _parameterValueMap.begin(); it != _parameterValueMap.end(); it++) {
+            (*nutiValues)[it->first] = it->second;
+        }
+        return mvt::resolveLayerConfig(*_map, layerName, viewZoom, nutiValues);
+    }
+
+    std::vector<int> MBVectorTileDecoder::getStyleLayerZoomRange(const std::string& layerName) const {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (!_map) {
+            return { 0, 24 };
+        }
+        std::pair<int, int> range = mvt::resolveLayerZoomRange(*_map, layerName);
+        return { range.first, range.second };
+    }
+
     void MBVectorTileDecoder::updateSymbolizer() {
         auto parameterValueMap = std::make_shared<std::map<std::string, mvt::Value>>(*_symbolizerContextSettings->getNutiParameterValueMap());
         for (auto it2 = _parameterValueMap.begin(); it2 != _parameterValueMap.end(); it2++) {
