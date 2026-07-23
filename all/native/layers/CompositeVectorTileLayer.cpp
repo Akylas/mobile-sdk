@@ -447,26 +447,18 @@ namespace carto {
             auto it = config.values.find(key);
             return it != config.values.end() ? &it->second : nullptr;
         };
-        // Some hillshade setters re-decode the tile (setHeightScale/setContrast/setContourEnabled call
-        // updateTiles). Applying those every frame with a zoom-interpolated value would re-decode
-        // continuously, so they are applied only when the value actually changes. Cheap setters
-        // (opacity, colors, method, illumination, contour width/color, filter mode = redraw only) are
-        // applied every frame so they stay smooth.
+        // Some hillshade setters bake into the normal map and re-decode the tile
+        // (setHeightScale/setContrast/setContourEnabled call updateTiles). Applying those every frame
+        // with a zoom-interpolated value would re-decode continuously and the tiles would never
+        // settle, so the value appears static. Instead they are applied only when the INTEGER zoom
+        // changes - which is exactly when the hillshade tiles reload for the new zoom level anyway, so
+        // the re-decode is aligned and free. Result: per-zoom-level animation of exaggeration/contrast.
+        // Cheap redraw-only setters (opacity, colors, method, illumination, contour width/color, filter
+        // mode) are applied every frame so they stay smooth.
         std::map<std::string, float>& applied = _lastChildConfig[source.name];
-        auto changedFloat = [&](const std::string& key, float& out) {
-            const mvt::Value* v = getValue(key);
-            if (!v) {
-                return false;
-            }
-            float value = valueToFloat(*v, 0.0f);
-            auto it = applied.find(key);
-            if (it != applied.end() && it->second == value) {
-                return false;
-            }
-            applied[key] = value;
-            out = value;
-            return true;
-        };
+        int intZoom = static_cast<int>(std::floor(viewState.getZoom()));
+        bool decodeZoomChanged = (applied.find("__izoom") == applied.end()) || (static_cast<int>(applied["__izoom"]) != intZoom);
+        applied["__izoom"] = static_cast<float>(intZoom);
 
         if (source.type == CompositeSourceType::COMPOSITE_SOURCE_TYPE_RASTER) {
             auto raster = std::static_pointer_cast<RasterTileLayer>(source.childLayer);
@@ -478,17 +470,16 @@ namespace carto {
             auto hillshade = std::static_pointer_cast<HillshadeRasterTileLayer>(source.childLayer);
             if (const mvt::Value* v = getValue("opacity")) { hillshade->setOpacity(valueToFloat(*v, 1.0f)); }
 
-            float f = 0.0f;
-            // exaggeration multiplies the layer's natural height scale (~0.09); height-scale sets it raw.
-            if (getValue("exaggeration")) {
-                if (changedFloat("exaggeration", f)) { hillshade->setHeightScale(source.baseHeightScale * f); }
-            } else if (getValue("height-scale")) {
-                if (changedFloat("height-scale", f)) { hillshade->setHeightScale(f); }
-            }
-            if (changedFloat("contrast", f)) { hillshade->setContrast(f); }
-            if (changedFloat("contour-interval", f)) {
-                hillshade->setContourEnabled(f > 0.0f);
-                if (f > 0.0f) { hillshade->setContourInterval(f); }
+            if (decodeZoomChanged) { // decode-bound: only at integer zoom crossings (aligned with tile reload)
+                // exaggeration multiplies the layer's natural height scale (~0.09); height-scale sets it raw.
+                if (const mvt::Value* v = getValue("exaggeration")) { hillshade->setHeightScale(source.baseHeightScale * valueToFloat(*v, 1.0f)); }
+                else if (const mvt::Value* v = getValue("height-scale")) { hillshade->setHeightScale(valueToFloat(*v, 1.0f)); }
+                if (const mvt::Value* v = getValue("contrast")) { hillshade->setContrast(valueToFloat(*v, 0.5f)); }
+                if (const mvt::Value* v = getValue("contour-interval")) {
+                    float interval = valueToFloat(*v, 0.0f);
+                    hillshade->setContourEnabled(interval > 0.0f);
+                    if (interval > 0.0f) { hillshade->setContourInterval(interval); }
+                }
             }
 
             if (const mvt::Value* v = getValue("shadow-color"))    { hillshade->setShadowColor(parseColorValue(*v, Color(0, 0, 0, 255))); }
