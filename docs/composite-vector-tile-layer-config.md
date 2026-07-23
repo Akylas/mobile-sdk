@@ -202,7 +202,10 @@ config on the next frame.
   nuti-driven changes to them take effect on the next zoom change.
 - **Fonts:** text symbolizers (labels) need a font asset in the style bundle; the raw-string
   demo omits text.
-- **Performance:** the master style is decoded once per style-layer group (groups = external
-  slots + 1). Fine for a few slots; wrap shared sources in a cache so network is fetched once.
-  A single-pass renderer (one decode) is a documented future optimization.
+- **Performance:** by default the master style is decoded **once** and each style-layer group is
+  drawn as a layer-index range on a single renderer (single-pass), with labels rendered once on top.
+  `setSinglePassRenderingEnabled(false)` switches to the multi-layer path (one internal
+  `VectorTileLayer` per group — more decoding, but per-group label placement). With single-pass keep
+  the composite's own `opacity` at 1.0 (per-segment opacity FBO is not handled), and note that all
+  labels render on top of the interleaved children.
 - **`comp-op` for raster** is not yet applied.

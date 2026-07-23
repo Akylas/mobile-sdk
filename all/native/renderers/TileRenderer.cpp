@@ -52,6 +52,7 @@ namespace carto {
         _normalMapAccentColor(0, 0, 0, 255),
         _normalMapHighlightColor(255, 255, 255, 255),
         _rendererLayerFilter(),
+        _rendererLayerIndexRange(),
         _clickHandlerLayerFilter(),
         _horizontalLayerOffset(0),
         _viewDir(0, 0, 0),
@@ -195,6 +196,11 @@ namespace carto {
         _rendererLayerFilter = filter;
     }
 
+    void TileRenderer::setRendererLayerIndexRange(const std::optional<std::pair<int, int> >& range) {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _rendererLayerIndexRange = range;
+    }
+
     void TileRenderer::setClickHandlerLayerFilter(const std::optional<std::regex>& filter) {
         std::lock_guard<std::mutex> lock(_mutex);
         _clickHandlerLayerFilter = filter;
@@ -225,6 +231,7 @@ namespace carto {
         tileRenderer->setLayerBlendingSpeed(_layerBlendingSpeed);
         tileRenderer->setLabelBlendingSpeed(_labelBlendingSpeed);
         tileRenderer->setRendererLayerFilter(_rendererLayerFilter);
+        tileRenderer->setRendererLayerIndexRange(_rendererLayerIndexRange);
 
         // Terrain state: enable depth-based terrain rendering and rebuild tile surfaces
         // when the elevation data changes (new DEM tiles, exaggeration change). The rebuild
