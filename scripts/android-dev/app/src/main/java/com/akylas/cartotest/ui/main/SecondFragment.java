@@ -721,27 +721,32 @@ public class SecondFragment extends Fragment {
             // hillshade woven above land/water fills, below roads; exaggeration ramps with zoom.
             "#hillshade[zoom>=4][zoom<=16] {",
             "  hillshade-opacity: linear([view::zoom], (11, 0.6), (12, 1));",
-            "  hillshade-exaggeration: linear([view::zoom], (11, 0.6), (12, 1.4));",
+            "  hillshade-exaggeration: linear([view::zoom], (11, 0.6), (12, 1.0));",
             "  hillshade-illumination-direction: 365;",
             "  hillshade-shadow-color: #103040;",
             "}",
                 "#satellite[zoom>=13] { raster-opacity: 0.55; raster-comp-op: src-over; }",
-                "#contour[zoom>=5] {",
-                "  line-color: #9a5a12; line-width: 0.8; line-opacity: 0.7;",
-                "  contour-base-interval: 20;",
-                "}",
             // satellite raster overlay, faint, only high zoom.
             "#transportation { line-color: #ffffff; line-width: 1.2; }",
             "#transportation['class'='motorway'] { line-color: #e27d60; line-width: 3; }",
             "#transportation['class'='primary'] { line-color: #f4c06a; line-width: 2; }",
-            "#building[zoom>=14] { polygon-fill: #d9cfc4; }"
+            "#building[zoom>=14] { polygon-fill: #d9cfc4; }",
+
+                "#contour[zoom>=5] {",
+                "  line-color: #9a5a12; line-width: 0.8; line-opacity: 0.7;",
+                "  contour-base-interval: 20;",
+                "}"
             // contour lines: merged vector source, styled with normal line symbolizer; the
             // contour-base-interval config drives the ContourTileDataSource generation.
 
         );
-        MBVectorTileDecoder styleDecoder = new MBVectorTileDecoder(new CartoCSSStyleSet(css));
-
-        compositeLayer = new CompositeVectorTileLayer(baseSourceCached, styleDecoder);
+        MBVectorTileDecoder decoder = null;
+        try {
+            decoder = getStyleDecoder(dataPath);
+        } catch (IOException e) {
+            decoder = new MBVectorTileDecoder(new CartoCSSStyleSet(css));
+        }
+        compositeLayer = new CompositeVectorTileLayer(baseSourceCached, decoder);
 
         // Shared terrarium-encoded DEM for both hillshade and contours (fetched once).
         HTTPTileDataSource demSource = new HTTPTileDataSource(1, 12, "https://tiles.mapterhorn.com/{z}/{x}/{y}.webp");
@@ -754,14 +759,16 @@ public class SecondFragment extends Fragment {
         contour.setMaxOverzoomLevel(15);
 //        compositeLayer.addVectorDataSource("contour", contour);
         // hillshade: decoder resolved from the DEM source 'encoding' (terrarium) - no decoder arg.
-        compositeLayer.addExternalDataSource("hillshade", cachedDem, CompositeSourceType.COMPOSITE_SOURCE_TYPE_HILLSHADE);
+//        compositeLayer.addExternalDataSource("hillshade", cachedDem, CompositeSourceType.COMPOSITE_SOURCE_TYPE_HILLSHADE);
         // satellite: a raster source drawn at the '#satellite' slot with the style opacity.
         HTTPTileDataSource satSource = new HTTPTileDataSource(0, 19, "https://tile.openstreetmap.org/{z}/{x}/{y}.png");
         satSource.setHTTPHeaders(headers);
         PersistentCacheTileDataSource cachedSat = new PersistentCacheTileDataSource(satSource, getContext().getExternalFilesDir(null) + "/openstreetmap.db");
-//        compositeLayer.addExternalDataSource("satellite", cachedSat, CompositeSourceType.COMPOSITE_SOURCE_TYPE_RASTER);
+        compositeLayer.addExternalDataSource("satellite", cachedSat, CompositeSourceType.COMPOSITE_SOURCE_TYPE_RASTER);
 
         mapView.getLayers().add(compositeLayer);
+
+        compositeLayer.setSinglePassRenderingEnabled(true);
 
         // 3D terrain. The decoder is resolved from the data source "encoding" setting
         // (delegated through the cache wrapper); passing it explicitly works as well.
@@ -905,8 +912,8 @@ public class SecondFragment extends Fragment {
 
 
         // --- CompositeVectorTileLayer demo (2D). Comment this and restore addMap/addTerrain to go back. ---
-        addCompositeMapNuti(dataPath); // nuti-parameter demo: relief toggles every 3s
-//        addCompositeMap(dataPath);
+//        addCompositeMapNuti(dataPath); // nuti-parameter demo: relief toggles every 3s
+        addCompositeMap(dataPath);
 //        addMap(dataPath);
 //        addTerrain(view, dataPath);
 //        addRoutes(dataPath);
