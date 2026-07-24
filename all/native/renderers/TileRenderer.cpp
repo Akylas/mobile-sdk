@@ -331,11 +331,7 @@ namespace carto {
         bool regularGrid = painterOrder || (terrainMode && activeTerrainOptions && activeTerrainOptions->isRegularGridEnabled() && (bool) terrainTextureProvider);
         tileRenderer->setTerrainRegularGrid(regularGrid, activeTerrainOptions ? activeTerrainOptions->getMeshResolution() : 0);
         tileRenderer->setTerrainPainterOrder(painterOrder);
-        // Source-density (tangram) draping: content is left at source density (no per-tile
-        // subdivision) and lifted above the surface occluder by a distance-scaled slack.
-        bool sourceDensity = terrainMode && activeTerrainOptions && activeTerrainOptions->isSourceDensityDrapingEnabled() && (bool) terrainTextureProvider;
-        tileRenderer->setTerrainSourceDensityDrape(sourceDensity, activeTerrainOptions ? activeTerrainOptions->getSourceDensityDrapeSlack() : 0.0f);
-        // Maplibre-style render-to-texture fill draping (spike).
+        // Maplibre-style render-to-texture fill draping.
         bool drapeFills = terrainMode && activeTerrainOptions && activeTerrainOptions->isDrapeFillsEnabled() && (bool) terrainTextureProvider;
         tileRenderer->setTerrainDrapeFills(drapeFills, activeTerrainOptions && activeTerrainOptions->isDrapeLinesEnabled());
         tileRenderer->setTerrainDepthWrite(terrainMode && _terrainDepthWriteMode);

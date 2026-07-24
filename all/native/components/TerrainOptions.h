@@ -140,43 +140,6 @@ namespace carto {
         void setPainterOrderDepthEnabled(bool painterOrderDepthEnabled);
 
         /**
-         * Returns whether source-density (tangram-style) draping is used.
-         * @return True if draped content is left at source density, false for terrain subdivision. The default is false.
-         */
-        bool isSourceDensityDrapingEnabled() const;
-        /**
-         * Enables or disables source-density draping (experimental, tangram-ng model). When enabled,
-         * draped polygon FILLS are NOT subdivided to follow the terrain surface at tile build time -
-         * they are left at source density and displaced per-vertex by the GPU draping shader. Fills are
-         * the dominant CPU cost of terrain vs flat rendering (a full-tile fill red-green splits to
-         * ~MeshResolution^2 triangles), so skipping their subdivision gives near-flat tile decode speed.
-         * LINES stay subdivided (they are cheap and must hug the terrain closely - contours lie exactly
-         * on the surface). The un-subdivided fills need a lifting depth slack (SourceDensityDrapeSlack)
-         * to clear the fine surface occluder without holes; a larger slack fills holes but lets fills
-         * further behind a ridge shine through. The terrain surface itself stays at MeshResolution (the
-         * shared grid occluder is unaffected). Requires RegularGridEnabled or PainterOrderDepthEnabled.
-         * Only takes effect in GPU draping mode (vertex texture fetch, planar).
-         * @param enabled True to leave draped fills at source density, false to subdivide them.
-         */
-        void setSourceDensityDrapingEnabled(bool enabled);
-
-        /**
-         * Returns the lifting depth slack used for source-density draping.
-         * @return The drape slack in clip units. The default is 12.
-         */
-        float getSourceDensityDrapeSlack() const;
-        /**
-         * Sets the lifting depth slack applied to source-density draped FILLS, in the same clip units
-         * as the internal terrain slack (scaled by tile size and projection depth so it grows with
-         * distance, tracking the chord sag of un-subdivided fills below the surface). Only used when
-         * SourceDensityDrapingEnabled is true; lines are unaffected (they stay subdivided). Increase
-         * until holes over convex terrain/landcover disappear; decrease to reduce fills shining through
-         * behind ridges. Typical range 4..64.
-         * @param slack The new drape slack in clip units (clamped to 0..256).
-         */
-        void setSourceDensityDrapeSlack(float slack);
-
-        /**
          * Returns whether polygon fills are draped as a render-to-texture surface.
          * @return True if fills are baked to a per-tile texture and sampled on the surface. The default is false.
          */
@@ -391,8 +354,6 @@ namespace carto {
         std::atomic<int> _meshResolution;
         std::atomic<bool> _regularGridEnabled;
         std::atomic<bool> _painterOrderDepthEnabled;
-        std::atomic<bool> _sourceDensityDrapingEnabled;
-        std::atomic<float> _sourceDensityDrapeSlack;
         std::atomic<bool> _drapeFillsEnabled;
         std::atomic<bool> _drapeLinesEnabled;
         std::atomic<float> _elementTerrainSlack;

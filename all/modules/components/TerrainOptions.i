@@ -27,8 +27,6 @@
 %attribute(carto::TerrainOptions, int, MeshResolution, getMeshResolution, setMeshResolution)
 %attribute(carto::TerrainOptions, bool, RegularGridEnabled, isRegularGridEnabled, setRegularGridEnabled)
 %attribute(carto::TerrainOptions, bool, PainterOrderDepthEnabled, isPainterOrderDepthEnabled, setPainterOrderDepthEnabled)
-%attribute(carto::TerrainOptions, bool, SourceDensityDrapingEnabled, isSourceDensityDrapingEnabled, setSourceDensityDrapingEnabled)
-%attribute(carto::TerrainOptions, float, SourceDensityDrapeSlack, getSourceDensityDrapeSlack, setSourceDensityDrapeSlack)
 %attribute(carto::TerrainOptions, bool, DrapeFillsEnabled, isDrapeFillsEnabled, setDrapeFillsEnabled)
 %attribute(carto::TerrainOptions, bool, DrapeLinesEnabled, isDrapeLinesEnabled, setDrapeLinesEnabled)
 %attribute(carto::TerrainOptions, float, ElementTerrainSlack, getElementTerrainSlack, setElementTerrainSlack)
