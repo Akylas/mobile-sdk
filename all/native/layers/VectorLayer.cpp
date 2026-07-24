@@ -181,24 +181,18 @@ namespace carto {
                 if (options->getRenderProjectionMode() == RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
                     if (auto terrainOptions = options->getTerrainOptions()) {
                         if (terrainOptions->isEnabled() && terrainOptions->isPainterOrderDepthEnabled()) {
-                            // Painter-order: the vt renderer pushes the terrain surface BACK to
-                            // give draped content clearance. Tile content is lattice-clamped onto
-                            // the grid surface, so the constant push-back suffices for it. Elements
-                            // are NOT lattice-clamped - they sample the full-resolution bilinear
-                            // height field, which over convex/coarse-grid cells rises above the
-                            // rendered grid surface, so the grid pokes through the element (cracks),
-                            // worst at low zoom where the cell is large. A small distance-scaled
-                            // clearance (ElementTerrainSlack) clears that in-cell mismatch; keep it
-                            // as low as possible since, like any clip-space slack, too much lets an
-                            // element behind a ridge shine through.
+                            // Painter-order + true-depth terrain occluder: elements are drawn with
+                            // GL_LEQUAL and ZERO forward bias, exactly like the lattice-clamped tile
+                            // content. Elements sit at (bilinear height + small world lift), so they
+                            // pass the depth test where they are at/above the surface and are
+                            // occluded (fail) behind a near ridge. A forward clip bias is what let
+                            // the whole element line shine through terrain at distance - drop it.
+                            // Residual concave cracks are cleared by the world-space height lift
+                            // (TerrainProjectionSurface), which does not grow with distance so it
+                            // can not leak over ridges.
                             terrainPainterOrder = true;
-                            elementDepthBias = 2.0f / 524288.0f;
-                            float tileSize = static_cast<float>(Const::WORLD_SIZE / std::pow(2.0, std::floor(viewState.getZoom())));
-                            float projScaleZ = static_cast<float>(std::abs(viewState.getProjectionMat()(2, 2)));
-                            float refTileSize = static_cast<float>(Const::WORLD_SIZE / 2048.0);
-                            float slackScale = tileSize * std::min(4.0f, tileSize / refTileSize);
-                            float resolutionRatio = 32.0f / std::max(32, terrainOptions->getMeshResolution());
-                            elementDepthBiasClip = terrainOptions->getElementTerrainSlack() * 0.001f * slackScale * projScaleZ * resolutionRatio * resolutionRatio;
+                            elementDepthBias = 0.0f;
+                            elementDepthBiasClip = 0.0f;
                         } else if (terrainOptions->isEnabled()) {
                             terrainDepthOffset = true;
                             // Element heights are the same bilinear elevation samples the GPU
@@ -248,12 +242,19 @@ namespace carto {
                 glEnable(GL_POLYGON_OFFSET_FILL);
                 glPolygonOffset(0.0f, -2.0f);
             }
+            if (terrainPainterOrder) {
+                // Coincident-with-surface content: pass at equal depth, occlude behind ridges.
+                glDepthFunc(GL_LEQUAL);
+            }
 
             bool refresh = _billboardRenderer->onDrawFrame(deltaSeconds, billboardSorter, viewState);
             _geometryCollectionRenderer->onDrawFrame(deltaSeconds, viewState);
             _lineRenderer->onDrawFrame(deltaSeconds, viewState);
             _pointRenderer->onDrawFrame(deltaSeconds, viewState);
             _polygonRenderer->onDrawFrame(deltaSeconds, viewState);
+            if (terrainPainterOrder) {
+                glDepthFunc(GL_LESS);
+            }
 
             if (terrainDepthOffset) {
                 glDisable(GL_POLYGON_OFFSET_FILL);
