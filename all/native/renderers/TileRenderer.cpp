@@ -285,7 +285,6 @@ namespace carto {
                     }
                 }
                 if (_elevationTextureCache) {
-                    _elevationTextureCache->beginFrame(); // reset the per-frame new-texture creation budget
                     std::shared_ptr<ElevationTextureCache> elevationTextureCache = _elevationTextureCache;
                     terrainTextureProvider = [elevationTextureCache](const vt::TileId& tileId, vt::GLTileRenderer::TerrainTexture& terrainTexture) {
                         return elevationTextureCache->getTexture(tileId, terrainTexture);
