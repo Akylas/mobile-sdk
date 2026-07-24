@@ -182,13 +182,14 @@ namespace carto {
         }
     }
 
-    TerrainTileTransformer::TerrainTileTransformer(float scale, const std::shared_ptr<ElevationManager>& elevationManager, int meshResolution, int minZoom, bool regularGrid, bool sourceDensity) :
+    TerrainTileTransformer::TerrainTileTransformer(float scale, const std::shared_ptr<ElevationManager>& elevationManager, int meshResolution, int minZoom, bool regularGrid, bool sourceDensity, bool sourceDensityLines) :
         _scale(scale),
         _elevationManager(elevationManager),
         _meshResolution(std::max(1, meshResolution)),
         _minZoom(minZoom),
         _regularGrid(regularGrid),
-        _sourceDensity(sourceDensity)
+        _sourceDensity(sourceDensity),
+        _sourceDensityLines(sourceDensityLines)
     {
     }
 
@@ -278,7 +279,8 @@ namespace carto {
                 // lift slack that shines everything through). So only the fill threshold goes to
                 // infinity here; the line threshold is unchanged.
                 divideThreshold = _sourceDensity ? std::numeric_limits<float>::infinity() : static_cast<float>(threshold);
-                lineDivideThreshold = static_cast<float>(threshold * REGULAR_GRID_LINE_SUBDIVISION);
+                // Draped lines are baked flat too, so skip their subdivision as well.
+                lineDivideThreshold = _sourceDensityLines ? std::numeric_limits<float>::infinity() : static_cast<float>(threshold * REGULAR_GRID_LINE_SUBDIVISION);
             } else {
                 // No point in subdividing finer than the elevation grid resolution
                 double gridInternalWidth = grid->getInternalBounds().getMax().getX() - grid->getInternalBounds().getMin().getX();

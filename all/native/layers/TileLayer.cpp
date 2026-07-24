@@ -265,7 +265,8 @@ namespace carto {
             // stalls fast zooms. Draping fills therefore implies source-density (no fill
             // subdivision), exactly like the tangram source-density mode.
             bool terrainSourceDensity = terrainOptions && (terrainOptions->isSourceDensityDrapingEnabled() || terrainOptions->isDrapeFillsEnabled());
-            if (_terrainOptions.lock() != terrainOptions || _terrainEnabled != terrainEnabled || _terrainExaggeration != terrainExaggeration || _terrainMeshResolution != terrainMeshResolution || _terrainMinZoom != terrainMinZoom || _terrainRegularGrid != terrainRegularGrid || _terrainSourceDensity != terrainSourceDensity) {
+            bool terrainSourceDensityLines = terrainOptions && terrainOptions->isDrapeLinesEnabled();
+            if (_terrainOptions.lock() != terrainOptions || _terrainEnabled != terrainEnabled || _terrainExaggeration != terrainExaggeration || _terrainMeshResolution != terrainMeshResolution || _terrainMinZoom != terrainMinZoom || _terrainRegularGrid != terrainRegularGrid || _terrainSourceDensity != terrainSourceDensity || _terrainSourceDensityLines != terrainSourceDensityLines) {
                 clearTileCaches(true);
                 resetTileTransformer();
                 _terrainOptions = terrainOptions;
@@ -275,6 +276,7 @@ namespace carto {
                 _terrainMinZoom = terrainMinZoom;
                 _terrainRegularGrid = terrainRegularGrid;
                 _terrainSourceDensity = terrainSourceDensity;
+                _terrainSourceDensityLines = terrainSourceDensityLines;
             }
         }
 
@@ -781,7 +783,7 @@ namespace carto {
             }
             else if (auto terrainOptions = options->getTerrainOptions()) {
                 if (terrainOptions->isEnabled()) {
-                    tileTransformer = std::make_shared<TerrainTileTransformer>(static_cast<float>(Const::WORLD_SIZE), terrainOptions->getElevationManager(), terrainOptions->getMeshResolution(), terrainOptions->getMinZoom(), terrainOptions->isRegularGridEnabled() || terrainOptions->isPainterOrderDepthEnabled(), terrainOptions->isSourceDensityDrapingEnabled() || terrainOptions->isDrapeFillsEnabled());
+                    tileTransformer = std::make_shared<TerrainTileTransformer>(static_cast<float>(Const::WORLD_SIZE), terrainOptions->getElevationManager(), terrainOptions->getMeshResolution(), terrainOptions->getMinZoom(), terrainOptions->isRegularGridEnabled() || terrainOptions->isPainterOrderDepthEnabled(), terrainOptions->isSourceDensityDrapingEnabled() || terrainOptions->isDrapeFillsEnabled(), terrainOptions->isDrapeLinesEnabled());
                 }
             }
         }

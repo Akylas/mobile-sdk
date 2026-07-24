@@ -456,6 +456,7 @@ namespace carto {
         int _terrainMinZoom = 0;
         bool _terrainRegularGrid = false;
         bool _terrainSourceDensity = false;
+        bool _terrainSourceDensityLines = false;
     };
     
 }
