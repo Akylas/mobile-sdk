@@ -260,7 +260,11 @@ namespace carto {
             int terrainMeshResolution = terrainOptions ? terrainOptions->getMeshResolution() : 0;
             int terrainMinZoom = terrainOptions ? terrainOptions->getMinZoom() : 0;
             bool terrainRegularGrid = terrainOptions && (terrainOptions->isRegularGridEnabled() || terrainOptions->isPainterOrderDepthEnabled());
-            bool terrainSourceDensity = terrainOptions && terrainOptions->isSourceDensityDrapingEnabled();
+            // Draped fills are baked FLAT into the drape texture, so their terrain subdivision is
+            // wasted work - and the subdivided fill VBOs are uploaded on the render thread, which
+            // stalls fast zooms. Draping fills therefore implies source-density (no fill
+            // subdivision), exactly like the tangram source-density mode.
+            bool terrainSourceDensity = terrainOptions && (terrainOptions->isSourceDensityDrapingEnabled() || terrainOptions->isDrapeFillsEnabled());
             if (_terrainOptions.lock() != terrainOptions || _terrainEnabled != terrainEnabled || _terrainExaggeration != terrainExaggeration || _terrainMeshResolution != terrainMeshResolution || _terrainMinZoom != terrainMinZoom || _terrainRegularGrid != terrainRegularGrid || _terrainSourceDensity != terrainSourceDensity) {
                 clearTileCaches(true);
                 resetTileTransformer();
@@ -777,7 +781,7 @@ namespace carto {
             }
             else if (auto terrainOptions = options->getTerrainOptions()) {
                 if (terrainOptions->isEnabled()) {
-                    tileTransformer = std::make_shared<TerrainTileTransformer>(static_cast<float>(Const::WORLD_SIZE), terrainOptions->getElevationManager(), terrainOptions->getMeshResolution(), terrainOptions->getMinZoom(), terrainOptions->isRegularGridEnabled() || terrainOptions->isPainterOrderDepthEnabled(), terrainOptions->isSourceDensityDrapingEnabled());
+                    tileTransformer = std::make_shared<TerrainTileTransformer>(static_cast<float>(Const::WORLD_SIZE), terrainOptions->getElevationManager(), terrainOptions->getMeshResolution(), terrainOptions->getMinZoom(), terrainOptions->isRegularGridEnabled() || terrainOptions->isPainterOrderDepthEnabled(), terrainOptions->isSourceDensityDrapingEnabled() || terrainOptions->isDrapeFillsEnabled());
                 }
             }
         }
