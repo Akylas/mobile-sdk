@@ -335,6 +335,9 @@ namespace carto {
         // subdivision) and lifted above the surface occluder by a distance-scaled slack.
         bool sourceDensity = terrainMode && activeTerrainOptions && activeTerrainOptions->isSourceDensityDrapingEnabled() && (bool) terrainTextureProvider;
         tileRenderer->setTerrainSourceDensityDrape(sourceDensity, activeTerrainOptions ? activeTerrainOptions->getSourceDensityDrapeSlack() : 0.0f);
+        // Maplibre-style render-to-texture fill draping (spike).
+        bool drapeFills = terrainMode && activeTerrainOptions && activeTerrainOptions->isDrapeFillsEnabled() && (bool) terrainTextureProvider;
+        tileRenderer->setTerrainDrapeFills(drapeFills);
         tileRenderer->setTerrainDepthWrite(terrainMode && _terrainDepthWriteMode);
         tileRenderer->setDebugWireframe(false); // debug: terrain mesh wireframe + stencil overlay
         tileRenderer->setDebugSurfacePrefill(false); // debug: facing-coded terrain pre-fill (magenta front / cyan back)

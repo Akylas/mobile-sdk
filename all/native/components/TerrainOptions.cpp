@@ -21,6 +21,7 @@ namespace carto {
         _painterOrderDepthEnabled(false),
         _sourceDensityDrapingEnabled(false),
         _sourceDensityDrapeSlack(12.0f),
+        _drapeFillsEnabled(false),
         _minZoom(5),
         _maxTileZoomOffset(100),
         _backgroundColorARGB(0),
@@ -118,6 +119,16 @@ namespace carto {
         float clamped = std::min(256.0f, std::max(0.0f, slack));
         if (_sourceDensityDrapeSlack.exchange(clamped) != clamped) {
             notifyOptionChanged("SourceDensityDrapeSlack");
+        }
+    }
+
+    bool TerrainOptions::isDrapeFillsEnabled() const {
+        return _drapeFillsEnabled.load();
+    }
+
+    void TerrainOptions::setDrapeFillsEnabled(bool enabled) {
+        if (_drapeFillsEnabled.exchange(enabled) != enabled) {
+            notifyOptionChanged("DrapeFillsEnabled");
         }
     }
 

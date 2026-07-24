@@ -177,6 +177,23 @@ namespace carto {
         void setSourceDensityDrapeSlack(float slack);
 
         /**
+         * Returns whether polygon fills are draped as a render-to-texture surface.
+         * @return True if fills are baked to a per-tile texture and sampled on the surface. The default is false.
+         */
+        bool isDrapeFillsEnabled() const;
+        /**
+         * Enables or disables maplibre-style render-to-texture fill draping (experimental, spike). When
+         * enabled, polygon fills are rendered FLAT into a per-tile offscreen texture and then sampled as
+         * the color of the terrain surface mesh, instead of being drawn as displaced geometry. Because the
+         * fills become the surface's texture they follow the terrain exactly - no chord sag, so no holes,
+         * no see-through, and no depth slack - at flat-render (2D) fill cost. Lines/contours and labels are
+         * unaffected (still drawn as sharp geometry on top). Only native (non-overzoomed) fills are draped.
+         * Requires RegularGridEnabled or PainterOrderDepthEnabled and GPU draping mode (planar).
+         * @param enabled True to drape fills as a texture, false to draw them as geometry.
+         */
+        void setDrapeFillsEnabled(bool enabled);
+
+        /**
          * Returns the minimum tile zoom level with 3D terrain.
          * @return The minimum zoom level. The default is 5.
          */
@@ -344,6 +361,7 @@ namespace carto {
         std::atomic<bool> _painterOrderDepthEnabled;
         std::atomic<bool> _sourceDensityDrapingEnabled;
         std::atomic<float> _sourceDensityDrapeSlack;
+        std::atomic<bool> _drapeFillsEnabled;
         std::atomic<int> _minZoom;
         std::atomic<int> _maxTileZoomOffset;
         std::atomic<int> _backgroundColorARGB;
