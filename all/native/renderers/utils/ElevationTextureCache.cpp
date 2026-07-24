@@ -58,8 +58,17 @@ namespace carto {
         long long gridTileId = gridTile.getTileId();
         auto it = _cache.find(gridTileId);
         if (it == _cache.end() || it->second.grid != grid || it->second.neighbours != neighbours) {
-            if (_cache.size() >= MAX_CACHED_TEXTURES) {
-                _cache.clear(); // simple full flush; textures are cheap to rebuild from cached grids
+            if (_cache.size() >= MAX_CACHED_TEXTURES && _cache.find(gridTileId) == _cache.end()) {
+                // Evict the least-recently-used entry, NOT the whole cache. A full flush
+                // re-encodes+re-uploads every texture whenever the working set exceeds the cap,
+                // which stalls the render thread on fast multi-level zooms (the working set of
+                // visible + neighbour DEM tiles briefly exceeds the cap). LRU keeps the warm set.
+                auto lru = std::min_element(_cache.begin(), _cache.end(), [](const std::pair<const long long, CacheEntry>& a, const std::pair<const long long, CacheEntry>& b) {
+                    return a.second.lastUsed < b.second.lastUsed;
+                });
+                if (lru != _cache.end()) {
+                    _cache.erase(lru);
+                }
             }
             CacheEntry entry;
             entry.grid = grid;
@@ -74,6 +83,7 @@ namespace carto {
             entry.texture = _glResourceManager->create<Texture>(bitmap, false, false); // no mipmaps, clamp to edge
             it = _cache.insert_or_assign(gridTileId, std::move(entry)).first;
         }
+        it->second.lastUsed = ++_accessCounter;
         const CacheEntry& entry = it->second;
         if (!entry.texture || entry.texture->getTexId() == 0) {
             return false;
