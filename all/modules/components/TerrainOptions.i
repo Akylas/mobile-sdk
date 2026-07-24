@@ -31,6 +31,7 @@
 %attribute(carto::TerrainOptions, float, SourceDensityDrapeSlack, getSourceDensityDrapeSlack, setSourceDensityDrapeSlack)
 %attribute(carto::TerrainOptions, bool, DrapeFillsEnabled, isDrapeFillsEnabled, setDrapeFillsEnabled)
 %attribute(carto::TerrainOptions, bool, DrapeLinesEnabled, isDrapeLinesEnabled, setDrapeLinesEnabled)
+%attribute(carto::TerrainOptions, float, ElementTerrainSlack, getElementTerrainSlack, setElementTerrainSlack)
 %attribute(carto::TerrainOptions, int, MinZoom, getMinZoom, setMinZoom)
 %attribute(carto::TerrainOptions, int, MaxTileZoomOffset, getMaxTileZoomOffset, setMaxTileZoomOffset)
 %attributeval(carto::TerrainOptions, carto::Color, BackgroundColor, getBackgroundColor, setBackgroundColor)

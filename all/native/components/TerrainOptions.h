@@ -210,6 +210,22 @@ namespace carto {
         void setDrapeLinesEnabled(bool enabled);
 
         /**
+         * Returns the painter-order clearance slack applied to draped vector elements.
+         * @return The element terrain slack in clip units. The default is 2.
+         */
+        float getElementTerrainSlack() const;
+        /**
+         * Sets the painter-order clearance slack for draped VectorLayer elements (lines, polygons),
+         * in the same clip units as the internal terrain slack (scaled by tile size, projection depth
+         * and mesh resolution so it tracks the grid cell size). Only used when PainterOrderDepthEnabled
+         * is true. Elements are not lattice-clamped onto the grid surface like tile content, so at low
+         * zoom the coarse grid pokes through them (cracks); increase this until the cracks disappear.
+         * Decrease it if elements behind a ridge shine through. Typical range 0..12.
+         * @param slack The new element terrain slack in clip units (clamped to 0..64).
+         */
+        void setElementTerrainSlack(float slack);
+
+        /**
          * Returns the minimum tile zoom level with 3D terrain.
          * @return The minimum zoom level. The default is 5.
          */
@@ -379,6 +395,7 @@ namespace carto {
         std::atomic<float> _sourceDensityDrapeSlack;
         std::atomic<bool> _drapeFillsEnabled;
         std::atomic<bool> _drapeLinesEnabled;
+        std::atomic<float> _elementTerrainSlack;
         std::atomic<int> _minZoom;
         std::atomic<int> _maxTileZoomOffset;
         std::atomic<int> _backgroundColorARGB;

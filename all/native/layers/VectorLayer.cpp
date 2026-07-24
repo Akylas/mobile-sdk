@@ -182,13 +182,23 @@ namespace carto {
                     if (auto terrainOptions = options->getTerrainOptions()) {
                         if (terrainOptions->isEnabled() && terrainOptions->isPainterOrderDepthEnabled()) {
                             // Painter-order: the vt renderer pushes the terrain surface BACK to
-                            // give draped content clearance, so elements draw at their REAL depth
-                            // (no forward bias/slack). Nothing is pulled towards the viewer, so an
-                            // element can not leak in front of a near ridge; the pushed-back
-                            // surface keeps it above the coincident tile content.
+                            // give draped content clearance. Tile content is lattice-clamped onto
+                            // the grid surface, so the constant push-back suffices for it. Elements
+                            // are NOT lattice-clamped - they sample the full-resolution bilinear
+                            // height field, which over convex/coarse-grid cells rises above the
+                            // rendered grid surface, so the grid pokes through the element (cracks),
+                            // worst at low zoom where the cell is large. A small distance-scaled
+                            // clearance (ElementTerrainSlack) clears that in-cell mismatch; keep it
+                            // as low as possible since, like any clip-space slack, too much lets an
+                            // element behind a ridge shine through.
                             terrainPainterOrder = true;
-                            elementDepthBias = 0.0f;
-                            elementDepthBiasClip = 0.0f;
+                            elementDepthBias = 2.0f / 524288.0f;
+                            float tileSize = static_cast<float>(Const::WORLD_SIZE / std::pow(2.0, std::floor(viewState.getZoom())));
+                            float projScaleZ = static_cast<float>(std::abs(viewState.getProjectionMat()(2, 2)));
+                            float refTileSize = static_cast<float>(Const::WORLD_SIZE / 2048.0);
+                            float slackScale = tileSize * std::min(4.0f, tileSize / refTileSize);
+                            float resolutionRatio = 32.0f / std::max(32, terrainOptions->getMeshResolution());
+                            elementDepthBiasClip = terrainOptions->getElementTerrainSlack() * 0.001f * slackScale * projScaleZ * resolutionRatio * resolutionRatio;
                         } else if (terrainOptions->isEnabled()) {
                             terrainDepthOffset = true;
                             // Element heights are the same bilinear elevation samples the GPU
