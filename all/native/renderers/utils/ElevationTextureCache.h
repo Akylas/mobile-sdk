@@ -42,6 +42,9 @@ namespace carto {
          */
         bool getTexture(const vt::TileId& tileId, vt::GLTileRenderer::TerrainTexture& terrainTexture);
 
+        // Resets the per-frame new-texture creation budget. Call once per frame before rendering.
+        void beginFrame();
+
         void clear();
 
     private:
@@ -54,11 +57,13 @@ namespace carto {
         };
 
         static constexpr std::size_t MAX_CACHED_TEXTURES = 96; // ~24MB of RGBA 256x256 textures
+        static constexpr std::size_t MAX_CREATIONS_PER_FRAME = 4; // spread encode+upload of new tiles over frames (avoid a fast-zoom render-thread burst)
 
         const std::shared_ptr<ElevationManager> _elevationManager;
         const std::shared_ptr<GLResourceManager> _glResourceManager;
         std::map<long long, CacheEntry> _cache; // keyed by the grid tile id
         std::uint64_t _accessCounter = 0; // monotonic LRU clock
+        std::size_t _frameCreations = 0; // new textures created this frame
     };
 }
 

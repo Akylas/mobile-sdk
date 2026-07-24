@@ -57,31 +57,46 @@ namespace carto {
 
         long long gridTileId = gridTile.getTileId();
         auto it = _cache.find(gridTileId);
-        if (it == _cache.end() || it->second.grid != grid || it->second.neighbours != neighbours) {
-            if (_cache.size() >= MAX_CACHED_TEXTURES && _cache.find(gridTileId) == _cache.end()) {
-                // Evict the least-recently-used entry, NOT the whole cache. A full flush
-                // re-encodes+re-uploads every texture whenever the working set exceeds the cap,
-                // which stalls the render thread on fast multi-level zooms (the working set of
-                // visible + neighbour DEM tiles briefly exceeds the cap). LRU keeps the warm set.
-                auto lru = std::min_element(_cache.begin(), _cache.end(), [](const std::pair<const long long, CacheEntry>& a, const std::pair<const long long, CacheEntry>& b) {
-                    return a.second.lastUsed < b.second.lastUsed;
-                });
-                if (lru != _cache.end()) {
-                    _cache.erase(lru);
+        bool needsCreate = (it == _cache.end() || it->second.grid != grid || it->second.neighbours != neighbours);
+        if (needsCreate) {
+            bool haveUsableTexture = (it != _cache.end() && it->second.texture && it->second.texture->getTexId() != 0);
+            // Budget new-texture creation per frame: encodeTextureWithBorders + glTexImage2D
+            // run on the render thread, and a fast zoom surfaces many new tiles at once - doing
+            // them all in one frame stalls the render thread (the terrain-only zoom hang). Over
+            // budget, render this tile flat this frame (or keep its slightly stale texture); it
+            // gets a fresh texture on a later frame.
+            if (_frameCreations >= MAX_CREATIONS_PER_FRAME) {
+                if (!haveUsableTexture) {
+                    return false;
                 }
+                // else: reuse the existing texture; do not re-encode/upload this frame
+            } else {
+                if (_cache.size() >= MAX_CACHED_TEXTURES && it == _cache.end()) {
+                    // Evict the least-recently-used entry, NOT the whole cache. A full flush
+                    // re-encodes+re-uploads every texture whenever the working set exceeds the cap,
+                    // which stalls the render thread on fast multi-level zooms (the working set of
+                    // visible + neighbour DEM tiles briefly exceeds the cap). LRU keeps the warm set.
+                    auto lru = std::min_element(_cache.begin(), _cache.end(), [](const std::pair<const long long, CacheEntry>& a, const std::pair<const long long, CacheEntry>& b) {
+                        return a.second.lastUsed < b.second.lastUsed;
+                    });
+                    if (lru != _cache.end()) {
+                        _cache.erase(lru);
+                    }
+                }
+                CacheEntry entry;
+                entry.grid = grid;
+                entry.neighbours = neighbours;
+                std::vector<std::uint8_t> rgbaData;
+                grid->encodeTextureWithBorders(neighbours, rgbaData, entry.decode);
+                // The encoded rows are south-to-north, i.e. already bottom-up in the Bitmap
+                // convention. Bitmap treats a POSITIVE stride as top-down input and flips the
+                // rows - pass a negative stride so the data is taken as-is (a flipped texture
+                // mirrors every tile's terrain north-south).
+                auto bitmap = std::make_shared<Bitmap>(rgbaData.data(), grid->getWidth() + 2, grid->getHeight() + 2, ColorFormat::COLOR_FORMAT_RGBA, -static_cast<int>(4 * (grid->getWidth() + 2)));
+                entry.texture = _glResourceManager->create<Texture>(bitmap, false, false); // no mipmaps, clamp to edge
+                it = _cache.insert_or_assign(gridTileId, std::move(entry)).first;
+                _frameCreations++;
             }
-            CacheEntry entry;
-            entry.grid = grid;
-            entry.neighbours = neighbours;
-            std::vector<std::uint8_t> rgbaData;
-            grid->encodeTextureWithBorders(neighbours, rgbaData, entry.decode);
-            // The encoded rows are south-to-north, i.e. already bottom-up in the Bitmap
-            // convention. Bitmap treats a POSITIVE stride as top-down input and flips the
-            // rows - pass a negative stride so the data is taken as-is (a flipped texture
-            // mirrors every tile's terrain north-south).
-            auto bitmap = std::make_shared<Bitmap>(rgbaData.data(), grid->getWidth() + 2, grid->getHeight() + 2, ColorFormat::COLOR_FORMAT_RGBA, -static_cast<int>(4 * (grid->getWidth() + 2)));
-            entry.texture = _glResourceManager->create<Texture>(bitmap, false, false); // no mipmaps, clamp to edge
-            it = _cache.insert_or_assign(gridTileId, std::move(entry)).first;
         }
         it->second.lastUsed = ++_accessCounter;
         const CacheEntry& entry = it->second;
@@ -101,6 +116,10 @@ namespace carto {
         terrainTexture.metersToInternal = static_cast<float>(_elevationManager->getExaggeration() * Const::WORLD_SIZE / Const::EARTH_CIRCUMFERENCE);
         terrainTexture.mercatorYScale = static_cast<float>(2.0 * Const::PI / Const::WORLD_SIZE);
         return true;
+    }
+
+    void ElevationTextureCache::beginFrame() {
+        _frameCreations = 0;
     }
 
     void ElevationTextureCache::clear() {
