@@ -194,6 +194,22 @@ namespace carto {
         void setDrapeFillsEnabled(bool enabled);
 
         /**
+         * Returns whether vt tile lines are also draped (in addition to fills).
+         * @return True if tile lines are baked into the drape texture. The default is false.
+         */
+        bool isDrapeLinesEnabled() const;
+        /**
+         * Enables or disables draping of vt tile lines (roads, contours) in addition to fills
+         * (experimental, spike; only has effect when DrapeFillsEnabled is also true). When enabled,
+         * tile lines are baked into the per-tile drape texture and follow the terrain exactly (no
+         * leak, no cracks) - but they become texture-rasterized, so they are softer than sharp
+         * displaced geometry, and their width is approximate (calibrated in the offscreen texture).
+         * When disabled, lines stay sharp displaced geometry drawn on top of the drape surface.
+         * @param enabled True to drape tile lines too, false to keep them as sharp geometry.
+         */
+        void setDrapeLinesEnabled(bool enabled);
+
+        /**
          * Returns the minimum tile zoom level with 3D terrain.
          * @return The minimum zoom level. The default is 5.
          */
@@ -362,6 +378,7 @@ namespace carto {
         std::atomic<bool> _sourceDensityDrapingEnabled;
         std::atomic<float> _sourceDensityDrapeSlack;
         std::atomic<bool> _drapeFillsEnabled;
+        std::atomic<bool> _drapeLinesEnabled;
         std::atomic<int> _minZoom;
         std::atomic<int> _maxTileZoomOffset;
         std::atomic<int> _backgroundColorARGB;

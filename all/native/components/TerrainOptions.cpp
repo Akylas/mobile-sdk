@@ -22,6 +22,7 @@ namespace carto {
         _sourceDensityDrapingEnabled(false),
         _sourceDensityDrapeSlack(12.0f),
         _drapeFillsEnabled(false),
+        _drapeLinesEnabled(false),
         _minZoom(5),
         _maxTileZoomOffset(100),
         _backgroundColorARGB(0),
@@ -129,6 +130,16 @@ namespace carto {
     void TerrainOptions::setDrapeFillsEnabled(bool enabled) {
         if (_drapeFillsEnabled.exchange(enabled) != enabled) {
             notifyOptionChanged("DrapeFillsEnabled");
+        }
+    }
+
+    bool TerrainOptions::isDrapeLinesEnabled() const {
+        return _drapeLinesEnabled.load();
+    }
+
+    void TerrainOptions::setDrapeLinesEnabled(bool enabled) {
+        if (_drapeLinesEnabled.exchange(enabled) != enabled) {
+            notifyOptionChanged("DrapeLinesEnabled");
         }
     }
 
