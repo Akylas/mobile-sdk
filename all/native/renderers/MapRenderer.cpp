@@ -1147,9 +1147,43 @@ namespace carto {
                         tileLayer->prepareTerrainDrapeFrame(deltaSeconds, viewState);
                     }
 
-                    std::map<vt::TileId, std::size_t> drapeTiles;
+                    std::map<vt::TileId, std::size_t> collectedTiles;
                     for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
-                        tileLayer->collectDrapeTiles(drapeTiles);
+                        tileLayer->collectDrapeTiles(collectedTiles);
+                    }
+
+                    // The collected set is a UNION across layers, and layers do not agree on a
+                    // zoom level - a hillshade limited by its DEM max zoom yields coarser tiles
+                    // than a vector tile layer. Drawing a surface for every tile in that union
+                    // would stack a coarse surface and the finer ones covering the same ground on
+                    // top of each other, and they fight. Normalize to a single non-overlapping
+                    // cover, keeping the FINEST tile for any given ground area; coarser layers
+                    // still contribute to it through the ancestor sub-rect bake.
+                    auto covers = [](const vt::TileId& tileId, const vt::TileId& other) {
+                        if (tileId.zoom >= other.zoom) {
+                            return false; // strict ancestor only
+                        }
+                        int deltaZoom = other.zoom - tileId.zoom;
+                        return (other.x >> deltaZoom) == tileId.x && (other.y >> deltaZoom) == tileId.y;
+                    };
+                    std::map<vt::TileId, std::size_t> drapeTiles;
+                    for (auto it = collectedTiles.begin(); it != collectedTiles.end(); it++) {
+                        bool hasFinerTile = false;
+                        for (auto it2 = collectedTiles.begin(); it2 != collectedTiles.end() && !hasFinerTile; it2++) {
+                            hasFinerTile = covers(it->first, it2->first);
+                        }
+                        if (hasFinerTile) {
+                            continue; // a finer tile covers this ground; that one is drawn instead
+                        }
+                        // Fold in every coarser tile covering this one, so the fingerprint tracks
+                        // all the content that will actually be baked here.
+                        std::size_t fingerprint = it->second;
+                        for (auto it2 = collectedTiles.begin(); it2 != collectedTiles.end(); it2++) {
+                            if (covers(it2->first, it->first)) {
+                                fingerprint ^= it2->second + 0x9e3779b9 + (fingerprint << 6) + (fingerprint >> 2);
+                            }
+                        }
+                        drapeTiles[it->first] = fingerprint;
                     }
 
                     _terrainDrapeCache->beginFrame();
