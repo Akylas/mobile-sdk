@@ -27,6 +27,7 @@
 #include "renderers/utils/FrameBuffer.h"
 #include "renderers/PostProcessEffect.h"
 #include "renderers/TerrainRenderer.h"
+#include "renderers/utils/TerrainDrapeCache.h"
 #include "terrain/ElevationManager.h"
 #include "renderers/utils/Shader.h"
 #include "renderers/utils/Texture.h"
@@ -1109,6 +1110,99 @@ namespace carto {
             for (const std::shared_ptr<Layer>& layer : layers) {
                 if (auto tileLayer = std::dynamic_pointer_cast<TileLayer>(layer)) {
                     tileLayer->setTerrainDepthWriteMode(false);
+                }
+            }
+        }
+
+        // Cross-layer terrain draping. Every drapeable tile layer bakes into ONE texture per
+        // terrain tile, in layer order, and a single surface draw puts that texture on the
+        // terrain - so a hillshade layer and a vector tile layer share one drape, one surface and
+        // one depth domain instead of each keeping its own. Content that is draped never enters
+        // the 3D scene at all, which is what removes the whole content-vs-surface depth problem.
+        std::vector<std::shared_ptr<TileLayer> > drapeLayers;
+        if (terrainMode) {
+            if (auto terrainOptions = _options->getTerrainOptions()) {
+                if (terrainOptions->isDrapeFillsEnabled()) {
+                    for (const std::shared_ptr<Layer>& layer : layers) {
+                        if (auto tileLayer = std::dynamic_pointer_cast<TileLayer>(layer)) {
+                            if (tileLayer->isVisible()) {
+                                drapeLayers.push_back(tileLayer);
+                            }
+                        }
+                    }
+                }
+                // A single stack for now: the usual configuration (hillshade under vector tiles)
+                // is contiguous and entirely drapeable. Splitting into several stacks only
+                // matters once a non-drapeable layer sits between drapeable ones.
+                if (!drapeLayers.empty()) {
+                    if (!_terrainDrapeCache) {
+                        _terrainDrapeCache = std::make_unique<TerrainDrapeCache>();
+                    }
+                    _terrainDrapeCache->setResolution(terrainOptions->getDrapeResolution());
+
+                    // Every participating layer's render tiles must exist before any of them
+                    // bakes, so start their frames first.
+                    for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
+                        tileLayer->setExternalDrapeTarget(true);
+                        tileLayer->prepareTerrainDrapeFrame(deltaSeconds, viewState);
+                    }
+
+                    std::map<vt::TileId, std::size_t> drapeTiles;
+                    for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
+                        tileLayer->collectDrapeTiles(drapeTiles);
+                    }
+
+                    _terrainDrapeCache->beginFrame();
+                    std::vector<std::pair<vt::TileId, unsigned int> > drapedTiles;
+                    drapedTiles.reserve(drapeTiles.size());
+                    GLint prevFBO = 0;
+                    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFBO);
+                    int resolution = _terrainDrapeCache->getResolution();
+                    bool bakeStarted = false;
+                    for (auto it = drapeTiles.begin(); it != drapeTiles.end(); it++) {
+                        bool needsBake = false;
+                        unsigned int texture = _terrainDrapeCache->acquire(it->first, 0, it->second, needsBake);
+                        drapedTiles.emplace_back(it->first, texture);
+                        if (!needsBake) {
+                            continue;
+                        }
+                        if (!bakeStarted) {
+                            glBindFramebuffer(GL_FRAMEBUFFER, _terrainDrapeCache->getFrameBuffer());
+                            glViewport(0, 0, resolution, resolution);
+                            glDisable(GL_DEPTH_TEST);
+                            glDepthMask(GL_FALSE);
+                            glDisable(GL_STENCIL_TEST);
+                            bakeStarted = true;
+                        }
+                        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+                        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+                        glClear(GL_COLOR_BUFFER_BIT);
+                        // Layer order matters: later layers composite over earlier ones, which is
+                        // why the owner clears and the bakers do not.
+                        for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
+                            tileLayer->bakeDrapeTile(it->first);
+                        }
+                    }
+                    if (bakeStarted) {
+                        glBindFramebuffer(GL_FRAMEBUFFER, prevFBO);
+                        glViewport(0, 0, viewState.getWidth(), viewState.getHeight());
+                    }
+
+                    // The shared surface is the only depth-writing terrain geometry.
+                    glEnable(GL_DEPTH_TEST);
+                    glDepthMask(GL_TRUE);
+                    for (auto it = drapedTiles.begin(); it != drapedTiles.end(); it++) {
+                        drapeLayers.front()->renderDrapedSurface(it->first, it->second);
+                    }
+                    glDepthMask(GL_FALSE);
+                    _terrainDrapeCache->endFrame();
+                }
+            }
+        }
+        if (drapeLayers.empty()) {
+            for (const std::shared_ptr<Layer>& layer : layers) {
+                if (auto tileLayer = std::dynamic_pointer_cast<TileLayer>(layer)) {
+                    tileLayer->setExternalDrapeTarget(false);
                 }
             }
         }

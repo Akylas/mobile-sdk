@@ -41,6 +41,7 @@ namespace carto {
     class Options;
     class PostProcessEffect;
     class TerrainRenderer;
+    class TerrainDrapeCache;
     class ThreadWorker;
     class CullWorker;
     class VTLabelPlacementWorker;
@@ -216,6 +217,7 @@ namespace carto {
         std::string _postProcessShaderName;
         std::optional<std::chrono::steady_clock::time_point> _postProcessStartTime;
         std::unique_ptr<TerrainRenderer> _terrainRenderer;
+        std::unique_ptr<TerrainDrapeCache> _terrainDrapeCache; // shared cross-layer drape target
         std::chrono::steady_clock::time_point _lastTerrainCameraClampTime; // debounces camera terrain-following corrections
 
         unsigned int _layersElevationVersion = 0;

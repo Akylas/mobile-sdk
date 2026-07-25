@@ -466,7 +466,11 @@ namespace carto {
     
     bool TileRenderer::onDrawFrame3D(float deltaSeconds, const ViewState& viewState) {
         std::lock_guard<std::mutex> lock(_mutex);
-        
+
+        // The frame ends here regardless of what follows, so clear the prepare latch up front:
+        // leaking it past an early return would make every later frame skip startFrame.
+        _framePrepared = false;
+
         if (!_vtRenderer) {
             return false;
         }
@@ -488,7 +492,6 @@ namespace carto {
             }
 
             refresh = tileRenderer->endFrame();
-            _framePrepared = false;
         }
         catch (const std::exception& ex) {
             Log::Errorf("TileRenderer::onDrawFrame3D: Rendering failed: %s", ex.what());
