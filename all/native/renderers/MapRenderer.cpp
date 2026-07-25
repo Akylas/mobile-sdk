@@ -1143,7 +1143,6 @@ namespace carto {
                     // Every participating layer's render tiles must exist before any of them
                     // bakes, so start their frames first.
                     for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
-                        tileLayer->setExternalDrapeTarget(true);
                         tileLayer->prepareTerrainDrapeFrame(deltaSeconds, viewState);
                     }
 
@@ -1184,6 +1183,23 @@ namespace carto {
                             }
                         }
                         drapeTiles[it->first] = fingerprint;
+                    }
+
+                    // Only take the surface away from the per-layer path once we know this frame
+                    // actually has tiles to drape. Enabling external targets unconditionally
+                    // suppresses each layer's pre-pass AND its own drape surface, so a frame that
+                    // then draws no shared surface leaves the terrain with no surface at all -
+                    // worse than not draping.
+                    bool drapeActive = !drapeTiles.empty();
+                    for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
+                        tileLayer->setExternalDrapeTarget(drapeActive);
+                    }
+                    if (!drapeActive) {
+                        static bool emptyDrapeLogged = false;
+                        if (!emptyDrapeLogged) {
+                            emptyDrapeLogged = true;
+                            Log::Info("MapRenderer: RTT drape has no tiles this frame - per-layer path retained");
+                        }
                     }
 
                     _terrainDrapeCache->beginFrame();
@@ -1234,7 +1250,7 @@ namespace carto {
                     // One-time state dump: confirms whether the RTT path is actually live, and
                     // with how many layers/tiles, rather than being inferred from symptoms.
                     static bool drapeStateLogged = false;
-                    if (!drapeStateLogged) {
+                    if (!drapeStateLogged && !drapedTiles.empty()) {
                         drapeStateLogged = true;
                         Log::Infof("MapRenderer: RTT drape ACTIVE - layers %d, collected tiles %d, drawn tiles %d, resolution %d",
                             static_cast<int>(drapeLayers.size()), static_cast<int>(collectedTiles.size()),
