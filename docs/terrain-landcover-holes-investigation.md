@@ -66,3 +66,33 @@ detail, the single-layer test, the magenta bake-clear, and above all the
 `TerrainTileTransformer` counter that showed `divideThreshold inf` on every decode. Prefer
 instrumenting the actual program state over another plausible patch — and make probes
 unconditional, so "no output" cannot be confused with "no problem".
+
+## Transient form: cause found
+
+`CompositeVectorTileLayer` renders **one VT pass per segment** — each group/external child is a
+separate `TileLayer` with its own `GLTileRenderer`, each running the terrain pre-pass with
+`glClear(GL_DEPTH_BUFFER_BIT)`.
+
+- The style `TileBackground` is included **only in invocation 0** (`includeBackground` is true
+  for group 0 alone, CompositeVectorTileLayer.cpp:305). Landcover can land in a later
+  invocation, split by layer *name* regex (`setRendererLayerFilter`).
+- Invocation >=1's depth clear destroys invocation 0's background depth, and the background is
+  not redrawn. The grey *colour* stays in the colour buffer. The polygon's depth test is
+  therefore resolved inside its own invocation, against a surface it never visually replaced;
+  when it fails, the pixel keeps invocation 0's grey.
+- Each renderer has its own drape cache and its own `DRAPE_BAKE_BUDGET_PER_FRAME = 4`. During
+  motion the background renderer and the landcover renderer disagree about whether a tile is
+  draped: background draped (grey baked into the surface at true depth) while landcover is
+  still undraped geometry with zero bias, which loses the test. When motion stops both caches
+  fill and they agree again.
+
+A single plain `VectorTileLayer` does not show this: background and landcover share one
+invocation and one drape texture, so a depth failure hides both together.
+
+Workaround: `setDrapeFillsEnabled(false)` — with source-density fixed, all renderers then take
+the subdivided-geometry path consistently. Real fixes: make the drape decision consistent
+across composite invocations, or drape overzoomed tiles too (the parked RTT branch).
+
+Note: `setSinglePassRenderingEnabled` is a **no-op placeholder** (CompositeVectorTileLayer.h:109)
+— toggling it changes nothing. `setRendererLayerIndexRange` has no callers. `_terrainRenderOrder`
+is stored and never read.
