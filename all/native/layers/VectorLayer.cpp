@@ -181,11 +181,15 @@ namespace carto {
                 if (options->getRenderProjectionMode() == RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
                     if (auto terrainOptions = options->getTerrainOptions()) {
                         if (terrainOptions->isEnabled() && terrainOptions->isPainterOrderDepthEnabled()) {
-                            // Painter-order: the vt renderer pushes the terrain surface BACK to
-                            // give draped content clearance, so elements draw at their REAL depth
-                            // (no forward bias/slack). Nothing is pulled towards the viewer, so an
-                            // element can not leak in front of a near ridge; the pushed-back
-                            // surface keeps it above the coincident tile content.
+                            // Painter-order + true-depth terrain occluder: elements are drawn with
+                            // GL_LEQUAL and ZERO forward bias, exactly like the lattice-clamped tile
+                            // content. Elements sit at (bilinear height + small world lift), so they
+                            // pass the depth test where they are at/above the surface and are
+                            // occluded (fail) behind a near ridge. A forward clip bias is what let
+                            // the whole element line shine through terrain at distance - drop it.
+                            // Residual concave cracks are cleared by the world-space height lift
+                            // (TerrainProjectionSurface), which does not grow with distance so it
+                            // can not leak over ridges.
                             terrainPainterOrder = true;
                             elementDepthBias = 0.0f;
                             elementDepthBiasClip = 0.0f;
@@ -238,12 +242,19 @@ namespace carto {
                 glEnable(GL_POLYGON_OFFSET_FILL);
                 glPolygonOffset(0.0f, -2.0f);
             }
+            if (terrainPainterOrder) {
+                // Coincident-with-surface content: pass at equal depth, occlude behind ridges.
+                glDepthFunc(GL_LEQUAL);
+            }
 
             bool refresh = _billboardRenderer->onDrawFrame(deltaSeconds, billboardSorter, viewState);
             _geometryCollectionRenderer->onDrawFrame(deltaSeconds, viewState);
             _lineRenderer->onDrawFrame(deltaSeconds, viewState);
             _pointRenderer->onDrawFrame(deltaSeconds, viewState);
             _polygonRenderer->onDrawFrame(deltaSeconds, viewState);
+            if (terrainPainterOrder) {
+                glDepthFunc(GL_LESS);
+            }
 
             if (terrainDepthOffset) {
                 glDisable(GL_POLYGON_OFFSET_FILL);

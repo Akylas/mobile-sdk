@@ -19,6 +19,9 @@ namespace carto {
         _meshResolution(32),
         _regularGridEnabled(false),
         _painterOrderDepthEnabled(false),
+        _drapeFillsEnabled(false),
+        _drapeLinesEnabled(false),
+        _elementTerrainSlack(2.0f),
         _minZoom(5),
         _maxTileZoomOffset(100),
         _backgroundColorARGB(0),
@@ -95,6 +98,37 @@ namespace carto {
     void TerrainOptions::setPainterOrderDepthEnabled(bool painterOrderDepthEnabled) {
         if (_painterOrderDepthEnabled.exchange(painterOrderDepthEnabled) != painterOrderDepthEnabled) {
             notifyOptionChanged("PainterOrderDepthEnabled");
+        }
+    }
+
+    bool TerrainOptions::isDrapeFillsEnabled() const {
+        return _drapeFillsEnabled.load();
+    }
+
+    void TerrainOptions::setDrapeFillsEnabled(bool enabled) {
+        if (_drapeFillsEnabled.exchange(enabled) != enabled) {
+            notifyOptionChanged("DrapeFillsEnabled");
+        }
+    }
+
+    bool TerrainOptions::isDrapeLinesEnabled() const {
+        return _drapeLinesEnabled.load();
+    }
+
+    void TerrainOptions::setDrapeLinesEnabled(bool enabled) {
+        if (_drapeLinesEnabled.exchange(enabled) != enabled) {
+            notifyOptionChanged("DrapeLinesEnabled");
+        }
+    }
+
+    float TerrainOptions::getElementTerrainSlack() const {
+        return _elementTerrainSlack.load();
+    }
+
+    void TerrainOptions::setElementTerrainSlack(float slack) {
+        float clamped = std::min(64.0f, std::max(0.0f, slack));
+        if (_elementTerrainSlack.exchange(clamped) != clamped) {
+            notifyOptionChanged("ElementTerrainSlack");
         }
     }
 

@@ -140,6 +140,55 @@ namespace carto {
         void setPainterOrderDepthEnabled(bool painterOrderDepthEnabled);
 
         /**
+         * Returns whether polygon fills are draped as a render-to-texture surface.
+         * @return True if fills are baked to a per-tile texture and sampled on the surface. The default is false.
+         */
+        bool isDrapeFillsEnabled() const;
+        /**
+         * Enables or disables maplibre-style render-to-texture fill draping (experimental, spike). When
+         * enabled, polygon fills are rendered FLAT into a per-tile offscreen texture and then sampled as
+         * the color of the terrain surface mesh, instead of being drawn as displaced geometry. Because the
+         * fills become the surface's texture they follow the terrain exactly - no chord sag, so no holes,
+         * no see-through, and no depth slack - at flat-render (2D) fill cost. Lines/contours and labels are
+         * unaffected (still drawn as sharp geometry on top). Only native (non-overzoomed) fills are draped.
+         * Requires RegularGridEnabled or PainterOrderDepthEnabled and GPU draping mode (planar).
+         * @param enabled True to drape fills as a texture, false to draw them as geometry.
+         */
+        void setDrapeFillsEnabled(bool enabled);
+
+        /**
+         * Returns whether vt tile lines are also draped (in addition to fills).
+         * @return True if tile lines are baked into the drape texture. The default is false.
+         */
+        bool isDrapeLinesEnabled() const;
+        /**
+         * Enables or disables draping of vt tile lines (roads, contours) in addition to fills
+         * (experimental, spike; only has effect when DrapeFillsEnabled is also true). When enabled,
+         * tile lines are baked into the per-tile drape texture and follow the terrain exactly (no
+         * leak, no cracks) - but they become texture-rasterized, so they are softer than sharp
+         * displaced geometry, and their width is approximate (calibrated in the offscreen texture).
+         * When disabled, lines stay sharp displaced geometry drawn on top of the drape surface.
+         * @param enabled True to drape tile lines too, false to keep them as sharp geometry.
+         */
+        void setDrapeLinesEnabled(bool enabled);
+
+        /**
+         * Returns the painter-order clearance slack applied to draped vector elements.
+         * @return The element terrain slack in clip units. The default is 2.
+         */
+        float getElementTerrainSlack() const;
+        /**
+         * Sets the painter-order clearance slack for draped VectorLayer elements (lines, polygons),
+         * in the same clip units as the internal terrain slack (scaled by tile size, projection depth
+         * and mesh resolution so it tracks the grid cell size). Only used when PainterOrderDepthEnabled
+         * is true. Elements are not lattice-clamped onto the grid surface like tile content, so at low
+         * zoom the coarse grid pokes through them (cracks); increase this until the cracks disappear.
+         * Decrease it if elements behind a ridge shine through. Typical range 0..12.
+         * @param slack The new element terrain slack in clip units (clamped to 0..64).
+         */
+        void setElementTerrainSlack(float slack);
+
+        /**
          * Returns the minimum tile zoom level with 3D terrain.
          * @return The minimum zoom level. The default is 5.
          */
@@ -305,6 +354,9 @@ namespace carto {
         std::atomic<int> _meshResolution;
         std::atomic<bool> _regularGridEnabled;
         std::atomic<bool> _painterOrderDepthEnabled;
+        std::atomic<bool> _drapeFillsEnabled;
+        std::atomic<bool> _drapeLinesEnabled;
+        std::atomic<float> _elementTerrainSlack;
         std::atomic<int> _minZoom;
         std::atomic<int> _maxTileZoomOffset;
         std::atomic<int> _backgroundColorARGB;

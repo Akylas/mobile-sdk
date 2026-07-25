@@ -50,6 +50,7 @@ namespace carto {
             std::array<std::shared_ptr<ElevationTileGrid>, 8> neighbours; // border sources; entry rebuilds when a neighbour grid loads
             std::shared_ptr<Texture> texture;
             std::array<float, 4> decode = { { 0, 0, 0, 0 } };
+            std::uint64_t lastUsed = 0; // LRU stamp
         };
 
         static constexpr std::size_t MAX_CACHED_TEXTURES = 96; // ~24MB of RGBA 256x256 textures
@@ -57,6 +58,7 @@ namespace carto {
         const std::shared_ptr<ElevationManager> _elevationManager;
         const std::shared_ptr<GLResourceManager> _glResourceManager;
         std::map<long long, CacheEntry> _cache; // keyed by the grid tile id
+        std::uint64_t _accessCounter = 0; // monotonic LRU clock
     };
 }
 

@@ -9,12 +9,13 @@
 
 namespace carto {
 
-    TerrainTileTransformer::TerrainVertexTransformer::TerrainVertexTransformer(const vt::TileId& tileId, double scale, std::shared_ptr<ElevationTileGrid> grid, float exaggeration, float divideThreshold) :
+    TerrainTileTransformer::TerrainVertexTransformer::TerrainVertexTransformer(const vt::TileId& tileId, double scale, std::shared_ptr<ElevationTileGrid> grid, float exaggeration, float divideThreshold, float lineDivideThreshold) :
         _tileId(tileId),
         _scale(scale),
         _grid(std::move(grid)),
         _exaggeration(exaggeration),
-        _divideThreshold(divideThreshold)
+        _divideThreshold(divideThreshold),
+        _lineDivideThreshold(lineDivideThreshold)
     {
         int tileMask = (1 << tileId.zoom) - 1;
         double zoomScale = 1.0 / (1 << tileId.zoom);
@@ -88,7 +89,7 @@ namespace carto {
     }
 
     void TerrainTileTransformer::TerrainVertexTransformer::tesselateSegment(const cglib::vec2<float>& pos0, const cglib::vec2<float>& pos1, float dist, vt::VertexArray<cglib::vec2<float>>& points) const {
-        if (dist > _divideThreshold) {
+        if (dist > _lineDivideThreshold) {
             cglib::vec2<float> posM = (pos0 + pos1) * 0.5f;
             tesselateSegment(pos0, posM, dist * 0.5f, points);
             tesselateSegment(posM, pos1, dist * 0.5f, points);
@@ -181,12 +182,14 @@ namespace carto {
         }
     }
 
-    TerrainTileTransformer::TerrainTileTransformer(float scale, const std::shared_ptr<ElevationManager>& elevationManager, int meshResolution, int minZoom, bool regularGrid) :
+    TerrainTileTransformer::TerrainTileTransformer(float scale, const std::shared_ptr<ElevationManager>& elevationManager, int meshResolution, int minZoom, bool regularGrid, bool sourceDensity, bool sourceDensityLines) :
         _scale(scale),
         _elevationManager(elevationManager),
         _meshResolution(std::max(1, meshResolution)),
         _minZoom(minZoom),
-        _regularGrid(regularGrid)
+        _regularGrid(regularGrid),
+        _sourceDensity(sourceDensity),
+        _sourceDensityLines(sourceDensityLines)
     {
     }
 
@@ -241,6 +244,7 @@ namespace carto {
         }
 
         float divideThreshold = std::numeric_limits<float>::infinity();
+        float lineDivideThreshold = std::numeric_limits<float>::infinity();
         if (grid && grid->getMaxHeight() - grid->getMinHeight() > FLAT_HEIGHT_RANGE_EPSILON) {
             double tileScaleMeters = EARTH_CIRCUMFERENCE / (1 << tileId.zoom);
             double threshold = tileScaleMeters / _meshResolution;
@@ -256,15 +260,36 @@ namespace carto {
                 // (no per-tile red-green tesselation) and the lattice clamp are the wins.
                 // Do NOT clamp to the DEM texel size here: the grid, not the DEM, is the
                 // surface geometry the draped content is tested against.
-                divideThreshold = static_cast<float>(threshold);
+                //
+                // One cell puts every draped VERTEX on the grid surface (lattice clamp), but
+                // the straight SEGMENT between two vertices in different cell triangles chords
+                // across the cell's anti-diagonal fold and sags below it. Under painter-order
+                // (zero depth slack) that sag is depth-occluded -> draped LINES crack over
+                // convex terrain, worst at low zoom where the cell / fold amplitude is largest.
+                // Raising _meshResolution shrinks the fold but costs O(res^2) in the shared grid
+                // AND subdivides fills the same amount. Instead subdivide only the LINES finer
+                // than the grid (cheap, 1D); the sag falls linearly with the sub-segment length
+                // at no surface-grid cost. Fills stay at one cell (their sag is bounded there).
+                //
+                // Source-density (tangram) mode targets the expensive part - the fills (a full
+                // tile fill red-green splits to ~meshResolution^2 triangles). It skips FILL
+                // subdivision (source density, lifted by a per-draw fill slack in the renderer)
+                // but KEEPS line subdivision: lines are cheap (1D) and MUST follow the terrain
+                // closely (contours lie exactly on the surface - un-subdivided they need a huge
+                // lift slack that shines everything through). So only the fill threshold goes to
+                // infinity here; the line threshold is unchanged.
+                divideThreshold = _sourceDensity ? std::numeric_limits<float>::infinity() : static_cast<float>(threshold);
+                // Draped lines are baked flat too, so skip their subdivision as well.
+                lineDivideThreshold = _sourceDensityLines ? std::numeric_limits<float>::infinity() : static_cast<float>(threshold * REGULAR_GRID_LINE_SUBDIVISION);
             } else {
                 // No point in subdividing finer than the elevation grid resolution
                 double gridInternalWidth = grid->getInternalBounds().getMax().getX() - grid->getInternalBounds().getMin().getX();
                 double demTexelMeters = gridInternalWidth / grid->getWidth() * EARTH_CIRCUMFERENCE / _scale;
                 divideThreshold = static_cast<float>(std::max(threshold, demTexelMeters));
+                lineDivideThreshold = divideThreshold;
             }
         }
 
-        return std::make_shared<TerrainVertexTransformer>(tileId, _scale, std::move(grid), _elevationManager->getExaggeration(), divideThreshold);
+        return std::make_shared<TerrainVertexTransformer>(tileId, _scale, std::move(grid), _elevationManager->getExaggeration(), divideThreshold, lineDivideThreshold);
     }
 }
