@@ -264,7 +264,14 @@ namespace carto {
             // wasted work - and the subdivided fill VBOs are uploaded on the render thread, which
             // stalls fast zooms. Draping fills therefore implies source-density (no fill
             // subdivision), exactly like the tangram source-density mode.
-            bool terrainSourceDensity = terrainOptions && terrainOptions->isDrapeFillsEnabled();
+            // ...but draping is decided PER TILE at render time (only native tiles are draped;
+            // overzoomed and proxy tiles fall through to the 3D geometry path), while
+            // source-density is decided GLOBALLY here at decode time. An un-subdivided fill that
+            // then does not get draped is a few large flat triangles chorded across the terrain:
+            // it sags below the depth-writing surface, fails the depth test and leaves the bare
+            // background colour - the documented "landcover holes". Since a tile cannot know at
+            // decode time whether it will be draped, always subdivide.
+            bool terrainSourceDensity = false;
             bool terrainSourceDensityLines = terrainOptions && terrainOptions->isDrapeLinesEnabled();
             if (_terrainOptions.lock() != terrainOptions || _terrainEnabled != terrainEnabled || _terrainExaggeration != terrainExaggeration || _terrainMeshResolution != terrainMeshResolution || _terrainMinZoom != terrainMinZoom || _terrainRegularGrid != terrainRegularGrid || _terrainSourceDensity != terrainSourceDensity || _terrainSourceDensityLines != terrainSourceDensityLines) {
                 clearTileCaches(true);
