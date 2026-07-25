@@ -1,0 +1,163 @@
+/**
+ * CARTO Mobile SDK docs theme.
+ * CARTO-inspired palette (blue primary, warm accent) with full dark-mode support.
+ */
+
+:root {
+  --ifm-color-primary: #036fe2;
+  --ifm-color-primary-dark: #0364cc;
+  --ifm-color-primary-darker: #035fc1;
+  --ifm-color-primary-darkest: #024e9f;
+  --ifm-color-primary-light: #1a7ee7;
+  --ifm-color-primary-lighter: #2685e8;
+  --ifm-color-primary-lightest: #4a99ec;
+
+  --ifm-code-font-size: 92%;
+  --ifm-font-family-base: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --ifm-heading-font-weight: 700;
+  --ifm-navbar-height: 3.75rem;
+
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.08);
+
+  --carto-accent: #ff4f4f;
+  --carto-hero-from: #036fe2;
+  --carto-hero-to: #00c4b3;
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #4a99ec;
+  --ifm-color-primary-dark: #2b87e9;
+  --ifm-color-primary-darker: #1b7ee8;
+  --ifm-color-primary-darkest: #1268c4;
+  --ifm-color-primary-light: #69abef;
+  --ifm-color-primary-lighter: #79b4f1;
+  --ifm-color-primary-lightest: #a7cdf5;
+
+  --ifm-background-color: #0f1420;
+  --ifm-background-surface-color: #161c2b;
+  --docusaurus-highlighted-code-line-bg: rgba(255, 255, 255, 0.1);
+}
+
+.navbar {
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
+  backdrop-filter: saturate(120%) blur(4px);
+}
+
+.navbar__title {
+  font-weight: 700;
+}
+
+/* ---------- Hero ---------- */
+.heroBanner {
+  position: relative;
+  overflow: hidden;
+  padding: 5rem 0 4.5rem;
+  color: #fff;
+  background: linear-gradient(135deg, var(--carto-hero-from) 0%, var(--carto-hero-to) 100%);
+  text-align: center;
+}
+
+.heroBanner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 20% 10%, rgba(255, 255, 255, 0.18), transparent 45%),
+    radial-gradient(circle at 85% 90%, rgba(0, 0, 0, 0.18), transparent 45%);
+  pointer-events: none;
+}
+
+.heroTitle {
+  font-size: clamp(2.2rem, 5vw, 3.4rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.75rem;
+}
+
+.heroSubtitle {
+  font-size: clamp(1.05rem, 2.4vw, 1.35rem);
+  opacity: 0.95;
+  max-width: 720px;
+  margin: 0 auto 2rem;
+}
+
+.heroButtons {
+  display: flex;
+  gap: 0.9rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.button--hero {
+  background: #fff;
+  color: var(--carto-hero-from);
+  border: none;
+  font-weight: 700;
+}
+.button--hero:hover {
+  background: #f2f6ff;
+  color: var(--carto-hero-from);
+}
+.button--hero-outline {
+  background: transparent;
+  color: #fff;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  font-weight: 700;
+}
+.button--hero-outline:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+/* ---------- Feature cards ---------- */
+.featureSection {
+  padding: 3.5rem 0;
+}
+
+.featureCard {
+  height: 100%;
+  padding: 1.75rem;
+  border-radius: 14px;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  background: var(--ifm-background-surface-color);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.featureCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(3, 111, 226, 0.12);
+  border-color: var(--ifm-color-primary-lighter);
+}
+.featureCardIcon {
+  font-size: 2rem;
+  line-height: 1;
+  margin-bottom: 0.75rem;
+}
+.featureCardTitle {
+  font-weight: 700;
+  font-size: 1.15rem;
+  margin-bottom: 0.4rem;
+}
+.featureCardBody {
+  color: var(--ifm-color-emphasis-700);
+  font-size: 0.95rem;
+}
+
+.badgeNew {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--carto-accent);
+  border-radius: 999px;
+  padding: 1px 8px;
+  margin-left: 0.5rem;
+  vertical-align: middle;
+}
+
+/* Media figures in docs */
+.docs-figure img {
+  border-radius: 10px;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+}

@@ -1,0 +1,11 @@
+<svg width="1200" height="675" viewBox="0 0 1200 675" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="On-the-fly Contours placeholder">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="675" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#036FE2"/><stop offset="1" stop-color="#00C4B3"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="675" fill="url(#bg)"/>
+  <path d="M0 675 L240 310 L480 472 L720 229 L960 432 L1200 283 L1200 675 Z" fill="#ffffff" opacity="0.14"/>
+  <text x="600" y="317" font-family="system-ui,Segoe UI,Roboto,sans-serif" font-size="75" font-weight="800" fill="#ffffff" text-anchor="middle">&#12336;&#65039;  On-the-fly Contours</text>
+  <text x="600" y="405" font-family="system-ui,Segoe UI,Roboto,sans-serif" font-size="28" fill="#eaf3ff" text-anchor="middle">placeholder — replace with a real capture</text>
+</svg>

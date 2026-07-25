@@ -3,6 +3,11 @@
 This is now a maintained fork of original Carto SDK as Carto stopped maintaining it.
 If you like the project and want me to keep on maintaining it. Please support it.
 
+📚 **Documentation: https://akylas.github.io/mobile-sdk/** — installation, guides, feature docs
+(3D terrain, contours, hillshade, composite layers, PMTiles) and the Android/iOS API reference.
+The site lives in [`website/`](website/) and rebuilds automatically on release
+(see [Building the docs](website/docs/contributing-docs.md)).
+
 CARTO Mobile SDK is an open, multi-platform framework for visualizing maps and providing location based services on mobile devices like smartphones or tablets. It includes high performance and flexible vector tile renderer, multiple built-in routing engines (for both indoor and street maps) plus built-in geocoding and reverse geocoding support.
 
 ![Liverpool](media/carto-mobile-sdk-animated.gif)
