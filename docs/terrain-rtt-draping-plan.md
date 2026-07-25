@@ -173,10 +173,13 @@ consumers among draped layers and can be deleted (S4).
 
 ---
 
-# PARKED — state as of this branch
+# UNPARKED — state as of this branch
 
 This branch is **not merged and not a fix for the terrain see-through artifact**. It builds and
-runs. Park it here; resume for the dynamic-sun/shadow work, not to chase that artifact.
+runs. It was parked once; it is now active again, because the landcover-holes investigation
+(`terrain-landcover-holes-investigation.md`) identified the branch as one of the two real fixes
+for that bug — the per-layer drape path cannot be made consistent across composite invocations,
+a shared drape removes the disagreement by construction.
 
 ## Done
 
@@ -216,18 +219,59 @@ Unverified after the last fix. If the artifact now appears only briefly while ti
 next step is clearing the bake to the terrain background colour instead of transparent, so a
 surfaced-but-contentless tile reads as terrain rather than a hole.
 
-## The actual open bug (unsolved, predates this branch)
+## Fixed in this round
 
-Green landcover replaced by grey background, growing while zooming in. Established facts:
+1. **The main pass redrew everything the drape had already baked.** `drapedTile` was derived from
+   `_drapeTilesThisFrame`, which only the per-layer path fills; under the cross-layer drape it was
+   empty, so every layer painted its fills *and its depth-writing tile background* again as
+   displaced 3D geometry — reinstating exactly the background-over-fill depth failure the drape
+   exists to remove. Now `MapRenderer` hands each layer the frame's drape tile set explicitly
+   (`setExternalDrapeTiles`), and `isTileDraped` tests coverage against it. The hand-off has to be
+   explicit: the layer's own `startFrame` runs between the surface draw and its content pass, so
+   anything the renderer infers from the draw itself is reset before it is read.
+2. **The cover dropped ground instead of splitting it.** A coarse tile containing one finer tile
+   was discarded whole, leaving 15/16 of its ground with no surface at all. The cover is now a
+   real quadtree partition: split until no leaf contains a finer collected tile.
+3. **The bake started from transparent.** A texel no style layer paints stayed transparent, and
+   the map background plane — which in terrain mode is *behind* the terrain — showed through. The
+   bake now clears to the terrain background colour, falling back to the layer's own style
+   background colour (new `Layer::getBackgroundColor`).
+4. **Unrelated crash, hit while testing:** `PersistentCacheTileDataSource::loadTile` dereferenced
+   a null `TileData` whenever the wrapped source failed (offline, HTTP error). Pre-existing on
+   master.
 
-- Not depth precision — it resolves when motion stops; depth bits are 24.
-- Not the mesh — `setDebugWireframe` shows it intact.
-- Not cross-layer — reproduces with a single vector tile layer, hillshade removed.
-- Not the `sourceTileId`/`targetTileId` terrain-uniform mismatch — tested, no change.
-- Not an empty drape texture — magenta bake-clear showed textures fully painted.
+## The actual open bug: drape textures that sample black
 
-Diagnostics left in place: one-time `RTT drape ACTIVE/INACTIVE` state dump in `MapRenderer`
-(layer count, collected vs drawn tiles, resolution). Remove when no longer useful.
+Established by probe, in this order — each one killed a family of explanations:
+
+- The bake **works**: reading the FBO back after baking gives landcover green, water, and the
+  background clear colour, and a full-texture PPM dump is a correct flat map of the tile.
+- The drape **surface is drawn** over the whole screen: forcing the drape fragment shader to
+  output solid red paints all the terrain red.
+- The drape **uv is in range**: flagging `vDrapeUV` outside [0,1] lights nothing.
+- The sampled **texture is bound and non-zero**: the texture ids logged at bind time match the
+  ids `MapRenderer` baked into.
+- Yet forcing alpha to 1 while keeping the sampled rgb renders the near terrain **black**, and
+  with the background plane disabled the near terrain is black while a mid-distance wedge shows
+  correct draped content.
+
+So *some* tiles sample their texture correctly and others sample black, with everything that is
+easy to check (bake, binding, uv, coverage) already verified. Neither detaching the texture from
+the FBO before sampling nor `glFlush()` after baking changes it.
+
+Next probes, cheapest first: log `needsBake`/`baked` per tile alongside the drawn tile list, to
+see whether the black tiles are ones `TerrainDrapeCache::acquire` marked baked without a bake
+(note it sets `baked = true` before the bake actually runs, so any path that skips the bake
+poisons the entry permanently); then check whether the black set is exactly the tiles created
+from the texture pool rather than freshly allocated.
+
+Note that fix 1 makes this visible where it was previously masked: before it, the duplicated 3D
+content painted over the un-textured surface, so the map looked *nearly* right and failed only in
+the depth-test holes. The RTT path is therefore currently worse-looking than before on the
+emulator, and better-founded.
+
+Diagnostics left in place: a `RTT drape ACTIVE/INACTIVE` state dump and a periodic
+`RTT drape tiles zoom a..b, count n` line in `MapRenderer`. Remove when no longer useful.
 
 ## Note on process
 
