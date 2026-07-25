@@ -29,6 +29,7 @@
 %attribute(carto::TerrainOptions, bool, PainterOrderDepthEnabled, isPainterOrderDepthEnabled, setPainterOrderDepthEnabled)
 %attribute(carto::TerrainOptions, bool, DrapeFillsEnabled, isDrapeFillsEnabled, setDrapeFillsEnabled)
 %attribute(carto::TerrainOptions, bool, DrapeLinesEnabled, isDrapeLinesEnabled, setDrapeLinesEnabled)
+%attribute(carto::TerrainOptions, int, DrapeResolution, getDrapeResolution, setDrapeResolution)
 %attribute(carto::TerrainOptions, float, ElementTerrainSlack, getElementTerrainSlack, setElementTerrainSlack)
 %attribute(carto::TerrainOptions, int, MinZoom, getMinZoom, setMinZoom)
 %attribute(carto::TerrainOptions, int, MaxTileZoomOffset, getMaxTileZoomOffset, setMaxTileZoomOffset)

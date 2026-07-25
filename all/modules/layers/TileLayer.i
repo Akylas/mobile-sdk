@@ -37,6 +37,7 @@
 !attributestring_polymorphic(carto::TileLayer, layers.UTFGridEventListener, UTFGridEventListener, getUTFGridEventListener, setUTFGridEventListener)
 %std_exceptions(carto::TileLayer::TileLayer)
 %ignore carto::TileLayer::setTerrainDepthWriteMode;
+%ignore carto::TileLayer::prepareTerrainDrapeFrame;
 %ignore carto::TileLayer::FetchTaskBase;
 %ignore carto::TileLayer::FetchingTiles;
 %ignore carto::TileLayer::DataSourceListener;
