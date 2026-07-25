@@ -126,6 +126,42 @@ Each stage should be independently testable and shippable.
   labels.
 - **S6 — Dynamic sun + hillshade in the terrain shader**, then shadow maps.
 
+## S3 design: cross-layer stacks
+
+The obstacle is structural: maplibre has one painter walking one layer list, whereas CARTO
+gives every `TileLayer` its own `TileRenderer` → its own `GLTileRenderer`, each with its own
+visible tile set, tile surfaces, drape textures and depth domain. A hillshade layer and a
+vector tile layer therefore cannot currently share a drape.
+
+Ownership moves out of `GLTileRenderer`:
+
+- **`TerrainDrapeCache`** (native) owns the shared FBO, the texture pool, the per-tile
+  textures keyed by `(terrainTileId, stackIndex)`, their fingerprints, and the resolution. One
+  instance per map, held by `MapRenderer`.
+- **`GLTileRenderer` becomes a content baker.** It no longer owns drape textures; it exposes
+  which target tiles it would drape and their content fingerprint, bakes its own drapeable
+  content for one tile into whatever FBO is currently bound, and can draw a terrain surface
+  textured with an externally supplied texture.
+
+Per frame, `MapRenderer`:
+
+1. Splits the layer order into stacks of contiguous drapeable tile layers.
+2. Unions each stack's drape tiles and combines their fingerprints.
+3. For each stale tile: binds the shared FBO with that tile's texture, clears, and asks each
+   participating renderer to bake **in layer order** into the same texture.
+4. Draws the terrain surface once per stack per tile, sampling that stack's texture.
+5. Renders non-drapeable layers live in 3D between stacks.
+
+Sequencing note: in practice the common configuration (hillshade + vector tiles) is a single
+stack, because both are drapeable and contiguous. Multiple stacks only arise when a
+non-drapeable layer sits between drapeable ones. So the stack index is plumbed through from
+the start, but single-stack is implemented and verified first — it delivers the whole win for
+the usual case at a fraction of the risk.
+
+Once a stack owns the surface draw, the per-tile-layer depth domains (`glClear(DEPTH)` per
+layer), the clip-slack bias and the painter-order ordinal machinery have no remaining
+consumers among draped layers and can be deleted (S4).
+
 ## Open questions
 
 - Drape resolution vs. sharpness for thin vector content at high zoom. maplibre's 2× quality
