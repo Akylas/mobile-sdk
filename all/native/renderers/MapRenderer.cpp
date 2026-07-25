@@ -1230,6 +1230,16 @@ namespace carto {
                     }
                     glDepthMask(GL_FALSE);
                     _terrainDrapeCache->endFrame();
+
+                    // One-time state dump: confirms whether the RTT path is actually live, and
+                    // with how many layers/tiles, rather than being inferred from symptoms.
+                    static bool drapeStateLogged = false;
+                    if (!drapeStateLogged) {
+                        drapeStateLogged = true;
+                        Log::Infof("MapRenderer: RTT drape ACTIVE - layers %d, collected tiles %d, drawn tiles %d, resolution %d",
+                            static_cast<int>(drapeLayers.size()), static_cast<int>(collectedTiles.size()),
+                            static_cast<int>(drapedTiles.size()), resolution);
+                    }
                 }
             }
         }
@@ -1237,6 +1247,13 @@ namespace carto {
             for (const std::shared_ptr<Layer>& layer : layers) {
                 if (auto tileLayer = std::dynamic_pointer_cast<TileLayer>(layer)) {
                     tileLayer->setExternalDrapeTarget(false);
+                }
+            }
+            if (terrainMode) {
+                static bool noDrapeLogged = false;
+                if (!noDrapeLogged) {
+                    noDrapeLogged = true;
+                    Log::Info("MapRenderer: RTT drape INACTIVE in terrain mode - falling back to the per-layer depth path");
                 }
             }
         }
