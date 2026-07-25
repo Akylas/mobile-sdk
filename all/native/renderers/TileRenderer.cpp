@@ -205,6 +205,66 @@ namespace carto {
         _horizontalLayerOffset += offset;
     }
     
+    bool TileRenderer::prepareFrame(float deltaSeconds, const ViewState& viewState) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (_framePrepared) {
+            return _framePrepareResult;
+        }
+        std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>());
+        if (!tileRenderer) {
+            return false;
+        }
+        _framePrepared = true;
+        _framePrepareResult = false;
+        try {
+            _framePrepareResult = tileRenderer->startFrame(deltaSeconds * 3);
+        }
+        catch (const std::exception& ex) {
+            Log::Errorf("TileRenderer::prepareFrame: Failed: %s", ex.what());
+        }
+        return _framePrepareResult;
+    }
+
+    void TileRenderer::setExternalDrapeTarget(bool enabled) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        _externalDrapeTarget = enabled;
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            tileRenderer->setExternalDrapeTarget(enabled);
+        }
+    }
+
+    bool TileRenderer::isDrapeEnabled() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        return _externalDrapeTarget;
+    }
+
+    void TileRenderer::collectDrapeTiles(std::map<vt::TileId, std::size_t>& drapeTiles) const {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            tileRenderer->collectDrapeTiles(drapeTiles);
+        }
+    }
+
+    void TileRenderer::bakeDrapeTile(const vt::TileId& tileId) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            tileRenderer->bakeDrapeTile(tileId);
+        }
+    }
+
+    void TileRenderer::renderDrapedSurface(const vt::TileId& tileId, unsigned int drapeTexture) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            tileRenderer->renderDrapedSurface(tileId, static_cast<GLuint>(drapeTexture));
+        }
+    }
+
     bool TileRenderer::onDrawFrame(float deltaSeconds, const ViewState& viewState) {
         std::lock_guard<std::mutex> lock(_mutex);
         
@@ -372,7 +432,7 @@ namespace carto {
 
         bool refresh = false;
         try {
-            refresh = tileRenderer->startFrame(deltaSeconds * 3);
+            refresh = prepareFrame(deltaSeconds, viewState);
 
             tileRenderer->renderGeometry(true, false);
             if (_labelOrder == 0) {
@@ -423,6 +483,7 @@ namespace carto {
             }
 
             refresh = tileRenderer->endFrame();
+            _framePrepared = false;
         }
         catch (const std::exception& ex) {
             Log::Errorf("TileRenderer::onDrawFrame3D: Rendering failed: %s", ex.what());

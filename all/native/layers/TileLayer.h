@@ -15,7 +15,10 @@
 #include "datasources/TileDataSource.h"
 #include "layers/Layer.h"
 
+#include <vt/TileId.h>
+
 #include <atomic>
+#include <map>
 #include <mutex>
 #include <unordered_map>
 
@@ -380,6 +383,17 @@ namespace carto {
          * Sets the layer stacking order used for terrain depth separation in GPU draping mode. Internal method.
          */
         void setTerrainRenderOrder(int order);
+
+        /**
+         * Cross-layer terrain draping. MapRenderer prepares every participating layer's frame,
+         * collects the tiles they would drape, bakes them all into one shared texture per tile in
+         * layer order, and then draws the terrain surface once. Internal methods.
+         */
+        bool prepareTerrainDrapeFrame(float deltaSeconds, const ViewState& viewState);
+        void setExternalDrapeTarget(bool enabled);
+        void collectDrapeTiles(std::map<vt::TileId, std::size_t>& drapeTiles) const;
+        void bakeDrapeTile(const vt::TileId& tileId);
+        void renderDrapedSurface(const vt::TileId& tileId, unsigned int drapeTexture);
 
     protected:
 

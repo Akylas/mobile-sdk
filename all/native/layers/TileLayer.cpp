@@ -778,6 +778,26 @@ namespace carto {
         _tileRenderer->setTerrainDepthWriteMode(enabled);
     }
 
+    bool TileLayer::prepareTerrainDrapeFrame(float deltaSeconds, const ViewState& viewState) {
+        return _tileRenderer->prepareFrame(deltaSeconds, viewState);
+    }
+
+    void TileLayer::setExternalDrapeTarget(bool enabled) {
+        _tileRenderer->setExternalDrapeTarget(enabled);
+    }
+
+    void TileLayer::collectDrapeTiles(std::map<vt::TileId, std::size_t>& drapeTiles) const {
+        _tileRenderer->collectDrapeTiles(drapeTiles);
+    }
+
+    void TileLayer::bakeDrapeTile(const vt::TileId& tileId) {
+        _tileRenderer->bakeDrapeTile(tileId);
+    }
+
+    void TileLayer::renderDrapedSurface(const vt::TileId& tileId, unsigned int drapeTexture) {
+        _tileRenderer->renderDrapedSurface(tileId, drapeTexture);
+    }
+
     void TileLayer::setTerrainRenderOrder(int order) {
         _tileRenderer->setTerrainRenderOrder(order);
     }
