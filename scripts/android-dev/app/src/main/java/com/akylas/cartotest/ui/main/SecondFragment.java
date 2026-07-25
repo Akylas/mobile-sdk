@@ -280,17 +280,17 @@ public class SecondFragment extends Fragment {
         // The base class of HillshadeRasterTileLayer. The shader gets getRawColor() (the untouched RGBA
         // texel), getMapZoom() and vUV, and returns a PREMULTIPLIED color. Here: a hypsometric tint that
         // decodes terrarium elevation from the raw RGB terrain tile and colors it by height. (Uncomment.)
-         final CustomRasterTileLayer tinted = new CustomRasterTileLayer(cachedDemSource);
-         tinted.setShaderSource(
-             "vec4 applyLighting(lowp vec4 color, mediump vec3 normal, mediump vec3 surfaceNormal, mediump float intensity) {\n" +
-             "  vec4 c = getRawColor();\n" +
-             "  float h = (c.r * 255.0 * 256.0 + c.g * 255.0 + c.b * 255.0 / 256.0) - 32768.0;\n" + // terrarium metres
-             "  float t = clamp(h / 3000.0, 0.0, 1.0);\n" +
-             "  vec3 col = mix(vec3(0.2, 0.4, 0.8), vec3(0.9, 0.9, 0.4), t);\n" +          // blue -> yellow
-             "  col = mix(col, vec3(0.5, 0.3, 0.1), clamp((h - 1500.0) / 1500.0, 0.0, 1.0));\n" + // -> brown high
-             "  return vec4(col, 1.0);\n" +
-             "}\n");
-         mapView.getLayers().add(tinted);
+//         final CustomRasterTileLayer tinted = new CustomRasterTileLayer(cachedDemSource);
+//         tinted.setShaderSource(
+//             "vec4 applyLighting(lowp vec4 color, mediump vec3 normal, mediump vec3 surfaceNormal, mediump float intensity) {\n" +
+//             "  vec4 c = getRawColor();\n" +
+//             "  float h = (c.r * 255.0 * 256.0 + c.g * 255.0 + c.b * 255.0 / 256.0) - 32768.0;\n" + // terrarium metres
+//             "  float t = clamp(h / 3000.0, 0.0, 1.0);\n" +
+//             "  vec3 col = mix(vec3(0.2, 0.4, 0.8), vec3(0.9, 0.9, 0.4), t);\n" +          // blue -> yellow
+//             "  col = mix(col, vec3(0.5, 0.3, 0.1), clamp((h - 1500.0) / 1500.0, 0.0, 1.0));\n" + // -> brown high
+//             "  return vec4(col, 1.0);\n" +
+//             "}\n");
+//         mapView.getLayers().add(tinted);
 
         // Piece 3 test: on-the-fly contour lines generated from the SAME shared elevation
         // source (no second download/decode of terrain tiles). The generated vector tiles
@@ -340,7 +340,7 @@ public class SecondFragment extends Fragment {
                 "}\n";
         MBVectorTileDecoder decoder = new MBVectorTileDecoder(new CartoCSSStyleSet(contourCss));
             final VectorTileLayer contourLayer = new VectorTileLayer(contourSource, decoder);
-//            mapView.getLayers().add(contourLayer);
+            mapView.getLayers().add(contourLayer);
 
 //        } catch (IOException e) {
 //            throw new RuntimeException(e);
@@ -704,12 +704,12 @@ public class SecondFragment extends Fragment {
     // cannot declare them - so this demo uses zoom-based visibility/config only.
     // ---------------------------------------------------------------------------------------------
     CompositeVectorTileLayer compositeLayer;
-    void addCompositeMap(String dataPath) {
+    void addCompositeMap(View view, String dataPath) {
         // Master vector source: OpenMapTiles vector tiles.
         HTTPTileDataSource baseSource = new HTTPTileDataSource(0, 14, "https://tiles.openfreemap.org/planet/latest/{z}/{x}/{y}.pbf");
         StringMap headers = new StringMap();
         headers.set("User-Agent", "AlpiMaps/1.4 (contact: contact@akylas.fr)");
-//        baseSource.setHTTPHeaders(headers);
+        baseSource.setHTTPHeaders(headers);
         PersistentCacheTileDataSource baseSourceCached = new PersistentCacheTileDataSource(baseSource, getContext().getExternalFilesDir(null) + "/openfreemap_vect.db");
 
         // First-reference order = slot order: water, landcover, HILLSHADE, SATELLITE,
@@ -719,17 +719,14 @@ public class SecondFragment extends Fragment {
             "#water { polygon-fill: #9cc3e0; }",
             "#landcover { polygon-fill: #dbe8cc; }",
             // hillshade woven above land/water fills, below roads; exaggeration ramps with zoom.
+                "#satellite[zoom>=11] { raster-opacity: 1; raster-comp-op: src-over; }",
             "#hillshade[zoom>=4][zoom<=16] {",
-            "  hillshade-opacity: linear([view::zoom], (11, 0.6), (12, 1));",
-            "  hillshade-exaggeration: linear([view::zoom], (11, 0.6), (12, 1.0));",
+//            "  hillshade-opacity: linear([view::zoom], (11, 0.6), (12, 1));",
+//            "  hillshade-exaggeration: linear([view::zoom], (11, 0.6), (12, 1.0));",
             "  hillshade-illumination-direction: 365;",
             "  hillshade-shadow-color: #103040;",
             "}",
-                "#satellite[zoom>=13] { raster-opacity: 0.55; raster-comp-op: src-over; }",
             // satellite raster overlay, faint, only high zoom.
-            "#transportation { line-color: #ffffff; line-width: 1.2; }",
-            "#transportation['class'='motorway'] { line-color: #e27d60; line-width: 3; }",
-            "#transportation['class'='primary'] { line-color: #f4c06a; line-width: 2; }",
             "#building[zoom>=14] { polygon-fill: #d9cfc4; }",
 
                 "#contour[zoom>=5] {",
@@ -741,11 +738,11 @@ public class SecondFragment extends Fragment {
 
         );
         MBVectorTileDecoder decoder = null;
-        try {
-            decoder = getStyleDecoder(dataPath);
-        } catch (IOException e) {
+//        try {
+//            decoder = getStyleDecoder(dataPath);
+//        } catch (IOException e) {
             decoder = new MBVectorTileDecoder(new CartoCSSStyleSet(css));
-        }
+//        }
         compositeLayer = new CompositeVectorTileLayer(baseSourceCached, decoder);
 
         // Shared terrarium-encoded DEM for both hillshade and contours (fetched once).
@@ -757,9 +754,9 @@ public class SecondFragment extends Fragment {
         ContourTileDataSource contour = new ContourTileDataSource(cachedDem);
         contour.setMinVisibleZoom(5);
         contour.setMaxOverzoomLevel(15);
-//        compositeLayer.addVectorDataSource("contour", contour);
+        compositeLayer.addVectorDataSource("contour", contour);
         // hillshade: decoder resolved from the DEM source 'encoding' (terrarium) - no decoder arg.
-//        compositeLayer.addExternalDataSource("hillshade", cachedDem, CompositeSourceType.COMPOSITE_SOURCE_TYPE_HILLSHADE);
+        compositeLayer.addExternalDataSource("hillshade", cachedDem, CompositeSourceType.COMPOSITE_SOURCE_TYPE_HILLSHADE);
         // satellite: a raster source drawn at the '#satellite' slot with the style opacity.
         HTTPTileDataSource satSource = new HTTPTileDataSource(0, 19, "https://tile.openstreetmap.org/{z}/{x}/{y}.png");
         satSource.setHTTPHeaders(headers);
@@ -774,17 +771,21 @@ public class SecondFragment extends Fragment {
         // (delegated through the cache wrapper); passing it explicitly works as well.
         terrainOptions = new com.carto.components.TerrainOptions(cachedDem, new TerrariumElevationDataDecoder());
         terrainOptions.setExaggeration(1.0f);
-        terrainOptions.setMeshResolution(64);
-//        terrainOptions.set
-        // Optional: cap terrain LOD tile detail at what flat rendering would show
-        // (offset 0), to hide LOD rings if the style renders differently at different
-        // tile zoom levels. Disabled: the LOD rings turned out not to be the cause of
-        // the washed-out alpine faces (style/hillshade appearance).
-        //terrainOptions.setMaxTileZoomOffset(0);
-//        terrainOptions.setBackgroundColor(new Color((short) 255, (short)0,(short)0,(short)255));
-//        terrainOptions.setRegularGridEnabled(true);
         terrainOptions.setPainterOrderDepthEnabled(true);
+        terrainOptions.setMeshResolution(128);
+        terrainOptions.setDrapeFillsEnabled(true);
+        terrainOptions.setDrapeLinesEnabled(false);
         mapView.getOptions().setTerrainOptions(terrainOptions);
+
+
+        addTerrainTestElements();
+        addTerrainControls(view);
+        // Start tilted over the Alps (Grenoble). Note: setFocusPos expects base projection
+        // coordinates, so WGS84 positions must be converted first.
+        Projection proj = mapView.getOptions().getBaseProjection();
+        mapView.setFocusPos(proj.fromWgs84(new MapPos(5.763110, 45.218065)), 0);
+        mapView.setZoom(11.38f, 0);
+        mapView.setTilt(90f, 0);
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -913,13 +914,12 @@ public class SecondFragment extends Fragment {
 
         // --- CompositeVectorTileLayer demo (2D). Comment this and restore addMap/addTerrain to go back. ---
 //        addCompositeMapNuti(dataPath); // nuti-parameter demo: relief toggles every 3s
-        addCompositeMap(dataPath);
+        addCompositeMap(view, dataPath);
 //        addMap(dataPath);
 //        addTerrain(view, dataPath);
 //        addRoutes(dataPath);
 //        addHillshadeLayer(view, dataPath);
 
-//        try {
 //            MBTilesTileDataSource dataSource = new MBTilesTileDataSource(dataPath+"/france/france_terrain.etiles");
 //            RasterTileLayer layer = new RasterTileLayer(dataSource);
 //            mapView.getLayers().add(layer);
