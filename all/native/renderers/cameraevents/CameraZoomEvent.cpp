@@ -9,6 +9,8 @@
 #include "utils/Log.h"
 #include "utils/GeneralUtils.h"
 
+#include <algorithm>
+
 namespace carto {
 
     CameraZoomEvent::CameraZoomEvent() :
@@ -92,8 +94,14 @@ namespace carto {
             targetPos = projectionSurface->calculatePosition(_targetPos);
         }
     
+        // Bound the zoom by the terrain clearance here, at the single point every zoom
+        // path funnels through (pinch, double-tap animation, kinetic fling, API calls).
+        // Clamping the REQUESTED zoom makes the gesture come to rest against the terrain;
+        // letting it through and correcting the camera afterwards makes the two fight
+        // every frame, which is what made zooming jump back and forth.
         MapRange zoomRange = options.getZoomRange();
-        float zoom = GeneralUtils::Clamp(viewState.getZoom() + _zoomDelta, viewState.getMinZoom(), zoomRange.getMax());
+        float maxZoom = std::min(zoomRange.getMax(), viewState.getTerrainMaxZoom());
+        float zoom = GeneralUtils::Clamp(viewState.getZoom() + _zoomDelta, viewState.getMinZoom(), maxZoom);
         double scale = std::pow(2.0f, viewState.getZoom() - zoom);
         cglib::mat4x4<double> shiftTransform = projectionSurface->calculateTranslateMatrix(focusPos, targetPos, 1.0 - scale);
 

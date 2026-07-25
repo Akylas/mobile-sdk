@@ -183,7 +183,26 @@ namespace carto {
          * @param maxZ The maximum terrain height.
          */
         void setTerrainHeightRange(float minZ, float maxZ);
-    
+
+        /**
+         * Sets the minimum camera height (in internal units) imposed by the terrain
+         * clearance, or 0 to disable the terrain zoom bound. Published once per frame
+         * by the renderer from the elevation under the camera.
+         * @param minCameraZ The minimum camera height, 0 to disable.
+         */
+        void setTerrainMinCameraZ(double minCameraZ);
+        /**
+         * Returns the maximum zoom allowed by the terrain clearance, or infinity when
+         * no terrain bound is active. Evaluated against the CURRENT camera state, so it
+         * carries no frame lag: zooming in by this delta lands the camera exactly on the
+         * clearance shell. Every zoom path (gesture, animation, kinetic fling, API) is
+         * clamped by it, which is what keeps the camera from being pushed into the
+         * terrain and then corrected back out - the correction/gesture fight that makes
+         * zooming jump back and forth.
+         * @return The terrain-imposed maximum zoom.
+         */
+        float getTerrainMaxZoom() const;
+
         /**
          * Returns the vertical field of view angle.
          * @return The vertical field of view angle in degrees.
@@ -411,6 +430,7 @@ namespace carto {
 
         float _terrainHeightMin = 0.0f;
         float _terrainHeightMax = 0.0f;
+        double _terrainMinCameraZ = 0.0; // 0 = no terrain zoom bound
     
         int _fovY;
         float _halfFOVY;
