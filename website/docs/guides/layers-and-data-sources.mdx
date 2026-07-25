@@ -4,6 +4,9 @@ sidebar_position: 3
 slug: /guides/layers-and-data-sources
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 ## Layers and Data Sources
 
 Maps in CARTO Mobile SDK are organized overlaying **layers**. Layer displays map and takes data from a  connected **DataSource**, which has data loading and processing logics.
@@ -28,7 +31,7 @@ Depending on data type you can use following layer types:
 
 An online map app configuration could be composed from following classes and elements:
 
-<span class="wrap-border"><img src="../../img/mapview-online-layers.png" alt="Online map classes" /></span>
+&lt;span class="wrap-border">&lt;img src="../../img/mapview-online-layers.png" alt="Online map classes" />&lt;/span>
 
 Here are:
 * **Basemap** is standard online map. You just select style, and CARTO provides the map. You can use custom styles there also.
@@ -43,38 +46,64 @@ The layers are added from bottom to top order.
 
 This adds to map CARTO built-in vector tile service with generic streetmaps, you just set styling and all the rest is done automatically.
 
-       <a href="tab-java">Java</a>
+<Tabs groupId="language">
 
-     ```java
+<TabItem value="java" label="Java">
+
+```java
   
-     CartoOnlineVectorTileLayer layer = new CartoOnlineVectorTileLayer(CartoBaseMapStyle.CARTO_BASEMAP_STYLE_POSITRON);
-     mapView.getLayers().add(layer);
+CartoOnlineVectorTileLayer layer = new CartoOnlineVectorTileLayer(CartoBaseMapStyle.CARTO_BASEMAP_STYLE_POSITRON);
+mapView.getLayers().add(layer);
 
-     ```
-     ```csharp
+```
+
+</TabItem>
+
+<TabItem value="csharp" label="C#">
+
+```csharp
   
-     var layer = new CartoOnlineVectorTileLayer(CartoBaseMapStyle.CartoBasemapStylePositron);
-     MapView.Layers.Add(layer);
+var layer = new CartoOnlineVectorTileLayer(CartoBaseMapStyle.CartoBasemapStylePositron);
+MapView.Layers.Add(layer);
 
-     ```
-     ```objectivec
+```
+
+</TabItem>
+
+<TabItem value="objectivec" label="Objective-C">
+
+```objectivec
   
-     NTCartoOnlineVectorTileLayer* layer = [[NTCartoOnlineVectorTileLayer alloc] initWithStyle:NT_CARTO_BASEMAP_STYLE_POSITRON];
-     [[self.mapView getLayers] add:layer];
+NTCartoOnlineVectorTileLayer* layer = [[NTCartoOnlineVectorTileLayer alloc] initWithStyle:NT_CARTO_BASEMAP_STYLE_POSITRON];
+[[self.mapView getLayers] add:layer];
   
-     ```
-     ```swift
+```
 
-     let layer = NTCartoOnlineVectorTileLayer(style: NTCartoBaseMapStyle.CARTO_BASEMAP_STYLE_POSITRON)
-     mapView?.getLayers()?.add(layer)
+</TabItem>
 
-     ```
-     ```kotlin
+<TabItem value="swift" label="Swift">
 
-     val layer = CartoOnlineVectorTileLayer(CartoBaseMapStyle.CARTO_BASEMAP_STYLE_POSITRON)
-     mapView?.layers?.add(layer)
+```swift
 
-     ```
+let layer = NTCartoOnlineVectorTileLayer(style: NTCartoBaseMapStyle.CARTO_BASEMAP_STYLE_POSITRON)
+mapView?.getLayers()?.add(layer)
+
+```
+
+</TabItem>
+
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+
+val layer = CartoOnlineVectorTileLayer(CartoBaseMapStyle.CARTO_BASEMAP_STYLE_POSITRON)
+mapView?.layers?.add(layer)
+
+```
+
+</TabItem>
+
+</Tabs>
 
 #### Basemap layer: CARTO Satellite
 
@@ -85,40 +114,64 @@ For certain maps - especially for **Satellite imagery** (sourced from HERE) CART
 * here.normal.day
 * here.normal.day@2x
 
-  ```java
+<Tabs groupId="language">
 
-  CartoOnlineVectorTileLayer layer = new CartoOnlineRasterTileLayer("here.satellite.day");
-  mapView.getLayers().add(layer);
+<TabItem value="java" label="Java">
 
-  ```
+```java
 
-  ```csharp
+CartoOnlineVectorTileLayer layer = new CartoOnlineRasterTileLayer("here.satellite.day");
+mapView.getLayers().add(layer);
 
-  var layer = new CartoOnlineRasterTileLayer("here.satellite.day");
-  MapView.Layers.Add(layer);
+```
 
-  ```
+</TabItem>
 
-  ```objectivec
+<TabItem value="csharp" label="C#">
 
-  NTCartoOnlineVectorTileLayer* layer = [[NTCartoOnlineRasterTileLayer alloc] initWithSource:@"here.satellite.day"];
-  [[self.mapView getLayers] add:layer];
+```csharp
 
-  ```
+var layer = new CartoOnlineRasterTileLayer("here.satellite.day");
+MapView.Layers.Add(layer);
 
-  ```swift
+```
 
-  let layer = NTCartoOnlineRasterTileLayer(source: "here.satellite.day")
-  mapView?.getLayers()?.add(layer)
+</TabItem>
 
-  ```
+<TabItem value="objectivec" label="Objective-C">
 
-  ```kotlin
+```objectivec
 
-  val layer = CartoOnlineRasterTileLayer("here.satellite.day")
-  mapView?.layers?.add(layer)
+NTCartoOnlineVectorTileLayer* layer = [[NTCartoOnlineRasterTileLayer alloc] initWithSource:@"here.satellite.day"];
+[[self.mapView getLayers] add:layer];
 
-  ```
+```
+
+</TabItem>
+
+<TabItem value="swift" label="Swift">
+
+```swift
+
+let layer = NTCartoOnlineRasterTileLayer(source: "here.satellite.day")
+mapView?.getLayers()?.add(layer)
+
+```
+
+</TabItem>
+
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+
+val layer = CartoOnlineRasterTileLayer("here.satellite.day")
+mapView?.layers?.add(layer)
+
+```
+
+</TabItem>
+
+</Tabs>
 
 ### Other Data Sources
 
@@ -150,51 +203,76 @@ As example following code loads online raster tiles into your map view. You can 
 
 The following tags are supported in the URL definition: **zoom, x, y, xflipped, yflipped, quadkey**.
 
-    ```java
+<Tabs groupId="language">
 
-    String url = "http://ecn.t3.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=471&mkt=en-US";
-    TileDataSource baseRasterTileDataSource = new HTTPTileDataSource(1, 19, url);
+<TabItem value="java" label="Java">
 
-    TileLayer baseLayer = new RasterTileLayer(baseRasterTileDataSource);
-    mapView.getLayers().add(baseLayer);
+```java
 
-    ```
-    ```csharp
+String url = "http://ecn.t3.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=471&mkt=en-US";
+TileDataSource baseRasterTileDataSource = new HTTPTileDataSource(1, 19, url);
 
-    string url = "http://ecn.t3.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=471&mkt=en-US";
-    var baseRasterTileDataSource = new HTTPTileDataSource(1, 19, url);
+TileLayer baseLayer = new RasterTileLayer(baseRasterTileDataSource);
+mapView.getLayers().add(baseLayer);
 
-    var baseLayer = new RasterTileLayer(baseRasterTileDataSource);
-    MapView.Layers.Add(baseLayer);
+```
 
-    ```
+</TabItem>
 
-    ```objectivec
+<TabItem value="csharp" label="C#">
 
-    NSString* url = @"http://ecn.t3.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=471&mkt=en-US";
-    NTHTTPTileDataSource* baseRasterTileDataSource = [[NTHTTPTileDataSource alloc] initWithMinZoom:1 maxZoom:19 baseURL:url];
-      
-    NTRasterTileLayer* baseLayer = [[NTRasterTileLayer alloc] initWithDataSource:baseRasterTileDataSource];
-    [[mapView getLayers] add:baseLayer];
+```csharp
 
-    ```
+string url = "http://ecn.t3.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=471&mkt=en-US";
+var baseRasterTileDataSource = new HTTPTileDataSource(1, 19, url);
 
-    ```swift
+var baseLayer = new RasterTileLayer(baseRasterTileDataSource);
+MapView.Layers.Add(baseLayer);
 
-    let url = "http://ecn.t3.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=471&mkt=en-US"
-    let baseRasterTileDataSource = NTHTTPTileDataSource(minZoom: 1, maxZoom: 19, baseURL: url)
+```
 
-    let baseLayer = NTRasterTileLayer(dataSource: baseRasterTileDataSource)
-    mapView?.getLayers()?.add(baseLayer)
+</TabItem>
 
-    ```
+<TabItem value="objectivec" label="Objective-C">
 
-    ```kotlin
+```objectivec
 
-    val url = "http://ecn.t3.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=471&mkt=en-US"
-    val baseRasterTileDataSource = HTTPTileDataSource(1, 19, url)
+NSString* url = @"http://ecn.t3.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=471&mkt=en-US";
+NTHTTPTileDataSource* baseRasterTileDataSource = [[NTHTTPTileDataSource alloc] initWithMinZoom:1 maxZoom:19 baseURL:url];
+  
+NTRasterTileLayer* baseLayer = [[NTRasterTileLayer alloc] initWithDataSource:baseRasterTileDataSource];
+[[mapView getLayers] add:baseLayer];
 
-    val baseLayer = RasterTileLayer(baseRasterTileDataSource)
-    mapView?.layers?.add(baseLayer)
+```
 
-    ```
+</TabItem>
+
+<TabItem value="swift" label="Swift">
+
+```swift
+
+let url = "http://ecn.t3.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=471&mkt=en-US"
+let baseRasterTileDataSource = NTHTTPTileDataSource(minZoom: 1, maxZoom: 19, baseURL: url)
+
+let baseLayer = NTRasterTileLayer(dataSource: baseRasterTileDataSource)
+mapView?.getLayers()?.add(baseLayer)
+
+```
+
+</TabItem>
+
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+
+val url = "http://ecn.t3.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=471&mkt=en-US"
+val baseRasterTileDataSource = HTTPTileDataSource(1, 19, url)
+
+val baseLayer = RasterTileLayer(baseRasterTileDataSource)
+mapView?.layers?.add(baseLayer)
+
+```
+
+</TabItem>
+
+</Tabs>

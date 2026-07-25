@@ -4,6 +4,9 @@ sidebar_position: 1
 slug: /guides/getting-started
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 ## Getting Started
 
 ### Android app
@@ -48,57 +51,69 @@ slug: /guides/getting-started
 
   Following enables to load the MapView from the layout. _The object itself was already created during the layout creation process, this step is specific to finding and referencing the MapView object in your request._
 
-  ```java
-  public class MainActivity extends Activity {
-	  
-      // make sure you replace the String value with the one from carto.com mobile app registration !  
-      final String LICENSE = "YOUR_LICENSE_KEY";
+<Tabs groupId="language">
 
-      private MapView mapView;
+<TabItem value="java" label="Java">
 
-      @Override
-      public void onCreate(Bundle savedInstanceState) {
-          super.onCreate(savedInstanceState);
-          setContentView(R.layout.main);
+```java
+public class MainActivity extends Activity {
+ 
+    // make sure you replace the String value with the one from carto.com mobile app registration !  
+    final String LICENSE = "YOUR_LICENSE_KEY";
 
-          // Register the license so that CARTO online services can be used
-          MapView.registerLicense(LICENSE);
+    private MapView mapView;
 
-          // Get 'mapView' object from the application layout
-          mapView = (MapView) this.findViewById(R.id.mapView);
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.main);
 
-          // Add basemap layer to mapView
-          CartoOnlineVectorTileLayer baseLayer = new CartoOnlineVectorTileLayer(CartoBaseMapStyle.CARTO_BASEMAP_STYLE_VOYAGER);
-          mapView.getLayers().add(baseLayer);
-      }
-  }
-  ```
+        // Register the license so that CARTO online services can be used
+        MapView.registerLicense(LICENSE);
 
-  ```kotlin
-  class MainActivity : AppCompatActivity() {
-	  
-      // make sure you replace the String value with the one from carto.com mobile app registration !  
-	  
-      val LICENSE = "YOUR_LICENSE_KEY"
+        // Get 'mapView' object from the application layout
+        mapView = (MapView) this.findViewById(R.id.mapView);
 
-      var mapView: MapView? = null
+        // Add basemap layer to mapView
+        CartoOnlineVectorTileLayer baseLayer = new CartoOnlineVectorTileLayer(CartoBaseMapStyle.CARTO_BASEMAP_STYLE_VOYAGER);
+        mapView.getLayers().add(baseLayer);
+    }
+}
+```
 
-      override fun onCreate(savedInstanceState: Bundle?) {
-          super.onCreate(savedInstanceState)
-          setContentView(R.layout.main);
+</TabItem>
 
-          // Register the license so that CARTO online services can be used
-          MapView.registerLicense(LICENSE, this)
+<TabItem value="kotlin" label="Kotlin">
 
-          // Get 'mapView' object from the application layout
-          mapView = findViewById(R.id.mapView) as MapView
+```kotlin
+class MainActivity : AppCompatActivity() {
+ 
+    // make sure you replace the String value with the one from carto.com mobile app registration !  
+ 
+    val LICENSE = "YOUR_LICENSE_KEY"
 
-          // Add basemap layer to mapView
-          val layer = CartoOnlineVectorTileLayer(CartoBaseMapStyle.CARTO_BASEMAP_STYLE_VOYAGER)
-          mapView?.layers?.add(layer)
-      }
-  }
-  ```
+    var mapView: MapView? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.main);
+
+        // Register the license so that CARTO online services can be used
+        MapView.registerLicense(LICENSE, this)
+
+        // Get 'mapView' object from the application layout
+        mapView = findViewById(R.id.mapView) as MapView
+
+        // Add basemap layer to mapView
+        val layer = CartoOnlineVectorTileLayer(CartoBaseMapStyle.CARTO_BASEMAP_STYLE_VOYAGER)
+        mapView?.layers?.add(layer)
+    }
+}
+```
+
+</TabItem>
+
+</Tabs>
 
 5) **Run the Android app**
 
@@ -106,67 +121,78 @@ slug: /guides/getting-started
 
 6) Do something useful with the map - **add a styled Marker for a point**
 
-    ```java
-    
-    // this will be used later in several places
-    Projection proj = mapView.getOptions().getBaseProjection();
+<Tabs groupId="language">
 
-    // 1. Initialize an vector data source where to put the elements
-    LocalVectorDataSource vectorDataSource1 = new LocalVectorDataSource(proj);
+<TabItem value="java" label="Java">
 
-    // 2. Initialize a vector layer with the previous data source
-    VectorLayer vectorLayer1 = new VectorLayer(vectorDataSource1);
+```java
 
-    // 3. Add the previous vector layer to the map
-    mapView.getLayers().add(vectorLayer1);
+// this will be used later in several places
+Projection proj = mapView.getOptions().getBaseProjection();
 
-    // 4. Set limited visible zoom range for the vector layer (optional)
-    vectorLayer1.setVisibleZoomRange(new MapRange(10, 24));
+// 1. Initialize an vector data source where to put the elements
+LocalVectorDataSource vectorDataSource1 = new LocalVectorDataSource(proj);
+
+// 2. Initialize a vector layer with the previous data source
+VectorLayer vectorLayer1 = new VectorLayer(vectorDataSource1);
+
+// 3. Add the previous vector layer to the map
+mapView.getLayers().add(vectorLayer1);
+
+// 4. Set limited visible zoom range for the vector layer (optional)
+vectorLayer1.setVisibleZoomRange(new MapRange(10, 24));
 	
-    // 5. Create marker style
-    MarkerStyleBuilder markerStyleBuilder = new MarkerStyleBuilder();
-    markerStyleBuilder.setSize(30);
-    markerStyleBuilder.setColor(new Color(0xFF00FF00)); // green
+// 5. Create marker style
+MarkerStyleBuilder markerStyleBuilder = new MarkerStyleBuilder();
+markerStyleBuilder.setSize(30);
+markerStyleBuilder.setColor(new Color(0xFF00FF00)); // green
 
-    MarkerStyle markerStyle1 = markerStyleBuilder.buildStyle();
+MarkerStyle markerStyle1 = markerStyleBuilder.buildStyle();
 
-    // 6. Add marker
-    MapPos pos1 = proj.fromWgs84(new MapPos(24.646469, 59.426939)); // Tallinn
-    Marker marker1 = new Marker(pos1, markerStyle1);
+// 6. Add marker
+MapPos pos1 = proj.fromWgs84(new MapPos(24.646469, 59.426939)); // Tallinn
+Marker marker1 = new Marker(pos1, markerStyle1);
 
-    // 7. Add the marker to the datasource
-    vectorDataSource1.add(marker1);
+// 7. Add the marker to the datasource
+vectorDataSource1.add(marker1);
 	
 	
-    ```
+```
 
-    ```kotlin
+</TabItem>
 
-    // Get base projection from mapView, we'll need it later
-    val projection = mapView?.options?.baseProjection
+<TabItem value="kotlin" label="Kotlin">
 
-    //1. Create a vector data source where to put the elements
-    val source = LocalVectorDataSource(projection)
+```kotlin
 
-    // 2. Initialize layer, add to MapView
-    val layer = VectorLayer(source)
-    mapView?.layers?.add(layer)
+// Get base projection from mapView, we'll need it later
+val projection = mapView?.options?.baseProjection
 
-    // 3. Create a Marker style, using default marker bitmap here
-    val markerStyleBuilder = MarkerStyleBuilder()
-    markerStyleBuilder.size = 30F
-    markerStyleBuilder.color = Color(0, 255, 0, 255) // green + opacity byte
-    val markerStyle1 = builder.buildStyle()
+//1. Create a vector data source where to put the elements
+val source = LocalVectorDataSource(projection)
 
-    // 4. Define marker position and create the marker
-    val pos1 = projection?.fromWgs84(MapPos(24.651488, 59.423581)) // Tallinn
-    val marker1 = Marker(pos1, markerStyle1)
+// 2. Initialize layer, add to MapView
+val layer = VectorLayer(source)
+mapView?.layers?.add(layer)
 
-    // 5. Add the marker to the data source
-    vectorDataSource1.add(marker1)
+// 3. Create a Marker style, using default marker bitmap here
+val markerStyleBuilder = MarkerStyleBuilder()
+markerStyleBuilder.size = 30F
+markerStyleBuilder.color = Color(0, 255, 0, 255) // green + opacity byte
+val markerStyle1 = builder.buildStyle()
 
-    ```
-      
+// 4. Define marker position and create the marker
+val pos1 = projection?.fromWgs84(MapPos(24.651488, 59.423581)) // Tallinn
+val marker1 = Marker(pos1, markerStyle1)
+
+// 5. Add the marker to the data source
+vectorDataSource1.add(marker1)
+
+```
+
+</TabItem>
+
+</Tabs>
 
 ### iOS app
 
@@ -196,67 +222,79 @@ In **Objective-C apps** you need some special tricks:
   - Extend **ViewController** and add **MapView** manipulation code into it. _Ensure it is Objective C++, not plain Objective C class_
   - Rename `ViewController.m` (comes with template) to `ViewController.mm`, to avoid Objective C++ compilation issues
 
-  ```swift
-  import UIKit
-  import CartoMobileSDK
+<Tabs groupId="language">
 
-  class ViewController: UIViewController {
+<TabItem value="swift" label="Swift">
 
-    override func viewDidLoad() {
-      super.viewDidLoad()
-  
-      // The initial step: register your license. 
-      let license = "YOUR_LICENSE_KEY"
-      NTMapView.registerLicense(license)
-      
-      // MapView initialization in code: initialize and set it as view
-      let mapView = NTMapView()
-      view = mapView
-          
-      let baseLayer = NTCartoOnlineVectorTileLayer(style: NTCartoBaseMapStyle.CARTO_BASEMAP_STYLE_VOYAGER)
-      mapView?.getLayers().add(baseLayer)
-    }
+```swift
+import UIKit
+import CartoMobileSDK
+
+class ViewController: UIViewController {
+
+  override func viewDidLoad() {
+    super.viewDidLoad()
+
+    // The initial step: register your license. 
+    let license = "YOUR_LICENSE_KEY"
+    NTMapView.registerLicense(license)
+    
+    // MapView initialization in code: initialize and set it as view
+    let mapView = NTMapView()
+    view = mapView
+        
+    let baseLayer = NTCartoOnlineVectorTileLayer(style: NTCartoBaseMapStyle.CARTO_BASEMAP_STYLE_VOYAGER)
+    mapView?.getLayers().add(baseLayer)
   }
-  
-  ```
+}
 
-  ```objectivec
-  // ViewController.h
-  #import <UIKit/UIKit.h>
+```
 
-  @interface ViewController : UIViewController
+</TabItem>
 
-  @end
+<TabItem value="objectivec" label="Objective-C">
 
-  // ViewController.mm
-  #import "ViewController.h"
-  #import <CartoMobileSDK/CartoMobileSDK.h>
+```objectivec
+// ViewController.h
+#import <UIKit/UIKit.h>
 
-  @implementation ViewController
+@interface ViewController : UIViewController
 
-  - (void)loadView {
-    // 1. The initial step: register your license. 
-    // **Note:** This must be done before using MapView
-    [NTMapView registerLicense:@"YOUR_LICENSE_KEY"];
-    [super loadView];
-  }
+@end
 
-  - (void)viewDidLoad
-  {
-    [super viewDidLoad];
+// ViewController.mm
+#import "ViewController.h"
+#import <CartoMobileSDK/CartoMobileSDK.h>
 
-    // 1. Ensure the storyboard has NTMapView connected as a view
-    NTMapView* mapView = (NTMapView*) self.view;
+@implementation ViewController
 
-    // 2. Create online vector tile layer, use style asset embedded in the project
-    NTVectorTileLayer* baseLayer = [[NTCartoOnlineVectorTileLayer alloc] initWithStyle: NT_CARTO_BASEMAP_STYLE_VOYAGER];
+- (void)loadView {
+  // 1. The initial step: register your license. 
+  // **Note:** This must be done before using MapView
+  [NTMapView registerLicense:@"YOUR_LICENSE_KEY"];
+  [super loadView];
+}
 
-    // 3. Add vector tile layer
-    [[mapView getLayers] add:baseLayer];
-  }
+- (void)viewDidLoad
+{
+  [super viewDidLoad];
 
-  @end
-  ```
+  // 1. Ensure the storyboard has NTMapView connected as a view
+  NTMapView* mapView = (NTMapView*) self.view;
+
+  // 2. Create online vector tile layer, use style asset embedded in the project
+  NTVectorTileLayer* baseLayer = [[NTCartoOnlineVectorTileLayer alloc] initWithStyle: NT_CARTO_BASEMAP_STYLE_VOYAGER];
+
+  // 3. Add vector tile layer
+  [[mapView getLayers] add:baseLayer];
+}
+
+@end
+```
+
+</TabItem>
+
+</Tabs>
 
 5) **Modify Storyboard** to enable Map View
 
@@ -267,7 +305,7 @@ The default storyboard template uses **UIView** class, you must use **NTMapView*
 
 **Note:** If you are using both iPhone (**Main\_iPhone.storyboard**) or iPad (**Main\_iPad.storyboard**) files for iOS, you must repeat the steps to change the default storyboard.
 
-  <span class="wrap-border"><img src="../../img/xcode_storyboard.jpg" alt="Xcode storyboard" /></span>
+  &lt;span class="wrap-border">&lt;img src="../../img/xcode_storyboard.jpg" alt="Xcode storyboard" />&lt;/span>
 
 6) **Run the iOS app**
 
@@ -275,80 +313,92 @@ The default storyboard template uses **UIView** class, you must use **NTMapView*
 
 7) **Add a Marker to the map** to do something useful with the map
 
-    ```swift
-    
-    // MapView initialization in code: initialize and set it as view
-    let mapView = NTMapView()
-    view = mapView
+<Tabs groupId="language">
 
-    // Get base projection from mapView
-    let projection = mapView?.getOptions().getBaseProjection()
-    
-    // Create a vector data source, bucket where we'll put objects
-    let source = NTLocalVectorDataSource(projection: projection)
-    
-    // Initialize layer
-    let layer = NTVectorLayer(dataSource: source)
-    
-    // Add layer
-    mapView?.getLayers().add(layer)
-    
-    // Define marker location. Make sure to use projection fromWgs84 to have proper coordinate system
-    let tallinn = projection?.fromWgs84(NTMapPos(x: 24.646469, y: 59.426939))
-    
-    // Create a vector data source, bucket where we'll put objects
-    let source = NTLocalVectorDataSource(projection: projection)
+<TabItem value="swift" label="Swift">
 
-    // Initialize layer with datasource, add it to MapView
-    let layer = NTVectorLayer(dataSource: source)
-    self.getLayers().add(layer)
+```swift
 
-    // define marker style        
-    let builder = NTMarkerStyleBuilder()
-    builder?.setSize(15)
-    builder?.setColor(NTColor(r: 0, g: 255, b: 0, a: 255)) // green, alpha = no transarency
-    
-    // create marker and add to DataSource    
-    let marker = NTMarker(pos: tallinn, style: builder?.buildStyle())
-    source?.add(marker)
+// MapView initialization in code: initialize and set it as view
+let mapView = NTMapView()
+view = mapView
 
-    // zoom map view focus to the marker                
-    mapView?.setFocus(tallinn, durationSeconds: 0)
-    mapView?.setZoom(15, durationSeconds: 0)
-    
-    ```
+// Get base projection from mapView
+let projection = mapView?.getOptions().getBaseProjection()
 
-    ```objectivec
-    
-    // we'll need projection later
-    NTEPSG3857* proj = [[NTEPSG3857 alloc] init];
+// Create a vector data source, bucket where we'll put objects
+let source = NTLocalVectorDataSource(projection: projection)
 
-    // 1. Create a vector data source, bucket where we'll put objects
-    NTLocalVectorDataSource* vectorDataSource1 = [[NTLocalVectorDataSource alloc] initWithProjection:proj];
+// Initialize layer
+let layer = NTVectorLayer(dataSource: source)
 
-    // 2. Initialize a vector layer with the previous data source
-    NTVectorLayer* vectorLayer1 = [[NTVectorLayer alloc] initWithDataSource:vectorDataSource1];
+// Add layer
+mapView?.getLayers().add(layer)
 
-    // 3. Add the previous vector layer to the map
-    [[self getLayers] add:vectorLayer1];
+// Define marker location. Make sure to use projection fromWgs84 to have proper coordinate system
+let tallinn = projection?.fromWgs84(NTMapPos(x: 24.646469, y: 59.426939))
 
-    // 4. Set visible zoom range for the vector layer (optional)
-    [vectorLayer1 setVisibleZoomRange:[[NTMapRange alloc] initWithMin:10 max:24]];
-    
-    // 5. Create a marker style, using default marker bitmap here
-    NTMarkerStyleBuilder* markerStyleBuilder = [[NTMarkerStyleBuilder alloc] init];
-    [markerStyleBuilder setSize:30];
-    [markerStyleBuilder setColor:[[NTColor alloc] initWithColor:0xFF00FF00]]; // green
-    NTMarkerStyle* markerStyle1 = [markerStyleBuilder buildStyle];
+// Create a vector data source, bucket where we'll put objects
+let source = NTLocalVectorDataSource(projection: projection)
 
-    // 6. Define marker position and create the marker
-    NTMapPos* pos1 = [proj fromWgs84:[[NTMapPos alloc] initWithX:24.651488 y:59.423581]]; // Tallinn
-    NTMarker* marker1 = [[NTMarker alloc] initWithPos:pos1 style:markerStyle1];
+// Initialize layer with datasource, add it to MapView
+let layer = NTVectorLayer(dataSource: source)
+self.getLayers().add(layer)
 
-    // 7. Add the marker to the data source
-    [vectorDataSource1 add:marker1];
-    
-    ```
+// define marker style        
+let builder = NTMarkerStyleBuilder()
+builder?.setSize(15)
+builder?.setColor(NTColor(r: 0, g: 255, b: 0, a: 255)) // green, alpha = no transarency
+
+// create marker and add to DataSource    
+let marker = NTMarker(pos: tallinn, style: builder?.buildStyle())
+source?.add(marker)
+
+// zoom map view focus to the marker                
+mapView?.setFocus(tallinn, durationSeconds: 0)
+mapView?.setZoom(15, durationSeconds: 0)
+
+```
+
+</TabItem>
+
+<TabItem value="objectivec" label="Objective-C">
+
+```objectivec
+
+// we'll need projection later
+NTEPSG3857* proj = [[NTEPSG3857 alloc] init];
+
+// 1. Create a vector data source, bucket where we'll put objects
+NTLocalVectorDataSource* vectorDataSource1 = [[NTLocalVectorDataSource alloc] initWithProjection:proj];
+
+// 2. Initialize a vector layer with the previous data source
+NTVectorLayer* vectorLayer1 = [[NTVectorLayer alloc] initWithDataSource:vectorDataSource1];
+
+// 3. Add the previous vector layer to the map
+[[self getLayers] add:vectorLayer1];
+
+// 4. Set visible zoom range for the vector layer (optional)
+[vectorLayer1 setVisibleZoomRange:[[NTMapRange alloc] initWithMin:10 max:24]];
+
+// 5. Create a marker style, using default marker bitmap here
+NTMarkerStyleBuilder* markerStyleBuilder = [[NTMarkerStyleBuilder alloc] init];
+[markerStyleBuilder setSize:30];
+[markerStyleBuilder setColor:[[NTColor alloc] initWithColor:0xFF00FF00]]; // green
+NTMarkerStyle* markerStyle1 = [markerStyleBuilder buildStyle];
+
+// 6. Define marker position and create the marker
+NTMapPos* pos1 = [proj fromWgs84:[[NTMapPos alloc] initWithX:24.651488 y:59.423581]]; // Tallinn
+NTMarker* marker1 = [[NTMarker alloc] initWithPos:pos1 style:markerStyle1];
+
+// 7. Add the marker to the data source
+[vectorDataSource1 add:marker1];
+
+```
+
+</TabItem>
+
+</Tabs>
 
 ### Xamarin (Android and iOS) .NET apps
 

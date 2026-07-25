@@ -4,6 +4,9 @@ sidebar_position: 12
 slug: /guides/performance
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 ## Performance enhancements
 
 Here are some hints how to make your map faster. It is useful if you have bigger datasets.
@@ -22,30 +25,53 @@ The overall maximum number of objects on map is limited to the RAM available for
 
 The following code describes how to adjust the `LocalVectorDataSource` performance by defining a spatial index:
 
-    ```java
-    LocalVectorDataSource vectorDataSource2 = new LocalVectorDataSource(proj, LocalSpatialIndexType.LOCAL_SPATIAL_INDEX_TYPE_KDTREE);
-    ```
+<Tabs groupId="language">
 
-    ```csharp
-    var vectorDataSource2 = new LocalVectorDataSource(proj, LocalSpatialIndexType.LocalSpatialIndexTypeKdtree);
-    ```
+<TabItem value="java" label="Java">
 
-    ```objectivec
-    NTLocalVectorDataSource* vectorDataSource2 =
-        [[NTLocalVectorDataSource alloc] initWithProjection:proj
-                                         spatialIndexType: NTLocalSpatialIndexType::NT_LOCAL_SPATIAL_INDEX_TYPE_KDTREE];
-    ```
+```java
+LocalVectorDataSource vectorDataSource2 = new LocalVectorDataSource(proj, LocalSpatialIndexType.LOCAL_SPATIAL_INDEX_TYPE_KDTREE);
+```
 
-    ```swift
-    let vectorDataSource2 = NTLocalVectorDataSource(projection: projection, spatialIndexType: NTLocalSpatialIndexType.LOCAL_SPATIAL_INDEX_TYPE_KDTREE)
-    ```
+</TabItem>
 
-    ```kotlin
-    val vectorDataSource2 = LocalVectorDataSource(projection, LocalSpatialIndexType.LOCAL_SPATIAL_INDEX_TYPE_KDTREE)
-    ```
-  
+<TabItem value="csharp" label="C#">
 
-<br/><br/>**Note:** If you have **very complex lines or polygons**, this creates objects with high numbers (more than hundreds of points per object) of vertexes. For example, the GPS traces for long periods of time, recording a point every second or so. 
+```csharp
+var vectorDataSource2 = new LocalVectorDataSource(proj, LocalSpatialIndexType.LocalSpatialIndexTypeKdtree);
+```
+
+</TabItem>
+
+<TabItem value="objectivec" label="Objective-C">
+
+```objectivec
+NTLocalVectorDataSource* vectorDataSource2 =
+    [[NTLocalVectorDataSource alloc] initWithProjection:proj
+                                     spatialIndexType: NTLocalSpatialIndexType::NT_LOCAL_SPATIAL_INDEX_TYPE_KDTREE];
+```
+
+</TabItem>
+
+<TabItem value="swift" label="Swift">
+
+```swift
+let vectorDataSource2 = NTLocalVectorDataSource(projection: projection, spatialIndexType: NTLocalSpatialIndexType.LOCAL_SPATIAL_INDEX_TYPE_KDTREE)
+```
+
+</TabItem>
+
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+val vectorDataSource2 = LocalVectorDataSource(projection, LocalSpatialIndexType.LOCAL_SPATIAL_INDEX_TYPE_KDTREE)
+```
+
+</TabItem>
+
+</Tabs>
+
+&lt;br/>&lt;br/>**Note:** If you have **very complex lines or polygons**, this creates objects with high numbers (more than hundreds of points per object) of vertexes. For example, the GPS traces for long periods of time, recording a point every second or so. 
 
 Spatial indexing will not help in this case, as you need to show the whole track on the screen. In this case, apply the **automatic line simplification** parameter for the `LocalVectorDataSource`. This reduces the number of polygon and line points, while maintaining the original object shape. 
 
@@ -58,27 +84,50 @@ There are several ways to simplify geometries for automatic simplification by us
 
 All this is can be applied with just one line of code - as shown in the following example (under iOS) for minimal 1-pixel simplification, the result is invisible but effects are significant, depending on your DataSource:
 
-    ```java
-    vectorDataSource2.setGeometrySimplifier(new DouglasPeuckerGeometrySimplifier(1.0f / 320.0f));
-    ```
+<Tabs groupId="language">
 
-    ```csharp
-    vectorDataSource2.GeometrySimplifier = new DouglasPeuckerGeometrySimplifier(1.0f / 320.0f);
-    ```
+<TabItem value="java" label="Java">
 
-    ```objectivec
-    [vectorDataSource2 setGeometrySimplifier:
-        [[NTDouglasPeuckerGeometrySimplifier alloc] initWithTolerance: 1.0f / 320.0f]
-    ];
-    ```
+```java
+vectorDataSource2.setGeometrySimplifier(new DouglasPeuckerGeometrySimplifier(1.0f / 320.0f));
+```
 
-    ```swift
-    vectorDataSource2?.setGeometrySimplifier(NTDouglasPeuckerGeometrySimplifier(tolerance: 1.0 / 320.0))
-    ```
+</TabItem>
 
-    ```kotlin
-    vectorDataSource2.geometrySimplifier = DouglasPeuckerGeometrySimplifier(1.0f / 320.0f)
-    ```
-    
+<TabItem value="csharp" label="C#">
+
+```csharp
+vectorDataSource2.GeometrySimplifier = new DouglasPeuckerGeometrySimplifier(1.0f / 320.0f);
+```
+
+</TabItem>
+
+<TabItem value="objectivec" label="Objective-C">
+
+```objectivec
+[vectorDataSource2 setGeometrySimplifier:
+    [[NTDouglasPeuckerGeometrySimplifier alloc] initWithTolerance: 1.0f / 320.0f]
+];
+```
+
+</TabItem>
+
+<TabItem value="swift" label="Swift">
+
+```swift
+vectorDataSource2?.setGeometrySimplifier(NTDouglasPeuckerGeometrySimplifier(tolerance: 1.0 / 320.0))
+```
+
+</TabItem>
+
+<TabItem value="kotlin" label="Kotlin">
+
+```kotlin
+vectorDataSource2.geometrySimplifier = DouglasPeuckerGeometrySimplifier(1.0f / 320.0f)
+```
+
+</TabItem>
+
+</Tabs>
 
 The automatic simplification makes rendering faster with some additional computation on the CPU.
