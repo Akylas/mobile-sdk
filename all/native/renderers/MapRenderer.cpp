@@ -1250,7 +1250,7 @@ namespace carto {
                     // One-time state dump: confirms whether the RTT path is actually live, and
                     // with how many layers/tiles, rather than being inferred from symptoms.
                     static bool drapeStateLogged = false;
-                    if (!drapeStateLogged && !drapedTiles.empty()) {
+                    if (!drapeStateLogged && drapedTiles.size() > 4) {
                         drapeStateLogged = true;
                         Log::Infof("MapRenderer: RTT drape ACTIVE - layers %d, collected tiles %d, drawn tiles %d, resolution %d",
                             static_cast<int>(drapeLayers.size()), static_cast<int>(collectedTiles.size()),
