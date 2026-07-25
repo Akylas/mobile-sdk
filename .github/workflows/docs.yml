@@ -32,7 +32,7 @@ concurrency:
 
 env:
   # SWIG fork used to generate the bindings. Override the repo/ref if you maintain a fork.
-  SWIG_REPO: https://github.com/cartodb/mobile-swig
+  SWIG_REPO: https://github.com/farfromrefug/mobile-swig.git
   SWIG_PROFILE: standard+valhalla+geocoding+routing+packagemanager
 
 jobs:
@@ -42,8 +42,11 @@ jobs:
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+        with: 
+          fetch-depth: 1
+      - name: fetch externals
+        run: |
+          git submodule update --init --remote --recursive
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -75,8 +78,11 @@ jobs:
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+        with: 
+          fetch-depth: 1
+      - name: fetch externals
+        run: |
+          git submodule update --init --remote --recursive
       - name: Install tooling (jazzy + swig deps)
         run: |
           gem install jazzy --no-document
