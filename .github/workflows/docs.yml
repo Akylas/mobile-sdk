@@ -14,7 +14,6 @@ on:
     paths:
       - 'website/**'
       - 'docs/**'
-      - 'all/**'
       - 'scripts/docs/**'
       - '.github/workflows/docs.yml'
   release:
@@ -56,13 +55,13 @@ jobs:
         run: sdkmanager --install "platforms;android-34"
       - name: Build SWIG fork
         run: |
-          sudo apt-get update
-          sudo apt-get install -y bison flex libpcre2-dev automake autoconf libtool
           git clone --depth 1 "$SWIG_REPO" "$RUNNER_TEMP/swig-src"
           cd "$RUNNER_TEMP/swig-src"
+          wget https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.44/pcre2-10.44.tar.gz
+          ./Tools/pcre-build.sh
           ./autogen.sh
-          ./configure --without-pcre || ./configure
-          make -j"$(nproc)"
+          ./configure
+          make -j"$(sysctl -n hw.ncpu)"
           echo "SWIG=$RUNNER_TEMP/swig-src/swig" >> "$GITHUB_ENV"
       - name: Generate Android Javadoc
         run: bash scripts/docs/gen-api-android.sh
@@ -91,8 +90,10 @@ jobs:
         run: |
           git clone --depth 1 "$SWIG_REPO" "$RUNNER_TEMP/swig-src"
           cd "$RUNNER_TEMP/swig-src"
+          wget https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.44/pcre2-10.44.tar.gz
+          ./Tools/pcre-build.sh
           ./autogen.sh
-          ./configure --without-pcre || ./configure
+          ./configure
           make -j"$(sysctl -n hw.ncpu)"
           echo "SWIG=$RUNNER_TEMP/swig-src/swig" >> "$GITHUB_ENV"
       - name: Generate iOS Jazzy reference
