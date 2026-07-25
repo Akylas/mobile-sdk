@@ -328,12 +328,16 @@ namespace carto {
         bool painterOrder = terrainMode && activeTerrainOptions && activeTerrainOptions->isPainterOrderDepthEnabled() && (bool) terrainTextureProvider;
         // Shared regular grid surfaces (tangram-style): one grid built once and reused for
         // every tile, instead of per-tile adaptive tesselation. Only in GPU draping mode.
-        bool regularGrid = painterOrder || (terrainMode && activeTerrainOptions && activeTerrainOptions->isRegularGridEnabled() && (bool) terrainTextureProvider);
+        // Maplibre-style RTT draping. It requires the shared regular grid: the drape UV is the
+        // grid's tile-local [0,1] vertex position, which only the regular grid provides.
+        bool drapeFills = terrainMode && activeTerrainOptions && activeTerrainOptions->isDrapeFillsEnabled() && (bool) terrainTextureProvider;
+        bool regularGrid = painterOrder || drapeFills || (terrainMode && activeTerrainOptions && activeTerrainOptions->isRegularGridEnabled() && (bool) terrainTextureProvider);
         tileRenderer->setTerrainRegularGrid(regularGrid, activeTerrainOptions ? activeTerrainOptions->getMeshResolution() : 0);
         tileRenderer->setTerrainPainterOrder(painterOrder);
-        // Maplibre-style render-to-texture fill draping.
-        bool drapeFills = terrainMode && activeTerrainOptions && activeTerrainOptions->isDrapeFillsEnabled() && (bool) terrainTextureProvider;
-        tileRenderer->setTerrainDrapeFills(drapeFills, activeTerrainOptions && activeTerrainOptions->isDrapeLinesEnabled());
+        // Draped content is baked FLAT (orthographic, no displacement), so lines need no terrain
+        // subdivision either - draping them is strictly cheaper as well as artifact-free.
+        tileRenderer->setTerrainDrapeFills(drapeFills, drapeFills);
+        tileRenderer->setTerrainDrapeResolution(activeTerrainOptions ? activeTerrainOptions->getDrapeResolution() : 512);
         tileRenderer->setTerrainDepthWrite(terrainMode && _terrainDepthWriteMode);
         tileRenderer->setDebugWireframe(false); // debug: terrain mesh wireframe + stencil overlay
         tileRenderer->setDebugSurfacePrefill(false); // debug: facing-coded terrain pre-fill (magenta front / cyan back)

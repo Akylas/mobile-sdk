@@ -19,8 +19,9 @@ namespace carto {
         _meshResolution(32),
         _regularGridEnabled(false),
         _painterOrderDepthEnabled(false),
-        _drapeFillsEnabled(false),
-        _drapeLinesEnabled(false),
+        _drapeFillsEnabled(true),
+        _drapeLinesEnabled(true),
+        _drapeResolution(1024),
         _elementTerrainSlack(2.0f),
         _minZoom(5),
         _maxTileZoomOffset(100),
@@ -129,6 +130,17 @@ namespace carto {
         float clamped = std::min(64.0f, std::max(0.0f, slack));
         if (_elementTerrainSlack.exchange(clamped) != clamped) {
             notifyOptionChanged("ElementTerrainSlack");
+        }
+    }
+
+    int TerrainOptions::getDrapeResolution() const {
+        return _drapeResolution.load();
+    }
+
+    void TerrainOptions::setDrapeResolution(int resolution) {
+        int value = std::min(2048, std::max(128, resolution));
+        if (_drapeResolution.exchange(value) != value) {
+            notifyOptionChanged("DrapeResolution");
         }
     }
 
