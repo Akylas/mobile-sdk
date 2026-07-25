@@ -170,3 +170,69 @@ consumers among draped layers and can be deleted (S4).
   attachment today).
 - Whether to keep a non-RTT fallback path for devices without the memory budget, and if so
   whether it is worth maintaining two models long-term.
+
+---
+
+# PARKED — state as of this branch
+
+This branch is **not merged and not a fix for the terrain see-through artifact**. It builds and
+runs. Park it here; resume for the dynamic-sun/shadow work, not to chase that artifact.
+
+## Done
+
+- **S1/S2** — full drapeable set (backgrounds, rasters, fills, lines), overzoomed/proxy content
+  draped through a sub-rect bake, texture pool, fingerprint-based re-bake, release on context
+  loss, `TerrainOptions.setDrapeResolution` (default 1024). Draping defaults on and implies the
+  regular grid.
+- **S3** — `TerrainDrapeCache` owns the FBO and per-tile textures above the layers;
+  `GLTileRenderer` acts as a content baker (`collectDrapeTiles` / `bakeDrapeTile` /
+  `renderDrapedSurface`); `TileRenderer::prepareFrame` splits `startFrame` out of `onDrawFrame`
+  so every layer's tiles exist before any bake; `MapRenderer` drives collect → normalize → bake
+  → single surface draw. Single stack.
+- **S4** — the decode-time win is already live: draped content is baked flat, so
+  `TerrainTileTransformer` skips terrain subdivision for both fills and lines.
+
+## Deliberately not done
+
+Collapsing to one renderer per map (the literal maplibre shape). Its advantage is that the drape
+target and depth buffer are owned above the layers, which `TerrainDrapeCache` achieves;
+collapsing would mean rewriting the public `TileLayer`/`Layers` API for little further gain.
+
+## Defects found in this branch, all from S3's surface takeover
+
+Taking the surface away from the per-layer path means reproducing every guarantee that path
+quietly provided. Three were found one symptom at a time; assume more exist.
+
+1. The drape tile set was a **union** across layers, so a coarse surface and the finer ones over
+   the same ground were both drawn and fought. Fixed by normalizing to one non-overlapping cover.
+2. A layer's **proxy parent and live children** both matched the covering test and baked into one
+   texture in arbitrary order, so a parent's background painted over a child's content. Fixed by
+   baking coarsest-first.
+3. `collectDrapeTiles` reported **only tiles that already had content**, so tiles still loading
+   got no surface at all and the global terrain background showed through. Fixed by reporting
+   every visible tile.
+
+Unverified after the last fix. If the artifact now appears only briefly while tiles load, the
+next step is clearing the bake to the terrain background colour instead of transparent, so a
+surfaced-but-contentless tile reads as terrain rather than a hole.
+
+## The actual open bug (unsolved, predates this branch)
+
+Green landcover replaced by grey background, growing while zooming in. Established facts:
+
+- Not depth precision — it resolves when motion stops; depth bits are 24.
+- Not the mesh — `setDebugWireframe` shows it intact.
+- Not cross-layer — reproduces with a single vector tile layer, hillshade removed.
+- Not the `sourceTileId`/`targetTileId` terrain-uniform mismatch — tested, no change.
+- Not an empty drape texture — magenta bake-clear showed textures fully painted.
+
+Diagnostics left in place: one-time `RTT drape ACTIVE/INACTIVE` state dump in `MapRenderer`
+(layer count, collected vs drawn tiles, resolution). Remove when no longer useful.
+
+## Note on process
+
+Six causes were proposed for the artifact and five were wrong; two fixes introduced new bugs and
+one commit described as inert crashed the app on start. What actually moved the diagnosis was
+evidence, not inference: the wireframe check, the green/grey detail, the single-layer test and
+the magenta bake-clear each eliminated whole families of explanation. Prefer a cheap decisive
+probe over another plausible patch.
