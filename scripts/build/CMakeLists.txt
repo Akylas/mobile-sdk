@@ -181,7 +181,9 @@ if(SINGLE_LIBRARY)
 endif(SINGLE_LIBRARY)
 
 # Source files and properties
-file(GLOB SDK_SRC_FILES
+# CONFIGURE_DEPENDS: without it the glob is evaluated only at configure time, so a newly added
+# source file is silently left out of the build and shows up as undefined symbols at link.
+file(GLOB SDK_SRC_FILES CONFIGURE_DEPENDS
   "${SDK_SRC_DIR}/*/*.cpp"
   "${SDK_SRC_DIR}/*/*/*.cpp"
   "${SDK_SRC_DIR}/*/*.h"

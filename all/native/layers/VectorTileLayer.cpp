@@ -520,6 +520,12 @@ namespace carto {
         return _backgroundBitmap;
     }
 
+    Color VectorTileLayer::getBackgroundColor(const ViewState& viewState) const {
+        std::lock_guard<std::recursive_mutex> lock(_mutex);
+
+        return TileRenderer::evaluateColorFunc(_tileDecoder->getMapSettings()->backgroundColor.getFunction(getExpressionContext()), viewState);
+    }
+
     std::shared_ptr<Bitmap> VectorTileLayer::getSkyBitmap(const ViewState& viewState) const {
         std::lock_guard<std::recursive_mutex> lock(_mutex);
 

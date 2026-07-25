@@ -210,6 +210,7 @@ namespace carto {
         virtual bool onDrawFrame3D(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState);
         
         virtual std::shared_ptr<Bitmap> getBackgroundBitmap(const ViewState& viewState) const;
+        virtual Color getBackgroundColor(const ViewState& viewState) const;
         virtual std::shared_ptr<Bitmap> getSkyBitmap(const ViewState& viewState) const;
 
         virtual void registerDataSourceListener();

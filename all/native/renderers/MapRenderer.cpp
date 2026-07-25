@@ -27,6 +27,7 @@
 #include "renderers/utils/FrameBuffer.h"
 #include "renderers/PostProcessEffect.h"
 #include "renderers/TerrainRenderer.h"
+#include "renderers/utils/TerrainDrapeCache.h"
 #include "terrain/ElevationManager.h"
 #include "renderers/utils/Shader.h"
 #include "renderers/utils/Texture.h"
@@ -38,6 +39,8 @@
 #include "utils/ThreadUtils.h"
 
 #include <algorithm>
+#include <cstdio>
+#include <vector>
 
 namespace carto {
 
@@ -1133,6 +1136,235 @@ namespace carto {
             }
             std::lock_guard<std::recursive_mutex> lock(_mutex);
             _viewState.setTerrainMinCameraZ(0); // release the terrain zoom bound
+        }
+
+        // Cross-layer terrain draping. Every drapeable tile layer bakes into ONE texture per
+        // terrain tile, in layer order, and a single surface draw puts that texture on the
+        // terrain - so a hillshade layer and a vector tile layer share one drape, one surface and
+        // one depth domain instead of each keeping its own. Content that is draped never enters
+        // the 3D scene at all, which is what removes the whole content-vs-surface depth problem.
+        std::vector<std::shared_ptr<TileLayer> > drapeLayers;
+        if (terrainMode) {
+            if (auto terrainOptions = _options->getTerrainOptions()) {
+                if (terrainOptions->isDrapeFillsEnabled()) {
+                    for (const std::shared_ptr<Layer>& layer : layers) {
+                        if (auto tileLayer = std::dynamic_pointer_cast<TileLayer>(layer)) {
+                            if (tileLayer->isVisible()) {
+                                drapeLayers.push_back(tileLayer);
+                            }
+                        }
+                    }
+                }
+                // A single stack for now: the usual configuration (hillshade under vector tiles)
+                // is contiguous and entirely drapeable. Splitting into several stacks only
+                // matters once a non-drapeable layer sits between drapeable ones.
+                if (!drapeLayers.empty()) {
+                    if (!_terrainDrapeCache) {
+                        _terrainDrapeCache = std::make_unique<TerrainDrapeCache>();
+                    }
+                    _terrainDrapeCache->setResolution(terrainOptions->getDrapeResolution());
+
+                    // Every participating layer's render tiles must exist before any of them
+                    // bakes, so start their frames first.
+                    for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
+                        tileLayer->prepareTerrainDrapeFrame(deltaSeconds, viewState);
+                    }
+
+                    std::map<vt::TileId, std::size_t> collectedTiles;
+                    for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
+                        tileLayer->collectDrapeTiles(collectedTiles);
+                    }
+
+                    // The collected set is a UNION across layers, and layers do not agree on a
+                    // zoom level - a hillshade limited by its DEM max zoom yields coarser tiles
+                    // than a vector tile layer. Drawing a surface for every tile in that union
+                    // would stack a coarse surface and the finer ones covering the same ground on
+                    // top of each other, and they fight. Normalize to a single non-overlapping
+                    // cover, keeping the FINEST tile for any given ground area; coarser layers
+                    // still contribute to it through the ancestor sub-rect bake.
+                    auto covers = [](const vt::TileId& tileId, const vt::TileId& other) {
+                        if (tileId.zoom >= other.zoom) {
+                            return false; // strict ancestor only
+                        }
+                        int deltaZoom = other.zoom - tileId.zoom;
+                        return (other.x >> deltaZoom) == tileId.x && (other.y >> deltaZoom) == tileId.y;
+                    };
+                    // Dropping a coarse tile outright is wrong: a single fine tile inside it covers
+                    // 1/4^n of its ground, and the rest would then have no surface at all - the
+                    // terrain there falls back to whatever is behind (the layer's flat background
+                    // plane), which reads as a hole. Split instead: a coarse tile that contains a
+                    // finer one is replaced by its four children, recursively, so the result is a
+                    // true quadtree partition. Leaves that are descendants of a coarse tile carry
+                    // its content through the sub-rect bake.
+                    std::vector<vt::TileId> pending;
+                    for (auto it = collectedTiles.begin(); it != collectedTiles.end(); it++) {
+                        bool hasCoarserTile = false;
+                        for (auto it2 = collectedTiles.begin(); it2 != collectedTiles.end() && !hasCoarserTile; it2++) {
+                            hasCoarserTile = covers(it2->first, it->first);
+                        }
+                        if (!hasCoarserTile) {
+                            pending.push_back(it->first); // top of a subtree; its descendants follow from the split
+                        }
+                    }
+                    static const std::size_t MAX_DRAPE_TILES = 256; // splitting is bounded; a runaway cover is not worth drawing
+                    std::vector<vt::TileId> leaves;
+                    while (!pending.empty() && leaves.size() + pending.size() <= MAX_DRAPE_TILES) {
+                        vt::TileId tileId = pending.back();
+                        pending.pop_back();
+                        bool hasFinerTile = false;
+                        for (auto it = collectedTiles.begin(); it != collectedTiles.end() && !hasFinerTile; it++) {
+                            hasFinerTile = covers(tileId, it->first);
+                        }
+                        if (!hasFinerTile) {
+                            leaves.push_back(tileId);
+                            continue;
+                        }
+                        for (int dy = 0; dy < 2; dy++) {
+                            for (int dx = 0; dx < 2; dx++) {
+                                pending.push_back(tileId.getChild(dx, dy));
+                            }
+                        }
+                    }
+                    leaves.insert(leaves.end(), pending.begin(), pending.end()); // cap hit: keep them coarse rather than lose the ground
+                    std::map<vt::TileId, std::size_t> drapeTiles;
+                    for (const vt::TileId& tileId : leaves) {
+                        // Fold in every collected tile that will bake here - the leaf itself and
+                        // every coarser tile covering it - so the fingerprint tracks its content.
+                        std::size_t fingerprint = 0;
+                        auto exactIt = collectedTiles.find(tileId);
+                        if (exactIt != collectedTiles.end()) {
+                            fingerprint = exactIt->second;
+                        }
+                        for (auto it = collectedTiles.begin(); it != collectedTiles.end(); it++) {
+                            if (covers(it->first, tileId)) {
+                                fingerprint ^= it->second + 0x9e3779b9 + (fingerprint << 6) + (fingerprint >> 2);
+                            }
+                        }
+                        drapeTiles[tileId] = fingerprint;
+                    }
+
+                    // Only take the surface away from the per-layer path once we know this frame
+                    // actually has tiles to drape. Enabling external targets unconditionally
+                    // suppresses each layer's pre-pass AND its own drape surface, so a frame that
+                    // then draws no shared surface leaves the terrain with no surface at all -
+                    // worse than not draping.
+                    bool drapeActive = !drapeTiles.empty();
+                    std::vector<vt::TileId> drapeTileIds;
+                    drapeTileIds.reserve(drapeTiles.size());
+                    for (auto it = drapeTiles.begin(); it != drapeTiles.end(); it++) {
+                        drapeTileIds.push_back(it->first);
+                    }
+                    for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
+                        tileLayer->setExternalDrapeTarget(drapeActive);
+                        // Tell every participating layer which ground is draped BEFORE it draws.
+                        // This has to be an explicit per-frame hand-off: deriving it inside the
+                        // renderer from the surface draw is fragile, because the layer's own
+                        // startFrame runs between the two and resets frame state.
+                        tileLayer->setExternalDrapeTiles(drapeActive ? drapeTileIds : std::vector<vt::TileId>());
+                    }
+                    if (!drapeActive) {
+                        static bool emptyDrapeLogged = false;
+                        if (!emptyDrapeLogged) {
+                            emptyDrapeLogged = true;
+                            Log::Info("MapRenderer: RTT drape has no tiles this frame - per-layer path retained");
+                        }
+                    }
+
+                    // What the bake starts from. A texel no layer paints is a hole: the terrain
+                    // surface is translucent there and the map background plane - which in terrain
+                    // mode lies BEHIND the terrain - shows through, which is exactly what the
+                    // "landcover holes" look like. Style layers only paint their own features, so
+                    // the ground between them has to come from the background colour, baked in.
+                    Color drapeClearColor = terrainOptions->getBackgroundColor();
+                    if (drapeClearColor.getA() == 0) {
+                        for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
+                            Color layerColor = tileLayer->getBackgroundColor(viewState);
+                            if (layerColor.getA() != 0) {
+                                drapeClearColor = layerColor;
+                                break;
+                            }
+                        }
+                    }
+
+                    _terrainDrapeCache->beginFrame();
+                    std::vector<std::pair<vt::TileId, unsigned int> > drapedTiles;
+                    drapedTiles.reserve(drapeTiles.size());
+                    GLint prevFBO = 0;
+                    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFBO);
+                    int resolution = _terrainDrapeCache->getResolution();
+                    bool bakeStarted = false;
+                    for (auto it = drapeTiles.begin(); it != drapeTiles.end(); it++) {
+                        bool needsBake = false;
+                        unsigned int texture = _terrainDrapeCache->acquire(it->first, 0, it->second, needsBake);
+                        drapedTiles.emplace_back(it->first, texture);
+                        if (!needsBake) {
+                            continue;
+                        }
+                        if (!bakeStarted) {
+                            glBindFramebuffer(GL_FRAMEBUFFER, _terrainDrapeCache->getFrameBuffer());
+                            glViewport(0, 0, resolution, resolution);
+                            glDisable(GL_DEPTH_TEST);
+                            glDepthMask(GL_FALSE);
+                            glDisable(GL_STENCIL_TEST);
+                            bakeStarted = true;
+                        }
+                        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+                        glClearColor(drapeClearColor.getR() / 255.0f, drapeClearColor.getG() / 255.0f, drapeClearColor.getB() / 255.0f, drapeClearColor.getA() / 255.0f);
+                        glClear(GL_COLOR_BUFFER_BIT);
+                        // Layer order matters: later layers composite over earlier ones, which is
+                        // why the owner clears and the bakers do not.
+                        for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
+                            tileLayer->bakeDrapeTile(it->first);
+                        }
+                    }
+                    if (bakeStarted) {
+                        // Detach before sampling: a texture left attached to a framebuffer counts
+                        // as a render target, and sampling it in the same frame is undefined - on
+                        // the emulator every drape texture then reads back black.
+                        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
+                        glBindFramebuffer(GL_FRAMEBUFFER, prevFBO);
+                        glViewport(0, 0, viewState.getWidth(), viewState.getHeight());
+                    }
+
+                    // The shared surface is the only depth-writing terrain geometry.
+                    glEnable(GL_DEPTH_TEST);
+                    glDepthMask(GL_TRUE);
+                    for (auto it = drapedTiles.begin(); it != drapedTiles.end(); it++) {
+                        drapeLayers.front()->renderDrapedSurface(it->first, it->second);
+                    }
+                    glDepthMask(GL_FALSE);
+                    _terrainDrapeCache->endFrame();
+
+                    // One-time state dump: confirms whether the RTT path is actually live, and
+                    // with how many layers/tiles, rather than being inferred from symptoms.
+                    static int drapeStateFrame = 0;
+                    if ((drapeStateFrame++ % 120) == 0 && drapedTiles.size() > 0) {
+                        int minZoom = 99, maxZoom = -1;
+                        for (auto it2 = drapedTiles.begin(); it2 != drapedTiles.end(); it2++) {
+                            minZoom = std::min(minZoom, it2->first.zoom);
+                            maxZoom = std::max(maxZoom, it2->first.zoom);
+                        }
+                        Log::Infof("MapRenderer: RTT drape tiles zoom %d..%d, count %d", minZoom, maxZoom, static_cast<int>(drapedTiles.size()));
+                        Log::Infof("MapRenderer: RTT drape ACTIVE - layers %d, collected tiles %d, drawn tiles %d, resolution %d",
+                            static_cast<int>(drapeLayers.size()), static_cast<int>(collectedTiles.size()),
+                            static_cast<int>(drapedTiles.size()), resolution);
+                    }
+                }
+            }
+        }
+        if (drapeLayers.empty()) {
+            for (const std::shared_ptr<Layer>& layer : layers) {
+                if (auto tileLayer = std::dynamic_pointer_cast<TileLayer>(layer)) {
+                    tileLayer->setExternalDrapeTarget(false);
+                }
+            }
+            if (terrainMode) {
+                static bool noDrapeLogged = false;
+                if (!noDrapeLogged) {
+                    noDrapeLogged = true;
+                    Log::Info("MapRenderer: RTT drape INACTIVE in terrain mode - falling back to the per-layer depth path");
+                }
+            }
         }
 
         // Create new billboard sorter instance

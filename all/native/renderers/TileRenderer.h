@@ -76,6 +76,26 @@ namespace carto {
 
         void offsetLayerHorizontally(double offset);
     
+        /**
+         * Starts the vt frame (tile set, blending, compiled resources) without drawing anything.
+         * Cross-layer draping needs every participating layer's render tiles ready BEFORE any of
+         * them draws, so the shared drape can be baked first. onDrawFrame calls this itself when
+         * it has not already run for this frame.
+         */
+        bool prepareFrame(float deltaSeconds, const ViewState& viewState);
+
+
+        /**
+         * Cross-layer drape support. The shared cache owns the textures; this renderer only
+         * reports what it would drape and bakes its own content into a bound target.
+         */
+        void setExternalDrapeTarget(bool enabled);
+        void setExternalDrapeTiles(const std::vector<vt::TileId>& tileIds);
+        bool isDrapeEnabled() const;
+        void collectDrapeTiles(std::map<vt::TileId, std::size_t>& drapeTiles) const;
+        void bakeDrapeTile(const vt::TileId& tileId);
+        void renderDrapedSurface(const vt::TileId& tileId, unsigned int drapeTexture);
+
         bool onDrawFrame(float deltaSeconds, const ViewState& viewState);
         bool onDrawFrame3D(float deltaSeconds, const ViewState& viewState);
     
@@ -134,6 +154,11 @@ namespace carto {
         int _hillshadeMethod;
         float _hillshadeExaggeration;
         bool _terrainDepthWriteMode = false;
+        bool prepareFrameUnsafe(float deltaSeconds, const ViewState& viewState); // caller holds _mutex
+
+        bool _framePrepared = false;   // startFrame already ran this frame (cross-layer drape ordering)
+        bool _framePrepareResult = false;
+        bool _externalDrapeTarget = false;
         int _terrainRenderOrder = 0;
         int _maxVertexTextureUnits = -1; // lazily queried GL capability (-1 = not queried yet)
         std::shared_ptr<ElevationTextureCache> _elevationTextureCache;

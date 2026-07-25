@@ -192,6 +192,20 @@ namespace carto {
          * Returns the minimum tile zoom level with 3D terrain.
          * @return The minimum zoom level. The default is 5.
          */
+        /**
+         * Returns the per-tile drape texture resolution.
+         * @return The drape texture resolution in pixels.
+         */
+        int getDrapeResolution() const;
+        /**
+         * Sets the per-tile drape texture resolution. Draped content is rasterized into a texture
+         * of this size and resampled onto the terrain surface, so this trades sharpness of thin
+         * content (lines, outlines) against video memory: cost is resolution^2 * 4 bytes per
+         * visible tile. maplibre uses twice the tile size (1024 for 512px tiles) for this reason.
+         * @param resolution The new drape texture resolution, clamped to [128, 2048]. Default 1024.
+         */
+        void setDrapeResolution(int resolution);
+
         int getMinZoom() const;
         /**
          * Sets the minimum tile zoom level with 3D terrain. Tiles below this zoom level render flat
@@ -357,6 +371,7 @@ namespace carto {
         std::atomic<bool> _drapeFillsEnabled;
         std::atomic<bool> _drapeLinesEnabled;
         std::atomic<float> _elementTerrainSlack;
+        std::atomic<int> _drapeResolution;
         std::atomic<int> _minZoom;
         std::atomic<int> _maxTileZoomOffset;
         std::atomic<int> _backgroundColorARGB;

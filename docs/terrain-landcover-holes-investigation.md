@@ -91,7 +91,17 @@ invocation and one drape texture, so a depth failure hides both together.
 
 Workaround: `setDrapeFillsEnabled(false)` — with source-density fixed, all renderers then take
 the subdivided-geometry path consistently. Real fixes: make the drape decision consistent
-across composite invocations, or drape overzoomed tiles too (the parked RTT branch).
+across composite invocations, or drape overzoomed tiles too (the RTT branch).
+
+## Status of the real fix
+
+`feat/terrain-rtt-draping` is the second option and is active again. Its shared drape removes
+both mechanisms by construction — one drape cache and one surface above all layers, so composite
+invocations cannot disagree, and content baked flat has no depth relation to the background. On
+that branch the cross-layer path was found to be redrawing every draped layer's content (and its
+depth-writing background) a second time as 3D geometry, which reproduced this exact bug inside
+the new architecture; see `terrain-rtt-draping-plan.md` for the fix and for the one defect still
+open there.
 
 Note: `setSinglePassRenderingEnabled` is a **no-op placeholder** (CompositeVectorTileLayer.h:109)
 — toggling it changes nothing. `setRendererLayerIndexRange` has no callers. `_terrainRenderOrder`

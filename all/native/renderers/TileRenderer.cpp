@@ -205,6 +205,79 @@ namespace carto {
         _horizontalLayerOffset += offset;
     }
     
+    bool TileRenderer::prepareFrame(float deltaSeconds, const ViewState& viewState) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        return prepareFrameUnsafe(deltaSeconds, viewState);
+    }
+
+    // Caller must hold _mutex. onDrawFrame already does, and _mutex is not recursive.
+    bool TileRenderer::prepareFrameUnsafe(float deltaSeconds, const ViewState& viewState) {
+        if (_framePrepared) {
+            return _framePrepareResult;
+        }
+        std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>());
+        if (!tileRenderer) {
+            return false;
+        }
+        _framePrepared = true;
+        _framePrepareResult = false;
+        try {
+            _framePrepareResult = tileRenderer->startFrame(deltaSeconds * 3);
+        }
+        catch (const std::exception& ex) {
+            Log::Errorf("TileRenderer::prepareFrame: Failed: %s", ex.what());
+        }
+        return _framePrepareResult;
+    }
+
+    void TileRenderer::setExternalDrapeTarget(bool enabled) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        _externalDrapeTarget = enabled;
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            tileRenderer->setExternalDrapeTarget(enabled);
+        }
+    }
+
+    void TileRenderer::setExternalDrapeTiles(const std::vector<vt::TileId>& tileIds) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            tileRenderer->setExternalDrapeTiles(tileIds);
+        }
+    }
+
+    bool TileRenderer::isDrapeEnabled() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        return _externalDrapeTarget;
+    }
+
+    void TileRenderer::collectDrapeTiles(std::map<vt::TileId, std::size_t>& drapeTiles) const {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            tileRenderer->collectDrapeTiles(drapeTiles);
+        }
+    }
+
+    void TileRenderer::bakeDrapeTile(const vt::TileId& tileId) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            tileRenderer->bakeDrapeTile(tileId);
+        }
+    }
+
+    void TileRenderer::renderDrapedSurface(const vt::TileId& tileId, unsigned int drapeTexture) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            tileRenderer->renderDrapedSurface(tileId, static_cast<GLuint>(drapeTexture));
+        }
+    }
+
     bool TileRenderer::onDrawFrame(float deltaSeconds, const ViewState& viewState) {
         std::lock_guard<std::mutex> lock(_mutex);
         
@@ -328,12 +401,16 @@ namespace carto {
         bool painterOrder = terrainMode && activeTerrainOptions && activeTerrainOptions->isPainterOrderDepthEnabled() && (bool) terrainTextureProvider;
         // Shared regular grid surfaces (tangram-style): one grid built once and reused for
         // every tile, instead of per-tile adaptive tesselation. Only in GPU draping mode.
-        bool regularGrid = painterOrder || (terrainMode && activeTerrainOptions && activeTerrainOptions->isRegularGridEnabled() && (bool) terrainTextureProvider);
+        // Maplibre-style RTT draping. It requires the shared regular grid: the drape UV is the
+        // grid's tile-local [0,1] vertex position, which only the regular grid provides.
+        bool drapeFills = terrainMode && activeTerrainOptions && activeTerrainOptions->isDrapeFillsEnabled() && (bool) terrainTextureProvider;
+        bool regularGrid = painterOrder || drapeFills || (terrainMode && activeTerrainOptions && activeTerrainOptions->isRegularGridEnabled() && (bool) terrainTextureProvider);
         tileRenderer->setTerrainRegularGrid(regularGrid, activeTerrainOptions ? activeTerrainOptions->getMeshResolution() : 0);
         tileRenderer->setTerrainPainterOrder(painterOrder);
-        // Maplibre-style render-to-texture fill draping.
-        bool drapeFills = terrainMode && activeTerrainOptions && activeTerrainOptions->isDrapeFillsEnabled() && (bool) terrainTextureProvider;
-        tileRenderer->setTerrainDrapeFills(drapeFills, activeTerrainOptions && activeTerrainOptions->isDrapeLinesEnabled());
+        // Draped content is baked FLAT (orthographic, no displacement), so lines need no terrain
+        // subdivision either - draping them is strictly cheaper as well as artifact-free.
+        tileRenderer->setTerrainDrapeFills(drapeFills, drapeFills);
+        tileRenderer->setTerrainDrapeResolution(activeTerrainOptions ? activeTerrainOptions->getDrapeResolution() : 512);
         tileRenderer->setTerrainDepthWrite(terrainMode && _terrainDepthWriteMode);
         tileRenderer->setDebugWireframe(false); // debug: terrain mesh wireframe + stencil overlay
         tileRenderer->setDebugSurfacePrefill(false); // debug: facing-coded terrain pre-fill (magenta front / cyan back)
@@ -368,7 +445,7 @@ namespace carto {
 
         bool refresh = false;
         try {
-            refresh = tileRenderer->startFrame(deltaSeconds * 3);
+            refresh = prepareFrameUnsafe(deltaSeconds, viewState);
 
             tileRenderer->renderGeometry(true, false);
             if (_labelOrder == 0) {
@@ -397,7 +474,11 @@ namespace carto {
     
     bool TileRenderer::onDrawFrame3D(float deltaSeconds, const ViewState& viewState) {
         std::lock_guard<std::mutex> lock(_mutex);
-        
+
+        // The frame ends here regardless of what follows, so clear the prepare latch up front:
+        // leaking it past an early return would make every later frame skip startFrame.
+        _framePrepared = false;
+
         if (!_vtRenderer) {
             return false;
         }
