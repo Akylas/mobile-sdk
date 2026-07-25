@@ -15,9 +15,9 @@ a vector `ContourTileDataSource` and shader contours on `HillshadeRasterTileLaye
 
 <figure class="docs-figure">
 
-![Contour lines generated on the fly](/img/features/contours.svg)
+![Contour lines over shaded terrain](/img/features/contours.jpg)
 
-<figcaption>Contour lines generated on the fly from a DEM. <em>(placeholder — replace with a real capture)</em></figcaption>
+<figcaption>Contour lines over the Chartreuse foothills, drawn from a terrarium-encoded DEM and draped on the terrain surface (demo capture).</figcaption>
 
 </figure>
 

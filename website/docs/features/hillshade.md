@@ -11,9 +11,9 @@ shader base class.
 
 <figure class="docs-figure">
 
-![Hillshade relief](/img/features/hillshade.svg)
+![Hillshade relief](/img/features/hillshade.jpg)
 
-<figcaption>Multidirectional hillshade over a vector basemap. <em>(placeholder — replace with a real capture)</em></figcaption>
+<figcaption>Hillshade relief over a vector basemap, shaded from a terrarium DEM (demo capture).</figcaption>
 
 </figure>
 

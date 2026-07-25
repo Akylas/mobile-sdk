@@ -17,9 +17,19 @@ See PR [#21](https://github.com/Akylas/mobile-sdk/pull/21) and the design notes 
 
 <figure class="docs-figure">
 
-![3D terrain over Saint-Eynard](/img/features/terrain-hero.svg)
+![3D terrain over the Chartreuse massif, Grenoble](/img/features/terrain-hero.jpg)
 
-<figcaption>3D terrain with draped basemap fills and hillshade. <em>(replace with a real capture — see <a href="/docs/contributing-docs#screenshots">capturing screenshots</a>)</em></figcaption>
+<figcaption>3D terrain over the Chartreuse massif above Grenoble — hillshade relief, contour lines and a route line draped onto the surface. Captured from the <code>scripts/android-dev</code> demo.</figcaption>
+
+</figure>
+
+<figure class="docs-figure">
+
+<video controls muted loop playsinline width="360" poster="/mobile-sdk/img/features/terrain-3d.jpg">
+  <source src="/mobile-sdk/img/features/terrain-demo.mp4" type="video/mp4" />
+</video>
+
+<figcaption>Panning across the tilted 3D terrain (demo capture).</figcaption>
 
 </figure>
 

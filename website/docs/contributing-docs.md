@@ -49,18 +49,25 @@ for prerequisites.
 
 ## Screenshots & videos {#screenshots}
 
-Feature pages reference images under `website/static/img/features/`. Placeholders ship in the repo;
-replace them with real captures using the Android demo app:
+Feature pages reference images under `website/static/img/features/`. The terrain / hillshade /
+contour shots and the pan video there were captured from the `scripts/android-dev` demo:
 
 ```bash
 # Boot an emulator / connect a device, then:
-scripts/docs/capture-screenshots.sh
+scripts/docs/capture-screenshots.sh terrain-hero      # a still
+RECORD=1 scripts/docs/capture-screenshots.sh terrain  # still + ~14s video
 ```
 
-The script builds the `scripts/android-dev` demo (`assembleDebug`), installs it, and pulls
-screenshots via `adb`. Because feature captures (terrain, contours, hillshade) need map data
-(`osm.zip` style + a DEM) present on the device, review the script header and set the paths for
-your data before running. Drop the resulting PNGs/MP4s into `website/static/img/features/`.
+The demo streams its terrain data from public online tiles (a terrarium DEM +
+an OpenFreeMap vector basemap), so the emulator only needs internet — no map data is pushed to
+the device. The native libraries are prebuilt under `scripts/android-dev/carto_mobile_sdk/`, so the
+app builds in seconds. The script builds (`assembleDebug --offline`), installs, launches, grabs a
+screenshot (and optionally a screen recording), then uses `ffmpeg` to crop the Android status/nav
+bars and encode a web-friendly JPEG/MP4. Drop the results into `website/static/img/features/`.
+
+For distinct shots (top-down hillshade, close-up contours, a low-angle 3D view), edit the demo's
+`SecondFragment` camera (`setFocusPos` / `setZoom` / `setTilt` — CARTO tilt is `90` = top-down,
+low = horizon) and comment out `addTerrainControls` to hide the debug UI, then restore it.
 
 ## Deployment
 
