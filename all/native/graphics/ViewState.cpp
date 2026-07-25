@@ -6,6 +6,7 @@
 #include "utils/GeneralUtils.h"
 #include "utils/Log.h"
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
 #include <cglib/mat.h>
@@ -72,6 +73,21 @@ namespace carto {
             _terrainHeightMax = maxZ;
             _cameraChanged = true; // force near/far plane recalculation
         }
+    }
+
+    void ViewState::setTerrainMinCameraZ(double minCameraZ) {
+        _terrainMinCameraZ = minCameraZ;
+    }
+
+    float ViewState::getTerrainMaxZoom() const {
+        // The camera height above the (z=0) focus plane is zoom0Distance*cos(tilt)/2^zoom,
+        // so the zoom is bounded by the clearance shell through the ratio of the current
+        // height to the minimum height - no need to know the tilt or zoom0Distance, and no
+        // frame lag: the bound is re-derived from the live camera state on every use.
+        if (!(_terrainMinCameraZ > 0) || !(_cameraPos(2) > 0)) {
+            return std::numeric_limits<float>::infinity();
+        }
+        return _zoom + static_cast<float>(std::log2(_cameraPos(2) / _terrainMinCameraZ));
     }
 
     void ViewState::setCameraPos(const cglib::vec3<double>& cameraPos) {
@@ -297,12 +313,14 @@ namespace carto {
     }
 
     void ViewState::clampZoom(const Options& options) {
-        if (!options.isRestrictedPanning() || _width <= 0 || _height <= 0) {
+        // The terrain bound applies regardless of restricted panning - it is a property of
+        // the terrain, not of the pan bounds.
+        float maxZoom = std::min(options.getZoomRange().getMax(), getTerrainMaxZoom());
+        if ((!options.isRestrictedPanning() && _zoom <= maxZoom) || _width <= 0 || _height <= 0) {
             return;
         }
 
-        MapRange zoomRange = options.getZoomRange();
-        float zoom = GeneralUtils::Clamp(_zoom, getMinZoom(), zoomRange.getMax());
+        float zoom = GeneralUtils::Clamp(_zoom, getMinZoom(), maxZoom);
 
         if (zoom != getZoom() && _zoom0Distance > 0) {
             double length = _zoom0Distance / std::pow(2.0f, zoom);

@@ -1082,25 +1082,40 @@ namespace carto {
                         _terrainRenderer->updateDepthBuffer(viewState, terrainOptions, _glResourceManager);
                     }
 
-                    // Camera terrain-following: keep the camera at least the configured
-                    // clearance above the terrain surface. The correction goes through the
-                    // normal camera event path (a zoom-out; instant by default, optionally
-                    // animated), never by mutating the view state directly.
+                    // Camera terrain-following. The clearance is expressed as a BOUND on the
+                    // zoom (ViewState::setTerrainMinCameraZ -> getTerrainMaxZoom), which every
+                    // zoom path clamps against, rather than as a corrective zoom-out issued
+                    // after the camera has already broken through. A corrective event fights
+                    // whatever is driving the camera down - the pinch gesture, the double-tap
+                    // zoom animation, a kinetic fling - so the camera oscillates for as long as
+                    // the gesture lasts, and an animation that keeps its absolute target snaps
+                    // back to it on its final tick (the "double tap jumps back" symptom). As a
+                    // bound, the gesture simply comes to rest against the terrain.
+                    // A correction is still needed for the paths that change the camera height
+                    // WITHOUT going through a zoom event - panning into a hillside, tilting, or
+                    // new elevation tiles raising the ground under a stationary camera. Like
+                    // tangram (View::updateMatrices), that correction is strictly
+                    // one-directional (it only ever zooms out, never back in) and lands exactly
+                    // on the clearance shell, so it cannot oscillate.
                     float cameraClearance = terrainOptions->getCameraClearance();
                     float clampDuration = terrainOptions->getCameraClampDuration();
-                    auto now = std::chrono::steady_clock::now();
-                    bool debounced = (clampDuration > 0 && now - _lastTerrainCameraClampTime < std::chrono::milliseconds(static_cast<int>(clampDuration * 1000)));
-                    if (cameraClearance > 0 && !debounced) {
+                    if (cameraClearance > 0) {
                         std::shared_ptr<ElevationManager> elevationManager = terrainOptions->getElevationManager();
                         cglib::vec3<double> cameraPos = viewState.getCameraPos();
                         double terrainZ = elevationManager->getDisplayHeight(cameraPos(0), cameraPos(1), ElevationManager::LoadMode::CACHED_ONLY);
                         double minCameraZ = terrainZ + cameraClearance * elevationManager->getDisplayScale(cameraPos(1));
+                        {
+                            std::lock_guard<std::recursive_mutex> lock(_mutex);
+                            _viewState.setTerrainMinCameraZ(minCameraZ);
+                        }
                         if (cameraPos(2) > 0 && cameraPos(2) < minCameraZ) {
-                            _lastTerrainCameraClampTime = now;
                             CameraZoomEvent zoomEvent;
-                            zoomEvent.setZoomDelta(static_cast<float>(std::log2(cameraPos(2) / minCameraZ)) * 1.05f); // negative: zoom out just past the clearance
+                            zoomEvent.setZoomDelta(static_cast<float>(std::log2(cameraPos(2) / minCameraZ))); // negative: zoom out onto the clearance
                             calculateCameraEvent(zoomEvent, clampDuration, false);
                         }
+                    } else {
+                        std::lock_guard<std::recursive_mutex> lock(_mutex);
+                        _viewState.setTerrainMinCameraZ(0);
                     }
                 }
             }
@@ -1111,6 +1126,8 @@ namespace carto {
                     tileLayer->setTerrainDepthWriteMode(false);
                 }
             }
+            std::lock_guard<std::recursive_mutex> lock(_mutex);
+            _viewState.setTerrainMinCameraZ(0); // release the terrain zoom bound
         }
 
         // Create new billboard sorter instance
