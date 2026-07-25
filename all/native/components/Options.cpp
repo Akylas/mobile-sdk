@@ -65,6 +65,12 @@ namespace carto {
         if (_terrainOptions && _terrainOptionsListener) {
             _terrainOptions->unregisterOnChangeListener(_terrainOptionsListener);
         }
+        if (_skyOptions && _skyOptionsListener) {
+            _skyOptions->unregisterOnChangeListener(_skyOptionsListener);
+        }
+        if (_lightOptions && _lightOptionsListener) {
+            _lightOptions->unregisterOnChangeListener(_lightOptionsListener);
+        }
     }
         
     Color Options::getAmbientLightColor() const {
@@ -735,6 +741,76 @@ namespace carto {
             }
         }
         notifyOptionChanged("TerrainOptions");
+    }
+
+    std::shared_ptr<SkyOptions> Options::getSkyOptions() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        return _skyOptions;
+    }
+
+    void Options::setSkyOptions(const std::shared_ptr<SkyOptions>& skyOptions) {
+        struct SkyOptionsListener : SkyOptions::OnChangeListener {
+            explicit SkyOptionsListener(Options& options) : _options(options) { }
+
+            virtual void onSkyOptionChanged(const std::string& optionName) override {
+                _options.notifyOptionChanged("SkyOptions." + optionName);
+            }
+
+        private:
+            Options& _options;
+        };
+
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            if (_skyOptions == skyOptions) {
+                return;
+            }
+            if (_skyOptions && _skyOptionsListener) {
+                _skyOptions->unregisterOnChangeListener(_skyOptionsListener);
+                _skyOptionsListener.reset();
+            }
+            _skyOptions = skyOptions;
+            if (_skyOptions) {
+                _skyOptionsListener = std::make_shared<SkyOptionsListener>(*this);
+                _skyOptions->registerOnChangeListener(_skyOptionsListener);
+            }
+        }
+        notifyOptionChanged("SkyOptions");
+    }
+
+    std::shared_ptr<LightOptions> Options::getLightOptions() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        return _lightOptions;
+    }
+
+    void Options::setLightOptions(const std::shared_ptr<LightOptions>& lightOptions) {
+        struct LightOptionsListener : LightOptions::OnChangeListener {
+            explicit LightOptionsListener(Options& options) : _options(options) { }
+
+            virtual void onLightOptionChanged(const std::string& optionName) override {
+                _options.notifyOptionChanged("LightOptions." + optionName);
+            }
+
+        private:
+            Options& _options;
+        };
+
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            if (_lightOptions == lightOptions) {
+                return;
+            }
+            if (_lightOptions && _lightOptionsListener) {
+                _lightOptions->unregisterOnChangeListener(_lightOptionsListener);
+                _lightOptionsListener.reset();
+            }
+            _lightOptions = lightOptions;
+            if (_lightOptions) {
+                _lightOptionsListener = std::make_shared<LightOptionsListener>(*this);
+                _lightOptions->registerOnChangeListener(_lightOptionsListener);
+            }
+        }
+        notifyOptionChanged("LightOptions");
     }
     
     void Options::setLayersLabelsProcessedInReverseOrder(bool enabled) {

@@ -14,6 +14,7 @@
 #include "components/DirectorPtr.h"
 #include "graphics/ViewState.h"
 #include "renderers/BackgroundRenderer.h"
+#include "renderers/SkyRenderer.h"
 #include "renderers/components/AnimationHandler.h"
 #include "renderers/components/KineticEventHandler.h"
 
@@ -221,6 +222,7 @@ namespace carto {
         std::optional<std::chrono::steady_clock::time_point> _lastElevationRefreshTime;
 
         BackgroundRenderer _backgroundRenderer;
+        SkyRenderer _skyRenderer;
         
         std::vector<std::shared_ptr<BillboardDrawData> > _billboardDrawDatas;
         std::vector<std::shared_ptr<BillboardDrawData> > _billboardDrawDataBuffer;

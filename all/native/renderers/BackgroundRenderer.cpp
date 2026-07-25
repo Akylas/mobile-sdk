@@ -63,7 +63,7 @@ namespace carto {
         _skyTex.reset();
     }
     
-    void BackgroundRenderer::onDrawFrame(const ViewState& viewState) {
+    void BackgroundRenderer::onDrawFrame(const ViewState& viewState, bool drawSkyBand) {
         std::vector<std::shared_ptr<Layer> > layers = _layers.getAll();
 
         std::shared_ptr<Bitmap> backgroundBitmap;
@@ -116,7 +116,7 @@ namespace carto {
             glVertexAttrib3f(_a_normal, 0, 0, 1);
     
             // Draw background and sky
-            if (viewState.isSkyVisible()) {
+            if (drawSkyBand && viewState.isSkyVisible()) {
                 drawSky(viewState);
             }
             drawBackground(viewState);

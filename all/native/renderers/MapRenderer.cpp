@@ -54,6 +54,7 @@ namespace carto {
         _screenFrameBuffers(),
         _screenBlendShader(),
         _backgroundRenderer(*options, *layers),
+        _skyRenderer(*options),
         _billboardDrawDatas(),
         _billboardDrawDataBuffer(),
         _billboardPlacementWorker(std::make_shared<BillboardPlacementWorker>()),
@@ -520,6 +521,7 @@ namespace carto {
 
         // Notify renderers about the event
         _backgroundRenderer.onSurfaceCreated(_glResourceManager);
+        _skyRenderer.onSurfaceCreated(_glResourceManager);
 
         GLContext::CheckGLError("MapRenderer::onSurfaceCreated");
     }
@@ -659,7 +661,9 @@ namespace carto {
 
         // Render everything
         initializeRenderState();
-        _backgroundRenderer.onDrawFrame(viewState);
+        // The shader sky replaces the legacy sky band when it draws.
+        bool skyDrawn = _skyRenderer.onDrawFrame(viewState);
+        _backgroundRenderer.onDrawFrame(viewState, !skyDrawn);
         drawLayers(deltaSeconds, viewState);
 
         if (postProcessEffect) {
@@ -707,6 +711,7 @@ namespace carto {
 
         // Notify renderers about the event
         _backgroundRenderer.onSurfaceDestroyed();
+        _skyRenderer.onSurfaceDestroyed();
     }
     
     void MapRenderer::finishRendering() {
