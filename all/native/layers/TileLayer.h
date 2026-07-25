@@ -391,6 +391,7 @@ namespace carto {
          */
         bool prepareTerrainDrapeFrame(float deltaSeconds, const ViewState& viewState);
         void setExternalDrapeTarget(bool enabled);
+        void setExternalDrapeTiles(const std::vector<vt::TileId>& tileIds);
         void collectDrapeTiles(std::map<vt::TileId, std::size_t>& drapeTiles) const;
         void bakeDrapeTile(const vt::TileId& tileId);
         void renderDrapedSurface(const vt::TileId& tileId, unsigned int drapeTexture);

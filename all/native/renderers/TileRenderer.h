@@ -90,6 +90,7 @@ namespace carto {
          * reports what it would drape and bakes its own content into a bound target.
          */
         void setExternalDrapeTarget(bool enabled);
+        void setExternalDrapeTiles(const std::vector<vt::TileId>& tileIds);
         bool isDrapeEnabled() const;
         void collectDrapeTiles(std::map<vt::TileId, std::size_t>& drapeTiles) const;
         void bakeDrapeTile(const vt::TileId& tileId);

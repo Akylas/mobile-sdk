@@ -240,6 +240,14 @@ namespace carto {
         }
     }
 
+    void TileRenderer::setExternalDrapeTiles(const std::vector<vt::TileId>& tileIds) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            tileRenderer->setExternalDrapeTiles(tileIds);
+        }
+    }
+
     bool TileRenderer::isDrapeEnabled() const {
         std::lock_guard<std::mutex> lock(_mutex);
 

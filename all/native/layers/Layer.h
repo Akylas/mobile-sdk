@@ -187,6 +187,10 @@ namespace carto {
         virtual bool onDrawFrame3D(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState);
         
         virtual std::shared_ptr<Bitmap> getBackgroundBitmap(const ViewState& viewState) const;
+        // The flat colour behind this layer's content. Normally it reaches the screen through the
+        // background plane BackgroundRenderer draws under everything; in terrain draping mode that
+        // plane is behind the terrain, so the drape bake has to start from this colour instead.
+        virtual Color getBackgroundColor(const ViewState& viewState) const;
         virtual std::shared_ptr<Bitmap> getSkyBitmap(const ViewState& viewState) const;
         
         virtual void calculateRayIntersectedElements(const cglib::ray3<double>& ray, const ViewState& viewState, std::vector<RayIntersectedElement>& results) const = 0;

@@ -39,6 +39,8 @@
 #include "utils/ThreadUtils.h"
 
 #include <algorithm>
+#include <cstdio>
+#include <vector>
 
 namespace carto {
 
@@ -1165,24 +1167,58 @@ namespace carto {
                         int deltaZoom = other.zoom - tileId.zoom;
                         return (other.x >> deltaZoom) == tileId.x && (other.y >> deltaZoom) == tileId.y;
                     };
-                    std::map<vt::TileId, std::size_t> drapeTiles;
+                    // Dropping a coarse tile outright is wrong: a single fine tile inside it covers
+                    // 1/4^n of its ground, and the rest would then have no surface at all - the
+                    // terrain there falls back to whatever is behind (the layer's flat background
+                    // plane), which reads as a hole. Split instead: a coarse tile that contains a
+                    // finer one is replaced by its four children, recursively, so the result is a
+                    // true quadtree partition. Leaves that are descendants of a coarse tile carry
+                    // its content through the sub-rect bake.
+                    std::vector<vt::TileId> pending;
                     for (auto it = collectedTiles.begin(); it != collectedTiles.end(); it++) {
+                        bool hasCoarserTile = false;
+                        for (auto it2 = collectedTiles.begin(); it2 != collectedTiles.end() && !hasCoarserTile; it2++) {
+                            hasCoarserTile = covers(it2->first, it->first);
+                        }
+                        if (!hasCoarserTile) {
+                            pending.push_back(it->first); // top of a subtree; its descendants follow from the split
+                        }
+                    }
+                    static const std::size_t MAX_DRAPE_TILES = 256; // splitting is bounded; a runaway cover is not worth drawing
+                    std::vector<vt::TileId> leaves;
+                    while (!pending.empty() && leaves.size() + pending.size() <= MAX_DRAPE_TILES) {
+                        vt::TileId tileId = pending.back();
+                        pending.pop_back();
                         bool hasFinerTile = false;
-                        for (auto it2 = collectedTiles.begin(); it2 != collectedTiles.end() && !hasFinerTile; it2++) {
-                            hasFinerTile = covers(it->first, it2->first);
+                        for (auto it = collectedTiles.begin(); it != collectedTiles.end() && !hasFinerTile; it++) {
+                            hasFinerTile = covers(tileId, it->first);
                         }
-                        if (hasFinerTile) {
-                            continue; // a finer tile covers this ground; that one is drawn instead
+                        if (!hasFinerTile) {
+                            leaves.push_back(tileId);
+                            continue;
                         }
-                        // Fold in every coarser tile covering this one, so the fingerprint tracks
-                        // all the content that will actually be baked here.
-                        std::size_t fingerprint = it->second;
-                        for (auto it2 = collectedTiles.begin(); it2 != collectedTiles.end(); it2++) {
-                            if (covers(it2->first, it->first)) {
-                                fingerprint ^= it2->second + 0x9e3779b9 + (fingerprint << 6) + (fingerprint >> 2);
+                        for (int dy = 0; dy < 2; dy++) {
+                            for (int dx = 0; dx < 2; dx++) {
+                                pending.push_back(tileId.getChild(dx, dy));
                             }
                         }
-                        drapeTiles[it->first] = fingerprint;
+                    }
+                    leaves.insert(leaves.end(), pending.begin(), pending.end()); // cap hit: keep them coarse rather than lose the ground
+                    std::map<vt::TileId, std::size_t> drapeTiles;
+                    for (const vt::TileId& tileId : leaves) {
+                        // Fold in every collected tile that will bake here - the leaf itself and
+                        // every coarser tile covering it - so the fingerprint tracks its content.
+                        std::size_t fingerprint = 0;
+                        auto exactIt = collectedTiles.find(tileId);
+                        if (exactIt != collectedTiles.end()) {
+                            fingerprint = exactIt->second;
+                        }
+                        for (auto it = collectedTiles.begin(); it != collectedTiles.end(); it++) {
+                            if (covers(it->first, tileId)) {
+                                fingerprint ^= it->second + 0x9e3779b9 + (fingerprint << 6) + (fingerprint >> 2);
+                            }
+                        }
+                        drapeTiles[tileId] = fingerprint;
                     }
 
                     // Only take the surface away from the per-layer path once we know this frame
@@ -1191,14 +1227,40 @@ namespace carto {
                     // then draws no shared surface leaves the terrain with no surface at all -
                     // worse than not draping.
                     bool drapeActive = !drapeTiles.empty();
+                    std::vector<vt::TileId> drapeTileIds;
+                    drapeTileIds.reserve(drapeTiles.size());
+                    for (auto it = drapeTiles.begin(); it != drapeTiles.end(); it++) {
+                        drapeTileIds.push_back(it->first);
+                    }
                     for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
                         tileLayer->setExternalDrapeTarget(drapeActive);
+                        // Tell every participating layer which ground is draped BEFORE it draws.
+                        // This has to be an explicit per-frame hand-off: deriving it inside the
+                        // renderer from the surface draw is fragile, because the layer's own
+                        // startFrame runs between the two and resets frame state.
+                        tileLayer->setExternalDrapeTiles(drapeActive ? drapeTileIds : std::vector<vt::TileId>());
                     }
                     if (!drapeActive) {
                         static bool emptyDrapeLogged = false;
                         if (!emptyDrapeLogged) {
                             emptyDrapeLogged = true;
                             Log::Info("MapRenderer: RTT drape has no tiles this frame - per-layer path retained");
+                        }
+                    }
+
+                    // What the bake starts from. A texel no layer paints is a hole: the terrain
+                    // surface is translucent there and the map background plane - which in terrain
+                    // mode lies BEHIND the terrain - shows through, which is exactly what the
+                    // "landcover holes" look like. Style layers only paint their own features, so
+                    // the ground between them has to come from the background colour, baked in.
+                    Color drapeClearColor = terrainOptions->getBackgroundColor();
+                    if (drapeClearColor.getA() == 0) {
+                        for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
+                            Color layerColor = tileLayer->getBackgroundColor(viewState);
+                            if (layerColor.getA() != 0) {
+                                drapeClearColor = layerColor;
+                                break;
+                            }
                         }
                     }
 
@@ -1225,7 +1287,7 @@ namespace carto {
                             bakeStarted = true;
                         }
                         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
-                        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+                        glClearColor(drapeClearColor.getR() / 255.0f, drapeClearColor.getG() / 255.0f, drapeClearColor.getB() / 255.0f, drapeClearColor.getA() / 255.0f);
                         glClear(GL_COLOR_BUFFER_BIT);
                         // Layer order matters: later layers composite over earlier ones, which is
                         // why the owner clears and the bakers do not.
@@ -1234,6 +1296,10 @@ namespace carto {
                         }
                     }
                     if (bakeStarted) {
+                        // Detach before sampling: a texture left attached to a framebuffer counts
+                        // as a render target, and sampling it in the same frame is undefined - on
+                        // the emulator every drape texture then reads back black.
+                        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
                         glBindFramebuffer(GL_FRAMEBUFFER, prevFBO);
                         glViewport(0, 0, viewState.getWidth(), viewState.getHeight());
                     }
@@ -1249,9 +1315,14 @@ namespace carto {
 
                     // One-time state dump: confirms whether the RTT path is actually live, and
                     // with how many layers/tiles, rather than being inferred from symptoms.
-                    static bool drapeStateLogged = false;
-                    if (!drapeStateLogged && drapedTiles.size() > 4) {
-                        drapeStateLogged = true;
+                    static int drapeStateFrame = 0;
+                    if ((drapeStateFrame++ % 120) == 0 && drapedTiles.size() > 0) {
+                        int minZoom = 99, maxZoom = -1;
+                        for (auto it2 = drapedTiles.begin(); it2 != drapedTiles.end(); it2++) {
+                            minZoom = std::min(minZoom, it2->first.zoom);
+                            maxZoom = std::max(maxZoom, it2->first.zoom);
+                        }
+                        Log::Infof("MapRenderer: RTT drape tiles zoom %d..%d, count %d", minZoom, maxZoom, static_cast<int>(drapedTiles.size()));
                         Log::Infof("MapRenderer: RTT drape ACTIVE - layers %d, collected tiles %d, drawn tiles %d, resolution %d",
                             static_cast<int>(drapeLayers.size()), static_cast<int>(collectedTiles.size()),
                             static_cast<int>(drapedTiles.size()), resolution);

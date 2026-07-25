@@ -786,6 +786,10 @@ namespace carto {
         _tileRenderer->setExternalDrapeTarget(enabled);
     }
 
+    void TileLayer::setExternalDrapeTiles(const std::vector<vt::TileId>& tileIds) {
+        _tileRenderer->setExternalDrapeTiles(tileIds);
+    }
+
     void TileLayer::collectDrapeTiles(std::map<vt::TileId, std::size_t>& drapeTiles) const {
         _tileRenderer->collectDrapeTiles(drapeTiles);
     }
