@@ -1,0 +1,137 @@
+name: Docs
+
+# Builds the documentation site (website/) plus the per-language API reference
+# (Javadoc + Jazzy) and deploys everything to GitHub Pages.
+#
+# Runs on pushes to master that touch the docs/SDK API, on every published
+# release, and on manual dispatch. The API-reference jobs are best-effort: if the
+# SWIG toolchain build fails, the site still deploys (the API sections 404 until
+# fixed — see website/docs/contributing-docs.md).
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'website/**'
+      - 'docs/**'
+      - 'all/**'
+      - 'scripts/docs/**'
+      - '.github/workflows/docs.yml'
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: docs-pages
+  cancel-in-progress: false
+
+env:
+  # SWIG fork used to generate the bindings. Override the repo/ref if you maintain a fork.
+  SWIG_REPO: https://github.com/cartodb/mobile-swig
+  SWIG_PROFILE: standard+valhalla+geocoding+routing+packagemanager
+
+jobs:
+  # ---------------------------------------------------------------- Android API
+  api-android:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android platform (for android.jar)
+        run: sdkmanager --install "platforms;android-34"
+      - name: Build SWIG fork
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bison flex libpcre2-dev automake autoconf libtool
+          git clone --depth 1 "$SWIG_REPO" "$RUNNER_TEMP/swig-src"
+          cd "$RUNNER_TEMP/swig-src"
+          ./autogen.sh
+          ./configure --without-pcre || ./configure
+          make -j"$(nproc)"
+          echo "SWIG=$RUNNER_TEMP/swig-src/swig" >> "$GITHUB_ENV"
+      - name: Generate Android Javadoc
+        run: bash scripts/docs/gen-api-android.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: api-android
+          path: website/static/api/android
+          if-no-files-found: warn
+
+  # -------------------------------------------------------------------- iOS API
+  api-ios:
+    runs-on: macos-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install tooling (jazzy + swig deps)
+        run: |
+          gem install jazzy --no-document
+          brew install bison pcre2 automake autoconf libtool || true
+      - name: Build SWIG fork
+        run: |
+          git clone --depth 1 "$SWIG_REPO" "$RUNNER_TEMP/swig-src"
+          cd "$RUNNER_TEMP/swig-src"
+          ./autogen.sh
+          ./configure --without-pcre || ./configure
+          make -j"$(sysctl -n hw.ncpu)"
+          echo "SWIG=$RUNNER_TEMP/swig-src/swig" >> "$GITHUB_ENV"
+      - name: Generate iOS Jazzy reference
+        run: bash scripts/docs/gen-api-ios.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: api-ios
+          path: website/static/api/ios
+          if-no-files-found: warn
+
+  # --------------------------------------------------------------- Build & deploy
+  build-deploy:
+    runs-on: ubuntu-latest
+    needs: [api-android, api-ios]
+    if: always()
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - name: Download Android API (if generated)
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: api-android
+          path: website/static/api/android
+      - name: Download iOS API (if generated)
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: api-ios
+          path: website/static/api/ios
+      - name: Install & build site
+        working-directory: website
+        run: |
+          npm ci
+          npm run build
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: website/build
+      - id: deployment
+        uses: actions/deploy-pages@v4
