@@ -208,6 +208,11 @@ namespace carto {
     bool TileRenderer::prepareFrame(float deltaSeconds, const ViewState& viewState) {
         std::lock_guard<std::mutex> lock(_mutex);
 
+        return prepareFrameUnsafe(deltaSeconds, viewState);
+    }
+
+    // Caller must hold _mutex. onDrawFrame already does, and _mutex is not recursive.
+    bool TileRenderer::prepareFrameUnsafe(float deltaSeconds, const ViewState& viewState) {
         if (_framePrepared) {
             return _framePrepareResult;
         }
@@ -432,7 +437,7 @@ namespace carto {
 
         bool refresh = false;
         try {
-            refresh = prepareFrame(deltaSeconds, viewState);
+            refresh = prepareFrameUnsafe(deltaSeconds, viewState);
 
             tileRenderer->renderGeometry(true, false);
             if (_labelOrder == 0) {

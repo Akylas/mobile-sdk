@@ -84,6 +84,7 @@ namespace carto {
          */
         bool prepareFrame(float deltaSeconds, const ViewState& viewState);
 
+
         /**
          * Cross-layer drape support. The shared cache owns the textures; this renderer only
          * reports what it would drape and bakes its own content into a bound target.
@@ -152,6 +153,8 @@ namespace carto {
         int _hillshadeMethod;
         float _hillshadeExaggeration;
         bool _terrainDepthWriteMode = false;
+        bool prepareFrameUnsafe(float deltaSeconds, const ViewState& viewState); // caller holds _mutex
+
         bool _framePrepared = false;   // startFrame already ran this frame (cross-layer drape ordering)
         bool _framePrepareResult = false;
         bool _externalDrapeTarget = false;
