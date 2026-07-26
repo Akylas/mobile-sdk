@@ -12,6 +12,7 @@ namespace carto {
         _sunColorARGB(Color(255, 255, 255, 255).getARGB()),
         _sunIntensity(1.0f),
         _ambientIntensity(0.35f),
+        _terrainLightingEnabled(false),
         _onChangeListeners(),
         _onChangeListenersMutex()
     {
@@ -110,6 +111,16 @@ namespace carto {
         float clamped = std::max(0.0f, std::min(1.0f, intensity));
         if (_ambientIntensity.exchange(clamped) != clamped) {
             notifyOptionChanged("AmbientIntensity");
+        }
+    }
+
+    bool LightOptions::isTerrainLightingEnabled() const {
+        return _terrainLightingEnabled.load();
+    }
+
+    void LightOptions::setTerrainLightingEnabled(bool enabled) {
+        if (_terrainLightingEnabled.exchange(enabled) != enabled) {
+            notifyOptionChanged("TerrainLightingEnabled");
         }
     }
 

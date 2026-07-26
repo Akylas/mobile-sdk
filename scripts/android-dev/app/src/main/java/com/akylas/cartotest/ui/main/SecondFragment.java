@@ -173,6 +173,56 @@ public class SecondFragment extends Fragment {
         mapView.setZoom(cfgFloat("zoom", zoom), 0);
         mapView.setTilt(cfgFloat("tilt", tilt), 0);
         mapView.setMapRotation(cfgFloat("rotation", 0), 0);
+        applySkyAndLightConfig(cfgFloat("lon", (float) lon), cfgFloat("lat", (float) lat));
+        startScriptedAnimation(cfgFloat("lon", (float) lon), cfgFloat("lat", (float) lat), cfgFloat("zoom", zoom), cfgFloat("tilt", tilt));
+    }
+
+    // '--es anim zoom|pan' drives a scripted camera move, so animation artifacts (which still
+    // frames never show) can be captured with adb screenrecord without touch input.
+    void startScriptedAnimation(final double lon, final double lat, final float zoom, final float tilt) {
+        final String anim = cfgStr("anim", "");
+        if (anim.isEmpty()) {
+            return;
+        }
+        final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
+        final float delay = cfgFloat("animDelay", 12000);
+        final float duration = cfgFloat("animDuration", 8);
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                Projection proj = mapView.getOptions().getBaseProjection();
+                if ("zoom".equals(anim)) {
+                    mapView.setZoom(zoom + cfgFloat("animZoomDelta", 3), duration);
+                } else if ("pan".equals(anim)) {
+                    mapView.setFocusPos(proj.fromWgs84(new MapPos(lon + cfgFloat("animLonDelta", 0.05f), lat)), duration);
+                } else if ("rotate".equals(anim)) {
+                    mapView.setMapRotation(cfgFloat("animRotation", 180), duration);
+                }
+            }
+        }, (long) delay);
+    }
+
+    // Sky + sun. '--es sky true' turns on the shader sky; '--es sunHour 8' (UTC) or
+    // '--es sunAzimuth/--es sunAltitude' place the sun; '--es terrainLight true' shades the
+    // draped terrain surface with it.
+    void applySkyAndLightConfig(double lon, double lat) {
+        if (cfgBool("sky", false)) {
+            com.carto.components.SkyOptions sky = new com.carto.components.SkyOptions();
+            sky.setEnabled(true);
+            mapView.getOptions().setSkyOptions(sky);
+        }
+        com.carto.components.LightOptions light = new com.carto.components.LightOptions();
+        if (cfg("sunHour") != null) {
+            light.setSunPositionFromTime(cfgInt("sunYear", 2026), cfgInt("sunMonth", 7), cfgInt("sunDay", 26),
+                    cfgInt("sunHour", 8), cfgInt("sunMinute", 0), lat, lon);
+        } else {
+            light.setSunAzimuth(cfgFloat("sunAzimuth", 315));
+            light.setSunAltitude(cfgFloat("sunAltitude", 45));
+        }
+        light.setSunIntensity(cfgFloat("sunIntensity", light.getSunIntensity()));
+        light.setAmbientIntensity(cfgFloat("ambient", light.getAmbientIntensity()));
+        light.setTerrainLightingEnabled(cfgBool("terrainLight", false));
+        mapView.getOptions().setLightOptions(light);
     }
 
     // Applies the terrain overrides shared by every demo that builds a TerrainOptions.

@@ -1,5 +1,6 @@
 #include "TileRenderer.h"
 #include "components/Options.h"
+#include "components/LightOptions.h"
 #include "components/ThreadWorker.h"
 #include "graphics/ViewState.h"
 #include "projections/ProjectionSurface.h"
@@ -413,6 +414,26 @@ namespace carto {
         // subdivision either - draping them is strictly cheaper as well as artifact-free.
         tileRenderer->setTerrainDrapeFills(drapeFills, drapeFills);
         tileRenderer->setTerrainDrapeResolution(activeTerrainOptions ? activeTerrainOptions->getDrapeResolution() : 512);
+        // Sun lighting of the draped surface. Once every 2D layer is baked into the drape
+        // texture the surface is the only lit ground geometry in the scene, so the whole map
+        // is shaded by one directional light that follows the time of day - and the pre-baked
+        // hillshade raster layer becomes optional rather than the only way to get relief.
+        vt::GLTileRenderer::TerrainLighting terrainLighting;
+        if (drapeFills) {
+            if (auto options = _options.lock()) {
+                if (std::shared_ptr<LightOptions> lightOptions = options->getLightOptions()) {
+                    if (lightOptions->isTerrainLightingEnabled()) {
+                        Color sunColor = lightOptions->getSunColor();
+                        terrainLighting.enabled = true;
+                        terrainLighting.sunDir = lightOptions->getSunDirection();
+                        terrainLighting.sunColor = cglib::vec3<float>(sunColor.getR() / 255.0f, sunColor.getG() / 255.0f, sunColor.getB() / 255.0f);
+                        terrainLighting.sunIntensity = lightOptions->getSunIntensity();
+                        terrainLighting.ambientIntensity = lightOptions->getAmbientIntensity();
+                    }
+                }
+            }
+        }
+        tileRenderer->setTerrainLighting(terrainLighting);
         tileRenderer->setTerrainDepthWrite(terrainMode && _terrainDepthWriteMode);
         tileRenderer->setDebugWireframe(false); // debug: terrain mesh wireframe + stencil overlay
         tileRenderer->setDebugSurfacePrefill(false); // debug: facing-coded terrain pre-fill (magenta front / cyan back)

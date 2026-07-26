@@ -1285,11 +1285,12 @@ namespace carto {
                         }
                     }
 
+                    GLint prevFBO = 0;
+                    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFBO);
+                    try {
                     _terrainDrapeCache->beginFrame();
                     std::vector<std::pair<vt::TileId, unsigned int> > drapedTiles;
                     drapedTiles.reserve(drapeTiles.size());
-                    GLint prevFBO = 0;
-                    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFBO);
                     int resolution = _terrainDrapeCache->getResolution();
                     bool bakeStarted = false;
                     // Cumulative since start: bakes are cached, so a per-frame count is 0 on most
@@ -1360,6 +1361,14 @@ namespace carto {
                         Log::Infof("MapRenderer: RTT drape ACTIVE - layers %d, collected tiles %d, drawn tiles %d, resolution %d, baked %d tiles / %d primitives, surface draws %d",
                             static_cast<int>(drapeLayers.size()), static_cast<int>(collectedTiles.size()),
                             static_cast<int>(drapedTiles.size()), resolution, bakedTiles, bakedPrimitives, surfaceDraws);
+                    }
+                    }
+                    catch (const std::exception& ex) {
+                        // A shader that fails to compile or link throws from the render thread.
+                        // Losing the drape is bad; taking the process down with it is worse.
+                        Log::Errorf("MapRenderer: RTT drape failed: %s", ex.what());
+                        glBindFramebuffer(GL_FRAMEBUFFER, prevFBO);
+                        glViewport(0, 0, viewState.getWidth(), viewState.getHeight());
                     }
                 }
             }

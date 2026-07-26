@@ -118,6 +118,21 @@ namespace carto {
         void setAmbientIntensity(float intensity);
 
         /**
+         * Returns whether the sun lights the 3D terrain surface.
+         * @return True if terrain surface lighting is enabled. The default is false.
+         */
+        bool isTerrainLightingEnabled() const;
+        /**
+         * Sets whether the sun lights the 3D terrain surface. When enabled, the terrain
+         * surface shader computes the slope from the elevation data and shades the map with
+         * the current sun position - a live hillshade that follows the time of day, replacing
+         * the pre-baked hillshade raster layer for the common case. Requires 3D terrain with
+         * draping enabled (TerrainOptions.setDrapeFillsEnabled).
+         * @param enabled True to light the terrain surface with the sun.
+         */
+        void setTerrainLightingEnabled(bool enabled);
+
+        /**
          * Returns the sun direction as a unit vector in internal map coordinates.
          * The vector points from the surface *towards* the sun. Internal method.
          * @return The unit sun direction.
@@ -143,6 +158,7 @@ namespace carto {
         std::atomic<int> _sunColorARGB;
         std::atomic<float> _sunIntensity;
         std::atomic<float> _ambientIntensity;
+        std::atomic<bool> _terrainLightingEnabled;
 
         std::vector<std::shared_ptr<OnChangeListener> > _onChangeListeners;
         mutable std::mutex _onChangeListenersMutex;

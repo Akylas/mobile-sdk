@@ -23,6 +23,7 @@
 %attributeval(carto::LightOptions, carto::Color, SunColor, getSunColor, setSunColor)
 %attribute(carto::LightOptions, float, SunIntensity, getSunIntensity, setSunIntensity)
 %attribute(carto::LightOptions, float, AmbientIntensity, getAmbientIntensity, setAmbientIntensity)
+%attribute(carto::LightOptions, bool, TerrainLightingEnabled, isTerrainLightingEnabled, setTerrainLightingEnabled)
 
 %ignore carto::LightOptions::OnChangeListener;
 %ignore carto::LightOptions::registerOnChangeListener;
