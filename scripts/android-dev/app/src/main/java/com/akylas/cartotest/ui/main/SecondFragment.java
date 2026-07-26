@@ -998,7 +998,7 @@ public class SecondFragment extends Fragment {
             "}",
             // satellite raster overlay, faint, only high zoom.
             // '--es bld3d true' extrudes buildings, which is what exercises 3D shadow casters.
-            cfgBool("bld3d", false)
+            cfgBool("bld3d", true)
                 ? "#building[zoom>=14] { building-fill: #d9cfc4; building-height: 14; }"
                 : "#building[zoom>=14] { polygon-fill: #d9cfc4; }",
 
