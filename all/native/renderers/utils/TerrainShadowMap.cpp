@@ -7,6 +7,7 @@ namespace carto {
 
     TerrainShadowMap::TerrainShadowMap() :
         _size(1024),
+        _cascades(1),
         _frameBuffer(0),
         _texture(0),
         _depthBuffer(0),
@@ -23,10 +24,18 @@ namespace carto {
         return _size;
     }
 
-    void TerrainShadowMap::setSize(int size) {
-        int clamped = std::min(4096, std::max(256, size));
-        if (clamped != _size) {
+    int TerrainShadowMap::getCascades() const {
+        return _cascades;
+    }
+
+    void TerrainShadowMap::setSize(int size, int cascades) {
+        int clampedCascades = std::min(MAX_CASCADES, std::max(1, cascades));
+        // The pages sit side by side in ONE texture, so the widest supported texture caps the
+        // per-cascade resolution, not the resolution alone.
+        int clamped = std::min(4096 / clampedCascades, std::max(256, size));
+        if (clamped != _size || clampedCascades != _cascades) {
             _size = clamped;
+            _cascades = clampedCascades;
             deleteResources();
             _failed = false;
         }
@@ -41,7 +50,7 @@ namespace carto {
         }
         glGenTextures(1, &_texture);
         glBindTexture(GL_TEXTURE_2D, _texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, _size, _size, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, _size * _cascades, _size, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
         // NEAREST: the packed depth is not a filterable quantity - interpolating the bytes of
         // two different depths produces a third, meaningless depth. Softening is done by the
         // shader's PCF taps instead.
@@ -53,7 +62,7 @@ namespace carto {
 
         glGenRenderbuffers(1, &_depthBuffer);
         glBindRenderbuffer(GL_RENDERBUFFER, _depthBuffer);
-        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, _size, _size);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, _size * _cascades, _size);
         glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
         GLint prevFrameBuffer = 0;
@@ -81,7 +90,7 @@ namespace carto {
             return false;
         }
         glBindFramebuffer(GL_FRAMEBUFFER, _frameBuffer);
-        glViewport(0, 0, _size, _size);
+        glViewport(0, 0, _size * _cascades, _size);
         glDisable(GL_BLEND);
         glDisable(GL_STENCIL_TEST);
         glDisable(GL_CULL_FACE); // terrain surfaces can face away from the sun near ridge crests
@@ -99,6 +108,11 @@ namespace carto {
         glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         return true;
+    }
+
+    void TerrainShadowMap::setCascadeViewport(int cascade) {
+        int index = std::min(_cascades - 1, std::max(0, cascade));
+        glViewport(index * _size, 0, _size, _size);
     }
 
     void TerrainShadowMap::endPass(unsigned int previousFrameBuffer, int viewportWidth, int viewportHeight) {

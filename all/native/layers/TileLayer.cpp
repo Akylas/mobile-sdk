@@ -812,16 +812,16 @@ namespace carto {
         return _tileRenderer->renderDrapedSurfaceFill(tileId, color);
     }
 
-    bool TileLayer::calculateShadowViewProj(const std::vector<vt::TileId>& tileIds, const std::vector<vt::TileId>& casterTileIds, const cglib::vec3<float>& sunDir, double minHeight, double maxHeight, float maxDistanceMeters, int mapSize, double& depthRangeMeters, double& texelMeters, cglib::mat4x4<double>& lightViewProj) const {
-        return _tileRenderer->calculateShadowViewProj(tileIds, casterTileIds, sunDir, minHeight, maxHeight, maxDistanceMeters, mapSize, depthRangeMeters, texelMeters, lightViewProj);
+    bool TileLayer::calculateShadowViewProj(const std::vector<vt::TileId>& tileIds, const std::vector<vt::TileId>& casterTileIds, const cglib::vec3<float>& sunDir, const std::vector<std::pair<double, double> >& tileHeights, double minHeight, double maxHeight, float maxDistanceMeters, int mapSize, int cascade, int cascadeCount, double& depthRangeMeters, double& texelMeters, cglib::mat4x4<double>& lightViewProj) const {
+        return _tileRenderer->calculateShadowViewProj(tileIds, casterTileIds, sunDir, tileHeights, minHeight, maxHeight, maxDistanceMeters, mapSize, cascade, cascadeCount, depthRangeMeters, texelMeters, lightViewProj);
     }
 
     int TileLayer::renderShadowCasters(const vt::TileId& tileId, const cglib::mat4x4<double>& lightViewProj, bool castGround) {
         return _tileRenderer->renderShadowCasters(tileId, lightViewProj, castGround);
     }
 
-    void TileLayer::setTerrainShadowMap(unsigned int texture, int mapSize, float depthBias, float strength, float softness, const cglib::mat4x4<double>& lightViewProj) {
-        _tileRenderer->setTerrainShadowMap(texture, mapSize, depthBias, strength, softness, lightViewProj);
+    void TileLayer::setTerrainShadowMap(unsigned int texture, int mapSize, int cascades, const std::array<float, 4>& depthBiases, float strength, float softness, const std::array<cglib::mat4x4<double>, 4>& lightViewProjs) {
+        _tileRenderer->setTerrainShadowMap(texture, mapSize, cascades, depthBiases, strength, softness, lightViewProjs);
     }
 
     void TileLayer::setTerrainRenderOrder(int order) {

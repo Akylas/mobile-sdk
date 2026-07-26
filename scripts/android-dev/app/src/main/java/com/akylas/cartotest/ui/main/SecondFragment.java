@@ -244,6 +244,7 @@ public class SecondFragment extends Fragment {
         light.setTerrainLightingEnabled(cfgBool("terrainLight", false));
         light.setShadowStrength(cfgFloat("shadow", 0));
         light.setShadowMapSize(cfgInt("shadowMapSize", light.getShadowMapSize()));
+        light.setShadowCascades(cfgInt("shadowCascades", light.getShadowCascades()));
         light.setShadowBias(cfgFloat("shadowBias", light.getShadowBias()));
         light.setShadowDistance(cfgFloat("shadowDistance", light.getShadowDistance()));
         light.setShadowCasterMargin(cfgInt("shadowMargin", light.getShadowCasterMargin()));

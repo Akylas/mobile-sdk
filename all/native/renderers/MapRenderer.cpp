@@ -1456,11 +1456,12 @@ namespace carto {
                     // geometry cannot disagree with the rendered geometry.
                     float shadowStrength = 0.0f;
                     unsigned int shadowTexture = 0;
-                    int shadowMapSize = 0;
-                    float shadowBias = 0.0f, shadowSoftness = 1.0f;
-                    double shadowDepthRangeMeters = 1.0;
+                    int shadowMapSize = 0, shadowCascades = 1;
+                    float shadowSoftness = 1.0f;
                     double shadowTexelMeters = 0;
-                    cglib::mat4x4<double> lightViewProj = cglib::mat4x4<double>::identity();
+                    std::array<float, TerrainShadowMap::MAX_CASCADES> shadowBiases = { };
+                    std::array<cglib::mat4x4<double>, TerrainShadowMap::MAX_CASCADES> lightViewProjs;
+                    lightViewProjs.fill(cglib::mat4x4<double>::identity());
                     bool shadowsWanted = false;
                     if (std::shared_ptr<LightOptions> lightOptions = _options->getLightOptions()) {
                         shadowsWanted = lightOptions->isTerrainLightingEnabled() && lightOptions->getShadowStrength() > 0.0f && !drapeTileIds.empty();
@@ -1468,17 +1469,24 @@ namespace carto {
                             if (!_terrainShadowMap) {
                                 _terrainShadowMap = std::make_unique<TerrainShadowMap>();
                             }
-                            _terrainShadowMap->setSize(lightOptions->getShadowMapSize());
+                            _terrainShadowMap->setSize(lightOptions->getShadowMapSize(), lightOptions->getShadowCascades());
                             // Fit the light box to the elevation the shadowed ground actually
                             // spans, plus headroom for what stands on it. With a low sun the box
                             // is stretched by this range divided by tan(altitude), so a generous
                             // slab is the difference between half-metre and ten-metre texels.
                             double minHeight = 0, maxHeight = 0;
+                            // Per tile as well as overall: a cascade covering a small piece of
+                            // ground can then fit its box to THAT piece's relief instead of to
+                            // the whole scene's, which at a low sun is what sets the box size.
+                            std::vector<std::pair<double, double> > tileHeights;
                             if (std::shared_ptr<ElevationManager> elevationManager = terrainOptions->getElevationManager()) {
                                 bool first = true;
+                                tileHeights.reserve(drapeTileIds.size());
                                 for (const vt::TileId& tileId : drapeTileIds) {
                                     double tileMin = 0, tileMax = 0;
                                     elevationManager->getMinMaxDisplayHeight(MapTile(tileId.x, tileId.y, tileId.zoom, 0), tileMin, tileMax);
+                                    double tileHeadroom = std::max(1.0e-5, (tileMax - tileMin) * 0.25);
+                                    tileHeights.emplace_back(tileMin - tileHeadroom, tileMax + tileHeadroom);
                                     if (first) {
                                         minHeight = tileMin;
                                         maxHeight = tileMax;
@@ -1515,7 +1523,37 @@ namespace carto {
                                     }
                                 }
                             }
-                            if (drapeLayers.front()->calculateShadowViewProj(drapeTileIds, casterTileIds, lightOptions->getSunDirection(), minHeight, maxHeight, lightOptions->getShadowDistance(), _terrainShadowMap->getSize(), shadowDepthRangeMeters, shadowTexelMeters, lightViewProj)) {
+                            // One light box per cascade, near slice first. A single box has to
+                            // span everything visible, so at a tilt its texels are metres of
+                            // ground and every shadow edge is a staircase; the near cascade
+                            // spends the same texels on a much smaller region.
+                            int cascades = _terrainShadowMap->getCascades();
+                            bool boxesValid = true;
+                            for (int cascade = 0; cascade < cascades; cascade++) {
+                                double depthRangeMeters = 1.0, texelMeters = 0;
+                                if (drapeLayers.front()->calculateShadowViewProj(drapeTileIds, casterTileIds, lightOptions->getSunDirection(), tileHeights, minHeight, maxHeight, lightOptions->getShadowDistance(), _terrainShadowMap->getSize(), cascade, cascades, depthRangeMeters, texelMeters, lightViewProjs[cascade])) {
+                                    // The bias is metric; the shader wants a fraction of the
+                                    // normalised light depth, and each cascade's box spans its
+                                    // own depth. Dividing per cascade is what keeps the shadow
+                                    // attached to its caster at every zoom and margin.
+                                    shadowBiases[cascade] = static_cast<float>(lightOptions->getShadowBias() / std::max(1.0, depthRangeMeters));
+                                    if (cascade == 0) {
+                                        shadowTexelMeters = texelMeters;
+                                    }
+                                } else if (cascade > 0) {
+                                    // No ground in this cascade's distance slice - looking down,
+                                    // everything visible can be nearer than the first split.
+                                    // Repeating the near box keeps the atlas layout intact and
+                                    // costs one redundant page; leaving it stale would shadow
+                                    // with a box from another frame.
+                                    lightViewProjs[cascade] = lightViewProjs[cascade - 1];
+                                    shadowBiases[cascade] = shadowBiases[cascade - 1];
+                                } else {
+                                    boxesValid = false;
+                                    break;
+                                }
+                            }
+                            if (boxesValid) {
                                 // The caster pass draws the whole terrain a second time, so it is
                                 // worth as much as the on-screen draw - and on a still view it
                                 // produces the same texture every frame. The light box is snapped
@@ -1525,29 +1563,39 @@ namespace carto {
                                 // The age cap picks up elevation that streamed in without either.
                                 bool refresh = !_shadowMapValid || bakedThisFrame > 0
                                     || _shadowMapSize != _terrainShadowMap->getSize()
-                                    || !(_shadowMapViewProj == lightViewProj)
+                                    || _shadowMapCascades != cascades
                                     || _shadowMapCasterTiles != casterTileIds;
+                                for (int cascade = 0; cascade < cascades && !refresh; cascade++) {
+                                    refresh = !(_shadowMapViewProjs[cascade] == lightViewProjs[cascade]);
+                                }
                                 if (!refresh && ++_shadowMapAge >= SHADOW_MAP_MAX_AGE) {
                                     refresh = true;
                                 }
                                 if (refresh) {
                                     _shadowMapValid = false;
                                     if (_terrainShadowMap->beginPass()) {
-                                        for (const vt::TileId& tileId : casterTileIds) {
-                                            // EVERY drape layer casts, not just the first. The terrain
-                                            // surface is shared, but 3D extrusions belong to whichever
-                                            // layer holds them - in a composite that is a later style
-                                            // group, so casting from the front layer alone means
-                                            // buildings never cast a shadow at all.
-                                            for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
-                                                tileLayer->renderShadowCasters(tileId, lightViewProj, tileLayer == drapeLayers.front());
+                                        for (int cascade = 0; cascade < cascades; cascade++) {
+                                            // The cascades are pages of one texture, so the pass
+                                            // is cleared once and each cascade draws into its own
+                                            // viewport.
+                                            _terrainShadowMap->setCascadeViewport(cascade);
+                                            for (const vt::TileId& tileId : casterTileIds) {
+                                                // EVERY drape layer casts, not just the first. The terrain
+                                                // surface is shared, but 3D extrusions belong to whichever
+                                                // layer holds them - in a composite that is a later style
+                                                // group, so casting from the front layer alone means
+                                                // buildings never cast a shadow at all.
+                                                for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
+                                                    tileLayer->renderShadowCasters(tileId, lightViewProjs[cascade], tileLayer == drapeLayers.front());
+                                                }
                                             }
                                         }
                                         _terrainShadowMap->endPass(prevFBO, viewState.getWidth(), viewState.getHeight());
                                         _shadowMapValid = true;
-                                        _shadowMapViewProj = lightViewProj;
+                                        _shadowMapViewProjs = lightViewProjs;
                                         _shadowMapCasterTiles = casterTileIds;
                                         _shadowMapSize = _terrainShadowMap->getSize();
+                                        _shadowMapCascades = cascades;
                                         _shadowMapAge = 0;
                                         shadowPasses++;
                                     }
@@ -1555,11 +1603,8 @@ namespace carto {
                                 if (_shadowMapValid) {
                                     shadowTexture = _terrainShadowMap->getTexture();
                                     shadowMapSize = _terrainShadowMap->getSize();
+                                    shadowCascades = cascades;
                                     shadowStrength = lightOptions->getShadowStrength();
-                                    // The bias is metric; the shader wants a fraction of the
-                                    // normalised light depth. Dividing here is what keeps the
-                                    // shadow attached to its caster at every zoom and margin.
-                                    shadowBias = static_cast<float>(lightOptions->getShadowBias() / std::max(1.0, shadowDepthRangeMeters));
                                     shadowSoftness = lightOptions->getShadowSoftness();
                                 }
                             } else {
@@ -1571,7 +1616,7 @@ namespace carto {
                         _shadowMapValid = false; // shadows off: whatever the map holds is stale
                     }
                     for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
-                        tileLayer->setTerrainShadowMap(shadowTexture, shadowMapSize, shadowBias, shadowStrength, shadowSoftness, lightViewProj);
+                        tileLayer->setTerrainShadowMap(shadowTexture, shadowMapSize, shadowCascades, shadowBiases, shadowStrength, shadowSoftness, lightViewProjs);
                     }
 
                     // The shared surface is the only depth-writing terrain geometry.
@@ -1624,7 +1669,7 @@ namespace carto {
                         Log::Infof("MapRenderer: RTT drape ACTIVE - layers %d, collected tiles %d, drawn tiles %d, resolution %d, baked %d tiles / %d primitives, surface draws %d (%d unbaked fills)",
                             static_cast<int>(drapeLayers.size()), static_cast<int>(collectedTiles.size()),
                             static_cast<int>(drapedTiles.size()), resolution, bakedTiles, bakedPrimitives, surfaceDraws, filledSurfaces);
-                        Log::Infof("MapRenderer: shadow caster passes %d over %d frames, texel %.2f m, depth range %.0f m", shadowPasses, drapeStateFrame, shadowTexelMeters, shadowDepthRangeMeters);
+                        Log::Infof("MapRenderer: shadow caster passes %d over %d frames, %d cascades, near texel %.2f m (camera zoom %.2f tilt %.1f)", shadowPasses, drapeStateFrame, shadowCascades, shadowTexelMeters, viewState.getZoom(), viewState.getTilt());
                     }
                     }
                     catch (const std::exception& ex) {

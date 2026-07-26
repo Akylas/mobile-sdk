@@ -26,6 +26,7 @@
 %attribute(carto::LightOptions, bool, TerrainLightingEnabled, isTerrainLightingEnabled, setTerrainLightingEnabled)
 %attribute(carto::LightOptions, float, ShadowStrength, getShadowStrength, setShadowStrength)
 %attribute(carto::LightOptions, int, ShadowMapSize, getShadowMapSize, setShadowMapSize)
+%attribute(carto::LightOptions, int, ShadowCascades, getShadowCascades, setShadowCascades)
 %attribute(carto::LightOptions, float, ShadowBias, getShadowBias, setShadowBias)
 %attribute(carto::LightOptions, float, ShadowSoftness, getShadowSoftness, setShadowSoftness)
 %attribute(carto::LightOptions, float, ShadowDistance, getShadowDistance, setShadowDistance)

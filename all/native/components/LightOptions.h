@@ -147,15 +147,32 @@ namespace carto {
 
         /**
          * Returns the shadow map resolution.
-         * @return The shadow map size in pixels. The default is 2048.
+         * @return The shadow map size in pixels, per cascade. The default is 1024.
          */
         int getShadowMapSize() const;
         /**
-         * Sets the shadow map resolution in pixels. Higher is sharper and costs more memory
-         * (size * size * 4 bytes) and fill rate.
-         * @param size The new shadow map size (clamped to 256..4096).
+         * Sets the shadow map resolution in pixels, per cascade. Higher is sharper and costs
+         * more memory (size * size * 4 bytes per cascade) and fill rate. The cascades share one
+         * texture, so the size is clamped to what fits: 4096 / cascades.
+         * @param size The new shadow map size (clamped to 256..4096 / cascades).
          */
         void setShadowMapSize(int size);
+
+        /**
+         * Returns the number of shadow cascades.
+         * @return The cascade count. The default is 3.
+         */
+        int getShadowCascades() const;
+        /**
+         * Sets how many shadow map cascades are rendered (1 to 4). One map has to cover
+         * everything visible, so at a tilt its texels are metres of ground and shadow edges
+         * become staircases. Cascades split the view distance: the near one covers a small
+         * region with the same number of texels, the far one - where a screen pixel is tens of
+         * metres of ground anyway - keeps the coarse cover. Each cascade costs one more caster
+         * pass and one more page of shadow texture.
+         * @param cascades The new cascade count (clamped to 1..4).
+         */
+        void setShadowCascades(int cascades);
 
         /**
          * Returns the shadow distance in meters.
@@ -242,6 +259,7 @@ namespace carto {
         std::atomic<bool> _terrainLightingEnabled;
         std::atomic<float> _shadowStrength;
         std::atomic<int> _shadowMapSize;
+        std::atomic<int> _shadowCascades;
         std::atomic<float> _shadowBias;
         std::atomic<float> _shadowSoftness;
         std::atomic<float> _shadowDistance;

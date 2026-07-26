@@ -14,7 +14,8 @@ namespace carto {
         _ambientIntensity(0.35f),
         _terrainLightingEnabled(false),
         _shadowStrength(0.0f),
-        _shadowMapSize(2048),
+        _shadowMapSize(1024),
+        _shadowCascades(3),
         _shadowBias(0.25f),
         _shadowSoftness(1.0f),
         _shadowDistance(0.0f),
@@ -160,6 +161,17 @@ namespace carto {
         float value = std::min(8.0f, std::max(0.0f, softness));
         if (_shadowSoftness.exchange(value) != value) {
             notifyOptionChanged("ShadowSoftness");
+        }
+    }
+
+    int LightOptions::getShadowCascades() const {
+        return _shadowCascades.load();
+    }
+
+    void LightOptions::setShadowCascades(int cascades) {
+        int clamped = std::max(1, std::min(4, cascades));
+        if (_shadowCascades.exchange(clamped) != clamped) {
+            notifyOptionChanged("ShadowCascades");
         }
     }
 

@@ -21,6 +21,7 @@
 #include <cglib/mat.h>
 #include <vt/TileId.h>
 
+#include <array>
 #include <atomic>
 #include <optional>
 #include <chrono>
@@ -230,8 +231,9 @@ namespace carto {
         // still the right one and the pass is skipped.
         bool _shadowMapValid = false;
         int _shadowMapSize = 0;
+        int _shadowMapCascades = 0;
         int _shadowMapAge = 0;
-        cglib::mat4x4<double> _shadowMapViewProj = cglib::mat4x4<double>::identity();
+        std::array<cglib::mat4x4<double>, 4> _shadowMapViewProjs;
         std::vector<vt::TileId> _shadowMapCasterTiles;
 
         unsigned int _layersElevationVersion = 0;

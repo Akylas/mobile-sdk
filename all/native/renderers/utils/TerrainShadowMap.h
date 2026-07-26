@@ -23,14 +23,21 @@ namespace carto {
      */
     class TerrainShadowMap {
     public:
+        // Must match the cascade count the vt shaders declare (vt::GLTileRenderer::MAX_SHADOW_CASCADES).
+        static constexpr int MAX_CASCADES = 4;
+
         TerrainShadowMap();
         ~TerrainShadowMap();
 
         int getSize() const;
+        int getCascades() const;
         /**
-         * Sets the shadow map resolution. Existing resources are dropped on a change.
+         * Sets the shadow map resolution and the number of cascades. The cascades are pages of
+         * one texture, laid out side by side with the nearest first, so a fragment shader needs
+         * one sampler and one scale to reach any of them. Existing resources are dropped on a
+         * change.
          */
-        void setSize(int size);
+        void setSize(int size, int cascades);
 
         /**
          * Returns the packed-depth texture, creating the resources on first use. Returns 0 when
@@ -41,6 +48,11 @@ namespace carto {
          * Binds the framebuffer and clears it to "infinitely far". Returns false if unavailable.
          */
         bool beginPass();
+        /**
+         * Restricts drawing to one cascade's page. Must be called after beginPass, which clears
+         * every page at once.
+         */
+        void setCascadeViewport(int cascade);
         /**
          * Restores the previous framebuffer and viewport.
          */
@@ -55,6 +67,7 @@ namespace carto {
         bool createResources();
 
         int _size;
+        int _cascades;
         unsigned int _frameBuffer;
         unsigned int _texture;
         unsigned int _depthBuffer;
