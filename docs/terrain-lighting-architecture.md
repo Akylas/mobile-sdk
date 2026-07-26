@@ -127,7 +127,7 @@ Gotchas already paid for, which any future shader work must respect:
 are a function of `rayDir` plus `uTime`, so they need no further engine support. The same
 uniform-location rule applies to any optional uniform the user's shader may or may not reference.
 
-### 3.3 Dynamic lighting / hillshade on the terrain — **natural, one shader**
+### 3.3 Dynamic lighting / hillshade on the terrain — **shipped**
 
 This is the feature the drape unlocks outright. The draped surface is now the *only* lit ground
 surface in the scene, so lighting is one multiply in one fragment shader:
@@ -153,7 +153,7 @@ Consequences worth stating:
 - In the old architecture this same feature would have had to be added to *every* 2D style shader,
   each at a slightly different depth than the surface it is meant to be lying on.
 
-### 3.4 Dynamic shadows on terrain and buildings — **a shadow map, and it fits**
+### 3.4 Dynamic shadows on terrain and buildings — **shipped**
 
 Requirements: terrain shadows itself, buildings cast on terrain and on each other, buildings
 receive. That is a classic directional shadow map, and the drape architecture makes both ends of
@@ -174,9 +174,23 @@ bounds. Casters are exactly the things already in the depth buffer:
 Everything else in the scene is either inside the drape texture (so it is shadowed by the surface
 it is painted on, which is correct) or a screen-space label (which should not be shadowed).
 
+What shipped: `TerrainShadowMap` (packed-depth colour texture plus a depth renderbuffer),
+`GLTileRenderer::calculateShadowViewProj` / `renderShadowCasters`, and
+`LightOptions.setShadowStrength` / `setShadowMapSize` / `setShadowBias`. Casters are the terrain
+grid surfaces and `POLYGON3D` extrusions; receivers are the draped terrain surface and the
+extrusions. Verified on the emulator: a 10-degree western sun casts clean ridge shadows into the
+valleys east of them, and extruded buildings cast onto the streets and shade each other.
+
+The bias that mattered turned out to be the **slope-scaled polygon offset on the caster**, not a
+constant in the comparison: one shadow texel covers tens of metres of ground, so on a slope lit at
+a grazing angle the depth varies across a single texel by far more than any constant bias can
+absorb, and the surface shadows itself in a regular hatch. A constant bias big enough for that
+detaches the shadows from the ridges casting them.
+
 Design notes:
-- Fit the light frustum to the **camera frustum ∩ terrain bounds**, recomputed when the camera
-  moves; one cascade is enough at map tilts, two if close-range building shadows must stay sharp.
+- The light frustum is currently fitted to the **terrain tiles being drawn**. Fitting it to the
+  camera frustum ∩ terrain bounds instead would raise the effective resolution; one cascade is
+  enough at map tilts, two if close-range building shadows must stay sharp.
 - Depth precision: reuse the packed-RGBA depth encoding already used for `uTerrainDepthTex`
   where a real depth texture is unavailable (GLES2 without `OES_depth_texture`).
 - Bias: normal-offset bias, not constant depth bias — the terrain has huge slope variation and a
@@ -188,7 +202,7 @@ Design notes:
 lookup, and content sitting at a slightly different depth than the surface it visually lies on is
 shadow-acne by construction.
 
-### 3.5 Peak finder view — **mostly already there**
+### 3.5 Peak finder view — **shipped**
 
 Wanted: a view showing terrain shape and peaks only, with a *relaxed* occlusion rule so that
 slightly hidden peaks still show.
@@ -203,15 +217,16 @@ The pieces that exist:
 - Terrain labels already have an occlusion test hook (`setLabelOcclusionTest`) that is evaluated
   **per anchor**, not per pixel.
 
-What is missing is a **tolerance** on that occlusion test: today it is a boolean ray test against
-the terrain. The peak finder needs "visible, or hidden by less than N metres / N screen pixels of
-terrain in front", so a peak just behind a ridge still labels. That is a single parameter added to
-the occlusion test (compare the ray's terrain intersection depth against the anchor depth with a
-slack, instead of a strict test), plus a style toggle that hides everything except the terrain and
-the peak labels.
+What was missing was a **tolerance** on that occlusion test — it had a hard-coded 2% slack, just
+enough to absorb the mismatch between a label anchor and the terrain it sits on.
+`TerrainOptions.setBillboardOcclusionTolerance` now exposes it: raising it deliberately lets partly
+hidden features label, so a summit just behind a nearer ridge still shows its name. Both occlusion
+paths (the depth-buffer read-back and the ray fallback) use the same value.
 
-So: a post-process shader for the shape, one relaxation parameter for the labels. No architectural
-work.
+Verified: `PostProcessEffect.CreateReliefOutlineEffect()` over the Chartreuse at low tilt renders
+clean ridge silhouettes. One trap: attaching a post-process effect *before* the GL surface exists
+leaves the offscreen colour buffer unwritten and the screen goes black — attach it after the first
+frame.
 
 ## 4. Recommended target architecture
 

@@ -36,6 +36,7 @@
 %attributeval(carto::TerrainOptions, carto::Color, BackgroundColor, getBackgroundColor, setBackgroundColor)
 %attribute(carto::TerrainOptions, float, DepthBias, getDepthBias, setDepthBias)
 %attribute(carto::TerrainOptions, bool, BillboardOcclusionEnabled, isBillboardOcclusionEnabled, setBillboardOcclusionEnabled)
+%attribute(carto::TerrainOptions, float, BillboardOcclusionTolerance, getBillboardOcclusionTolerance, setBillboardOcclusionTolerance)
 %std_exceptions(carto::TerrainOptions::TerrainOptions)
 
 %ignore carto::TerrainOptions::OnChangeListener;

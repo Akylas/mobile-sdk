@@ -303,6 +303,21 @@ namespace carto {
         void setDepthBias(float depthBias);
 
         /**
+         * Returns the billboard/label terrain occlusion tolerance.
+         * @return The relative depth tolerance. The default is 0.02.
+         */
+        float getBillboardOcclusionTolerance() const;
+        /**
+         * Sets how far behind the terrain a billboard or label anchor may sit and still count
+         * as visible, as a fraction of its distance from the camera. The default 0.02 only
+         * absorbs the mismatch between the anchor and the terrain it sits on. Larger values
+         * deliberately let partly hidden features label - a summit just behind a nearer ridge
+         * still shows its name, which is what a peak-finder view wants.
+         * @param tolerance The new relative tolerance (clamped to 0..1).
+         */
+        void setBillboardOcclusionTolerance(float tolerance);
+
+        /**
          * Returns the billboard/label terrain occlusion state.
          * @return True if billboards and labels hidden behind terrain are faded out. The default is true.
          */
@@ -380,6 +395,7 @@ namespace carto {
         std::atomic<float> _cameraClearance;
         std::atomic<float> _cameraClampDuration;
         std::atomic<bool> _billboardOcclusionEnabled;
+        std::atomic<float> _billboardOcclusionTolerance;
 
         std::vector<std::shared_ptr<OnChangeListener> > _onChangeListeners;
         mutable std::mutex _onChangeListenersMutex;

@@ -174,6 +174,16 @@ public class SecondFragment extends Fragment {
         mapView.setTilt(cfgFloat("tilt", tilt), 0);
         mapView.setMapRotation(cfgFloat("rotation", 0), 0);
         applySkyAndLightConfig(cfgFloat("lon", (float) lon), cfgFloat("lat", (float) lat));
+        if (cfgBool("peakfinder", false)) {
+            // After the GL surface exists: attaching a post-process effect before it does
+            // leaves the offscreen colour buffer unwritten and the screen black.
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    toggleReliefOutlineEffect();
+                }
+            }, (long) cfgFloat("peakfinderDelay", 8000));
+        }
         startScriptedAnimation(cfgFloat("lon", (float) lon), cfgFloat("lat", (float) lat), cfgFloat("zoom", zoom), cfgFloat("tilt", tilt));
     }
 
@@ -235,6 +245,8 @@ public class SecondFragment extends Fragment {
         options.setDrapeFillsEnabled(cfgBool("drape", options.isDrapeFillsEnabled()));
         options.setDrapeLinesEnabled(cfgBool("drapeLines", options.isDrapeLinesEnabled()));
         options.setDrapeResolution(cfgInt("drapeResolution", options.getDrapeResolution()));
+        // Peak-finder: a larger tolerance labels summits that are partly behind a nearer ridge.
+        options.setBillboardOcclusionTolerance(cfgFloat("occlusionTolerance", options.getBillboardOcclusionTolerance()));
     }
 
     MapView mapView;

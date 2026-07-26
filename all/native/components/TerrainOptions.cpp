@@ -31,6 +31,7 @@ namespace carto {
         _cameraClearance(200.0f),
         _cameraClampDuration(0.0f),
         _billboardOcclusionEnabled(true),
+        _billboardOcclusionTolerance(0.02f),
         _onChangeListeners(),
         _onChangeListenersMutex()
     {
@@ -217,6 +218,17 @@ namespace carto {
         float bias = std::min(0.01f, std::max(0.0f, depthBias));
         if (_depthBias.exchange(bias) != bias) {
             notifyOptionChanged("DepthBias");
+        }
+    }
+
+    float TerrainOptions::getBillboardOcclusionTolerance() const {
+        return _billboardOcclusionTolerance.load();
+    }
+
+    void TerrainOptions::setBillboardOcclusionTolerance(float tolerance) {
+        float value = std::min(1.0f, std::max(0.0f, tolerance));
+        if (_billboardOcclusionTolerance.exchange(value) != value) {
+            notifyOptionChanged("BillboardOcclusionTolerance");
         }
     }
 

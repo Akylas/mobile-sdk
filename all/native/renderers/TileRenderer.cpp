@@ -738,7 +738,8 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
                     float screenWidth = static_cast<float>(viewState.getWidth());
                     float screenHeight = static_cast<float>(viewState.getHeight());
                     std::weak_ptr<MapRenderer> mapRendererWeak = _mapRenderer;
-                    tileRenderer->setLabelOcclusionTest([mapRendererWeak, mvpMat, screenWidth, screenHeight](const cglib::vec3<double>& pos) {
+                    float occlusionTolerance = 1.0f + terrainOptions->getBillboardOcclusionTolerance();
+                    tileRenderer->setLabelOcclusionTest([mapRendererWeak, mvpMat, screenWidth, screenHeight, occlusionTolerance](const cglib::vec3<double>& pos) {
                         auto mapRenderer = mapRendererWeak.lock();
                         if (!mapRenderer) {
                             return false;
@@ -754,9 +755,11 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
                         float screenX = static_cast<float>((clipPos(0) / clipPos(3) * 0.5 + 0.5) * screenWidth);
                         float screenY = static_cast<float>((0.5 - clipPos(1) / clipPos(3) * 0.5) * screenHeight);
                         float depthW = terrainRenderer->getDepthW(screenX, screenY);
-                        // occluded if clearly behind the terrain at this pixel (labels are
-                        // anchored ON the terrain, so allow a small relative tolerance)
-                        return static_cast<float>(clipPos(3)) > depthW * 1.02f;
+                        // Occluded if clearly behind the terrain at this pixel. The tolerance is
+                        // relative to distance: at its default it only absorbs the mismatch
+                        // between the anchor and the terrain it sits on, and raising it lets
+                        // partly hidden features label (the peak-finder case).
+                        return static_cast<float>(clipPos(3)) > depthW * occlusionTolerance;
                     });
                     return;
                 }
@@ -782,7 +785,10 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
             }
         }
 
-        tileRenderer->setLabelOcclusionTest([state, elevationManager, cameraPos](const cglib::vec3<double>& pos) -> bool {
+        // The ray path lifts the target above the anchor by the same relative tolerance, so
+        // both occlusion paths answer the same question.
+        double rayTolerance = 0.005 + 0.5 * terrainOptions->getBillboardOcclusionTolerance();
+        tileRenderer->setLabelOcclusionTest([state, elevationManager, cameraPos, rayTolerance](const cglib::vec3<double>& pos) -> bool {
             // Quantize the position for caching (roughly 4m grid)
             const double QUANT = 10.0;
             long long key = (static_cast<long long>(pos(0) * QUANT) * 73856093LL) ^ (static_cast<long long>(pos(1) * QUANT) * 19349663LL) ^ (static_cast<long long>(pos(2) * QUANT) * 83492791LL);
@@ -795,7 +801,7 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
             }
 
             double dist = cglib::length(pos - cameraPos);
-            cglib::vec3<double> target = pos + cglib::vec3<double>(0, 0, dist * 0.005);
+            cglib::vec3<double> target = pos + cglib::vec3<double>(0, 0, dist * rayTolerance);
             cglib::ray3<double> ray(cameraPos, target - cameraPos);
             double t = 0;
             bool occluded = elevationManager->intersectRay(ray, t) && t > 0 && t < 0.995;
