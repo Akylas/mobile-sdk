@@ -408,12 +408,18 @@ public class SecondFragment extends Fragment {
         options.setBillboardOcclusionTolerance(cfgFloat("occlusionTolerance", options.getBillboardOcclusionTolerance()));
         // Distance fog and the view distance. '--es fog ffffff --es fogDistance 30000' etc.
         if (cfg("fog") != null) {
-            options.setFogColor(new com.carto.graphics.Color(android.graphics.Color.parseColor(cfgColor("fog", "#ffffff"))));
+            fogColorARGB = android.graphics.Color.parseColor(cfgColor("fog", "#ffffff"));
+            options.setFogColor(new com.carto.graphics.Color(fogColorARGB));
         }
         options.setFogStartDistance(cfgFloat("fogStart", options.getFogStartDistance()));
         options.setFogDistance(cfgFloat("fogDistance", options.getFogDistance()));
         options.setMaxVisibleDistance(cfgFloat("maxDistance", options.getMaxVisibleDistance()));
     }
+
+    // The colour the fog checkbox turns on; '--es fog RRGGBB' picks another one. Kept as a plain
+    // int: a field initializer runs in the fragment's constructor, before the native library is
+    // loaded, and building a com.carto.graphics.Color there dies with UnsatisfiedLinkError.
+    int fogColorARGB = 0xffb8c6d8;
 
     MapView mapView;
     MapBoxElevationDataDecoder elevationDecoder;
@@ -877,10 +883,36 @@ public class SecondFragment extends Fragment {
             panelSlider(context, panel, "caster margin (tiles)", 0, 6, lightOptions.getShadowCasterMargin(), true, new FloatSetting() {
                 public void set(float value) { lightOptions.setShadowCasterMargin(Math.round(value)); }
             });
+            // Reallocates the shadow map atlas, so apply on release only.
+            panelSlider(context, panel, "cascades", 1, 4, lightOptions.getShadowCascades(), true, new FloatSetting() {
+                public void set(float value) { lightOptions.setShadowCascades(Math.round(value)); }
+            });
             panelSlider(context, panel, "depth bias (m)", 0.0f, 5.0f, lightOptions.getShadowBias(), false, new FloatSetting() {
                 public void set(float value) { lightOptions.setShadowBias(value); }
             });
         }
+        // Fog and the view distance: the two go together, since the distance ENDS the ground and
+        // the fog is what makes it fade out instead.
+        panelHeader(context, panel, "FOG / DISTANCE");
+        panelCheck(context, panel, "fog", terrainOptions.getFogColor().getA() != 0, new BoolSetting() {
+            public void set(boolean value) {
+                terrainOptions.setFogColor(new com.carto.graphics.Color(value ? fogColorARGB : 0));
+                if (value && terrainOptions.getFogDistance() <= 0) {
+                    terrainOptions.setFogDistance(30000);
+                }
+            }
+        });
+        panelSlider(context, panel, "fog start (m)", 0, 40000, terrainOptions.getFogStartDistance(), false, new FloatSetting() {
+            public void set(float value) { terrainOptions.setFogStartDistance(value); }
+        });
+        panelSlider(context, panel, "fog distance (m, 0=off)", 0, 120000, terrainOptions.getFogDistance(), false, new FloatSetting() {
+            public void set(float value) { terrainOptions.setFogDistance(value < 500 ? 0 : value); }
+        });
+        // Changes the tile set, so apply on release only.
+        panelSlider(context, panel, "max visible distance (m, 0=all)", 0, 120000, terrainOptions.getMaxVisibleDistance(), true, new FloatSetting() {
+            public void set(float value) { terrainOptions.setMaxVisibleDistance(value < 500 ? 0 : value); }
+        });
+
         if (skyOptions != null) {
             panelHeader(context, panel, "SKY");
             panelCheck(context, panel, "sky", skyOptions.isEnabled(), new BoolSetting() {
