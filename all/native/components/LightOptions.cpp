@@ -15,7 +15,7 @@ namespace carto {
         _terrainLightingEnabled(false),
         _shadowStrength(0.0f),
         _shadowMapSize(2048),
-        _shadowBias(0.5f),
+        _shadowBias(0.25f),
         _shadowSoftness(1.0f),
         _shadowDistance(0.0f),
         _shadowCasterMargin(1),
