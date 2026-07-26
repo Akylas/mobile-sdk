@@ -1351,18 +1351,6 @@ namespace carto {
                         // during a zoom a whole screen of them flashes on and off.
                         DrapedTile draped { it->first, hasContent ? texture : 0u, 0.0f, 0.0f, 1.0f };
                         if (!hasContent) {
-                            // Zooming OUT there is no baked ancestor - the cached tiles are the
-                            // finer ones underneath. Draw those instead: same meshes, same depth,
-                            // and the ground is covered with real content instead of a hole.
-                            for (int dy = 0; dy < 2; dy++) {
-                                for (int dx = 0; dx < 2; dx++) {
-                                    vt::TileId child = it->first.getChild(dx, dy);
-                                    unsigned int childTexture = _terrainDrapeCache->findBaked(child, 0);
-                                    if (childTexture != 0) {
-                                        drapedTiles.push_back(DrapedTile { child, childTexture, 0.0f, 0.0f, 1.0f });
-                                    }
-                                }
-                            }
                             vt::TileId ancestor = it->first;
                             float offsetX = 0.0f, offsetY = 0.0f, scale = 1.0f;
                             for (int level = 0; level < 6 && ancestor.zoom > 0; level++) {
@@ -1385,6 +1373,31 @@ namespace carto {
                             }
                         }
                         drapedTiles.push_back(draped);
+                        if (!hasContent) {
+                            // Zooming OUT there is no baked ancestor - the cached tiles are the
+                            // finer ones underneath. Draw those over the top: same meshes, same
+                            // depth, so the ground shows real content instead of a flat fill.
+                            // They MUST come after this tile's own entry, not before it: the
+                            // surfaces coincide and the later draw wins, so pushed first they
+                            // were buried under the fill they were meant to replace - which is
+                            // the whole screen turning white for a moment on every zoom out.
+                            // Several levels deep, because one gesture crosses several zooms and
+                            // the cache then holds tiles two or three levels finer than this one.
+                            std::function<void(const vt::TileId&, int)> drawBakedDescendants = [&](const vt::TileId& tileId, int depth) {
+                                for (int dy = 0; dy < 2; dy++) {
+                                    for (int dx = 0; dx < 2; dx++) {
+                                        vt::TileId child = tileId.getChild(dx, dy);
+                                        unsigned int childTexture = _terrainDrapeCache->findBaked(child, 0);
+                                        if (childTexture != 0) {
+                                            drapedTiles.push_back(DrapedTile { child, childTexture, 0.0f, 0.0f, 1.0f });
+                                        } else if (depth > 0) {
+                                            drawBakedDescendants(child, depth - 1);
+                                        }
+                                    }
+                                }
+                            };
+                            drawBakedDescendants(it->first, 2);
+                        }
                         if (!needsBake) {
                             continue;
                         }
