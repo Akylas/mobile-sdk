@@ -173,6 +173,7 @@ public class SecondFragment extends Fragment {
         mapView.setZoom(cfgFloat("zoom", zoom), 0);
         mapView.setTilt(cfgFloat("tilt", tilt), 0);
         mapView.setMapRotation(cfgFloat("rotation", 0), 0);
+        lightOptions.setTerrainLightingEnabled(true);
         if (cfgBool("daycycle", false)) {
             sunSkyDemoEnabled = true;
             lightOptions.setTerrainLightingEnabled(true);
@@ -224,11 +225,12 @@ public class SecondFragment extends Fragment {
         // Always attach both, so the debug panel can toggle them live; the sky starts disabled
         // unless asked for, which renders exactly as having no sky options at all.
         com.carto.components.SkyOptions sky = new com.carto.components.SkyOptions();
-        sky.setEnabled(cfgBool("sky", false));
+        sky.setEnabled(cfgBool("sky", true));
         skyOptions = sky;
         mapView.getOptions().setSkyOptions(sky);
 
         com.carto.components.LightOptions light = new com.carto.components.LightOptions();
+        light.setAmbientIntensity(1.0f);
         lightOptions = light;
         sunLatitude = lat;
         sunLongitude = lon;
@@ -236,13 +238,13 @@ public class SecondFragment extends Fragment {
             light.setSunPositionFromTime(cfgInt("sunYear", 2026), cfgInt("sunMonth", 7), cfgInt("sunDay", 26),
                     cfgInt("sunHour", 8), cfgInt("sunMinute", 0), lat, lon);
         } else {
-            light.setSunAzimuth(cfgFloat("sunAzimuth", 315));
-            light.setSunAltitude(cfgFloat("sunAltitude", 45));
+            light.setSunAzimuth(cfgFloat("sunAzimuth", 355));
+            light.setSunAltitude(cfgFloat("sunAltitude", 9));
         }
         light.setSunIntensity(cfgFloat("sunIntensity", light.getSunIntensity()));
         light.setAmbientIntensity(cfgFloat("ambient", light.getAmbientIntensity()));
         light.setTerrainLightingEnabled(cfgBool("terrainLight", false));
-        light.setShadowStrength(cfgFloat("shadow", 0));
+        light.setShadowStrength(cfgFloat("shadow", 0.3f));
         light.setShadowMapSize(cfgInt("shadowMapSize", light.getShadowMapSize()));
         light.setShadowCascades(cfgInt("shadowCascades", light.getShadowCascades()));
         light.setShadowBias(cfgFloat("shadowBias", light.getShadowBias()));
@@ -831,7 +833,7 @@ public class SecondFragment extends Fragment {
 
         if (lightOptions != null) {
             panelHeader(context, panel, "SUN");
-            panelCheck(context, panel, "sun lighting", lightOptions.isTerrainLightingEnabled(), new BoolSetting() {
+            panelCheck(context, panel, "sun lighting", true, new BoolSetting() {
                 public void set(boolean value) { lightOptions.setTerrainLightingEnabled(value); }
             });
             panelCheck(context, panel, "day-cycle demo (sun/moon/sky)", sunSkyDemoEnabled, new BoolSetting() {
@@ -1294,7 +1296,7 @@ public class SecondFragment extends Fragment {
         addTerrainControls(view);
         // Start tilted over the Alps (Grenoble). Note: setFocusPos expects base projection
         // coordinates, so WGS84 positions must be converted first.
-        applyCameraConfig(5.763110, 45.218065, 15.38f, 90f);
+        applyCameraConfig(5.770752, 45.251918, 11.53f, 39f);
     }
 
     // ---------------------------------------------------------------------------------------------
