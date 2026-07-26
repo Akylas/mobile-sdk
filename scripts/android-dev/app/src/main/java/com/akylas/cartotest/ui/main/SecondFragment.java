@@ -829,7 +829,10 @@ public class SecondFragment extends Fragment {
             "  hillshade-shadow-color: #103040;",
             "}",
             // satellite raster overlay, faint, only high zoom.
-            "#building[zoom>=14] { polygon-fill: #d9cfc4; }",
+            // '--es bld3d true' extrudes buildings, which is what exercises 3D shadow casters.
+            cfgBool("bld3d", false)
+                ? "#building[zoom>=14] { building-fill: #d9cfc4; building-height: 14; }"
+                : "#building[zoom>=14] { polygon-fill: #d9cfc4; }",
 
                 "#contour[zoom>=5] {",
                 "  line-color: #9a5a12; line-width: 0.8; line-opacity: 0.7;",
@@ -930,7 +933,10 @@ public class SecondFragment extends Fragment {
             "#satellite[zoom>=13] { raster-opacity: 0.45; }",
             "#transportation { line-color: #ffffff; line-width: 1.2; }",
             "#transportation['class'='motorway'] { line-color: #e27d60; line-width: 3; }",
-            "#building[zoom>=14] { polygon-fill: #d9cfc4; }",
+            // '--es bld3d true' extrudes buildings, which is what exercises 3D shadow casters.
+            cfgBool("bld3d", false)
+                ? "#building[zoom>=14] { building-fill: #d9cfc4; building-height: 14; }"
+                : "#building[zoom>=14] { polygon-fill: #d9cfc4; }",
             "#contour[zoom>=12] { line-color: #9a5a12; line-width: 0.8; line-opacity: 0.7; }");
 
         MBVectorTileDecoder styleDecoder = null;
