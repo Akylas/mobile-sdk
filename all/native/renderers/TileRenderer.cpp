@@ -862,6 +862,14 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
                     glUniform4f(glGetUniformLocation(shaderProgram, "u_lightColor"), mainLightColor.getR() / 255.0f, mainLightColor.getG() / 255.0f, mainLightColor.getB() / 255.0f, mainLightColor.getA() / 255.0f);
                     glUniform3fv(glGetUniformLocation(shaderProgram, "u_lightDir"), 1, _mainLightDir.data());
                     glUniform3fv(glGetUniformLocation(shaderProgram, "u_viewDir"), 1, _viewDir.data());
+                    float sunIntensity = 0.0f, sunAmbient = 0.35f;
+                    if (std::shared_ptr<LightOptions> lightOptions = options->getLightOptions()) {
+                        if (lightOptions->isTerrainLightingEnabled()) {
+                            sunIntensity = std::max(0.001f, lightOptions->getSunIntensity());
+                            sunAmbient = lightOptions->getAmbientIntensity();
+                        }
+                    }
+                    glUniform2f(glGetUniformLocation(shaderProgram, "u_sunParams"), sunIntensity, sunAmbient);
                 }
             });
             tileRenderer->setLightingShader3D(lightingShader3D);
@@ -904,15 +912,26 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
         uniform vec4 u_lightColor;
         uniform vec3 u_lightDir;
         uniform vec3 u_viewDir;
+        uniform vec2 u_sunParams; // x = sun intensity (0 = legacy lighting), y = ambient
         vec4 applyLighting(lowp vec4 color, mediump vec3 normal, highp_opt float height, bool sideVertex) {
-            if (sideVertex) {
-                lowp vec3 dimmedColor = color.rgb * (1.0 - 0.5 / (1.0 + height * height));
-                mediump vec3 lighting = max(0.0, dot(normal, u_lightDir)) * u_lightColor.rgb + u_ambientColor.rgb;
-                return vec4(dimmedColor.rgb * lighting, color.a);
-            } else {
-                mediump float lighting = max(0.0, dot(normal, u_viewDir)) * 0.5 + 0.5;
-                return vec4(color.rgb * lighting, color.a);
+            lowp vec3 baseColor = sideVertex ? color.rgb * (1.0 - 0.5 / (1.0 + height * height)) : color.rgb;
+            if (u_sunParams.x > 0.0) {
+                // Sun lighting: roofs AND walls answer to the light. The legacy path lit roofs by
+                // the VIEW direction, so from above - where roofs are most of what you see - the
+                // buildings did not react to the sun at all. Same normalised Lambert as the
+                // terrain surface, so the two agree.
+                mediump float ndl = max(0.0, dot(normal, u_lightDir));
+                mediump float lit = u_sunParams.y + (1.0 - u_sunParams.y) * ndl * u_sunParams.x;
+                // No u_lightColor here: that is the legacy main-light tint and it darkens the
+                // result well below the terrain lit by the same formula. The two must match.
+                return vec4(baseColor * lit, color.a);
             }
+            if (sideVertex) {
+                mediump vec3 lighting = max(0.0, dot(normal, u_lightDir)) * u_lightColor.rgb + u_ambientColor.rgb;
+                return vec4(baseColor * lighting, color.a);
+            }
+            mediump float lighting = max(0.0, dot(normal, u_viewDir)) * 0.5 + 0.5;
+            return vec4(baseColor * lighting, color.a);
         }
     )GLSL";
 

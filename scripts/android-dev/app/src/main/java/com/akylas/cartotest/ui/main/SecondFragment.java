@@ -731,7 +731,7 @@ public class SecondFragment extends Fragment {
                 150, ViewGroup.LayoutParams.WRAP_CONTENT);
         tlp.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID;
         tlp.startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID;
-        tlp.bottomMargin = 190; // clear of the system navigation bar
+        tlp.bottomMargin = 100; // clear of the system navigation bar
         tlp.leftMargin = 10;
         root.addView(toggle, tlp);
     }
@@ -983,7 +983,7 @@ public class SecondFragment extends Fragment {
         // transportation, building, CONTOUR.
         // '--es sat false' drops the satellite raster: without it the vector fills are visible,
         // which is where the terrain rendering artifacts show.
-        final boolean withSatellite = cfgBool("sat", true);
+        final boolean withSatellite = cfgBool("sat", false);
         String css = String.join("\n",
             "Map { background-color: " + cfgColor("bg", "#eef2f0") + "; }",
             "#water { polygon-fill: #9cc3e0; }",
@@ -1012,6 +1012,7 @@ public class SecondFragment extends Fragment {
         );
         MBVectorTileDecoder decoder = null;
 //        try {
+//            decoder = getStyleDecoder(dataPath);
 //            decoder = getStyleDecoder(dataPath);
 //        } catch (IOException e) {
             decoder = new MBVectorTileDecoder(new CartoCSSStyleSet(css));
@@ -1064,7 +1065,7 @@ public class SecondFragment extends Fragment {
         addTerrainControls(view);
         // Start tilted over the Alps (Grenoble). Note: setFocusPos expects base projection
         // coordinates, so WGS84 positions must be converted first.
-        applyCameraConfig(5.763110, 45.218065, 11.38f, 90f);
+        applyCameraConfig(5.763110, 45.218065, 15.38f, 90f);
     }
 
     // ---------------------------------------------------------------------------------------------
