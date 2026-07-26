@@ -701,7 +701,7 @@ public class SecondFragment extends Fragment {
             panelSlider(context, panel, "caster margin (tiles)", 0, 6, lightOptions.getShadowCasterMargin(), true, new FloatSetting() {
                 public void set(float value) { lightOptions.setShadowCasterMargin(Math.round(value)); }
             });
-            panelSlider(context, panel, "depth bias", 0.0f, 0.01f, lightOptions.getShadowBias(), false, new FloatSetting() {
+            panelSlider(context, panel, "depth bias (m)", 0.0f, 5.0f, lightOptions.getShadowBias(), false, new FloatSetting() {
                 public void set(float value) { lightOptions.setShadowBias(value); }
             });
         }

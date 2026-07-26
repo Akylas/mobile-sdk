@@ -200,13 +200,15 @@ namespace carto {
 
         /**
          * Returns the shadow depth bias.
-         * @return The shadow depth bias in light-clip units. The default is 0.0015.
+         * @return The shadow depth bias in meters. The default is 0.5.
          */
         float getShadowBias() const;
         /**
-         * Sets the shadow depth bias, the light-space depth slack that keeps a lit surface
-         * from shadowing itself. Too small gives acne (dark speckle on lit slopes), too large
-         * detaches shadows from the ridges casting them.
+         * Sets the shadow depth bias in meters: the depth slack that keeps a lit surface from
+         * shadowing itself. Too small gives acne (dark speckle on lit slopes), too large detaches
+         * shadows from what casts them. It is metric on purpose - expressed as a fraction of the
+         * light frustum it would grow with the shadowed area, and the shadow would drift away
+         * from its caster as the view zoomed out.
          * @param bias The new shadow bias.
          */
         void setShadowBias(float bias);

@@ -15,7 +15,7 @@ namespace carto {
         _terrainLightingEnabled(false),
         _shadowStrength(0.0f),
         _shadowMapSize(2048),
-        _shadowBias(0.0015f),
+        _shadowBias(0.5f),
         _shadowSoftness(1.0f),
         _shadowDistance(0.0f),
         _shadowCasterMargin(1),
@@ -190,6 +190,7 @@ namespace carto {
     }
 
     void LightOptions::setShadowBias(float bias) {
+        bias = std::min(50.0f, std::max(0.0f, bias));
         if (_shadowBias.exchange(bias) != bias) {
             notifyOptionChanged("ShadowBias");
         }

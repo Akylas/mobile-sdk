@@ -1444,6 +1444,7 @@ namespace carto {
                     unsigned int shadowTexture = 0;
                     int shadowMapSize = 0;
                     float shadowBias = 0.0f, shadowSoftness = 1.0f;
+                    double shadowDepthRangeMeters = 1.0;
                     cglib::mat4x4<double> lightViewProj = cglib::mat4x4<double>::identity();
                     if (std::shared_ptr<LightOptions> lightOptions = _options->getLightOptions()) {
                         if (lightOptions->isTerrainLightingEnabled() && lightOptions->getShadowStrength() > 0.0f && !drapeTileIds.empty()) {
@@ -1497,7 +1498,7 @@ namespace carto {
                                     }
                                 }
                             }
-                            if (drapeLayers.front()->calculateShadowViewProj(drapeTileIds, casterTileIds, lightOptions->getSunDirection(), minHeight, maxHeight, lightOptions->getShadowDistance(), lightViewProj)) {
+                            if (drapeLayers.front()->calculateShadowViewProj(drapeTileIds, casterTileIds, lightOptions->getSunDirection(), minHeight, maxHeight, lightOptions->getShadowDistance(), shadowDepthRangeMeters, lightViewProj)) {
                                 if (_terrainShadowMap->beginPass()) {
                                     for (const vt::TileId& tileId : casterTileIds) {
                                         // EVERY drape layer casts, not just the first. The terrain
@@ -1513,7 +1514,10 @@ namespace carto {
                                     shadowTexture = _terrainShadowMap->getTexture();
                                     shadowMapSize = _terrainShadowMap->getSize();
                                     shadowStrength = lightOptions->getShadowStrength();
-                                    shadowBias = lightOptions->getShadowBias();
+                                    // The bias is metric; the shader wants a fraction of the
+                                    // normalised light depth. Dividing here is what keeps the
+                                    // shadow attached to its caster at every zoom and margin.
+                                    shadowBias = static_cast<float>(lightOptions->getShadowBias() / std::max(1.0, shadowDepthRangeMeters));
                                     shadowSoftness = lightOptions->getShadowSoftness();
                                 }
                             }

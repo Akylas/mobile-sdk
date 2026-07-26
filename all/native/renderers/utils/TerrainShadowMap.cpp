@@ -94,7 +94,7 @@ namespace carto {
         // surface shadows itself in a regular hatch. A constant bias large enough to cover that
         // would detach the shadows from the ridges casting them.
         glEnable(GL_POLYGON_OFFSET_FILL);
-        glPolygonOffset(3.0f, 12.0f);
+        glPolygonOffset(1.0f, 2.0f);
         // White = depth 1 = nothing in the way, which is what an untouched texel must mean.
         glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
