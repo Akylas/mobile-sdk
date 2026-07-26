@@ -1333,10 +1333,17 @@ namespace carto {
                     // frame count it says how much of the shadow cost the cache is saving.
                     static int shadowPasses = 0;
                     static int shadowCasterDraws = 0;
+                    static double shadowMsSum = 0;
                     // A cached shadow map is refreshed at least this often anyway: elevation tiles
                     // can stream in without changing the light box or the caster tile list, and a
                     // shadow cast by data that has since arrived would otherwise never appear.
                     static const int SHADOW_MAP_MAX_AGE = 30;
+                    // Frames between two refreshes driven by newly baked tile content.
+                    static const int SHADOW_MAP_CONTENT_INTERVAL = 4;
+                    // How far the extrusions may grow before the map is redrawn, in units of one
+                    // tile's full height: about a dozen refreshes over a whole fade, whatever the
+                    // frame rate, instead of one per frame.
+                    static const float SHADOW_MAP_FADE_STEP = 0.08f;
                     static const int DRAPE_BAKE_BUDGET_EMPTY = 4;
                     static const int DRAPE_BAKE_BUDGET_STALE = 1;
                     int bakeBudget = DRAPE_BAKE_BUDGET_EMPTY;
@@ -1579,41 +1586,63 @@ namespace carto {
                                 // while the camera moves inside one step: recompute only when that
                                 // matrix, the caster set or the tile content actually changed.
                                 // The age cap picks up elevation that streamed in without either.
-                                bool refresh = !_shadowMapValid || bakedThisFrame > 0
+                                // An extrusion that is still growing into place changes the
+                                // caster geometry without changing the tile list, so a cached map
+                                // would hold the shadow of a building that is not that shape yet.
+                                // Tracked by how far the geometry has MOVED, not by whether it is
+                                // moving: a fade is tens of frames and a caster pass per frame of
+                                // it is what makes tiles crawl into view.
+                                float fadeSignature = 0.0f;
+                                for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
+                                    fadeSignature = std::max(fadeSignature, tileLayer->shadowCasterFadeSignature());
+                                }
+                                bool refresh = !_shadowMapValid
                                     || _shadowMapSize != _terrainShadowMap->getSize()
                                     || _shadowMapCascades != cascades
                                     || _shadowMapCasterTiles != casterTileIds;
                                 for (int cascade = 0; cascade < cascades && !refresh; cascade++) {
                                     refresh = !(_shadowMapViewProjs[cascade] == lightViewProjs[cascade]);
                                 }
-                                if (!refresh && ++_shadowMapAge >= SHADOW_MAP_MAX_AGE) {
+                                _shadowMapAge++;
+                                // Content-driven refreshes are RATIONED, camera-driven ones are
+                                // not. A shadow left behind by a moving camera is in the wrong
+                                // place and unmissable; a building whose shadow is a step behind
+                                // its own growth is not.
+                                if (!refresh && std::abs(fadeSignature - _shadowMapFadeSignature) > SHADOW_MAP_FADE_STEP) {
+                                    refresh = true;
+                                }
+                                if (!refresh && bakedThisFrame > 0 && _shadowMapAge >= SHADOW_MAP_CONTENT_INTERVAL) {
+                                    refresh = true;
+                                }
+                                if (!refresh && _shadowMapAge >= SHADOW_MAP_MAX_AGE) {
                                     refresh = true;
                                 }
                                 if (refresh) {
                                     _shadowMapValid = false;
+                                    std::chrono::steady_clock::time_point shadowStart = std::chrono::steady_clock::now();
                                     if (_terrainShadowMap->beginPass()) {
                                         for (int cascade = 0; cascade < cascades; cascade++) {
                                             // The cascades are pages of one texture, so the pass
                                             // is cleared once and each cascade draws into its own
                                             // viewport.
                                             _terrainShadowMap->setCascadeViewport(cascade);
-                                            for (const vt::TileId& tileId : cascadeCasterTiles[cascade]) {
-                                                // EVERY drape layer casts, not just the first. The terrain
-                                                // surface is shared, but 3D extrusions belong to whichever
-                                                // layer holds them - in a composite that is a later style
-                                                // group, so casting from the front layer alone means
-                                                // buildings never cast a shadow at all.
-                                                for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
-                                                    tileLayer->renderShadowCasters(tileId, lightViewProjs[cascade], tileLayer == drapeLayers.front());
-                                                }
+                                            // EVERY drape layer casts, not just the first. The terrain
+                                            // surface is shared, but 3D extrusions belong to whichever
+                                            // layer holds them - in a composite that is a later style
+                                            // group, so casting from the front layer alone means
+                                            // buildings never cast a shadow at all.
+                                            for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
+                                                tileLayer->renderShadowCasters(cascadeCasterTiles[cascade], lightViewProjs[cascade], tileLayer == drapeLayers.front());
                                             }
                                         }
                                         _terrainShadowMap->endPass(prevFBO, viewState.getWidth(), viewState.getHeight());
+                                        shadowMsSum += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - shadowStart).count();
                                         _shadowMapValid = true;
                                         _shadowMapViewProjs = lightViewProjs;
                                         _shadowMapCasterTiles = casterTileIds;
                                         _shadowMapSize = _terrainShadowMap->getSize();
                                         _shadowMapCascades = cascades;
+                                        _shadowMapFadeSignature = fadeSignature;
                                         _shadowMapAge = 0;
                                         for (int cascade = 0; cascade < cascades; cascade++) {
                                             shadowCasterDraws += static_cast<int>(cascadeCasterTiles[cascade].size());
@@ -1690,7 +1719,7 @@ namespace carto {
                         Log::Infof("MapRenderer: RTT drape ACTIVE - layers %d, collected tiles %d, drawn tiles %d, resolution %d, baked %d tiles / %d primitives, surface draws %d (%d unbaked fills)",
                             static_cast<int>(drapeLayers.size()), static_cast<int>(collectedTiles.size()),
                             static_cast<int>(drapedTiles.size()), resolution, bakedTiles, bakedPrimitives, surfaceDraws, filledSurfaces);
-                        Log::Infof("MapRenderer: shadow caster passes %d over %d frames, %d cascades, %d caster tiles per pass, near texel %.2f m (camera zoom %.2f tilt %.1f)", shadowPasses, drapeStateFrame, shadowCascades, shadowCasterDraws / std::max(1, shadowPasses), shadowTexelMeters, viewState.getZoom(), viewState.getTilt());
+                        Log::Infof("MapRenderer: shadow caster passes %d over %d frames, %d cascades, %d caster tiles per pass, %.1f ms per pass, near texel %.2f m (camera zoom %.2f tilt %.1f)", shadowPasses, drapeStateFrame, shadowCascades, shadowCasterDraws / std::max(1, shadowPasses), shadowMsSum / std::max(1, shadowPasses), shadowTexelMeters, viewState.getZoom(), viewState.getTilt());
                     }
                     }
                     catch (const std::exception& ex) {

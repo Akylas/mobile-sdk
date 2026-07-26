@@ -307,11 +307,20 @@ namespace carto {
         return false;
     }
 
-    int TileRenderer::renderShadowCasters(const vt::TileId& tileId, const cglib::mat4x4<double>& lightViewProj, bool castGround) {
+    float TileRenderer::shadowCasterFadeSignature() const {
         std::lock_guard<std::mutex> lock(_mutex);
 
         if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
-            return tileRenderer->renderShadowCasters(tileId, lightViewProj, castGround);
+            return tileRenderer->shadowCasterFadeSignature();
+        }
+        return 0.0f;
+    }
+
+    int TileRenderer::renderShadowCasters(const std::vector<vt::TileId>& tileIds, const cglib::mat4x4<double>& lightViewProj, bool castGround) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            return tileRenderer->renderShadowCasters(tileIds, lightViewProj, castGround);
         }
         return 0;
     }

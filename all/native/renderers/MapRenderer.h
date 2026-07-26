@@ -233,6 +233,7 @@ namespace carto {
         int _shadowMapSize = 0;
         int _shadowMapCascades = 0;
         int _shadowMapAge = 0;
+        float _shadowMapFadeSignature = 0.0f;
         std::array<cglib::mat4x4<double>, 4> _shadowMapViewProjs;
         std::vector<vt::TileId> _shadowMapCasterTiles;
 

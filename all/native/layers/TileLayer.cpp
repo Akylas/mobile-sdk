@@ -816,8 +816,12 @@ namespace carto {
         return _tileRenderer->calculateShadowViewProj(tileIds, casterTileIds, sunDir, tileHeights, minHeight, maxHeight, maxDistanceMeters, mapSize, cascade, cascadeCount, boxCasterTileIds, depthRangeMeters, texelMeters, lightViewProj);
     }
 
-    int TileLayer::renderShadowCasters(const vt::TileId& tileId, const cglib::mat4x4<double>& lightViewProj, bool castGround) {
-        return _tileRenderer->renderShadowCasters(tileId, lightViewProj, castGround);
+    float TileLayer::shadowCasterFadeSignature() const {
+        return _tileRenderer->shadowCasterFadeSignature();
+    }
+
+    int TileLayer::renderShadowCasters(const std::vector<vt::TileId>& tileIds, const cglib::mat4x4<double>& lightViewProj, bool castGround) {
+        return _tileRenderer->renderShadowCasters(tileIds, lightViewProj, castGround);
     }
 
     void TileLayer::setTerrainShadowMap(unsigned int texture, int mapSize, int cascades, const std::array<float, 4>& depthBiases, float strength, float softness, const std::array<cglib::mat4x4<double>, 4>& lightViewProjs) {
