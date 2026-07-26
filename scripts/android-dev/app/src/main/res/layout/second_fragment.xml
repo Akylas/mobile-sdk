@@ -20,6 +20,7 @@
 
     <LinearLayout
         android:id="@+id/controlsPanel"
+        android:visibility="gone"
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
@@ -180,6 +181,7 @@
 
     <TextView
         android:id="@+id/zoomText"
+        android:visibility="gone"
         android:layout_width="60dp"
         android:layout_height="30dp"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -188,6 +190,7 @@
         app:layout_constraintVertical_bias="0.0"></TextView>
     <Button
         android:id="@+id/modeButton"
+        android:visibility="gone"
         android:text="mode"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -197,6 +200,7 @@
 
     <Button
         android:id="@+id/testRoutingButton"
+        android:visibility="gone"
         android:text="Test Routing"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -206,6 +210,7 @@
 
     <TextView
         android:id="@+id/routingResultText"
+        android:visibility="gone"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:paddingStart="8dp"

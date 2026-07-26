@@ -147,7 +147,7 @@ namespace carto {
 
         /**
          * Returns the shadow map resolution.
-         * @return The shadow map size in pixels. The default is 1024.
+         * @return The shadow map size in pixels. The default is 2048.
          */
         int getShadowMapSize() const;
         /**
@@ -156,6 +156,18 @@ namespace carto {
          * @param size The new shadow map size (clamped to 256..4096).
          */
         void setShadowMapSize(int size);
+
+        /**
+         * Returns the shadow softness.
+         * @return The PCF radius in shadow-map texels. The default is 1.
+         */
+        float getShadowSoftness() const;
+        /**
+         * Sets the shadow edge softness, as a radius in shadow-map texels. Larger values blur the
+         * shadow edges, which also hides the stair-stepping of a low-resolution shadow map.
+         * @param softness The new softness (clamped to 0..8).
+         */
+        void setShadowSoftness(float softness);
 
         /**
          * Returns the shadow depth bias.
@@ -200,6 +212,7 @@ namespace carto {
         std::atomic<float> _shadowStrength;
         std::atomic<int> _shadowMapSize;
         std::atomic<float> _shadowBias;
+        std::atomic<float> _shadowSoftness;
 
         std::vector<std::shared_ptr<OnChangeListener> > _onChangeListeners;
         mutable std::mutex _onChangeListenersMutex;

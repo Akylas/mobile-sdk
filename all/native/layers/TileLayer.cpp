@@ -816,12 +816,12 @@ namespace carto {
         return _tileRenderer->calculateShadowViewProj(tileIds, sunDir, lightViewProj);
     }
 
-    int TileLayer::renderShadowCasters(const vt::TileId& tileId, const cglib::mat4x4<double>& lightViewProj) {
-        return _tileRenderer->renderShadowCasters(tileId, lightViewProj);
+    int TileLayer::renderShadowCasters(const vt::TileId& tileId, const cglib::mat4x4<double>& lightViewProj, bool castGround) {
+        return _tileRenderer->renderShadowCasters(tileId, lightViewProj, castGround);
     }
 
-    void TileLayer::setTerrainShadowMap(unsigned int texture, int mapSize, float depthBias, float strength, const cglib::mat4x4<double>& lightViewProj) {
-        _tileRenderer->setTerrainShadowMap(texture, mapSize, depthBias, strength, lightViewProj);
+    void TileLayer::setTerrainShadowMap(unsigned int texture, int mapSize, float depthBias, float strength, float softness, const cglib::mat4x4<double>& lightViewProj) {
+        _tileRenderer->setTerrainShadowMap(texture, mapSize, depthBias, strength, softness, lightViewProj);
     }
 
     void TileLayer::setTerrainRenderOrder(int order) {

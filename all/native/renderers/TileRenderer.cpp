@@ -299,20 +299,20 @@ namespace carto {
         return false;
     }
 
-    int TileRenderer::renderShadowCasters(const vt::TileId& tileId, const cglib::mat4x4<double>& lightViewProj) {
+    int TileRenderer::renderShadowCasters(const vt::TileId& tileId, const cglib::mat4x4<double>& lightViewProj, bool castGround) {
         std::lock_guard<std::mutex> lock(_mutex);
 
         if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
-            return tileRenderer->renderShadowCasters(tileId, lightViewProj);
+            return tileRenderer->renderShadowCasters(tileId, lightViewProj, castGround);
         }
         return 0;
     }
 
-    void TileRenderer::setTerrainShadowMap(unsigned int texture, int mapSize, float depthBias, float strength, const cglib::mat4x4<double>& lightViewProj) {
+    void TileRenderer::setTerrainShadowMap(unsigned int texture, int mapSize, float depthBias, float strength, float softness, const cglib::mat4x4<double>& lightViewProj) {
         std::lock_guard<std::mutex> lock(_mutex);
 
         if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
-            tileRenderer->setTerrainShadowMap(static_cast<GLuint>(texture), mapSize, depthBias, strength, lightViewProj);
+            tileRenderer->setTerrainShadowMap(static_cast<GLuint>(texture), mapSize, depthBias, strength, softness, lightViewProj);
         }
     }
 
@@ -485,6 +485,15 @@ namespace carto {
         if (auto options = _options.lock()) {
             MapPos internalFocusPos = viewState.getProjectionSurface()->calculateMapPos(viewState.getFocusPos());
             _mainLightDir = cglib::vec3<float>::convert(cglib::unit(viewState.getProjectionSurface()->calculateVector(internalFocusPos, options->getMainLightDirection())));
+            // 3D extrusions are lit by this direction. With terrain lighting on, the whole map is
+            // supposed to answer to one sun, so the sun replaces the legacy fixed main light -
+            // otherwise buildings stay lit from a direction that has nothing to do with the hour.
+            if (std::shared_ptr<LightOptions> lightOptions = options->getLightOptions()) {
+                if (lightOptions->isTerrainLightingEnabled()) {
+                    cglib::vec3<float> sunDir = lightOptions->getSunDirection();
+                    _mainLightDir = cglib::vec3<float>(sunDir(0), sunDir(1), sunDir(2));
+                }
+            }
             MapVec normalIlluminationDir = options->getMainLightDirection();
             if (_normalIlluminationDirection != MapVec(0,0,0)) {
                 normalIlluminationDir = _normalIlluminationDirection;

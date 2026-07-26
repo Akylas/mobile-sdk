@@ -1441,7 +1441,7 @@ namespace carto {
                     float shadowStrength = 0.0f;
                     unsigned int shadowTexture = 0;
                     int shadowMapSize = 0;
-                    float shadowBias = 0.0f;
+                    float shadowBias = 0.0f, shadowSoftness = 1.0f;
                     cglib::mat4x4<double> lightViewProj = cglib::mat4x4<double>::identity();
                     if (std::shared_ptr<LightOptions> lightOptions = _options->getLightOptions()) {
                         if (lightOptions->isTerrainLightingEnabled() && lightOptions->getShadowStrength() > 0.0f && !drapeTileIds.empty()) {
@@ -1452,19 +1452,27 @@ namespace carto {
                             if (drapeLayers.front()->calculateShadowViewProj(drapeTileIds, lightOptions->getSunDirection(), lightViewProj)) {
                                 if (_terrainShadowMap->beginPass()) {
                                     for (const vt::TileId& tileId : drapeTileIds) {
-                                        drapeLayers.front()->renderShadowCasters(tileId, lightViewProj);
+                                        // EVERY drape layer casts, not just the first. The terrain
+                                        // surface is shared, but 3D extrusions belong to whichever
+                                        // layer holds them - in a composite that is a later style
+                                        // group, so casting from the front layer alone means
+                                        // buildings never cast a shadow at all.
+                                        for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
+                                            tileLayer->renderShadowCasters(tileId, lightViewProj, tileLayer == drapeLayers.front());
+                                        }
                                     }
                                     _terrainShadowMap->endPass(prevFBO, viewState.getWidth(), viewState.getHeight());
                                     shadowTexture = _terrainShadowMap->getTexture();
                                     shadowMapSize = _terrainShadowMap->getSize();
                                     shadowStrength = lightOptions->getShadowStrength();
                                     shadowBias = lightOptions->getShadowBias();
+                                    shadowSoftness = lightOptions->getShadowSoftness();
                                 }
                             }
                         }
                     }
                     for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
-                        tileLayer->setTerrainShadowMap(shadowTexture, shadowMapSize, shadowBias, shadowStrength, lightViewProj);
+                        tileLayer->setTerrainShadowMap(shadowTexture, shadowMapSize, shadowBias, shadowStrength, shadowSoftness, lightViewProj);
                     }
 
                     // The shared surface is the only depth-writing terrain geometry.

@@ -331,6 +331,15 @@ public class SecondFragment extends Fragment {
     private interface BoolSetting { void set(boolean value); }
     private interface FloatSetting { void set(float value); }
 
+    private void panelHeader(android.content.Context context, android.widget.LinearLayout panel, String label) {
+        final TextView text = new TextView(context);
+        text.setText(label);
+        text.setTextColor(0xFF204060);
+        text.setPadding(0, 18, 0, 2);
+        text.setTypeface(null, android.graphics.Typeface.BOLD);
+        panel.addView(text);
+    }
+
     private CheckBox panelCheck(android.content.Context context, android.widget.LinearLayout panel,
                                 String label, boolean initial, final BoolSetting setting) {
         final CheckBox check = new CheckBox(context);
@@ -574,6 +583,7 @@ public class SecondFragment extends Fragment {
         terrainZoomText.setText("zoom -");
         panel.addView(terrainZoomText);
 
+        panelHeader(context, panel, "TERRAIN");
         final CheckBox terrainCheck = new CheckBox(context);
         terrainCheck.setText("3D terrain");
         terrainCheck.setChecked(terrainOptions.isEnabled());
@@ -634,6 +644,7 @@ public class SecondFragment extends Fragment {
         panel.addView(exSeek, new android.widget.LinearLayout.LayoutParams(500, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         // --- rendering architecture knobs (same set the intent extras drive) ------------------
+        panelHeader(context, panel, "DRAPE");
         panelCheck(context, panel, "drape (RTT)", terrainOptions.isDrapeFillsEnabled(), new BoolSetting() {
             public void set(boolean value) { terrainOptions.setDrapeFillsEnabled(value); }
         });
@@ -651,6 +662,7 @@ public class SecondFragment extends Fragment {
         });
 
         if (lightOptions != null) {
+            panelHeader(context, panel, "SUN");
             panelCheck(context, panel, "sun lighting", lightOptions.isTerrainLightingEnabled(), new BoolSetting() {
                 public void set(boolean value) { lightOptions.setTerrainLightingEnabled(value); }
             });
@@ -670,28 +682,58 @@ public class SecondFragment extends Fragment {
             panelSlider(context, panel, "ambient", 0, 1, lightOptions.getAmbientIntensity(), false, new FloatSetting() {
                 public void set(float value) { lightOptions.setAmbientIntensity(value); }
             });
-            panelSlider(context, panel, "shadows", 0, 1, lightOptions.getShadowStrength(), false, new FloatSetting() {
+            panelHeader(context, panel, "SHADOWS");
+            panelSlider(context, panel, "strength", 0, 1, lightOptions.getShadowStrength(), false, new FloatSetting() {
                 public void set(float value) { lightOptions.setShadowStrength(value); }
+            });
+            panelSlider(context, panel, "softness (texels)", 0, 4, lightOptions.getShadowSoftness(), false, new FloatSetting() {
+                public void set(float value) { lightOptions.setShadowSoftness(value); }
+            });
+            // Reallocates the shadow map, so apply on release only.
+            panelSlider(context, panel, "map size", 512, 4096, lightOptions.getShadowMapSize(), true, new FloatSetting() {
+                public void set(float value) { lightOptions.setShadowMapSize(Math.max(512, ((int) value / 512) * 512)); }
+            });
+            panelSlider(context, panel, "depth bias", 0.0f, 0.01f, lightOptions.getShadowBias(), false, new FloatSetting() {
+                public void set(float value) { lightOptions.setShadowBias(value); }
             });
         }
         if (skyOptions != null) {
+            panelHeader(context, panel, "SKY");
             panelCheck(context, panel, "sky", skyOptions.isEnabled(), new BoolSetting() {
                 public void set(boolean value) { skyOptions.setEnabled(value); }
             });
         }
 
-        // The panel is taller than the screen now: make it scroll instead of covering the map.
-        android.widget.ScrollView scroll = new android.widget.ScrollView(context);
+        // The panel is taller than the screen: scroll it, and keep it hidden behind a small
+        // toggle so the map is unobstructed unless something is actually being tested.
+        final android.widget.ScrollView scroll = new android.widget.ScrollView(context);
         scroll.addView(panel);
+        scroll.setVisibility(View.GONE);
 
         androidx.constraintlayout.widget.ConstraintLayout root = view.findViewById(R.id.main);
         androidx.constraintlayout.widget.ConstraintLayout.LayoutParams lp = new androidx.constraintlayout.widget.ConstraintLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, 900);
+                760, 1500);
         lp.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID;
         lp.startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID;
-        lp.bottomMargin = 180;
+        lp.bottomMargin = 150;
         lp.leftMargin = 10;
         root.addView(scroll, lp);
+
+        final android.widget.Button toggle = new android.widget.Button(context);
+        toggle.setText("\u2699");
+        toggle.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                scroll.setVisibility(scroll.getVisibility() == View.GONE ? View.VISIBLE : View.GONE);
+            }
+        });
+        androidx.constraintlayout.widget.ConstraintLayout.LayoutParams tlp = new androidx.constraintlayout.widget.ConstraintLayout.LayoutParams(
+                150, ViewGroup.LayoutParams.WRAP_CONTENT);
+        tlp.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID;
+        tlp.startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID;
+        tlp.bottomMargin = 10;
+        tlp.leftMargin = 10;
+        root.addView(toggle, tlp);
     }
 
     void toggleReliefOutlineEffect() {

@@ -27,6 +27,7 @@
 %attribute(carto::LightOptions, float, ShadowStrength, getShadowStrength, setShadowStrength)
 %attribute(carto::LightOptions, int, ShadowMapSize, getShadowMapSize, setShadowMapSize)
 %attribute(carto::LightOptions, float, ShadowBias, getShadowBias, setShadowBias)
+%attribute(carto::LightOptions, float, ShadowSoftness, getShadowSoftness, setShadowSoftness)
 
 %ignore carto::LightOptions::OnChangeListener;
 %ignore carto::LightOptions::registerOnChangeListener;
