@@ -1,5 +1,7 @@
 #include "CacheTileDataSource.h"
 #include "core/MapTile.h"
+#include "core/Variant.h"
+#include "datasources/components/TileData.h"
 #include "components/Exceptions.h"
 #include "utils/Log.h"
 
@@ -42,6 +44,20 @@ namespace carto {
             encoding = _dataSource->getEncoding();
         }
         return encoding;
+    }
+
+    void CacheTileDataSource::applyCacheTileMetadata(const std::shared_ptr<TileData>& tileData, const MapTile& tile) const {
+        if (!tileData) {
+            return;
+        }
+
+        std::map<std::string, std::shared_ptr<Variant> > metadata = _dataSource->buildTileMetadata(tile);
+        for (const auto& entry : TileDataSource::buildTileMetadata(tile)) {
+            metadata[entry.first] = entry.second; // the cache's own settings win, as in getEncoding
+        }
+        for (const auto& entry : metadata) {
+            tileData->setMetadata(entry.first, entry.second);
+        }
     }
 
     void CacheTileDataSource::notifyTilesChanged(bool removeTiles) {
