@@ -1,0 +1,129 @@
+#include "TerrainShadowMap.h"
+#include "renderers/utils/GLContext.h"
+
+#include <algorithm>
+
+namespace carto {
+
+    TerrainShadowMap::TerrainShadowMap() :
+        _size(1024),
+        _frameBuffer(0),
+        _texture(0),
+        _depthBuffer(0),
+        _failed(false)
+    {
+    }
+
+    TerrainShadowMap::~TerrainShadowMap() {
+        // GL resources must be released explicitly via deleteResources() while the context is
+        // current; the destructor may run after it is gone.
+    }
+
+    int TerrainShadowMap::getSize() const {
+        return _size;
+    }
+
+    void TerrainShadowMap::setSize(int size) {
+        int clamped = std::min(4096, std::max(256, size));
+        if (clamped != _size) {
+            _size = clamped;
+            deleteResources();
+            _failed = false;
+        }
+    }
+
+    bool TerrainShadowMap::createResources() {
+        if (_frameBuffer != 0) {
+            return true;
+        }
+        if (_failed) {
+            return false;
+        }
+        glGenTextures(1, &_texture);
+        glBindTexture(GL_TEXTURE_2D, _texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, _size, _size, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+        // NEAREST: the packed depth is not a filterable quantity - interpolating the bytes of
+        // two different depths produces a third, meaningless depth. Softening is done by the
+        // shader's PCF taps instead.
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        glGenRenderbuffers(1, &_depthBuffer);
+        glBindRenderbuffer(GL_RENDERBUFFER, _depthBuffer);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, _size, _size);
+        glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+        GLint prevFrameBuffer = 0;
+        glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFrameBuffer);
+        glGenFramebuffers(1, &_frameBuffer);
+        glBindFramebuffer(GL_FRAMEBUFFER, _frameBuffer);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, _texture, 0);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, _depthBuffer);
+        bool complete = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+        glBindFramebuffer(GL_FRAMEBUFFER, prevFrameBuffer);
+        if (!complete) {
+            deleteResources();
+            _failed = true;
+            return false;
+        }
+        return true;
+    }
+
+    unsigned int TerrainShadowMap::getTexture() {
+        return createResources() ? _texture : 0;
+    }
+
+    bool TerrainShadowMap::beginPass() {
+        if (!createResources()) {
+            return false;
+        }
+        glBindFramebuffer(GL_FRAMEBUFFER, _frameBuffer);
+        glViewport(0, 0, _size, _size);
+        glDisable(GL_BLEND);
+        glDisable(GL_STENCIL_TEST);
+        glDisable(GL_CULL_FACE); // terrain surfaces can face away from the sun near ridge crests
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(GL_LESS);
+        glDepthMask(GL_TRUE);
+        // Slope-scaled offset on the CASTER, which is the only bias that works here: one shadow
+        // texel covers tens of metres of ground, so on a slope lit at a grazing angle the depth
+        // varies across a single texel by far more than any constant bias can absorb, and the
+        // surface shadows itself in a regular hatch. A constant bias large enough to cover that
+        // would detach the shadows from the ridges casting them.
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(2.5f, 8.0f);
+        // White = depth 1 = nothing in the way, which is what an untouched texel must mean.
+        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        return true;
+    }
+
+    void TerrainShadowMap::endPass(unsigned int previousFrameBuffer, int viewportWidth, int viewportHeight) {
+        glDisable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(0.0f, 0.0f);
+        glBindFramebuffer(GL_FRAMEBUFFER, previousFrameBuffer);
+        glViewport(0, 0, viewportWidth, viewportHeight);
+        glEnable(GL_BLEND);
+        glEnable(GL_CULL_FACE);
+        glDepthMask(GL_FALSE);
+    }
+
+    void TerrainShadowMap::deleteResources() {
+        if (_frameBuffer != 0) {
+            glDeleteFramebuffers(1, &_frameBuffer);
+            _frameBuffer = 0;
+        }
+        if (_texture != 0) {
+            glDeleteTextures(1, &_texture);
+            _texture = 0;
+        }
+        if (_depthBuffer != 0) {
+            glDeleteRenderbuffers(1, &_depthBuffer);
+            _depthBuffer = 0;
+        }
+    }
+
+}

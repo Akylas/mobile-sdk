@@ -13,6 +13,9 @@ namespace carto {
         _sunIntensity(1.0f),
         _ambientIntensity(0.35f),
         _terrainLightingEnabled(false),
+        _shadowStrength(0.0f),
+        _shadowMapSize(1024),
+        _shadowBias(0.0015f),
         _onChangeListeners(),
         _onChangeListenersMutex()
     {
@@ -121,6 +124,38 @@ namespace carto {
     void LightOptions::setTerrainLightingEnabled(bool enabled) {
         if (_terrainLightingEnabled.exchange(enabled) != enabled) {
             notifyOptionChanged("TerrainLightingEnabled");
+        }
+    }
+
+    float LightOptions::getShadowStrength() const {
+        return _shadowStrength.load();
+    }
+
+    void LightOptions::setShadowStrength(float strength) {
+        float value = std::min(1.0f, std::max(0.0f, strength));
+        if (_shadowStrength.exchange(value) != value) {
+            notifyOptionChanged("ShadowStrength");
+        }
+    }
+
+    int LightOptions::getShadowMapSize() const {
+        return _shadowMapSize.load();
+    }
+
+    void LightOptions::setShadowMapSize(int size) {
+        int value = std::min(4096, std::max(256, size));
+        if (_shadowMapSize.exchange(value) != value) {
+            notifyOptionChanged("ShadowMapSize");
+        }
+    }
+
+    float LightOptions::getShadowBias() const {
+        return _shadowBias.load();
+    }
+
+    void LightOptions::setShadowBias(float bias) {
+        if (_shadowBias.exchange(bias) != bias) {
+            notifyOptionChanged("ShadowBias");
         }
     }
 

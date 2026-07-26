@@ -281,6 +281,32 @@ namespace carto {
         return -4;
     }
 
+    bool TileRenderer::calculateShadowViewProj(const std::vector<vt::TileId>& tileIds, const cglib::vec3<float>& sunDir, cglib::mat4x4<double>& lightViewProj) const {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            return tileRenderer->calculateShadowViewProj(tileIds, sunDir, lightViewProj);
+        }
+        return false;
+    }
+
+    int TileRenderer::renderShadowCasters(const vt::TileId& tileId, const cglib::mat4x4<double>& lightViewProj) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            return tileRenderer->renderShadowCasters(tileId, lightViewProj);
+        }
+        return 0;
+    }
+
+    void TileRenderer::setTerrainShadowMap(unsigned int texture, int mapSize, float depthBias, float strength, const cglib::mat4x4<double>& lightViewProj) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            tileRenderer->setTerrainShadowMap(static_cast<GLuint>(texture), mapSize, depthBias, strength, lightViewProj);
+        }
+    }
+
     bool TileRenderer::onDrawFrame(float deltaSeconds, const ViewState& viewState) {
         std::lock_guard<std::mutex> lock(_mutex);
         

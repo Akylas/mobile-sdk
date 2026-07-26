@@ -222,6 +222,9 @@ public class SecondFragment extends Fragment {
         light.setSunIntensity(cfgFloat("sunIntensity", light.getSunIntensity()));
         light.setAmbientIntensity(cfgFloat("ambient", light.getAmbientIntensity()));
         light.setTerrainLightingEnabled(cfgBool("terrainLight", false));
+        light.setShadowStrength(cfgFloat("shadow", 0));
+        light.setShadowMapSize(cfgInt("shadowMapSize", light.getShadowMapSize()));
+        light.setShadowBias(cfgFloat("shadowBias", light.getShadowBias()));
         mapView.getOptions().setLightOptions(light);
     }
 

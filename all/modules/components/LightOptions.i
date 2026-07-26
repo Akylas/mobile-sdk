@@ -24,6 +24,9 @@
 %attribute(carto::LightOptions, float, SunIntensity, getSunIntensity, setSunIntensity)
 %attribute(carto::LightOptions, float, AmbientIntensity, getAmbientIntensity, setAmbientIntensity)
 %attribute(carto::LightOptions, bool, TerrainLightingEnabled, isTerrainLightingEnabled, setTerrainLightingEnabled)
+%attribute(carto::LightOptions, float, ShadowStrength, getShadowStrength, setShadowStrength)
+%attribute(carto::LightOptions, int, ShadowMapSize, getShadowMapSize, setShadowMapSize)
+%attribute(carto::LightOptions, float, ShadowBias, getShadowBias, setShadowBias)
 
 %ignore carto::LightOptions::OnChangeListener;
 %ignore carto::LightOptions::registerOnChangeListener;

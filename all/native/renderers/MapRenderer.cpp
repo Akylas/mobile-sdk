@@ -28,6 +28,7 @@
 #include "renderers/PostProcessEffect.h"
 #include "renderers/TerrainRenderer.h"
 #include "renderers/utils/TerrainDrapeCache.h"
+#include "renderers/utils/TerrainShadowMap.h"
 #include "terrain/ElevationManager.h"
 #include "renderers/utils/Shader.h"
 #include "renderers/utils/Texture.h"
@@ -712,6 +713,11 @@ namespace carto {
         _screenFrameBuffers.clear();
         _screenBlendShader.reset();
 
+        // Drop the terrain offscreen targets: their handles belong to the dying context, and a
+        // recreated context would otherwise draw into and sample from stale names.
+        _terrainDrapeCache.reset();
+        _terrainShadowMap.reset();
+
         // Notify renderers about the event
         _backgroundRenderer.onSurfaceDestroyed();
         _skyRenderer.onSurfaceDestroyed();
@@ -1329,6 +1335,40 @@ namespace carto {
                         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
                         glBindFramebuffer(GL_FRAMEBUFFER, prevFBO);
                         glViewport(0, 0, viewState.getWidth(), viewState.getHeight());
+                    }
+
+                    // Directional shadows. The caster pass draws exactly the terrain surfaces
+                    // that are about to be drawn on screen, from the sun, into a packed-depth
+                    // texture; the surface shader then looks itself up in it. Casters and
+                    // receivers share one vertex shader and one elevation fetch, so the shadow
+                    // geometry cannot disagree with the rendered geometry.
+                    float shadowStrength = 0.0f;
+                    unsigned int shadowTexture = 0;
+                    int shadowMapSize = 0;
+                    float shadowBias = 0.0f;
+                    cglib::mat4x4<double> lightViewProj = cglib::mat4x4<double>::identity();
+                    if (std::shared_ptr<LightOptions> lightOptions = _options->getLightOptions()) {
+                        if (lightOptions->isTerrainLightingEnabled() && lightOptions->getShadowStrength() > 0.0f && !drapeTileIds.empty()) {
+                            if (!_terrainShadowMap) {
+                                _terrainShadowMap = std::make_unique<TerrainShadowMap>();
+                            }
+                            _terrainShadowMap->setSize(lightOptions->getShadowMapSize());
+                            if (drapeLayers.front()->calculateShadowViewProj(drapeTileIds, lightOptions->getSunDirection(), lightViewProj)) {
+                                if (_terrainShadowMap->beginPass()) {
+                                    for (const vt::TileId& tileId : drapeTileIds) {
+                                        drapeLayers.front()->renderShadowCasters(tileId, lightViewProj);
+                                    }
+                                    _terrainShadowMap->endPass(prevFBO, viewState.getWidth(), viewState.getHeight());
+                                    shadowTexture = _terrainShadowMap->getTexture();
+                                    shadowMapSize = _terrainShadowMap->getSize();
+                                    shadowStrength = lightOptions->getShadowStrength();
+                                    shadowBias = lightOptions->getShadowBias();
+                                }
+                            }
+                        }
+                    }
+                    for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
+                        tileLayer->setTerrainShadowMap(shadowTexture, shadowMapSize, shadowBias, shadowStrength, lightViewProj);
                     }
 
                     // The shared surface is the only depth-writing terrain geometry.

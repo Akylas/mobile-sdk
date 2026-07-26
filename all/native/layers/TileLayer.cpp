@@ -808,6 +808,18 @@ namespace carto {
         return _tileRenderer->renderDrapedSurface(tileId, drapeTexture);
     }
 
+    bool TileLayer::calculateShadowViewProj(const std::vector<vt::TileId>& tileIds, const cglib::vec3<float>& sunDir, cglib::mat4x4<double>& lightViewProj) const {
+        return _tileRenderer->calculateShadowViewProj(tileIds, sunDir, lightViewProj);
+    }
+
+    int TileLayer::renderShadowCasters(const vt::TileId& tileId, const cglib::mat4x4<double>& lightViewProj) {
+        return _tileRenderer->renderShadowCasters(tileId, lightViewProj);
+    }
+
+    void TileLayer::setTerrainShadowMap(unsigned int texture, int mapSize, float depthBias, float strength, const cglib::mat4x4<double>& lightViewProj) {
+        _tileRenderer->setTerrainShadowMap(texture, mapSize, depthBias, strength, lightViewProj);
+    }
+
     void TileLayer::setTerrainRenderOrder(int order) {
         _tileRenderer->setTerrainRenderOrder(order);
     }

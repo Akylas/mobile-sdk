@@ -133,6 +133,44 @@ namespace carto {
         void setTerrainLightingEnabled(bool enabled);
 
         /**
+         * Returns the shadow strength.
+         * @return The shadow strength. The default is 0 (no shadows).
+         */
+        float getShadowStrength() const;
+        /**
+         * Sets how strongly the sun's shadows darken the terrain, 0 (off) to 1 (full).
+         * Shadows are cast by the terrain itself onto the terrain, so ridges shade valleys
+         * at low sun. Requires terrain lighting.
+         * @param strength The new shadow strength (clamped to 0..1).
+         */
+        void setShadowStrength(float strength);
+
+        /**
+         * Returns the shadow map resolution.
+         * @return The shadow map size in pixels. The default is 1024.
+         */
+        int getShadowMapSize() const;
+        /**
+         * Sets the shadow map resolution in pixels. Higher is sharper and costs more memory
+         * (size * size * 4 bytes) and fill rate.
+         * @param size The new shadow map size (clamped to 256..4096).
+         */
+        void setShadowMapSize(int size);
+
+        /**
+         * Returns the shadow depth bias.
+         * @return The shadow depth bias in light-clip units. The default is 0.0015.
+         */
+        float getShadowBias() const;
+        /**
+         * Sets the shadow depth bias, the light-space depth slack that keeps a lit surface
+         * from shadowing itself. Too small gives acne (dark speckle on lit slopes), too large
+         * detaches shadows from the ridges casting them.
+         * @param bias The new shadow bias.
+         */
+        void setShadowBias(float bias);
+
+        /**
          * Returns the sun direction as a unit vector in internal map coordinates.
          * The vector points from the surface *towards* the sun. Internal method.
          * @return The unit sun direction.
@@ -159,6 +197,9 @@ namespace carto {
         std::atomic<float> _sunIntensity;
         std::atomic<float> _ambientIntensity;
         std::atomic<bool> _terrainLightingEnabled;
+        std::atomic<float> _shadowStrength;
+        std::atomic<int> _shadowMapSize;
+        std::atomic<float> _shadowBias;
 
         std::vector<std::shared_ptr<OnChangeListener> > _onChangeListeners;
         mutable std::mutex _onChangeListenersMutex;
