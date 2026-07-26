@@ -318,22 +318,43 @@ namespace carto {
     }
 
     void ElevationManager::getMinMaxDisplayHeight(const MapTile& tile, double& minZ, double& maxZ) const {
+        getMinMaxDisplayHeight(tile, minZ, maxZ, false);
+    }
+
+    void ElevationManager::getMinMaxDisplayHeightExact(const MapTile& tile, double& minZ, double& maxZ) const {
+        getMinMaxDisplayHeight(tile, minZ, maxZ, true);
+    }
+
+    void ElevationManager::getMinMaxDisplayHeight(const MapTile& tile, double& minZ, double& maxZ, bool exact) const {
         // Fall back to the maximum elevation actually observed so far (starting flat) instead
         // of a large conservative constant: a many-kilometers default bound would pull far
         // tiles into the view frustum, causing them to fetch elevation data, which changes
         // their bounds again - churning the visible tile set while data streams in.
         double minMeters = 0;
         double maxMeters = _maxSeenElevation.load();
+        bool haveData = false;
         MapBounds bounds = TileUtils::CalculateMapTileBounds(tile.getFlipped(), _projection);
         if (std::shared_ptr<ElevationTileGrid> grid = getTileGrid(tile, LoadMode::CACHED_ONLY)) {
             minMeters = grid->getMinHeight();
             maxMeters = grid->getMaxHeight();
+            haveData = true;
         }
         MapPos internalCenter = _projection->toInternal(bounds.getCenter());
         MapPos internalMin = _projection->toInternal(bounds.getMin());
         MapPos internalMax = _projection->toInternal(bounds.getMax());
         double scale = std::max(getDisplayScale(internalMin.getY()), std::max(getDisplayScale(internalMax.getY()), getDisplayScale(internalCenter.getY())));
         double exaggeration = _exaggeration.load();
+        // The bounds normally include sea level whatever the data says, so that a tile without
+        // data (which reports nothing) still gets a usable range. A caller that is fitting a box
+        // to the terrain rather than culling against it wants the range the ground REALLY spans:
+        // a valley tile at 1000..2000 m reported as 0..2000 m doubles the height slab, and a
+        // shadow box is stretched by that slab divided by the tangent of the sun's altitude - at a
+        // low sun the difference is kilometres of wasted box, i.e. coarser texels everywhere.
+        if (exact && haveData) {
+            minZ = minMeters * exaggeration * scale;
+            maxZ = maxMeters * exaggeration * scale;
+            return;
+        }
         minZ = std::min(0.0, minMeters * exaggeration * scale);
         maxZ = std::max(0.0, maxMeters * exaggeration * scale);
     }

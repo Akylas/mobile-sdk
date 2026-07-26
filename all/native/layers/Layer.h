@@ -10,6 +10,7 @@
 #include "core/ScreenPos.h"
 #include "core/MapRange.h"
 #include "core/Variant.h"
+#include "components/StyleEnvironment.h"
 #include "renderers/components/CullState.h"
 #include "ui/ClickInfo.h"
 
@@ -31,6 +32,7 @@ namespace carto {
     class TouchHandler;
     class CancelableThreadPool;
     class RayIntersectedElement;
+    class TileLayer;
     class ViewState;
     
     /**
@@ -162,6 +164,7 @@ namespace carto {
         friend class MapRenderer;
         friend class BackgroundRenderer;
         friend class TouchHandler;
+        friend class CullWorker; // asks the style how far the map should be drawn
         friend class CompositeVectorTileLayer; // forwards lifecycle/draw to owned child layers
     
         Layer();
@@ -177,7 +180,14 @@ namespace carto {
         std::shared_ptr<TouchHandler> getTouchHandler() const;
         std::shared_ptr<CullState> getLastCullState() const;
 
-        void redraw() const;
+        // Every layer setter funnels through here, so it forwards its CALLER's location rather
+        // than its own - otherwise the renderer's redraw-source tally names this one line for all
+        // twenty of them and says nothing. Callers pass nothing; the compiler fills these in.
+#if defined(__clang__) || defined(__GNUC__)
+        void redraw(const char* callerFile = __builtin_FILE(), int callerLine = __builtin_LINE()) const;
+#else
+        void redraw(const char* callerFile = "?", int callerLine = 0) const;
+#endif
     
         virtual void loadData(const std::shared_ptr<CullState>& cullState) = 0;
         
@@ -185,8 +195,23 @@ namespace carto {
 
         virtual bool onDrawFrame(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState) = 0;
         virtual bool onDrawFrame3D(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState);
-        
+
+        // Appends every tile layer that participates in terrain draping, in draw order. A plain
+        // tile layer appends itself; a layer that owns child layers (CompositeVectorTileLayer)
+        // must append them too, or their content is neither baked into the drape texture nor told
+        // that the ground is draped - it then paints itself a second time as displaced geometry.
+        virtual void collectDrapeLayers(std::vector<std::shared_ptr<TileLayer> >& drapeLayers);
+
         virtual std::shared_ptr<Bitmap> getBackgroundBitmap(const ViewState& viewState) const;
+        // The flat colour behind this layer's content. Normally it reaches the screen through the
+        // background plane BackgroundRenderer draws under everything; in terrain draping mode that
+        // plane is behind the terrain, so the drape bake has to start from this colour instead.
+        virtual Color getBackgroundColor(const ViewState& viewState) const;
+        // Sun, shadow, fog and terrain-distance values this layer's STYLE provides, evaluated for
+        // this view state (they may be zoom-dependent like any other style property). Returns
+        // false when the layer has no style opinion at all. What the style leaves unset stays
+        // with the application's LightOptions/TerrainOptions.
+        virtual bool getStyleEnvironment(const ViewState& viewState, StyleEnvironment& env) const;
         virtual std::shared_ptr<Bitmap> getSkyBitmap(const ViewState& viewState) const;
         
         virtual void calculateRayIntersectedElements(const cglib::ray3<double>& ray, const ViewState& viewState, std::vector<RayIntersectedElement>& results) const = 0;

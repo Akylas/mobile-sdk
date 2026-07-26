@@ -139,6 +139,290 @@ public class SecondFragment extends Fragment {
 
     private static final int REQUEST_PERMISSIONS_CODE_WRITE_STORAGE = 1435;
     private static final int REQUEST_PERMISSIONS_MANAGE_STORAGE = 1436;
+
+    // --- Test harness -----------------------------------------------------------------------
+    // Every knob below can be overridden from adb without rebuilding, e.g.
+    //   adb shell am start -n com.akylas.cartotest/.MainActivity \
+    //       --es demo composite --es drape false --es tilt 60 --es zoom 14.7 \
+    //       --es lon 5.760595 --es lat 45.244172
+    // Defaults keep the behaviour of the hard-coded configuration.
+    private String cfg(String key) {
+        try {
+            android.content.Intent intent = getActivity() != null ? getActivity().getIntent() : null;
+            Object value = intent != null && intent.getExtras() != null ? intent.getExtras().get(key) : null;
+            return value != null ? String.valueOf(value) : null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+    private String cfgStr(String key, String def) { String v = cfg(key); return v != null ? v : def; }
+    // '#' starts a comment in the adb shell, so colours are passed bare ("ff00ff").
+    private String cfgColor(String key, String def) {
+        String v = cfg(key);
+        if (v == null) return def;
+        return v.startsWith("#") ? v : "#" + v;
+    }
+    private boolean cfgBool(String key, boolean def) { String v = cfg(key); return v != null ? Boolean.parseBoolean(v) : def; }
+    private float cfgFloat(String key, float def) { String v = cfg(key); return v != null ? Float.parseFloat(v) : def; }
+    private int cfgInt(String key, int def) { String v = cfg(key); return v != null ? (int) Float.parseFloat(v) : def; }
+
+    // Applies the camera overrides on top of a demo's own start position.
+    void applyCameraConfig(double lon, double lat, float zoom, float tilt) {
+        Projection proj = mapView.getOptions().getBaseProjection();
+        mapView.setFocusPos(proj.fromWgs84(new MapPos(cfgFloat("lon", (float) lon), cfgFloat("lat", (float) lat))), 0);
+        mapView.setZoom(cfgFloat("zoom", zoom), 0);
+        mapView.setTilt(cfgFloat("tilt", tilt), 0);
+        mapView.setMapRotation(cfgFloat("rotation", 0), 0);
+        lightOptions.setTerrainLightingEnabled(true);
+        if (cfgBool("daycycle", false)) {
+            sunSkyDemoEnabled = true;
+            lightOptions.setTerrainLightingEnabled(true);
+            skyOptions.setEnabled(true);
+            applySunSkyHour(cfgFloat("sunHour", 12));
+        }
+        if (cfgBool("peakfinder", false)) {
+            // After the GL surface exists: attaching a post-process effect before it does
+            // leaves the offscreen colour buffer unwritten and the screen black.
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    toggleReliefOutlineEffect();
+                }
+            }, (long) cfgFloat("peakfinderDelay", 8000));
+        }
+        startScriptedAnimation(cfgFloat("lon", (float) lon), cfgFloat("lat", (float) lat), cfgFloat("zoom", zoom), cfgFloat("tilt", tilt));
+    }
+
+    // '--es anim zoom|pan' drives a scripted camera move, so animation artifacts (which still
+    // frames never show) can be captured with adb screenrecord without touch input.
+    void startScriptedAnimation(final double lon, final double lat, final float zoom, final float tilt) {
+        final String anim = cfgStr("anim", "");
+        if (anim.isEmpty()) {
+            return;
+        }
+        final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
+        final float delay = cfgFloat("animDelay", 12000);
+        final float duration = cfgFloat("animDuration", 8);
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                Projection proj = mapView.getOptions().getBaseProjection();
+                if ("zoom".equals(anim)) {
+                    mapView.setZoom(zoom + cfgFloat("animZoomDelta", 3), duration);
+                } else if ("pan".equals(anim)) {
+                    mapView.setFocusPos(proj.fromWgs84(new MapPos(lon + cfgFloat("animLonDelta", 0.05f), lat)), duration);
+                } else if ("rotate".equals(anim)) {
+                    mapView.setMapRotation(cfgFloat("animRotation", 180), duration);
+                }
+            }
+        }, (long) delay);
+    }
+
+    // Sky + sun. '--es sky true' turns on the shader sky; '--es sunHour 8' (UTC) or
+    // '--es sunAzimuth/--es sunAltitude' place the sun; '--es terrainLight true' shades the
+    // draped terrain surface with it.
+    void applySkyAndLightConfig(double lon, double lat) {
+        // Always attach both, so the debug panel can toggle them live; the sky starts disabled
+        // unless asked for, which renders exactly as having no sky options at all.
+        com.carto.components.SkyOptions sky = new com.carto.components.SkyOptions();
+        sky.setEnabled(cfgBool("sky", true));
+        skyOptions = sky;
+        mapView.getOptions().setSkyOptions(sky);
+
+        com.carto.components.LightOptions light = new com.carto.components.LightOptions();
+        light.setAmbientIntensity(1.0f);
+        lightOptions = light;
+        sunLatitude = lat;
+        sunLongitude = lon;
+        if (cfg("sunHour") != null) {
+            light.setSunPositionFromTime(cfgInt("sunYear", 2026), cfgInt("sunMonth", 7), cfgInt("sunDay", 26),
+                    cfgInt("sunHour", 8), cfgInt("sunMinute", 0), lat, lon);
+        } else {
+            light.setSunAzimuth(cfgFloat("sunAzimuth", 355));
+            light.setSunAltitude(cfgFloat("sunAltitude", 9));
+        }
+        light.setSunIntensity(cfgFloat("sunIntensity", light.getSunIntensity()));
+        light.setAmbientIntensity(cfgFloat("ambient", light.getAmbientIntensity()));
+        light.setTerrainLightingEnabled(cfgBool("terrainLight", false));
+        light.setShadowStrength(cfgFloat("shadow", 0.3f));
+        light.setShadowMapSize(cfgInt("shadowMapSize", light.getShadowMapSize()));
+        light.setShadowCascades(cfgInt("shadowCascades", light.getShadowCascades()));
+        light.setShadowBias(cfgFloat("shadowBias", light.getShadowBias()));
+        light.setShadowDistance(cfgFloat("shadowDistance", light.getShadowDistance()));
+        light.setShadowCasterMargin(cfgInt("shadowMargin", light.getShadowCasterMargin()));
+        mapView.getOptions().setLightOptions(light);
+    }
+
+
+    // ---------------------------------------------------------------------------------------------
+    // Sun / sky day-cycle demo. Everything here is driven from Options - no layers are touched -
+    // so it can be switched on and off at runtime from the debug panel.
+    //
+    // The hour drives: the sun position (computed for the CURRENT map centre), the sky, horizon and
+    // ground colours, the sun colour and intensity, the shadow strength, and a generated sky shader
+    // that draws the sun disc, the moon disc, the sun's daily arc and a few procedural clouds.
+    // The arc and the moon are baked into the shader source rather than passed as uniforms, because
+    // the sky shader contract has a fixed uniform set; regenerating the source on an hour change is
+    // cheap enough for a demo.
+    // ---------------------------------------------------------------------------------------------
+    boolean sunSkyDemoEnabled = false;
+    float sunSkyHour = 12;
+
+    private double[] sunVectorAt(float hourUtc, double lat, double lon) {
+        com.carto.components.LightOptions probe = new com.carto.components.LightOptions();
+        int hour = (int) hourUtc;
+        int minute = (int) ((hourUtc - hour) * 60);
+        probe.setSunPositionFromTime(2026, 7, 26, hour, minute, lat, lon);
+        double az = Math.toRadians(probe.getSunAzimuth());
+        double alt = Math.toRadians(probe.getSunAltitude());
+        double cosAlt = Math.cos(alt);
+        return new double[] { cosAlt * Math.sin(az), cosAlt * Math.cos(az), Math.sin(alt) };
+    }
+
+    private String formatVec(double[] v) {
+        return String.format(java.util.Locale.US, "vec3(%.5f, %.5f, %.5f)", v[0], v[1], v[2]);
+    }
+
+    void applySunSkyHour(float hourUtc) {
+        if (lightOptions == null || skyOptions == null) {
+            return;
+        }
+        sunSkyHour = hourUtc;
+        Projection proj = mapView.getOptions().getBaseProjection();
+        MapPos centre = proj.toWgs84(mapView.getFocusPos());
+        double lat = centre.getY(), lon = centre.getX();
+
+        lightOptions.setSunPositionFromTime(2026, 7, 26, (int) hourUtc, (int) ((hourUtc - (int) hourUtc) * 60), lat, lon);
+        float altitude = lightOptions.getSunAltitude();
+
+        // day = 1 well above the horizon, 0 below it, with civil twilight in between.
+        float day = Math.max(0f, Math.min(1f, (altitude + 6f) / 12f));
+        float warm = 1f - Math.max(0f, Math.min(1f, altitude / 25f)); // reddening near the horizon
+
+        lightOptions.setSunColor(new Color(
+                (short) 255,
+                (short) (int) (255 - 90 * warm),
+                (short) (int) (255 - 190 * warm),
+                (short) 255));
+        lightOptions.setSunIntensity(0.15f + 0.85f * day);
+        lightOptions.setAmbientIntensity(0.25f + 0.55f * day);
+        lightOptions.setShadowStrength(0.85f * day); // no sun, no shadows
+
+        int skyR = (int) (10 + 48 * day), skyG = (int) (14 + 102 * day), skyB = (int) (40 + 156 * day);
+        int horR = (int) (25 + (146 + 60 * warm) * day), horG = (int) (25 + 181 * day), horB = (int) (55 + 181 * day);
+        skyOptions.setSkyColor(new Color((short) skyR, (short) skyG, (short) skyB, (short) 255));
+        skyOptions.setHorizonColor(new Color((short) horR, (short) horG, (short) horB, (short) 255));
+        skyOptions.setGroundColor(new Color((short) (horR * 0.8), (short) (horG * 0.8), (short) (horB * 0.8), (short) 255));
+
+        // The sun's daily path is a circle; three positions on it define its plane.
+        double[] a = sunVectorAt(6, lat, lon), b = sunVectorAt(12, lat, lon), c = sunVectorAt(18, lat, lon);
+        double[] u = { b[0] - a[0], b[1] - a[1], b[2] - a[2] };
+        double[] v = { c[0] - a[0], c[1] - a[1], c[2] - a[2] };
+        double[] n = { u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0] };
+        double nlen = Math.sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+        if (nlen > 1e-9) { n[0] /= nlen; n[1] /= nlen; n[2] /= nlen; }
+
+        // The moon rides roughly the opposite side of the same arc, offset by the monthly phase.
+        double[] moon = sunVectorAt((hourUtc + 12.7f) % 24f, lat, lon);
+
+        skyOptions.setShaderSource(buildSkyShader(n, moon, day, hourUtc));
+        mapView.requestRender();
+    }
+
+    private String buildSkyShader(double[] arcNormal, double[] moonDir, float day, float hourUtc) {
+        // Cloud cover and layout change with the hour: the seed is derived from it, so scrubbing
+        // the slider rolls a different (but stable) sky.
+        float seed = (hourUtc * 7.13f) % 10.0f;
+        float cover = 0.35f + 0.25f * (float) Math.sin(hourUtc * 0.7f);
+        // The sky shader wrapper already declares u_sunDir/u_sunColor/u_skyColor/u_horizonColor/
+        // u_groundColor/u_time - redeclaring any of them is a compile error and the renderer
+        // silently falls back to the built-in sky.
+        return String.join("\n",
+            "const vec3 ARC_N = " + formatVec(arcNormal) + ";",
+            "const vec3 MOON_DIR = " + formatVec(moonDir) + ";",
+            String.format(java.util.Locale.US, "const float SEED = %.4f;", seed),
+            String.format(java.util.Locale.US, "const float COVER = %.4f;", cover),
+            String.format(java.util.Locale.US, "const float DAY = %.4f;", day),
+            "",
+            "float hash(vec2 p) {",
+            "  return fract(sin(dot(p, vec2(127.1, 311.7)) + SEED) * 43758.5453);",
+            "}",
+            "float noise(vec2 p) {",
+            "  vec2 i = floor(p), f = fract(p);",
+            "  f = f * f * (3.0 - 2.0 * f);",
+            "  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),",
+            "             mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);",
+            "}",
+            "float clouds(vec3 dir) {",
+            "  if (dir.z <= 0.02) return 0.0;",
+            "  // Project the ray onto a flat cloud deck: cheap, and the perspective is right.",
+            "  vec2 p = dir.xy / dir.z * 0.6 + vec2(u_time * 0.004, 0.0);",
+            "  float f = 0.55 * noise(p) + 0.28 * noise(p * 2.3) + 0.17 * noise(p * 4.7);",
+            "  float c = smoothstep(COVER, COVER + 0.22, f);",
+            "  return c * smoothstep(0.02, 0.25, dir.z); // fade them out at the horizon",
+            "}",
+            "",
+            "vec4 skyColor(vec3 rayDir) {",
+            "  vec3 dir = normalize(rayDir);",
+            "  float h = clamp(dir.z, -1.0, 1.0);",
+            "  vec3 col = h < 0.0",
+            "      ? mix(u_horizonColor.rgb, u_groundColor.rgb, clamp(-h * 6.0, 0.0, 1.0))",
+            "      : mix(u_horizonColor.rgb, u_skyColor.rgb, pow(clamp(h, 0.0, 1.0), 0.45));",
+            "",
+            "  // Stars, only once the sky is dark enough to see them.",
+            "  if (DAY < 0.55 && h > 0.0) {",
+            "    vec2 sp = floor(dir.xy / max(0.05, dir.z) * 90.0);",
+            "    float star = step(0.995, hash(sp));",
+            "    col += vec3(star * (0.55 - DAY) * 1.6);",
+            "  }",
+            "",
+            "  // The sun's daily arc: the thin band where the ray lies in the plane of its path.",
+            "  float arc = 1.0 - smoothstep(0.0, 0.006, abs(dot(dir, ARC_N)));",
+            "  col = mix(col, u_sunColor.rgb, arc * 0.30 * step(-0.03, h));",
+            "",
+            "  col = mix(col, vec3(1.0, 1.0, 0.98), clouds(dir) * (0.35 + 0.5 * DAY));",
+            "",
+            "  // Sun: disc, then glow, tinted toward the sun colour rather than added, so a bright",
+            "  // sky does not saturate to white far from it.",
+            "  float ds = length(dir - normalize(u_sunDir));",
+            "  col = mix(col, u_sunColor.rgb, clamp(1.0 - smoothstep(0.0, 0.12, ds), 0.0, 1.0) * 0.85);",
+            "  col = mix(col, u_sunColor.rgb * 1.15, (1.0 - smoothstep(0.0, 0.03, ds)));",
+            "",
+            "  // Moon: a small disc with a soft halo, brighter as the sky darkens.",
+            "  float dm = length(dir - normalize(MOON_DIR));",
+            "  float moonLit = 0.35 + 0.65 * (1.0 - DAY);",
+            "  col = mix(col, vec3(0.86, 0.88, 0.92), (1.0 - smoothstep(0.0, 0.020, dm)) * moonLit);",
+            "  col = mix(col, vec3(0.70, 0.74, 0.85), (1.0 - smoothstep(0.02, 0.09, dm)) * 0.18 * moonLit);",
+            "",
+            "  return vec4(col, 1.0);",
+            "}",
+            "");
+    }
+
+    // Applies the terrain overrides shared by every demo that builds a TerrainOptions.
+    void applyTerrainConfig(com.carto.components.TerrainOptions options) {
+        options.setExaggeration(cfgFloat("exaggeration", options.getExaggeration()));
+        options.setMeshResolution(cfgInt("meshResolution", options.getMeshResolution()));
+        options.setDrapeFillsEnabled(cfgBool("drape", options.isDrapeFillsEnabled()));
+        options.setDrapeLinesEnabled(cfgBool("drapeLines", options.isDrapeLinesEnabled()));
+        options.setDrapeResolution(cfgInt("drapeResolution", options.getDrapeResolution()));
+        // Peak-finder: a larger tolerance labels summits that are partly behind a nearer ridge.
+        options.setBillboardOcclusionTolerance(cfgFloat("occlusionTolerance", options.getBillboardOcclusionTolerance()));
+        // Distance fog and the view distance. '--es fog ffffff --es fogDistance 30000' etc.
+        if (cfg("fog") != null) {
+            fogColorARGB = android.graphics.Color.parseColor(cfgColor("fog", "#ffffff"));
+            options.setFogColor(new com.carto.graphics.Color(fogColorARGB));
+        }
+        options.setFogStartDistance(cfgFloat("fogStart", options.getFogStartDistance()));
+        options.setFogDistance(cfgFloat("fogDistance", options.getFogDistance()));
+        options.setMaxVisibleDistance(cfgFloat("maxDistance", options.getMaxVisibleDistance()));
+    }
+
+    // The colour the fog checkbox turns on; '--es fog RRGGBB' picks another one. Kept as a plain
+    // int: a field initializer runs in the fragment's constructor, before the native library is
+    // loaded, and building a com.carto.graphics.Color there dies with UnsatisfiedLinkError.
+    int fogColorARGB = 0xffb8c6d8;
+
     MapView mapView;
     MapBoxElevationDataDecoder elevationDecoder;
     HillshadeRasterTileLayer hillshadeLayer;
@@ -208,7 +492,73 @@ public class SecondFragment extends Fragment {
 //        }
     }
     com.carto.components.TerrainOptions terrainOptions;
+    com.carto.components.LightOptions lightOptions;
+    double sunLatitude = 45.24, sunLongitude = 5.76;
+    com.carto.components.SkyOptions skyOptions;
     TextView terrainZoomText;
+
+    // --- small builders for the debug panel ---------------------------------------------------
+    private interface BoolSetting { void set(boolean value); }
+    private interface FloatSetting { void set(float value); }
+
+    private void panelHeader(android.content.Context context, android.widget.LinearLayout panel, String label) {
+        final TextView text = new TextView(context);
+        text.setText(label);
+        text.setTextColor(0xFF204060);
+        text.setPadding(0, 18, 0, 2);
+        text.setTypeface(null, android.graphics.Typeface.BOLD);
+        panel.addView(text);
+    }
+
+    private CheckBox panelCheck(android.content.Context context, android.widget.LinearLayout panel,
+                                String label, boolean initial, final BoolSetting setting) {
+        final CheckBox check = new CheckBox(context);
+        check.setText(label);
+        check.setChecked(initial);
+        check.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                setting.set(isChecked);
+                mapView.requestRender();
+            }
+        });
+        panel.addView(check);
+        return check;
+    }
+
+    // Continuous while dragging unless applyOnRelease: some settings (mesh/drape resolution)
+    // throw away every cached tile texture when they change, so applying them per pixel of drag
+    // is a guaranteed stall.
+    private void panelSlider(android.content.Context context, android.widget.LinearLayout panel,
+                             final String label, float min, float max, float initial,
+                             final boolean applyOnRelease, final FloatSetting setting) {
+        final float lo = min, span = max - min;
+        final TextView text = new TextView(context);
+        text.setText(String.format("%s %.2f", label, initial));
+        panel.addView(text);
+        final SeekBar seek = new SeekBar(context);
+        seek.setMax(1000);
+        seek.setProgress((int) ((initial - lo) / span * 1000));
+        seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            private float valueOf(SeekBar bar) { return lo + span * bar.getProgress() / 1000.0f; }
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                text.setText(String.format("%s %.2f", label, valueOf(seekBar)));
+                if (!applyOnRelease) {
+                    setting.set(valueOf(seekBar));
+                    mapView.requestRender();
+                }
+            }
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) { }
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                setting.set(valueOf(seekBar));
+                mapView.requestRender();
+            }
+        });
+        panel.addView(seek, new android.widget.LinearLayout.LayoutParams(500, ViewGroup.LayoutParams.WRAP_CONTENT));
+    }
 
     void addTerrain(View view, String dataPath) {
         // Shared elevation source: used simultaneously by the 3D terrain and the hillshade layer.
@@ -230,6 +580,7 @@ public class SecondFragment extends Fragment {
 
 //        terrainOptions.setRegularGridEnabled(true);
         terrainOptions.setPainterOrderDepthEnabled(true);
+        applyTerrainConfig(terrainOptions);
         mapView.getOptions().setTerrainOptions(terrainOptions);
 
         // Hillshade layer draped over the 3D terrain, sharing the elevation source
@@ -348,14 +699,13 @@ public class SecondFragment extends Fragment {
 
 
         addTerrainTestElements();
+        // Light and sky must exist before the panel is built, or its sun rows are skipped.
+        applySkyAndLightConfig(cfgFloat("lon", 5.76f), cfgFloat("lat", 45.24f));
         addTerrainControls(view);
 
         // Start tilted over the Alps (Grenoble). Note: setFocusPos expects base projection
         // coordinates, so WGS84 positions must be converted first.
-        Projection proj = mapView.getOptions().getBaseProjection();
-        mapView.setFocusPos(proj.fromWgs84(new MapPos(5.770689, 45.232494)), 0);
-        mapView.setZoom(13.80f, 0);
-        mapView.setTilt(35f, 0);
+        applyCameraConfig(5.770689, 45.232494, 13.80f, 35f);
     }
 
     void addTerrainTestElements() {
@@ -390,6 +740,9 @@ public class SecondFragment extends Fragment {
     }
 
     void addTerrainControls(View view) {
+        if (!cfgBool("ui", true)) {
+            return; // '--es ui false': clean screenshots for automated rendering checks
+        }
         final android.content.Context context = getContext();
         android.widget.LinearLayout panel = new android.widget.LinearLayout(context);
         panel.setOrientation(android.widget.LinearLayout.VERTICAL);
@@ -400,6 +753,7 @@ public class SecondFragment extends Fragment {
         terrainZoomText.setText("zoom -");
         panel.addView(terrainZoomText);
 
+        panelHeader(context, panel, "TERRAIN");
         final CheckBox terrainCheck = new CheckBox(context);
         terrainCheck.setText("3D terrain");
         terrainCheck.setChecked(terrainOptions.isEnabled());
@@ -459,14 +813,145 @@ public class SecondFragment extends Fragment {
         });
         panel.addView(exSeek, new android.widget.LinearLayout.LayoutParams(500, ViewGroup.LayoutParams.WRAP_CONTENT));
 
+        // --- rendering architecture knobs (same set the intent extras drive) ------------------
+        panelHeader(context, panel, "DRAPE");
+        panelCheck(context, panel, "drape (RTT)", terrainOptions.isDrapeFillsEnabled(), new BoolSetting() {
+            public void set(boolean value) { terrainOptions.setDrapeFillsEnabled(value); }
+        });
+        panelCheck(context, panel, "drape lines", terrainOptions.isDrapeLinesEnabled(), new BoolSetting() {
+            public void set(boolean value) { terrainOptions.setDrapeLinesEnabled(value); }
+        });
+        panelSlider(context, panel, "drape resolution", 256, 2048, terrainOptions.getDrapeResolution(), true, new FloatSetting() {
+            public void set(float value) { terrainOptions.setDrapeResolution(Math.max(256, ((int) value / 256) * 256)); }
+        });
+        panelSlider(context, panel, "mesh resolution", 16, 192, terrainOptions.getMeshResolution(), true, new FloatSetting() {
+            public void set(float value) { terrainOptions.setMeshResolution(Math.max(16, ((int) value / 16) * 16)); }
+        });
+        panelSlider(context, panel, "occlusion tolerance", 0.0f, 0.5f, terrainOptions.getBillboardOcclusionTolerance(), false, new FloatSetting() {
+            public void set(float value) { terrainOptions.setBillboardOcclusionTolerance(value); }
+        });
+
+        if (lightOptions != null) {
+            panelHeader(context, panel, "SUN");
+            panelCheck(context, panel, "sun lighting", true, new BoolSetting() {
+                public void set(boolean value) { lightOptions.setTerrainLightingEnabled(value); }
+            });
+            panelCheck(context, panel, "day-cycle demo (sun/moon/sky)", sunSkyDemoEnabled, new BoolSetting() {
+                public void set(boolean value) {
+                    sunSkyDemoEnabled = value;
+                    if (value) {
+                        lightOptions.setTerrainLightingEnabled(true);
+                        skyOptions.setEnabled(true);
+                        applySunSkyHour(sunSkyHour);
+                    } else {
+                        skyOptions.setShaderSource("");
+                    }
+                }
+            });
+            panelSlider(context, panel, "sun hour (UTC)", 0, 24, 12, false, new FloatSetting() {
+                public void set(float value) {
+                    if (sunSkyDemoEnabled) {
+                        applySunSkyHour(value);
+                        return;
+                    }
+                    int hour = (int) value;
+                    int minute = (int) ((value - hour) * 60);
+                    lightOptions.setSunPositionFromTime(2026, 7, 26, hour, minute, sunLatitude, sunLongitude);
+                }
+            });
+            panelSlider(context, panel, "sun azimuth", 0, 360, lightOptions.getSunAzimuth(), false, new FloatSetting() {
+                public void set(float value) { lightOptions.setSunAzimuth(value); }
+            });
+            panelSlider(context, panel, "sun altitude", -10, 90, lightOptions.getSunAltitude(), false, new FloatSetting() {
+                public void set(float value) { lightOptions.setSunAltitude(value); }
+            });
+            panelSlider(context, panel, "ambient", 0, 1, lightOptions.getAmbientIntensity(), false, new FloatSetting() {
+                public void set(float value) { lightOptions.setAmbientIntensity(value); }
+            });
+            panelHeader(context, panel, "SHADOWS");
+            panelSlider(context, panel, "strength", 0, 1, lightOptions.getShadowStrength(), false, new FloatSetting() {
+                public void set(float value) { lightOptions.setShadowStrength(value); }
+            });
+            panelSlider(context, panel, "softness (texels)", 0, 4, lightOptions.getShadowSoftness(), false, new FloatSetting() {
+                public void set(float value) { lightOptions.setShadowSoftness(value); }
+            });
+            // Reallocates the shadow map, so apply on release only.
+            panelSlider(context, panel, "map size", 512, 4096, lightOptions.getShadowMapSize(), true, new FloatSetting() {
+                public void set(float value) { lightOptions.setShadowMapSize(Math.max(512, ((int) value / 512) * 512)); }
+            });
+            panelSlider(context, panel, "distance (m, 0=all)", 0, 20000, lightOptions.getShadowDistance(), false, new FloatSetting() {
+                public void set(float value) { lightOptions.setShadowDistance(value < 200 ? 0 : value); }
+            });
+            panelSlider(context, panel, "caster margin (tiles)", 0, 6, lightOptions.getShadowCasterMargin(), true, new FloatSetting() {
+                public void set(float value) { lightOptions.setShadowCasterMargin(Math.round(value)); }
+            });
+            // Reallocates the shadow map atlas, so apply on release only.
+            panelSlider(context, panel, "cascades", 1, 4, lightOptions.getShadowCascades(), true, new FloatSetting() {
+                public void set(float value) { lightOptions.setShadowCascades(Math.round(value)); }
+            });
+            panelSlider(context, panel, "depth bias (m)", 0.0f, 5.0f, lightOptions.getShadowBias(), false, new FloatSetting() {
+                public void set(float value) { lightOptions.setShadowBias(value); }
+            });
+        }
+        // Fog and the view distance: the two go together, since the distance ENDS the ground and
+        // the fog is what makes it fade out instead.
+        panelHeader(context, panel, "FOG / DISTANCE");
+        panelCheck(context, panel, "fog", terrainOptions.getFogColor().getA() != 0, new BoolSetting() {
+            public void set(boolean value) {
+                terrainOptions.setFogColor(new com.carto.graphics.Color(value ? fogColorARGB : 0));
+                if (value && terrainOptions.getFogDistance() <= 0) {
+                    terrainOptions.setFogDistance(30000);
+                }
+            }
+        });
+        panelSlider(context, panel, "fog start (m)", 0, 40000, terrainOptions.getFogStartDistance(), false, new FloatSetting() {
+            public void set(float value) { terrainOptions.setFogStartDistance(value); }
+        });
+        panelSlider(context, panel, "fog distance (m, 0=off)", 0, 120000, terrainOptions.getFogDistance(), false, new FloatSetting() {
+            public void set(float value) { terrainOptions.setFogDistance(value < 500 ? 0 : value); }
+        });
+        // Changes the tile set, so apply on release only.
+        panelSlider(context, panel, "max visible distance (m, 0=all)", 0, 120000, terrainOptions.getMaxVisibleDistance(), true, new FloatSetting() {
+            public void set(float value) { terrainOptions.setMaxVisibleDistance(value < 500 ? 0 : value); }
+        });
+
+        if (skyOptions != null) {
+            panelHeader(context, panel, "SKY");
+            panelCheck(context, panel, "sky", skyOptions.isEnabled(), new BoolSetting() {
+                public void set(boolean value) { skyOptions.setEnabled(value); }
+            });
+        }
+
+        // The panel is taller than the screen: scroll it, and keep it hidden behind a small
+        // toggle so the map is unobstructed unless something is actually being tested.
+        final android.widget.ScrollView scroll = new android.widget.ScrollView(context);
+        scroll.addView(panel);
+        scroll.setVisibility(View.GONE);
+
         androidx.constraintlayout.widget.ConstraintLayout root = view.findViewById(R.id.main);
         androidx.constraintlayout.widget.ConstraintLayout.LayoutParams lp = new androidx.constraintlayout.widget.ConstraintLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                760, 1500);
         lp.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID;
         lp.startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID;
-        lp.bottomMargin = 180;
+        lp.bottomMargin = 320;
         lp.leftMargin = 10;
-        root.addView(panel, lp);
+        root.addView(scroll, lp);
+
+        final android.widget.Button toggle = new android.widget.Button(context);
+        toggle.setText("\u2699");
+        toggle.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                scroll.setVisibility(scroll.getVisibility() == View.GONE ? View.VISIBLE : View.GONE);
+            }
+        });
+        androidx.constraintlayout.widget.ConstraintLayout.LayoutParams tlp = new androidx.constraintlayout.widget.ConstraintLayout.LayoutParams(
+                150, ViewGroup.LayoutParams.WRAP_CONTENT);
+        tlp.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID;
+        tlp.startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID;
+        tlp.bottomMargin = 100; // clear of the system navigation bar
+        tlp.leftMargin = 10;
+        root.addView(toggle, tlp);
     }
 
     void toggleReliefOutlineEffect() {
@@ -706,20 +1191,36 @@ public class SecondFragment extends Fragment {
     CompositeVectorTileLayer compositeLayer;
     void addCompositeMap(View view, String dataPath) {
         // Master vector source: OpenMapTiles vector tiles.
-        HTTPTileDataSource baseSource = new HTTPTileDataSource(0, 14, "https://tiles.openfreemap.org/planet/latest/{z}/{x}/{y}.pbf");
+        HTTPTileDataSource baseSource = new HTTPTileDataSource(0, 14, "https://tiles.akylas.fr/data/france/{z}/{x}/{y}.pbf");
         StringMap headers = new StringMap();
         headers.set("User-Agent", "AlpiMaps/1.4 (contact: contact@akylas.fr)");
         baseSource.setHTTPHeaders(headers);
-        PersistentCacheTileDataSource baseSourceCached = new PersistentCacheTileDataSource(baseSource, getContext().getExternalFilesDir(null) + "/openfreemap_vect.db");
+        PersistentCacheTileDataSource baseSourceCached = new PersistentCacheTileDataSource(baseSource, getContext().getExternalFilesDir(null) + "/akylas_vect.db");
 
         // First-reference order = slot order: water, landcover, HILLSHADE, SATELLITE,
         // transportation, building, CONTOUR.
+        // '--es sat false' drops the satellite raster: without it the vector fills are visible,
+        // which is where the terrain rendering artifacts show.
+        final boolean withSatellite = cfgBool("sat", false);
         String css = String.join("\n",
-            "Map { background-color: #eef2f0; }",
+            // '--es styleLight true' moves the sun, the shadows and the fog INTO the style, with
+            // a couple of them zoom-dependent, which is what the Map-block properties are for.
+            "Map { background-color: " + cfgColor("bg", "#eef2f0") + ";" + (cfgBool("styleLight", false) ?
+                " terrain-lighting: 1;" +
+                " sun-azimuth: 250;" +
+                " sun-altitude: linear([view::zoom], (11, 55), (15, 12));" +
+                " sun-intensity: 1;" +
+                " ambient-intensity: 0.4;" +
+                " shadow-strength: 0.8;" +
+                " shadow-softness: 1;" +
+                " fog-color: #b8c6d8;" +
+                " fog-start-distance: 1500;" +
+                " fog-distance: linear([view::zoom], (11, 60000), (15, 12000));" +
+                " terrain-max-visible-distance: 40000;" : "") + " }",
             "#water { polygon-fill: #9cc3e0; }",
             "#landcover { polygon-fill: #dbe8cc; }",
             // hillshade woven above land/water fills, below roads; exaggeration ramps with zoom.
-                "#satellite[zoom>=11] { raster-opacity: 1; raster-comp-op: src-over; }",
+                "#satellite[zoom>=11] { raster-opacity: " + (withSatellite ? "1" : "0") + "; raster-comp-op: src-over; }",
             "#hillshade[zoom>=4][zoom<=16] {",
 //            "  hillshade-opacity: linear([view::zoom], (11, 0.6), (12, 1));",
 //            "  hillshade-exaggeration: linear([view::zoom], (11, 0.6), (12, 1.0));",
@@ -727,7 +1228,10 @@ public class SecondFragment extends Fragment {
             "  hillshade-shadow-color: #103040;",
             "}",
             // satellite raster overlay, faint, only high zoom.
-            "#building[zoom>=14] { polygon-fill: #d9cfc4; }",
+            // '--es bld3d true' extrudes buildings, which is what exercises 3D shadow casters.
+            cfgBool("bld3d", true)
+                ? "#building[zoom>=14] { building-fill: #d9cfc4; building-height: 14; }"
+                : "#building[zoom>=14] { polygon-fill: #d9cfc4; }",
 
                 "#contour[zoom>=5] {",
                 "  line-color: #9a5a12; line-width: 0.8; line-opacity: 0.7;",
@@ -739,6 +1243,7 @@ public class SecondFragment extends Fragment {
         );
         MBVectorTileDecoder decoder = null;
 //        try {
+//            decoder = getStyleDecoder(dataPath);
 //            decoder = getStyleDecoder(dataPath);
 //        } catch (IOException e) {
             decoder = new MBVectorTileDecoder(new CartoCSSStyleSet(css));
@@ -754,14 +1259,20 @@ public class SecondFragment extends Fragment {
         ContourTileDataSource contour = new ContourTileDataSource(cachedDem);
         contour.setMinVisibleZoom(5);
         contour.setMaxOverzoomLevel(15);
-        compositeLayer.addVectorDataSource("contour", contour);
+        if (cfgBool("contour", true)) {
+            compositeLayer.addVectorDataSource("contour", contour);
+        }
         // hillshade: decoder resolved from the DEM source 'encoding' (terrarium) - no decoder arg.
-        compositeLayer.addExternalDataSource("hillshade", cachedDem, CompositeSourceType.COMPOSITE_SOURCE_TYPE_HILLSHADE);
+        if (cfgBool("hs", true)) {
+            compositeLayer.addExternalDataSource("hillshade", cachedDem, CompositeSourceType.COMPOSITE_SOURCE_TYPE_HILLSHADE);
+        }
         // satellite: a raster source drawn at the '#satellite' slot with the style opacity.
         HTTPTileDataSource satSource = new HTTPTileDataSource(0, 19, "https://tile.openstreetmap.org/{z}/{x}/{y}.png");
         satSource.setHTTPHeaders(headers);
         PersistentCacheTileDataSource cachedSat = new PersistentCacheTileDataSource(satSource, getContext().getExternalFilesDir(null) + "/openstreetmap.db");
-        compositeLayer.addExternalDataSource("satellite", cachedSat, CompositeSourceType.COMPOSITE_SOURCE_TYPE_RASTER);
+        if (withSatellite) {
+            compositeLayer.addExternalDataSource("satellite", cachedSat, CompositeSourceType.COMPOSITE_SOURCE_TYPE_RASTER);
+        }
 
         mapView.getLayers().add(compositeLayer);
 
@@ -775,17 +1286,17 @@ public class SecondFragment extends Fragment {
         terrainOptions.setMeshResolution(128);
         terrainOptions.setDrapeFillsEnabled(true);
         terrainOptions.setDrapeLinesEnabled(false);
+        applyTerrainConfig(terrainOptions);
         mapView.getOptions().setTerrainOptions(terrainOptions);
 
 
         addTerrainTestElements();
+        // Light and sky must exist before the panel is built, or its sun rows are skipped.
+        applySkyAndLightConfig(cfgFloat("lon", 5.76f), cfgFloat("lat", 45.24f));
         addTerrainControls(view);
         // Start tilted over the Alps (Grenoble). Note: setFocusPos expects base projection
         // coordinates, so WGS84 positions must be converted first.
-        Projection proj = mapView.getOptions().getBaseProjection();
-        mapView.setFocusPos(proj.fromWgs84(new MapPos(5.763110, 45.218065)), 0);
-        mapView.setZoom(11.38f, 0);
-        mapView.setTilt(90f, 0);
+        applyCameraConfig(5.770752, 45.251918, 11.53f, 39f);
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -824,7 +1335,10 @@ public class SecondFragment extends Fragment {
             "#satellite[zoom>=13] { raster-opacity: 0.45; }",
             "#transportation { line-color: #ffffff; line-width: 1.2; }",
             "#transportation['class'='motorway'] { line-color: #e27d60; line-width: 3; }",
-            "#building[zoom>=14] { polygon-fill: #d9cfc4; }",
+            // '--es bld3d true' extrudes buildings, which is what exercises 3D shadow casters.
+            cfgBool("bld3d", false)
+                ? "#building[zoom>=14] { building-fill: #d9cfc4; building-height: 14; }"
+                : "#building[zoom>=14] { polygon-fill: #d9cfc4; }",
             "#contour[zoom>=12] { line-color: #9a5a12; line-width: 0.8; line-opacity: 0.7; }");
 
         MBVectorTileDecoder styleDecoder = null;
@@ -914,7 +1428,21 @@ public class SecondFragment extends Fragment {
 
         // --- CompositeVectorTileLayer demo (2D). Comment this and restore addMap/addTerrain to go back. ---
 //        addCompositeMapNuti(dataPath); // nuti-parameter demo: relief toggles every 3s
-        addCompositeMap(view, dataPath);
+        if (!cfgBool("ui", true)) {
+            View controls = view.findViewById(R.id.controlsPanel);
+            if (controls != null) {
+                controls.setVisibility(View.GONE);
+            }
+        }
+        // 'demo' intent extra picks the configuration; default is the composite demo as before.
+        String demo = cfgStr("demo", "composite");
+        if ("terrain".equals(demo)) {
+            addTerrain(view, dataPath);
+        } else if ("nuti".equals(demo)) {
+            addCompositeMapNuti(dataPath);
+        } else {
+            addCompositeMap(view, dataPath);
+        }
 //        addMap(dataPath);
 //        addTerrain(view, dataPath);
 //        addRoutes(dataPath);

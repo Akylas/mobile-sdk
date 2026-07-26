@@ -1,5 +1,7 @@
 #include "TileRenderer.h"
 #include "components/Options.h"
+#include "components/LightOptions.h"
+#include "components/TerrainOptions.h"
 #include "components/ThreadWorker.h"
 #include "graphics/ViewState.h"
 #include "projections/ProjectionSurface.h"
@@ -205,9 +207,152 @@ namespace carto {
         _horizontalLayerOffset += offset;
     }
     
+    bool TileRenderer::prepareFrame(float deltaSeconds, const ViewState& viewState) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        return prepareFrameUnsafe(deltaSeconds, viewState);
+    }
+
+    // Caller must hold _mutex. onDrawFrame already does, and _mutex is not recursive.
+    bool TileRenderer::prepareFrameUnsafe(float deltaSeconds, const ViewState& viewState) {
+        if (_framePrepared) {
+            return _framePrepareResult;
+        }
+        std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>());
+        if (!tileRenderer) {
+            return false;
+        }
+        _framePrepared = true;
+        _framePrepareResult = false;
+        // The cross-layer drape draws the terrain surface from MapRenderer, BEFORE onDrawFrame
+        // sets the view state. Without this the surface is drawn with the previous frame's camera
+        // while everything else uses the current one, so the ground lags the buildings by exactly
+        // one frame during a pan and snaps into place when the motion stops.
+        cglib::mat4x4<double> prepareModelViewMat = viewState.getModelviewMat() * cglib::translate4_matrix(cglib::vec3<double>(_horizontalLayerOffset, 0, 0));
+        vt::ViewState prepareViewState(viewState.getProjectionMat(), prepareModelViewMat, viewState.getZoom(), viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewState.getNormalizedResolution());
+        prepareViewState.planarTerrain = isPlanarTerrainMode();
+        tileRenderer->setViewState(prepareViewState);
+        try {
+            _framePrepareResult = tileRenderer->startFrame(deltaSeconds * 3);
+        }
+        catch (const std::exception& ex) {
+            Log::Errorf("TileRenderer::prepareFrame: Failed: %s", ex.what());
+        }
+        return _framePrepareResult;
+    }
+
+    void TileRenderer::setExternalDrapeTarget(bool enabled) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        _externalDrapeTarget = enabled;
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            tileRenderer->setExternalDrapeTarget(enabled);
+        }
+    }
+
+    void TileRenderer::setExternalDrapeTiles(const std::vector<vt::TileId>& tileIds) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            tileRenderer->setExternalDrapeTiles(tileIds);
+        }
+    }
+
+    bool TileRenderer::isDrapeEnabled() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        return _externalDrapeTarget;
+    }
+
+    void TileRenderer::collectDrapeTiles(std::map<vt::TileId, std::size_t>& drapeTiles) const {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            tileRenderer->collectDrapeTiles(drapeTiles);
+        }
+    }
+
+    int TileRenderer::bakeDrapeTile(const vt::TileId& tileId) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            return tileRenderer->bakeDrapeTile(tileId);
+        }
+        return 0;
+    }
+
+    int TileRenderer::renderDrapedSurface(const vt::TileId& tileId, unsigned int drapeTexture, float uvOffsetX, float uvOffsetY, float uvScale) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            return tileRenderer->renderDrapedSurface(tileId, static_cast<GLuint>(drapeTexture), uvOffsetX, uvOffsetY, uvScale);
+        }
+        return -4;
+    }
+
+    int TileRenderer::renderDrapedSurfaceFill(const vt::TileId& tileId, const Color& color) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            return tileRenderer->renderDrapedSurfaceFill(tileId, vt::Color(color.getR() / 255.0f, color.getG() / 255.0f, color.getB() / 255.0f, color.getA() / 255.0f));
+        }
+        return -4;
+    }
+
+    bool TileRenderer::calculateShadowViewProj(const std::vector<vt::TileId>& tileIds, const std::vector<vt::TileId>& casterTileIds, const cglib::vec3<float>& sunDir, const std::vector<std::pair<double, double> >& tileHeights, double minHeight, double maxHeight, float maxDistanceMeters, int mapSize, int cascade, int cascadeCount, std::vector<vt::TileId>& boxCasterTileIds, double& depthRangeMeters, double& texelMeters, cglib::mat4x4<double>& lightViewProj) const {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            return tileRenderer->calculateShadowViewProj(tileIds, casterTileIds, sunDir, tileHeights, minHeight, maxHeight, maxDistanceMeters, mapSize, cascade, cascadeCount, boxCasterTileIds, depthRangeMeters, texelMeters, lightViewProj);
+        }
+        return false;
+    }
+
+    float TileRenderer::shadowCasterFadeSignature() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            return tileRenderer->shadowCasterFadeSignature();
+        }
+        return 0.0f;
+    }
+
+    int TileRenderer::renderShadowCasters(const std::vector<vt::TileId>& tileIds, const cglib::mat4x4<double>& lightViewProj, bool castGround) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            return tileRenderer->renderShadowCasters(tileIds, lightViewProj, castGround);
+        }
+        return 0;
+    }
+
+    void TileRenderer::setTerrainShadowMap(unsigned int texture, int mapSize, int cascades, const std::array<float, 4>& depthBiases, float strength, float softness, const std::array<cglib::mat4x4<double>, 4>& lightViewProjs) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            tileRenderer->setTerrainShadowMap(static_cast<GLuint>(texture), mapSize, cascades, depthBiases, strength, softness, lightViewProjs);
+        }
+    }
+
+    void TileRenderer::setTerrainSunLighting(bool enabled, const cglib::vec3<float>& sunDir, const Color& sunColor, float sunIntensity, float ambientIntensity) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            vt::GLTileRenderer::TerrainLighting terrainLighting;
+            if (enabled) {
+                terrainLighting.enabled = true;
+                terrainLighting.sunDir = sunDir;
+                terrainLighting.sunColor = cglib::vec3<float>(sunColor.getR() / 255.0f, sunColor.getG() / 255.0f, sunColor.getB() / 255.0f);
+                terrainLighting.sunIntensity = sunIntensity;
+                terrainLighting.ambientIntensity = ambientIntensity;
+            }
+            tileRenderer->setTerrainLighting(terrainLighting);
+        }
+    }
+
     bool TileRenderer::onDrawFrame(float deltaSeconds, const ViewState& viewState) {
         std::lock_guard<std::mutex> lock(_mutex);
-        
+
         if (!initializeRenderer()) {
             return false;
         }
@@ -254,6 +399,15 @@ namespace carto {
                                 tileRenderer->resetTileSurfaces();
                             } else if (auto mapRenderer = _mapRenderer.lock()) {
                                 mapRenderer->requestRedraw(); // apply the pending rebuild on a later frame
+                                // This path asks for a frame without drawing anything new. It is
+                                // meant to be a handful of frames while a rebuild is debounced; if
+                                // the elevation version never settles it is an endless render loop
+                                // instead, so say so rather than leaving it to be inferred from the
+                                // battery.
+                                static int pendingRebuildFrames = 0;
+                                if ((++pendingRebuildFrames % 300) == 0) {
+                                    Log::Infof("TileRenderer: %d frames spent waiting on an elevation rebuild, version %u", pendingRebuildFrames, elevationVersion);
+                                }
                             }
                         }
                     }
@@ -328,12 +482,63 @@ namespace carto {
         bool painterOrder = terrainMode && activeTerrainOptions && activeTerrainOptions->isPainterOrderDepthEnabled() && (bool) terrainTextureProvider;
         // Shared regular grid surfaces (tangram-style): one grid built once and reused for
         // every tile, instead of per-tile adaptive tesselation. Only in GPU draping mode.
-        bool regularGrid = painterOrder || (terrainMode && activeTerrainOptions && activeTerrainOptions->isRegularGridEnabled() && (bool) terrainTextureProvider);
+        // Maplibre-style RTT draping. It requires the shared regular grid: the drape UV is the
+        // grid's tile-local [0,1] vertex position, which only the regular grid provides.
+        bool drapeFills = terrainMode && activeTerrainOptions && activeTerrainOptions->isDrapeFillsEnabled() && (bool) terrainTextureProvider;
+        bool regularGrid = painterOrder || drapeFills || (terrainMode && activeTerrainOptions && activeTerrainOptions->isRegularGridEnabled() && (bool) terrainTextureProvider);
         tileRenderer->setTerrainRegularGrid(regularGrid, activeTerrainOptions ? activeTerrainOptions->getMeshResolution() : 0);
         tileRenderer->setTerrainPainterOrder(painterOrder);
-        // Maplibre-style render-to-texture fill draping.
-        bool drapeFills = terrainMode && activeTerrainOptions && activeTerrainOptions->isDrapeFillsEnabled() && (bool) terrainTextureProvider;
-        tileRenderer->setTerrainDrapeFills(drapeFills, activeTerrainOptions && activeTerrainOptions->isDrapeLinesEnabled());
+        // Draped content is baked FLAT (orthographic, no displacement), so lines need no terrain
+        // subdivision either - draping them is strictly cheaper as well as artifact-free.
+        tileRenderer->setTerrainDrapeFills(drapeFills, drapeFills);
+        tileRenderer->setTerrainDrapeResolution(activeTerrainOptions ? activeTerrainOptions->getDrapeResolution() : 512);
+        // Sun lighting of the draped surface. Once every 2D layer is baked into the drape
+        // texture the surface is the only lit ground geometry in the scene, so the whole map
+        // is shaded by one directional light that follows the time of day - and the pre-baked
+        // hillshade raster layer becomes optional rather than the only way to get relief.
+        vt::GLTileRenderer::TerrainLighting terrainLighting;
+        if (auto options = _options.lock()) {
+            // The style's values win over the options wherever it has an opinion; the rest of the
+            // sun stays with LightOptions. Both are re-read every frame, so either may depend on
+            // the zoom.
+            ResolvedLighting lighting = resolveLighting(options->getLightOptions(), _styleEnvironment);
+            // Kept for the 3D lighting shader callback, which runs at DRAW time and used to read
+            // LightOptions straight - so a style that had an opinion about the sun moved the
+            // terrain and left the buildings lit from the old direction, at the old intensity.
+            _sunLightingEnabled = lighting.terrainLightingEnabled;
+            _sunIntensity = lighting.sunIntensity;
+            _sunAmbient = lighting.ambientIntensity;
+            _resolvedSunDir = lighting.sunDir;
+            if (drapeFills && lighting.terrainLightingEnabled) {
+                terrainLighting.enabled = true;
+                terrainLighting.sunDir = lighting.sunDir;
+                terrainLighting.sunColor = cglib::vec3<float>(lighting.sunColor.getR() / 255.0f, lighting.sunColor.getG() / 255.0f, lighting.sunColor.getB() / 255.0f);
+                terrainLighting.sunIntensity = lighting.sunIntensity;
+                terrainLighting.ambientIntensity = lighting.ambientIntensity;
+            }
+
+            // Distance fog. Metric in the API and in the style, internal units in the renderer:
+            // the conversion is the equator one, the same the shadow distance uses.
+            Color fogColor = _styleEnvironment.fogColor ? *_styleEnvironment.fogColor : Color(0, 0, 0, 0);
+            float fogStartDistance = _styleEnvironment.fogStartDistance ? *_styleEnvironment.fogStartDistance : 0.0f;
+            float fogDistance = _styleEnvironment.fogDistance ? *_styleEnvironment.fogDistance : 0.0f;
+            if (std::shared_ptr<TerrainOptions> terrainOptions = options->getTerrainOptions()) {
+                if (!_styleEnvironment.fogColor) {
+                    fogColor = terrainOptions->getFogColor();
+                }
+                if (!_styleEnvironment.fogStartDistance) {
+                    fogStartDistance = terrainOptions->getFogStartDistance();
+                }
+                if (!_styleEnvironment.fogDistance) {
+                    fogDistance = terrainOptions->getFogDistance();
+                }
+            }
+            double metersToInternal = static_cast<double>(Const::WORLD_SIZE) / Const::EARTH_CIRCUMFERENCE;
+            tileRenderer->setFog(vt::Color(fogColor.getR() / 255.0f, fogColor.getG() / 255.0f, fogColor.getB() / 255.0f, fogColor.getA() / 255.0f),
+                                 static_cast<float>(fogStartDistance * metersToInternal),
+                                 static_cast<float>(fogDistance * metersToInternal));
+        }
+        tileRenderer->setTerrainLighting(terrainLighting);
         tileRenderer->setTerrainDepthWrite(terrainMode && _terrainDepthWriteMode);
         tileRenderer->setDebugWireframe(false); // debug: terrain mesh wireframe + stencil overlay
         tileRenderer->setDebugSurfacePrefill(false); // debug: facing-coded terrain pre-fill (magenta front / cyan back)
@@ -350,6 +555,15 @@ namespace carto {
         if (auto options = _options.lock()) {
             MapPos internalFocusPos = viewState.getProjectionSurface()->calculateMapPos(viewState.getFocusPos());
             _mainLightDir = cglib::vec3<float>::convert(cglib::unit(viewState.getProjectionSurface()->calculateVector(internalFocusPos, options->getMainLightDirection())));
+            // 3D extrusions are lit by this direction. With terrain lighting on, the whole map is
+            // supposed to answer to one sun, so the sun replaces the legacy fixed main light -
+            // otherwise buildings stay lit from a direction that has nothing to do with the hour.
+            // The RESOLVED sun, not LightOptions': a style may set the azimuth, altitude or
+            // intensity, and reading the options here left the buildings on a different sun from
+            // the ground they stand on.
+            if (_sunLightingEnabled) {
+                _mainLightDir = _resolvedSunDir;
+            }
             MapVec normalIlluminationDir = options->getMainLightDirection();
             if (_normalIlluminationDirection != MapVec(0,0,0)) {
                 normalIlluminationDir = _normalIlluminationDirection;
@@ -368,7 +582,7 @@ namespace carto {
 
         bool refresh = false;
         try {
-            refresh = tileRenderer->startFrame(deltaSeconds * 3);
+            refresh = prepareFrameUnsafe(deltaSeconds, viewState);
 
             tileRenderer->renderGeometry(true, false);
             if (_labelOrder == 0) {
@@ -397,7 +611,11 @@ namespace carto {
     
     bool TileRenderer::onDrawFrame3D(float deltaSeconds, const ViewState& viewState) {
         std::lock_guard<std::mutex> lock(_mutex);
-        
+
+        // The frame ends here regardless of what follows, so clear the prepare latch up front:
+        // leaking it past an early return would make every later frame skip startFrame.
+        _framePrepared = false;
+
         if (!_vtRenderer) {
             return false;
         }
@@ -579,6 +797,18 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
         return Color(colorFunc(vtViewState).value());
     }
 
+    void TileRenderer::setStyleEnvironment(const StyleEnvironment& env) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        _styleEnvironment = env;
+    }
+
+    float TileRenderer::evaluateFloatFunc(const vt::FloatFunction& floatFunc, const ViewState& viewState) {
+        cglib::mat4x4<double> modelViewMat = viewState.getModelviewMat();
+        vt::ViewState vtViewState(viewState.getProjectionMat(), modelViewMat, viewState.getZoom(), viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewState.getNormalizedResolution());
+        return floatFunc(vtViewState);
+    }
+
     bool TileRenderer::isPlanarTerrainMode() const {
         if (auto options = _options.lock()) {
             if (options->getRenderProjectionMode() == RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
@@ -608,7 +838,8 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
                     float screenWidth = static_cast<float>(viewState.getWidth());
                     float screenHeight = static_cast<float>(viewState.getHeight());
                     std::weak_ptr<MapRenderer> mapRendererWeak = _mapRenderer;
-                    tileRenderer->setLabelOcclusionTest([mapRendererWeak, mvpMat, screenWidth, screenHeight](const cglib::vec3<double>& pos) {
+                    float occlusionTolerance = 1.0f + terrainOptions->getBillboardOcclusionTolerance();
+                    tileRenderer->setLabelOcclusionTest([mapRendererWeak, mvpMat, screenWidth, screenHeight, occlusionTolerance](const cglib::vec3<double>& pos) {
                         auto mapRenderer = mapRendererWeak.lock();
                         if (!mapRenderer) {
                             return false;
@@ -624,9 +855,11 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
                         float screenX = static_cast<float>((clipPos(0) / clipPos(3) * 0.5 + 0.5) * screenWidth);
                         float screenY = static_cast<float>((0.5 - clipPos(1) / clipPos(3) * 0.5) * screenHeight);
                         float depthW = terrainRenderer->getDepthW(screenX, screenY);
-                        // occluded if clearly behind the terrain at this pixel (labels are
-                        // anchored ON the terrain, so allow a small relative tolerance)
-                        return static_cast<float>(clipPos(3)) > depthW * 1.02f;
+                        // Occluded if clearly behind the terrain at this pixel. The tolerance is
+                        // relative to distance: at its default it only absorbs the mismatch
+                        // between the anchor and the terrain it sits on, and raising it lets
+                        // partly hidden features label (the peak-finder case).
+                        return static_cast<float>(clipPos(3)) > depthW * occlusionTolerance;
                     });
                     return;
                 }
@@ -652,7 +885,10 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
             }
         }
 
-        tileRenderer->setLabelOcclusionTest([state, elevationManager, cameraPos](const cglib::vec3<double>& pos) -> bool {
+        // The ray path lifts the target above the anchor by the same relative tolerance, so
+        // both occlusion paths answer the same question.
+        double rayTolerance = 0.005 + 0.5 * terrainOptions->getBillboardOcclusionTolerance();
+        tileRenderer->setLabelOcclusionTest([state, elevationManager, cameraPos, rayTolerance](const cglib::vec3<double>& pos) -> bool {
             // Quantize the position for caching (roughly 4m grid)
             const double QUANT = 10.0;
             long long key = (static_cast<long long>(pos(0) * QUANT) * 73856093LL) ^ (static_cast<long long>(pos(1) * QUANT) * 19349663LL) ^ (static_cast<long long>(pos(2) * QUANT) * 83492791LL);
@@ -665,7 +901,7 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
             }
 
             double dist = cglib::length(pos - cameraPos);
-            cglib::vec3<double> target = pos + cglib::vec3<double>(0, 0, dist * 0.005);
+            cglib::vec3<double> target = pos + cglib::vec3<double>(0, 0, dist * rayTolerance);
             cglib::ray3<double> ray(cameraPos, target - cameraPos);
             double t = 0;
             bool occluded = elevationManager->intersectRay(ray, t) && t > 0 && t < 0.995;
@@ -708,6 +944,12 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
                     glUniform4f(glGetUniformLocation(shaderProgram, "u_lightColor"), mainLightColor.getR() / 255.0f, mainLightColor.getG() / 255.0f, mainLightColor.getB() / 255.0f, mainLightColor.getA() / 255.0f);
                     glUniform3fv(glGetUniformLocation(shaderProgram, "u_lightDir"), 1, _mainLightDir.data());
                     glUniform3fv(glGetUniformLocation(shaderProgram, "u_viewDir"), 1, _viewDir.data());
+                    // The RESOLVED sun (style over options), captured by onDrawFrame. Reading
+                    // LightOptions here ignored every sun property a style had set, so buildings
+                    // and the ground they stand on disagreed about the hour.
+                    float sunIntensity = (_sunLightingEnabled ? std::max(0.001f, _sunIntensity) : 0.0f);
+                    float sunAmbient = (_sunLightingEnabled ? _sunAmbient : 0.35f);
+                    glUniform2f(glGetUniformLocation(shaderProgram, "u_sunParams"), sunIntensity, sunAmbient);
                 }
             });
             tileRenderer->setLightingShader3D(lightingShader3D);
@@ -750,15 +992,26 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
         uniform vec4 u_lightColor;
         uniform vec3 u_lightDir;
         uniform vec3 u_viewDir;
+        uniform vec2 u_sunParams; // x = sun intensity (0 = legacy lighting), y = ambient
         vec4 applyLighting(lowp vec4 color, mediump vec3 normal, highp_opt float height, bool sideVertex) {
-            if (sideVertex) {
-                lowp vec3 dimmedColor = color.rgb * (1.0 - 0.5 / (1.0 + height * height));
-                mediump vec3 lighting = max(0.0, dot(normal, u_lightDir)) * u_lightColor.rgb + u_ambientColor.rgb;
-                return vec4(dimmedColor.rgb * lighting, color.a);
-            } else {
-                mediump float lighting = max(0.0, dot(normal, u_viewDir)) * 0.5 + 0.5;
-                return vec4(color.rgb * lighting, color.a);
+            lowp vec3 baseColor = sideVertex ? color.rgb * (1.0 - 0.5 / (1.0 + height * height)) : color.rgb;
+            if (u_sunParams.x > 0.0) {
+                // Sun lighting: roofs AND walls answer to the light. The legacy path lit roofs by
+                // the VIEW direction, so from above - where roofs are most of what you see - the
+                // buildings did not react to the sun at all. Same normalised Lambert as the
+                // terrain surface, so the two agree.
+                mediump float ndl = max(0.0, dot(normal, u_lightDir));
+                mediump float lit = u_sunParams.y + (1.0 - u_sunParams.y) * ndl * u_sunParams.x;
+                // No u_lightColor here: that is the legacy main-light tint and it darkens the
+                // result well below the terrain lit by the same formula. The two must match.
+                return vec4(baseColor * lit, color.a);
             }
+            if (sideVertex) {
+                mediump vec3 lighting = max(0.0, dot(normal, u_lightDir)) * u_lightColor.rgb + u_ambientColor.rgb;
+                return vec4(baseColor * lighting, color.a);
+            }
+            mediump float lighting = max(0.0, dot(normal, u_viewDir)) * 0.5 + 0.5;
+            return vec4(baseColor * lighting, color.a);
         }
     )GLSL";
 

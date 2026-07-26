@@ -1,4 +1,6 @@
 #include "CullWorker.h"
+#include "components/Options.h"
+#include "components/TerrainOptions.h"
 #include "layers/Layer.h"
 #include "projections/ProjectionSurface.h"
 #include "projections/PlanarProjectionSurface.h"
@@ -8,11 +10,14 @@
 #include "utils/Log.h"
 #include "utils/ThreadUtils.h"
 
+#include <optional>
+
 namespace carto {
 
     CullWorker::CullWorker() :
         _layerWakeupMap(),
         _firstCull(true),
+        _maxVisibleDistance(0),
         _envelope(),
         _viewState(),
         _mapRenderer(),
@@ -105,10 +110,37 @@ namespace carto {
                     continue;
                 }
                 
+                // How far the map is drawn. The style may set it (and may make it depend on the
+                // zoom), otherwise the application's TerrainOptions does; either way it enters the
+                // cull, because the point of it is to not ASK for the tiles in the first place.
+                double maxVisibleDistance = 0;
+                {
+                    std::optional<float> styleDistance;
+                    for (const std::shared_ptr<Layer>& layer : layers) {
+                        StyleEnvironment env;
+                        if (layer->getStyleEnvironment(viewState, env) && env.terrainMaxVisibleDistance) {
+                            styleDistance = *env.terrainMaxVisibleDistance;
+                            break;
+                        }
+                    }
+                    float distance = 0;
+                    if (styleDistance) {
+                        distance = *styleDistance;
+                    } else if (std::shared_ptr<Options> options = mapRenderer->getOptions()) {
+                        if (std::shared_ptr<TerrainOptions> terrainOptions = options->getTerrainOptions()) {
+                            distance = terrainOptions->getMaxVisibleDistance();
+                        }
+                    }
+                    // Metric in the API, internal units here: the equator conversion, the same one
+                    // the shadow distance uses.
+                    maxVisibleDistance = distance > 0 ? distance * static_cast<double>(Const::WORLD_SIZE) / Const::EARTH_CIRCUMFERENCE : 0;
+                }
+
                 // Check if view state has changed
-                if (_firstCull || viewState.getModelviewProjectionMat() != _viewState.getModelviewProjectionMat() || viewState.getProjectionSurface() != _viewState.getProjectionSurface()) {
+                if (_firstCull || maxVisibleDistance != _maxVisibleDistance || viewState.getModelviewProjectionMat() != _viewState.getModelviewProjectionMat() || viewState.getProjectionSurface() != _viewState.getProjectionSurface()) {
                     _firstCull = false;
                     _viewState = viewState;
+                    _maxVisibleDistance = maxVisibleDistance;
                     
                     // Calculate state
                     calculateCullState();
@@ -162,12 +194,19 @@ namespace carto {
                 cglib::vec3<double> pos1 = cglib::transform_point(cglib::vec3<double>(screenPos(0), screenPos(1),  1), invMVPMat);
                 cglib::ray3<double> ray(pos0, cglib::unit(pos1 - pos0));
 
+                // The visible ground along this ray stops at the terrain, at the far plane, or at
+                // the maximum visible distance - whichever comes first. Cutting it here is what
+                // keeps a near-horizontal view from asking for every tile up to the horizon.
+                double maxT = _viewState.getFar();
+                if (_maxVisibleDistance > 0) {
+                    maxT = std::min(maxT, _maxVisibleDistance);
+                }
                 double t = -1;
                 if (projectionSurface->calculateHitPoint(ray, 0, t)) {
-                    t = std::min(t, static_cast<double>(_viewState.getFar()));
+                    t = std::min(t, maxT);
                 }
 
-                MapPos mapPos = projectionSurface->calculateMapPos(ray(t > 0 ? t : _viewState.getFar()));
+                MapPos mapPos = projectionSurface->calculateMapPos(ray(t > 0 ? t : maxT));
                 mapPoses.emplace_back(mapPos.getX(), mapPos.getY());
             }
         }

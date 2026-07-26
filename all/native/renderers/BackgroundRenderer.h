@@ -29,7 +29,7 @@ namespace carto {
         virtual ~BackgroundRenderer();
     
         void onSurfaceCreated(const std::shared_ptr<GLResourceManager>& resourceManager);
-        void onDrawFrame(const ViewState& viewState);
+        void onDrawFrame(const ViewState& viewState, bool drawSkyBand = true);
         void onSurfaceDestroyed();
     
     protected:

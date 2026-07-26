@@ -217,18 +217,30 @@ namespace carto {
         return _touchHandler.lock();
     }
 
-    void Layer::redraw() const {
+    void Layer::redraw(const char* callerFile, int callerLine) const {
         if (auto mapRenderer = getMapRenderer()) {
-            mapRenderer->requestRedraw();
+            mapRenderer->requestRedraw(callerFile, callerLine);
         }
     }
     
+    void Layer::collectDrapeLayers(std::vector<std::shared_ptr<TileLayer> >& drapeLayers) {
+        // Non-tile layers (vector elements, NML models) are not draped.
+    }
+
     bool Layer::onDrawFrame3D(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState) {
         return false;
     }
     
     std::shared_ptr<Bitmap> Layer::getBackgroundBitmap(const ViewState& viewState) const {
         return std::shared_ptr<Bitmap>();
+    }
+
+    Color Layer::getBackgroundColor(const ViewState& viewState) const {
+        return Color(0, 0, 0, 0);
+    }
+
+    bool Layer::getStyleEnvironment(const ViewState& viewState, StyleEnvironment& env) const {
+        return false;
     }
 
     std::shared_ptr<Bitmap> Layer::getSkyBitmap(const ViewState& viewState) const {

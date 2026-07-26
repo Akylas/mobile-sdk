@@ -11,6 +11,8 @@
 #include "core/MapRange.h"
 #include "core/ScreenPos.h"
 #include "components/TerrainOptions.h"
+#include "components/SkyOptions.h"
+#include "components/LightOptions.h"
 #include "graphics/Color.h"
 
 #include <memory>
@@ -561,6 +563,30 @@ namespace carto {
         void setTerrainOptions(const std::shared_ptr<TerrainOptions>& terrainOptions);
 
         /**
+         * Returns the sky options. May be null.
+         * @return The sky options.
+         */
+        std::shared_ptr<SkyOptions> getSkyOptions() const;
+        /**
+         * Sets the sky options. Attaching a SkyOptions object replaces the legacy sky bitmap
+         * band with a full-screen shader sky. Pass a null pointer to go back to the legacy sky.
+         * @param skyOptions The new sky options.
+         */
+        void setSkyOptions(const std::shared_ptr<SkyOptions>& skyOptions);
+
+        /**
+         * Returns the light (sun) options. May be null.
+         * @return The light options.
+         */
+        std::shared_ptr<LightOptions> getLightOptions() const;
+        /**
+         * Sets the light (sun) options. The sun direction drives the shader sky, terrain
+         * surface lighting and shadows.
+         * @param lightOptions The new light options.
+         */
+        void setLightOptions(const std::shared_ptr<LightOptions>& lightOptions);
+
+        /**
          * Sets wether layers are processed in reversed order to process labels.
          * The default is true.
          * @param enabled wether to process layers in reversed order.
@@ -661,6 +687,12 @@ namespace carto {
 
         std::shared_ptr<TerrainOptions> _terrainOptions;
         std::shared_ptr<TerrainOptions::OnChangeListener> _terrainOptionsListener;
+
+        std::shared_ptr<SkyOptions> _skyOptions;
+        std::shared_ptr<SkyOptions::OnChangeListener> _skyOptionsListener;
+
+        std::shared_ptr<LightOptions> _lightOptions;
+        std::shared_ptr<LightOptions::OnChangeListener> _lightOptionsListener;
     
         std::shared_ptr<CancelableThreadPool> _envelopeThreadPool;
         std::shared_ptr<CancelableThreadPool> _tileThreadPool;

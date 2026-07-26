@@ -29,12 +29,18 @@
 %attribute(carto::TerrainOptions, bool, PainterOrderDepthEnabled, isPainterOrderDepthEnabled, setPainterOrderDepthEnabled)
 %attribute(carto::TerrainOptions, bool, DrapeFillsEnabled, isDrapeFillsEnabled, setDrapeFillsEnabled)
 %attribute(carto::TerrainOptions, bool, DrapeLinesEnabled, isDrapeLinesEnabled, setDrapeLinesEnabled)
+%attribute(carto::TerrainOptions, int, DrapeResolution, getDrapeResolution, setDrapeResolution)
 %attribute(carto::TerrainOptions, float, ElementTerrainSlack, getElementTerrainSlack, setElementTerrainSlack)
 %attribute(carto::TerrainOptions, int, MinZoom, getMinZoom, setMinZoom)
 %attribute(carto::TerrainOptions, int, MaxTileZoomOffset, getMaxTileZoomOffset, setMaxTileZoomOffset)
 %attributeval(carto::TerrainOptions, carto::Color, BackgroundColor, getBackgroundColor, setBackgroundColor)
+%attributeval(carto::TerrainOptions, carto::Color, FogColor, getFogColor, setFogColor)
+%attribute(carto::TerrainOptions, float, FogStartDistance, getFogStartDistance, setFogStartDistance)
+%attribute(carto::TerrainOptions, float, FogDistance, getFogDistance, setFogDistance)
+%attribute(carto::TerrainOptions, float, MaxVisibleDistance, getMaxVisibleDistance, setMaxVisibleDistance)
 %attribute(carto::TerrainOptions, float, DepthBias, getDepthBias, setDepthBias)
 %attribute(carto::TerrainOptions, bool, BillboardOcclusionEnabled, isBillboardOcclusionEnabled, setBillboardOcclusionEnabled)
+%attribute(carto::TerrainOptions, float, BillboardOcclusionTolerance, getBillboardOcclusionTolerance, setBillboardOcclusionTolerance)
 %std_exceptions(carto::TerrainOptions::TerrainOptions)
 
 %ignore carto::TerrainOptions::OnChangeListener;

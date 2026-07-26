@@ -474,6 +474,13 @@ namespace carto {
     }
     
     bool VectorTileLayer::onDrawFrame(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState) {
+        {
+            // The style's own sun/shadow/fog values for this frame. Read here rather than inside
+            // the renderer because only the layer can evaluate its style's expressions.
+            StyleEnvironment env;
+            getStyleEnvironment(viewState, env);
+            _tileRenderer->setStyleEnvironment(env);
+        }
         updateTileLoadListener();
 
         if (auto mapRenderer = getMapRenderer()) {
@@ -518,6 +525,59 @@ namespace carto {
             _backgroundColor = backgroundColor;
         }
         return _backgroundBitmap;
+    }
+
+    Color VectorTileLayer::getBackgroundColor(const ViewState& viewState) const {
+        std::lock_guard<std::recursive_mutex> lock(_mutex);
+
+        return TileRenderer::evaluateColorFunc(_tileDecoder->getMapSettings()->backgroundColor.getFunction(getExpressionContext()), viewState);
+    }
+
+    bool VectorTileLayer::getStyleEnvironment(const ViewState& viewState, StyleEnvironment& env) const {
+        std::lock_guard<std::recursive_mutex> lock(_mutex);
+
+        std::shared_ptr<const mvt::Map::Settings> mapSettings = _tileDecoder->getMapSettings();
+        if (!mapSettings) {
+            return false;
+        }
+        mvt::ExpressionContext context = getExpressionContext();
+        // Only what the style actually declares: isDefined() is false for a property the style
+        // never mentions, and that one keeps coming from the application's own options.
+        auto readFloat = [&](const mvt::FloatFunctionProperty& property, std::optional<float>& value) {
+            if (property.isDefined()) {
+                value = TileRenderer::evaluateFloatFunc(property.getFunction(context), viewState);
+            }
+        };
+        auto readColor = [&](const mvt::ColorFunctionProperty& property, std::optional<Color>& value) {
+            if (property.isDefined()) {
+                value = TileRenderer::evaluateColorFunc(property.getFunction(context), viewState);
+            }
+        };
+        readFloat(mapSettings->sunAzimuth, env.sunAzimuth);
+        readFloat(mapSettings->sunAltitude, env.sunAltitude);
+        readColor(mapSettings->sunColor, env.sunColor);
+        readFloat(mapSettings->sunIntensity, env.sunIntensity);
+        readFloat(mapSettings->ambientIntensity, env.ambientIntensity);
+        readFloat(mapSettings->shadowStrength, env.shadowStrength);
+        readFloat(mapSettings->shadowBias, env.shadowBias);
+        readFloat(mapSettings->shadowSoftness, env.shadowSoftness);
+        readFloat(mapSettings->shadowDistance, env.shadowDistance);
+        readColor(mapSettings->fogColor, env.fogColor);
+        readFloat(mapSettings->fogStartDistance, env.fogStartDistance);
+        readFloat(mapSettings->fogDistance, env.fogDistance);
+        readFloat(mapSettings->terrainMaxVisibleDistance, env.terrainMaxVisibleDistance);
+        if (mapSettings->terrainLighting.isDefined()) {
+            env.terrainLightingEnabled = TileRenderer::evaluateFloatFunc(mapSettings->terrainLighting.getFunction(context), viewState) != 0.0f;
+        }
+        auto readInt = [&](const mvt::FloatFunctionProperty& property, std::optional<int>& value) {
+            if (property.isDefined()) {
+                value = static_cast<int>(TileRenderer::evaluateFloatFunc(property.getFunction(context), viewState) + 0.5f);
+            }
+        };
+        readInt(mapSettings->shadowMapSize, env.shadowMapSize);
+        readInt(mapSettings->shadowCascades, env.shadowCascades);
+        readInt(mapSettings->shadowCasterMargin, env.shadowCasterMargin);
+        return !env.empty();
     }
 
     std::shared_ptr<Bitmap> VectorTileLayer::getSkyBitmap(const ViewState& viewState) const {

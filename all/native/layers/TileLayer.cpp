@@ -546,6 +546,26 @@ namespace carto {
             }
         }
 
+        // How far the map is drawn. The style may say (and may make it depend on the zoom),
+        // otherwise TerrainOptions does. Looking along the ground the camera sees to the horizon,
+        // which is hundreds of tiles, almost all of them a few pixels tall; this is what keeps
+        // that view affordable. Pair it with fog, or the ground simply ends.
+        _maxVisibleDistance = 0;
+        {
+            StyleEnvironment env;
+            float distance = 0;
+            if (getStyleEnvironment(cullState->getViewState(), env) && env.terrainMaxVisibleDistance) {
+                distance = *env.terrainMaxVisibleDistance;
+            } else if (auto options = getOptions()) {
+                if (auto terrainOptions = options->getTerrainOptions()) {
+                    distance = terrainOptions->getMaxVisibleDistance();
+                }
+            }
+            if (distance > 0) {
+                _maxVisibleDistance = distance * static_cast<double>(Const::WORLD_SIZE) / Const::EARTH_CIRCUMFERENCE;
+            }
+        }
+
         // Recursively calculate visible tiles
         calculateVisibleTilesRecursive(cullState, MapTile(0, 0, 0, _frameNr), _dataSource->getDataExtent());
         if (auto options = getOptions()) {
@@ -585,6 +605,19 @@ namespace carto {
         bool inPreloadingFrustum = visibleFrustum.inside(preloadingBounds);
         if (!inPreloadingFrustum) {
             return;
+        }
+        // Beyond the view distance nothing is drawn, so nothing is fetched either - and the
+        // recursion stops here rather than subdividing a tile that will never be seen. The test
+        // is against the NEAREST point of the tile, so a tile straddling the limit still counts.
+        if (_maxVisibleDistance > 0) {
+            const cglib::vec3<double>& cameraPos = viewState.getCameraPos();
+            cglib::vec3<double> nearestPos = cameraPos;
+            for (int i = 0; i < 3; i++) {
+                nearestPos(i) = std::max(tileBounds.min(i), std::min(tileBounds.max(i), cameraPos(i)));
+            }
+            if (cglib::length(nearestPos - cameraPos) > _maxVisibleDistance) {
+                return;
+            }
         }
         bool inVisibleFrustum = visibleFrustum.inside(tileBounds);
 
@@ -776,6 +809,60 @@ namespace carto {
 
     void TileLayer::setTerrainDepthWriteMode(bool enabled) {
         _tileRenderer->setTerrainDepthWriteMode(enabled);
+    }
+
+    void TileLayer::collectDrapeLayers(std::vector<std::shared_ptr<TileLayer> >& drapeLayers) {
+        if (isVisible()) {
+            drapeLayers.push_back(std::static_pointer_cast<TileLayer>(shared_from_this()));
+        }
+    }
+
+    bool TileLayer::prepareTerrainDrapeFrame(float deltaSeconds, const ViewState& viewState) {
+        return _tileRenderer->prepareFrame(deltaSeconds, viewState);
+    }
+
+    void TileLayer::setExternalDrapeTarget(bool enabled) {
+        _tileRenderer->setExternalDrapeTarget(enabled);
+    }
+
+    void TileLayer::setExternalDrapeTiles(const std::vector<vt::TileId>& tileIds) {
+        _tileRenderer->setExternalDrapeTiles(tileIds);
+    }
+
+    void TileLayer::collectDrapeTiles(std::map<vt::TileId, std::size_t>& drapeTiles) const {
+        _tileRenderer->collectDrapeTiles(drapeTiles);
+    }
+
+    int TileLayer::bakeDrapeTile(const vt::TileId& tileId) {
+        return _tileRenderer->bakeDrapeTile(tileId);
+    }
+
+    int TileLayer::renderDrapedSurface(const vt::TileId& tileId, unsigned int drapeTexture, float uvOffsetX, float uvOffsetY, float uvScale) {
+        return _tileRenderer->renderDrapedSurface(tileId, drapeTexture, uvOffsetX, uvOffsetY, uvScale);
+    }
+
+    int TileLayer::renderDrapedSurfaceFill(const vt::TileId& tileId, const Color& color) {
+        return _tileRenderer->renderDrapedSurfaceFill(tileId, color);
+    }
+
+    bool TileLayer::calculateShadowViewProj(const std::vector<vt::TileId>& tileIds, const std::vector<vt::TileId>& casterTileIds, const cglib::vec3<float>& sunDir, const std::vector<std::pair<double, double> >& tileHeights, double minHeight, double maxHeight, float maxDistanceMeters, int mapSize, int cascade, int cascadeCount, std::vector<vt::TileId>& boxCasterTileIds, double& depthRangeMeters, double& texelMeters, cglib::mat4x4<double>& lightViewProj) const {
+        return _tileRenderer->calculateShadowViewProj(tileIds, casterTileIds, sunDir, tileHeights, minHeight, maxHeight, maxDistanceMeters, mapSize, cascade, cascadeCount, boxCasterTileIds, depthRangeMeters, texelMeters, lightViewProj);
+    }
+
+    float TileLayer::shadowCasterFadeSignature() const {
+        return _tileRenderer->shadowCasterFadeSignature();
+    }
+
+    int TileLayer::renderShadowCasters(const std::vector<vt::TileId>& tileIds, const cglib::mat4x4<double>& lightViewProj, bool castGround) {
+        return _tileRenderer->renderShadowCasters(tileIds, lightViewProj, castGround);
+    }
+
+    void TileLayer::setTerrainShadowMap(unsigned int texture, int mapSize, int cascades, const std::array<float, 4>& depthBiases, float strength, float softness, const std::array<cglib::mat4x4<double>, 4>& lightViewProjs) {
+        _tileRenderer->setTerrainShadowMap(texture, mapSize, cascades, depthBiases, strength, softness, lightViewProjs);
+    }
+
+    void TileLayer::setTerrainSunLighting(bool enabled, const cglib::vec3<float>& sunDir, const Color& sunColor, float sunIntensity, float ambientIntensity) {
+        _tileRenderer->setTerrainSunLighting(enabled, sunDir, sunColor, sunIntensity, ambientIntensity);
     }
 
     void TileLayer::setTerrainRenderOrder(int order) {

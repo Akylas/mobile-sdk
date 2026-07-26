@@ -15,7 +15,10 @@
 #include "datasources/TileDataSource.h"
 #include "layers/Layer.h"
 
+#include <vt/TileId.h>
+
 #include <atomic>
+#include <map>
 #include <mutex>
 #include <unordered_map>
 
@@ -381,6 +384,26 @@ namespace carto {
          */
         void setTerrainRenderOrder(int order);
 
+        /**
+         * Cross-layer terrain draping. MapRenderer prepares every participating layer's frame,
+         * collects the tiles they would drape, bakes them all into one shared texture per tile in
+         * layer order, and then draws the terrain surface once. Internal methods.
+         */
+        virtual void collectDrapeLayers(std::vector<std::shared_ptr<TileLayer> >& drapeLayers);
+
+        bool prepareTerrainDrapeFrame(float deltaSeconds, const ViewState& viewState);
+        void setExternalDrapeTarget(bool enabled);
+        void setExternalDrapeTiles(const std::vector<vt::TileId>& tileIds);
+        void collectDrapeTiles(std::map<vt::TileId, std::size_t>& drapeTiles) const;
+        int bakeDrapeTile(const vt::TileId& tileId);
+        int renderDrapedSurface(const vt::TileId& tileId, unsigned int drapeTexture, float uvOffsetX, float uvOffsetY, float uvScale);
+        int renderDrapedSurfaceFill(const vt::TileId& tileId, const Color& color);
+        bool calculateShadowViewProj(const std::vector<vt::TileId>& tileIds, const std::vector<vt::TileId>& casterTileIds, const cglib::vec3<float>& sunDir, const std::vector<std::pair<double, double> >& tileHeights, double minHeight, double maxHeight, float maxDistanceMeters, int mapSize, int cascade, int cascadeCount, std::vector<vt::TileId>& boxCasterTileIds, double& depthRangeMeters, double& texelMeters, cglib::mat4x4<double>& lightViewProj) const;
+        float shadowCasterFadeSignature() const;
+        int renderShadowCasters(const std::vector<vt::TileId>& tileIds, const cglib::mat4x4<double>& lightViewProj, bool castGround);
+        void setTerrainShadowMap(unsigned int texture, int mapSize, int cascades, const std::array<float, 4>& depthBiases, float strength, float softness, const std::array<cglib::mat4x4<double>, 4>& lightViewProjs);
+        void setTerrainSunLighting(bool enabled, const cglib::vec3<float>& sunDir, const Color& sunColor, float sunIntensity, float ambientIntensity);
+
     protected:
 
         const DirectorPtr<TileDataSource> _dataSource;
@@ -439,6 +462,7 @@ namespace carto {
         int _maxUnderzoomLevel;
 
         int _terrainMaxTileZoom = 1000; // terrain-mode tile zoom cap (effectively none), recomputed per cull
+        double _maxVisibleDistance = 0; // internal units; 0 = as far as the camera can see
         bool _terrainOverzoomTargets = false; // terrain mode: target tiles may exceed the data source max zoom (overzoom-fed)
 
         std::vector<MapTile> _visibleTiles;

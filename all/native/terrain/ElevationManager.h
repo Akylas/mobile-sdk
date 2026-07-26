@@ -108,6 +108,12 @@ namespace carto {
          * The tile must be in XYZ convention (y=0 north, same as vt::TileId).
          */
         virtual void getMinMaxDisplayHeight(const MapTile& tile, double& minZ, double& maxZ) const override;
+        /**
+         * Like getMinMaxDisplayHeight, but without the conservative clamp that always includes
+         * sea level. Only valid where a loose range costs more than a missing one - fitting a
+         * shadow box, not culling. Falls back to the clamped range when the tile has no data.
+         */
+        void getMinMaxDisplayHeightExact(const MapTile& tile, double& minZ, double& maxZ) const;
         virtual unsigned int getVersion() const override;
 
         /**
@@ -124,6 +130,7 @@ namespace carto {
         MapTile clampTileZoom(const MapTile& mapTile) const;
         std::shared_ptr<ElevationTileGrid> getGridForInternalPos(double internalX, double internalY, LoadMode mode) const;
         std::shared_ptr<ElevationTileGrid> loadTileGrid(const MapTile& mapTile) const;
+        void getMinMaxDisplayHeight(const MapTile& tile, double& minZ, double& maxZ, bool exact) const;
 
         const std::shared_ptr<TileDataSource> _dataSource;
         const std::shared_ptr<ElevationDecoder> _elevationDecoder;

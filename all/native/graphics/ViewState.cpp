@@ -80,14 +80,22 @@ namespace carto {
     }
 
     float ViewState::getTerrainMaxZoom() const {
-        // The camera height above the (z=0) focus plane is zoom0Distance*cos(tilt)/2^zoom,
-        // so the zoom is bounded by the clearance shell through the ratio of the current
-        // height to the minimum height - no need to know the tilt or zoom0Distance, and no
-        // frame lag: the bound is re-derived from the live camera state on every use.
+        // Zooming scales the camera-to-FOCUS vector (clampZoom below rebuilds the camera position
+        // exactly that way), so what shrinks as 1/2^zoom is the camera's height above the focus,
+        // not its height above z=0. On terrain the focus sits on the ground, hundreds or thousands
+        // of metres up, and measuring from sea level makes every bound land short of the clearance
+        // shell: the camera is still below it after the clamp, so the next frame clamps again, and
+        // a still map re-renders for ever while creeping outwards. Measured from the focus the
+        // bound lands exactly on the shell.
         if (!(_terrainMinCameraZ > 0) || !(_cameraPos(2) > 0)) {
             return std::numeric_limits<float>::infinity();
         }
-        return _zoom + static_cast<float>(std::log2(_cameraPos(2) / _terrainMinCameraZ));
+        double cameraHeight = _cameraPos(2) - _focusPos(2);
+        double minHeight = _terrainMinCameraZ - _focusPos(2);
+        if (!(cameraHeight > 0) || !(minHeight > 0)) {
+            return static_cast<float>(_zoom + std::log2(_cameraPos(2) / _terrainMinCameraZ)); // degenerate: focus at or above the shell
+        }
+        return _zoom + static_cast<float>(std::log2(cameraHeight / minHeight));
     }
 
     void ViewState::setCameraPos(const cglib::vec3<double>& cameraPos) {

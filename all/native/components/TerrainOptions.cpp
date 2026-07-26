@@ -19,8 +19,9 @@ namespace carto {
         _meshResolution(32),
         _regularGridEnabled(false),
         _painterOrderDepthEnabled(false),
-        _drapeFillsEnabled(false),
-        _drapeLinesEnabled(false),
+        _drapeFillsEnabled(true),
+        _drapeLinesEnabled(true),
+        _drapeResolution(512),
         _elementTerrainSlack(2.0f),
         _minZoom(5),
         _maxTileZoomOffset(100),
@@ -30,6 +31,11 @@ namespace carto {
         _cameraClearance(200.0f),
         _cameraClampDuration(0.0f),
         _billboardOcclusionEnabled(true),
+        _billboardOcclusionTolerance(0.02f),
+        _fogColorARGB(Color(0, 0, 0, 0).getARGB()),
+        _fogStartDistance(0.0f),
+        _fogDistance(0.0f),
+        _maxVisibleDistance(0.0f),
         _onChangeListeners(),
         _onChangeListenersMutex()
     {
@@ -132,6 +138,17 @@ namespace carto {
         }
     }
 
+    int TerrainOptions::getDrapeResolution() const {
+        return _drapeResolution.load();
+    }
+
+    void TerrainOptions::setDrapeResolution(int resolution) {
+        int value = std::min(2048, std::max(128, resolution));
+        if (_drapeResolution.exchange(value) != value) {
+            notifyOptionChanged("DrapeResolution");
+        }
+    }
+
     int TerrainOptions::getMinZoom() const {
         return _minZoom.load();
     }
@@ -140,6 +157,49 @@ namespace carto {
         int zoom = std::min(24, std::max(0, minZoom));
         if (_minZoom.exchange(zoom) != zoom) {
             notifyOptionChanged("MinZoom");
+        }
+    }
+
+    Color TerrainOptions::getFogColor() const {
+        return Color(_fogColorARGB.load());
+    }
+
+    void TerrainOptions::setFogColor(const Color& color) {
+        if (_fogColorARGB.exchange(color.getARGB()) != color.getARGB()) {
+            notifyOptionChanged("FogColor");
+        }
+    }
+
+    float TerrainOptions::getFogStartDistance() const {
+        return _fogStartDistance.load();
+    }
+
+    void TerrainOptions::setFogStartDistance(float distance) {
+        float clamped = std::max(0.0f, distance);
+        if (_fogStartDistance.exchange(clamped) != clamped) {
+            notifyOptionChanged("FogStartDistance");
+        }
+    }
+
+    float TerrainOptions::getFogDistance() const {
+        return _fogDistance.load();
+    }
+
+    void TerrainOptions::setFogDistance(float distance) {
+        float clamped = std::max(0.0f, distance);
+        if (_fogDistance.exchange(clamped) != clamped) {
+            notifyOptionChanged("FogDistance");
+        }
+    }
+
+    float TerrainOptions::getMaxVisibleDistance() const {
+        return _maxVisibleDistance.load();
+    }
+
+    void TerrainOptions::setMaxVisibleDistance(float distance) {
+        float clamped = std::max(0.0f, distance);
+        if (_maxVisibleDistance.exchange(clamped) != clamped) {
+            notifyOptionChanged("MaxVisibleDistance");
         }
     }
 
@@ -205,6 +265,17 @@ namespace carto {
         float bias = std::min(0.01f, std::max(0.0f, depthBias));
         if (_depthBias.exchange(bias) != bias) {
             notifyOptionChanged("DepthBias");
+        }
+    }
+
+    float TerrainOptions::getBillboardOcclusionTolerance() const {
+        return _billboardOcclusionTolerance.load();
+    }
+
+    void TerrainOptions::setBillboardOcclusionTolerance(float tolerance) {
+        float value = std::min(1.0f, std::max(0.0f, tolerance));
+        if (_billboardOcclusionTolerance.exchange(value) != value) {
+            notifyOptionChanged("BillboardOcclusionTolerance");
         }
     }
 

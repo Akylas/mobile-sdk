@@ -14,9 +14,14 @@
 #include "components/DirectorPtr.h"
 #include "graphics/ViewState.h"
 #include "renderers/BackgroundRenderer.h"
+#include "renderers/SkyRenderer.h"
 #include "renderers/components/AnimationHandler.h"
 #include "renderers/components/KineticEventHandler.h"
 
+#include <cglib/mat.h>
+#include <vt/TileId.h>
+
+#include <array>
 #include <atomic>
 #include <optional>
 #include <chrono>
@@ -41,6 +46,8 @@ namespace carto {
     class Options;
     class PostProcessEffect;
     class TerrainRenderer;
+    class TerrainDrapeCache;
+    class TerrainShadowMap;
     class ThreadWorker;
     class CullWorker;
     class VTLabelPlacementWorker;
@@ -98,8 +105,15 @@ namespace carto {
          * Requests the renderer to refresh the view.
          * Note that there is normally no need to do this manually,
          * SDK automatically redraws the view when needed.
+         * The default arguments record the CALL SITE, so a view that never stops redrawing can
+         * say which of the ~30 callers is driving it (logRedrawSources below). Callers pass
+         * nothing; the compiler fills these in.
          */
-        void requestRedraw() const;
+#if defined(__clang__) || defined(__GNUC__)
+        void requestRedraw(const char* callerFile = __builtin_FILE(), int callerLine = __builtin_LINE()) const;
+#else
+        void requestRedraw(const char* callerFile = "?", int callerLine = 0) const;
+#endif
     
         /**
          * Captures map rendering as a bitmap. This operation is asynchronous and the result is returned via listener callback.
@@ -178,6 +192,11 @@ namespace carto {
 
         void initializeRenderState() const;
 
+        // Dumps and resets the per-call-site redraw request counts. Diagnostic for "the map never
+        // stops rendering": the counts say whether the frames come from an animation, from tiles
+        // arriving, or from one caller firing on every single frame.
+        static void logRedrawSources();
+
         void drawLayers(float deltaSeconds, const ViewState& viewState);
 
         void applyPostProcessEffect(const std::shared_ptr<PostProcessEffect>& effect, const ViewState& viewState);
@@ -216,11 +235,26 @@ namespace carto {
         std::string _postProcessShaderName;
         std::optional<std::chrono::steady_clock::time_point> _postProcessStartTime;
         std::unique_ptr<TerrainRenderer> _terrainRenderer;
+        std::unique_ptr<TerrainDrapeCache> _terrainDrapeCache;
+        std::unique_ptr<TerrainShadowMap> _terrainShadowMap; // shared cross-layer drape target
+        // What the shadow map currently holds. The caster pass is a second full draw of the
+        // terrain, and the light box is snapped to a world lattice so its matrix repeats exactly
+        // while the camera moves inside one texel step: while these match, the existing map is
+        // still the right one and the pass is skipped.
+        bool _shadowMapValid = false;
+        int _shadowMapSize = 0;
+        int _shadowMapCascades = 0;
+        int _shadowMapAge = 0;
+        float _shadowMapFadeSignature = 0.0f;
+        std::array<cglib::mat4x4<double>, 4> _shadowMapViewProjs;
+        std::array<float, 4> _shadowMapBiases = { };
+        std::vector<vt::TileId> _shadowMapCasterTiles;
 
         unsigned int _layersElevationVersion = 0;
         std::optional<std::chrono::steady_clock::time_point> _lastElevationRefreshTime;
 
         BackgroundRenderer _backgroundRenderer;
+        SkyRenderer _skyRenderer;
         
         std::vector<std::shared_ptr<BillboardDrawData> > _billboardDrawDatas;
         std::vector<std::shared_ptr<BillboardDrawData> > _billboardDrawDataBuffer;

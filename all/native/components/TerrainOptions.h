@@ -192,6 +192,20 @@ namespace carto {
          * Returns the minimum tile zoom level with 3D terrain.
          * @return The minimum zoom level. The default is 5.
          */
+        /**
+         * Returns the per-tile drape texture resolution.
+         * @return The drape texture resolution in pixels.
+         */
+        int getDrapeResolution() const;
+        /**
+         * Sets the per-tile drape texture resolution. Draped content is rasterized into a texture
+         * of this size and resampled onto the terrain surface, so this trades sharpness of thin
+         * content (lines, outlines) against video memory: cost is resolution^2 * 4 bytes per
+         * visible tile. maplibre uses twice the tile size (1024 for 512px tiles) for this reason.
+         * @param resolution The new drape texture resolution, clamped to [128, 2048]. Default 1024.
+         */
+        void setDrapeResolution(int resolution);
+
         int getMinZoom() const;
         /**
          * Sets the minimum tile zoom level with 3D terrain. Tiles below this zoom level render flat
@@ -200,6 +214,61 @@ namespace carto {
          * @param minZoom The new minimum zoom level (clamped to 0..24).
          */
         void setMinZoom(int minZoom);
+
+        /**
+         * Returns the fog color.
+         * @return The fog color. The default is transparent (no fog).
+         */
+        Color getFogColor() const;
+        /**
+         * Sets the color distant terrain, rasters, geometry and 3D extrusions fade towards.
+         * The alpha channel is how opaque the fog gets at full distance, so a fully transparent
+         * color (the default) means no fog at all. Fog is what makes a long view distance look
+         * like distance rather than like a hard cut, and it is what hides the edge of the terrain
+         * when the maximum visible distance is limited.
+         * A style can set this itself with the Map property "fog-color".
+         * @param color The new fog color.
+         */
+        void setFogColor(const Color& color);
+
+        /**
+         * Returns the distance at which the fog starts.
+         * @return The fog start distance in meters. The default is 0.
+         */
+        float getFogStartDistance() const;
+        /**
+         * Sets the distance from the camera at which the fog starts, in meters. Nothing nearer
+         * than this is fogged at all. Style property: "fog-start-distance".
+         * @param distance The new fog start distance in meters.
+         */
+        void setFogStartDistance(float distance);
+
+        /**
+         * Returns the distance at which the fog reaches full strength.
+         * @return The fog distance in meters. The default is 0 (no fog).
+         */
+        float getFogDistance() const;
+        /**
+         * Sets the distance from the camera at which the fog reaches its full strength, in
+         * meters. 0 (the default) turns the fog off. Style property: "fog-distance".
+         * @param distance The new fog distance in meters.
+         */
+        void setFogDistance(float distance);
+
+        /**
+         * Returns the maximum distance the terrain is drawn to.
+         * @return The maximum visible distance in meters. The default is 0 (unlimited).
+         */
+        float getMaxVisibleDistance() const;
+        /**
+         * Sets how far from the camera the map is drawn, in meters. 0 (the default) draws
+         * everything the camera can see, which at a low tilt is the ground all the way to the
+         * horizon - hundreds of tiles, most of them a few pixels tall. Limiting it is what makes
+         * a near-horizontal view affordable; pair it with fog so the ground fades out instead of
+         * ending. Style property: "terrain-max-visible-distance".
+         * @param distance The new maximum visible distance in meters.
+         */
+        void setMaxVisibleDistance(float distance);
 
         /**
          * Returns the terrain background color.
@@ -289,6 +358,21 @@ namespace carto {
         void setDepthBias(float depthBias);
 
         /**
+         * Returns the billboard/label terrain occlusion tolerance.
+         * @return The relative depth tolerance. The default is 0.02.
+         */
+        float getBillboardOcclusionTolerance() const;
+        /**
+         * Sets how far behind the terrain a billboard or label anchor may sit and still count
+         * as visible, as a fraction of its distance from the camera. The default 0.02 only
+         * absorbs the mismatch between the anchor and the terrain it sits on. Larger values
+         * deliberately let partly hidden features label - a summit just behind a nearer ridge
+         * still shows its name, which is what a peak-finder view wants.
+         * @param tolerance The new relative tolerance (clamped to 0..1).
+         */
+        void setBillboardOcclusionTolerance(float tolerance);
+
+        /**
          * Returns the billboard/label terrain occlusion state.
          * @return True if billboards and labels hidden behind terrain are faded out. The default is true.
          */
@@ -357,6 +441,7 @@ namespace carto {
         std::atomic<bool> _drapeFillsEnabled;
         std::atomic<bool> _drapeLinesEnabled;
         std::atomic<float> _elementTerrainSlack;
+        std::atomic<int> _drapeResolution;
         std::atomic<int> _minZoom;
         std::atomic<int> _maxTileZoomOffset;
         std::atomic<int> _backgroundColorARGB;
@@ -365,6 +450,11 @@ namespace carto {
         std::atomic<float> _cameraClearance;
         std::atomic<float> _cameraClampDuration;
         std::atomic<bool> _billboardOcclusionEnabled;
+        std::atomic<float> _billboardOcclusionTolerance;
+        std::atomic<int> _fogColorARGB;
+        std::atomic<float> _fogStartDistance;
+        std::atomic<float> _fogDistance;
+        std::atomic<float> _maxVisibleDistance;
 
         std::vector<std::shared_ptr<OnChangeListener> > _onChangeListeners;
         mutable std::mutex _onChangeListenersMutex;

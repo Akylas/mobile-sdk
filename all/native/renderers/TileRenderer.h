@@ -8,6 +8,7 @@
 #define _CARTO_TILERENDERER_H_
 
 #include "graphics/Color.h"
+#include "components/StyleEnvironment.h"
 #include "graphics/ViewState.h"
 #include "renderers/utils/GLResource.h"
 
@@ -76,6 +77,36 @@ namespace carto {
 
         void offsetLayerHorizontally(double offset);
     
+        /**
+         * Starts the vt frame (tile set, blending, compiled resources) without drawing anything.
+         * Cross-layer draping needs every participating layer's render tiles ready BEFORE any of
+         * them draws, so the shared drape can be baked first. onDrawFrame calls this itself when
+         * it has not already run for this frame.
+         */
+        bool prepareFrame(float deltaSeconds, const ViewState& viewState);
+
+
+        /**
+         * Cross-layer drape support. The shared cache owns the textures; this renderer only
+         * reports what it would drape and bakes its own content into a bound target.
+         */
+        void setExternalDrapeTarget(bool enabled);
+        void setExternalDrapeTiles(const std::vector<vt::TileId>& tileIds);
+        bool isDrapeEnabled() const;
+        void collectDrapeTiles(std::map<vt::TileId, std::size_t>& drapeTiles) const;
+        int bakeDrapeTile(const vt::TileId& tileId);
+        int renderDrapedSurface(const vt::TileId& tileId, unsigned int drapeTexture, float uvOffsetX, float uvOffsetY, float uvScale);
+        int renderDrapedSurfaceFill(const vt::TileId& tileId, const Color& color);
+        bool calculateShadowViewProj(const std::vector<vt::TileId>& tileIds, const std::vector<vt::TileId>& casterTileIds, const cglib::vec3<float>& sunDir, const std::vector<std::pair<double, double> >& tileHeights, double minHeight, double maxHeight, float maxDistanceMeters, int mapSize, int cascade, int cascadeCount, std::vector<vt::TileId>& boxCasterTileIds, double& depthRangeMeters, double& texelMeters, cglib::mat4x4<double>& lightViewProj) const;
+        float shadowCasterFadeSignature() const;
+        int renderShadowCasters(const std::vector<vt::TileId>& tileIds, const cglib::mat4x4<double>& lightViewProj, bool castGround);
+        void setTerrainShadowMap(unsigned int texture, int mapSize, int cascades, const std::array<float, 4>& depthBiases, float strength, float softness, const std::array<cglib::mat4x4<double>, 4>& lightViewProjs);
+        // Pushed by the owner BEFORE the shared terrain surface is drawn. onDrawFrame sets the same
+        // state, but it runs after that draw, so the surface would light itself with the PREVIOUS
+        // frame's sun - invisible while the map redrew continuously, and a change that appears not
+        // to apply at all once it goes idle.
+        void setTerrainSunLighting(bool enabled, const cglib::vec3<float>& sunDir, const Color& sunColor, float sunIntensity, float ambientIntensity);
+
         bool onDrawFrame(float deltaSeconds, const ViewState& viewState);
         bool onDrawFrame3D(float deltaSeconds, const ViewState& viewState);
     
@@ -87,7 +118,12 @@ namespace carto {
         void calculateRayIntersectedElements3D(const cglib::ray3<double>& ray, const ViewState& viewState, float radius, std::vector<vt::GLTileRenderer::GeometryIntersectionInfo>& results) const;
         void calculateRayIntersectedBitmaps(const cglib::ray3<double>& ray, const ViewState& viewState, std::vector<vt::GLTileRenderer::BitmapIntersectionInfo>& results) const;
     
+        // The style's own sun/shadow/fog values for this frame, pushed by the layer that owns
+        // this renderer. What the style leaves unset comes from LightOptions/TerrainOptions.
+        void setStyleEnvironment(const StyleEnvironment& env);
+
         static Color evaluateColorFunc(const vt::ColorFunction& colorFunc, const ViewState& viewState);
+        static float evaluateFloatFunc(const vt::FloatFunction& floatFunc, const ViewState& viewState);
 
     private:
         struct LabelOcclusionState;
@@ -104,6 +140,7 @@ namespace carto {
 
         std::weak_ptr<MapRenderer> _mapRenderer;
         std::weak_ptr<Options> _options;
+        StyleEnvironment _styleEnvironment;
         std::shared_ptr<vt::TileTransformer> _tileTransformer;
 
         std::shared_ptr<VTRenderer> _vtRenderer;
@@ -127,6 +164,12 @@ namespace carto {
         double _horizontalLayerOffset;
         cglib::vec3<float> _viewDir;
         cglib::vec3<float> _mainLightDir;
+        // The sun as RESOLVED (style over LightOptions), captured each frame for the 3D lighting
+        // shader callback, which runs at draw time and cannot resolve it itself.
+        cglib::vec3<float> _resolvedSunDir = cglib::vec3<float>(0, 0, 1);
+        bool _sunLightingEnabled = false;
+        float _sunIntensity = 0.0f;
+        float _sunAmbient = 0.35f;
         cglib::vec3<float> _normalLightDir;
         MapVec _normalIlluminationDirection;
         bool _normalIlluminationMapRotationEnabled;
@@ -134,6 +177,11 @@ namespace carto {
         int _hillshadeMethod;
         float _hillshadeExaggeration;
         bool _terrainDepthWriteMode = false;
+        bool prepareFrameUnsafe(float deltaSeconds, const ViewState& viewState); // caller holds _mutex
+
+        bool _framePrepared = false;   // startFrame already ran this frame (cross-layer drape ordering)
+        bool _framePrepareResult = false;
+        bool _externalDrapeTarget = false;
         int _terrainRenderOrder = 0;
         int _maxVertexTextureUnits = -1; // lazily queried GL capability (-1 = not queried yet)
         std::shared_ptr<ElevationTextureCache> _elevationTextureCache;

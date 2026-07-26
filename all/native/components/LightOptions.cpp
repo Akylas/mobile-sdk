@@ -1,0 +1,241 @@
+#include "LightOptions.h"
+#include "utils/Const.h"
+
+#include <algorithm>
+#include <cmath>
+
+namespace carto {
+
+    LightOptions::LightOptions() :
+        _sunAzimuth(315.0f),
+        _sunAltitude(45.0f),
+        _sunColorARGB(Color(255, 255, 255, 255).getARGB()),
+        _sunIntensity(1.0f),
+        _ambientIntensity(0.35f),
+        _terrainLightingEnabled(false),
+        _shadowStrength(0.0f),
+        _shadowMapSize(1024),
+        _shadowCascades(3),
+        _shadowBias(0.25f),
+        _shadowSoftness(1.0f),
+        _shadowDistance(0.0f),
+        _shadowCasterMargin(1),
+        _onChangeListeners(),
+        _onChangeListenersMutex()
+    {
+    }
+
+    LightOptions::~LightOptions() {
+    }
+
+    float LightOptions::getSunAzimuth() const {
+        return _sunAzimuth.load();
+    }
+
+    void LightOptions::setSunAzimuth(float azimuth) {
+        float wrapped = std::fmod(azimuth, 360.0f);
+        if (wrapped < 0) {
+            wrapped += 360.0f;
+        }
+        if (_sunAzimuth.exchange(wrapped) != wrapped) {
+            notifyOptionChanged("SunAzimuth");
+        }
+    }
+
+    float LightOptions::getSunAltitude() const {
+        return _sunAltitude.load();
+    }
+
+    void LightOptions::setSunAltitude(float altitude) {
+        float clamped = std::max(-90.0f, std::min(90.0f, altitude));
+        if (_sunAltitude.exchange(clamped) != clamped) {
+            notifyOptionChanged("SunAltitude");
+        }
+    }
+
+    void LightOptions::setSunPositionFromTime(int year, int month, int day, int hour, int minute, double latitude, double longitude) {
+        // NOAA solar position algorithm, in the low-accuracy form that is good to ~0.1 degree.
+        // Julian day for the given UTC instant.
+        int a = (14 - month) / 12;
+        int y = year + 4800 - a;
+        int m = month + 12 * a - 3;
+        double jdn = day + (153 * m + 2) / 5 + 365 * y + y / 4 - y / 100 + y / 400 - 32045;
+        double jd = jdn + (hour - 12) / 24.0 + minute / 1440.0;
+        double n = jd - 2451545.0;
+
+        double meanLong = std::fmod(280.460 + 0.9856474 * n, 360.0);
+        double meanAnom = std::fmod(357.528 + 0.9856003 * n, 360.0) * Const::DEG_TO_RAD;
+        double eclipticLong = (meanLong + 1.915 * std::sin(meanAnom) + 0.020 * std::sin(2 * meanAnom)) * Const::DEG_TO_RAD;
+        double obliquity = (23.439 - 0.0000004 * n) * Const::DEG_TO_RAD;
+
+        double rightAsc = std::atan2(std::cos(obliquity) * std::sin(eclipticLong), std::cos(eclipticLong));
+        double decl = std::asin(std::sin(obliquity) * std::sin(eclipticLong));
+
+        // Greenwich mean sidereal time, then the local hour angle.
+        double gmst = std::fmod(18.697374558 + 24.06570982441908 * n, 24.0);
+        if (gmst < 0) {
+            gmst += 24.0;
+        }
+        double lmst = gmst * 15.0 * Const::DEG_TO_RAD + longitude * Const::DEG_TO_RAD;
+        double hourAngle = lmst - rightAsc;
+
+        double lat = latitude * Const::DEG_TO_RAD;
+        double altitude = std::asin(std::sin(lat) * std::sin(decl) + std::cos(lat) * std::cos(decl) * std::cos(hourAngle));
+        double azimuth = std::atan2(std::sin(hourAngle), std::cos(hourAngle) * std::sin(lat) - std::tan(decl) * std::cos(lat));
+        // atan2 above is measured from south; convert to the clockwise-from-north convention.
+        azimuth = azimuth * Const::RAD_TO_DEG + 180.0;
+
+        setSunAzimuth(static_cast<float>(azimuth));
+        setSunAltitude(static_cast<float>(altitude * Const::RAD_TO_DEG));
+    }
+
+    Color LightOptions::getSunColor() const {
+        return Color(_sunColorARGB.load());
+    }
+
+    void LightOptions::setSunColor(const Color& color) {
+        if (_sunColorARGB.exchange(color.getARGB()) != color.getARGB()) {
+            notifyOptionChanged("SunColor");
+        }
+    }
+
+    float LightOptions::getSunIntensity() const {
+        return _sunIntensity.load();
+    }
+
+    void LightOptions::setSunIntensity(float intensity) {
+        float clamped = std::max(0.0f, std::min(8.0f, intensity));
+        if (_sunIntensity.exchange(clamped) != clamped) {
+            notifyOptionChanged("SunIntensity");
+        }
+    }
+
+    float LightOptions::getAmbientIntensity() const {
+        return _ambientIntensity.load();
+    }
+
+    void LightOptions::setAmbientIntensity(float intensity) {
+        float clamped = std::max(0.0f, std::min(1.0f, intensity));
+        if (_ambientIntensity.exchange(clamped) != clamped) {
+            notifyOptionChanged("AmbientIntensity");
+        }
+    }
+
+    bool LightOptions::isTerrainLightingEnabled() const {
+        return _terrainLightingEnabled.load();
+    }
+
+    void LightOptions::setTerrainLightingEnabled(bool enabled) {
+        if (_terrainLightingEnabled.exchange(enabled) != enabled) {
+            notifyOptionChanged("TerrainLightingEnabled");
+        }
+    }
+
+    float LightOptions::getShadowStrength() const {
+        return _shadowStrength.load();
+    }
+
+    void LightOptions::setShadowStrength(float strength) {
+        float value = std::min(1.0f, std::max(0.0f, strength));
+        if (_shadowStrength.exchange(value) != value) {
+            notifyOptionChanged("ShadowStrength");
+        }
+    }
+
+    int LightOptions::getShadowMapSize() const {
+        return _shadowMapSize.load();
+    }
+
+    void LightOptions::setShadowMapSize(int size) {
+        int value = std::min(4096, std::max(256, size));
+        if (_shadowMapSize.exchange(value) != value) {
+            notifyOptionChanged("ShadowMapSize");
+        }
+    }
+
+    float LightOptions::getShadowSoftness() const {
+        return _shadowSoftness.load();
+    }
+
+    void LightOptions::setShadowSoftness(float softness) {
+        float value = std::min(8.0f, std::max(0.0f, softness));
+        if (_shadowSoftness.exchange(value) != value) {
+            notifyOptionChanged("ShadowSoftness");
+        }
+    }
+
+    int LightOptions::getShadowCascades() const {
+        return _shadowCascades.load();
+    }
+
+    void LightOptions::setShadowCascades(int cascades) {
+        int clamped = std::max(1, std::min(4, cascades));
+        if (_shadowCascades.exchange(clamped) != clamped) {
+            notifyOptionChanged("ShadowCascades");
+        }
+    }
+
+    float LightOptions::getShadowDistance() const {
+        return _shadowDistance.load();
+    }
+
+    void LightOptions::setShadowDistance(float distance) {
+        float value = std::max(0.0f, distance);
+        if (_shadowDistance.exchange(value) != value) {
+            notifyOptionChanged("ShadowDistance");
+        }
+    }
+
+    int LightOptions::getShadowCasterMargin() const {
+        return _shadowCasterMargin.load();
+    }
+
+    void LightOptions::setShadowCasterMargin(int margin) {
+        int value = std::min(8, std::max(0, margin));
+        if (_shadowCasterMargin.exchange(value) != value) {
+            notifyOptionChanged("ShadowCasterMargin");
+        }
+    }
+
+    float LightOptions::getShadowBias() const {
+        return _shadowBias.load();
+    }
+
+    void LightOptions::setShadowBias(float bias) {
+        bias = std::min(50.0f, std::max(0.0f, bias));
+        if (_shadowBias.exchange(bias) != bias) {
+            notifyOptionChanged("ShadowBias");
+        }
+    }
+
+    cglib::vec3<float> LightOptions::getSunDirection() const {
+        // Internal map coordinates: x east, y north, z up. Azimuth is clockwise from north.
+        double az = _sunAzimuth.load() * Const::DEG_TO_RAD;
+        double alt = _sunAltitude.load() * Const::DEG_TO_RAD;
+        double cosAlt = std::cos(alt);
+        return cglib::vec3<float>(static_cast<float>(cosAlt * std::sin(az)),
+                                  static_cast<float>(cosAlt * std::cos(az)),
+                                  static_cast<float>(std::sin(alt)));
+    }
+
+    void LightOptions::registerOnChangeListener(const std::shared_ptr<OnChangeListener>& listener) {
+        std::lock_guard<std::mutex> lock(_onChangeListenersMutex);
+        _onChangeListeners.push_back(listener);
+    }
+
+    void LightOptions::unregisterOnChangeListener(const std::shared_ptr<OnChangeListener>& listener) {
+        std::lock_guard<std::mutex> lock(_onChangeListenersMutex);
+        _onChangeListeners.erase(std::remove(_onChangeListeners.begin(), _onChangeListeners.end(), listener), _onChangeListeners.end());
+    }
+
+    void LightOptions::notifyOptionChanged(const std::string& optionName) {
+        std::vector<std::shared_ptr<OnChangeListener> > onChangeListeners;
+        {
+            std::lock_guard<std::mutex> lock(_onChangeListenersMutex);
+            onChangeListeners = _onChangeListeners;
+        }
+        for (const std::shared_ptr<OnChangeListener>& listener : onChangeListeners) {
+            listener->onLightOptionChanged(optionName);
+        }
+    }
+}
