@@ -1,5 +1,6 @@
 #include "TerrainShadowMap.h"
 #include "renderers/utils/GLContext.h"
+#include "utils/Log.h"
 
 #include <algorithm>
 
@@ -31,8 +32,18 @@ namespace carto {
     void TerrainShadowMap::setSize(int size, int cascades) {
         int clampedCascades = std::min(MAX_CASCADES, std::max(1, cascades));
         // The pages sit side by side in ONE texture, so the widest supported texture caps the
-        // per-cascade resolution, not the resolution alone.
-        int clamped = std::min(4096 / clampedCascades, std::max(256, size));
+        // per-cascade resolution, not the resolution alone. Ask the driver instead of assuming
+        // 4096: that assumption silently capped 3 x 2048 at 3 x 1365, so raising the shadow map
+        // size did nothing on hardware that would have taken it (8192 and 16384 are common).
+        static int maxTextureSize = 0;
+        if (maxTextureSize == 0) {
+            GLint value = 0;
+            glGetIntegerv(GL_MAX_TEXTURE_SIZE, &value);
+            // Bounded by memory as well as by the driver's limit: the atlas is RGBA plus a depth
+            // renderbuffer of the same size, so a 4-page 8192 atlas would be a third of a gigabyte.
+            maxTextureSize = std::min(value >= 2048 ? value : 4096, 8192);
+        }
+        int clamped = std::min(maxTextureSize / clampedCascades, std::max(256, size));
         if (clamped != _size || clampedCascades != _cascades) {
             _size = clamped;
             _cascades = clampedCascades;
@@ -48,6 +59,22 @@ namespace carto {
         if (_failed) {
             return false;
         }
+        // A size the driver will not allocate must not mean "no shadows, ever". Halve and retry
+        // down to 256 - a smaller map is worth far more than a blank one, and without this a single
+        // over-large setShadowMapSize turned the shadows off for the rest of the session, silently.
+        while (!createResourcesAtSize() && _size > 256) {
+            int reduced = std::max(256, _size / 2);
+            Log::Warnf("TerrainShadowMap: %dx%d atlas (%d cascades) could not be created, retrying at %d", _size * _cascades, _size, _cascades, reduced);
+            _size = reduced;
+            _failed = false;
+        }
+        if (_failed) {
+            Log::Errorf("TerrainShadowMap: no usable shadow atlas at %d x %d cascades - shadows are off", _size, _cascades);
+        }
+        return !_failed;
+    }
+
+    bool TerrainShadowMap::createResourcesAtSize() {
         glGenTextures(1, &_texture);
         glBindTexture(GL_TEXTURE_2D, _texture);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, _size * _cascades, _size, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);

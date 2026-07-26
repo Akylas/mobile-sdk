@@ -62,8 +62,12 @@ namespace carto {
         /**
          * Returns the texture of an already-baked tile, or 0. Used to let a tile whose own bake
          * has not landed yet stand in on an ancestor's texture instead of flashing a flat colour.
+         * A tile found this way counts as USED for this frame: it is about to be drawn, and an
+         * entry that is drawn but not marked would be evicted as unused at the end of the very
+         * frame it stood in on - which is what emptied the cache of the previous generation on
+         * every integer zoom step and left a screen of flat fills behind.
          */
-        unsigned int findBaked(const vt::TileId& tileId, int stack) const;
+        unsigned int findBaked(const vt::TileId& tileId, int stack);
         /**
          * Returns the framebuffer to bake into, creating it on first use.
          */

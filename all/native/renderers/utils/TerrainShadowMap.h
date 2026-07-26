@@ -65,6 +65,7 @@ namespace carto {
 
     private:
         bool createResources();
+        bool createResourcesAtSize();
 
         int _size;
         int _cascades;

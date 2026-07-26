@@ -861,6 +861,10 @@ namespace carto {
         _tileRenderer->setTerrainShadowMap(texture, mapSize, cascades, depthBiases, strength, softness, lightViewProjs);
     }
 
+    void TileLayer::setTerrainSunLighting(bool enabled, const cglib::vec3<float>& sunDir, const Color& sunColor, float sunIntensity, float ambientIntensity) {
+        _tileRenderer->setTerrainSunLighting(enabled, sunDir, sunColor, sunIntensity, ambientIntensity);
+    }
+
     void TileLayer::setTerrainRenderOrder(int order) {
         _tileRenderer->setTerrainRenderOrder(order);
     }

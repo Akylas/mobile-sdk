@@ -49,6 +49,7 @@
 %ignore carto::TileLayer::calculateShadowViewProj;
 %ignore carto::TileLayer::renderShadowCasters;
 %ignore carto::TileLayer::setTerrainShadowMap;
+%ignore carto::TileLayer::setTerrainSunLighting;
 %ignore carto::TileLayer::setTerrainRenderOrder;
 %ignore carto::TileLayer::getBackgroundColor;
 %ignore carto::TileLayer::FetchTaskBase;

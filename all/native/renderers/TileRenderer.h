@@ -101,6 +101,11 @@ namespace carto {
         float shadowCasterFadeSignature() const;
         int renderShadowCasters(const std::vector<vt::TileId>& tileIds, const cglib::mat4x4<double>& lightViewProj, bool castGround);
         void setTerrainShadowMap(unsigned int texture, int mapSize, int cascades, const std::array<float, 4>& depthBiases, float strength, float softness, const std::array<cglib::mat4x4<double>, 4>& lightViewProjs);
+        // Pushed by the owner BEFORE the shared terrain surface is drawn. onDrawFrame sets the same
+        // state, but it runs after that draw, so the surface would light itself with the PREVIOUS
+        // frame's sun - invisible while the map redrew continuously, and a change that appears not
+        // to apply at all once it goes idle.
+        void setTerrainSunLighting(bool enabled, const cglib::vec3<float>& sunDir, const Color& sunColor, float sunIntensity, float ambientIntensity);
 
         bool onDrawFrame(float deltaSeconds, const ViewState& viewState);
         bool onDrawFrame3D(float deltaSeconds, const ViewState& viewState);
@@ -159,6 +164,12 @@ namespace carto {
         double _horizontalLayerOffset;
         cglib::vec3<float> _viewDir;
         cglib::vec3<float> _mainLightDir;
+        // The sun as RESOLVED (style over LightOptions), captured each frame for the 3D lighting
+        // shader callback, which runs at draw time and cannot resolve it itself.
+        cglib::vec3<float> _resolvedSunDir = cglib::vec3<float>(0, 0, 1);
+        bool _sunLightingEnabled = false;
+        float _sunIntensity = 0.0f;
+        float _sunAmbient = 0.35f;
         cglib::vec3<float> _normalLightDir;
         MapVec _normalIlluminationDirection;
         bool _normalIlluminationMapRotationEnabled;

@@ -45,6 +45,10 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstring>
+#include <map>
+#include <mutex>
+#include <string>
 #include <vector>
 
 namespace carto {
@@ -148,7 +152,41 @@ namespace carto {
         return projectionSurface;
     }
         
-    void MapRenderer::requestRedraw() const {
+    // Call-site tally for requestRedraw. Requests come from every thread (tile workers, placement
+    // workers, the GL thread), so it is guarded; the cost is one short lock per request, against a
+    // whole frame of work per request.
+    static std::mutex redrawSourceMutex;
+    static std::map<std::pair<const char*, int>, int> redrawSourceCounts;
+
+    void MapRenderer::logRedrawSources() {
+        std::map<std::pair<const char*, int>, int> counts;
+        {
+            std::lock_guard<std::mutex> lock(redrawSourceMutex);
+            counts.swap(redrawSourceCounts);
+        }
+        std::vector<std::pair<int, std::pair<const char*, int> > > sorted;
+        sorted.reserve(counts.size());
+        for (auto it = counts.begin(); it != counts.end(); it++) {
+            sorted.emplace_back(it->second, it->first);
+        }
+        std::sort(sorted.begin(), sorted.end(), [](const std::pair<int, std::pair<const char*, int> >& a, const std::pair<int, std::pair<const char*, int> >& b) {
+            return a.first > b.first;
+        });
+        std::string summary;
+        for (std::size_t i = 0; i < sorted.size() && i < 6; i++) {
+            const char* file = sorted[i].second.first;
+            const char* name = std::strrchr(file, '/');
+            summary += (summary.empty() ? "" : ", ") + std::string(name ? name + 1 : file) + ":" + std::to_string(sorted[i].second.second) + " x" + std::to_string(sorted[i].first);
+        }
+        Log::Infof("MapRenderer: redraw requests by source - %s", summary.empty() ? "none" : summary.c_str());
+    }
+
+    void MapRenderer::requestRedraw(const char* callerFile, int callerLine) const {
+        {
+            std::lock_guard<std::mutex> lock(redrawSourceMutex);
+            redrawSourceCounts[std::make_pair(callerFile, callerLine)]++;
+        }
+
         DirectorPtr<RedrawRequestListener> redrawRequestListener = _redrawRequestListener;
 
         if (redrawRequestListener) {
@@ -1127,9 +1165,27 @@ namespace carto {
                             std::lock_guard<std::recursive_mutex> lock(_mutex);
                             _viewState.setTerrainMinCameraZ(minCameraZ);
                         }
-                        if (cameraPos(2) > 0 && cameraPos(2) < minCameraZ) {
+                        // The correction has to LAND on the shell, and it has to have a dead band.
+                        // Zooming out scales the camera-to-focus vector, so the camera height it
+                        // reaches is focusZ + (cameraZ - focusZ) * scale - not cameraZ * scale.
+                        // Scaling by minCameraZ/cameraZ (which ignores the focus height) always
+                        // lands SHORT of the shell whenever the focus is above sea level, so the
+                        // next frame is still below it and issues another correction: the camera
+                        // creeps towards the shell for ever and every frame requests a redraw, so
+                        // a completely still 3D map never stops rendering. Solving for the scale
+                        // that reaches the shell exactly, plus a dead band, ends the sequence
+                        // after one correction.
+                        double focusZ = viewState.getFocusPos()(2);
+                        double deadBand = 0.005 * cameraClearance * elevationManager->getDisplayScale(cameraPos(1));
+                        // At the bottom of the zoom range there is no correction left to make, and
+                        // issuing one anyway is another per-frame redraw that changes nothing.
+                        bool zoomExhausted = viewState.getZoom() <= _options->getZoomRange().getMin() + 1.0e-4f;
+                        if (!zoomExhausted && cameraPos(2) > 0 && cameraPos(2) < minCameraZ - deadBand) {
+                            double scale = (cameraPos(2) > focusZ && minCameraZ > focusZ
+                                ? (minCameraZ - focusZ) / (cameraPos(2) - focusZ)   // exact: the focus stays put
+                                : minCameraZ / cameraPos(2));                        // degenerate (focus above the camera)
                             CameraZoomEvent zoomEvent;
-                            zoomEvent.setZoomDelta(static_cast<float>(std::log2(cameraPos(2) / minCameraZ))); // negative: zoom out onto the clearance
+                            zoomEvent.setZoomDelta(static_cast<float>(-std::log2(scale))); // negative: zoom out onto the clearance
                             calculateCameraEvent(zoomEvent, clampDuration, false);
                         }
                     } else {
@@ -1333,6 +1389,7 @@ namespace carto {
                     // frame count it says how much of the shadow cost the cache is saving.
                     static int shadowPasses = 0;
                     static int shadowCasterDraws = 0;
+                    static int shadowExtrusionDraws = 0;
                     static double shadowMsSum = 0;
                     // A cached shadow map is refreshed at least this often anyway: elevation tiles
                     // can stream in without changing the light box or the caster tile list, and a
@@ -1344,10 +1401,16 @@ namespace carto {
                     // tile's full height: about a dozen refreshes over a whole fade, whatever the
                     // frame rate, instead of one per frame.
                     static const float SHADOW_MAP_FADE_STEP = 0.08f;
-                    static const int DRAPE_BAKE_BUDGET_EMPTY = 4;
+                    // Three classes, not two, because "has no texture of its own" covers two very
+                    // different pictures: a tile standing in on an ancestor shows the right ground
+                    // at half the sharpness, while a tile with no stand-in at all shows a flat
+                    // fill - a hole. An integer zoom step renames the whole cover at once, so the
+                    // second class is exactly what has to be cleared fast.
+                    static const int DRAPE_BAKE_BUDGET_BLANK = 8;
+                    static const int DRAPE_BAKE_BUDGET_STANDIN = 3;
                     static const int DRAPE_BAKE_BUDGET_STALE = 1;
-                    int bakeBudget = DRAPE_BAKE_BUDGET_EMPTY;
-                    std::vector<std::pair<vt::TileId, std::size_t> > staleTiles;
+                    struct BakeRequest { vt::TileId tileId; std::size_t fingerprint; std::size_t drapedIndex; };
+                    std::vector<BakeRequest> blankTiles, standInTiles, staleTiles;
                     for (auto it = drapeTiles.begin(); it != drapeTiles.end(); it++) {
                         bool needsBake = false;
                         bool hasContent = false;
@@ -1379,6 +1442,7 @@ namespace carto {
                                 }
                             }
                         }
+                        std::size_t drapedIndex = drapedTiles.size(); // before the stand-in draws below extend the list
                         drapedTiles.push_back(draped);
                         if (!hasContent) {
                             // Zooming OUT there is no baked ancestor - the cached tiles are the
@@ -1408,15 +1472,18 @@ namespace carto {
                         if (!needsBake) {
                             continue;
                         }
-                        // Tiles with nothing to show go first, then the merely stale ones.
+                        BakeRequest request { it->first, it->second, drapedIndex };
                         if (hasContent) {
-                            staleTiles.emplace_back(it->first, it->second);
-                            continue;
+                            staleTiles.push_back(request);       // shows its own, older, picture
+                        } else if (draped.texture != 0) {
+                            standInTiles.push_back(request);     // shows an ancestor, at its resolution
+                        } else {
+                            blankTiles.push_back(request);       // shows a flat fill: a hole
                         }
-                        if (bakeBudget <= 0) {
-                            continue;
-                        }
-                        bakeBudget--;
+                    }
+                    auto bakeTile = [&](const BakeRequest& request) {
+                        bool needsBake = false, hasContent = false;
+                        unsigned int texture = _terrainDrapeCache->acquire(request.tileId, 0, request.fingerprint, needsBake, hasContent);
                         if (!bakeStarted) {
                             glBindFramebuffer(GL_FRAMEBUFFER, _terrainDrapeCache->getFrameBuffer());
                             glViewport(0, 0, resolution, resolution);
@@ -1431,35 +1498,37 @@ namespace carto {
                         // Layer order matters: later layers composite over earlier ones, which is
                         // why the owner clears and the bakers do not.
                         for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
-                            bakedPrimitives += tileLayer->bakeDrapeTile(it->first);
+                            bakedPrimitives += tileLayer->bakeDrapeTile(request.tileId);
                         }
-                        _terrainDrapeCache->markBaked(it->first, 0, it->second);
+                        _terrainDrapeCache->markBaked(request.tileId, 0, request.fingerprint);
                         bakedTiles++;
                         bakedThisFrame++;
-                        drapedTiles.back() = DrapedTile { it->first, texture, 0.0f, 0.0f, 1.0f }; // baked now, safe to sample
+                        if (request.drapedIndex < drapedTiles.size()) {
+                            drapedTiles[request.drapedIndex] = DrapedTile { request.tileId, texture, 0.0f, 0.0f, 1.0f }; // baked now, safe to sample
+                        }
+                    };
+                    int budget = DRAPE_BAKE_BUDGET_BLANK;
+                    for (auto it = blankTiles.begin(); it != blankTiles.end() && budget > 0; it++, budget--) {
+                        bakeTile(*it);
                     }
-                    int staleBudget = DRAPE_BAKE_BUDGET_STALE;
-                    for (auto it = staleTiles.begin(); it != staleTiles.end() && staleBudget > 0; it++) {
-                        staleBudget--;
-                        bool needsBake = false, hasContent = false;
-                        unsigned int texture = _terrainDrapeCache->acquire(it->first, 0, it->second, needsBake, hasContent);
-                        if (!bakeStarted) {
-                            glBindFramebuffer(GL_FRAMEBUFFER, _terrainDrapeCache->getFrameBuffer());
-                            glViewport(0, 0, resolution, resolution);
-                            glDisable(GL_DEPTH_TEST);
-                            glDepthMask(GL_FALSE);
-                            glDisable(GL_STENCIL_TEST);
-                            bakeStarted = true;
-                        }
-                        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
-                        glClearColor(drapeClearColor.getR() / 255.0f, drapeClearColor.getG() / 255.0f, drapeClearColor.getB() / 255.0f, drapeClearColor.getA() / 255.0f);
-                        glClear(GL_COLOR_BUFFER_BIT);
-                        for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
-                            bakedPrimitives += tileLayer->bakeDrapeTile(it->first);
-                        }
-                        _terrainDrapeCache->markBaked(it->first, 0, it->second);
-                        bakedTiles++;
-                        bakedThisFrame++;
+                    budget = DRAPE_BAKE_BUDGET_STANDIN;
+                    for (auto it = standInTiles.begin(); it != standInTiles.end() && budget > 0; it++, budget--) {
+                        bakeTile(*it);
+                    }
+                    budget = DRAPE_BAKE_BUDGET_STALE;
+                    for (auto it = staleTiles.begin(); it != staleTiles.end() && budget > 0; it++, budget--) {
+                        bakeTile(*it);
+                    }
+                    // Baking is rationed over several frames, so it only finishes if those frames
+                    // happen. Nothing else asks for them: the tile arrived, its layer redrew once,
+                    // and the budget took the first few tiles. On a map that now goes idle the rest
+                    // of the queue simply stopped - a layer switched on (a hillshade, a raster)
+                    // appeared a few tiles at a time and only while the user kept panning. Keep
+                    // asking for frames while there is baking left to do, and stop when there is not.
+                    if (blankTiles.size() > DRAPE_BAKE_BUDGET_BLANK
+                        || standInTiles.size() > DRAPE_BAKE_BUDGET_STANDIN
+                        || staleTiles.size() > DRAPE_BAKE_BUDGET_STALE) {
+                        requestRedraw();
                     }
                     if (bakeStarted) {
                         // Detach before sampling: a texture left attached to a framebuffer counts
@@ -1479,7 +1548,7 @@ namespace carto {
                     unsigned int shadowTexture = 0;
                     int shadowMapSize = 0, shadowCascades = 1;
                     float shadowSoftness = 1.0f;
-                    double shadowTexelMeters = 0;
+                    std::array<double, TerrainShadowMap::MAX_CASCADES> shadowTexelMeters = { };
                     std::array<float, TerrainShadowMap::MAX_CASCADES> shadowBiases = { };
                     std::array<cglib::mat4x4<double>, TerrainShadowMap::MAX_CASCADES> lightViewProjs;
                     lightViewProjs.fill(cglib::mat4x4<double>::identity());
@@ -1516,7 +1585,7 @@ namespace carto {
                                 tileHeights.reserve(drapeTileIds.size());
                                 for (const vt::TileId& tileId : drapeTileIds) {
                                     double tileMin = 0, tileMax = 0;
-                                    elevationManager->getMinMaxDisplayHeight(MapTile(tileId.x, tileId.y, tileId.zoom, 0), tileMin, tileMax);
+                                    elevationManager->getMinMaxDisplayHeightExact(MapTile(tileId.x, tileId.y, tileId.zoom, 0), tileMin, tileMax);
                                     double tileHeadroom = std::max(1.0e-5, (tileMax - tileMin) * 0.25);
                                     tileHeights.emplace_back(tileMin - tileHeadroom, tileMax + tileHeadroom);
                                     if (first) {
@@ -1572,9 +1641,7 @@ namespace carto {
                                     // own depth. Dividing per cascade is what keeps the shadow
                                     // attached to its caster at every zoom and margin.
                                     shadowBiases[cascade] = static_cast<float>(lighting.shadowBias / std::max(1.0, depthRangeMeters));
-                                    if (cascade == 0) {
-                                        shadowTexelMeters = texelMeters;
-                                    }
+                                    shadowTexelMeters[cascade] = texelMeters;
                                 } else if (cascade > 0) {
                                     // No ground in this cascade's distance slice - looking down,
                                     // everything visible can be nearer than the first split.
@@ -1586,6 +1653,11 @@ namespace carto {
                                     cascadeCasterTiles[cascade] = cascadeCasterTiles[cascade - 1];
                                 } else {
                                     boxesValid = false;
+                                    static int lastFitFailure = 0;
+                                    if (static_cast<int>(texelMeters) != lastFitFailure) {
+                                        lastFitFailure = static_cast<int>(texelMeters);
+                                        Log::Infof("MapRenderer: shadow light box could not be fitted, reason %d (1 no tiles, 2 tile bbox empty, 3 no elevation texture, 4 empty cascade slice, 5 slice misses the tiles, 6 sun below horizon)", lastFitFailure);
+                                    }
                                     break;
                                 }
                             }
@@ -1643,13 +1715,22 @@ namespace carto {
                                             // group, so casting from the front layer alone means
                                             // buildings never cast a shadow at all.
                                             for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
-                                                tileLayer->renderShadowCasters(cascadeCasterTiles[cascade], lightViewProjs[cascade], tileLayer == drapeLayers.front());
+                                                bool castGround = (tileLayer == drapeLayers.front());
+                                                int draws = tileLayer->renderShadowCasters(cascadeCasterTiles[cascade], lightViewProjs[cascade], castGround);
+                                                // Ground casters are one draw per tile; anything
+                                                // beyond that is an extrusion. Counted separately
+                                                // because "buildings cast no shadow" has two very
+                                                // different causes - not drawn into the map at all,
+                                                // or drawn and then clipped by the light box - and
+                                                // only this tells them apart.
+                                                shadowExtrusionDraws += draws - (castGround ? static_cast<int>(cascadeCasterTiles[cascade].size()) : 0);
                                             }
                                         }
                                         _terrainShadowMap->endPass(prevFBO, viewState.getWidth(), viewState.getHeight());
                                         shadowMsSum += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - shadowStart).count();
                                         _shadowMapValid = true;
                                         _shadowMapViewProjs = lightViewProjs;
+                                        _shadowMapBiases = shadowBiases;
                                         _shadowMapCasterTiles = casterTileIds;
                                         _shadowMapSize = _terrainShadowMap->getSize();
                                         _shadowMapCascades = cascades;
@@ -1668,16 +1749,48 @@ namespace carto {
                                     shadowStrength = lighting.shadowStrength;
                                     shadowSoftness = lighting.shadowSoftness;
                                 }
-                            } else {
-                                _shadowMapValid = false; // no light box: the cached map means nothing
+                            } else if (_shadowMapValid) {
+                                // A frame whose light box could not be fitted (a cascade with no
+                                // ground in its slice, a cover with no decoded elevation yet) used
+                                // to drop the shadows entirely for that frame - every shadow on
+                                // screen blinking out and back. The last good map with the matrices
+                                // it was rendered with is a far better answer than none: it is at
+                                // worst one camera step stale, and the next good fit replaces it.
+                                lightViewProjs = _shadowMapViewProjs;
+                                shadowBiases = _shadowMapBiases;
+                                shadowTexture = _terrainShadowMap->getTexture();
+                                shadowMapSize = _shadowMapSize;
+                                shadowCascades = _shadowMapCascades;
+                                shadowStrength = lighting.shadowStrength;
+                                shadowSoftness = lighting.shadowSoftness;
+                                _shadowMapAge++;
                             }
                         }
                     }
                     if (!shadowsWanted) {
                         _shadowMapValid = false; // shadows off: whatever the map holds is stale
                     }
+                    // Shadows going away is otherwise indistinguishable from shadows being drawn
+                    // badly. Logged on CHANGE only, so it is one line per transition, not spam.
+                    {
+                        int shadowState = (!shadowsWanted ? 0 : (shadowTexture == 0 ? 1 : 2));
+                        static int lastShadowState = -1;
+                        if (shadowState != lastShadowState) {
+                            lastShadowState = shadowState;
+                            Log::Infof("MapRenderer: shadows %s (strength %.2f, requested map %d x %d cascades, terrain lighting %d, drape tiles %d)",
+                                shadowState == 2 ? "ACTIVE" : shadowState == 1 ? "WANTED BUT UNAVAILABLE - no light box could be fitted, or the atlas failed to allocate" : "off",
+                                lighting.shadowStrength, lighting.shadowMapSize, lighting.shadowCascades,
+                                lighting.terrainLightingEnabled ? 1 : 0, static_cast<int>(drapeTileIds.size()));
+                        }
+                    }
                     for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
                         tileLayer->setTerrainShadowMap(shadowTexture, shadowMapSize, shadowCascades, shadowBiases, shadowStrength, shadowSoftness, lightViewProjs);
+                        // The sun goes with it, and for the same reason: the surface is drawn a few
+                        // lines below, while each layer's own onDrawFrame - which also sets this -
+                        // runs later in the frame. The surface would light itself with the previous
+                        // frame's sun, so toggling the light did nothing until something else
+                        // happened to force another frame.
+                        tileLayer->setTerrainSunLighting(lighting.terrainLightingEnabled, lighting.sunDir, lighting.sunColor, lighting.sunIntensity, lighting.ambientIntensity);
                     }
 
                     // The shared surface is the only depth-writing terrain geometry.
@@ -1730,7 +1843,7 @@ namespace carto {
                         Log::Infof("MapRenderer: RTT drape ACTIVE - layers %d, collected tiles %d, drawn tiles %d, resolution %d, baked %d tiles / %d primitives, surface draws %d (%d unbaked fills)",
                             static_cast<int>(drapeLayers.size()), static_cast<int>(collectedTiles.size()),
                             static_cast<int>(drapedTiles.size()), resolution, bakedTiles, bakedPrimitives, surfaceDraws, filledSurfaces);
-                        Log::Infof("MapRenderer: shadow caster passes %d over %d frames, %d cascades, %d caster tiles per pass, %.1f ms per pass, near texel %.2f m (camera zoom %.2f tilt %.1f)", shadowPasses, drapeStateFrame, shadowCascades, shadowCasterDraws / std::max(1, shadowPasses), shadowMsSum / std::max(1, shadowPasses), shadowTexelMeters, viewState.getZoom(), viewState.getTilt());
+                        Log::Infof("MapRenderer: shadow caster passes %d over %d frames, %d cascades, %d caster tiles per pass, %.1f ms per pass, %d extrusion draws per pass, texels per cascade %.1f/%.1f/%.1f/%.1f m (camera zoom %.2f tilt %.1f)", shadowPasses, drapeStateFrame, shadowCascades, shadowCasterDraws / std::max(1, shadowPasses), shadowMsSum / std::max(1, shadowPasses), shadowExtrusionDraws / std::max(1, shadowPasses), shadowTexelMeters[0], shadowTexelMeters[1], shadowTexelMeters[2], shadowTexelMeters[3], viewState.getZoom(), viewState.getTilt());
                     }
                     }
                     catch (const std::exception& ex) {
@@ -1770,19 +1883,27 @@ namespace carto {
 
         // Do base drawing pass
         bool needRedraw = false;
-        for (const std::shared_ptr<Layer>& layer : layers) {
+        unsigned int redrawMask = 0; // which layer asked, so a map that never settles can be traced
+        for (std::size_t i = 0; i < layers.size(); i++) {
+            const std::shared_ptr<Layer>& layer = layers[i];
             if (viewState.getHorizontalLayerOffsetDir() != 0) {
                 layer->offsetLayerHorizontally(viewState.getHorizontalLayerOffsetDir() * Const::WORLD_SIZE);
             }
 
-            needRedraw = layer->onDrawFrame(deltaSeconds, billboardSorter, viewState) || needRedraw;
+            if (layer->onDrawFrame(deltaSeconds, billboardSorter, viewState)) {
+                needRedraw = true;
+                redrawMask |= 1u << std::min<std::size_t>(i, 15);
+            }
         }
-        
+
         // Do 3D drawing pass
-        for (const std::shared_ptr<Layer>& layer : layers) {
-            needRedraw = layer->onDrawFrame3D(deltaSeconds, billboardSorter, viewState) || needRedraw;
+        for (std::size_t i = 0; i < layers.size(); i++) {
+            if (layers[i]->onDrawFrame3D(deltaSeconds, billboardSorter, viewState)) {
+                needRedraw = true;
+                redrawMask |= 1u << (16 + std::min<std::size_t>(i, 15));
+            }
         }
-        
+
         // Sort billboards, calculate rotation state
         billboardSorter.sort(viewState);
         
@@ -1819,6 +1940,29 @@ namespace carto {
         // Redraw, if needed
         if (needRedraw) {
             requestRedraw();
+        }
+        // A map that is standing still should stop asking for frames. When it does not - which is
+        // invisible except as battery drain and a log line every 60 frames - say who is asking:
+        // the low half of the mask is the base pass, the high half the 3D pass, one bit per layer.
+        // If the frames keep coming but almost none of them came from a layer, the driver is an
+        // external requestRedraw (a tile finishing, the elevation version moving, a camera event)
+        // rather than an animation, which is a different bug with a different fix.
+        {
+            static int frames = 0;
+            static int layerRedrawFrames = 0;
+            static unsigned int redrawMaskSum = 0;
+            frames++;
+            if (needRedraw) {
+                layerRedrawFrames++;
+                redrawMaskSum |= redrawMask;
+            }
+            if (frames >= 300) {
+                Log::Infof("MapRenderer: %d frames drawn, %d asked for by a layer, layer mask 0x%08x (low 16 bits base pass, high 16 bits 3D pass)", frames, layerRedrawFrames, redrawMaskSum);
+                logRedrawSources();
+                frames = 0;
+                layerRedrawFrames = 0;
+                redrawMaskSum = 0;
+            }
         }
     }
     

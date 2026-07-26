@@ -111,9 +111,16 @@ namespace carto {
         }
     }
 
-    unsigned int TerrainDrapeCache::findBaked(const vt::TileId& tileId, int stack) const {
+    unsigned int TerrainDrapeCache::findBaked(const vt::TileId& tileId, int stack) {
         auto it = _entries.find(Key { tileId, stack });
-        return it != _entries.end() && it->second.baked ? it->second.texture : 0;
+        if (it == _entries.end() || !it->second.baked) {
+            return 0;
+        }
+        // Standing in for a tile that has no texture of its own IS use: without this the entry
+        // looks idle to the eviction pass below while it is the only thing on screen.
+        it->second.used = true;
+        it->second.lastUsedFrame = _frameCounter;
+        return it->second.texture;
     }
 
     unsigned int TerrainDrapeCache::getFrameBuffer() {

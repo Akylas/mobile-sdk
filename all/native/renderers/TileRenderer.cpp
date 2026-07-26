@@ -334,9 +334,25 @@ namespace carto {
         }
     }
 
+    void TileRenderer::setTerrainSunLighting(bool enabled, const cglib::vec3<float>& sunDir, const Color& sunColor, float sunIntensity, float ambientIntensity) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            vt::GLTileRenderer::TerrainLighting terrainLighting;
+            if (enabled) {
+                terrainLighting.enabled = true;
+                terrainLighting.sunDir = sunDir;
+                terrainLighting.sunColor = cglib::vec3<float>(sunColor.getR() / 255.0f, sunColor.getG() / 255.0f, sunColor.getB() / 255.0f);
+                terrainLighting.sunIntensity = sunIntensity;
+                terrainLighting.ambientIntensity = ambientIntensity;
+            }
+            tileRenderer->setTerrainLighting(terrainLighting);
+        }
+    }
+
     bool TileRenderer::onDrawFrame(float deltaSeconds, const ViewState& viewState) {
         std::lock_guard<std::mutex> lock(_mutex);
-        
+
         if (!initializeRenderer()) {
             return false;
         }
@@ -383,6 +399,15 @@ namespace carto {
                                 tileRenderer->resetTileSurfaces();
                             } else if (auto mapRenderer = _mapRenderer.lock()) {
                                 mapRenderer->requestRedraw(); // apply the pending rebuild on a later frame
+                                // This path asks for a frame without drawing anything new. It is
+                                // meant to be a handful of frames while a rebuild is debounced; if
+                                // the elevation version never settles it is an endless render loop
+                                // instead, so say so rather than leaving it to be inferred from the
+                                // battery.
+                                static int pendingRebuildFrames = 0;
+                                if ((++pendingRebuildFrames % 300) == 0) {
+                                    Log::Infof("TileRenderer: %d frames spent waiting on an elevation rebuild, version %u", pendingRebuildFrames, elevationVersion);
+                                }
                             }
                         }
                     }
@@ -477,6 +502,13 @@ namespace carto {
             // sun stays with LightOptions. Both are re-read every frame, so either may depend on
             // the zoom.
             ResolvedLighting lighting = resolveLighting(options->getLightOptions(), _styleEnvironment);
+            // Kept for the 3D lighting shader callback, which runs at DRAW time and used to read
+            // LightOptions straight - so a style that had an opinion about the sun moved the
+            // terrain and left the buildings lit from the old direction, at the old intensity.
+            _sunLightingEnabled = lighting.terrainLightingEnabled;
+            _sunIntensity = lighting.sunIntensity;
+            _sunAmbient = lighting.ambientIntensity;
+            _resolvedSunDir = lighting.sunDir;
             if (drapeFills && lighting.terrainLightingEnabled) {
                 terrainLighting.enabled = true;
                 terrainLighting.sunDir = lighting.sunDir;
@@ -526,11 +558,11 @@ namespace carto {
             // 3D extrusions are lit by this direction. With terrain lighting on, the whole map is
             // supposed to answer to one sun, so the sun replaces the legacy fixed main light -
             // otherwise buildings stay lit from a direction that has nothing to do with the hour.
-            if (std::shared_ptr<LightOptions> lightOptions = options->getLightOptions()) {
-                if (lightOptions->isTerrainLightingEnabled()) {
-                    cglib::vec3<float> sunDir = lightOptions->getSunDirection();
-                    _mainLightDir = cglib::vec3<float>(sunDir(0), sunDir(1), sunDir(2));
-                }
+            // The RESOLVED sun, not LightOptions': a style may set the azimuth, altitude or
+            // intensity, and reading the options here left the buildings on a different sun from
+            // the ground they stand on.
+            if (_sunLightingEnabled) {
+                _mainLightDir = _resolvedSunDir;
             }
             MapVec normalIlluminationDir = options->getMainLightDirection();
             if (_normalIlluminationDirection != MapVec(0,0,0)) {
@@ -912,13 +944,11 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
                     glUniform4f(glGetUniformLocation(shaderProgram, "u_lightColor"), mainLightColor.getR() / 255.0f, mainLightColor.getG() / 255.0f, mainLightColor.getB() / 255.0f, mainLightColor.getA() / 255.0f);
                     glUniform3fv(glGetUniformLocation(shaderProgram, "u_lightDir"), 1, _mainLightDir.data());
                     glUniform3fv(glGetUniformLocation(shaderProgram, "u_viewDir"), 1, _viewDir.data());
-                    float sunIntensity = 0.0f, sunAmbient = 0.35f;
-                    if (std::shared_ptr<LightOptions> lightOptions = options->getLightOptions()) {
-                        if (lightOptions->isTerrainLightingEnabled()) {
-                            sunIntensity = std::max(0.001f, lightOptions->getSunIntensity());
-                            sunAmbient = lightOptions->getAmbientIntensity();
-                        }
-                    }
+                    // The RESOLVED sun (style over options), captured by onDrawFrame. Reading
+                    // LightOptions here ignored every sun property a style had set, so buildings
+                    // and the ground they stand on disagreed about the hour.
+                    float sunIntensity = (_sunLightingEnabled ? std::max(0.001f, _sunIntensity) : 0.0f);
+                    float sunAmbient = (_sunLightingEnabled ? _sunAmbient : 0.35f);
                     glUniform2f(glGetUniformLocation(shaderProgram, "u_sunParams"), sunIntensity, sunAmbient);
                 }
             });
