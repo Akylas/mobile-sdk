@@ -461,6 +461,7 @@ namespace carto {
         int _maxUnderzoomLevel;
 
         int _terrainMaxTileZoom = 1000; // terrain-mode tile zoom cap (effectively none), recomputed per cull
+        double _maxVisibleDistance = 0; // internal units; 0 = as far as the camera can see
         bool _terrainOverzoomTargets = false; // terrain mode: target tiles may exceed the data source max zoom (overzoom-fed)
 
         std::vector<MapTile> _visibleTiles;

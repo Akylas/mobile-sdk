@@ -59,6 +59,10 @@ namespace carto {
         MapEnvelope _envelope;
         
         ViewState _viewState;
+
+        // How far from the camera the map is drawn, in internal units; 0 = as far as the camera
+        // can see. At a low tilt that is the ground to the horizon, which is hundreds of tiles.
+        double _maxVisibleDistance;
     
         std::weak_ptr<MapRenderer> _mapRenderer;
         std::shared_ptr<CullWorker> _worker;

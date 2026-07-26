@@ -8,6 +8,7 @@
 #define _CARTO_TILERENDERER_H_
 
 #include "graphics/Color.h"
+#include "components/StyleEnvironment.h"
 #include "graphics/ViewState.h"
 #include "renderers/utils/GLResource.h"
 
@@ -112,7 +113,12 @@ namespace carto {
         void calculateRayIntersectedElements3D(const cglib::ray3<double>& ray, const ViewState& viewState, float radius, std::vector<vt::GLTileRenderer::GeometryIntersectionInfo>& results) const;
         void calculateRayIntersectedBitmaps(const cglib::ray3<double>& ray, const ViewState& viewState, std::vector<vt::GLTileRenderer::BitmapIntersectionInfo>& results) const;
     
+        // The style's own sun/shadow/fog values for this frame, pushed by the layer that owns
+        // this renderer. What the style leaves unset comes from LightOptions/TerrainOptions.
+        void setStyleEnvironment(const StyleEnvironment& env);
+
         static Color evaluateColorFunc(const vt::ColorFunction& colorFunc, const ViewState& viewState);
+        static float evaluateFloatFunc(const vt::FloatFunction& floatFunc, const ViewState& viewState);
 
     private:
         struct LabelOcclusionState;
@@ -129,6 +135,7 @@ namespace carto {
 
         std::weak_ptr<MapRenderer> _mapRenderer;
         std::weak_ptr<Options> _options;
+        StyleEnvironment _styleEnvironment;
         std::shared_ptr<vt::TileTransformer> _tileTransformer;
 
         std::shared_ptr<VTRenderer> _vtRenderer;

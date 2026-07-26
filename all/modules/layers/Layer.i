@@ -35,6 +35,7 @@
 %ignore carto::Layer::onDrawFrame;
 %ignore carto::Layer::onDrawFrame3D;
 %ignore carto::Layer::getBackgroundBitmap;
+%ignore carto::Layer::getStyleEnvironment;
 %ignore carto::Layer::getSkyBitmap;
 %ignore carto::Layer::calculateRayIntersectedElements;
 %ignore carto::Layer::registerDataSourceListener;

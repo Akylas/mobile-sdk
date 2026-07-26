@@ -211,6 +211,8 @@ namespace carto {
         
         virtual std::shared_ptr<Bitmap> getBackgroundBitmap(const ViewState& viewState) const;
         virtual Color getBackgroundColor(const ViewState& viewState) const;
+
+        virtual bool getStyleEnvironment(const ViewState& viewState, StyleEnvironment& env) const;
         virtual std::shared_ptr<Bitmap> getSkyBitmap(const ViewState& viewState) const;
 
         virtual void registerDataSourceListener();

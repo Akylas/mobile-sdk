@@ -1,6 +1,7 @@
 #include "TileRenderer.h"
 #include "components/Options.h"
 #include "components/LightOptions.h"
+#include "components/TerrainOptions.h"
 #include "components/ThreadWorker.h"
 #include "graphics/ViewState.h"
 #include "projections/ProjectionSurface.h"
@@ -471,19 +472,39 @@ namespace carto {
         // is shaded by one directional light that follows the time of day - and the pre-baked
         // hillshade raster layer becomes optional rather than the only way to get relief.
         vt::GLTileRenderer::TerrainLighting terrainLighting;
-        if (drapeFills) {
-            if (auto options = _options.lock()) {
-                if (std::shared_ptr<LightOptions> lightOptions = options->getLightOptions()) {
-                    if (lightOptions->isTerrainLightingEnabled()) {
-                        Color sunColor = lightOptions->getSunColor();
-                        terrainLighting.enabled = true;
-                        terrainLighting.sunDir = lightOptions->getSunDirection();
-                        terrainLighting.sunColor = cglib::vec3<float>(sunColor.getR() / 255.0f, sunColor.getG() / 255.0f, sunColor.getB() / 255.0f);
-                        terrainLighting.sunIntensity = lightOptions->getSunIntensity();
-                        terrainLighting.ambientIntensity = lightOptions->getAmbientIntensity();
-                    }
+        if (auto options = _options.lock()) {
+            // The style's values win over the options wherever it has an opinion; the rest of the
+            // sun stays with LightOptions. Both are re-read every frame, so either may depend on
+            // the zoom.
+            ResolvedLighting lighting = resolveLighting(options->getLightOptions(), _styleEnvironment);
+            if (drapeFills && lighting.terrainLightingEnabled) {
+                terrainLighting.enabled = true;
+                terrainLighting.sunDir = lighting.sunDir;
+                terrainLighting.sunColor = cglib::vec3<float>(lighting.sunColor.getR() / 255.0f, lighting.sunColor.getG() / 255.0f, lighting.sunColor.getB() / 255.0f);
+                terrainLighting.sunIntensity = lighting.sunIntensity;
+                terrainLighting.ambientIntensity = lighting.ambientIntensity;
+            }
+
+            // Distance fog. Metric in the API and in the style, internal units in the renderer:
+            // the conversion is the equator one, the same the shadow distance uses.
+            Color fogColor = _styleEnvironment.fogColor ? *_styleEnvironment.fogColor : Color(0, 0, 0, 0);
+            float fogStartDistance = _styleEnvironment.fogStartDistance ? *_styleEnvironment.fogStartDistance : 0.0f;
+            float fogDistance = _styleEnvironment.fogDistance ? *_styleEnvironment.fogDistance : 0.0f;
+            if (std::shared_ptr<TerrainOptions> terrainOptions = options->getTerrainOptions()) {
+                if (!_styleEnvironment.fogColor) {
+                    fogColor = terrainOptions->getFogColor();
+                }
+                if (!_styleEnvironment.fogStartDistance) {
+                    fogStartDistance = terrainOptions->getFogStartDistance();
+                }
+                if (!_styleEnvironment.fogDistance) {
+                    fogDistance = terrainOptions->getFogDistance();
                 }
             }
+            double metersToInternal = static_cast<double>(Const::WORLD_SIZE) / Const::EARTH_CIRCUMFERENCE;
+            tileRenderer->setFog(vt::Color(fogColor.getR() / 255.0f, fogColor.getG() / 255.0f, fogColor.getB() / 255.0f, fogColor.getA() / 255.0f),
+                                 static_cast<float>(fogStartDistance * metersToInternal),
+                                 static_cast<float>(fogDistance * metersToInternal));
         }
         tileRenderer->setTerrainLighting(terrainLighting);
         tileRenderer->setTerrainDepthWrite(terrainMode && _terrainDepthWriteMode);
@@ -742,6 +763,18 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
         vt::ViewState vtViewState(viewState.getProjectionMat(), modelViewMat, viewState.getZoom(),
 viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewState.getNormalizedResolution());
         return Color(colorFunc(vtViewState).value());
+    }
+
+    void TileRenderer::setStyleEnvironment(const StyleEnvironment& env) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        _styleEnvironment = env;
+    }
+
+    float TileRenderer::evaluateFloatFunc(const vt::FloatFunction& floatFunc, const ViewState& viewState) {
+        cglib::mat4x4<double> modelViewMat = viewState.getModelviewMat();
+        vt::ViewState vtViewState(viewState.getProjectionMat(), modelViewMat, viewState.getZoom(), viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewState.getNormalizedResolution());
+        return floatFunc(vtViewState);
     }
 
     bool TileRenderer::isPlanarTerrainMode() const {

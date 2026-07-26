@@ -406,6 +406,13 @@ public class SecondFragment extends Fragment {
         options.setDrapeResolution(cfgInt("drapeResolution", options.getDrapeResolution()));
         // Peak-finder: a larger tolerance labels summits that are partly behind a nearer ridge.
         options.setBillboardOcclusionTolerance(cfgFloat("occlusionTolerance", options.getBillboardOcclusionTolerance()));
+        // Distance fog and the view distance. '--es fog ffffff --es fogDistance 30000' etc.
+        if (cfg("fog") != null) {
+            options.setFogColor(new com.carto.graphics.Color(android.graphics.Color.parseColor(cfgColor("fog", "#ffffff"))));
+        }
+        options.setFogStartDistance(cfgFloat("fogStart", options.getFogStartDistance()));
+        options.setFogDistance(cfgFloat("fogDistance", options.getFogDistance()));
+        options.setMaxVisibleDistance(cfgFloat("maxDistance", options.getMaxVisibleDistance()));
     }
 
     MapView mapView;
@@ -1162,7 +1169,20 @@ public class SecondFragment extends Fragment {
         // which is where the terrain rendering artifacts show.
         final boolean withSatellite = cfgBool("sat", false);
         String css = String.join("\n",
-            "Map { background-color: " + cfgColor("bg", "#eef2f0") + "; }",
+            // '--es styleLight true' moves the sun, the shadows and the fog INTO the style, with
+            // a couple of them zoom-dependent, which is what the Map-block properties are for.
+            "Map { background-color: " + cfgColor("bg", "#eef2f0") + ";" + (cfgBool("styleLight", false) ?
+                " terrain-lighting: 1;" +
+                " sun-azimuth: 250;" +
+                " sun-altitude: linear([view::zoom], (11, 55), (15, 12));" +
+                " sun-intensity: 1;" +
+                " ambient-intensity: 0.4;" +
+                " shadow-strength: 0.8;" +
+                " shadow-softness: 1;" +
+                " fog-color: #b8c6d8;" +
+                " fog-start-distance: 1500;" +
+                " fog-distance: linear([view::zoom], (11, 60000), (15, 12000));" +
+                " terrain-max-visible-distance: 40000;" : "") + " }",
             "#water { polygon-fill: #9cc3e0; }",
             "#landcover { polygon-fill: #dbe8cc; }",
             // hillshade woven above land/water fills, below roads; exaggeration ramps with zoom.

@@ -216,6 +216,61 @@ namespace carto {
         void setMinZoom(int minZoom);
 
         /**
+         * Returns the fog color.
+         * @return The fog color. The default is transparent (no fog).
+         */
+        Color getFogColor() const;
+        /**
+         * Sets the color distant terrain, rasters, geometry and 3D extrusions fade towards.
+         * The alpha channel is how opaque the fog gets at full distance, so a fully transparent
+         * color (the default) means no fog at all. Fog is what makes a long view distance look
+         * like distance rather than like a hard cut, and it is what hides the edge of the terrain
+         * when the maximum visible distance is limited.
+         * A style can set this itself with the Map property "fog-color".
+         * @param color The new fog color.
+         */
+        void setFogColor(const Color& color);
+
+        /**
+         * Returns the distance at which the fog starts.
+         * @return The fog start distance in meters. The default is 0.
+         */
+        float getFogStartDistance() const;
+        /**
+         * Sets the distance from the camera at which the fog starts, in meters. Nothing nearer
+         * than this is fogged at all. Style property: "fog-start-distance".
+         * @param distance The new fog start distance in meters.
+         */
+        void setFogStartDistance(float distance);
+
+        /**
+         * Returns the distance at which the fog reaches full strength.
+         * @return The fog distance in meters. The default is 0 (no fog).
+         */
+        float getFogDistance() const;
+        /**
+         * Sets the distance from the camera at which the fog reaches its full strength, in
+         * meters. 0 (the default) turns the fog off. Style property: "fog-distance".
+         * @param distance The new fog distance in meters.
+         */
+        void setFogDistance(float distance);
+
+        /**
+         * Returns the maximum distance the terrain is drawn to.
+         * @return The maximum visible distance in meters. The default is 0 (unlimited).
+         */
+        float getMaxVisibleDistance() const;
+        /**
+         * Sets how far from the camera the map is drawn, in meters. 0 (the default) draws
+         * everything the camera can see, which at a low tilt is the ground all the way to the
+         * horizon - hundreds of tiles, most of them a few pixels tall. Limiting it is what makes
+         * a near-horizontal view affordable; pair it with fog so the ground fades out instead of
+         * ending. Style property: "terrain-max-visible-distance".
+         * @param distance The new maximum visible distance in meters.
+         */
+        void setMaxVisibleDistance(float distance);
+
+        /**
          * Returns the terrain background color.
          * @return The terrain background color. The default is transparent (no background).
          */
@@ -396,6 +451,10 @@ namespace carto {
         std::atomic<float> _cameraClampDuration;
         std::atomic<bool> _billboardOcclusionEnabled;
         std::atomic<float> _billboardOcclusionTolerance;
+        std::atomic<int> _fogColorARGB;
+        std::atomic<float> _fogStartDistance;
+        std::atomic<float> _fogDistance;
+        std::atomic<float> _maxVisibleDistance;
 
         std::vector<std::shared_ptr<OnChangeListener> > _onChangeListeners;
         mutable std::mutex _onChangeListenersMutex;

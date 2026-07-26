@@ -10,6 +10,7 @@
 #include "core/ScreenPos.h"
 #include "core/MapRange.h"
 #include "core/Variant.h"
+#include "components/StyleEnvironment.h"
 #include "renderers/components/CullState.h"
 #include "ui/ClickInfo.h"
 
@@ -163,6 +164,7 @@ namespace carto {
         friend class MapRenderer;
         friend class BackgroundRenderer;
         friend class TouchHandler;
+        friend class CullWorker; // asks the style how far the map should be drawn
         friend class CompositeVectorTileLayer; // forwards lifecycle/draw to owned child layers
     
         Layer();
@@ -198,6 +200,11 @@ namespace carto {
         // background plane BackgroundRenderer draws under everything; in terrain draping mode that
         // plane is behind the terrain, so the drape bake has to start from this colour instead.
         virtual Color getBackgroundColor(const ViewState& viewState) const;
+        // Sun, shadow, fog and terrain-distance values this layer's STYLE provides, evaluated for
+        // this view state (they may be zoom-dependent like any other style property). Returns
+        // false when the layer has no style opinion at all. What the style leaves unset stays
+        // with the application's LightOptions/TerrainOptions.
+        virtual bool getStyleEnvironment(const ViewState& viewState, StyleEnvironment& env) const;
         virtual std::shared_ptr<Bitmap> getSkyBitmap(const ViewState& viewState) const;
         
         virtual void calculateRayIntersectedElements(const cglib::ray3<double>& ray, const ViewState& viewState, std::vector<RayIntersectedElement>& results) const = 0;

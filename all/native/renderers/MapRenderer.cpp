@@ -1483,14 +1483,25 @@ namespace carto {
                     std::array<float, TerrainShadowMap::MAX_CASCADES> shadowBiases = { };
                     std::array<cglib::mat4x4<double>, TerrainShadowMap::MAX_CASCADES> lightViewProjs;
                     lightViewProjs.fill(cglib::mat4x4<double>::identity());
+                    // The styles get a say in every light and shadow property; whatever they do
+                    // not mention stays with LightOptions. The first layer to define a property
+                    // wins, and the values are re-read every frame so they may follow the zoom.
+                    StyleEnvironment styleEnvironment;
+                    for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
+                        StyleEnvironment layerEnvironment;
+                        if (tileLayer->getStyleEnvironment(viewState, layerEnvironment)) {
+                            styleEnvironment.mergeMissing(layerEnvironment);
+                        }
+                    }
+                    ResolvedLighting lighting = resolveLighting(_options->getLightOptions(), styleEnvironment);
                     bool shadowsWanted = false;
-                    if (std::shared_ptr<LightOptions> lightOptions = _options->getLightOptions()) {
-                        shadowsWanted = lightOptions->isTerrainLightingEnabled() && lightOptions->getShadowStrength() > 0.0f && !drapeTileIds.empty();
+                    {
+                        shadowsWanted = lighting.terrainLightingEnabled && lighting.shadowStrength > 0.0f && !drapeTileIds.empty();
                         if (shadowsWanted) {
                             if (!_terrainShadowMap) {
                                 _terrainShadowMap = std::make_unique<TerrainShadowMap>();
                             }
-                            _terrainShadowMap->setSize(lightOptions->getShadowMapSize(), lightOptions->getShadowCascades());
+                            _terrainShadowMap->setSize(lighting.shadowMapSize, lighting.shadowCascades);
                             // Fit the light box to the elevation the shadowed ground actually
                             // spans, plus headroom for what stands on it. With a low sun the box
                             // is stretched by this range divided by tan(altitude), so a generous
@@ -1527,7 +1538,7 @@ namespace carto {
                             // still throws its shadow into the view, and without this its shadow
                             // vanishes as you zoom in and it leaves the visible set.
                             std::vector<vt::TileId> casterTileIds = drapeTileIds;
-                            int casterMargin = lightOptions->getShadowCasterMargin();
+                            int casterMargin = lighting.shadowCasterMargin;
                             if (casterMargin > 0) {
                                 std::set<std::pair<int, std::pair<int, int> > > seen;
                                 for (const vt::TileId& tileId : drapeTileIds) {
@@ -1555,12 +1566,12 @@ namespace carto {
                             std::array<std::vector<vt::TileId>, TerrainShadowMap::MAX_CASCADES> cascadeCasterTiles;
                             for (int cascade = 0; cascade < cascades; cascade++) {
                                 double depthRangeMeters = 1.0, texelMeters = 0;
-                                if (drapeLayers.front()->calculateShadowViewProj(drapeTileIds, casterTileIds, lightOptions->getSunDirection(), tileHeights, minHeight, maxHeight, lightOptions->getShadowDistance(), _terrainShadowMap->getSize(), cascade, cascades, cascadeCasterTiles[cascade], depthRangeMeters, texelMeters, lightViewProjs[cascade])) {
+                                if (drapeLayers.front()->calculateShadowViewProj(drapeTileIds, casterTileIds, lighting.sunDir, tileHeights, minHeight, maxHeight, lighting.shadowDistance, _terrainShadowMap->getSize(), cascade, cascades, cascadeCasterTiles[cascade], depthRangeMeters, texelMeters, lightViewProjs[cascade])) {
                                     // The bias is metric; the shader wants a fraction of the
                                     // normalised light depth, and each cascade's box spans its
                                     // own depth. Dividing per cascade is what keeps the shadow
                                     // attached to its caster at every zoom and margin.
-                                    shadowBiases[cascade] = static_cast<float>(lightOptions->getShadowBias() / std::max(1.0, depthRangeMeters));
+                                    shadowBiases[cascade] = static_cast<float>(lighting.shadowBias / std::max(1.0, depthRangeMeters));
                                     if (cascade == 0) {
                                         shadowTexelMeters = texelMeters;
                                     }
@@ -1654,8 +1665,8 @@ namespace carto {
                                     shadowTexture = _terrainShadowMap->getTexture();
                                     shadowMapSize = _terrainShadowMap->getSize();
                                     shadowCascades = cascades;
-                                    shadowStrength = lightOptions->getShadowStrength();
-                                    shadowSoftness = lightOptions->getShadowSoftness();
+                                    shadowStrength = lighting.shadowStrength;
+                                    shadowSoftness = lighting.shadowSoftness;
                                 }
                             } else {
                                 _shadowMapValid = false; // no light box: the cached map means nothing

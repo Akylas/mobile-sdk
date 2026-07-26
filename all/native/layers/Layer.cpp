@@ -239,6 +239,10 @@ namespace carto {
         return Color(0, 0, 0, 0);
     }
 
+    bool Layer::getStyleEnvironment(const ViewState& viewState, StyleEnvironment& env) const {
+        return false;
+    }
+
     std::shared_ptr<Bitmap> Layer::getSkyBitmap(const ViewState& viewState) const {
         return std::shared_ptr<Bitmap>();
     }

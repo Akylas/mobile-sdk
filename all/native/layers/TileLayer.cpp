@@ -546,6 +546,26 @@ namespace carto {
             }
         }
 
+        // How far the map is drawn. The style may say (and may make it depend on the zoom),
+        // otherwise TerrainOptions does. Looking along the ground the camera sees to the horizon,
+        // which is hundreds of tiles, almost all of them a few pixels tall; this is what keeps
+        // that view affordable. Pair it with fog, or the ground simply ends.
+        _maxVisibleDistance = 0;
+        {
+            StyleEnvironment env;
+            float distance = 0;
+            if (getStyleEnvironment(cullState->getViewState(), env) && env.terrainMaxVisibleDistance) {
+                distance = *env.terrainMaxVisibleDistance;
+            } else if (auto options = getOptions()) {
+                if (auto terrainOptions = options->getTerrainOptions()) {
+                    distance = terrainOptions->getMaxVisibleDistance();
+                }
+            }
+            if (distance > 0) {
+                _maxVisibleDistance = distance * static_cast<double>(Const::WORLD_SIZE) / Const::EARTH_CIRCUMFERENCE;
+            }
+        }
+
         // Recursively calculate visible tiles
         calculateVisibleTilesRecursive(cullState, MapTile(0, 0, 0, _frameNr), _dataSource->getDataExtent());
         if (auto options = getOptions()) {
@@ -585,6 +605,19 @@ namespace carto {
         bool inPreloadingFrustum = visibleFrustum.inside(preloadingBounds);
         if (!inPreloadingFrustum) {
             return;
+        }
+        // Beyond the view distance nothing is drawn, so nothing is fetched either - and the
+        // recursion stops here rather than subdividing a tile that will never be seen. The test
+        // is against the NEAREST point of the tile, so a tile straddling the limit still counts.
+        if (_maxVisibleDistance > 0) {
+            const cglib::vec3<double>& cameraPos = viewState.getCameraPos();
+            cglib::vec3<double> nearestPos = cameraPos;
+            for (int i = 0; i < 3; i++) {
+                nearestPos(i) = std::max(tileBounds.min(i), std::min(tileBounds.max(i), cameraPos(i)));
+            }
+            if (cglib::length(nearestPos - cameraPos) > _maxVisibleDistance) {
+                return;
+            }
         }
         bool inVisibleFrustum = visibleFrustum.inside(tileBounds);
 

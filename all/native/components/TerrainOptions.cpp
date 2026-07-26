@@ -32,6 +32,10 @@ namespace carto {
         _cameraClampDuration(0.0f),
         _billboardOcclusionEnabled(true),
         _billboardOcclusionTolerance(0.02f),
+        _fogColorARGB(Color(0, 0, 0, 0).getARGB()),
+        _fogStartDistance(0.0f),
+        _fogDistance(0.0f),
+        _maxVisibleDistance(0.0f),
         _onChangeListeners(),
         _onChangeListenersMutex()
     {
@@ -153,6 +157,49 @@ namespace carto {
         int zoom = std::min(24, std::max(0, minZoom));
         if (_minZoom.exchange(zoom) != zoom) {
             notifyOptionChanged("MinZoom");
+        }
+    }
+
+    Color TerrainOptions::getFogColor() const {
+        return Color(_fogColorARGB.load());
+    }
+
+    void TerrainOptions::setFogColor(const Color& color) {
+        if (_fogColorARGB.exchange(color.getARGB()) != color.getARGB()) {
+            notifyOptionChanged("FogColor");
+        }
+    }
+
+    float TerrainOptions::getFogStartDistance() const {
+        return _fogStartDistance.load();
+    }
+
+    void TerrainOptions::setFogStartDistance(float distance) {
+        float clamped = std::max(0.0f, distance);
+        if (_fogStartDistance.exchange(clamped) != clamped) {
+            notifyOptionChanged("FogStartDistance");
+        }
+    }
+
+    float TerrainOptions::getFogDistance() const {
+        return _fogDistance.load();
+    }
+
+    void TerrainOptions::setFogDistance(float distance) {
+        float clamped = std::max(0.0f, distance);
+        if (_fogDistance.exchange(clamped) != clamped) {
+            notifyOptionChanged("FogDistance");
+        }
+    }
+
+    float TerrainOptions::getMaxVisibleDistance() const {
+        return _maxVisibleDistance.load();
+    }
+
+    void TerrainOptions::setMaxVisibleDistance(float distance) {
+        float clamped = std::max(0.0f, distance);
+        if (_maxVisibleDistance.exchange(clamped) != clamped) {
+            notifyOptionChanged("MaxVisibleDistance");
         }
     }
 
