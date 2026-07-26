@@ -1147,12 +1147,11 @@ namespace carto {
         if (terrainMode) {
             if (auto terrainOptions = _options->getTerrainOptions()) {
                 if (terrainOptions->isDrapeFillsEnabled()) {
+                    // Layers report their own drapeable tile layers, so a composite layer can
+                    // contribute its children (hillshade/raster slots, style-layer groups) in
+                    // draw order rather than only its own group-0 renderer.
                     for (const std::shared_ptr<Layer>& layer : layers) {
-                        if (auto tileLayer = std::dynamic_pointer_cast<TileLayer>(layer)) {
-                            if (tileLayer->isVisible()) {
-                                drapeLayers.push_back(tileLayer);
-                            }
-                        }
+                        layer->collectDrapeLayers(drapeLayers);
                     }
                 }
                 // A single stack for now: the usual configuration (hillshade under vector tiles)
@@ -1293,6 +1292,10 @@ namespace carto {
                     glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFBO);
                     int resolution = _terrainDrapeCache->getResolution();
                     bool bakeStarted = false;
+                    // Cumulative since start: bakes are cached, so a per-frame count is 0 on most
+                    // frames and says nothing about whether baking ever produced anything.
+                    static int bakedTiles = 0, bakedPrimitives = 0;
+                    int surfaceDraws = 0;
                     for (auto it = drapeTiles.begin(); it != drapeTiles.end(); it++) {
                         bool needsBake = false;
                         unsigned int texture = _terrainDrapeCache->acquire(it->first, 0, it->second, needsBake);
@@ -1314,8 +1317,9 @@ namespace carto {
                         // Layer order matters: later layers composite over earlier ones, which is
                         // why the owner clears and the bakers do not.
                         for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
-                            tileLayer->bakeDrapeTile(it->first);
+                            bakedPrimitives += tileLayer->bakeDrapeTile(it->first);
                         }
+                        bakedTiles++;
                     }
                     if (bakeStarted) {
                         // Detach before sampling: a texture left attached to a framebuffer counts
@@ -1327,11 +1331,19 @@ namespace carto {
                     }
 
                     // The shared surface is the only depth-writing terrain geometry.
+                    // GL_LEQUAL, not the default GL_LESS: the global terrain background drawn
+                    // just above uses the SAME meshes and has already written their depth, so a
+                    // GL_LESS surface draw is rejected everywhere and the drape never reaches
+                    // the screen - the terrain then shows the background colour and nothing else.
                     glEnable(GL_DEPTH_TEST);
+                    glDepthFunc(GL_LEQUAL);
                     glDepthMask(GL_TRUE);
+                    glDisable(GL_CULL_FACE); // displaced surfaces can face away near ridge crests
                     for (auto it = drapedTiles.begin(); it != drapedTiles.end(); it++) {
-                        drapeLayers.front()->renderDrapedSurface(it->first, it->second);
+                        surfaceDraws += drapeLayers.front()->renderDrapedSurface(it->first, it->second);
                     }
+                    glEnable(GL_CULL_FACE);
+                    glDepthFunc(GL_LESS);
                     glDepthMask(GL_FALSE);
                     _terrainDrapeCache->endFrame();
 
@@ -1345,18 +1357,20 @@ namespace carto {
                             maxZoom = std::max(maxZoom, it2->first.zoom);
                         }
                         Log::Infof("MapRenderer: RTT drape tiles zoom %d..%d, count %d", minZoom, maxZoom, static_cast<int>(drapedTiles.size()));
-                        Log::Infof("MapRenderer: RTT drape ACTIVE - layers %d, collected tiles %d, drawn tiles %d, resolution %d",
+                        Log::Infof("MapRenderer: RTT drape ACTIVE - layers %d, collected tiles %d, drawn tiles %d, resolution %d, baked %d tiles / %d primitives, surface draws %d",
                             static_cast<int>(drapeLayers.size()), static_cast<int>(collectedTiles.size()),
-                            static_cast<int>(drapedTiles.size()), resolution);
+                            static_cast<int>(drapedTiles.size()), resolution, bakedTiles, bakedPrimitives, surfaceDraws);
                     }
                 }
             }
         }
         if (drapeLayers.empty()) {
+            std::vector<std::shared_ptr<TileLayer> > allTileLayers;
             for (const std::shared_ptr<Layer>& layer : layers) {
-                if (auto tileLayer = std::dynamic_pointer_cast<TileLayer>(layer)) {
-                    tileLayer->setExternalDrapeTarget(false);
-                }
+                layer->collectDrapeLayers(allTileLayers);
+            }
+            for (const std::shared_ptr<TileLayer>& tileLayer : allTileLayers) {
+                tileLayer->setExternalDrapeTarget(false);
             }
             if (terrainMode) {
                 static bool noDrapeLogged = false;

@@ -19,6 +19,7 @@
         app:layout_constraintVertical_bias="0.0" />
 
     <LinearLayout
+        android:id="@+id/controlsPanel"
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"

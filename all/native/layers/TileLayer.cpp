@@ -778,6 +778,12 @@ namespace carto {
         _tileRenderer->setTerrainDepthWriteMode(enabled);
     }
 
+    void TileLayer::collectDrapeLayers(std::vector<std::shared_ptr<TileLayer> >& drapeLayers) {
+        if (isVisible()) {
+            drapeLayers.push_back(std::static_pointer_cast<TileLayer>(shared_from_this()));
+        }
+    }
+
     bool TileLayer::prepareTerrainDrapeFrame(float deltaSeconds, const ViewState& viewState) {
         return _tileRenderer->prepareFrame(deltaSeconds, viewState);
     }
@@ -794,12 +800,12 @@ namespace carto {
         _tileRenderer->collectDrapeTiles(drapeTiles);
     }
 
-    void TileLayer::bakeDrapeTile(const vt::TileId& tileId) {
-        _tileRenderer->bakeDrapeTile(tileId);
+    int TileLayer::bakeDrapeTile(const vt::TileId& tileId) {
+        return _tileRenderer->bakeDrapeTile(tileId);
     }
 
-    void TileLayer::renderDrapedSurface(const vt::TileId& tileId, unsigned int drapeTexture) {
-        _tileRenderer->renderDrapedSurface(tileId, drapeTexture);
+    int TileLayer::renderDrapedSurface(const vt::TileId& tileId, unsigned int drapeTexture) {
+        return _tileRenderer->renderDrapedSurface(tileId, drapeTexture);
     }
 
     void TileLayer::setTerrainRenderOrder(int order) {

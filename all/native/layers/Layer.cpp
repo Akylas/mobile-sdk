@@ -223,6 +223,10 @@ namespace carto {
         }
     }
     
+    void Layer::collectDrapeLayers(std::vector<std::shared_ptr<TileLayer> >& drapeLayers) {
+        // Non-tile layers (vector elements, NML models) are not draped.
+    }
+
     bool Layer::onDrawFrame3D(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState) {
         return false;
     }

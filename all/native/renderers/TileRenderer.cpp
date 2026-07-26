@@ -262,20 +262,22 @@ namespace carto {
         }
     }
 
-    void TileRenderer::bakeDrapeTile(const vt::TileId& tileId) {
+    int TileRenderer::bakeDrapeTile(const vt::TileId& tileId) {
         std::lock_guard<std::mutex> lock(_mutex);
 
         if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
-            tileRenderer->bakeDrapeTile(tileId);
+            return tileRenderer->bakeDrapeTile(tileId);
         }
+        return 0;
     }
 
-    void TileRenderer::renderDrapedSurface(const vt::TileId& tileId, unsigned int drapeTexture) {
+    int TileRenderer::renderDrapedSurface(const vt::TileId& tileId, unsigned int drapeTexture) {
         std::lock_guard<std::mutex> lock(_mutex);
 
         if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
-            tileRenderer->renderDrapedSurface(tileId, static_cast<GLuint>(drapeTexture));
+            return tileRenderer->renderDrapedSurface(tileId, static_cast<GLuint>(drapeTexture));
         }
+        return -4;
     }
 
     bool TileRenderer::onDrawFrame(float deltaSeconds, const ViewState& viewState) {

@@ -93,8 +93,8 @@ namespace carto {
         void setExternalDrapeTiles(const std::vector<vt::TileId>& tileIds);
         bool isDrapeEnabled() const;
         void collectDrapeTiles(std::map<vt::TileId, std::size_t>& drapeTiles) const;
-        void bakeDrapeTile(const vt::TileId& tileId);
-        void renderDrapedSurface(const vt::TileId& tileId, unsigned int drapeTexture);
+        int bakeDrapeTile(const vt::TileId& tileId);
+        int renderDrapedSurface(const vt::TileId& tileId, unsigned int drapeTexture);
 
         bool onDrawFrame(float deltaSeconds, const ViewState& viewState);
         bool onDrawFrame3D(float deltaSeconds, const ViewState& viewState);

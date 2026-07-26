@@ -389,12 +389,14 @@ namespace carto {
          * collects the tiles they would drape, bakes them all into one shared texture per tile in
          * layer order, and then draws the terrain surface once. Internal methods.
          */
+        virtual void collectDrapeLayers(std::vector<std::shared_ptr<TileLayer> >& drapeLayers);
+
         bool prepareTerrainDrapeFrame(float deltaSeconds, const ViewState& viewState);
         void setExternalDrapeTarget(bool enabled);
         void setExternalDrapeTiles(const std::vector<vt::TileId>& tileIds);
         void collectDrapeTiles(std::map<vt::TileId, std::size_t>& drapeTiles) const;
-        void bakeDrapeTile(const vt::TileId& tileId);
-        void renderDrapedSurface(const vt::TileId& tileId, unsigned int drapeTexture);
+        int bakeDrapeTile(const vt::TileId& tileId);
+        int renderDrapedSurface(const vt::TileId& tileId, unsigned int drapeTexture);
 
     protected:
 

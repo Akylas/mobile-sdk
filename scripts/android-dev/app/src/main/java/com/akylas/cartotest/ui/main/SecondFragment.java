@@ -139,6 +139,51 @@ public class SecondFragment extends Fragment {
 
     private static final int REQUEST_PERMISSIONS_CODE_WRITE_STORAGE = 1435;
     private static final int REQUEST_PERMISSIONS_MANAGE_STORAGE = 1436;
+
+    // --- Test harness -----------------------------------------------------------------------
+    // Every knob below can be overridden from adb without rebuilding, e.g.
+    //   adb shell am start -n com.akylas.cartotest/.MainActivity \
+    //       --es demo composite --es drape false --es tilt 60 --es zoom 14.7 \
+    //       --es lon 5.760595 --es lat 45.244172
+    // Defaults keep the behaviour of the hard-coded configuration.
+    private String cfg(String key) {
+        try {
+            android.content.Intent intent = getActivity() != null ? getActivity().getIntent() : null;
+            Object value = intent != null && intent.getExtras() != null ? intent.getExtras().get(key) : null;
+            return value != null ? String.valueOf(value) : null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+    private String cfgStr(String key, String def) { String v = cfg(key); return v != null ? v : def; }
+    // '#' starts a comment in the adb shell, so colours are passed bare ("ff00ff").
+    private String cfgColor(String key, String def) {
+        String v = cfg(key);
+        if (v == null) return def;
+        return v.startsWith("#") ? v : "#" + v;
+    }
+    private boolean cfgBool(String key, boolean def) { String v = cfg(key); return v != null ? Boolean.parseBoolean(v) : def; }
+    private float cfgFloat(String key, float def) { String v = cfg(key); return v != null ? Float.parseFloat(v) : def; }
+    private int cfgInt(String key, int def) { String v = cfg(key); return v != null ? (int) Float.parseFloat(v) : def; }
+
+    // Applies the camera overrides on top of a demo's own start position.
+    void applyCameraConfig(double lon, double lat, float zoom, float tilt) {
+        Projection proj = mapView.getOptions().getBaseProjection();
+        mapView.setFocusPos(proj.fromWgs84(new MapPos(cfgFloat("lon", (float) lon), cfgFloat("lat", (float) lat))), 0);
+        mapView.setZoom(cfgFloat("zoom", zoom), 0);
+        mapView.setTilt(cfgFloat("tilt", tilt), 0);
+        mapView.setMapRotation(cfgFloat("rotation", 0), 0);
+    }
+
+    // Applies the terrain overrides shared by every demo that builds a TerrainOptions.
+    void applyTerrainConfig(com.carto.components.TerrainOptions options) {
+        options.setExaggeration(cfgFloat("exaggeration", options.getExaggeration()));
+        options.setMeshResolution(cfgInt("meshResolution", options.getMeshResolution()));
+        options.setDrapeFillsEnabled(cfgBool("drape", options.isDrapeFillsEnabled()));
+        options.setDrapeLinesEnabled(cfgBool("drapeLines", options.isDrapeLinesEnabled()));
+        options.setDrapeResolution(cfgInt("drapeResolution", options.getDrapeResolution()));
+    }
+
     MapView mapView;
     MapBoxElevationDataDecoder elevationDecoder;
     HillshadeRasterTileLayer hillshadeLayer;
@@ -230,6 +275,7 @@ public class SecondFragment extends Fragment {
 
 //        terrainOptions.setRegularGridEnabled(true);
         terrainOptions.setPainterOrderDepthEnabled(true);
+        applyTerrainConfig(terrainOptions);
         mapView.getOptions().setTerrainOptions(terrainOptions);
 
         // Hillshade layer draped over the 3D terrain, sharing the elevation source
@@ -352,10 +398,7 @@ public class SecondFragment extends Fragment {
 
         // Start tilted over the Alps (Grenoble). Note: setFocusPos expects base projection
         // coordinates, so WGS84 positions must be converted first.
-        Projection proj = mapView.getOptions().getBaseProjection();
-        mapView.setFocusPos(proj.fromWgs84(new MapPos(5.770689, 45.232494)), 0);
-        mapView.setZoom(13.80f, 0);
-        mapView.setTilt(35f, 0);
+        applyCameraConfig(5.770689, 45.232494, 13.80f, 35f);
     }
 
     void addTerrainTestElements() {
@@ -390,6 +433,9 @@ public class SecondFragment extends Fragment {
     }
 
     void addTerrainControls(View view) {
+        if (!cfgBool("ui", true)) {
+            return; // '--es ui false': clean screenshots for automated rendering checks
+        }
         final android.content.Context context = getContext();
         android.widget.LinearLayout panel = new android.widget.LinearLayout(context);
         panel.setOrientation(android.widget.LinearLayout.VERTICAL);
@@ -714,12 +760,15 @@ public class SecondFragment extends Fragment {
 
         // First-reference order = slot order: water, landcover, HILLSHADE, SATELLITE,
         // transportation, building, CONTOUR.
+        // '--es sat false' drops the satellite raster: without it the vector fills are visible,
+        // which is where the terrain rendering artifacts show.
+        final boolean withSatellite = cfgBool("sat", true);
         String css = String.join("\n",
-            "Map { background-color: #eef2f0; }",
+            "Map { background-color: " + cfgColor("bg", "#eef2f0") + "; }",
             "#water { polygon-fill: #9cc3e0; }",
             "#landcover { polygon-fill: #dbe8cc; }",
             // hillshade woven above land/water fills, below roads; exaggeration ramps with zoom.
-                "#satellite[zoom>=11] { raster-opacity: 1; raster-comp-op: src-over; }",
+                "#satellite[zoom>=11] { raster-opacity: " + (withSatellite ? "1" : "0") + "; raster-comp-op: src-over; }",
             "#hillshade[zoom>=4][zoom<=16] {",
 //            "  hillshade-opacity: linear([view::zoom], (11, 0.6), (12, 1));",
 //            "  hillshade-exaggeration: linear([view::zoom], (11, 0.6), (12, 1.0));",
@@ -754,14 +803,20 @@ public class SecondFragment extends Fragment {
         ContourTileDataSource contour = new ContourTileDataSource(cachedDem);
         contour.setMinVisibleZoom(5);
         contour.setMaxOverzoomLevel(15);
-        compositeLayer.addVectorDataSource("contour", contour);
+        if (cfgBool("contour", true)) {
+            compositeLayer.addVectorDataSource("contour", contour);
+        }
         // hillshade: decoder resolved from the DEM source 'encoding' (terrarium) - no decoder arg.
-        compositeLayer.addExternalDataSource("hillshade", cachedDem, CompositeSourceType.COMPOSITE_SOURCE_TYPE_HILLSHADE);
+        if (cfgBool("hs", true)) {
+            compositeLayer.addExternalDataSource("hillshade", cachedDem, CompositeSourceType.COMPOSITE_SOURCE_TYPE_HILLSHADE);
+        }
         // satellite: a raster source drawn at the '#satellite' slot with the style opacity.
         HTTPTileDataSource satSource = new HTTPTileDataSource(0, 19, "https://tile.openstreetmap.org/{z}/{x}/{y}.png");
         satSource.setHTTPHeaders(headers);
         PersistentCacheTileDataSource cachedSat = new PersistentCacheTileDataSource(satSource, getContext().getExternalFilesDir(null) + "/openstreetmap.db");
-        compositeLayer.addExternalDataSource("satellite", cachedSat, CompositeSourceType.COMPOSITE_SOURCE_TYPE_RASTER);
+        if (withSatellite) {
+            compositeLayer.addExternalDataSource("satellite", cachedSat, CompositeSourceType.COMPOSITE_SOURCE_TYPE_RASTER);
+        }
 
         mapView.getLayers().add(compositeLayer);
 
@@ -775,6 +830,7 @@ public class SecondFragment extends Fragment {
         terrainOptions.setMeshResolution(128);
         terrainOptions.setDrapeFillsEnabled(true);
         terrainOptions.setDrapeLinesEnabled(false);
+        applyTerrainConfig(terrainOptions);
         mapView.getOptions().setTerrainOptions(terrainOptions);
 
 
@@ -782,10 +838,7 @@ public class SecondFragment extends Fragment {
         addTerrainControls(view);
         // Start tilted over the Alps (Grenoble). Note: setFocusPos expects base projection
         // coordinates, so WGS84 positions must be converted first.
-        Projection proj = mapView.getOptions().getBaseProjection();
-        mapView.setFocusPos(proj.fromWgs84(new MapPos(5.763110, 45.218065)), 0);
-        mapView.setZoom(11.38f, 0);
-        mapView.setTilt(90f, 0);
+        applyCameraConfig(5.763110, 45.218065, 11.38f, 90f);
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -914,7 +967,21 @@ public class SecondFragment extends Fragment {
 
         // --- CompositeVectorTileLayer demo (2D). Comment this and restore addMap/addTerrain to go back. ---
 //        addCompositeMapNuti(dataPath); // nuti-parameter demo: relief toggles every 3s
-        addCompositeMap(view, dataPath);
+        if (!cfgBool("ui", true)) {
+            View controls = view.findViewById(R.id.controlsPanel);
+            if (controls != null) {
+                controls.setVisibility(View.GONE);
+            }
+        }
+        // 'demo' intent extra picks the configuration; default is the composite demo as before.
+        String demo = cfgStr("demo", "composite");
+        if ("terrain".equals(demo)) {
+            addTerrain(view, dataPath);
+        } else if ("nuti".equals(demo)) {
+            addCompositeMapNuti(dataPath);
+        } else {
+            addCompositeMap(view, dataPath);
+        }
 //        addMap(dataPath);
 //        addTerrain(view, dataPath);
 //        addRoutes(dataPath);

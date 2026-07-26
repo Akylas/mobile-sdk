@@ -538,6 +538,31 @@ namespace carto {
         }
     }
 
+    void CompositeVectorTileLayer::collectDrapeLayers(std::vector<std::shared_ptr<TileLayer> >& drapeLayers) {
+        // Same order as renderComposite: group 0 is this layer itself, then every draw item.
+        // Without the children the cross-layer drape sees a single layer holding only group 0:
+        // the hillshade, the raster slots and every later style-layer group are then neither baked
+        // into the drape texture nor suppressed from the 3D pass, so they keep their own terrain
+        // pre-pass and depth domain - exactly the split the shared drape exists to remove.
+        TileLayer::collectDrapeLayers(drapeLayers);
+        if (!isVisible()) {
+            return;
+        }
+
+        std::lock_guard<std::recursive_mutex> lock(_sourceMutex);
+        for (const DrawItem& item : _drawItems) {
+            std::shared_ptr<Layer> childLayer;
+            if (item.kind == DRAW_ITEM_VT_GROUP) {
+                childLayer = item.groupLayer;
+            } else if (const ExternalSource* source = findExternalSource(item.slot)) {
+                childLayer = source->childLayer;
+            }
+            if (childLayer) {
+                childLayer->collectDrapeLayers(drapeLayers);
+            }
+        }
+    }
+
     bool CompositeVectorTileLayer::renderComposite(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState, bool terrain) {
         auto decoder = std::dynamic_pointer_cast<MBVectorTileDecoder>(getTileDecoder());
 

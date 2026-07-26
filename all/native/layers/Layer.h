@@ -31,6 +31,7 @@ namespace carto {
     class TouchHandler;
     class CancelableThreadPool;
     class RayIntersectedElement;
+    class TileLayer;
     class ViewState;
     
     /**
@@ -185,7 +186,13 @@ namespace carto {
 
         virtual bool onDrawFrame(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState) = 0;
         virtual bool onDrawFrame3D(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState);
-        
+
+        // Appends every tile layer that participates in terrain draping, in draw order. A plain
+        // tile layer appends itself; a layer that owns child layers (CompositeVectorTileLayer)
+        // must append them too, or their content is neither baked into the drape texture nor told
+        // that the ground is draped - it then paints itself a second time as displaced geometry.
+        virtual void collectDrapeLayers(std::vector<std::shared_ptr<TileLayer> >& drapeLayers);
+
         virtual std::shared_ptr<Bitmap> getBackgroundBitmap(const ViewState& viewState) const;
         // The flat colour behind this layer's content. Normally it reaches the screen through the
         // background plane BackgroundRenderer draws under everything; in terrain draping mode that
