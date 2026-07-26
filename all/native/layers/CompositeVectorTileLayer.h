@@ -172,7 +172,7 @@ namespace carto {
         std::vector<ExternalSource> _externalSources;
         std::vector<DrawItem> _drawItems;
         std::map<std::string, std::map<std::string, float> > _lastVectorConfig; // per-source applied contour params
-        std::map<std::string, std::map<std::string, float> > _lastChildConfig;  // per-source last-applied decode-affecting values (avoid per-frame re-decode)
+        std::map<std::string, std::map<std::string, double> > _lastChildConfig; // per-source last-applied config values (double: holds a 32-bit ARGB exactly)
         bool _singlePassRenderingEnabled;
 
         // Cached component handles for wiring child layers added after setComponents().

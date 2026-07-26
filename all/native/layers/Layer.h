@@ -180,7 +180,14 @@ namespace carto {
         std::shared_ptr<TouchHandler> getTouchHandler() const;
         std::shared_ptr<CullState> getLastCullState() const;
 
-        void redraw() const;
+        // Every layer setter funnels through here, so it forwards its CALLER's location rather
+        // than its own - otherwise the renderer's redraw-source tally names this one line for all
+        // twenty of them and says nothing. Callers pass nothing; the compiler fills these in.
+#if defined(__clang__) || defined(__GNUC__)
+        void redraw(const char* callerFile = __builtin_FILE(), int callerLine = __builtin_LINE()) const;
+#else
+        void redraw(const char* callerFile = "?", int callerLine = 0) const;
+#endif
     
         virtual void loadData(const std::shared_ptr<CullState>& cullState) = 0;
         

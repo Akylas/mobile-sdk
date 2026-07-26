@@ -450,22 +450,48 @@ namespace carto {
         // the re-decode is aligned and free. Result: per-zoom-level animation of exaggeration/contrast.
         // Cheap redraw-only setters (opacity, colors, method, illumination, contour width/color, filter
         // mode) are applied every frame so they stay smooth.
-        std::map<std::string, float>& applied = _lastChildConfig[source.name];
+        std::map<std::string, double>& applied = _lastChildConfig[source.name];
         int intZoom = static_cast<int>(std::floor(viewState.getZoom()));
         bool decodeZoomChanged = (applied.find("__izoom") == applied.end()) || (static_cast<int>(applied["__izoom"]) != intZoom);
-        applied["__izoom"] = static_cast<float>(intZoom);
+        applied["__izoom"] = static_cast<double>(intZoom);
+
+        // EVERY setter below ends in Layer::redraw(), i.e. a request for another frame - so
+        // applying them unconditionally every frame means the map asks for a new frame for ever
+        // and never goes idle, whatever the value. Measured: 4 requests per frame, the only
+        // source in a standing-still 3D view, CPU pinned. Apply only what actually changed; a
+        // zoom-interpolated value still changes (and still animates) whenever the zoom moves.
+        auto changed = [&applied](const std::string& key, double value) {
+            auto it = applied.find(key);
+            if (it != applied.end() && it->second == value) {
+                return false;
+            }
+            applied[key] = value;
+            return true;
+        };
 
         if (source.type == CompositeSourceType::COMPOSITE_SOURCE_TYPE_RASTER) {
             auto raster = std::static_pointer_cast<RasterTileLayer>(source.childLayer);
-            if (const mvt::Value* v = getValue("opacity")) { raster->setOpacity(valueToFloat(*v, 1.0f)); }
+            if (const mvt::Value* v = getValue("opacity")) {
+                float opacity = valueToFloat(*v, 1.0f);
+                if (changed("opacity", opacity)) { raster->setOpacity(opacity); }
+            }
             if (const mvt::Value* v = getValue("filter-mode")) {
-                if (auto str = std::get_if<std::string>(v)) { raster->setTileFilterMode(parseFilterMode(*str)); }
+                if (auto str = std::get_if<std::string>(v)) {
+                    RasterTileFilterMode::RasterTileFilterMode mode = parseFilterMode(*str);
+                    if (changed("filter-mode", static_cast<double>(mode))) { raster->setTileFilterMode(mode); }
+                }
             }
         } else if (source.type == CompositeSourceType::COMPOSITE_SOURCE_TYPE_HILLSHADE) {
             auto hillshade = std::static_pointer_cast<HillshadeRasterTileLayer>(source.childLayer);
-            if (const mvt::Value* v = getValue("opacity")) { hillshade->setOpacity(valueToFloat(*v, 1.0f)); }
+            if (const mvt::Value* v = getValue("opacity")) {
+                float opacity = valueToFloat(*v, 1.0f);
+                if (changed("opacity", opacity)) { hillshade->setOpacity(opacity); }
+            }
             // exaggeration is a per-frame shader uniform (no re-decode) -> animates smoothly with zoom.
-            if (const mvt::Value* v = getValue("exaggeration")) { hillshade->setExaggeration(valueToFloat(*v, 1.0f)); }
+            if (const mvt::Value* v = getValue("exaggeration")) {
+                float exaggeration = valueToFloat(*v, 1.0f);
+                if (changed("exaggeration", exaggeration)) { hillshade->setExaggeration(exaggeration); }
+            }
 
             if (decodeZoomChanged) { // decode-bound: only at integer zoom crossings (aligned with tile reload)
                 // height-scale is the raw normal-map height scale (baked at decode; steps with zoom).
@@ -478,19 +504,40 @@ namespace carto {
                 }
             }
 
-            if (const mvt::Value* v = getValue("shadow-color"))    { hillshade->setShadowColor(parseColorValue(*v, Color(0, 0, 0, 255))); }
-            if (const mvt::Value* v = getValue("highlight-color")) { hillshade->setHighlightColor(parseColorValue(*v, Color(255, 255, 255, 255))); }
-            if (const mvt::Value* v = getValue("accent-color"))    { hillshade->setAccentColor(parseColorValue(*v, Color(0, 0, 0, 255))); }
-            if (const mvt::Value* v = getValue("method")) {
-                if (auto str = std::get_if<std::string>(v)) { hillshade->setHillshadeMethod(parseHillshadeMethod(*str)); }
+            if (const mvt::Value* v = getValue("shadow-color")) {
+                Color color = parseColorValue(*v, Color(0, 0, 0, 255));
+                if (changed("shadow-color", color.getARGB())) { hillshade->setShadowColor(color); }
             }
-            if (const mvt::Value* v = getValue("contour-color")) { hillshade->setContourColor(parseColorValue(*v, Color(0xC5, 0x60, 0x08, 0xff))); }
-            if (const mvt::Value* v = getValue("contour-width")) { hillshade->setContourWidth(valueToFloat(*v, 1.0f)); }
+            if (const mvt::Value* v = getValue("highlight-color")) {
+                Color color = parseColorValue(*v, Color(255, 255, 255, 255));
+                if (changed("highlight-color", color.getARGB())) { hillshade->setHighlightColor(color); }
+            }
+            if (const mvt::Value* v = getValue("accent-color")) {
+                Color color = parseColorValue(*v, Color(0, 0, 0, 255));
+                if (changed("accent-color", color.getARGB())) { hillshade->setAccentColor(color); }
+            }
+            if (const mvt::Value* v = getValue("method")) {
+                if (auto str = std::get_if<std::string>(v)) {
+                    HillshadeMethod::HillshadeMethod method = parseHillshadeMethod(*str);
+                    if (changed("method", static_cast<double>(method))) { hillshade->setHillshadeMethod(method); }
+                }
+            }
+            if (const mvt::Value* v = getValue("contour-color")) {
+                Color color = parseColorValue(*v, Color(0xC5, 0x60, 0x08, 0xff));
+                if (changed("contour-color", color.getARGB())) { hillshade->setContourColor(color); }
+            }
+            if (const mvt::Value* v = getValue("contour-width")) {
+                float width = valueToFloat(*v, 1.0f);
+                if (changed("contour-width", width)) { hillshade->setContourWidth(width); }
+            }
             if (const mvt::Value* v = getValue("illumination-direction")) {
                 // Azimuth in degrees (0 = north, clockwise) at a fixed 45 deg altitude, matching the
                 // HillshadeRasterTileLayer default direction convention (sin az, cos az, -sin alt).
-                double azimuth = valueToFloat(*v, 335.0f) * M_PI / 180.0;
-                hillshade->setIlluminationDirection(MapVec(std::sin(azimuth), std::cos(azimuth), -0.70710678));
+                float azimuthDegrees = valueToFloat(*v, 335.0f);
+                if (changed("illumination-direction", azimuthDegrees)) {
+                    double azimuth = azimuthDegrees * M_PI / 180.0;
+                    hillshade->setIlluminationDirection(MapVec(std::sin(azimuth), std::cos(azimuth), -0.70710678));
+                }
             }
         }
     }

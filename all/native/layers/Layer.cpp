@@ -217,9 +217,9 @@ namespace carto {
         return _touchHandler.lock();
     }
 
-    void Layer::redraw() const {
+    void Layer::redraw(const char* callerFile, int callerLine) const {
         if (auto mapRenderer = getMapRenderer()) {
-            mapRenderer->requestRedraw();
+            mapRenderer->requestRedraw(callerFile, callerLine);
         }
     }
     
