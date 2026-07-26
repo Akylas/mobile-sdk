@@ -812,8 +812,8 @@ namespace carto {
         return _tileRenderer->renderDrapedSurfaceFill(tileId, color);
     }
 
-    bool TileLayer::calculateShadowViewProj(const std::vector<vt::TileId>& tileIds, const std::vector<vt::TileId>& casterTileIds, const cglib::vec3<float>& sunDir, double minHeight, double maxHeight, float maxDistanceMeters, double& depthRangeMeters, cglib::mat4x4<double>& lightViewProj) const {
-        return _tileRenderer->calculateShadowViewProj(tileIds, casterTileIds, sunDir, minHeight, maxHeight, maxDistanceMeters, depthRangeMeters, lightViewProj);
+    bool TileLayer::calculateShadowViewProj(const std::vector<vt::TileId>& tileIds, const std::vector<vt::TileId>& casterTileIds, const cglib::vec3<float>& sunDir, double minHeight, double maxHeight, float maxDistanceMeters, int mapSize, double& depthRangeMeters, double& texelMeters, cglib::mat4x4<double>& lightViewProj) const {
+        return _tileRenderer->calculateShadowViewProj(tileIds, casterTileIds, sunDir, minHeight, maxHeight, maxDistanceMeters, mapSize, depthRangeMeters, texelMeters, lightViewProj);
     }
 
     int TileLayer::renderShadowCasters(const vt::TileId& tileId, const cglib::mat4x4<double>& lightViewProj, bool castGround) {

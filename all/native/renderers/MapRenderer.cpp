@@ -721,6 +721,7 @@ namespace carto {
         // recreated context would otherwise draw into and sample from stale names.
         _terrainDrapeCache.reset();
         _terrainShadowMap.reset();
+        _shadowMapValid = false;
 
         // Notify renderers about the event
         _backgroundRenderer.onSurfaceDestroyed();
@@ -1315,6 +1316,10 @@ namespace carto {
                     // frames and says nothing about whether baking ever produced anything.
                     static int bakedTiles = 0, bakedPrimitives = 0;
                     int surfaceDraws = 0, filledSurfaces = 0;
+                    // Per-frame, unlike the cumulative counter above: the shadow cache below needs
+                    // to know whether THIS frame produced new tile content, not whether any frame
+                    // ever did.
+                    int bakedThisFrame = 0;
                     // Baking a tile re-renders every layer of it into a full-resolution texture,
                     // so an unbounded loop over a churning tile cover is a per-frame re-render of
                     // the whole map - which is what made panning and zooming stall. Bake a few
@@ -1324,6 +1329,13 @@ namespace carto {
                     // show nothing at all is a visible hole, so those are baked almost freely; a
                     // tile that is merely out of date already shows something plausible, so a
                     // couple per frame is enough and the cost stays off the critical path.
+                    // How many caster passes were actually rendered, cumulative. Compared with the
+                    // frame count it says how much of the shadow cost the cache is saving.
+                    static int shadowPasses = 0;
+                    // A cached shadow map is refreshed at least this often anyway: elevation tiles
+                    // can stream in without changing the light box or the caster tile list, and a
+                    // shadow cast by data that has since arrived would otherwise never appear.
+                    static const int SHADOW_MAP_MAX_AGE = 30;
                     static const int DRAPE_BAKE_BUDGET_EMPTY = 4;
                     static const int DRAPE_BAKE_BUDGET_STALE = 1;
                     int bakeBudget = DRAPE_BAKE_BUDGET_EMPTY;
@@ -1402,6 +1414,7 @@ namespace carto {
                         }
                         _terrainDrapeCache->markBaked(it->first, 0, it->second);
                         bakedTiles++;
+                        bakedThisFrame++;
                         drapedTiles.back() = DrapedTile { it->first, texture, 0.0f, 0.0f, 1.0f }; // baked now, safe to sample
                     }
                     int staleBudget = DRAPE_BAKE_BUDGET_STALE;
@@ -1425,6 +1438,7 @@ namespace carto {
                         }
                         _terrainDrapeCache->markBaked(it->first, 0, it->second);
                         bakedTiles++;
+                        bakedThisFrame++;
                     }
                     if (bakeStarted) {
                         // Detach before sampling: a texture left attached to a framebuffer counts
@@ -1445,9 +1459,12 @@ namespace carto {
                     int shadowMapSize = 0;
                     float shadowBias = 0.0f, shadowSoftness = 1.0f;
                     double shadowDepthRangeMeters = 1.0;
+                    double shadowTexelMeters = 0;
                     cglib::mat4x4<double> lightViewProj = cglib::mat4x4<double>::identity();
+                    bool shadowsWanted = false;
                     if (std::shared_ptr<LightOptions> lightOptions = _options->getLightOptions()) {
-                        if (lightOptions->isTerrainLightingEnabled() && lightOptions->getShadowStrength() > 0.0f && !drapeTileIds.empty()) {
+                        shadowsWanted = lightOptions->isTerrainLightingEnabled() && lightOptions->getShadowStrength() > 0.0f && !drapeTileIds.empty();
+                        if (shadowsWanted) {
                             if (!_terrainShadowMap) {
                                 _terrainShadowMap = std::make_unique<TerrainShadowMap>();
                             }
@@ -1498,19 +1515,44 @@ namespace carto {
                                     }
                                 }
                             }
-                            if (drapeLayers.front()->calculateShadowViewProj(drapeTileIds, casterTileIds, lightOptions->getSunDirection(), minHeight, maxHeight, lightOptions->getShadowDistance(), shadowDepthRangeMeters, lightViewProj)) {
-                                if (_terrainShadowMap->beginPass()) {
-                                    for (const vt::TileId& tileId : casterTileIds) {
-                                        // EVERY drape layer casts, not just the first. The terrain
-                                        // surface is shared, but 3D extrusions belong to whichever
-                                        // layer holds them - in a composite that is a later style
-                                        // group, so casting from the front layer alone means
-                                        // buildings never cast a shadow at all.
-                                        for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
-                                            tileLayer->renderShadowCasters(tileId, lightViewProj, tileLayer == drapeLayers.front());
+                            if (drapeLayers.front()->calculateShadowViewProj(drapeTileIds, casterTileIds, lightOptions->getSunDirection(), minHeight, maxHeight, lightOptions->getShadowDistance(), _terrainShadowMap->getSize(), shadowDepthRangeMeters, shadowTexelMeters, lightViewProj)) {
+                                // The caster pass draws the whole terrain a second time, so it is
+                                // worth as much as the on-screen draw - and on a still view it
+                                // produces the same texture every frame. The light box is snapped
+                                // to a world-anchored texel lattice, so its matrix repeats exactly
+                                // while the camera moves inside one step: recompute only when that
+                                // matrix, the caster set or the tile content actually changed.
+                                // The age cap picks up elevation that streamed in without either.
+                                bool refresh = !_shadowMapValid || bakedThisFrame > 0
+                                    || _shadowMapSize != _terrainShadowMap->getSize()
+                                    || !(_shadowMapViewProj == lightViewProj)
+                                    || _shadowMapCasterTiles != casterTileIds;
+                                if (!refresh && ++_shadowMapAge >= SHADOW_MAP_MAX_AGE) {
+                                    refresh = true;
+                                }
+                                if (refresh) {
+                                    _shadowMapValid = false;
+                                    if (_terrainShadowMap->beginPass()) {
+                                        for (const vt::TileId& tileId : casterTileIds) {
+                                            // EVERY drape layer casts, not just the first. The terrain
+                                            // surface is shared, but 3D extrusions belong to whichever
+                                            // layer holds them - in a composite that is a later style
+                                            // group, so casting from the front layer alone means
+                                            // buildings never cast a shadow at all.
+                                            for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
+                                                tileLayer->renderShadowCasters(tileId, lightViewProj, tileLayer == drapeLayers.front());
+                                            }
                                         }
+                                        _terrainShadowMap->endPass(prevFBO, viewState.getWidth(), viewState.getHeight());
+                                        _shadowMapValid = true;
+                                        _shadowMapViewProj = lightViewProj;
+                                        _shadowMapCasterTiles = casterTileIds;
+                                        _shadowMapSize = _terrainShadowMap->getSize();
+                                        _shadowMapAge = 0;
+                                        shadowPasses++;
                                     }
-                                    _terrainShadowMap->endPass(prevFBO, viewState.getWidth(), viewState.getHeight());
+                                }
+                                if (_shadowMapValid) {
                                     shadowTexture = _terrainShadowMap->getTexture();
                                     shadowMapSize = _terrainShadowMap->getSize();
                                     shadowStrength = lightOptions->getShadowStrength();
@@ -1520,8 +1562,13 @@ namespace carto {
                                     shadowBias = static_cast<float>(lightOptions->getShadowBias() / std::max(1.0, shadowDepthRangeMeters));
                                     shadowSoftness = lightOptions->getShadowSoftness();
                                 }
+                            } else {
+                                _shadowMapValid = false; // no light box: the cached map means nothing
                             }
                         }
+                    }
+                    if (!shadowsWanted) {
+                        _shadowMapValid = false; // shadows off: whatever the map holds is stale
                     }
                     for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
                         tileLayer->setTerrainShadowMap(shadowTexture, shadowMapSize, shadowBias, shadowStrength, shadowSoftness, lightViewProj);
@@ -1577,6 +1624,7 @@ namespace carto {
                         Log::Infof("MapRenderer: RTT drape ACTIVE - layers %d, collected tiles %d, drawn tiles %d, resolution %d, baked %d tiles / %d primitives, surface draws %d (%d unbaked fills)",
                             static_cast<int>(drapeLayers.size()), static_cast<int>(collectedTiles.size()),
                             static_cast<int>(drapedTiles.size()), resolution, bakedTiles, bakedPrimitives, surfaceDraws, filledSurfaces);
+                        Log::Infof("MapRenderer: shadow caster passes %d over %d frames, texel %.2f m, depth range %.0f m", shadowPasses, drapeStateFrame, shadowTexelMeters, shadowDepthRangeMeters);
                     }
                     }
                     catch (const std::exception& ex) {

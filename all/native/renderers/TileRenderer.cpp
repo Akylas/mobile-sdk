@@ -298,11 +298,11 @@ namespace carto {
         return -4;
     }
 
-    bool TileRenderer::calculateShadowViewProj(const std::vector<vt::TileId>& tileIds, const std::vector<vt::TileId>& casterTileIds, const cglib::vec3<float>& sunDir, double minHeight, double maxHeight, float maxDistanceMeters, double& depthRangeMeters, cglib::mat4x4<double>& lightViewProj) const {
+    bool TileRenderer::calculateShadowViewProj(const std::vector<vt::TileId>& tileIds, const std::vector<vt::TileId>& casterTileIds, const cglib::vec3<float>& sunDir, double minHeight, double maxHeight, float maxDistanceMeters, int mapSize, double& depthRangeMeters, double& texelMeters, cglib::mat4x4<double>& lightViewProj) const {
         std::lock_guard<std::mutex> lock(_mutex);
 
         if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
-            return tileRenderer->calculateShadowViewProj(tileIds, casterTileIds, sunDir, minHeight, maxHeight, maxDistanceMeters, depthRangeMeters, lightViewProj);
+            return tileRenderer->calculateShadowViewProj(tileIds, casterTileIds, sunDir, minHeight, maxHeight, maxDistanceMeters, mapSize, depthRangeMeters, texelMeters, lightViewProj);
         }
         return false;
     }

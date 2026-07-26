@@ -18,6 +18,9 @@
 #include "renderers/components/AnimationHandler.h"
 #include "renderers/components/KineticEventHandler.h"
 
+#include <cglib/mat.h>
+#include <vt/TileId.h>
+
 #include <atomic>
 #include <optional>
 #include <chrono>
@@ -221,6 +224,15 @@ namespace carto {
         std::unique_ptr<TerrainRenderer> _terrainRenderer;
         std::unique_ptr<TerrainDrapeCache> _terrainDrapeCache;
         std::unique_ptr<TerrainShadowMap> _terrainShadowMap; // shared cross-layer drape target
+        // What the shadow map currently holds. The caster pass is a second full draw of the
+        // terrain, and the light box is snapped to a world lattice so its matrix repeats exactly
+        // while the camera moves inside one texel step: while these match, the existing map is
+        // still the right one and the pass is skipped.
+        bool _shadowMapValid = false;
+        int _shadowMapSize = 0;
+        int _shadowMapAge = 0;
+        cglib::mat4x4<double> _shadowMapViewProj = cglib::mat4x4<double>::identity();
+        std::vector<vt::TileId> _shadowMapCasterTiles;
 
         unsigned int _layersElevationVersion = 0;
         std::optional<std::chrono::steady_clock::time_point> _lastElevationRefreshTime;
