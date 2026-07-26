@@ -239,6 +239,8 @@ public class SecondFragment extends Fragment {
         light.setShadowStrength(cfgFloat("shadow", 0));
         light.setShadowMapSize(cfgInt("shadowMapSize", light.getShadowMapSize()));
         light.setShadowBias(cfgFloat("shadowBias", light.getShadowBias()));
+        light.setShadowDistance(cfgFloat("shadowDistance", light.getShadowDistance()));
+        light.setShadowCasterMargin(cfgInt("shadowMargin", light.getShadowCasterMargin()));
         mapView.getOptions().setLightOptions(light);
     }
 
@@ -692,6 +694,12 @@ public class SecondFragment extends Fragment {
             // Reallocates the shadow map, so apply on release only.
             panelSlider(context, panel, "map size", 512, 4096, lightOptions.getShadowMapSize(), true, new FloatSetting() {
                 public void set(float value) { lightOptions.setShadowMapSize(Math.max(512, ((int) value / 512) * 512)); }
+            });
+            panelSlider(context, panel, "distance (m, 0=all)", 0, 20000, lightOptions.getShadowDistance(), false, new FloatSetting() {
+                public void set(float value) { lightOptions.setShadowDistance(value < 200 ? 0 : value); }
+            });
+            panelSlider(context, panel, "caster margin (tiles)", 0, 6, lightOptions.getShadowCasterMargin(), true, new FloatSetting() {
+                public void set(float value) { lightOptions.setShadowCasterMargin(Math.round(value)); }
             });
             panelSlider(context, panel, "depth bias", 0.0f, 0.01f, lightOptions.getShadowBias(), false, new FloatSetting() {
                 public void set(float value) { lightOptions.setShadowBias(value); }

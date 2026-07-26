@@ -31,6 +31,7 @@
 #include "renderers/utils/TerrainShadowMap.h"
 
 #include <chrono>
+#include <set>
 #include "core/MapTile.h"
 #include "terrain/ElevationManager.h"
 #include "renderers/utils/Shader.h"
@@ -1475,9 +1476,30 @@ namespace carto {
                                     maxHeight += headroom;
                                 }
                             }
-                            if (drapeLayers.front()->calculateShadowViewProj(drapeTileIds, lightOptions->getSunDirection(), minHeight, maxHeight, lightViewProj)) {
+                            // Casters reach beyond the visible tiles: a mountain just off screen
+                            // still throws its shadow into the view, and without this its shadow
+                            // vanishes as you zoom in and it leaves the visible set.
+                            std::vector<vt::TileId> casterTileIds = drapeTileIds;
+                            int casterMargin = lightOptions->getShadowCasterMargin();
+                            if (casterMargin > 0) {
+                                std::set<std::pair<int, std::pair<int, int> > > seen;
+                                for (const vt::TileId& tileId : drapeTileIds) {
+                                    seen.insert({ tileId.zoom, { tileId.x, tileId.y } });
+                                }
+                                for (const vt::TileId& tileId : drapeTileIds) {
+                                    for (int dy = -casterMargin; dy <= casterMargin; dy++) {
+                                        for (int dx = -casterMargin; dx <= casterMargin; dx++) {
+                                            vt::TileId neighbour(tileId.zoom, tileId.x + dx, tileId.y + dy);
+                                            if (seen.insert({ neighbour.zoom, { neighbour.x, neighbour.y } }).second) {
+                                                casterTileIds.push_back(neighbour);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            if (drapeLayers.front()->calculateShadowViewProj(casterTileIds, lightOptions->getSunDirection(), minHeight, maxHeight, lightOptions->getShadowDistance(), lightViewProj)) {
                                 if (_terrainShadowMap->beginPass()) {
-                                    for (const vt::TileId& tileId : drapeTileIds) {
+                                    for (const vt::TileId& tileId : casterTileIds) {
                                         // EVERY drape layer casts, not just the first. The terrain
                                         // surface is shared, but 3D extrusions belong to whichever
                                         // layer holds them - in a composite that is a later style

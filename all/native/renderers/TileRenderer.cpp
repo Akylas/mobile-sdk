@@ -223,6 +223,14 @@ namespace carto {
         }
         _framePrepared = true;
         _framePrepareResult = false;
+        // The cross-layer drape draws the terrain surface from MapRenderer, BEFORE onDrawFrame
+        // sets the view state. Without this the surface is drawn with the previous frame's camera
+        // while everything else uses the current one, so the ground lags the buildings by exactly
+        // one frame during a pan and snaps into place when the motion stops.
+        cglib::mat4x4<double> prepareModelViewMat = viewState.getModelviewMat() * cglib::translate4_matrix(cglib::vec3<double>(_horizontalLayerOffset, 0, 0));
+        vt::ViewState prepareViewState(viewState.getProjectionMat(), prepareModelViewMat, viewState.getZoom(), viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewState.getNormalizedResolution());
+        prepareViewState.planarTerrain = isPlanarTerrainMode();
+        tileRenderer->setViewState(prepareViewState);
         try {
             _framePrepareResult = tileRenderer->startFrame(deltaSeconds * 3);
         }
@@ -290,11 +298,11 @@ namespace carto {
         return -4;
     }
 
-    bool TileRenderer::calculateShadowViewProj(const std::vector<vt::TileId>& tileIds, const cglib::vec3<float>& sunDir, double minHeight, double maxHeight, cglib::mat4x4<double>& lightViewProj) const {
+    bool TileRenderer::calculateShadowViewProj(const std::vector<vt::TileId>& tileIds, const cglib::vec3<float>& sunDir, double minHeight, double maxHeight, float maxDistanceMeters, cglib::mat4x4<double>& lightViewProj) const {
         std::lock_guard<std::mutex> lock(_mutex);
 
         if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
-            return tileRenderer->calculateShadowViewProj(tileIds, sunDir, minHeight, maxHeight, lightViewProj);
+            return tileRenderer->calculateShadowViewProj(tileIds, sunDir, minHeight, maxHeight, maxDistanceMeters, lightViewProj);
         }
         return false;
     }

@@ -17,6 +17,8 @@ namespace carto {
         _shadowMapSize(2048),
         _shadowBias(0.0015f),
         _shadowSoftness(1.0f),
+        _shadowDistance(0.0f),
+        _shadowCasterMargin(1),
         _onChangeListeners(),
         _onChangeListenersMutex()
     {
@@ -158,6 +160,28 @@ namespace carto {
         float value = std::min(8.0f, std::max(0.0f, softness));
         if (_shadowSoftness.exchange(value) != value) {
             notifyOptionChanged("ShadowSoftness");
+        }
+    }
+
+    float LightOptions::getShadowDistance() const {
+        return _shadowDistance.load();
+    }
+
+    void LightOptions::setShadowDistance(float distance) {
+        float value = std::max(0.0f, distance);
+        if (_shadowDistance.exchange(value) != value) {
+            notifyOptionChanged("ShadowDistance");
+        }
+    }
+
+    int LightOptions::getShadowCasterMargin() const {
+        return _shadowCasterMargin.load();
+    }
+
+    void LightOptions::setShadowCasterMargin(int margin) {
+        int value = std::min(8, std::max(0, margin));
+        if (_shadowCasterMargin.exchange(value) != value) {
+            notifyOptionChanged("ShadowCasterMargin");
         }
     }
 

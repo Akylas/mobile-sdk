@@ -158,6 +158,35 @@ namespace carto {
         void setShadowMapSize(int size);
 
         /**
+         * Returns the shadow distance in meters.
+         * @return The shadow distance. The default is 0 (cover everything visible).
+         */
+        float getShadowDistance() const;
+        /**
+         * Sets the radius around the camera focus, in meters, that the shadow map covers.
+         * The shadow map has a fixed resolution, so the larger the ground it spans the coarser
+         * its texels - which is why shadows look sharp looking straight down and pixelated at a
+         * low tilt, where the visible ground reaches to the horizon. Limiting the distance keeps
+         * the texels small; ground beyond it simply has no shadows. 0 covers everything visible.
+         * @param distance The new shadow distance in meters.
+         */
+        void setShadowDistance(float distance);
+
+        /**
+         * Returns the shadow caster margin in tiles.
+         * @return The caster margin. The default is 1.
+         */
+        int getShadowCasterMargin() const;
+        /**
+         * Sets how many tiles beyond the visible ones are rendered as shadow casters. A mountain
+         * just off screen still casts its shadow into the view, and without a margin that shadow
+         * disappears as you zoom in and the mountain leaves the visible set. Costs one caster
+         * draw per extra tile.
+         * @param margin The new caster margin in tiles (clamped to 0..8).
+         */
+        void setShadowCasterMargin(int margin);
+
+        /**
          * Returns the shadow softness.
          * @return The PCF radius in shadow-map texels. The default is 1.
          */
@@ -213,6 +242,8 @@ namespace carto {
         std::atomic<int> _shadowMapSize;
         std::atomic<float> _shadowBias;
         std::atomic<float> _shadowSoftness;
+        std::atomic<float> _shadowDistance;
+        std::atomic<int> _shadowCasterMargin;
 
         std::vector<std::shared_ptr<OnChangeListener> > _onChangeListeners;
         mutable std::mutex _onChangeListenersMutex;

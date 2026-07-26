@@ -28,6 +28,8 @@
 %attribute(carto::LightOptions, int, ShadowMapSize, getShadowMapSize, setShadowMapSize)
 %attribute(carto::LightOptions, float, ShadowBias, getShadowBias, setShadowBias)
 %attribute(carto::LightOptions, float, ShadowSoftness, getShadowSoftness, setShadowSoftness)
+%attribute(carto::LightOptions, float, ShadowDistance, getShadowDistance, setShadowDistance)
+%attribute(carto::LightOptions, int, ShadowCasterMargin, getShadowCasterMargin, setShadowCasterMargin)
 
 %ignore carto::LightOptions::OnChangeListener;
 %ignore carto::LightOptions::registerOnChangeListener;
