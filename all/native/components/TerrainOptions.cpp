@@ -21,7 +21,7 @@ namespace carto {
         _painterOrderDepthEnabled(false),
         _drapeFillsEnabled(true),
         _drapeLinesEnabled(true),
-        _drapeResolution(1024),
+        _drapeResolution(512),
         _elementTerrainSlack(2.0f),
         _minZoom(5),
         _maxTileZoomOffset(100),

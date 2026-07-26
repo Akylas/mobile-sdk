@@ -804,8 +804,12 @@ namespace carto {
         return _tileRenderer->bakeDrapeTile(tileId);
     }
 
-    int TileLayer::renderDrapedSurface(const vt::TileId& tileId, unsigned int drapeTexture) {
-        return _tileRenderer->renderDrapedSurface(tileId, drapeTexture);
+    int TileLayer::renderDrapedSurface(const vt::TileId& tileId, unsigned int drapeTexture, float uvOffsetX, float uvOffsetY, float uvScale) {
+        return _tileRenderer->renderDrapedSurface(tileId, drapeTexture, uvOffsetX, uvOffsetY, uvScale);
+    }
+
+    int TileLayer::renderDrapedSurfaceFill(const vt::TileId& tileId, const Color& color) {
+        return _tileRenderer->renderDrapedSurfaceFill(tileId, color);
     }
 
     bool TileLayer::calculateShadowViewProj(const std::vector<vt::TileId>& tileIds, const cglib::vec3<float>& sunDir, cglib::mat4x4<double>& lightViewProj) const {

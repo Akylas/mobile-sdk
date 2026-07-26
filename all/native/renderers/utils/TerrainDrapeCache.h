@@ -46,11 +46,24 @@ namespace carto {
          */
         void beginFrame();
         /**
-         * Returns the texture for a tile, creating or recycling one if needed. needsBake is set
-         * when the texture has no content matching the given fingerprint, i.e. the caller must
-         * clear it and have every participating layer bake into it.
+         * Returns the texture for a tile, creating or recycling one if needed.
+         * needsBake is set when the texture does not match the given fingerprint, i.e. the caller
+         * should clear it and have every participating layer bake into it.
+         * hasContent is set when the texture has been baked at least once and is safe to sample -
+         * a recycled texture still holds another tile's picture until it is baked, so a caller
+         * that skips the bake (budget) must not draw it.
          */
-        unsigned int acquire(const vt::TileId& tileId, int stack, std::size_t fingerprint, bool& needsBake);
+        unsigned int acquire(const vt::TileId& tileId, int stack, std::size_t fingerprint, bool& needsBake, bool& hasContent);
+        /**
+         * Records that the caller actually baked this tile. Marking on acquire instead would
+         * poison the entry for good on any path that acquires and then does not bake.
+         */
+        void markBaked(const vt::TileId& tileId, int stack, std::size_t fingerprint);
+        /**
+         * Returns the texture of an already-baked tile, or 0. Used to let a tile whose own bake
+         * has not landed yet stand in on an ancestor's texture instead of flashing a flat colour.
+         */
+        unsigned int findBaked(const vt::TileId& tileId, int stack) const;
         /**
          * Returns the framebuffer to bake into, creating it on first use.
          */
@@ -78,16 +91,19 @@ namespace carto {
             std::size_t fingerprint = 0;
             bool baked = false;
             bool used = false;
+            unsigned int lastUsedFrame = 0;
         };
 
         unsigned int createTexture();
 
         static const std::size_t MAX_POOLED_TEXTURES; // recycled textures kept between frames
+        static const std::size_t MAX_ENTRIES;         // cached tiles kept alive across frames
 
         int _resolution;
         unsigned int _frameBuffer;
         std::map<Key, Entry> _entries;
         std::vector<unsigned int> _texturePool;
+        unsigned int _frameCounter;
     };
 
 }

@@ -38,6 +38,19 @@
 %std_exceptions(carto::TileLayer::TileLayer)
 %ignore carto::TileLayer::setTerrainDepthWriteMode;
 %ignore carto::TileLayer::prepareTerrainDrapeFrame;
+// Internal cross-layer terrain drape / shadow plumbing, driven by MapRenderer.
+%ignore carto::TileLayer::collectDrapeLayers;
+%ignore carto::TileLayer::setExternalDrapeTarget;
+%ignore carto::TileLayer::setExternalDrapeTiles;
+%ignore carto::TileLayer::collectDrapeTiles;
+%ignore carto::TileLayer::bakeDrapeTile;
+%ignore carto::TileLayer::renderDrapedSurface;
+%ignore carto::TileLayer::renderDrapedSurfaceFill;
+%ignore carto::TileLayer::calculateShadowViewProj;
+%ignore carto::TileLayer::renderShadowCasters;
+%ignore carto::TileLayer::setTerrainShadowMap;
+%ignore carto::TileLayer::setTerrainRenderOrder;
+%ignore carto::TileLayer::getBackgroundColor;
 %ignore carto::TileLayer::FetchTaskBase;
 %ignore carto::TileLayer::FetchingTiles;
 %ignore carto::TileLayer::DataSourceListener;

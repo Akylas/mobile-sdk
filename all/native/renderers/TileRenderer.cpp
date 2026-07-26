@@ -272,11 +272,20 @@ namespace carto {
         return 0;
     }
 
-    int TileRenderer::renderDrapedSurface(const vt::TileId& tileId, unsigned int drapeTexture) {
+    int TileRenderer::renderDrapedSurface(const vt::TileId& tileId, unsigned int drapeTexture, float uvOffsetX, float uvOffsetY, float uvScale) {
         std::lock_guard<std::mutex> lock(_mutex);
 
         if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
-            return tileRenderer->renderDrapedSurface(tileId, static_cast<GLuint>(drapeTexture));
+            return tileRenderer->renderDrapedSurface(tileId, static_cast<GLuint>(drapeTexture), uvOffsetX, uvOffsetY, uvScale);
+        }
+        return -4;
+    }
+
+    int TileRenderer::renderDrapedSurfaceFill(const vt::TileId& tileId, const Color& color) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            return tileRenderer->renderDrapedSurfaceFill(tileId, vt::Color(color.getR() / 255.0f, color.getG() / 255.0f, color.getB() / 255.0f, color.getA() / 255.0f));
         }
         return -4;
     }

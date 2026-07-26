@@ -396,7 +396,8 @@ namespace carto {
         void setExternalDrapeTiles(const std::vector<vt::TileId>& tileIds);
         void collectDrapeTiles(std::map<vt::TileId, std::size_t>& drapeTiles) const;
         int bakeDrapeTile(const vt::TileId& tileId);
-        int renderDrapedSurface(const vt::TileId& tileId, unsigned int drapeTexture);
+        int renderDrapedSurface(const vt::TileId& tileId, unsigned int drapeTexture, float uvOffsetX, float uvOffsetY, float uvScale);
+        int renderDrapedSurfaceFill(const vt::TileId& tileId, const Color& color);
         bool calculateShadowViewProj(const std::vector<vt::TileId>& tileIds, const cglib::vec3<float>& sunDir, cglib::mat4x4<double>& lightViewProj) const;
         int renderShadowCasters(const vt::TileId& tileId, const cglib::mat4x4<double>& lightViewProj);
         void setTerrainShadowMap(unsigned int texture, int mapSize, float depthBias, float strength, const cglib::mat4x4<double>& lightViewProj);

@@ -6,6 +6,11 @@
 namespace carto {
 
     const std::size_t TerrainDrapeCache::MAX_POOLED_TEXTURES = 32;
+    // Tiles are NOT dropped the moment they leave the visible cover. A zoom or a pan walks the
+    // cover back and forth over the same tiles, and re-acquiring means re-baking every layer of
+    // every tile - the cost that made zooming stall. Keeping a generation of tiles alive turns
+    // that into a cache hit.
+    const std::size_t TerrainDrapeCache::MAX_ENTRIES = 160;
 
     bool TerrainDrapeCache::Key::operator < (const Key& other) const {
         if (stack != other.stack) {
@@ -24,7 +29,8 @@ namespace carto {
         _resolution(1024),
         _frameBuffer(0),
         _entries(),
-        _texturePool()
+        _texturePool(),
+        _frameCounter(0)
     {
     }
 
@@ -57,6 +63,7 @@ namespace carto {
     }
 
     void TerrainDrapeCache::beginFrame() {
+        _frameCounter++;
         for (auto it = _entries.begin(); it != _entries.end(); it++) {
             it->second.used = false;
         }
@@ -80,7 +87,7 @@ namespace carto {
         return texture;
     }
 
-    unsigned int TerrainDrapeCache::acquire(const vt::TileId& tileId, int stack, std::size_t fingerprint, bool& needsBake) {
+    unsigned int TerrainDrapeCache::acquire(const vt::TileId& tileId, int stack, std::size_t fingerprint, bool& needsBake, bool& hasContent) {
         Key key { tileId, stack };
         Entry& entry = _entries[key];
         if (entry.texture == 0) {
@@ -88,14 +95,25 @@ namespace carto {
             entry.baked = false;
         }
         entry.used = true;
+        entry.lastUsedFrame = _frameCounter;
         // A changed fingerprint means the layers covering this tile changed - a style layer
         // finished loading, or a proxy was replaced by its native tile - so the texture is stale.
         needsBake = !entry.baked || entry.fingerprint != fingerprint;
-        if (needsBake) {
-            entry.fingerprint = fingerprint;
-            entry.baked = true;
-        }
+        hasContent = entry.baked;
         return entry.texture;
+    }
+
+    void TerrainDrapeCache::markBaked(const vt::TileId& tileId, int stack, std::size_t fingerprint) {
+        auto it = _entries.find(Key { tileId, stack });
+        if (it != _entries.end()) {
+            it->second.fingerprint = fingerprint;
+            it->second.baked = true;
+        }
+    }
+
+    unsigned int TerrainDrapeCache::findBaked(const vt::TileId& tileId, int stack) const {
+        auto it = _entries.find(Key { tileId, stack });
+        return it != _entries.end() && it->second.baked ? it->second.texture : 0;
     }
 
     unsigned int TerrainDrapeCache::getFrameBuffer() {
@@ -108,9 +126,24 @@ namespace carto {
     }
 
     void TerrainDrapeCache::endFrame() {
-        for (auto it = _entries.begin(); it != _entries.end(); ) {
-            if (it->second.used) {
-                it++;
+        if (_entries.size() <= MAX_ENTRIES) {
+            return; // keep unused tiles cached; they come back constantly while panning/zooming
+        }
+        // Over budget: evict the least recently used entries, never one used this frame.
+        std::vector<std::pair<unsigned int, Key> > candidates;
+        candidates.reserve(_entries.size());
+        for (auto it = _entries.begin(); it != _entries.end(); it++) {
+            if (!it->second.used) {
+                candidates.emplace_back(it->second.lastUsedFrame, it->first);
+            }
+        }
+        std::sort(candidates.begin(), candidates.end(), [](const std::pair<unsigned int, Key>& a, const std::pair<unsigned int, Key>& b) {
+            return a.first < b.first;
+        });
+        std::size_t evictCount = _entries.size() - MAX_ENTRIES;
+        for (std::size_t i = 0; i < candidates.size() && i < evictCount; i++) {
+            auto it = _entries.find(candidates[i].second);
+            if (it == _entries.end()) {
                 continue;
             }
             if (_texturePool.size() < MAX_POOLED_TEXTURES) {
@@ -119,7 +152,7 @@ namespace carto {
                 GLuint texture = it->second.texture;
                 glDeleteTextures(1, &texture);
             }
-            it = _entries.erase(it);
+            _entries.erase(it);
         }
     }
 

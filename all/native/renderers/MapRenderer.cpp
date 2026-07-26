@@ -29,6 +29,8 @@
 #include "renderers/TerrainRenderer.h"
 #include "renderers/utils/TerrainDrapeCache.h"
 #include "renderers/utils/TerrainShadowMap.h"
+
+#include <chrono>
 #include "terrain/ElevationManager.h"
 #include "renderers/utils/Shader.h"
 #include "renderers/utils/Texture.h"
@@ -1293,23 +1295,87 @@ namespace carto {
 
                     GLint prevFBO = 0;
                     glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFBO);
+                    std::chrono::steady_clock::time_point drapeStart = std::chrono::steady_clock::now();
                     try {
                     _terrainDrapeCache->beginFrame();
-                    std::vector<std::pair<vt::TileId, unsigned int> > drapedTiles;
+                    struct DrapedTile { vt::TileId tileId; unsigned int texture; float uvOffsetX, uvOffsetY, uvScale; };
+                    std::vector<DrapedTile> drapedTiles;
                     drapedTiles.reserve(drapeTiles.size());
                     int resolution = _terrainDrapeCache->getResolution();
                     bool bakeStarted = false;
                     // Cumulative since start: bakes are cached, so a per-frame count is 0 on most
                     // frames and says nothing about whether baking ever produced anything.
                     static int bakedTiles = 0, bakedPrimitives = 0;
-                    int surfaceDraws = 0;
+                    int surfaceDraws = 0, filledSurfaces = 0;
+                    // Baking a tile re-renders every layer of it into a full-resolution texture,
+                    // so an unbounded loop over a churning tile cover is a per-frame re-render of
+                    // the whole map - which is what made panning and zooming stall. Bake a few
+                    // tiles per frame; the rest keep whatever they have (an older picture, or a
+                    // flat fill if they have nothing yet) and catch up over the next frames.
+                    // Two budgets, because the two cases are not equally urgent. A tile that can
+                    // show nothing at all is a visible hole, so those are baked almost freely; a
+                    // tile that is merely out of date already shows something plausible, so a
+                    // couple per frame is enough and the cost stays off the critical path.
+                    static const int DRAPE_BAKE_BUDGET_EMPTY = 4;
+                    static const int DRAPE_BAKE_BUDGET_STALE = 1;
+                    int bakeBudget = DRAPE_BAKE_BUDGET_EMPTY;
+                    std::vector<std::pair<vt::TileId, std::size_t> > staleTiles;
                     for (auto it = drapeTiles.begin(); it != drapeTiles.end(); it++) {
                         bool needsBake = false;
-                        unsigned int texture = _terrainDrapeCache->acquire(it->first, 0, it->second, needsBake);
-                        drapedTiles.emplace_back(it->first, texture);
+                        bool hasContent = false;
+                        unsigned int texture = _terrainDrapeCache->acquire(it->first, 0, it->second, needsBake, hasContent);
+                        // A tile with no content yet must not be sampled: its texture came from
+                        // the recycle pool and still holds another tile's picture. Stand in on the
+                        // nearest baked ancestor instead - a flat fill here is a white block, and
+                        // during a zoom a whole screen of them flashes on and off.
+                        DrapedTile draped { it->first, hasContent ? texture : 0u, 0.0f, 0.0f, 1.0f };
+                        if (!hasContent) {
+                            // Zooming OUT there is no baked ancestor - the cached tiles are the
+                            // finer ones underneath. Draw those instead: same meshes, same depth,
+                            // and the ground is covered with real content instead of a hole.
+                            for (int dy = 0; dy < 2; dy++) {
+                                for (int dx = 0; dx < 2; dx++) {
+                                    vt::TileId child = it->first.getChild(dx, dy);
+                                    unsigned int childTexture = _terrainDrapeCache->findBaked(child, 0);
+                                    if (childTexture != 0) {
+                                        drapedTiles.push_back(DrapedTile { child, childTexture, 0.0f, 0.0f, 1.0f });
+                                    }
+                                }
+                            }
+                            vt::TileId ancestor = it->first;
+                            float offsetX = 0.0f, offsetY = 0.0f, scale = 1.0f;
+                            for (int level = 0; level < 6 && ancestor.zoom > 0; level++) {
+                                // Mirror the y index: tile-local y runs northward while the XYZ
+                                // tile y runs southward (same convention as the bake sub-rect).
+                                int childX = ancestor.x & 1;
+                                int childY = 1 - (ancestor.y & 1);
+                                ancestor = vt::TileId(ancestor.zoom - 1, ancestor.x >> 1, ancestor.y >> 1);
+                                scale *= 0.5f;
+                                offsetX = offsetX * 0.5f + childX * 0.5f;
+                                offsetY = offsetY * 0.5f + childY * 0.5f;
+                                unsigned int ancestorTexture = _terrainDrapeCache->findBaked(ancestor, 0);
+                                if (ancestorTexture != 0) {
+                                    draped.texture = ancestorTexture;
+                                    draped.uvOffsetX = offsetX;
+                                    draped.uvOffsetY = offsetY;
+                                    draped.uvScale = scale;
+                                    break;
+                                }
+                            }
+                        }
+                        drapedTiles.push_back(draped);
                         if (!needsBake) {
                             continue;
                         }
+                        // Tiles with nothing to show go first, then the merely stale ones.
+                        if (hasContent) {
+                            staleTiles.emplace_back(it->first, it->second);
+                            continue;
+                        }
+                        if (bakeBudget <= 0) {
+                            continue;
+                        }
+                        bakeBudget--;
                         if (!bakeStarted) {
                             glBindFramebuffer(GL_FRAMEBUFFER, _terrainDrapeCache->getFrameBuffer());
                             glViewport(0, 0, resolution, resolution);
@@ -1326,6 +1392,30 @@ namespace carto {
                         for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
                             bakedPrimitives += tileLayer->bakeDrapeTile(it->first);
                         }
+                        _terrainDrapeCache->markBaked(it->first, 0, it->second);
+                        bakedTiles++;
+                        drapedTiles.back() = DrapedTile { it->first, texture, 0.0f, 0.0f, 1.0f }; // baked now, safe to sample
+                    }
+                    int staleBudget = DRAPE_BAKE_BUDGET_STALE;
+                    for (auto it = staleTiles.begin(); it != staleTiles.end() && staleBudget > 0; it++) {
+                        staleBudget--;
+                        bool needsBake = false, hasContent = false;
+                        unsigned int texture = _terrainDrapeCache->acquire(it->first, 0, it->second, needsBake, hasContent);
+                        if (!bakeStarted) {
+                            glBindFramebuffer(GL_FRAMEBUFFER, _terrainDrapeCache->getFrameBuffer());
+                            glViewport(0, 0, resolution, resolution);
+                            glDisable(GL_DEPTH_TEST);
+                            glDepthMask(GL_FALSE);
+                            glDisable(GL_STENCIL_TEST);
+                            bakeStarted = true;
+                        }
+                        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+                        glClearColor(drapeClearColor.getR() / 255.0f, drapeClearColor.getG() / 255.0f, drapeClearColor.getB() / 255.0f, drapeClearColor.getA() / 255.0f);
+                        glClear(GL_COLOR_BUFFER_BIT);
+                        for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
+                            bakedPrimitives += tileLayer->bakeDrapeTile(it->first);
+                        }
+                        _terrainDrapeCache->markBaked(it->first, 0, it->second);
                         bakedTiles++;
                     }
                     if (bakeStarted) {
@@ -1381,7 +1471,16 @@ namespace carto {
                     glDepthMask(GL_TRUE);
                     glDisable(GL_CULL_FACE); // displaced surfaces can face away near ridge crests
                     for (auto it = drapedTiles.begin(); it != drapedTiles.end(); it++) {
-                        surfaceDraws += drapeLayers.front()->renderDrapedSurface(it->first, it->second);
+                        // Every drape tile gets a surface, always. The surface is the terrain's
+                        // only depth writer, so a tile skipped because its bake has not landed
+                        // yet leaves a depth hole - and vector elements and billboards behind the
+                        // terrain there pop into view for exactly those frames.
+                        if (it->texture != 0) {
+                            surfaceDraws += drapeLayers.front()->renderDrapedSurface(it->tileId, it->texture, it->uvOffsetX, it->uvOffsetY, it->uvScale);
+                        } else {
+                            surfaceDraws += drapeLayers.front()->renderDrapedSurfaceFill(it->tileId, drapeClearColor);
+                            filledSurfaces++;
+                        }
                     }
                     glEnable(GL_CULL_FACE);
                     glDepthFunc(GL_LESS);
@@ -1390,17 +1489,28 @@ namespace carto {
 
                     // One-time state dump: confirms whether the RTT path is actually live, and
                     // with how many layers/tiles, rather than being inferred from symptoms.
+                    static double drapeMsSum = 0;
+                    static double drapeMsMax = 0;
+                    static int drapeMsCount = 0;
+                    double drapeMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - drapeStart).count();
+                    drapeMsSum += drapeMs;
+                    drapeMsMax = std::max(drapeMsMax, drapeMs);
+                    drapeMsCount++;
                     static int drapeStateFrame = 0;
-                    if ((drapeStateFrame++ % 120) == 0 && drapedTiles.size() > 0) {
+                    if ((drapeStateFrame++ % 60) == 0 && drapedTiles.size() > 0) {
+                        Log::Infof("MapRenderer: RTT drape cost avg %.1f ms, max %.1f ms over %d frames", drapeMsSum / std::max(1, drapeMsCount), drapeMsMax, drapeMsCount);
+                        drapeMsSum = 0; drapeMsMax = 0; drapeMsCount = 0;
+                    }
+                    if (false) {
                         int minZoom = 99, maxZoom = -1;
                         for (auto it2 = drapedTiles.begin(); it2 != drapedTiles.end(); it2++) {
-                            minZoom = std::min(minZoom, it2->first.zoom);
-                            maxZoom = std::max(maxZoom, it2->first.zoom);
+                            minZoom = std::min(minZoom, it2->tileId.zoom);
+                            maxZoom = std::max(maxZoom, it2->tileId.zoom);
                         }
                         Log::Infof("MapRenderer: RTT drape tiles zoom %d..%d, count %d", minZoom, maxZoom, static_cast<int>(drapedTiles.size()));
-                        Log::Infof("MapRenderer: RTT drape ACTIVE - layers %d, collected tiles %d, drawn tiles %d, resolution %d, baked %d tiles / %d primitives, surface draws %d",
+                        Log::Infof("MapRenderer: RTT drape ACTIVE - layers %d, collected tiles %d, drawn tiles %d, resolution %d, baked %d tiles / %d primitives, surface draws %d (%d unbaked fills)",
                             static_cast<int>(drapeLayers.size()), static_cast<int>(collectedTiles.size()),
-                            static_cast<int>(drapedTiles.size()), resolution, bakedTiles, bakedPrimitives, surfaceDraws);
+                            static_cast<int>(drapedTiles.size()), resolution, bakedTiles, bakedPrimitives, surfaceDraws, filledSurfaces);
                     }
                     }
                     catch (const std::exception& ex) {

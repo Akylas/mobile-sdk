@@ -219,9 +219,11 @@ public class SecondFragment extends Fragment {
         if (cfgBool("sky", false)) {
             com.carto.components.SkyOptions sky = new com.carto.components.SkyOptions();
             sky.setEnabled(true);
+            skyOptions = sky;
             mapView.getOptions().setSkyOptions(sky);
         }
         com.carto.components.LightOptions light = new com.carto.components.LightOptions();
+        lightOptions = light;
         if (cfg("sunHour") != null) {
             light.setSunPositionFromTime(cfgInt("sunYear", 2026), cfgInt("sunMonth", 7), cfgInt("sunDay", 26),
                     cfgInt("sunHour", 8), cfgInt("sunMinute", 0), lat, lon);
@@ -318,7 +320,63 @@ public class SecondFragment extends Fragment {
 //        }
     }
     com.carto.components.TerrainOptions terrainOptions;
+    com.carto.components.LightOptions lightOptions;
+    com.carto.components.SkyOptions skyOptions;
     TextView terrainZoomText;
+
+    // --- small builders for the debug panel ---------------------------------------------------
+    private interface BoolSetting { void set(boolean value); }
+    private interface FloatSetting { void set(float value); }
+
+    private CheckBox panelCheck(android.content.Context context, android.widget.LinearLayout panel,
+                                String label, boolean initial, final BoolSetting setting) {
+        final CheckBox check = new CheckBox(context);
+        check.setText(label);
+        check.setChecked(initial);
+        check.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                setting.set(isChecked);
+                mapView.requestRender();
+            }
+        });
+        panel.addView(check);
+        return check;
+    }
+
+    // Continuous while dragging unless applyOnRelease: some settings (mesh/drape resolution)
+    // throw away every cached tile texture when they change, so applying them per pixel of drag
+    // is a guaranteed stall.
+    private void panelSlider(android.content.Context context, android.widget.LinearLayout panel,
+                             final String label, float min, float max, float initial,
+                             final boolean applyOnRelease, final FloatSetting setting) {
+        final float lo = min, span = max - min;
+        final TextView text = new TextView(context);
+        text.setText(String.format("%s %.2f", label, initial));
+        panel.addView(text);
+        final SeekBar seek = new SeekBar(context);
+        seek.setMax(1000);
+        seek.setProgress((int) ((initial - lo) / span * 1000));
+        seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            private float valueOf(SeekBar bar) { return lo + span * bar.getProgress() / 1000.0f; }
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                text.setText(String.format("%s %.2f", label, valueOf(seekBar)));
+                if (!applyOnRelease) {
+                    setting.set(valueOf(seekBar));
+                    mapView.requestRender();
+                }
+            }
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) { }
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                setting.set(valueOf(seekBar));
+                mapView.requestRender();
+            }
+        });
+        panel.addView(seek, new android.widget.LinearLayout.LayoutParams(500, ViewGroup.LayoutParams.WRAP_CONTENT));
+    }
 
     void addTerrain(View view, String dataPath) {
         // Shared elevation source: used simultaneously by the 3D terrain and the hillshade layer.
@@ -570,14 +628,58 @@ public class SecondFragment extends Fragment {
         });
         panel.addView(exSeek, new android.widget.LinearLayout.LayoutParams(500, ViewGroup.LayoutParams.WRAP_CONTENT));
 
+        // --- rendering architecture knobs (same set the intent extras drive) ------------------
+        panelCheck(context, panel, "drape (RTT)", terrainOptions.isDrapeFillsEnabled(), new BoolSetting() {
+            public void set(boolean value) { terrainOptions.setDrapeFillsEnabled(value); }
+        });
+        panelCheck(context, panel, "drape lines", terrainOptions.isDrapeLinesEnabled(), new BoolSetting() {
+            public void set(boolean value) { terrainOptions.setDrapeLinesEnabled(value); }
+        });
+        panelSlider(context, panel, "drape resolution", 256, 2048, terrainOptions.getDrapeResolution(), true, new FloatSetting() {
+            public void set(float value) { terrainOptions.setDrapeResolution(Math.max(256, ((int) value / 256) * 256)); }
+        });
+        panelSlider(context, panel, "mesh resolution", 16, 192, terrainOptions.getMeshResolution(), true, new FloatSetting() {
+            public void set(float value) { terrainOptions.setMeshResolution(Math.max(16, ((int) value / 16) * 16)); }
+        });
+        panelSlider(context, panel, "occlusion tolerance", 0.0f, 0.5f, terrainOptions.getBillboardOcclusionTolerance(), false, new FloatSetting() {
+            public void set(float value) { terrainOptions.setBillboardOcclusionTolerance(value); }
+        });
+
+        if (lightOptions != null) {
+            panelCheck(context, panel, "sun lighting", lightOptions.isTerrainLightingEnabled(), new BoolSetting() {
+                public void set(boolean value) { lightOptions.setTerrainLightingEnabled(value); }
+            });
+            panelSlider(context, panel, "sun azimuth", 0, 360, lightOptions.getSunAzimuth(), false, new FloatSetting() {
+                public void set(float value) { lightOptions.setSunAzimuth(value); }
+            });
+            panelSlider(context, panel, "sun altitude", -10, 90, lightOptions.getSunAltitude(), false, new FloatSetting() {
+                public void set(float value) { lightOptions.setSunAltitude(value); }
+            });
+            panelSlider(context, panel, "ambient", 0, 1, lightOptions.getAmbientIntensity(), false, new FloatSetting() {
+                public void set(float value) { lightOptions.setAmbientIntensity(value); }
+            });
+            panelSlider(context, panel, "shadows", 0, 1, lightOptions.getShadowStrength(), false, new FloatSetting() {
+                public void set(float value) { lightOptions.setShadowStrength(value); }
+            });
+        }
+        if (skyOptions != null) {
+            panelCheck(context, panel, "sky", skyOptions.isEnabled(), new BoolSetting() {
+                public void set(boolean value) { skyOptions.setEnabled(value); }
+            });
+        }
+
+        // The panel is taller than the screen now: make it scroll instead of covering the map.
+        android.widget.ScrollView scroll = new android.widget.ScrollView(context);
+        scroll.addView(panel);
+
         androidx.constraintlayout.widget.ConstraintLayout root = view.findViewById(R.id.main);
         androidx.constraintlayout.widget.ConstraintLayout.LayoutParams lp = new androidx.constraintlayout.widget.ConstraintLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                ViewGroup.LayoutParams.WRAP_CONTENT, 900);
         lp.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID;
         lp.startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID;
         lp.bottomMargin = 180;
         lp.leftMargin = 10;
-        root.addView(panel, lp);
+        root.addView(scroll, lp);
     }
 
     void toggleReliefOutlineEffect() {
@@ -817,11 +919,11 @@ public class SecondFragment extends Fragment {
     CompositeVectorTileLayer compositeLayer;
     void addCompositeMap(View view, String dataPath) {
         // Master vector source: OpenMapTiles vector tiles.
-        HTTPTileDataSource baseSource = new HTTPTileDataSource(0, 14, "https://tiles.openfreemap.org/planet/latest/{z}/{x}/{y}.pbf");
+        HTTPTileDataSource baseSource = new HTTPTileDataSource(0, 14, "https://tiles.akylas.fr/data/france/{z}/{x}/{y}.pbf");
         StringMap headers = new StringMap();
         headers.set("User-Agent", "AlpiMaps/1.4 (contact: contact@akylas.fr)");
         baseSource.setHTTPHeaders(headers);
-        PersistentCacheTileDataSource baseSourceCached = new PersistentCacheTileDataSource(baseSource, getContext().getExternalFilesDir(null) + "/openfreemap_vect.db");
+        PersistentCacheTileDataSource baseSourceCached = new PersistentCacheTileDataSource(baseSource, getContext().getExternalFilesDir(null) + "/akylas_vect.db");
 
         // First-reference order = slot order: water, landcover, HILLSHADE, SATELLITE,
         // transportation, building, CONTOUR.
