@@ -31,6 +31,7 @@
 #include "renderers/utils/TerrainShadowMap.h"
 
 #include <chrono>
+#include "core/MapTile.h"
 #include "terrain/ElevationManager.h"
 #include "renderers/utils/Shader.h"
 #include "renderers/utils/Texture.h"
@@ -1449,7 +1450,32 @@ namespace carto {
                                 _terrainShadowMap = std::make_unique<TerrainShadowMap>();
                             }
                             _terrainShadowMap->setSize(lightOptions->getShadowMapSize());
-                            if (drapeLayers.front()->calculateShadowViewProj(drapeTileIds, lightOptions->getSunDirection(), lightViewProj)) {
+                            // Fit the light box to the elevation the shadowed ground actually
+                            // spans, plus headroom for what stands on it. With a low sun the box
+                            // is stretched by this range divided by tan(altitude), so a generous
+                            // slab is the difference between half-metre and ten-metre texels.
+                            double minHeight = 0, maxHeight = 0;
+                            if (std::shared_ptr<ElevationManager> elevationManager = terrainOptions->getElevationManager()) {
+                                bool first = true;
+                                for (const vt::TileId& tileId : drapeTileIds) {
+                                    double tileMin = 0, tileMax = 0;
+                                    elevationManager->getMinMaxDisplayHeight(MapTile(tileId.x, tileId.y, tileId.zoom, 0), tileMin, tileMax);
+                                    if (first) {
+                                        minHeight = tileMin;
+                                        maxHeight = tileMax;
+                                        first = false;
+                                    } else {
+                                        minHeight = std::min(minHeight, tileMin);
+                                        maxHeight = std::max(maxHeight, tileMax);
+                                    }
+                                }
+                                if (!first) {
+                                    double headroom = std::max(1.0e-5, (maxHeight - minHeight) * 0.25);
+                                    minHeight -= headroom;
+                                    maxHeight += headroom;
+                                }
+                            }
+                            if (drapeLayers.front()->calculateShadowViewProj(drapeTileIds, lightOptions->getSunDirection(), minHeight, maxHeight, lightViewProj)) {
                                 if (_terrainShadowMap->beginPass()) {
                                     for (const vt::TileId& tileId : drapeTileIds) {
                                         // EVERY drape layer casts, not just the first. The terrain

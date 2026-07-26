@@ -715,7 +715,7 @@ public class SecondFragment extends Fragment {
                 760, 1500);
         lp.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID;
         lp.startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID;
-        lp.bottomMargin = 150;
+        lp.bottomMargin = 320;
         lp.leftMargin = 10;
         root.addView(scroll, lp);
 
@@ -731,7 +731,7 @@ public class SecondFragment extends Fragment {
                 150, ViewGroup.LayoutParams.WRAP_CONTENT);
         tlp.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID;
         tlp.startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID;
-        tlp.bottomMargin = 10;
+        tlp.bottomMargin = 190; // clear of the system navigation bar
         tlp.leftMargin = 10;
         root.addView(toggle, tlp);
     }
