@@ -173,6 +173,12 @@ public class SecondFragment extends Fragment {
         mapView.setZoom(cfgFloat("zoom", zoom), 0);
         mapView.setTilt(cfgFloat("tilt", tilt), 0);
         mapView.setMapRotation(cfgFloat("rotation", 0), 0);
+        if (cfgBool("daycycle", false)) {
+            sunSkyDemoEnabled = true;
+            lightOptions.setTerrainLightingEnabled(true);
+            skyOptions.setEnabled(true);
+            applySunSkyHour(cfgFloat("sunHour", 12));
+        }
         if (cfgBool("peakfinder", false)) {
             // After the GL surface exists: attaching a post-process effect before it does
             // leaves the offscreen colour buffer unwritten and the screen black.
@@ -242,6 +248,152 @@ public class SecondFragment extends Fragment {
         light.setShadowDistance(cfgFloat("shadowDistance", light.getShadowDistance()));
         light.setShadowCasterMargin(cfgInt("shadowMargin", light.getShadowCasterMargin()));
         mapView.getOptions().setLightOptions(light);
+    }
+
+
+    // ---------------------------------------------------------------------------------------------
+    // Sun / sky day-cycle demo. Everything here is driven from Options - no layers are touched -
+    // so it can be switched on and off at runtime from the debug panel.
+    //
+    // The hour drives: the sun position (computed for the CURRENT map centre), the sky, horizon and
+    // ground colours, the sun colour and intensity, the shadow strength, and a generated sky shader
+    // that draws the sun disc, the moon disc, the sun's daily arc and a few procedural clouds.
+    // The arc and the moon are baked into the shader source rather than passed as uniforms, because
+    // the sky shader contract has a fixed uniform set; regenerating the source on an hour change is
+    // cheap enough for a demo.
+    // ---------------------------------------------------------------------------------------------
+    boolean sunSkyDemoEnabled = false;
+    float sunSkyHour = 12;
+
+    private double[] sunVectorAt(float hourUtc, double lat, double lon) {
+        com.carto.components.LightOptions probe = new com.carto.components.LightOptions();
+        int hour = (int) hourUtc;
+        int minute = (int) ((hourUtc - hour) * 60);
+        probe.setSunPositionFromTime(2026, 7, 26, hour, minute, lat, lon);
+        double az = Math.toRadians(probe.getSunAzimuth());
+        double alt = Math.toRadians(probe.getSunAltitude());
+        double cosAlt = Math.cos(alt);
+        return new double[] { cosAlt * Math.sin(az), cosAlt * Math.cos(az), Math.sin(alt) };
+    }
+
+    private String formatVec(double[] v) {
+        return String.format(java.util.Locale.US, "vec3(%.5f, %.5f, %.5f)", v[0], v[1], v[2]);
+    }
+
+    void applySunSkyHour(float hourUtc) {
+        if (lightOptions == null || skyOptions == null) {
+            return;
+        }
+        sunSkyHour = hourUtc;
+        Projection proj = mapView.getOptions().getBaseProjection();
+        MapPos centre = proj.toWgs84(mapView.getFocusPos());
+        double lat = centre.getY(), lon = centre.getX();
+
+        lightOptions.setSunPositionFromTime(2026, 7, 26, (int) hourUtc, (int) ((hourUtc - (int) hourUtc) * 60), lat, lon);
+        float altitude = lightOptions.getSunAltitude();
+
+        // day = 1 well above the horizon, 0 below it, with civil twilight in between.
+        float day = Math.max(0f, Math.min(1f, (altitude + 6f) / 12f));
+        float warm = 1f - Math.max(0f, Math.min(1f, altitude / 25f)); // reddening near the horizon
+
+        lightOptions.setSunColor(new Color(
+                (short) 255,
+                (short) (int) (255 - 90 * warm),
+                (short) (int) (255 - 190 * warm),
+                (short) 255));
+        lightOptions.setSunIntensity(0.15f + 0.85f * day);
+        lightOptions.setAmbientIntensity(0.25f + 0.55f * day);
+        lightOptions.setShadowStrength(0.85f * day); // no sun, no shadows
+
+        int skyR = (int) (10 + 48 * day), skyG = (int) (14 + 102 * day), skyB = (int) (40 + 156 * day);
+        int horR = (int) (25 + (146 + 60 * warm) * day), horG = (int) (25 + 181 * day), horB = (int) (55 + 181 * day);
+        skyOptions.setSkyColor(new Color((short) skyR, (short) skyG, (short) skyB, (short) 255));
+        skyOptions.setHorizonColor(new Color((short) horR, (short) horG, (short) horB, (short) 255));
+        skyOptions.setGroundColor(new Color((short) (horR * 0.8), (short) (horG * 0.8), (short) (horB * 0.8), (short) 255));
+
+        // The sun's daily path is a circle; three positions on it define its plane.
+        double[] a = sunVectorAt(6, lat, lon), b = sunVectorAt(12, lat, lon), c = sunVectorAt(18, lat, lon);
+        double[] u = { b[0] - a[0], b[1] - a[1], b[2] - a[2] };
+        double[] v = { c[0] - a[0], c[1] - a[1], c[2] - a[2] };
+        double[] n = { u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0] };
+        double nlen = Math.sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+        if (nlen > 1e-9) { n[0] /= nlen; n[1] /= nlen; n[2] /= nlen; }
+
+        // The moon rides roughly the opposite side of the same arc, offset by the monthly phase.
+        double[] moon = sunVectorAt((hourUtc + 12.7f) % 24f, lat, lon);
+
+        skyOptions.setShaderSource(buildSkyShader(n, moon, day, hourUtc));
+        mapView.requestRender();
+    }
+
+    private String buildSkyShader(double[] arcNormal, double[] moonDir, float day, float hourUtc) {
+        // Cloud cover and layout change with the hour: the seed is derived from it, so scrubbing
+        // the slider rolls a different (but stable) sky.
+        float seed = (hourUtc * 7.13f) % 10.0f;
+        float cover = 0.35f + 0.25f * (float) Math.sin(hourUtc * 0.7f);
+        // The sky shader wrapper already declares u_sunDir/u_sunColor/u_skyColor/u_horizonColor/
+        // u_groundColor/u_time - redeclaring any of them is a compile error and the renderer
+        // silently falls back to the built-in sky.
+        return String.join("\n",
+            "const vec3 ARC_N = " + formatVec(arcNormal) + ";",
+            "const vec3 MOON_DIR = " + formatVec(moonDir) + ";",
+            String.format(java.util.Locale.US, "const float SEED = %.4f;", seed),
+            String.format(java.util.Locale.US, "const float COVER = %.4f;", cover),
+            String.format(java.util.Locale.US, "const float DAY = %.4f;", day),
+            "",
+            "float hash(vec2 p) {",
+            "  return fract(sin(dot(p, vec2(127.1, 311.7)) + SEED) * 43758.5453);",
+            "}",
+            "float noise(vec2 p) {",
+            "  vec2 i = floor(p), f = fract(p);",
+            "  f = f * f * (3.0 - 2.0 * f);",
+            "  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),",
+            "             mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);",
+            "}",
+            "float clouds(vec3 dir) {",
+            "  if (dir.z <= 0.02) return 0.0;",
+            "  // Project the ray onto a flat cloud deck: cheap, and the perspective is right.",
+            "  vec2 p = dir.xy / dir.z * 0.6 + vec2(u_time * 0.004, 0.0);",
+            "  float f = 0.55 * noise(p) + 0.28 * noise(p * 2.3) + 0.17 * noise(p * 4.7);",
+            "  float c = smoothstep(COVER, COVER + 0.22, f);",
+            "  return c * smoothstep(0.02, 0.25, dir.z); // fade them out at the horizon",
+            "}",
+            "",
+            "vec4 skyColor(vec3 rayDir) {",
+            "  vec3 dir = normalize(rayDir);",
+            "  float h = clamp(dir.z, -1.0, 1.0);",
+            "  vec3 col = h < 0.0",
+            "      ? mix(u_horizonColor.rgb, u_groundColor.rgb, clamp(-h * 6.0, 0.0, 1.0))",
+            "      : mix(u_horizonColor.rgb, u_skyColor.rgb, pow(clamp(h, 0.0, 1.0), 0.45));",
+            "",
+            "  // Stars, only once the sky is dark enough to see them.",
+            "  if (DAY < 0.55 && h > 0.0) {",
+            "    vec2 sp = floor(dir.xy / max(0.05, dir.z) * 90.0);",
+            "    float star = step(0.995, hash(sp));",
+            "    col += vec3(star * (0.55 - DAY) * 1.6);",
+            "  }",
+            "",
+            "  // The sun's daily arc: the thin band where the ray lies in the plane of its path.",
+            "  float arc = 1.0 - smoothstep(0.0, 0.006, abs(dot(dir, ARC_N)));",
+            "  col = mix(col, u_sunColor.rgb, arc * 0.30 * step(-0.03, h));",
+            "",
+            "  col = mix(col, vec3(1.0, 1.0, 0.98), clouds(dir) * (0.35 + 0.5 * DAY));",
+            "",
+            "  // Sun: disc, then glow, tinted toward the sun colour rather than added, so a bright",
+            "  // sky does not saturate to white far from it.",
+            "  float ds = length(dir - normalize(u_sunDir));",
+            "  col = mix(col, u_sunColor.rgb, clamp(1.0 - smoothstep(0.0, 0.12, ds), 0.0, 1.0) * 0.85);",
+            "  col = mix(col, u_sunColor.rgb * 1.15, (1.0 - smoothstep(0.0, 0.03, ds)));",
+            "",
+            "  // Moon: a small disc with a soft halo, brighter as the sky darkens.",
+            "  float dm = length(dir - normalize(MOON_DIR));",
+            "  float moonLit = 0.35 + 0.65 * (1.0 - DAY);",
+            "  col = mix(col, vec3(0.86, 0.88, 0.92), (1.0 - smoothstep(0.0, 0.020, dm)) * moonLit);",
+            "  col = mix(col, vec3(0.70, 0.74, 0.85), (1.0 - smoothstep(0.02, 0.09, dm)) * 0.18 * moonLit);",
+            "",
+            "  return vec4(col, 1.0);",
+            "}",
+            "");
     }
 
     // Applies the terrain overrides shared by every demo that builds a TerrainOptions.
@@ -668,8 +820,24 @@ public class SecondFragment extends Fragment {
             panelCheck(context, panel, "sun lighting", lightOptions.isTerrainLightingEnabled(), new BoolSetting() {
                 public void set(boolean value) { lightOptions.setTerrainLightingEnabled(value); }
             });
+            panelCheck(context, panel, "day-cycle demo (sun/moon/sky)", sunSkyDemoEnabled, new BoolSetting() {
+                public void set(boolean value) {
+                    sunSkyDemoEnabled = value;
+                    if (value) {
+                        lightOptions.setTerrainLightingEnabled(true);
+                        skyOptions.setEnabled(true);
+                        applySunSkyHour(sunSkyHour);
+                    } else {
+                        skyOptions.setShaderSource("");
+                    }
+                }
+            });
             panelSlider(context, panel, "sun hour (UTC)", 0, 24, 12, false, new FloatSetting() {
                 public void set(float value) {
+                    if (sunSkyDemoEnabled) {
+                        applySunSkyHour(value);
+                        return;
+                    }
                     int hour = (int) value;
                     int minute = (int) ((value - hour) * 60);
                     lightOptions.setSunPositionFromTime(2026, 7, 26, hour, minute, sunLatitude, sunLongitude);
