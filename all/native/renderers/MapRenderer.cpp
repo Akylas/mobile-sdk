@@ -1332,6 +1332,7 @@ namespace carto {
                     // How many caster passes were actually rendered, cumulative. Compared with the
                     // frame count it says how much of the shadow cost the cache is saving.
                     static int shadowPasses = 0;
+                    static int shadowCasterDraws = 0;
                     // A cached shadow map is refreshed at least this often anyway: elevation tiles
                     // can stream in without changing the light box or the caster tile list, and a
                     // shadow cast by data that has since arrived would otherwise never appear.
@@ -1529,9 +1530,12 @@ namespace carto {
                             // spends the same texels on a much smaller region.
                             int cascades = _terrainShadowMap->getCascades();
                             bool boxesValid = true;
+                            // The tiles that can cast into each cascade, which for a near cascade
+                            // is a fraction of the cover: drawing the rest into it is pure cost.
+                            std::array<std::vector<vt::TileId>, TerrainShadowMap::MAX_CASCADES> cascadeCasterTiles;
                             for (int cascade = 0; cascade < cascades; cascade++) {
                                 double depthRangeMeters = 1.0, texelMeters = 0;
-                                if (drapeLayers.front()->calculateShadowViewProj(drapeTileIds, casterTileIds, lightOptions->getSunDirection(), tileHeights, minHeight, maxHeight, lightOptions->getShadowDistance(), _terrainShadowMap->getSize(), cascade, cascades, depthRangeMeters, texelMeters, lightViewProjs[cascade])) {
+                                if (drapeLayers.front()->calculateShadowViewProj(drapeTileIds, casterTileIds, lightOptions->getSunDirection(), tileHeights, minHeight, maxHeight, lightOptions->getShadowDistance(), _terrainShadowMap->getSize(), cascade, cascades, cascadeCasterTiles[cascade], depthRangeMeters, texelMeters, lightViewProjs[cascade])) {
                                     // The bias is metric; the shader wants a fraction of the
                                     // normalised light depth, and each cascade's box spans its
                                     // own depth. Dividing per cascade is what keeps the shadow
@@ -1548,6 +1552,7 @@ namespace carto {
                                     // with a box from another frame.
                                     lightViewProjs[cascade] = lightViewProjs[cascade - 1];
                                     shadowBiases[cascade] = shadowBiases[cascade - 1];
+                                    cascadeCasterTiles[cascade] = cascadeCasterTiles[cascade - 1];
                                 } else {
                                     boxesValid = false;
                                     break;
@@ -1579,7 +1584,7 @@ namespace carto {
                                             // is cleared once and each cascade draws into its own
                                             // viewport.
                                             _terrainShadowMap->setCascadeViewport(cascade);
-                                            for (const vt::TileId& tileId : casterTileIds) {
+                                            for (const vt::TileId& tileId : cascadeCasterTiles[cascade]) {
                                                 // EVERY drape layer casts, not just the first. The terrain
                                                 // surface is shared, but 3D extrusions belong to whichever
                                                 // layer holds them - in a composite that is a later style
@@ -1597,6 +1602,9 @@ namespace carto {
                                         _shadowMapSize = _terrainShadowMap->getSize();
                                         _shadowMapCascades = cascades;
                                         _shadowMapAge = 0;
+                                        for (int cascade = 0; cascade < cascades; cascade++) {
+                                            shadowCasterDraws += static_cast<int>(cascadeCasterTiles[cascade].size());
+                                        }
                                         shadowPasses++;
                                     }
                                 }
@@ -1669,7 +1677,7 @@ namespace carto {
                         Log::Infof("MapRenderer: RTT drape ACTIVE - layers %d, collected tiles %d, drawn tiles %d, resolution %d, baked %d tiles / %d primitives, surface draws %d (%d unbaked fills)",
                             static_cast<int>(drapeLayers.size()), static_cast<int>(collectedTiles.size()),
                             static_cast<int>(drapedTiles.size()), resolution, bakedTiles, bakedPrimitives, surfaceDraws, filledSurfaces);
-                        Log::Infof("MapRenderer: shadow caster passes %d over %d frames, %d cascades, near texel %.2f m (camera zoom %.2f tilt %.1f)", shadowPasses, drapeStateFrame, shadowCascades, shadowTexelMeters, viewState.getZoom(), viewState.getTilt());
+                        Log::Infof("MapRenderer: shadow caster passes %d over %d frames, %d cascades, %d caster tiles per pass, near texel %.2f m (camera zoom %.2f tilt %.1f)", shadowPasses, drapeStateFrame, shadowCascades, shadowCasterDraws / std::max(1, shadowPasses), shadowTexelMeters, viewState.getZoom(), viewState.getTilt());
                     }
                     }
                     catch (const std::exception& ex) {

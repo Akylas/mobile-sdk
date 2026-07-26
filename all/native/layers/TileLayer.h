@@ -398,7 +398,7 @@ namespace carto {
         int bakeDrapeTile(const vt::TileId& tileId);
         int renderDrapedSurface(const vt::TileId& tileId, unsigned int drapeTexture, float uvOffsetX, float uvOffsetY, float uvScale);
         int renderDrapedSurfaceFill(const vt::TileId& tileId, const Color& color);
-        bool calculateShadowViewProj(const std::vector<vt::TileId>& tileIds, const std::vector<vt::TileId>& casterTileIds, const cglib::vec3<float>& sunDir, const std::vector<std::pair<double, double> >& tileHeights, double minHeight, double maxHeight, float maxDistanceMeters, int mapSize, int cascade, int cascadeCount, double& depthRangeMeters, double& texelMeters, cglib::mat4x4<double>& lightViewProj) const;
+        bool calculateShadowViewProj(const std::vector<vt::TileId>& tileIds, const std::vector<vt::TileId>& casterTileIds, const cglib::vec3<float>& sunDir, const std::vector<std::pair<double, double> >& tileHeights, double minHeight, double maxHeight, float maxDistanceMeters, int mapSize, int cascade, int cascadeCount, std::vector<vt::TileId>& boxCasterTileIds, double& depthRangeMeters, double& texelMeters, cglib::mat4x4<double>& lightViewProj) const;
         int renderShadowCasters(const vt::TileId& tileId, const cglib::mat4x4<double>& lightViewProj, bool castGround);
         void setTerrainShadowMap(unsigned int texture, int mapSize, int cascades, const std::array<float, 4>& depthBiases, float strength, float softness, const std::array<cglib::mat4x4<double>, 4>& lightViewProjs);
 
