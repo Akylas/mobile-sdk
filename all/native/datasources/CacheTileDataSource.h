@@ -68,6 +68,19 @@ namespace carto {
         
         CacheTileDataSource(const std::shared_ptr<TileDataSource>& dataSource);
 
+        /**
+         * Applies the metadata of the wrapped data source to a tile, overridden by the metadata
+         * explicitly set on the cache itself. This mirrors getEncoding: a cache is transparent
+         * unless it is configured explicitly. Does nothing if the tile is null.
+         * Note: deliberately not implemented by overriding buildTileMetadata. A cache data source
+         * constructed from Java/C# is a SWIG director object whose generated buildTileMetadata
+         * stub calls TileDataSource::buildTileMetadata directly, so an override here would never
+         * run for the objects applications actually create.
+         * @param tileData The tile data to apply the metadata to.
+         * @param tile The tile for which the metadata should be built.
+         */
+        void applyCacheTileMetadata(const std::shared_ptr<TileData>& tileData, const MapTile& tile) const;
+
         const DirectorPtr<TileDataSource> _dataSource;
         
     private:

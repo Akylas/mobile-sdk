@@ -92,6 +92,18 @@ namespace carto {
         }
     };
     
+    struct HTTPClient::AndroidImpl::ThrowableClass {
+        JNIUniqueGlobalRef<jclass> clazz;
+        jmethodID toString;
+        jmethodID getCause;
+
+        explicit ThrowableClass(JNIEnv* jenv) {
+            clazz = JNIUniqueGlobalRef<jclass>(jenv, jenv->NewGlobalRef(jenv->FindClass("java/lang/Throwable")));
+            toString = jenv->GetMethodID(clazz, "toString", "()Ljava/lang/String;");
+            getCause = jenv->GetMethodID(clazz, "getCause", "()Ljava/lang/Throwable;");
+        }
+    };
+
     HTTPClient::AndroidImpl::AndroidImpl(bool log) :
         _log(log),
         _timeout(-1)
@@ -113,15 +125,13 @@ namespace carto {
         // Create URL
         jobject url = jenv->NewObject(GetURLClass()->clazz, GetURLClass()->constructor, jenv->NewStringUTF(request.url.c_str()));
         if (jenv->ExceptionCheck()) {
-            jenv->ExceptionClear();
-            throw NetworkException("Invalid URL", request.url);
+            throw BuildNetworkException(jenv, "Invalid URL", request.url); // clears the pending Java exception
         }
 
         // Open HTTP connection
         jobject conn = jenv->CallObjectMethod(url, GetURLClass()->openConnection);
         if (jenv->ExceptionCheck()) {
-            jenv->ExceptionClear();
-            throw NetworkException("Unable to open connection", request.url);
+            throw BuildNetworkException(jenv, "Unable to open connection", request.url); // clears the pending Java exception
         }
         
         // Configure connection parameters
@@ -148,8 +158,7 @@ namespace carto {
         if (!request.contentType.empty()) {
             jobject outputStream = jenv->CallObjectMethod(conn, GetHttpURLConnectionClass()->getOutputStream);
             if (jenv->ExceptionCheck()) {
-                jenv->ExceptionClear();
-                throw NetworkException("Unable to get output stream", request.url);
+                throw BuildNetworkException(jenv, "Unable to get output stream", request.url); // clears the pending Java exception
             }
 
             jbyteArray jbuf = jenv->NewByteArray(request.body.size());
@@ -157,28 +166,30 @@ namespace carto {
 
             jenv->CallVoidMethod(outputStream, GetOutputStreamClass()->write, jbuf);
             if (jenv->ExceptionCheck()) {
-                jenv->ExceptionClear();
-                throw NetworkException("Unable to write data", request.url);
+                throw BuildNetworkException(jenv, "Unable to write data", request.url); // clears the pending Java exception
             }
             jenv->CallVoidMethod(outputStream, GetOutputStreamClass()->close);
             if (jenv->ExceptionCheck()) {
-                jenv->ExceptionClear();
-                throw NetworkException("Unable to write data", request.url);
+                throw BuildNetworkException(jenv, "Unable to write data", request.url); // clears the pending Java exception
             }
         }
 
         // Connect
         jenv->CallVoidMethod(conn, GetHttpURLConnectionClass()->connect);
         if (jenv->ExceptionCheck()) {
-            jenv->ExceptionClear();
-            throw NetworkException("Unable to connect", request.url);
+            // Include the configured timeout: a plain SocketTimeoutException does not say whether
+            // the SDK-level timeout or the platform default was in effect.
+            std::string msg = "Unable to connect";
+            if (timeout > 0) {
+                msg += " (connect/read timeout " + boost::lexical_cast<std::string>(timeout) + " ms)";
+            }
+            throw BuildNetworkException(jenv, msg, request.url); // clears the pending Java exception
         }
         
         // Read response header
         jint responseCode = jenv->CallIntMethod(conn, GetHttpURLConnectionClass()->getResponseCode);
         if (jenv->ExceptionCheck()) {
-            jenv->ExceptionClear();
-            throw NetworkException("Unable to read response code", request.url);
+            throw BuildNetworkException(jenv, "Unable to read response code", request.url); // clears the pending Java exception
         }
         std::map<std::string, std::string> headers;
         for (int i = 0; true; i++) {
@@ -206,8 +217,7 @@ namespace carto {
             jenv->ExceptionClear();
             inputStream = jenv->CallObjectMethod(conn, GetHttpURLConnectionClass()->getErrorStream);
             if (jenv->ExceptionCheck()) {
-                jenv->ExceptionClear();
-                throw NetworkException("Unable to get input stream", request.url);
+                throw BuildNetworkException(jenv, "Unable to get input stream", request.url); // clears the pending Java exception
             }
         }
         
@@ -220,8 +230,7 @@ namespace carto {
                 jint numBytesRead = jenv->CallIntMethod(inputStream, GetInputStreamClass()->read, jbuf);
 
                 if (jenv->ExceptionCheck()) {
-                    jenv->ExceptionClear();
-                    throw NetworkException("Unable to read data", request.url);
+                    throw BuildNetworkException(jenv, "Unable to read data", request.url); // clears the pending Java exception
                 }
                 if (numBytesRead < 0) {
                     break;
@@ -278,5 +287,55 @@ namespace carto {
         static std::unique_ptr<OutputStreamClass> cls(new OutputStreamClass(AndroidUtils::GetCurrentThreadJNIEnv()));
         return cls;
     }
-    
+
+    std::unique_ptr<HTTPClient::AndroidImpl::ThrowableClass>& HTTPClient::AndroidImpl::GetThrowableClass() {
+        static std::unique_ptr<ThrowableClass> cls(new ThrowableClass(AndroidUtils::GetCurrentThreadJNIEnv()));
+        return cls;
+    }
+
+    std::string HTTPClient::AndroidImpl::DescribePendingException(JNIEnv* jenv) {
+        JNIUniqueLocalRef<jthrowable> throwable(jenv, jenv->ExceptionOccurred());
+        if (!throwable) {
+            return std::string();
+        }
+        jenv->ExceptionClear(); // any JNI call below is illegal while an exception is pending
+
+        // Walk the cause chain: the interesting detail ("Failed to connect to .../10.0.2.16:443",
+        // "Chain validation failed", ...) is often only in the cause, not in the top exception.
+        std::string description;
+        for (int depth = 0; throwable && depth < MAX_EXCEPTION_CAUSE_DEPTH; depth++) {
+            JNIUniqueLocalRef<jstring> text(jenv, jenv->CallObjectMethod(throwable, GetThrowableClass()->toString));
+            if (jenv->ExceptionCheck()) {
+                jenv->ExceptionClear();
+                break;
+            }
+            if (text) {
+                if (const char* textStr = jenv->GetStringUTFChars(text, NULL)) {
+                    description += (description.empty() ? "" : ", caused by ");
+                    description += textStr;
+                    jenv->ReleaseStringUTFChars(text, textStr);
+                }
+            }
+
+            JNIUniqueLocalRef<jthrowable> cause(jenv, jenv->CallObjectMethod(throwable, GetThrowableClass()->getCause));
+            if (jenv->ExceptionCheck()) {
+                jenv->ExceptionClear();
+                break;
+            }
+            if (cause && jenv->IsSameObject(cause, throwable)) {
+                break; // self-referencing cause
+            }
+            throwable = std::move(cause);
+        }
+        return description;
+    }
+
+    NetworkException HTTPClient::AndroidImpl::BuildNetworkException(JNIEnv* jenv, const std::string& msg, const std::string& url) {
+        std::string description = DescribePendingException(jenv);
+        if (description.empty()) {
+            return NetworkException(msg, url);
+        }
+        return NetworkException(msg + " (" + description + ")", url);
+    }
+
 }

@@ -93,9 +93,11 @@ namespace carto {
         if (!_cacheOnlyMode) {
             lock.unlock();
             tileData = _dataSource->loadTile(mapTile);
-            std::map<std::string, std::shared_ptr<Variant>> metadata = _dataSource->buildTileMetadata(mapTile);
-            for (const auto& entry : metadata) {
-                tileData->setMetadata(entry.first, entry.second);
+            if (tileData) { // loading can fail (network errors), in which case there is nothing to annotate
+                std::map<std::string, std::shared_ptr<Variant>> metadata = _dataSource->buildTileMetadata(mapTile);
+                for (const auto& entry : metadata) {
+                    tileData->setMetadata(entry.first, entry.second);
+                }
             }
             lock.lock();
         }
