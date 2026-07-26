@@ -173,7 +173,6 @@ public class SecondFragment extends Fragment {
         mapView.setZoom(cfgFloat("zoom", zoom), 0);
         mapView.setTilt(cfgFloat("tilt", tilt), 0);
         mapView.setMapRotation(cfgFloat("rotation", 0), 0);
-        applySkyAndLightConfig(cfgFloat("lon", (float) lon), cfgFloat("lat", (float) lat));
         if (cfgBool("peakfinder", false)) {
             // After the GL surface exists: attaching a post-process effect before it does
             // leaves the offscreen colour buffer unwritten and the screen black.
@@ -216,14 +215,17 @@ public class SecondFragment extends Fragment {
     // '--es sunAzimuth/--es sunAltitude' place the sun; '--es terrainLight true' shades the
     // draped terrain surface with it.
     void applySkyAndLightConfig(double lon, double lat) {
-        if (cfgBool("sky", false)) {
-            com.carto.components.SkyOptions sky = new com.carto.components.SkyOptions();
-            sky.setEnabled(true);
-            skyOptions = sky;
-            mapView.getOptions().setSkyOptions(sky);
-        }
+        // Always attach both, so the debug panel can toggle them live; the sky starts disabled
+        // unless asked for, which renders exactly as having no sky options at all.
+        com.carto.components.SkyOptions sky = new com.carto.components.SkyOptions();
+        sky.setEnabled(cfgBool("sky", false));
+        skyOptions = sky;
+        mapView.getOptions().setSkyOptions(sky);
+
         com.carto.components.LightOptions light = new com.carto.components.LightOptions();
         lightOptions = light;
+        sunLatitude = lat;
+        sunLongitude = lon;
         if (cfg("sunHour") != null) {
             light.setSunPositionFromTime(cfgInt("sunYear", 2026), cfgInt("sunMonth", 7), cfgInt("sunDay", 26),
                     cfgInt("sunHour", 8), cfgInt("sunMinute", 0), lat, lon);
@@ -321,6 +323,7 @@ public class SecondFragment extends Fragment {
     }
     com.carto.components.TerrainOptions terrainOptions;
     com.carto.components.LightOptions lightOptions;
+    double sunLatitude = 45.24, sunLongitude = 5.76;
     com.carto.components.SkyOptions skyOptions;
     TextView terrainZoomText;
 
@@ -517,6 +520,8 @@ public class SecondFragment extends Fragment {
 
 
         addTerrainTestElements();
+        // Light and sky must exist before the panel is built, or its sun rows are skipped.
+        applySkyAndLightConfig(cfgFloat("lon", 5.76f), cfgFloat("lat", 45.24f));
         addTerrainControls(view);
 
         // Start tilted over the Alps (Grenoble). Note: setFocusPos expects base projection
@@ -648,6 +653,13 @@ public class SecondFragment extends Fragment {
         if (lightOptions != null) {
             panelCheck(context, panel, "sun lighting", lightOptions.isTerrainLightingEnabled(), new BoolSetting() {
                 public void set(boolean value) { lightOptions.setTerrainLightingEnabled(value); }
+            });
+            panelSlider(context, panel, "sun hour (UTC)", 0, 24, 12, false, new FloatSetting() {
+                public void set(float value) {
+                    int hour = (int) value;
+                    int minute = (int) ((value - hour) * 60);
+                    lightOptions.setSunPositionFromTime(2026, 7, 26, hour, minute, sunLatitude, sunLongitude);
+                }
             });
             panelSlider(context, panel, "sun azimuth", 0, 360, lightOptions.getSunAzimuth(), false, new FloatSetting() {
                 public void set(float value) { lightOptions.setSunAzimuth(value); }
@@ -1005,6 +1017,8 @@ public class SecondFragment extends Fragment {
 
 
         addTerrainTestElements();
+        // Light and sky must exist before the panel is built, or its sun rows are skipped.
+        applySkyAndLightConfig(cfgFloat("lon", 5.76f), cfgFloat("lat", 45.24f));
         addTerrainControls(view);
         // Start tilted over the Alps (Grenoble). Note: setFocusPos expects base projection
         // coordinates, so WGS84 positions must be converted first.

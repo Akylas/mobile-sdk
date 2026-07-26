@@ -1214,15 +1214,21 @@ namespace carto {
                         }
                     }
                     static const std::size_t MAX_DRAPE_TILES = 256; // splitting is bounded; a runaway cover is not worth drawing
+                    // Split to ONE level for the whole cover, not "until no finer collected tile
+                    // is contained". Splitting per subtree makes the leaf set follow every layer's
+                    // own tile zoom and every proxy that comes and goes, so it changes almost every
+                    // frame during a zoom - and a leaf that is new has no baked texture, which is
+                    // what shows up as tiles flashing. One level for all of them changes only when
+                    // that level changes, i.e. at integer zoom steps.
+                    int drapeZoom = 0;
+                    for (auto it = collectedTiles.begin(); it != collectedTiles.end(); it++) {
+                        drapeZoom = std::max(drapeZoom, it->first.zoom);
+                    }
                     std::vector<vt::TileId> leaves;
                     while (!pending.empty() && leaves.size() + pending.size() <= MAX_DRAPE_TILES) {
                         vt::TileId tileId = pending.back();
                         pending.pop_back();
-                        bool hasFinerTile = false;
-                        for (auto it = collectedTiles.begin(); it != collectedTiles.end() && !hasFinerTile; it++) {
-                            hasFinerTile = covers(tileId, it->first);
-                        }
-                        if (!hasFinerTile) {
+                        if (tileId.zoom >= drapeZoom) {
                             leaves.push_back(tileId);
                             continue;
                         }
@@ -1501,7 +1507,7 @@ namespace carto {
                         Log::Infof("MapRenderer: RTT drape cost avg %.1f ms, max %.1f ms over %d frames", drapeMsSum / std::max(1, drapeMsCount), drapeMsMax, drapeMsCount);
                         drapeMsSum = 0; drapeMsMax = 0; drapeMsCount = 0;
                     }
-                    if (false) {
+                    if ((drapeStateFrame % 600) == 1 && drapedTiles.size() > 0) {
                         int minZoom = 99, maxZoom = -1;
                         for (auto it2 = drapedTiles.begin(); it2 != drapedTiles.end(); it2++) {
                             minZoom = std::min(minZoom, it2->tileId.zoom);
