@@ -1497,7 +1497,7 @@ namespace carto {
                                     }
                                 }
                             }
-                            if (drapeLayers.front()->calculateShadowViewProj(casterTileIds, lightOptions->getSunDirection(), minHeight, maxHeight, lightOptions->getShadowDistance(), lightViewProj)) {
+                            if (drapeLayers.front()->calculateShadowViewProj(drapeTileIds, casterTileIds, lightOptions->getSunDirection(), minHeight, maxHeight, lightOptions->getShadowDistance(), lightViewProj)) {
                                 if (_terrainShadowMap->beginPass()) {
                                     for (const vt::TileId& tileId : casterTileIds) {
                                         // EVERY drape layer casts, not just the first. The terrain
