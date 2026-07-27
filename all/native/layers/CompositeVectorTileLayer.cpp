@@ -133,7 +133,8 @@ namespace carto {
         // overzoom independently - e.g. a ContourTileDataSource renders z13+ from z12 DEM data via
         // the child layer's MaxOverzoomLevel, without needing the DEM at the target zoom.
         auto childVectorLayer = std::make_shared<VectorTileLayer>(dataSource, getTileDecoder());
-        childVectorLayer->setRendererLayerFilter("^(" + name + ")$");
+        // Style names, not layer names: attachments included (see buildFilterString).
+        childVectorLayer->setRendererLayerFilter("^(" + name + ")(::.*)?$");
         childVectorLayer->setMaxOverzoomLevel(dataSource->getMaxOverzoomLevel());
         childVectorLayer->setLabelRenderOrder(getLabelRenderOrder());
         childVectorLayer->setBuildingRenderOrder(getBuildingRenderOrder());
@@ -214,10 +215,17 @@ namespace carto {
             // nothing ("[^\\s\\S]" requires one impossible char, so it matches no string, not even "").
             return includeBackground ? "^$" : "[^\\s\\S]";
         }
-        std::string pattern = "^(";
+        // The filter is matched against the name of every rendered vt tile layer, and that name is
+        // the STYLE name, not the map layer name: a layer with CartoCSS attachments produces one
+        // style per attachment, named "layer::attachment" (and nested, "layer::a::b"). Matching the
+        // bare layer name alone therefore keeps only the default attachment and silently drops the
+        // rest - all of "transportation::casing*", "poi::icon", "landcover::wood", "place::label".
+        // So accept the layer name followed by any attachment suffix.
+        std::string pattern = "^((";
         for (std::size_t i = 0; i < group.size(); i++) {
             pattern += (i ? "|" : "") + group[i];
         }
+        pattern += ")(::.*)?";
         if (includeBackground) {
             pattern += "|"; // empty alternative -> also matches the empty-named background layer
         }
