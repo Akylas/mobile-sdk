@@ -504,6 +504,7 @@ namespace carto {
         bool regularGrid = painterOrder || drapeFills || (terrainMode && activeTerrainOptions && activeTerrainOptions->isRegularGridEnabled() && (bool) terrainTextureProvider);
         tileRenderer->setTerrainRegularGrid(regularGrid, activeTerrainOptions ? activeTerrainOptions->getMeshResolution() : 0);
         tileRenderer->setTerrainPainterOrder(painterOrder);
+        tileRenderer->setTerrainEdgeStitching(regularGrid && activeTerrainOptions && activeTerrainOptions->isTileEdgeStitchingEnabled());
         // Draped content is baked FLAT (orthographic, no displacement), so lines need no terrain
         // subdivision either - draping them is strictly cheaper as well as artifact-free.
         tileRenderer->setTerrainDrapeFills(drapeFills, drapeFills);

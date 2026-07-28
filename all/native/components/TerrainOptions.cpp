@@ -18,6 +18,7 @@ namespace carto {
         _enabled(true),
         _meshResolution(32),
         _regularGridEnabled(false),
+        _tileEdgeStitchingEnabled(false),
         _painterOrderDepthEnabled(false),
         _drapeFillsEnabled(true),
         _drapeLinesEnabled(true),
@@ -116,6 +117,16 @@ namespace carto {
     void TerrainOptions::setRegularGridEnabled(bool regularGridEnabled) {
         if (_regularGridEnabled.exchange(regularGridEnabled) != regularGridEnabled) {
             notifyOptionChanged("RegularGridEnabled");
+        }
+    }
+
+    bool TerrainOptions::isTileEdgeStitchingEnabled() const {
+        return _tileEdgeStitchingEnabled.load();
+    }
+
+    void TerrainOptions::setTileEdgeStitchingEnabled(bool enabled) {
+        if (_tileEdgeStitchingEnabled.exchange(enabled) != enabled) {
+            notifyOptionChanged("TileEdgeStitchingEnabled");
         }
     }
 

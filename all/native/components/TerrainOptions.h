@@ -159,6 +159,23 @@ namespace carto {
         void setRegularGridEnabled(bool regularGridEnabled);
 
         /**
+         * Returns whether cross-LOD tile edge stitching is enabled.
+         * @return True if grid surface edges follow a coarser neighbour's lattice. The default is false.
+         */
+        bool isTileEdgeStitchingEnabled() const;
+        /**
+         * Enables or disables cross-LOD tile edge stitching. Neighbouring terrain tiles at
+         * different zoom levels interpolate the elevation between differently spaced grid
+         * vertices along their shared edge, which opens a thin crack. When enabled, the finer
+         * tile chords across the coarser neighbour's grid nodes on that edge, so both tiles
+         * describe the same edge. Only takes effect together with the regular grid surface mode
+         * (adaptive tesselation matches its borders to the neighbours already) and needs an even
+         * MeshResolution. Costs one uniform per tile - no extra geometry.
+         * @param enabled True to snap grid surface edges to a coarser neighbour's grid.
+         */
+        void setTileEdgeStitchingEnabled(bool enabled);
+
+        /**
          * Returns whether the painter-order terrain depth model is used.
          * @return True if painter-order depth is used, false for the surface-occluder model. The default is false.
          */
@@ -472,6 +489,7 @@ namespace carto {
         std::atomic<bool> _enabled;
         std::atomic<int> _meshResolution;
         std::atomic<bool> _regularGridEnabled;
+        std::atomic<bool> _tileEdgeStitchingEnabled;
         std::atomic<bool> _painterOrderDepthEnabled;
         std::atomic<bool> _drapeFillsEnabled;
         std::atomic<bool> _drapeLinesEnabled;

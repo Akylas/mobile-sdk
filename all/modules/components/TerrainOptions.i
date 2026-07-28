@@ -28,6 +28,7 @@
 %attribute(carto::TerrainOptions, bool, ElevationPrefetchEnabled, isElevationPrefetchEnabled, setElevationPrefetchEnabled)
 %attribute(carto::TerrainOptions, int, MeshResolution, getMeshResolution, setMeshResolution)
 %attribute(carto::TerrainOptions, bool, RegularGridEnabled, isRegularGridEnabled, setRegularGridEnabled)
+%attribute(carto::TerrainOptions, bool, TileEdgeStitchingEnabled, isTileEdgeStitchingEnabled, setTileEdgeStitchingEnabled)
 %attribute(carto::TerrainOptions, bool, PainterOrderDepthEnabled, isPainterOrderDepthEnabled, setPainterOrderDepthEnabled)
 %attribute(carto::TerrainOptions, bool, DrapeFillsEnabled, isDrapeFillsEnabled, setDrapeFillsEnabled)
 %attribute(carto::TerrainOptions, bool, DrapeLinesEnabled, isDrapeLinesEnabled, setDrapeLinesEnabled)
