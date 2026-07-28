@@ -811,8 +811,12 @@ namespace carto {
         _tileRenderer->setTerrainDepthWriteMode(enabled);
     }
 
-    void TileLayer::collectDrapeLayers(std::vector<std::shared_ptr<TileLayer> >& drapeLayers) {
-        if (isVisible()) {
+    void TileLayer::collectDrapeLayers(std::vector<std::shared_ptr<TileLayer> >& drapeLayers, const ViewState& viewState) {
+        // The same gate the draw path uses (loadData, onDrawFrame). Under a cross-layer drape the
+        // bake IS the drawing, so a layer that would not be drawn must not be collected either -
+        // otherwise a layer outside its visible zoom range, or at zero opacity, is baked into the
+        // terrain texture and shows up as ground that no style asked for.
+        if (isVisible() && getVisibleZoomRange().inRange(viewState.getZoom()) && getOpacity() > 0) {
             drapeLayers.push_back(std::static_pointer_cast<TileLayer>(shared_from_this()));
         }
     }
@@ -839,6 +843,10 @@ namespace carto {
 
     int TileLayer::renderDrapedSurface(const vt::TileId& tileId, unsigned int drapeTexture, float uvOffsetX, float uvOffsetY, float uvScale) {
         return _tileRenderer->renderDrapedSurface(tileId, drapeTexture, uvOffsetX, uvOffsetY, uvScale);
+    }
+
+    int TileLayer::blitDrapeTexture(unsigned int srcTexture, float dstOffsetX, float dstOffsetY, float dstScale, float uvOffsetX, float uvOffsetY, float uvScale) {
+        return _tileRenderer->blitDrapeTexture(srcTexture, dstOffsetX, dstOffsetY, dstScale, uvOffsetX, uvOffsetY, uvScale);
     }
 
     int TileLayer::renderDrapedSurfaceFill(const vt::TileId& tileId, const Color& color) {

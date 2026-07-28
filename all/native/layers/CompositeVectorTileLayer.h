@@ -125,7 +125,7 @@ namespace carto {
         virtual bool isUpdateInProgress() const;
         virtual void calculateRayIntersectedElements(const cglib::ray3<double>& ray, const ViewState& viewState, std::vector<RayIntersectedElement>& results) const;
 
-        virtual void collectDrapeLayers(std::vector<std::shared_ptr<TileLayer> >& drapeLayers);
+        virtual void collectDrapeLayers(std::vector<std::shared_ptr<TileLayer> >& drapeLayers, const ViewState& viewState);
 
         virtual bool onDrawFrame(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState);
         virtual bool onDrawFrame3D(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState);
@@ -162,6 +162,9 @@ namespace carto {
         void rebuildDrawItems();
         void applyExternalChildZoomRange(const ExternalSource& source);
         const ExternalSource* findExternalSource(const std::string& name) const;
+        // Whether the style's 'layers' gives this source a slot, i.e. whether anything would ever
+        // draw it. A source without one is not loaded and not draped.
+        bool isDrawnSlot(const std::string& name) const;
         void applyConfig(const ExternalSource& source, const mvt::ResolvedLayerConfig& config, const ViewState& viewState);
         // Applies '#name' config symbolizer values to merged vector sources whose generation
         // parameters live on the data source (currently ContourTileDataSource). Called off the

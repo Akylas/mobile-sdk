@@ -223,7 +223,7 @@ namespace carto {
         }
     }
     
-    void Layer::collectDrapeLayers(std::vector<std::shared_ptr<TileLayer> >& drapeLayers) {
+    void Layer::collectDrapeLayers(std::vector<std::shared_ptr<TileLayer> >& drapeLayers, const ViewState& viewState) {
         // Non-tile layers (vector elements, NML models) are not draped.
     }
 
