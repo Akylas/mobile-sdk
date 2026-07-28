@@ -87,33 +87,53 @@ namespace carto {
         int paddedHeight = _height + 2;
         rgbaData.resize(static_cast<std::size_t>(paddedWidth) * paddedHeight * 4);
 
-        auto compatible = [this](const std::shared_ptr<ElevationTileGrid>& grid) {
-            return grid && grid->_width == _width && grid->_height == _height;
+        // Same DEM level and grid size: the border texel is one of the neighbour's own
+        // texels, so it can be copied bit-exactly by index.
+        auto sameLevel = [this](const std::shared_ptr<ElevationTileGrid>& grid) {
+            // The same grid standing in for a neighbour (both tiles resolved to one ancestor)
+            // must NOT be index-copied - that would wrap around to its opposite edge.
+            return grid && grid->_width == _width && grid->_height == _height && grid->_tile.getZoom() == _tile.getZoom() && !(grid->_tile == _tile);
+        };
+        // Different level (a coarser ancestor grid stands in for the neighbour): sample the
+        // neighbour's height field at the geographic position of the border texel center.
+        // Real DEM data at the tile edge beats duplicating our own edge texel, which leaves
+        // a full-texel height step (tens of meters on a slope) at the tile border.
+        double texelX = (_internalBounds.getMax().getX() - _internalBounds.getMin().getX()) / _width;
+        double texelY = (_internalBounds.getMax().getY() - _internalBounds.getMin().getY()) / _height;
+        auto sampleValue = [&, this](const ElevationTileGrid* grid, int gx, int gy) -> std::uint16_t {
+            double px = _internalBounds.getMin().getX() + (gx + 0.5) * texelX;
+            double py = _internalBounds.getMin().getY() + (gy + 0.5) * texelY;
+            return EncodeHeight(grid->sampleHeight(px, py));
         };
         // texel value at padded coordinates (gx, gy in [-1, width/height]); border texels
         // come from the neighbour that actually covers them, falling back to edge clamping
         auto rawValue = [&, this](int gx, int gy) -> std::uint16_t {
-            const ElevationTileGrid* grid = this;
-            if (gx < 0 && gy >= 0 && gy < _height && compatible(neighbours[0])) {
-                grid = neighbours[0].get(); gx += _width;
-            } else if (gx >= _width && gy >= 0 && gy < _height && compatible(neighbours[1])) {
-                grid = neighbours[1].get(); gx -= _width;
-            } else if (gy < 0 && gx >= 0 && gx < _width && compatible(neighbours[2])) {
-                grid = neighbours[2].get(); gy += _height;
-            } else if (gy >= _height && gx >= 0 && gx < _width && compatible(neighbours[3])) {
-                grid = neighbours[3].get(); gy -= _height;
-            } else if (gx < 0 && gy < 0 && compatible(neighbours[4])) {
-                grid = neighbours[4].get(); gx += _width; gy += _height;
-            } else if (gx >= _width && gy < 0 && compatible(neighbours[5])) {
-                grid = neighbours[5].get(); gx -= _width; gy += _height;
-            } else if (gx < 0 && gy >= _height && compatible(neighbours[6])) {
-                grid = neighbours[6].get(); gx += _width; gy -= _height;
-            } else if (gx >= _width && gy >= _height && compatible(neighbours[7])) {
-                grid = neighbours[7].get(); gx -= _width; gy -= _height;
+            static const std::array<std::pair<int, int>, 8> DIRS = { {
+                { -1, 0 }, { 1, 0 }, { 0, -1 }, { 0, 1 }, { -1, -1 }, { 1, -1 }, { -1, 1 }, { 1, 1 }
+            } };
+            int dx = (gx < 0 ? -1 : (gx >= _width ? 1 : 0));
+            int dy = (gy < 0 ? -1 : (gy >= _height ? 1 : 0));
+            if (dx != 0 || dy != 0) {
+                for (std::size_t i = 0; i < DIRS.size(); i++) {
+                    if (DIRS[i].first != dx || DIRS[i].second != dy) {
+                        continue;
+                    }
+                    const std::shared_ptr<ElevationTileGrid>& neighbour = neighbours[i];
+                    if (sameLevel(neighbour)) {
+                        int nx = gx - dx * _width;
+                        int ny = gy - dy * _height;
+                        return neighbour->_heights[static_cast<std::size_t>(ny) * neighbour->_width + nx];
+                    }
+                    if (neighbour) {
+                        return sampleValue(neighbour.get(), gx, gy);
+                    }
+                    break;
+                }
             }
-            gx = std::min(std::max(gx, 0), grid->_width - 1);
-            gy = std::min(std::max(gy, 0), grid->_height - 1);
-            return grid->_heights[static_cast<std::size_t>(gy) * grid->_width + gx];
+            // no neighbour data: duplicate our own edge texel
+            int cx = std::min(std::max(gx, 0), _width - 1);
+            int cy = std::min(std::max(gy, 0), _height - 1);
+            return _heights[static_cast<std::size_t>(cy) * _width + cx];
         };
 
         std::size_t i = 0;

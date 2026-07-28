@@ -20,6 +20,7 @@ namespace carto {
     static const std::size_t DEFAULT_CACHE_CAPACITY = 64 * 1024 * 1024;
     static const int FAILED_TILE_TTL_MILLISECONDS = 30 * 1000;
     static const int MAX_ANCESTOR_SEARCH_DEPTH = 8;
+    static const std::size_t MAX_PREFETCH_QUEUE_SIZE = 64;
     static constexpr double NO_DATA_ELEVATION = -1000000.0;
     static constexpr double DEFAULT_MIN_ELEVATION = -500.0;
     static constexpr double DEFAULT_MAX_ELEVATION = 9000.0;
@@ -43,16 +44,29 @@ namespace carto {
         _projection(dataSource->getProjection()),
         _dataSourceListener(),
         _exaggeration(1.0f),
+        _seamlessTileEdges(true),
+        _neighbourPrefetch(true),
         _version(1),
         _maxSeenElevation(0.0f),
         _gridCache(DEFAULT_CACHE_CAPACITY),
-        _mutex()
+        _mutex(),
+        _prefetchStopped(false)
     {
         _dataSourceListener = std::make_shared<DataSourceListener>(*this);
         _dataSource->registerOnChangeListener(_dataSourceListener);
     }
 
     ElevationManager::~ElevationManager() {
+        {
+            std::lock_guard<std::mutex> lock(_prefetchMutex);
+            _prefetchStopped = true;
+            _prefetchQueue.clear();
+            _prefetchTileIds.clear();
+        }
+        _prefetchCondition.notify_all();
+        if (_prefetchThread.joinable()) {
+            _prefetchThread.join();
+        }
         _dataSource->unregisterOnChangeListener(_dataSourceListener);
     }
 
@@ -71,6 +85,24 @@ namespace carto {
     void ElevationManager::setExaggeration(float exaggeration) {
         _exaggeration.store(std::max(0.0f, exaggeration));
         _version++;
+    }
+
+    bool ElevationManager::isSeamlessTileEdgesEnabled() const {
+        return _seamlessTileEdges.load();
+    }
+
+    void ElevationManager::setSeamlessTileEdgesEnabled(bool enabled) {
+        if (_seamlessTileEdges.exchange(enabled) != enabled) {
+            _version++; // elevation texture borders change, force a rebuild
+        }
+    }
+
+    bool ElevationManager::isNeighbourPrefetchEnabled() const {
+        return _neighbourPrefetch.load();
+    }
+
+    void ElevationManager::setNeighbourPrefetchEnabled(bool enabled) {
+        _neighbourPrefetch.store(enabled);
     }
 
     std::size_t ElevationManager::getCacheCapacity() const {
@@ -222,6 +254,75 @@ namespace carto {
             _version++;
         }
         return grid;
+    }
+
+    MapTile ElevationManager::getDataTile(const MapTile& mapTile) const {
+        return clampTileZoom(mapTile);
+    }
+
+    void ElevationManager::prefetchTileGrid(const MapTile& mapTile) const {
+        if (!_neighbourPrefetch.load()) {
+            return;
+        }
+        MapTile tile = clampTileZoom(mapTile);
+        if (tile.getZoom() < _dataSource->getMinZoom()) {
+            return;
+        }
+
+        long long tileId = tile.getTileId();
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            std::shared_ptr<ElevationTileGrid> grid;
+            if (_gridCache.read(tileId, grid)) {
+                return; // already loaded, resolved via an ancestor, or recently failed
+            }
+            if (_pendingLoads.find(tileId) != _pendingLoads.end()) {
+                return; // already being loaded by another thread
+            }
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(_prefetchMutex);
+            if (_prefetchStopped) {
+                return;
+            }
+            if (!_prefetchTileIds.insert(tileId).second) {
+                return; // already queued
+            }
+            _prefetchQueue.push_back(tile);
+            while (_prefetchQueue.size() > MAX_PREFETCH_QUEUE_SIZE) {
+                _prefetchTileIds.erase(_prefetchQueue.front().getTileId());
+                _prefetchQueue.pop_front();
+            }
+            if (!_prefetchThread.joinable()) {
+                _prefetchThread = std::thread([this]() { runPrefetchWorker(); });
+            }
+        }
+        _prefetchCondition.notify_one();
+    }
+
+    void ElevationManager::runPrefetchWorker() const {
+        while (true) {
+            MapTile tile(0, 0, 0, 0);
+            {
+                std::unique_lock<std::mutex> lock(_prefetchMutex);
+                _prefetchCondition.wait(lock, [this]() { return _prefetchStopped || !_prefetchQueue.empty(); });
+                if (_prefetchStopped) {
+                    return;
+                }
+                // Newest request first: it belongs to the current viewport, while the oldest
+                // entries may already have scrolled out of view.
+                tile = _prefetchQueue.back();
+                _prefetchQueue.pop_back();
+                _prefetchTileIds.erase(tile.getTileId());
+            }
+            try {
+                getTileGrid(tile, LoadMode::ALLOW_LOAD);
+            }
+            catch (const std::exception& ex) {
+                Log::Warnf("ElevationManager::runPrefetchWorker: Failed to prefetch elevation tile: %s", ex.what());
+            }
+        }
     }
 
     double ElevationManager::getDisplayScale(double internalY) const {

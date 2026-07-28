@@ -12,10 +12,14 @@
 #include "core/MapTile.h"
 
 #include <atomic>
+#include <condition_variable>
+#include <deque>
 #include <future>
 #include <map>
 #include <memory>
 #include <mutex>
+#include <set>
+#include <thread>
 #include <vector>
 
 #include <stdext/timed_lru_cache.h>
@@ -56,6 +60,12 @@ namespace carto {
         float getExaggeration() const;
         void setExaggeration(float exaggeration);
 
+        bool isSeamlessTileEdgesEnabled() const;
+        void setSeamlessTileEdgesEnabled(bool enabled);
+
+        bool isNeighbourPrefetchEnabled() const;
+        void setNeighbourPrefetchEnabled(bool enabled);
+
         std::size_t getCacheCapacity() const;
         void setCacheCapacity(std::size_t capacityInBytes);
 
@@ -89,6 +99,20 @@ namespace carto {
          * The tile must be in XYZ convention (y=0 north, same as vt::TileId and TileDataSource::loadTile).
          */
         std::shared_ptr<ElevationTileGrid> getTileGrid(const MapTile& mapTile, LoadMode mode) const;
+
+        /**
+         * Returns the tile that actually carries the elevation data for the given tile: the same
+         * tile, or its ancestor at the data source maximum zoom level.
+         */
+        MapTile getDataTile(const MapTile& mapTile) const;
+
+        /**
+         * Requests an asynchronous load of the given elevation tile. Never blocks and never
+         * performs IO on the calling thread. A no-op if the grid is already cached, already
+         * queued or currently being loaded, or if neighbour prefetching is disabled.
+         * The tile must be in XYZ convention (y=0 north, same as getTileGrid).
+         */
+        void prefetchTileGrid(const MapTile& mapTile) const;
 
         /**
          * Returns the meters-to-internal-display-units scale at the given internal y coordinate
@@ -131,6 +155,7 @@ namespace carto {
         std::shared_ptr<ElevationTileGrid> getGridForInternalPos(double internalX, double internalY, LoadMode mode) const;
         std::shared_ptr<ElevationTileGrid> loadTileGrid(const MapTile& mapTile) const;
         void getMinMaxDisplayHeight(const MapTile& tile, double& minZ, double& maxZ, bool exact) const;
+        void runPrefetchWorker() const;
 
         const std::shared_ptr<TileDataSource> _dataSource;
         const std::shared_ptr<ElevationDecoder> _elevationDecoder;
@@ -138,12 +163,24 @@ namespace carto {
         std::shared_ptr<DataSourceListener> _dataSourceListener;
 
         std::atomic<float> _exaggeration;
+        std::atomic<bool> _seamlessTileEdges;
+        std::atomic<bool> _neighbourPrefetch;
         mutable std::atomic<unsigned int> _version;
         mutable std::atomic<float> _maxSeenElevation;
 
         mutable cache::timed_lru_cache<long long, std::shared_ptr<ElevationTileGrid> > _gridCache;
         mutable std::map<long long, std::shared_future<std::shared_ptr<ElevationTileGrid> > > _pendingLoads; // single-flight de-duplication of concurrent loads
         mutable std::mutex _mutex;
+
+        // Background prefetch worker: loads elevation tiles requested by the render thread
+        // (visible tiles + their neighbours) without ever blocking it. The thread is started
+        // on the first request and joined in the destructor.
+        mutable std::deque<MapTile> _prefetchQueue;
+        mutable std::set<long long> _prefetchTileIds;
+        mutable std::thread _prefetchThread;
+        mutable std::condition_variable _prefetchCondition;
+        mutable bool _prefetchStopped;
+        mutable std::mutex _prefetchMutex;
     };
 }
 

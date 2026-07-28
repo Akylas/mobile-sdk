@@ -24,6 +24,8 @@
 
 %attribute(carto::TerrainOptions, bool, Enabled, isEnabled, setEnabled)
 %attribute(carto::TerrainOptions, float, Exaggeration, getExaggeration, setExaggeration)
+%attribute(carto::TerrainOptions, bool, SeamlessTileEdgesEnabled, isSeamlessTileEdgesEnabled, setSeamlessTileEdgesEnabled)
+%attribute(carto::TerrainOptions, bool, ElevationPrefetchEnabled, isElevationPrefetchEnabled, setElevationPrefetchEnabled)
 %attribute(carto::TerrainOptions, int, MeshResolution, getMeshResolution, setMeshResolution)
 %attribute(carto::TerrainOptions, bool, RegularGridEnabled, isRegularGridEnabled, setRegularGridEnabled)
 %attribute(carto::TerrainOptions, bool, PainterOrderDepthEnabled, isPainterOrderDepthEnabled, setPainterOrderDepthEnabled)

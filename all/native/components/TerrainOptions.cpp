@@ -76,6 +76,28 @@ namespace carto {
         }
     }
 
+    bool TerrainOptions::isSeamlessTileEdgesEnabled() const {
+        return _elevationManager->isSeamlessTileEdgesEnabled();
+    }
+
+    void TerrainOptions::setSeamlessTileEdgesEnabled(bool enabled) {
+        if (_elevationManager->isSeamlessTileEdgesEnabled() != enabled) {
+            _elevationManager->setSeamlessTileEdgesEnabled(enabled);
+            notifyOptionChanged("SeamlessTileEdgesEnabled");
+        }
+    }
+
+    bool TerrainOptions::isElevationPrefetchEnabled() const {
+        return _elevationManager->isNeighbourPrefetchEnabled();
+    }
+
+    void TerrainOptions::setElevationPrefetchEnabled(bool enabled) {
+        if (_elevationManager->isNeighbourPrefetchEnabled() != enabled) {
+            _elevationManager->setNeighbourPrefetchEnabled(enabled);
+            notifyOptionChanged("ElevationPrefetchEnabled");
+        }
+    }
+
     int TerrainOptions::getMeshResolution() const {
         return _meshResolution.load();
     }
