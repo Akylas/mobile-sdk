@@ -93,22 +93,47 @@ namespace carto {
         if (entry.texture == 0) {
             entry.texture = createTexture();
             entry.baked = false;
+            entry.seeded = false;
         }
         entry.used = true;
         entry.lastUsedFrame = _frameCounter;
         // A changed fingerprint means the layers covering this tile changed - a style layer
         // finished loading, or a proxy was replaced by its native tile - so the texture is stale.
         needsBake = !entry.baked || entry.fingerprint != fingerprint;
-        hasContent = entry.baked;
+        // A seeded texture is not a bake, but it does show this tile's ground - sampling it is
+        // right, and it is the difference between a stand-in and a flat fill.
+        hasContent = entry.baked || entry.seeded;
         return entry.texture;
     }
 
-    void TerrainDrapeCache::markBaked(const vt::TileId& tileId, int stack, std::size_t fingerprint) {
+    void TerrainDrapeCache::markBaked(const vt::TileId& tileId, int stack, std::size_t fingerprint, std::size_t layerMask) {
         auto it = _entries.find(Key { tileId, stack });
         if (it != _entries.end()) {
             it->second.fingerprint = fingerprint;
+            it->second.layerMask = layerMask;
             it->second.baked = true;
+            it->second.seeded = false;
         }
+    }
+
+    void TerrainDrapeCache::markSeeded(const vt::TileId& tileId, int stack) {
+        auto it = _entries.find(Key { tileId, stack });
+        if (it != _entries.end()) {
+            it->second.seeded = true;
+        }
+    }
+
+    bool TerrainDrapeCache::isBaked(const vt::TileId& tileId, int stack) const {
+        auto it = _entries.find(Key { tileId, stack });
+        return it != _entries.end() && it->second.baked;
+    }
+
+    std::size_t TerrainDrapeCache::bakedLayerMask(const vt::TileId& tileId, int stack) const {
+        auto it = _entries.find(Key { tileId, stack });
+        if (it == _entries.end() || !it->second.baked) {
+            return 0;
+        }
+        return it->second.layerMask;
     }
 
     unsigned int TerrainDrapeCache::findBaked(const vt::TileId& tileId, int stack) {
