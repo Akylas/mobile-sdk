@@ -35,7 +35,8 @@ namespace carto {
             */
             IGOR,
             /**
-            * Multi-directional hillshade with multiple light sources.
+            * Multi-directional hillshade based on GDAL: four light sources at 225, 270, 315 and 360
+            * degrees weighted by the aspect. Ignores the illumination azimuth, uses only its altitude.
             */
             MULTIDIRECTIONAL,
             /**
@@ -61,12 +62,15 @@ namespace carto {
         virtual ~HillshadeRasterTileLayer();
 
         /**
-         * Returns the contrast of the hillshade overlay.
+         * Returns the contrast of the hillshade overlay. This is the equivalent of MapLibre's
+         * 'hillshade-exaggeration' paint property: it controls the slope response curve and the
+         * overall strength of the shading, not the relief itself.
          * @return The contrast value (between 0..1). Default is 0.5.
          */
         float getContrast() const;
         /**
-         * Sets the contrast of the hillshade overlay.
+         * Sets the contrast of the hillshade overlay. Equivalent to MapLibre's
+         * 'hillshade-exaggeration'; 0.5 is the neutral value.
          * @param contrast The contrast value (between 0..1).
          */
         void setContrast(float contrast);
@@ -77,19 +81,21 @@ namespace carto {
          */
         float getHeightScale() const;
         /**
-         * Sets the height scale of the hillshade overlay.
+         * Sets the height scale of the hillshade overlay. Baked into the normal map at decode time,
+         * so changing it reloads the tiles. See setLegacyHeightScaleEnabled for the old default.
          * @param heightScale The relative height scale. Actual height is multiplied by this values.
          */
         void setHeightScale(float heightScale);
 
         /**
-         * Returns the per-frame relief exaggeration factor. Unlike height scale this is a shader
-         * uniform applied at render time (no tile re-decode), so it can be animated smoothly.
+         * Returns the per-frame relief exaggeration factor, i.e. the vertical exaggeration of the
+         * slope. Unlike height scale this is a shader uniform applied at render time (no tile
+         * re-decode), so it can be animated smoothly.
          * @return The exaggeration factor. Default is 1.0.
          */
         float getExaggeration() const;
         /**
-         * Sets the per-frame relief exaggeration factor. Scales the hillshade slope/intensity in the
+         * Sets the per-frame relief exaggeration factor. Multiplies the hillshade slope in the
          * shader without re-decoding tiles, so it can change smoothly (e.g. with zoom). 1.0 leaves the
          * appearance unchanged.
          * @param exaggeration The exaggeration factor.
@@ -143,8 +149,14 @@ namespace carto {
         MapVec getIlluminationDirection() const;
         /**
          * Sets the illumination direction.
+         * The horizontal part is read as a compass bearing (x = sin(azimuth), y = cos(azimuth), with
+         * azimuth 0 = north, increasing clockwise) pointing towards the light, and z points down
+         * towards the ground: -sin(altitude). MapLibre's default 'hillshade-illumination-direction'
+         * of 335 degrees at a 45 degree altitude is therefore (-0.4226, 0.9063, -0.7071), which is
+         * the default here too.
          * @param The new direction vector for the illumination light. (0,0,-1) means straight down, (-0.707,0,-0.707) means
          *        from east with a 45 degree angle. The direction vector will be normalized.
+         *        Note that the MULTIDIRECTIONAL method ignores the azimuth and uses only the altitude.
          */
         void setIlluminationDirection(MapVec direction);
         /**
@@ -168,6 +180,22 @@ namespace carto {
          * @param enabled whether to enable or not.
          */
         void setExagerateHeightScaleEnabled(bool enabled);
+
+        /**
+         * Returns whether the legacy (pre-MapLibre-parity) height scale formula is used.
+         * @return True if the legacy formula is used. Default is false.
+         */
+        bool isLegacyHeightScaleEnabled() const;
+
+        /**
+         * Sets whether to use the legacy (pre-MapLibre-parity) height scale formula, in which the
+         * relief is damped by the absolute zoom level and therefore flattens as the camera zooms in.
+         * The default formula instead follows MapLibre: the true slope from zoom 15 up, boosted
+         * below it. Styles tuned against the legacy formula should enable this and also call
+         * setHeightScale(0.09f), which was the old default height scale.
+         * @param enabled Whether to use the legacy formula.
+         */
+        void setLegacyHeightScaleEnabled(bool enabled);
 
         /**
          * Returns the hillshade rendering method.
@@ -255,6 +283,7 @@ namespace carto {
    
         std::atomic<float> _contrast;
         std::atomic<bool> _exagerateHeightScaleEnabled;
+        std::atomic<bool> _legacyHeightScaleEnabled;
         std::atomic<float> _heightScale;
 
         std::atomic<float> _exaggeration;
