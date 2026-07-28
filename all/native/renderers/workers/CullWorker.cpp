@@ -10,6 +10,8 @@
 #include "utils/Log.h"
 #include "utils/ThreadUtils.h"
 
+#include <vt/RenderStats.h>
+
 #include <optional>
 
 namespace carto {
@@ -256,6 +258,7 @@ namespace carto {
     }
     
     void CullWorker::updateLayers(const std::vector<std::shared_ptr<Layer> >& layers) {
+        vt::RenderStats::cullWorkerUpdates++;
         for (const std::shared_ptr<Layer>& layer : layers) {
             layer->update(std::make_shared<CullState>(_envelope, _viewState));
         }

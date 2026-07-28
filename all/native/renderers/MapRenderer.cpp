@@ -43,6 +43,8 @@
 #include "utils/Log.h"
 #include "utils/ThreadUtils.h"
 
+#include <vt/RenderStats.h>
+
 #include <algorithm>
 #include <limits>
 #include <cstdio>
@@ -53,6 +55,66 @@
 #include <vector>
 
 namespace carto {
+
+    namespace {
+        // Diagnostic dump of the vt label/tile churn counters. Set to false to silence.
+        // Everything except 'live' is a per-interval delta. Only called from the GL thread,
+        // so the previous values need no synchronization; the counters themselves are atomic
+        // because the placement worker and the tile threads also increment them.
+        constexpr bool LOG_RENDER_STATS = true;
+        constexpr int RENDER_STATS_INTERVAL = 1000; // ms
+
+        void logRenderStats() {
+            using vt::RenderStats;
+
+            static const int COUNT = 16;
+            static std::chrono::steady_clock::time_point lastTime = std::chrono::steady_clock::now();
+            static long long lastValues[COUNT] = { 0 };
+
+            std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+            if (now - lastTime < std::chrono::milliseconds(RENDER_STATS_INTERVAL)) {
+                return;
+            }
+            lastTime = now;
+
+            const long long values[COUNT] = {
+                RenderStats::visibleTileSetChanges.load(),
+                RenderStats::tileSurfacesBuilt.load(),
+                RenderStats::tileSurfacesInvalidated.load(),
+                RenderStats::labelsAllocated.load(),
+                RenderStats::labelElevationReanchors.load(),
+                RenderStats::placementUpdates.load(),
+                RenderStats::placementReanchorsNull.load(),
+                RenderStats::placementReanchorsHidden.load(),
+                RenderStats::placementReanchorsVisible.load(),
+                RenderStats::snapPlacements.load(),
+                RenderStats::snapPlacementsMoved.load(),
+                RenderStats::labelMapRebuilds.load(),
+                RenderStats::labelsReused.load(),
+                RenderStats::cullWorkerUpdates.load(),
+                RenderStats::tileRecalculations.load(),
+                RenderStats::tileLayersSkipped.load()
+            };
+            long long deltas[COUNT];
+            for (int i = 0; i < COUNT; i++) {
+                deltas[i] = values[i] - lastValues[i];
+                lastValues[i] = values[i];
+            }
+            static long long lastPasses = 0, lastFlips = 0;
+            long long passes = RenderStats::cullerPasses.load();
+            long long flips = RenderStats::cullerVisibilityFlips.load();
+            long long deltaPasses = passes - lastPasses;
+            long long deltaFlips = flips - lastFlips;
+            lastPasses = passes;
+            lastFlips = flips;
+
+            Log::Infof("RenderStats: cullUpd=%lld tileRecalc=%lld tileSkip=%lld tileSets=%lld labelMaps=%lld | labelsAlloc=%lld reused=%lld live=%lld elevReanchor=%lld | placeUpd=%lld reNull=%lld reHidden=%lld reVisible=%lld | snap=%lld snapMoved=%lld | cullPasses=%lld visFlips=%lld",
+                       deltas[13], deltas[14], deltas[15], deltas[0], deltas[11],
+                       deltas[3], deltas[12], RenderStats::labelsLive.load(), deltas[4],
+                       deltas[5], deltas[6], deltas[7], deltas[8],
+                       deltas[9], deltas[10], deltaPasses, deltaFlips);
+        }
+    }
 
     MapRenderer::MapRenderer(const std::shared_ptr<Layers>& layers, const std::shared_ptr<Options>& options) :
         _lastFrameTime(),
@@ -738,9 +800,13 @@ namespace carto {
             _lastFrameTime.reset();
         }
 
+        if (LOG_RENDER_STATS) {
+            logRenderStats();
+        }
+
         GLContext::CheckGLError("MapRenderer::onDrawFrame");
     }
-    
+
     void MapRenderer::onSurfaceDestroyed() {
         // This method may never be called (e.x Android)
         _surfaceCreated = false;
