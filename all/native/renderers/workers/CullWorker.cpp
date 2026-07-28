@@ -258,7 +258,7 @@ namespace carto {
     }
     
     void CullWorker::updateLayers(const std::vector<std::shared_ptr<Layer> >& layers) {
-        vt::RenderStats::cullWorkerUpdates++;
+        VT_STAT_INC(cullWorkerUpdates);
         for (const std::shared_ptr<Layer>& layer : layers) {
             layer->update(std::make_shared<CullState>(_envelope, _viewState));
         }

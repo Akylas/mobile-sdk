@@ -301,7 +301,7 @@ namespace carto {
         // Check if layer should be drawn
         if (!isVisible() || !getVisibleZoomRange().inRange(cullState->getViewState().getZoom()) || getOpacity() <= 0) {
             _calculatingTiles = false;
-            vt::RenderStats::tileLayersSkipped++;
+            VT_STAT_INC(tileLayersSkipped);
 
             // Report the real change, not an unconditional one. This path runs on every cull
             // pass for as long as the layer stays hidden, and a hardcoded 'changed' makes a
@@ -317,7 +317,7 @@ namespace carto {
         // Check if tiles need to be recalculated
         bool recalculateTiles = (!_tileCullState || _frameNr != _lastFrameNr || cullState->getViewState().getModelviewProjectionMat() != _tileCullState->getViewState().getModelviewProjectionMat());
         if (recalculateTiles) {
-            vt::RenderStats::tileRecalculations++;
+            VT_STAT_INC(tileRecalculations);
             // If the view has changed calculate new visible tiles, otherwise use the old ones
             calculateVisibleTiles(cullState);
 

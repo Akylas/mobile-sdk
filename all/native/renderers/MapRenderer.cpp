@@ -56,18 +56,19 @@
 
 namespace carto {
 
+#if CARTO_VT_RENDER_STATS
     namespace {
-        // Diagnostic dump of the vt label/tile churn counters. Set to false to silence.
-        // Everything except 'live' is a per-interval delta. Only called from the GL thread,
-        // so the previous values need no synchronization; the counters themselves are atomic
-        // because the placement worker and the tile threads also increment them.
-        constexpr bool LOG_RENDER_STATS = true;
+        // Diagnostic dump of the vt label/tile churn counters, compiled in together with the
+        // counters themselves (see vt/RenderStats.h - CARTO_VT_RENDER_STATS is the only
+        // switch). Everything except 'live' is a per-interval delta. Only called from the GL
+        // thread, so the previous values need no synchronization; the counters themselves are
+        // atomic because the placement worker and the tile threads also increment them.
         constexpr int RENDER_STATS_INTERVAL = 1000; // ms
 
         void logRenderStats() {
             using vt::RenderStats;
 
-            static const int COUNT = 16;
+            static const int COUNT = 17;
             static std::chrono::steady_clock::time_point lastTime = std::chrono::steady_clock::now();
             static long long lastValues[COUNT] = { 0 };
 
@@ -93,7 +94,8 @@ namespace carto {
                 RenderStats::labelsReused.load(),
                 RenderStats::cullWorkerUpdates.load(),
                 RenderStats::tileRecalculations.load(),
-                RenderStats::tileLayersSkipped.load()
+                RenderStats::tileLayersSkipped.load(),
+                RenderStats::placementSearches.load()
             };
             long long deltas[COUNT];
             for (int i = 0; i < COUNT; i++) {
@@ -108,13 +110,14 @@ namespace carto {
             lastPasses = passes;
             lastFlips = flips;
 
-            Log::Infof("RenderStats: cullUpd=%lld tileRecalc=%lld tileSkip=%lld tileSets=%lld labelMaps=%lld | labelsAlloc=%lld reused=%lld live=%lld elevReanchor=%lld | placeUpd=%lld reNull=%lld reHidden=%lld reVisible=%lld | snap=%lld snapMoved=%lld | cullPasses=%lld visFlips=%lld",
+            Log::Infof("RenderStats: cullUpd=%lld tileRecalc=%lld tileSkip=%lld tileSets=%lld labelMaps=%lld | labelsAlloc=%lld reused=%lld live=%lld elevReanchor=%lld | placeUpd=%lld reNull=%lld reHidden=%lld reVisible=%lld search=%lld | snap=%lld snapMoved=%lld | cullPasses=%lld visFlips=%lld",
                        deltas[13], deltas[14], deltas[15], deltas[0], deltas[11],
                        deltas[3], deltas[12], RenderStats::labelsLive.load(), deltas[4],
-                       deltas[5], deltas[6], deltas[7], deltas[8],
+                       deltas[5], deltas[6], deltas[7], deltas[8], deltas[16],
                        deltas[9], deltas[10], deltaPasses, deltaFlips);
         }
     }
+#endif
 
     MapRenderer::MapRenderer(const std::shared_ptr<Layers>& layers, const std::shared_ptr<Options>& options) :
         _lastFrameTime(),
@@ -800,9 +803,9 @@ namespace carto {
             _lastFrameTime.reset();
         }
 
-        if (LOG_RENDER_STATS) {
-            logRenderStats();
-        }
+#if CARTO_VT_RENDER_STATS
+        logRenderStats();
+#endif
 
         GLContext::CheckGLError("MapRenderer::onDrawFrame");
     }
