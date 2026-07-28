@@ -200,7 +200,7 @@ namespace carto {
         // tile layer appends itself; a layer that owns child layers (CompositeVectorTileLayer)
         // must append them too, or their content is neither baked into the drape texture nor told
         // that the ground is draped - it then paints itself a second time as displaced geometry.
-        virtual void collectDrapeLayers(std::vector<std::shared_ptr<TileLayer> >& drapeLayers);
+        virtual void collectDrapeLayers(std::vector<std::shared_ptr<TileLayer> >& drapeLayers, const ViewState& viewState);
 
         virtual std::shared_ptr<Bitmap> getBackgroundBitmap(const ViewState& viewState) const;
         // The flat colour behind this layer's content. Normally it reaches the screen through the

@@ -57,8 +57,28 @@ namespace carto {
         /**
          * Records that the caller actually baked this tile. Marking on acquire instead would
          * poison the entry for good on any path that acquires and then does not bake.
+         * layerMask is the set of drape layers that actually put something in the texture.
          */
-        void markBaked(const vt::TileId& tileId, int stack, std::size_t fingerprint);
+        void markBaked(const vt::TileId& tileId, int stack, std::size_t fingerprint, std::size_t layerMask);
+        /**
+         * The layers the cached texture was baked from, or 0 if it has never been baked. A tile
+         * baked before one of its layers had loaded shows that layer's ground missing - visually
+         * a hillshade-only patch among finished tiles - so it is worth re-baking sooner than a
+         * tile whose content merely moved on.
+         */
+        std::size_t bakedLayerMask(const vt::TileId& tileId, int stack) const;
+        /**
+         * Records that the caller filled this tile's texture from other cached tiles (a magnified
+         * ancestor, or the finer tiles it replaces) rather than by baking it. The texture is then
+         * safe to sample - it shows the right ground - but it is NOT a bake: it still needs one,
+         * and it must never become a source for another seed, or the picture degrades every time
+         * it is copied.
+         */
+        void markSeeded(const vt::TileId& tileId, int stack);
+        /**
+         * Whether the texture holds a real bake, as opposed to nothing or a seed.
+         */
+        bool isBaked(const vt::TileId& tileId, int stack) const;
         /**
          * Returns the texture of an already-baked tile, or 0. Used to let a tile whose own bake
          * has not landed yet stand in on an ancestor's texture instead of flashing a flat colour.
@@ -93,7 +113,9 @@ namespace carto {
         struct Entry {
             unsigned int texture = 0;
             std::size_t fingerprint = 0;
+            std::size_t layerMask = 0;
             bool baked = false;
+            bool seeded = false;
             bool used = false;
             unsigned int lastUsedFrame = 0;
         };

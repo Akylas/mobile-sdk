@@ -371,7 +371,13 @@ namespace carto {
 
         std::lock_guard<std::recursive_mutex> lock(_sourceMutex);
         for (const ExternalSource& s : _externalSources) {
-            if (s.childLayer) {
+            // Only sources the style actually gives a slot to. A registered source the style's
+            // 'layers' never mentions has no draw item (rebuildDrawItems warns about it), so
+            // nothing would ever draw it - but it was still fetching and decoding its tiles, and
+            // for a hillshade that means downloading DEM tiles and building normal maps for a
+            // layer the map does not show. rebuildDrawItems runs on every style change, so a
+            // source picked up by a later style starts loading then.
+            if (s.childLayer && isDrawnSlot(s.name)) {
                 s.childLayer->loadData(cullState);
             }
         }
@@ -443,6 +449,16 @@ namespace carto {
     const CompositeVectorTileLayer::ExternalSource* CompositeVectorTileLayer::findExternalSource(const std::string& name) const {
         auto it = std::find_if(_externalSources.begin(), _externalSources.end(), [&](const ExternalSource& s) { return s.name == name; });
         return it != _externalSources.end() ? &(*it) : nullptr;
+    }
+
+    bool CompositeVectorTileLayer::isDrawnSlot(const std::string& name) const {
+        // Caller holds _sourceMutex. A source with no draw item is not in the style's 'layers'.
+        for (const DrawItem& item : _drawItems) {
+            if (item.kind == DRAW_ITEM_EXTERNAL && item.slot == name) {
+                return true;
+            }
+        }
+        return false;
     }
 
     void CompositeVectorTileLayer::applyConfig(const ExternalSource& source, const mvt::ResolvedLayerConfig& config, const ViewState& viewState) {
@@ -593,16 +609,19 @@ namespace carto {
         }
     }
 
-    void CompositeVectorTileLayer::collectDrapeLayers(std::vector<std::shared_ptr<TileLayer> >& drapeLayers) {
-        // Same order as renderComposite: group 0 is this layer itself, then every draw item.
-        // Without the children the cross-layer drape sees a single layer holding only group 0:
-        // the hillshade, the raster slots and every later style-layer group are then neither baked
-        // into the drape texture nor suppressed from the 3D pass, so they keep their own terrain
-        // pre-pass and depth domain - exactly the split the shared drape exists to remove.
-        TileLayer::collectDrapeLayers(drapeLayers);
+    void CompositeVectorTileLayer::collectDrapeLayers(std::vector<std::shared_ptr<TileLayer> >& drapeLayers, const ViewState& viewState) {
+        // Same order AND the same gating as renderComposite: group 0 is this layer itself, then
+        // every draw item. Without the children the cross-layer drape sees a single layer holding
+        // only group 0: the hillshade, the raster slots and every later style-layer group are then
+        // neither baked into the drape texture nor suppressed from the 3D pass, so they keep their
+        // own terrain pre-pass and depth domain - exactly the split the shared drape exists to
+        // remove.
+        TileLayer::collectDrapeLayers(drapeLayers, viewState);
         if (!isVisible()) {
             return;
         }
+
+        auto decoder = std::dynamic_pointer_cast<MBVectorTileDecoder>(getTileDecoder());
 
         std::lock_guard<std::recursive_mutex> lock(_sourceMutex);
         for (const DrawItem& item : _drawItems) {
@@ -610,10 +629,23 @@ namespace carto {
             if (item.kind == DRAW_ITEM_VT_GROUP) {
                 childLayer = item.groupLayer;
             } else if (const ExternalSource* source = findExternalSource(item.slot)) {
+                // Raster/hillshade children are gated by their config symbolizer exactly as in
+                // renderComposite. Collecting one the style hides at this zoom bakes it into the
+                // terrain texture, which is how a hillshade the style never draws still ended up
+                // on the map. The config is applied here as well, because the bake runs BEFORE
+                // renderComposite in the frame and a texture baked with last frame's settings is
+                // not re-baked afterwards - the fingerprint does not see style parameters.
+                if (source->type != CompositeSourceType::COMPOSITE_SOURCE_TYPE_VECTOR && decoder) {
+                    mvt::ResolvedLayerConfig config = decoder->resolveLayerConfig(item.slot, viewState.getZoom());
+                    applyConfig(*source, config, viewState);
+                    if (!config.visible) {
+                        continue;
+                    }
+                }
                 childLayer = source->childLayer;
             }
             if (childLayer) {
-                childLayer->collectDrapeLayers(drapeLayers);
+                childLayer->collectDrapeLayers(drapeLayers, viewState);
             }
         }
     }
