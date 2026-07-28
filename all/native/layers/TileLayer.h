@@ -107,8 +107,8 @@ namespace carto {
          * will considerably increase network traffic if used with online maps. The default is false.
          * @param preloading The new preloading state of the layer.
          */
-        void setPreloading(bool preloading);
-        
+        virtual void setPreloading(bool preloading);
+
         /**
          * Returns the state of the synchronized refresh flag.
          * @return The state of the synchronized refresh flag.
@@ -144,7 +144,7 @@ namespace carto {
          * The default bias is 0.
          * @param bias The new bias value, both positive and negative fractional values are supported.
          */
-        void setZoomLevelBias(float bias);
+        virtual void setZoomLevelBias(float bias);
         
         /**
          * Gets the current maximum overzoom level for this layer.
