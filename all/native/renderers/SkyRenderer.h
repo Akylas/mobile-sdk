@@ -69,6 +69,8 @@ namespace carto {
         GLint _u_zoom;
         GLint _u_cameraHeight;
         GLint _u_resolution;
+        GLint _u_fogColor;
+        GLint _u_fogBlend;
 
         std::chrono::steady_clock::time_point _startTime;
 

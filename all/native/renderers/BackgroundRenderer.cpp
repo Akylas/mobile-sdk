@@ -1,6 +1,9 @@
 #include "BackgroundRenderer.h"
 #include "components/Layers.h"
 #include "components/Options.h"
+#include "components/StyleEnvironment.h"
+#include "components/TerrainOptions.h"
+#include "graphics/Color.h"
 #include "graphics/Bitmap.h"
 #include "graphics/ViewState.h"
 #include "layers/Layer.h"
@@ -9,6 +12,9 @@
 #include "renderers/utils/Texture.h"
 #include "utils/Const.h"
 #include "utils/Log.h"
+
+#include <algorithm>
+#include <cmath>
 
 #include <cglib/mat.h>
 
@@ -53,6 +59,8 @@ namespace carto {
         _u_tex = _shader->getUniformLoc("u_tex");
         _u_lightDir = _shader->getUniformLoc("u_lightDir");
         _u_mvpMat = _shader->getUniformLoc("u_mvpMat");
+        _u_fogColor = _shader->getUniformLoc("u_fogColor");
+        _u_fogParams = _shader->getUniformLoc("u_fogParams");
         _a_coord = _shader->getAttribLoc("a_coord");
         _a_normal = _shader->getAttribLoc("a_normal");
         _a_texCoord = _shader->getAttribLoc("a_texCoord");
@@ -168,10 +176,38 @@ namespace carto {
         _glResourceManager.reset();
     }
     
+    void BackgroundRenderer::setupFogUniforms(bool enabled) {
+        // The terrain distance fog, resolved exactly like TileRenderer resolves it for the tile
+        // content (metres in the API, internal units in the renderer). Passing a zero range
+        // disables it, which is what the sky band uses - the sky is the horizon, not ground at
+        // an enormous distance, and fogging it would paint the fog colour over the whole sky.
+        float startDistance = 0.0f;
+        float invRange = 0.0f;
+        Color fogColor(0, 0, 0, 0);
+        if (enabled) {
+            if (std::shared_ptr<TerrainOptions> terrainOptions = _options.getTerrainOptions()) {
+                if (terrainOptions->isEnabled()) {
+                    ResolvedLighting lighting = resolveLighting(_options.getLightOptions(), StyleEnvironment());
+                    ResolvedFog fog = resolveFog(terrainOptions, StyleEnvironment(), lighting);
+                    if (fog.active()) {
+                        fogColor = fog.color;
+                        double metersToInternal = static_cast<double>(Const::WORLD_SIZE) / Const::EARTH_CIRCUMFERENCE;
+                        startDistance = static_cast<float>(fog.startDistance * metersToInternal);
+                        invRange = static_cast<float>(1.0 / std::max(1.0e-9, (fog.distance - fog.startDistance) * metersToInternal));
+                    }
+                }
+            }
+        }
+        glUniform4f(_u_fogColor, fogColor.getR() / 255.0f, fogColor.getG() / 255.0f, fogColor.getB() / 255.0f, fogColor.getA() / 255.0f);
+        glUniform2f(_u_fogParams, startDistance, invRange);
+    }
+
     void BackgroundRenderer::drawBackground(const ViewState& viewState) {
         if (!_backgroundTex) {
             return;
         }
+
+        setupFogUniforms(true);
 
         double intTwoPowZoom = 1 << static_cast<int>(viewState.getZoom());
         const cglib::vec3<double>& focusPos = viewState.getFocusPos();
@@ -259,6 +295,8 @@ namespace carto {
         if (!_skyTex) {
             return;
         }
+
+        setupFogUniforms(false);
 
         // Texture
         glBindTexture(GL_TEXTURE_2D, _skyTex->getTexId());
@@ -453,6 +491,8 @@ namespace carto {
         #version 100
         precision mediump float;
         uniform sampler2D u_tex;
+        uniform lowp vec4 u_fogColor;   // rgb = fog colour, a = how opaque the fog gets at full distance
+        uniform highp vec2 u_fogParams; // x = distance where the fog starts, y = 1 / (end - start), 0 = no fog
         varying lowp vec4 v_color;
         #ifdef GL_FRAGMENT_PRECISION_HIGH
         varying highp vec2 v_texCoord;
@@ -464,7 +504,13 @@ namespace carto {
             if (color.a == 0.0) {
                 discard;
             }
-            gl_FragColor = color;
+            // Same fog as the terrain content (vt applyFog): eye distance is 1/gl_FragCoord.w.
+            // The background plane is what fills the view past the terrain view distance, so it
+            // has to fade into the fog as well - otherwise the ground ends on a hard band of
+            // background colour instead of reaching the sky.
+            highp float dist = 1.0 / max(1.0e-9, gl_FragCoord.w);
+            lowp float amount = clamp((dist - u_fogParams.x) * u_fogParams.y, 0.0, 1.0) * u_fogColor.a;
+            gl_FragColor = vec4(mix(color.rgb, u_fogColor.rgb, amount), color.a);
         }
     )GLSL";
 }
