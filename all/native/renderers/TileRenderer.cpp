@@ -63,7 +63,8 @@ namespace carto {
         _normalIlluminationDirection(0,0,0),
         _mapRotation(0),
         _hillshadeMethod(HillshadeMethod::STANDARD),
-        _hillshadeExaggeration(0.5f),
+        _hillshadeExaggeration(1.0f),
+        _hillshadeIntensity(0.5f),
         _tiles(),
         _mutex()
     {
@@ -190,6 +191,11 @@ namespace carto {
     void TileRenderer::setHillshadeExaggeration(float exaggeration) {
         std::lock_guard<std::mutex> lock(_mutex);
         _hillshadeExaggeration = exaggeration;
+    }
+
+    void TileRenderer::setHillshadeIntensity(float intensity) {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _hillshadeIntensity = intensity;
     }
 
     void TileRenderer::setRendererLayerFilter(const std::optional<std::regex>& filter) {
@@ -439,6 +445,12 @@ namespace carto {
             }
             if (_maxVertexTextureUnits > 0) {
                 std::shared_ptr<ElevationManager> elevationManager = activeTerrainOptions->getElevationManager();
+                if (elevationManager) {
+                    // Cap elevation levels at what the mesh can express - for every elevation
+                    // consumer, not just the drawn surface (billboard occlusion ray marching and
+                    // element placement query the same manager and must see the same heights).
+                    elevationManager->setSurfaceResolution(activeTerrainOptions->getMeshResolution());
+                }
                 if (_elevationTextureCache && _elevationTextureCache->getElevationManager() != elevationManager) {
                     _elevationTextureCache.reset();
                 }
@@ -448,6 +460,7 @@ namespace carto {
                     }
                 }
                 if (_elevationTextureCache) {
+                    _elevationTextureCache->beginFrame();
                     std::shared_ptr<ElevationTextureCache> elevationTextureCache = _elevationTextureCache;
                     terrainTextureProvider = [elevationTextureCache](const vt::TileId& tileId, vt::GLTileRenderer::TerrainTexture& terrainTexture) {
                         return elevationTextureCache->getTexture(tileId, terrainTexture);
@@ -497,6 +510,7 @@ namespace carto {
         bool regularGrid = painterOrder || drapeFills || (terrainMode && activeTerrainOptions && activeTerrainOptions->isRegularGridEnabled() && (bool) terrainTextureProvider);
         tileRenderer->setTerrainRegularGrid(regularGrid, activeTerrainOptions ? activeTerrainOptions->getMeshResolution() : 0);
         tileRenderer->setTerrainPainterOrder(painterOrder);
+        tileRenderer->setTerrainEdgeStitching(regularGrid && activeTerrainOptions && activeTerrainOptions->isTileEdgeStitchingEnabled());
         // Draped content is baked FLAT (orthographic, no displacement), so lines need no terrain
         // subdivision either - draping them is strictly cheaper as well as artifact-free.
         tileRenderer->setTerrainDrapeFills(drapeFills, drapeFills);
@@ -580,9 +594,14 @@ namespace carto {
             if (_normalIlluminationMapRotationEnabled) {
                 double y = normalIlluminationDir.getY();
                 double x = normalIlluminationDir.getX();
-                double azimuthal = ((x > 0) ? acos(y) : -acos(y)) * Const::RAD_TO_DEG - _mapRotation;
-                double sin = std::sin(azimuthal * Const::DEG_TO_RAD);
-                double cos = std::cos(azimuthal * Const::DEG_TO_RAD);
+                // Compass azimuth (0 = north, clockwise) of the horizontal part, counter-rotated by
+                // the map rotation so the light stays anchored to the viewport. The horizontal
+                // length is preserved - the previous acos(y) form assumed a unit xy and silently
+                // rewrote the horizontal/vertical balance of any other direction.
+                double xyLength = std::sqrt(x * x + y * y);
+                double azimuthal = std::atan2(x, y) * Const::RAD_TO_DEG - _mapRotation;
+                double sin = std::sin(azimuthal * Const::DEG_TO_RAD) * xyLength;
+                double cos = std::cos(azimuthal * Const::DEG_TO_RAD) * xyLength;
                 normalIlluminationDir = MapVec(sin, cos, normalIlluminationDir.getZ());
             }
 
@@ -964,18 +983,22 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
             tileRenderer->setLightingShader3D(lightingShader3D);
 
             vt::GLTileRenderer::LightingShader lightingShaderNormalMap(false, _normalMapLightingShader, [this](GLuint shaderProgram, const vt::ViewState& viewState) {
-                    // Pass colors without premultiplying RGB by alpha, matching MapLibre's approach
+                    // Straight (non-premultiplied) colors - the shader premultiplies them before
+                    // mixing, which is the form MapLibre's hillshade fragment shader works in.
                     glUniform4f(glGetUniformLocation(shaderProgram, "u_shadowColor"), _normalMapShadowColor.getR() / 255.0f, _normalMapShadowColor.getG() / 255.0f, _normalMapShadowColor.getB() / 255.0f, _normalMapShadowColor.getA() / 255.0f);
                     glUniform4f(glGetUniformLocation(shaderProgram, "u_accentColor"), _normalMapAccentColor.getR() / 255.0f, _normalMapAccentColor.getG() / 255.0f, _normalMapAccentColor.getB() / 255.0f, _normalMapAccentColor.getA() / 255.0f);
                     glUniform4f(glGetUniformLocation(shaderProgram, "u_highlightColor"), _normalMapHighlightColor.getR() / 255.0f, _normalMapHighlightColor.getG() / 255.0f, _normalMapHighlightColor.getB() / 255.0f, _normalMapHighlightColor.getA() / 255.0f);
                     glUniform3fv(glGetUniformLocation(shaderProgram, "u_lightDir"), 1, _normalLightDir.data() );
                     glUniform1i(glGetUniformLocation(shaderProgram, "u_method"), (_hillshadeMethod));
                     glUniform1f(glGetUniformLocation(shaderProgram, "u_exaggeration"), _hillshadeExaggeration);
+                    // MapLibre's 'hillshade-exaggeration' (the slope response curve), fed from the
+                    // layer's contrast. Kept separate from u_exaggeration, which scales the slope.
+                    glUniform1f(glGetUniformLocation(shaderProgram, "u_intensity"), _hillshadeIntensity);
                     // Elevation-encoded normal map + contour lines (opt-in). These uniforms have no
                     // effect unless the normal map was built with elevation encoding (see HillshadeRasterTileLayer).
                     glUniform1f(glGetUniformLocation(shaderProgram, "u_elevationEncoded"), _normalMapElevationEncoded ? 1.0f : 0.0f);
                     glUniform2f(glGetUniformLocation(shaderProgram, "u_elevationDecode"), vt::NormalMapBuilder::ELEVATION_SCALE, vt::NormalMapBuilder::ELEVATION_OFFSET);
-                    glUniform1f(glGetUniformLocation(shaderProgram, "u_contrast"), _hillshadeExaggeration);
+                    glUniform1f(glGetUniformLocation(shaderProgram, "u_contrast"), _hillshadeIntensity);
                     glUniform4f(glGetUniformLocation(shaderProgram, "u_contourColor"), _normalMapContourColor.getR() / 255.0f, _normalMapContourColor.getG() / 255.0f, _normalMapContourColor.getB() / 255.0f, _normalMapContourColor.getA() / 255.0f);
                     glUniform1f(glGetUniformLocation(shaderProgram, "u_contourInterval"), _normalMapContourInterval);
                     glUniform1f(glGetUniformLocation(shaderProgram, "u_contourWidth"), _normalMapContourWidth);
@@ -1030,7 +1053,11 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
         uniform vec4 u_accentColor;
         uniform vec3 u_lightDir;
         uniform int u_method;
+        // Vertical relief multiplier applied to the slope (HillshadeRasterTileLayer exaggeration).
         uniform float u_exaggeration;
+        // MapLibre's 'hillshade-exaggeration': the slope response curve and the overall strength
+        // (HillshadeRasterTileLayer contrast). Default 0.5, matching the MapLibre style spec.
+        uniform float u_intensity;
 
         #define PI 3.141592653589793
         #define STANDARD 0
@@ -1039,58 +1066,70 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
         #define MULTIDIRECTIONAL 3
         #define BASIC 4
 
+        // All algorithms below composite in premultiplied alpha (the renderer blends normal map
+        // tiles with GL_ONE, GL_ONE_MINUS_SRC_ALPHA), so the straight colors coming in from the
+        // uniforms are premultiplied first - as MapLibre does before its shader ever runs.
+        vec4 premul(vec4 color) {
+            return vec4(color.rgb * color.a, color.a);
+        }
+
         float get_aspect(vec2 deriv) {
             return deriv.x != 0.0 ? atan(deriv.y, -deriv.x) : PI / 2.0 * (deriv.y > 0.0 ? 1.0 : -1.0);
         }
 
+        // The GDAL-derived algorithms below scale the slope by the intensity, as MapLibre does
+        // (deriv * u_exaggeration * 2.0 in its hillshade.fragment.glsl). standard_hillshade does
+        // not - it feeds the intensity into its slope response curve instead.
+        vec2 scale_deriv(vec2 deriv) {
+            return deriv * u_intensity * 2.0;
+        }
+
         // Based on GDALHillshadeIgorAlg()
-        vec4 igor_hillshade(vec2 deriv, vec3 lightDir) {
+        vec4 igor_hillshade(vec2 deriv_in, float azimuth) {
+            vec2 deriv = scale_deriv(deriv_in);
             float aspect = get_aspect(deriv);
-            // Convert light direction to azimuth
-            float azimuth = atan(lightDir.y, lightDir.x) + PI;
             float slope_strength = atan(length(deriv)) * 2.0/PI;
             float aspect_strength = 1.0 - abs(mod((aspect + azimuth) / PI + 0.5, 2.0) - 1.0);
             float shadow_strength = slope_strength * aspect_strength;
             float highlight_strength = slope_strength * (1.0-aspect_strength);
-            vec4 result = u_shadowColor * shadow_strength + u_highlightColor * highlight_strength;
-            // Premultiply RGB by alpha to handle transparency correctly
-            return vec4(result.rgb * result.a, result.a);
+            return premul(u_shadowColor) * shadow_strength + premul(u_highlightColor) * highlight_strength;
         }
 
-        // MapLibre's legacy hillshade algorithm
-        vec4 standard_hillshade(vec2 deriv, vec3 lightDir) {
-            // Convert light direction to azimuth
-            float azimuth = atan(lightDir.y, lightDir.x) + PI;
-
-            // We multiply the slope by an arbitrary z-factor of 0.625
+        // Port of MapLibre's hillshade.fragment.glsl. Kept line-for-line comparable so the two
+        // renderers can be diffed against each other; the only deliberate difference is that the
+        // Mercator scale correction (MapLibre's 'scaleFactor') is baked into the normal map by
+        // NormalMapBuilder instead of being recomputed per fragment from a latitude range.
+        vec4 standard_hillshade(vec2 deriv, float azimuth) {
+            // We also multiply the slope by an arbitrary z-factor of 0.625
             float slope = atan(0.625 * length(deriv));
             float aspect = get_aspect(deriv);
 
-            float intensity = u_exaggeration;
+            float intensity = u_intensity;
 
-            // Scale the slope exponentially based on intensity
+            // We scale the slope exponentially based on intensity, using the position of the
+            // maximum return value of the shade function as the exponent
             float base = 1.875 - intensity * 1.75;
             float maxValue = 0.5 * PI;
             float scaledSlope = intensity != 0.5 ? ((pow(base, slope) - 1.0) / (pow(base, maxValue) - 1.0)) * maxValue : slope;
 
-            // The accent color is calculated with the cosine of the slope
+            // The accent color is calculated with the cosine of the slope while the shade color is
+            // calculated with the sine, so that the accent color's rate of change eases in while
+            // the shade color's eases out.
             float accent = cos(scaledSlope);
-            vec4 accent_color = (1.0 - accent) * u_accentColor * clamp(intensity * 2.0, 0.0, 1.0);
-            
-            // Shade color based on aspect and azimuth
+            // Both the accent and shade color are multiplied by a clamped intensity value so that
+            // intensities >= 0.5 do not additionally affect the color values, while intensity
+            // values < 0.5 make the overall color more transparent.
+            vec4 accent_color = (1.0 - accent) * premul(u_accentColor) * clamp(intensity * 2.0, 0.0, 1.0);
+
             float shade = abs(mod((aspect + azimuth) / PI + 0.5, 2.0) - 1.0);
-            vec4 shade_color = mix(u_shadowColor, u_highlightColor, shade) * sin(scaledSlope) * clamp(intensity * 2.0, 0.0, 1.0);
-            
-            vec4 result = accent_color * (1.0 - shade_color.a) + shade_color;
-            // Premultiply RGB by alpha to handle transparency correctly
-            return vec4(result.rgb * result.a, result.a);
+            vec4 shade_color = mix(premul(u_shadowColor), premul(u_highlightColor), shade) * sin(scaledSlope) * clamp(intensity * 2.0, 0.0, 1.0);
+
+            return accent_color * (1.0 - shade_color.a) + shade_color;
         }
 
-        // Based on GDALHillshadeAlg()
-        vec4 basic_hillshade(vec2 deriv, vec3 lightDir) {
-            float azimuth = atan(lightDir.y, lightDir.x) + PI;
-            float altitude = asin(clamp(lightDir.z, -1.0, 1.0));
-            
+        // Based on GDALHillshadeAlg(). 'altitude' is the light's elevation above the horizon.
+        vec4 basic_hillshade(vec2 deriv_in, float azimuth, float altitude) {
+            vec2 deriv = scale_deriv(deriv_in);
             float cos_az = cos(azimuth);
             float sin_az = sin(azimuth);
             float cos_alt = cos(altitude);
@@ -1099,28 +1138,55 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
             float cang = (sin_alt - (deriv.y*cos_az*cos_alt - deriv.x*sin_az*cos_alt)) / sqrt(1.0 + dot(deriv, deriv));
 
             float shade = clamp(cang, 0.0, 1.0);
-            vec4 result;
             if(shade > 0.5) {
-                result = u_highlightColor * (2.0*shade - 1.0);
-            } else {
-                result = u_shadowColor * (1.0 - 2.0*shade);
+                return premul(u_highlightColor) * (2.0*shade - 1.0);
             }
-            // Premultiply RGB by alpha to handle transparency correctly
-            return vec4(result.rgb * result.a, result.a);
+            return premul(u_shadowColor) * (1.0 - 2.0*shade);
         }
 
-        // Multidirectional hillshade (simplified to single light for now)
-        vec4 multidirectional_hillshade(vec2 deriv, vec3 lightDir) {
-            // For now, just use basic hillshade with the main light
-            // In the future, this could be extended to support multiple lights
-            return basic_hillshade(deriv, lightDir);
+        // Based on GDALHillshadeMultiDirectionalAlg(): four lights at 225/270/315/360 degrees,
+        // weighted by the aspect. The user azimuth is unused by design - only the altitude matters.
+        // Note MapLibre instead averages basic_hillshade over its illumination-source arrays, which
+        // degenerates to plain BASIC for the single light source this layer exposes; GDAL's version
+        // is used here so the mode is actually multidirectional.
+        vec4 multidirectional_hillshade(vec2 deriv_in, float altitude) {
+            vec2 deriv = scale_deriv(deriv_in);
+            float cos_alt = cos(altitude);
+            float sin_alt = sin(altitude);
+            float xx_plus_yy = dot(deriv, deriv);
+
+            float shade;
+            if (xx_plus_yy == 0.0) {
+                shade = clamp(sin_alt, 0.0, 1.0);
+            } else {
+                float x = deriv.x;
+                float y = deriv.y;
+                // cos(225 deg) * cos(altitude), shared by the 225 and 315 degree lights
+                float c225 = -0.70710678 * cos_alt;
+                float val225 = sin_alt + (x - y) * c225;
+                float val270 = sin_alt - x * cos_alt;
+                float val315 = sin_alt + (x + y) * c225;
+                float val360 = sin_alt - y * cos_alt;
+
+                float weight225 = 0.5 * xx_plus_yy - x * y;
+                float weight270 = x * x;
+                float weight315 = xx_plus_yy - weight225;
+                float weight360 = y * y;
+
+                float cang = (max(0.0, val225) * weight225 + max(0.0, val270) * weight270 +
+                              max(0.0, val315) * weight315 + max(0.0, val360) * weight360) / (xx_plus_yy * 2.0);
+                shade = clamp(cang / sqrt(1.0 + xx_plus_yy), 0.0, 1.0);
+            }
+
+            if(shade > 0.5) {
+                return premul(u_highlightColor) * (2.0*shade - 1.0);
+            }
+            return premul(u_shadowColor) * (1.0 - 2.0*shade);
         }
 
         // Based on GDALHillshadeCombinedAlg()
-        vec4 combined_hillshade(vec2 deriv, vec3 lightDir) {
-            float azimuth = atan(lightDir.y, lightDir.x) + PI;
-            float altitude = asin(clamp(lightDir.z, -1.0, 1.0));
-            
+        vec4 combined_hillshade(vec2 deriv_in, float azimuth, float altitude) {
+            vec2 deriv = scale_deriv(deriv_in);
             float cos_az = cos(azimuth);
             float sin_az = sin(azimuth);
             float cos_alt = cos(altitude);
@@ -1133,40 +1199,39 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
             float shade = cang * atan(length(deriv)) * 4.0/PI/PI;
             float highlight = (PI/2.0-cang) * atan(length(deriv)) * 4.0/PI/PI;
 
-            vec4 result = u_shadowColor*shade + u_highlightColor*highlight;
-            // Premultiply RGB by alpha to handle transparency correctly
-            return vec4(result.rgb * result.a, result.a);
+            return premul(u_shadowColor)*shade + premul(u_highlightColor)*highlight;
         }
 
         vec4 applyLighting(lowp vec4 color, mediump vec3 normal, mediump vec3 surfaceNormal, mediump float intensity) {
-            // Extract derivatives from normal vector
-            // The normal is already in tangent space where z points up
-            // For a flat surface, normal would be (0, 0, 1)
-            // The derivatives represent the slope in x and y directions
-            vec2 deriv = vec2(-normal.x / max(normal.z, 0.001), -normal.y / max(normal.z, 0.001));
-            
-            // Apply exaggeration to derivatives
-            deriv *= u_exaggeration * 2.0;
-            
-            vec4 hillshadeColor;
+            // Recover the height gradient from the perturbed normal. On a planar surface the
+            // tangent frame flips x and y, so -normal.xy/normal.z gives (dh/dEast, dh/dNorth).
+            // The y component is negated on top of that to match MapLibre, whose DEM texture has
+            // north at v = 0 and therefore works with (dh/dEast, -dh/dNorth). Without it the
+            // aspect is mirrored about the east-west axis and the light rotates the wrong way.
+            vec2 deriv = vec2(-normal.x, normal.y) / max(normal.z, 0.001);
+
+            // Extra vertical exaggeration, a CARTO addition with no MapLibre equivalent. At the
+            // default of 1.0 the slope is left exactly as the normal map encoded it.
+            deriv *= u_exaggeration;
+
+            // u_lightDir is (sin(compassAzimuth), cos(compassAzimuth), -sin(altitude)): the
+            // horizontal part points towards the light, z points down towards the ground.
+            // MapLibre adds PI to the compass azimuth for every method, because 0 degrees is north
+            // and the original shader was written to accept (-illuminationDirection - 90).
+            float azimuth = atan(u_lightDir.x, u_lightDir.y) + PI;
+            float altitude = asin(clamp(-u_lightDir.z, -1.0, 1.0));
+
             if (u_method == BASIC) {
-                hillshadeColor = basic_hillshade(deriv, u_lightDir);
+                return basic_hillshade(deriv, azimuth, altitude);
             } else if (u_method == COMBINED) {
-                hillshadeColor = combined_hillshade(deriv, u_lightDir);
+                return combined_hillshade(deriv, azimuth, altitude);
             } else if (u_method == IGOR) {
-                hillshadeColor = igor_hillshade(deriv, u_lightDir);
+                return igor_hillshade(deriv, azimuth);
             } else if (u_method == MULTIDIRECTIONAL) {
-                hillshadeColor = multidirectional_hillshade(deriv, u_lightDir);
-            } else {
-                // STANDARD (default)
-                hillshadeColor = standard_hillshade(deriv, u_lightDir);
+                return multidirectional_hillshade(deriv, altitude);
             }
-            
-            // The VT library multiplies our result by 'intensity', but hillshading should have
-            // constant strength regardless of slope. Divide by intensity to cancel this out.
-            // Use max() to avoid division by zero for flat areas.
-            float intensityFactor = max(intensity, 0.01);
-            return vec4(hillshadeColor.rgb / intensityFactor, hillshadeColor.a);
+            // STANDARD (default)
+            return standard_hillshade(deriv, azimuth);
         }
     )GLSL";
 

@@ -1351,7 +1351,17 @@ namespace carto {
                                 if (it->second == 0) {
                                     continue; // reported for the cover, but nothing drapeable in it
                                 }
-                                if (it->first == tileId || covers(it->first, tileId) || covers(tileId, it->first)) {
+                                // Only contributors the bake will actually draw: its own tile, or a
+                                // COARSER one covering it. GLTileRenderer::bakeDrapeTile skips
+                                // render tiles FINER than the terrain tile on purpose (they are the
+                                // generation being replaced, and minifying them into a sub-rect
+                                // turns the drape into aliasing noise), so counting them here made
+                                // the leaf permanently incomplete: its own bake could never satisfy
+                                // a layer whose only contribution was a finer tile. The stand-in
+                                // path then kept drawing that layer's PREVIOUS, finer textures over
+                                // the leaf for as long as they stayed cached - which is the patch of
+                                // stale z11 map (satellite, roads) that survives a zoom out to z10.
+                                if (it->first == tileId || covers(it->first, tileId)) {
                                     layerMask |= static_cast<std::size_t>(1) << i;
                                     break;
                                 }
