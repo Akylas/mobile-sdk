@@ -94,6 +94,41 @@ namespace carto {
         void setExaggeration(float exaggeration);
 
         /**
+         * Returns whether seamless tile edge handling is enabled.
+         * @return True if elevation textures take their border texels from neighbouring DEM tiles at any level. The default is true.
+         */
+        bool isSeamlessTileEdgesEnabled() const;
+        /**
+         * Enables or disables seamless tile edge handling. When enabled, the 1-texel border of
+         * every elevation texture is taken from the neighbouring elevation tiles - same-level
+         * neighbours texel-exactly, coarser (ancestor) neighbours by sampling their height field.
+         * Adjacent terrain tiles then agree on the height along their shared edge instead of
+         * showing a ridge of up to one DEM texel of relief. Costs no IO, only a small amount of
+         * CPU when an elevation texture is built. Disable if the elevation tiles already match
+         * exactly across tile borders.
+         * @param enabled True to fill elevation texture borders from neighbouring tiles.
+         */
+        void setSeamlessTileEdgesEnabled(bool enabled);
+
+        /**
+         * Returns whether elevation tile prefetching is enabled.
+         * @return True if visible tiles and their neighbours are requested from the elevation data source. The default is true.
+         */
+        bool isElevationPrefetchEnabled() const;
+        /**
+         * Enables or disables elevation tile prefetching. When enabled, every visible terrain tile
+         * asynchronously requests its own elevation tile and the 8 surrounding ones, so neighbouring
+         * terrain tiles are displaced by the same DEM level and border texels have real neighbour
+         * data. When disabled, elevation tiles are only loaded as a side effect of map tile fetches,
+         * which leaves cached map tiles (and the tiles around the viewport) on coarser ancestor
+         * elevation data. This is the costly option: it adds elevation tile requests, decoding and
+         * cache pressure. Disable to keep elevation traffic at a minimum, or if the elevation
+         * tileset is fully local.
+         * @param enabled True to prefetch elevation tiles for visible tiles and their neighbours.
+         */
+        void setElevationPrefetchEnabled(bool enabled);
+
+        /**
          * Returns the terrain mesh resolution.
          * @return The maximum number of grid cells per tile edge used for terrain geometry. The default is 32.
          */
@@ -124,8 +159,25 @@ namespace carto {
         void setRegularGridEnabled(bool regularGridEnabled);
 
         /**
+         * Returns whether cross-LOD tile edge stitching is enabled.
+         * @return True if grid surface edges follow a coarser neighbour's lattice. The default is true.
+         */
+        bool isTileEdgeStitchingEnabled() const;
+        /**
+         * Enables or disables cross-LOD tile edge stitching. Neighbouring terrain tiles at
+         * different zoom levels interpolate the elevation between differently spaced grid
+         * vertices along their shared edge, which opens a thin crack. When enabled, the finer
+         * tile chords across the coarser neighbour's grid nodes on that edge, so both tiles
+         * describe the same edge. Only takes effect together with the regular grid surface mode
+         * (adaptive tesselation matches its borders to the neighbours already) and needs an even
+         * MeshResolution. Costs one uniform per tile - no extra geometry.
+         * @param enabled True to snap grid surface edges to a coarser neighbour's grid.
+         */
+        void setTileEdgeStitchingEnabled(bool enabled);
+
+        /**
          * Returns whether the painter-order terrain depth model is used.
-         * @return True if painter-order depth is used, false for the surface-occluder model. The default is false.
+         * @return True if painter-order depth is used, false for the surface-occluder model. The default is true.
          */
         bool isPainterOrderDepthEnabled() const;
         /**
@@ -134,7 +186,6 @@ namespace carto {
          * per-layer clip-space delta instead of being depth-tested against a surface pre-pass occluder,
          * which removes the distance-growing depth slack (no see-through band). Implies (and forces)
          * RegularGridEnabled. Only takes effect in GPU draping mode (vertex texture fetch, planar).
-         * Experimental.
          * @param painterOrderDepthEnabled True to use painter-order depth, false for the occluder model.
          */
         void setPainterOrderDepthEnabled(bool painterOrderDepthEnabled);
@@ -437,6 +488,7 @@ namespace carto {
         std::atomic<bool> _enabled;
         std::atomic<int> _meshResolution;
         std::atomic<bool> _regularGridEnabled;
+        std::atomic<bool> _tileEdgeStitchingEnabled;
         std::atomic<bool> _painterOrderDepthEnabled;
         std::atomic<bool> _drapeFillsEnabled;
         std::atomic<bool> _drapeLinesEnabled;

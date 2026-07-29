@@ -18,7 +18,8 @@ namespace carto {
         _enabled(true),
         _meshResolution(32),
         _regularGridEnabled(false),
-        _painterOrderDepthEnabled(false),
+        _tileEdgeStitchingEnabled(true),
+        _painterOrderDepthEnabled(true),
         _drapeFillsEnabled(true),
         _drapeLinesEnabled(true),
         _drapeResolution(512),
@@ -76,6 +77,28 @@ namespace carto {
         }
     }
 
+    bool TerrainOptions::isSeamlessTileEdgesEnabled() const {
+        return _elevationManager->isSeamlessTileEdgesEnabled();
+    }
+
+    void TerrainOptions::setSeamlessTileEdgesEnabled(bool enabled) {
+        if (_elevationManager->isSeamlessTileEdgesEnabled() != enabled) {
+            _elevationManager->setSeamlessTileEdgesEnabled(enabled);
+            notifyOptionChanged("SeamlessTileEdgesEnabled");
+        }
+    }
+
+    bool TerrainOptions::isElevationPrefetchEnabled() const {
+        return _elevationManager->isNeighbourPrefetchEnabled();
+    }
+
+    void TerrainOptions::setElevationPrefetchEnabled(bool enabled) {
+        if (_elevationManager->isNeighbourPrefetchEnabled() != enabled) {
+            _elevationManager->setNeighbourPrefetchEnabled(enabled);
+            notifyOptionChanged("ElevationPrefetchEnabled");
+        }
+    }
+
     int TerrainOptions::getMeshResolution() const {
         return _meshResolution.load();
     }
@@ -94,6 +117,16 @@ namespace carto {
     void TerrainOptions::setRegularGridEnabled(bool regularGridEnabled) {
         if (_regularGridEnabled.exchange(regularGridEnabled) != regularGridEnabled) {
             notifyOptionChanged("RegularGridEnabled");
+        }
+    }
+
+    bool TerrainOptions::isTileEdgeStitchingEnabled() const {
+        return _tileEdgeStitchingEnabled.load();
+    }
+
+    void TerrainOptions::setTileEdgeStitchingEnabled(bool enabled) {
+        if (_tileEdgeStitchingEnabled.exchange(enabled) != enabled) {
+            notifyOptionChanged("TileEdgeStitchingEnabled");
         }
     }
 

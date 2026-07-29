@@ -59,8 +59,10 @@ namespace carto {
 
         /**
          * Like encodeTexture, but pads the texture with a 1-texel border taken from the
-         * neighbouring grids (same DEM level, order: W, E, S, N, SW, SE, NW, NE; null or
-         * differently-sized neighbours fall back to duplicating this grid's edge texels).
+         * neighbouring grids (order: W, E, S, N, SW, SE, NW, NE). Same-level neighbours are
+         * copied texel-exactly; coarser (ancestor) neighbour grids are sampled at the border
+         * texel centers, which still gives real DEM data across the tile border. Only missing
+         * neighbours fall back to duplicating this grid's edge texels.
          * Adjacent tiles then interpolate across the border from IDENTICAL texel pairs,
          * making same-level tile borders seam-free. The padded texture covers the grid
          * bounds extended by one texel on each side.
