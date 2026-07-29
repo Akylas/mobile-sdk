@@ -29,6 +29,11 @@
 %std_exceptions(carto::CompositeVectorTileLayer::CompositeVectorTileLayer)
 %std_exceptions(carto::CompositeVectorTileLayer::addExternalDataSource)
 %std_exceptions(carto::CompositeVectorTileLayer::addVectorDataSource)
+%std_exceptions(carto::CompositeVectorTileLayer::setExternalDataSourceZoomLevelBias)
+%std_exceptions(carto::CompositeVectorTileLayer::getExternalDataSourceZoomLevelBias)
+%std_exceptions(carto::CompositeVectorTileLayer::clearExternalDataSourceZoomLevelBias)
+%std_exceptions(carto::CompositeVectorTileLayer::setExternalDataSourceMaxOverzoomLevel)
+%std_exceptions(carto::CompositeVectorTileLayer::getExternalDataSourceMaxOverzoomLevel)
 
 %include "layers/CompositeVectorTileLayer.h"
 

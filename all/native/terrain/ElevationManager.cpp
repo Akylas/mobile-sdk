@@ -20,6 +20,8 @@ namespace carto {
     static const std::size_t DEFAULT_CACHE_CAPACITY = 64 * 1024 * 1024;
     static const int FAILED_TILE_TTL_MILLISECONDS = 30 * 1000;
     static const int MAX_ANCESTOR_SEARCH_DEPTH = 8;
+    static const std::size_t MAX_PREFETCH_QUEUE_SIZE = 64;
+    static const int PREFETCH_THREADS = 3; // elevation tiles are network+decode bound; one worker converges too slowly
     static constexpr double NO_DATA_ELEVATION = -1000000.0;
     static constexpr double DEFAULT_MIN_ELEVATION = -500.0;
     static constexpr double DEFAULT_MAX_ELEVATION = 9000.0;
@@ -43,16 +45,34 @@ namespace carto {
         _projection(dataSource->getProjection()),
         _dataSourceListener(),
         _exaggeration(1.0f),
+        _seamlessTileEdges(true),
+        _surfaceResolution(32),
+        _gridSizeHint(256),
+        _neighbourPrefetch(true),
         _version(1),
         _maxSeenElevation(0.0f),
         _gridCache(DEFAULT_CACHE_CAPACITY),
-        _mutex()
+        _mutex(),
+        _prefetchStopped(false)
     {
         _dataSourceListener = std::make_shared<DataSourceListener>(*this);
         _dataSource->registerOnChangeListener(_dataSourceListener);
     }
 
     ElevationManager::~ElevationManager() {
+        {
+            std::lock_guard<std::mutex> lock(_prefetchMutex);
+            _prefetchStopped = true;
+            _prefetchQueue.clear();
+            _prefetchQueueHigh.clear();
+            _prefetchTileIds.clear();
+        }
+        _prefetchCondition.notify_all();
+        for (std::thread& thread : _prefetchThreads) {
+            if (thread.joinable()) {
+                thread.join();
+            }
+        }
         _dataSource->unregisterOnChangeListener(_dataSourceListener);
     }
 
@@ -71,6 +91,31 @@ namespace carto {
     void ElevationManager::setExaggeration(float exaggeration) {
         _exaggeration.store(std::max(0.0f, exaggeration));
         bumpGlobalVersion();
+    }
+
+    bool ElevationManager::isSeamlessTileEdgesEnabled() const {
+        return _seamlessTileEdges.load();
+    }
+
+    void ElevationManager::setSeamlessTileEdgesEnabled(bool enabled) {
+        if (_seamlessTileEdges.exchange(enabled) != enabled) {
+            _version++; // elevation texture borders change, force a rebuild
+        }
+    }
+
+    void ElevationManager::setSurfaceResolution(int resolution) {
+        int value = std::max(1, resolution);
+        if (_surfaceResolution.exchange(value) != value) {
+            _version++; // the elevation level cap changes with it
+        }
+    }
+
+    bool ElevationManager::isNeighbourPrefetchEnabled() const {
+        return _neighbourPrefetch.load();
+    }
+
+    void ElevationManager::setNeighbourPrefetchEnabled(bool enabled) {
+        _neighbourPrefetch.store(enabled);
     }
 
     std::size_t ElevationManager::getCacheCapacity() const {
@@ -150,7 +195,21 @@ namespace carto {
 
         // Look for the tile or any of its cached ancestors
         bool tileFailed = false;
-        {
+        if (mode == LoadMode::LOAD_EXACT) {
+            // The caller wants THIS level, not a stand-in: a cached ancestor must not short
+            // circuit the load, or a tile that once fell back to its parent would stay on it
+            // forever - and neighbouring tiles displaced by different elevation levels tear the
+            // surface open along their shared edge. A grid cached under this tile id that covers
+            // an ancestor is the data source saying the level does not exist here, so it stands.
+            std::lock_guard<std::mutex> lock(_mutex);
+            std::shared_ptr<ElevationTileGrid> grid;
+            if (_gridCache.read(tile.getTileId(), grid)) {
+                if (grid) {
+                    return grid;
+                }
+                tileFailed = true; // recently failed to load, do not retry until the failure marker expires
+            }
+        } else {
             std::lock_guard<std::mutex> lock(_mutex);
             MapTile searchTile = tile;
             for (int depth = 0; depth <= MAX_ANCESTOR_SEARCH_DEPTH; depth++) {
@@ -230,6 +289,84 @@ namespace carto {
         }
         promise.set_value(grid);
         return grid;
+    }
+
+    MapTile ElevationManager::getDataTile(const MapTile& mapTile) const {
+        return clampTileZoom(mapTile);
+    }
+
+    void ElevationManager::prefetchTileGrid(const MapTile& mapTile, int priority) const {
+        if (!_neighbourPrefetch.load()) {
+            return;
+        }
+        MapTile tile = clampTileZoom(mapTile);
+        if (tile.getZoom() < _dataSource->getMinZoom()) {
+            return;
+        }
+
+        long long tileId = tile.getTileId();
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            std::shared_ptr<ElevationTileGrid> grid;
+            if (_gridCache.read(tileId, grid)) {
+                return; // already loaded, resolved via an ancestor, or recently failed
+            }
+            if (_pendingLoads.find(tileId) != _pendingLoads.end()) {
+                return; // already being loaded by another thread
+            }
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(_prefetchMutex);
+            if (_prefetchStopped) {
+                return;
+            }
+            if (!_prefetchTileIds.insert(tileId).second) {
+                return; // already queued
+            }
+            std::deque<MapTile>& queue = (priority >= 2 ? _prefetchQueueHigh : _prefetchQueue);
+            // The queues are drained newest first, so the lowest priority requests (diagonal
+            // neighbours) go to the far end instead of the near one.
+            if (priority <= 0) {
+                queue.push_front(tile);
+            } else {
+                queue.push_back(tile);
+            }
+            while (queue.size() > MAX_PREFETCH_QUEUE_SIZE) {
+                _prefetchTileIds.erase(queue.front().getTileId());
+                queue.pop_front();
+            }
+            while (static_cast<int>(_prefetchThreads.size()) < PREFETCH_THREADS) {
+                _prefetchThreads.emplace_back([this]() { runPrefetchWorker(); });
+            }
+        }
+        _prefetchCondition.notify_one();
+    }
+
+    void ElevationManager::runPrefetchWorker() const {
+        while (true) {
+            MapTile tile(0, 0, 0, 0);
+            {
+                std::unique_lock<std::mutex> lock(_prefetchMutex);
+                _prefetchCondition.wait(lock, [this]() { return _prefetchStopped || !_prefetchQueue.empty() || !_prefetchQueueHigh.empty(); });
+                if (_prefetchStopped) {
+                    return;
+                }
+                // High priority (a tile's own elevation level) before border neighbours, and
+                // newest request first: it belongs to the current viewport, while the oldest
+                // entries may already have scrolled out of view.
+                std::deque<MapTile>& queue = (_prefetchQueueHigh.empty() ? _prefetchQueue : _prefetchQueueHigh);
+                tile = queue.back();
+                queue.pop_back();
+                _prefetchTileIds.erase(tile.getTileId());
+            }
+            try {
+                getTileGrid(tile, LoadMode::LOAD_EXACT);
+            }
+            catch (const std::exception& ex) {
+                Log::Warnf("ElevationManager::runPrefetchWorker: Failed to prefetch elevation tile: %s", ex.what());
+            }
+        }
     }
 
     double ElevationManager::getDisplayScale(double internalY) const {
@@ -428,6 +565,14 @@ namespace carto {
 
     MapTile ElevationManager::clampTileZoom(const MapTile& mapTile) const {
         MapTile tile = mapTile;
+        // Cap by the resolution the terrain mesh can express: an elevation tile is 256-512 texels
+        // while the surface has _surfaceResolution cells, so taking the tile zoom literally would
+        // give every tile its own elevation tile - and its own decoded grid and GL texture - for
+        // detail that cannot be rendered. One texel per half surface cell is the useful limit.
+        int surfaceResolution = _surfaceResolution.load();
+        for (int size = _gridSizeHint.load(); size > 2 * surfaceResolution && tile.getZoom() > 0; size /= 2) {
+            tile = tile.getParent();
+        }
         int maxZoom = _dataSource->getMaxZoom();
         while (tile.getZoom() > maxZoom) {
             tile = tile.getParent();
@@ -467,6 +612,10 @@ namespace carto {
                                  MapPos(std::max(internalMin.getX(), internalMax.getX()), std::max(internalMin.getY(), internalMax.getY())));
 
         std::array<double, 4> coeffs = _elevationDecoder->getColorComponentCoefficients();
-        return ElevationTileGrid::DecodeBitmap(mapTile, internalBounds, tileBitmap, coeffs);
+        std::shared_ptr<ElevationTileGrid> grid = ElevationTileGrid::DecodeBitmap(mapTile, internalBounds, tileBitmap, coeffs);
+        if (grid && grid->getWidth() > 0) {
+            _gridSizeHint.store(grid->getWidth()); // drives the elevation level cap in clampTileZoom
+        }
+        return grid;
     }
 }

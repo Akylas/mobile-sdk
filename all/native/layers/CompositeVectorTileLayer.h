@@ -113,6 +113,60 @@ namespace carto {
          */
         void setSinglePassRenderingEnabled(bool enabled);
 
+        /**
+         * Sets the zoom level bias for this layer and for every child layer it owns (external
+         * raster/hillshade/vector sources and the internal style-group layers). Sources with a
+         * per-source bias set via setExternalDataSourceZoomLevelBias keep their own value.
+         * @param bias The new bias value, both positive and negative fractional values are supported.
+         */
+        virtual void setZoomLevelBias(float bias);
+        /**
+         * Sets the preloading state for this layer and for every child layer it owns.
+         * @param preloading The new preloading state of the layer.
+         */
+        virtual void setPreloading(bool preloading);
+
+        /**
+         * Sets the zoom level bias of a single external data source, overriding the layer-wide value.
+         * Use this to fetch a source at a different resolution from the base map - e.g. a bias of 1.0
+         * on a high-resolution DEM source makes the hillshade use one zoom level more detail.
+         * Note that if the style defines a 'zoom-level-bias' value for this source, the style value
+         * wins - the same precedence the other per-source config values have.
+         * @param name The source name.
+         * @param bias The new bias value, both positive and negative fractional values are supported.
+         * @throws std::invalid_argument If the source does not exist.
+         */
+        void setExternalDataSourceZoomLevelBias(const std::string& name, float bias);
+        /**
+         * Returns the effective zoom level bias of the given external data source.
+         * @param name The source name.
+         * @return The zoom level bias of the source.
+         * @throws std::invalid_argument If the source does not exist.
+         */
+        float getExternalDataSourceZoomLevelBias(const std::string& name) const;
+        /**
+         * Clears the per-source zoom level bias, so the source follows the layer-wide value again.
+         * @param name The source name.
+         * @throws std::invalid_argument If the source does not exist.
+         */
+        void clearExternalDataSourceZoomLevelBias(const std::string& name);
+        /**
+         * Sets the maximum overzoom level of a single external data source. Overzooming reuses a
+         * coarser parent tile when the source has no tile at the target zoom level, which is how a
+         * low-resolution DEM keeps covering the map above its own max zoom.
+         * @param name The source name.
+         * @param level The new maximum overzoom level.
+         * @throws std::invalid_argument If the source does not exist.
+         */
+        void setExternalDataSourceMaxOverzoomLevel(const std::string& name, int level);
+        /**
+         * Returns the maximum overzoom level of the given external data source.
+         * @param name The source name.
+         * @return The maximum overzoom level of the source.
+         * @throws std::invalid_argument If the source does not exist.
+         */
+        int getExternalDataSourceMaxOverzoomLevel(const std::string& name) const;
+
     protected:
         virtual void setComponents(const std::shared_ptr<CancelableThreadPool>& envelopeThreadPool,
                                    const std::shared_ptr<CancelableThreadPool>& tileThreadPool,
@@ -136,6 +190,11 @@ namespace carto {
             CompositeSourceType::CompositeSourceType type;
             std::shared_ptr<TileDataSource> dataSource;
             std::shared_ptr<Layer> childLayer; // raster/hillshade child; null for merged vector
+            // Per-source overrides. When unset the child follows the composite layer's own value.
+            bool zoomLevelBiasSet = false;
+            float zoomLevelBias = 0.0f;
+            bool maxOverzoomLevelSet = false;
+            int maxOverzoomLevel = 0;
         };
 
         // One ordered draw step after the layer's own group-0 render: either an external
@@ -161,7 +220,15 @@ namespace carto {
         std::shared_ptr<Layer> makeGroupLayer(const std::string& filter);
         void rebuildDrawItems();
         void applyExternalChildZoomRange(const ExternalSource& source);
+        // Pushes the tile-selection properties (zoom level bias, max overzoom level, preloading)
+        // down to a child layer, honouring the source's per-source overrides. Caller holds _sourceMutex.
+        void applyChildTileProperties(const ExternalSource& source);
         const ExternalSource* findExternalSource(const std::string& name) const;
+        // Non-const variant, for the per-source property setters. Caller holds _sourceMutex.
+        ExternalSource* findExternalSource(const std::string& name);
+        // Same, but throws if the source is unknown. Caller holds _sourceMutex.
+        ExternalSource& getExternalSource(const std::string& name);
+        const ExternalSource& getExternalSource(const std::string& name) const;
         // Whether the style's 'layers' gives this source a slot, i.e. whether anything would ever
         // draw it. A source without one is not loaded and not draped.
         bool isDrawnSlot(const std::string& name) const;

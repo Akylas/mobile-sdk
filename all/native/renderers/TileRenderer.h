@@ -72,6 +72,7 @@ namespace carto {
         void setNormalIlluminationDirection(MapVec direction);
         void setHillshadeMethod(int method);
         void setHillshadeExaggeration(float exaggeration);
+        void setHillshadeIntensity(float intensity);
         void setRendererLayerFilter(const std::optional<std::regex>& filter);
         void setClickHandlerLayerFilter(const std::optional<std::regex>& filter);
 
@@ -177,6 +178,7 @@ namespace carto {
         double _mapRotation;
         int _hillshadeMethod;
         float _hillshadeExaggeration;
+        float _hillshadeIntensity;
         bool _terrainDepthWriteMode = false;
         bool prepareFrameUnsafe(float deltaSeconds, const ViewState& viewState); // caller holds _mutex
 
