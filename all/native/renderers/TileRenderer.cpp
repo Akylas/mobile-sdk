@@ -454,6 +454,7 @@ namespace carto {
                     }
                 }
                 if (_elevationTextureCache) {
+                    _elevationTextureCache->setSurfaceResolution(activeTerrainOptions->getMeshResolution());
                     _elevationTextureCache->beginFrame();
                     std::shared_ptr<ElevationTextureCache> elevationTextureCache = _elevationTextureCache;
                     terrainTextureProvider = [elevationTextureCache](const vt::TileId& tileId, vt::GLTileRenderer::TerrainTexture& terrainTexture) {

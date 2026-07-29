@@ -49,6 +49,15 @@ namespace carto {
          */
         void beginFrame();
 
+        /**
+         * Sets the terrain surface resolution (grid cells per tile edge). The elevation level is
+         * capped so that one elevation texel covers at most half a surface cell: finer elevation
+         * data cannot be expressed by the mesh, but it would multiply the number of distinct
+         * elevation textures by four per level - and with it the decoded grid working set, the
+         * texture uploads and the tile requests.
+         */
+        void setSurfaceResolution(int resolution);
+
         void clear();
 
     private:
@@ -69,6 +78,8 @@ namespace carto {
         const std::shared_ptr<GLResourceManager> _glResourceManager;
         std::map<long long, CacheEntry> _cache; // keyed by the grid tile id
         std::map<long long, long long> _frameResolved; // render tile id -> grid tile id (-1: no data), reset every frame
+        int _surfaceResolution = 32;   // terrain mesh cells per tile edge
+        int _gridSizeHint = 256;       // texels per elevation tile edge, from the last resolved grid
         std::uint64_t _accessCounter = 0; // monotonic LRU clock
         std::uint64_t _frameStartCounter = 0; // LRU clock at the start of the current frame
     };
