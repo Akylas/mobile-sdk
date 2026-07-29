@@ -2,6 +2,7 @@
 #include "components/Options.h"
 #include "components/LightOptions.h"
 #include "components/SkyOptions.h"
+#include "components/StyleEnvironment.h"
 #include "components/TerrainOptions.h"
 #include "graphics/ViewState.h"
 #include "renderers/utils/GLResourceManager.h"
@@ -31,6 +32,8 @@ namespace carto {
         _u_zoom(-1),
         _u_cameraHeight(-1),
         _u_resolution(-1),
+        _u_fogColor(-1),
+        _u_fogBlend(-1),
         _startTime(std::chrono::steady_clock::now()),
         _glResourceManager(),
         _options(options)
@@ -97,6 +100,8 @@ namespace carto {
         _u_zoom = glGetUniformLocation(progId, "u_zoom");
         _u_cameraHeight = glGetUniformLocation(progId, "u_cameraHeight");
         _u_resolution = glGetUniformLocation(progId, "u_resolution");
+        _u_fogColor = glGetUniformLocation(progId, "u_fogColor");
+        _u_fogBlend = glGetUniformLocation(progId, "u_fogBlend");
         return true;
     }
 
@@ -128,6 +133,12 @@ namespace carto {
             sunColor = lightOptions->getSunColor();
             sunIntensity = lightOptions->getSunIntensity();
         }
+
+        // The terrain fog, resolved and lit exactly as the ground fog is, so the haze the map
+        // fades into carries on into the sky instead of stopping in a band at the skyline.
+        ResolvedLighting lighting = resolveLighting(lightOptions, StyleEnvironment());
+        ResolvedFog fog = resolveFog(_options.getTerrainOptions(), StyleEnvironment(), lighting);
+        float fogBlend = fog.active() ? static_cast<float>(skyOptions->getFogBlend() * Const::DEG_TO_RAD) : 0.0f;
 
         Color skyColor = skyOptions->getSkyColor();
         Color horizonColor = skyOptions->getHorizonColor();
@@ -174,6 +185,12 @@ namespace carto {
         }
         if (_u_resolution >= 0) {
             glUniform2f(_u_resolution, static_cast<float>(viewState.getWidth()), static_cast<float>(viewState.getHeight()));
+        }
+        if (_u_fogColor >= 0) {
+            glUniform4f(_u_fogColor, fog.color.getR() / 255.0f, fog.color.getG() / 255.0f, fog.color.getB() / 255.0f, fog.color.getA() / 255.0f);
+        }
+        if (_u_fogBlend >= 0) {
+            glUniform1f(_u_fogBlend, fogBlend);
         }
 
         glDisable(GL_CULL_FACE);
@@ -223,6 +240,20 @@ namespace carto {
         uniform float u_zoom;
         uniform float u_cameraHeight;
         uniform vec2 u_resolution;
+        uniform vec4 u_fogColor;  // the terrain fog, already lit by the sun; a = strength at the horizon
+        uniform float u_fogBlend; // elevation angle (radians) where the fog has faded out of the sky; 0 = no fog
+
+        // The sky's share of the terrain fog for a view ray: full at the horizon, gone by
+        // u_fogBlend. Cubed so the haze hugs the horizon and clears quickly with height instead
+        // of greying half the sky.
+        float fogAmount(vec3 rayDir) {
+            if (u_fogBlend <= 0.0) {
+                return 0.0;
+            }
+            float elevation = asin(clamp(normalize(rayDir).z, -1.0, 1.0));
+            float t = clamp(1.0 - max(elevation, 0.0) / u_fogBlend, 0.0, 1.0);
+            return t * t * t * u_fogColor.a;
+        }
     )GLSL";
 
     // The default appearance: a horizon-to-zenith gradient, a broad glow around the sun and a
@@ -236,6 +267,9 @@ namespace carto {
             }
             float t = u_horizonBlend > 0.0 ? clamp(elevation / u_horizonBlend, 0.0, 1.0) : 1.0;
             vec4 color = mix(u_horizonColor, u_skyColor, t);
+            // Blend the ground fog into the sky above the horizon, so the two meet in a gradient
+            // rather than at a hard skyline.
+            color.rgb = mix(color.rgb, u_fogColor.rgb, fogAmount(rayDir));
             if (u_sunDisc > 0.5) {
                 // Chord length between the two unit vectors, which is the angle in radians to
                 // within 1% over the few degrees that matter here - and unlike acos/pow it keeps

@@ -15,6 +15,7 @@
 #include <cglib/vec.h>
 
 namespace carto {
+    class TerrainOptions;
     class LightOptions;
 
     /**
@@ -75,6 +76,30 @@ namespace carto {
     };
 
     ResolvedLighting resolveLighting(const std::shared_ptr<LightOptions>& lightOptions, const StyleEnvironment& env);
+
+    /**
+     * The distance fog to actually render with: TerrainOptions, with every value the style
+     * defines substituted in, and the colour lit by the sun when terrain lighting is on.
+     * Distances are in meters, as in the API.
+     */
+    struct ResolvedFog {
+        Color color = Color(0, 0, 0, 0);
+        float startDistance = 0.0f;
+        float distance = 0.0f;
+
+        /**
+         * True when there is a fog to draw at all: a visible colour over a positive range.
+         */
+        bool active() const { return color.getA() > 0 && distance > startDistance; }
+    };
+
+    /**
+     * Resolves the fog and lights it: fog is air, so it is as bright as the light falling on it.
+     * Without this a fog tuned for daylight stays bright white through the night, floating over a
+     * dark map. Only applied when terrain lighting is on - otherwise there is no sun to speak of
+     * and the configured colour is used as-is.
+     */
+    ResolvedFog resolveFog(const std::shared_ptr<TerrainOptions>& terrainOptions, const StyleEnvironment& env, const ResolvedLighting& lighting);
 
 }
 

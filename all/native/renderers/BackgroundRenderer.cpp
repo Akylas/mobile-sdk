@@ -1,6 +1,7 @@
 #include "BackgroundRenderer.h"
 #include "components/Layers.h"
 #include "components/Options.h"
+#include "components/StyleEnvironment.h"
 #include "components/TerrainOptions.h"
 #include "graphics/Color.h"
 #include "graphics/Bitmap.h"
@@ -186,15 +187,13 @@ namespace carto {
         if (enabled) {
             if (std::shared_ptr<TerrainOptions> terrainOptions = _options.getTerrainOptions()) {
                 if (terrainOptions->isEnabled()) {
-                    fogColor = terrainOptions->getFogColor();
-                    float fogStartDistance = terrainOptions->getFogStartDistance();
-                    float fogDistance = terrainOptions->getFogDistance();
-                    if (fogColor.getA() > 0 && fogDistance > fogStartDistance) {
+                    ResolvedLighting lighting = resolveLighting(_options.getLightOptions(), StyleEnvironment());
+                    ResolvedFog fog = resolveFog(terrainOptions, StyleEnvironment(), lighting);
+                    if (fog.active()) {
+                        fogColor = fog.color;
                         double metersToInternal = static_cast<double>(Const::WORLD_SIZE) / Const::EARTH_CIRCUMFERENCE;
-                        startDistance = static_cast<float>(fogStartDistance * metersToInternal);
-                        invRange = static_cast<float>(1.0 / std::max(1.0e-9, (fogDistance - fogStartDistance) * metersToInternal));
-                    } else {
-                        fogColor = Color(0, 0, 0, 0);
+                        startDistance = static_cast<float>(fog.startDistance * metersToInternal);
+                        invRange = static_cast<float>(1.0 / std::max(1.0e-9, (fog.distance - fog.startDistance) * metersToInternal));
                     }
                 }
             }

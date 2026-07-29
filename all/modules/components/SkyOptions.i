@@ -24,6 +24,7 @@
 %attributeval(carto::SkyOptions, carto::Color, HorizonColor, getHorizonColor, setHorizonColor)
 %attributeval(carto::SkyOptions, carto::Color, GroundColor, getGroundColor, setGroundColor)
 %attribute(carto::SkyOptions, float, HorizonBlend, getHorizonBlend, setHorizonBlend)
+%attribute(carto::SkyOptions, float, FogBlend, getFogBlend, setFogBlend)
 %attribute(carto::SkyOptions, bool, SunDiscEnabled, isSunDiscEnabled, setSunDiscEnabled)
 %attributestring(carto::SkyOptions, std::string, ShaderSource, getShaderSource, setShaderSource)
 
