@@ -22,6 +22,7 @@
 #include "utils/Log.h"
 
 #include <vt/TileTransformer.h>
+#include <vt/RenderStats.h>
 
 namespace carto {
 
@@ -306,14 +307,23 @@ namespace carto {
         // Check if layer should be drawn
         if (!isVisible() || !getVisibleZoomRange().inRange(cullState->getViewState().getZoom()) || getOpacity() <= 0) {
             _calculatingTiles = false;
+            VT_STAT_INC(tileLayersSkipped);
 
-            refreshDrawData(cullState, true);
+            // Report the real change, not an unconditional one. This path runs on every cull
+            // pass for as long as the layer stays hidden, and a hardcoded 'changed' makes a
+            // VectorTileLayer request a redraw and a full label placement pass every time -
+            // and the redraw brings the cull worker straight back here. A hidden layer then
+            // burns a placement pass over every OTHER layer's labels, several times a second,
+            // on a completely still map. refreshTiles below still reports true once, on the
+            // pass that empties the tile set, which is the only change there is to report.
+            refreshDrawData(cullState, false);
             return;
         }
 
         // Check if tiles need to be recalculated
         bool recalculateTiles = (!_tileCullState || _frameNr != _lastFrameNr || cullState->getViewState().getModelviewProjectionMat() != _tileCullState->getViewState().getModelviewProjectionMat());
         if (recalculateTiles) {
+            VT_STAT_INC(tileRecalculations);
             // If the view has changed calculate new visible tiles, otherwise use the old ones
             calculateVisibleTiles(cullState);
 

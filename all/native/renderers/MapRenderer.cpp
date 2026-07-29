@@ -43,6 +43,8 @@
 #include "utils/Log.h"
 #include "utils/ThreadUtils.h"
 
+#include <vt/RenderStats.h>
+
 #include <algorithm>
 #include <limits>
 #include <cstdio>
@@ -53,6 +55,69 @@
 #include <vector>
 
 namespace carto {
+
+#if CARTO_VT_RENDER_STATS
+    namespace {
+        // Diagnostic dump of the vt label/tile churn counters, compiled in together with the
+        // counters themselves (see vt/RenderStats.h - CARTO_VT_RENDER_STATS is the only
+        // switch). Everything except 'live' is a per-interval delta. Only called from the GL
+        // thread, so the previous values need no synchronization; the counters themselves are
+        // atomic because the placement worker and the tile threads also increment them.
+        constexpr int RENDER_STATS_INTERVAL = 1000; // ms
+
+        void logRenderStats() {
+            using vt::RenderStats;
+
+            static const int COUNT = 17;
+            static std::chrono::steady_clock::time_point lastTime = std::chrono::steady_clock::now();
+            static long long lastValues[COUNT] = { 0 };
+
+            std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+            if (now - lastTime < std::chrono::milliseconds(RENDER_STATS_INTERVAL)) {
+                return;
+            }
+            lastTime = now;
+
+            const long long values[COUNT] = {
+                RenderStats::visibleTileSetChanges.load(),
+                RenderStats::tileSurfacesBuilt.load(),
+                RenderStats::tileSurfacesInvalidated.load(),
+                RenderStats::labelsAllocated.load(),
+                RenderStats::labelElevationReanchors.load(),
+                RenderStats::placementUpdates.load(),
+                RenderStats::placementReanchorsNull.load(),
+                RenderStats::placementReanchorsHidden.load(),
+                RenderStats::placementReanchorsVisible.load(),
+                RenderStats::snapPlacements.load(),
+                RenderStats::snapPlacementsMoved.load(),
+                RenderStats::labelMapRebuilds.load(),
+                RenderStats::labelsReused.load(),
+                RenderStats::cullWorkerUpdates.load(),
+                RenderStats::tileRecalculations.load(),
+                RenderStats::tileLayersSkipped.load(),
+                RenderStats::placementSearches.load()
+            };
+            long long deltas[COUNT];
+            for (int i = 0; i < COUNT; i++) {
+                deltas[i] = values[i] - lastValues[i];
+                lastValues[i] = values[i];
+            }
+            static long long lastPasses = 0, lastFlips = 0;
+            long long passes = RenderStats::cullerPasses.load();
+            long long flips = RenderStats::cullerVisibilityFlips.load();
+            long long deltaPasses = passes - lastPasses;
+            long long deltaFlips = flips - lastFlips;
+            lastPasses = passes;
+            lastFlips = flips;
+
+            Log::Infof("RenderStats: cullUpd=%lld tileRecalc=%lld tileSkip=%lld tileSets=%lld labelMaps=%lld | labelsAlloc=%lld reused=%lld live=%lld elevReanchor=%lld | placeUpd=%lld reNull=%lld reHidden=%lld reVisible=%lld search=%lld | snap=%lld snapMoved=%lld | cullPasses=%lld visFlips=%lld",
+                       deltas[13], deltas[14], deltas[15], deltas[0], deltas[11],
+                       deltas[3], deltas[12], RenderStats::labelsLive.load(), deltas[4],
+                       deltas[5], deltas[6], deltas[7], deltas[8], deltas[16],
+                       deltas[9], deltas[10], deltaPasses, deltaFlips);
+        }
+    }
+#endif
 
     MapRenderer::MapRenderer(const std::shared_ptr<Layers>& layers, const std::shared_ptr<Options>& options) :
         _lastFrameTime(),
@@ -738,9 +803,13 @@ namespace carto {
             _lastFrameTime.reset();
         }
 
+#if CARTO_VT_RENDER_STATS
+        logRenderStats();
+#endif
+
         GLContext::CheckGLError("MapRenderer::onDrawFrame");
     }
-    
+
     void MapRenderer::onSurfaceDestroyed() {
         // This method may never be called (e.x Android)
         _surfaceCreated = false;
@@ -1480,6 +1549,10 @@ namespace carto {
                     // at half the sharpness, while a tile with no stand-in at all shows a flat
                     // fill - a hole. An integer zoom step renames the whole cover at once, so the
                     // second class is exactly what has to be cleared fast.
+                    // Raising this to bake a whole renamed cover in one frame was measured on
+                    // device: worst frame 128 ms -> 300 ms, with no visible difference in the
+                    // stand-ins it was meant to remove. A bake is ~16 ms per tile at 1024, so the
+                    // budget IS the frame time here; keep it low and let the cover catch up.
                     static const int DRAPE_BAKE_BUDGET_BLANK = 8;
                     static const int DRAPE_BAKE_BUDGET_STANDIN = 3;
                     // A tile MISSING A WHOLE LAYER is a fourth case, and it is not the mild one the
@@ -1659,7 +1732,15 @@ namespace carto {
                         } else {
                             skippedSurfaces++;
                         }
-                        if ((!complete && !showsStandIn) || skipSurface) {
+                        // An ancestor sub-rect already covers a contentless tile, and it is the
+                        // better stand-in: the descendants are separate surfaces at a finer tile
+                        // zoom, so their meshes coincide with this leaf's but are not the same
+                        // triangles and drawn over it they read as tiles sitting slightly off the
+                        // terrain - while the ancestor is the SAME mesh with a blurrier texture,
+                        // which merely looks soft. Prefer the soft one. A tile whose own surface
+                        // is skipped has no ancestor draw at all, so it still needs them.
+                        bool showsAncestor = !hasContent && draped.texture != 0 && !skipSurface;
+                        if (((!complete && !showsStandIn) || skipSurface) && !showsAncestor) {
                             // Zooming OUT there is no baked ancestor - the cached tiles are the
                             // finer ones underneath. Draw those over the top: same meshes, same
                             // depth, so the ground shows real content instead of a flat fill.
@@ -1795,6 +1876,32 @@ namespace carto {
                         }
                     }
                     ResolvedLighting lighting = resolveLighting(_options->getLightOptions(), styleEnvironment);
+                    // The SHADOW sun, which is not always the lighting sun. A shadow is as long as
+                    // the caster is tall divided by tan(altitude): at 9 degrees a 700 m hill throws
+                    // 4.4 km and a 2 km massif 13 km. Two things break there, both measured. The
+                    // light box is stretched along the light by that same relief/tan(altitude), so
+                    // the whole cascade ladder goes coarse (31/53/62 m texels at z12.3 tilt 60,
+                    // against 11 m with the box bounded) - and shadows that long need casters from
+                    // far outside the drawn cover, so what does reach the screen is a flat grey
+                    // wash that appears and disappears as the cover changes with the zoom.
+                    // Flooring the altitude for the shadow pass ALONE caps the shadow length at
+                    // ~3.7x the relief and keeps the texels usable, while N.L lighting keeps the
+                    // true sun - so a low sun still reads as a low sun, without the wash.
+                    cglib::vec3<float> shadowSunDir = lighting.sunDir;
+                    {
+                        static const float MIN_SHADOW_SUN_SIN = 0.2588f; // sin(15 degrees)
+                        if (shadowSunDir(2) < MIN_SHADOW_SUN_SIN) {
+                            float horizontal = std::sqrt(shadowSunDir(0) * shadowSunDir(0) + shadowSunDir(1) * shadowSunDir(1));
+                            float scale = std::sqrt(std::max(0.0f, 1.0f - MIN_SHADOW_SUN_SIN * MIN_SHADOW_SUN_SIN));
+                            if (horizontal > 1.0e-6f) {
+                                // Keep the azimuth: only the altitude is raised, so the shadows
+                                // still fall in the direction the sun says, just shorter.
+                                shadowSunDir(0) *= scale / horizontal;
+                                shadowSunDir(1) *= scale / horizontal;
+                            }
+                            shadowSunDir(2) = MIN_SHADOW_SUN_SIN;
+                        }
+                    }
                     bool shadowsWanted = false;
                     {
                         shadowsWanted = lighting.terrainLightingEnabled && lighting.shadowStrength > 0.0f && !drapeTileIds.empty();
@@ -1867,7 +1974,7 @@ namespace carto {
                             std::array<std::vector<vt::TileId>, TerrainShadowMap::MAX_CASCADES> cascadeCasterTiles;
                             for (int cascade = 0; cascade < cascades; cascade++) {
                                 double depthRangeMeters = 1.0, texelMeters = 0;
-                                if (drapeLayers.front()->calculateShadowViewProj(drapeTileIds, casterTileIds, lighting.sunDir, tileHeights, minHeight, maxHeight, lighting.shadowDistance, _terrainShadowMap->getSize(), cascade, cascades, cascadeCasterTiles[cascade], depthRangeMeters, texelMeters, lightViewProjs[cascade])) {
+                                if (drapeLayers.front()->calculateShadowViewProj(drapeTileIds, casterTileIds, shadowSunDir, tileHeights, minHeight, maxHeight, lighting.shadowDistance, _terrainShadowMap->getSize(), cascade, cascades, cascadeCasterTiles[cascade], depthRangeMeters, texelMeters, lightViewProjs[cascade])) {
                                     // The bias is metric; the shader wants a fraction of the
                                     // normalised light depth, and each cascade's box spans its
                                     // own depth. Dividing per cascade is what keeps the shadow

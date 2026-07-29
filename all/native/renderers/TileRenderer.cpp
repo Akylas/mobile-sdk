@@ -399,10 +399,28 @@ namespace carto {
                         // hundreds of meters of depth tolerance at far distances (see-through ridges).
                         terrainDepthBias = terrainOptions->getDepthBias() * 0.1f;
                         activeTerrainOptions = terrainOptions;
-                        unsigned int elevationVersion = terrainOptions->getElevationManager()->getVersion();
+                        const std::shared_ptr<ElevationManager>& elevationManager = terrainOptions->getElevationManager();
+                        unsigned int elevationVersion = elevationManager->getVersion();
                         if (elevationVersion != _elevationVersion) {
                             auto now = std::chrono::steady_clock::now();
-                            if (!_lastSurfaceResetTime || now - *_lastSurfaceResetTime > std::chrono::milliseconds(SURFACE_RESET_DELAY)) {
+                            // The elevation version is global but a decoded elevation tile only
+                            // changes the surfaces over that tile. Rebuilding every visible
+                            // surface for it re-tesselates and re-uploads the whole screen -
+                            // repeatedly, while the initial elevation stream is running, with
+                            // nothing on most of it actually changing. Ask which tiles changed
+                            // and drop only those; the global reset stays as the fallback for
+                            // whole-data-set changes (data source change, exaggeration) and for
+                            // change-log overflow.
+                            std::vector<MapTile> changedTiles;
+                            if (_elevationVersion != 0 && elevationManager->getChangedTiles(_elevationVersion, changedTiles)) {
+                                _elevationVersion = elevationVersion;
+                                std::vector<vt::TileId> changedTileIds;
+                                changedTileIds.reserve(changedTiles.size());
+                                for (const MapTile& changedTile : changedTiles) {
+                                    changedTileIds.emplace_back(changedTile.getZoom(), changedTile.getX(), changedTile.getY());
+                                }
+                                tileRenderer->invalidateTileSurfaces(changedTileIds);
+                            } else if (!_lastSurfaceResetTime || now - *_lastSurfaceResetTime > std::chrono::milliseconds(SURFACE_RESET_DELAY)) {
                                 _elevationVersion = elevationVersion;
                                 _lastSurfaceResetTime = now;
                                 tileRenderer->resetTileSurfaces();

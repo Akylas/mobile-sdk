@@ -70,7 +70,7 @@ namespace carto {
 
     void ElevationManager::setExaggeration(float exaggeration) {
         _exaggeration.store(std::max(0.0f, exaggeration));
-        _version++;
+        bumpGlobalVersion();
     }
 
     std::size_t ElevationManager::getCacheCapacity() const {
@@ -211,6 +211,17 @@ namespace carto {
                 }
                 float maxSeen = _maxSeenElevation.load();
                 while (grid->getMaxHeight() > maxSeen && !_maxSeenElevation.compare_exchange_weak(maxSeen, grid->getMaxHeight())) { }
+
+                // Record WHICH tile changed, not just that something did. Consumers with
+                // per-tile derived data can then rebuild only the affected tiles. Bump the
+                // version under the same lock as the cache insert, so a consumer that sees
+                // the new version also sees the grid and a matching log entry.
+                unsigned int version = _version.fetch_add(1) + 1;
+                _changeLog.emplace_back(version, grid->getTile());
+                while (_changeLog.size() > MAX_CHANGE_LOG_ENTRIES) {
+                    _changeLog.pop_front();
+                    _changeLogFirstVersion = _changeLog.front().first;
+                }
             } else {
                 _gridCache.put(tileId, std::shared_ptr<ElevationTileGrid>(), 1024);
                 _gridCache.invalidate(tileId, std::chrono::steady_clock::now() + std::chrono::milliseconds(FAILED_TILE_TTL_MILLISECONDS));
@@ -218,9 +229,6 @@ namespace carto {
             _pendingLoads.erase(tileId);
         }
         promise.set_value(grid);
-        if (grid) {
-            _version++;
-        }
         return grid;
     }
 
@@ -363,6 +371,20 @@ namespace carto {
         return _version.load();
     }
 
+    bool ElevationManager::getChangedTiles(unsigned int sinceVersion, std::vector<MapTile>& tiles) const {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (sinceVersion + 1 < _changeLogFirstVersion) {
+            return false;
+        }
+        for (const std::pair<unsigned int, MapTile>& entry : _changeLog) {
+            if (entry.first > sinceVersion) {
+                tiles.push_back(entry.second);
+            }
+        }
+        return true;
+    }
+
     std::shared_ptr<ElevationDecoder> ElevationManager::ResolveDecoder(const std::shared_ptr<TileDataSource>& dataSource, const std::shared_ptr<ElevationDecoder>& preferredDecoder) {
         std::string encoding = dataSource ? dataSource->getEncoding() : std::string();
         if (encoding == "terrarium") {
@@ -385,7 +407,18 @@ namespace carto {
             std::lock_guard<std::mutex> lock(_mutex);
             _gridCache.clear();
         }
-        _version++;
+        bumpGlobalVersion();
+    }
+
+    void ElevationManager::bumpGlobalVersion() {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        // Everything derived from the elevation data is stale at once, which the per-tile
+        // change log can not express - drop it so that consumers take the full
+        // invalidation path until the next tile-level change.
+        unsigned int version = _version.fetch_add(1) + 1;
+        _changeLog.clear();
+        _changeLogFirstVersion = version + 1;
     }
 
     double ElevationManager::wrapInternalX(double internalX) const {
