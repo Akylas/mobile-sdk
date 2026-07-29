@@ -1,4 +1,5 @@
 #include "StyleEnvironment.h"
+#include "components/TerrainOptions.h"
 #include "components/LightOptions.h"
 #include "utils/Const.h"
 
@@ -97,6 +98,46 @@ namespace carto {
             lighting.shadowCasterMargin = *env.shadowCasterMargin;
         }
         return lighting;
+    }
+
+
+    ResolvedFog resolveFog(const std::shared_ptr<TerrainOptions>& terrainOptions, const StyleEnvironment& env, const ResolvedLighting& lighting) {
+        ResolvedFog fog;
+        if (terrainOptions) {
+            fog.color = terrainOptions->getFogColor();
+            fog.startDistance = terrainOptions->getFogStartDistance();
+            fog.distance = terrainOptions->getFogDistance();
+        }
+        if (env.fogColor) {
+            fog.color = *env.fogColor;
+        }
+        if (env.fogStartDistance) {
+            fog.startDistance = *env.fogStartDistance;
+        }
+        if (env.fogDistance) {
+            fog.distance = *env.fogDistance;
+        }
+
+        // Light the fog. Haze is lit air: at noon it is the bright band the reference renderers
+        // show at the horizon, at night it is a dark one, and near sunset it takes the sun's
+        // colour. The scale is the same light the ground gets (ambient plus the sun once it is
+        // above the horizon), so fog and terrain darken together instead of the fog floating over
+        // a black map. The tint is applied in proportion to how much of that light is direct sun.
+        if (lighting.terrainLightingEnabled && fog.color.getA() > 0) {
+            float sunUp = std::max(0.0f, std::min(1.0f, lighting.sunDir(2)));
+            float direct = std::max(0.0f, lighting.sunIntensity) * sunUp;
+            float light = std::max(0.0f, std::min(1.0f, std::max(0.0f, lighting.ambientIntensity) + direct));
+            float sunShare = direct > 0.0f ? std::min(1.0f, direct / std::max(1.0e-3f, light)) : 0.0f;
+            auto channel = [&](int value, int sunValue) {
+                float tint = 1.0f + sunShare * (sunValue / 255.0f - 1.0f);
+                return static_cast<unsigned char>(std::max(0.0f, std::min(255.0f, value * light * tint)));
+            };
+            fog.color = Color(channel(fog.color.getR(), lighting.sunColor.getR()),
+                              channel(fog.color.getG(), lighting.sunColor.getG()),
+                              channel(fog.color.getB(), lighting.sunColor.getB()),
+                              fog.color.getA());
+        }
+        return fog;
     }
 
 }

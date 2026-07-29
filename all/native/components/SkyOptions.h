@@ -124,6 +124,20 @@ namespace carto {
         void setHorizonBlend(float degrees);
 
         /**
+         * Returns how far up the sky the terrain fog is blended in.
+         * @return The fog blend height in degrees above the horizon. The default is 25.
+         */
+        float getFogBlend() const;
+        /**
+         * Sets how far above the horizon, in degrees, the terrain fog colour fades out of the sky.
+         * The fog (TerrainOptions/style fog colour, lit by the sun) is strongest right at the
+         * horizon and gone by this angle, so the haze the ground fades into continues into the sky
+         * instead of ending in a band at the skyline. Zero leaves the sky alone.
+         * @param degrees The new fog blend height in degrees (clamped to 0..90).
+         */
+        void setFogBlend(float degrees);
+
+        /**
          * Returns whether the built-in shader draws a sun disc.
          * @return True if the sun disc is drawn. The default is true.
          */
@@ -168,6 +182,7 @@ namespace carto {
         std::atomic<int> _horizonColorARGB;
         std::atomic<int> _groundColorARGB;
         std::atomic<float> _horizonBlend;
+        std::atomic<float> _fogBlend;
         std::atomic<bool> _sunDiscEnabled;
 
         std::string _shaderSource;

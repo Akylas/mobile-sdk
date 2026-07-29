@@ -558,26 +558,14 @@ namespace carto {
                 terrainLighting.ambientIntensity = lighting.ambientIntensity;
             }
 
-            // Distance fog. Metric in the API and in the style, internal units in the renderer:
-            // the conversion is the equator one, the same the shadow distance uses.
-            Color fogColor = _styleEnvironment.fogColor ? *_styleEnvironment.fogColor : Color(0, 0, 0, 0);
-            float fogStartDistance = _styleEnvironment.fogStartDistance ? *_styleEnvironment.fogStartDistance : 0.0f;
-            float fogDistance = _styleEnvironment.fogDistance ? *_styleEnvironment.fogDistance : 0.0f;
-            if (std::shared_ptr<TerrainOptions> terrainOptions = options->getTerrainOptions()) {
-                if (!_styleEnvironment.fogColor) {
-                    fogColor = terrainOptions->getFogColor();
-                }
-                if (!_styleEnvironment.fogStartDistance) {
-                    fogStartDistance = terrainOptions->getFogStartDistance();
-                }
-                if (!_styleEnvironment.fogDistance) {
-                    fogDistance = terrainOptions->getFogDistance();
-                }
-            }
+            // Distance fog, lit by the same sun as the ground (see resolveFog). Metric in the API
+            // and in the style, internal units in the renderer: the conversion is the equator one,
+            // the same the shadow distance uses.
+            ResolvedFog fog = resolveFog(options->getTerrainOptions(), _styleEnvironment, lighting);
             double metersToInternal = static_cast<double>(Const::WORLD_SIZE) / Const::EARTH_CIRCUMFERENCE;
-            tileRenderer->setFog(vt::Color(fogColor.getR() / 255.0f, fogColor.getG() / 255.0f, fogColor.getB() / 255.0f, fogColor.getA() / 255.0f),
-                                 static_cast<float>(fogStartDistance * metersToInternal),
-                                 static_cast<float>(fogDistance * metersToInternal));
+            tileRenderer->setFog(vt::Color(fog.color.getR() / 255.0f, fog.color.getG() / 255.0f, fog.color.getB() / 255.0f, fog.color.getA() / 255.0f),
+                                 static_cast<float>(fog.startDistance * metersToInternal),
+                                 static_cast<float>(fog.distance * metersToInternal));
         }
         tileRenderer->setTerrainLighting(terrainLighting);
         tileRenderer->setTerrainDepthWrite(terrainMode && _terrainDepthWriteMode);
