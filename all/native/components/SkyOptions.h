@@ -125,7 +125,7 @@ namespace carto {
 
         /**
          * Returns how far up the sky the terrain fog is blended in.
-         * @return The fog blend height in degrees above the horizon. The default is 25.
+         * @return The fog blend height in degrees above the horizon. The default is 12.
          */
         float getFogBlend() const;
         /**

@@ -244,14 +244,15 @@ namespace carto {
         uniform float u_fogBlend; // elevation angle (radians) where the fog has faded out of the sky; 0 = no fog
 
         // The sky's share of the terrain fog for a view ray: full at the horizon, gone by
-        // u_fogBlend. Squared so the haze hugs the horizon instead of greying the whole sky.
+        // u_fogBlend. Cubed so the haze hugs the horizon and clears quickly with height instead
+        // of greying half the sky.
         float fogAmount(vec3 rayDir) {
             if (u_fogBlend <= 0.0) {
                 return 0.0;
             }
             float elevation = asin(clamp(normalize(rayDir).z, -1.0, 1.0));
             float t = clamp(1.0 - max(elevation, 0.0) / u_fogBlend, 0.0, 1.0);
-            return t * t * u_fogColor.a;
+            return t * t * t * u_fogColor.a;
         }
     )GLSL";
 

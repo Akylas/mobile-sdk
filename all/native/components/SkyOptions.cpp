@@ -10,7 +10,7 @@ namespace carto {
         _horizonColorARGB(Color(171, 206, 236, 255).getARGB()),
         _groundColorARGB(Color(171, 206, 236, 255).getARGB()),
         _horizonBlend(12.0f),
-        _fogBlend(25.0f),
+        _fogBlend(12.0f),
         _sunDiscEnabled(true),
         _shaderSource(),
         _shaderSourceMutex(),
