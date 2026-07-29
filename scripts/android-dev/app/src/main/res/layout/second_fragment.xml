@@ -1,11 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  The demo screen is built in code (see com.akylas.cartotest.demo.DemoPanel), so this layout only
+  holds the map and the small camera readout. Every control lives in the panel behind the gear
+  button, which DemoPanel adds to the ConstraintLayout below at runtime.
+-->
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".ui.main.MainFragment">
+    tools:context=".ui.main.SecondFragment">
 
     <com.carto.ui.MapView
         android:id="@+id/mapView"
@@ -13,211 +18,18 @@
         android:layout_height="match_parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.0" />
+        app:layout_constraintTop_toTopOf="parent" />
 
-    <LinearLayout
-        android:id="@+id/controlsPanel"
-        android:visibility="gone"
-        android:layout_width="fill_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingTop="20dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
-
-
-
-        <LinearLayout
-            android:layout_width="fill_parent"
-            android:layout_height="30dp"
-            android:orientation="horizontal">
-
-
-            <TextView
-                android:text="contrast"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"></TextView>
-
-            <androidx.appcompat.widget.AppCompatSeekBar
-                android:id="@+id/contrastSeekBar"
-                android:layout_width="fill_parent"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:max="100" />
-            <TextView
-                android:id="@+id/textContrast"
-                android:layout_width="40dp"
-                android:layout_height="match_parent"></TextView>
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="fill_parent"
-            android:layout_height="30dp"
-            android:orientation="horizontal">
-
-
-            <TextView
-                android:text="heightScale"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"></TextView>
-
-            <androidx.appcompat.widget.AppCompatSeekBar
-                android:id="@+id/heightScaleSeekBar"
-                android:layout_width="fill_parent"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:max="100" />
-
-            <TextView
-                android:id="@+id/textHeightScale"
-                android:layout_width="40dp"
-                android:layout_height="match_parent"></TextView>
-
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="fill_parent"
-            android:layout_height="30dp"
-            android:orientation="horizontal">
-
-            <TextView
-                android:text="illuminationDir"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"></TextView>
-
-
-            <androidx.appcompat.widget.AppCompatSeekBar
-                android:id="@+id/illuminationDirectionSeekBar"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:max="360" />
-            <TextView
-                android:id="@+id/textIlluminationDirection"
-                android:layout_width="40dp"
-                android:layout_height="match_parent"></TextView>
-
-        </LinearLayout>
-        <LinearLayout
-            android:layout_width="fill_parent"
-            android:layout_height="30dp"
-            android:orientation="horizontal">
-
-
-            <TextView
-                android:text="highlightOpacity"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"></TextView>
-
-            <androidx.appcompat.widget.AppCompatSeekBar
-                android:id="@+id/highlightOpacitySeekBar"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:max="255" />
-            <TextView
-                android:id="@+id/testHighlightOpacity"
-                android:layout_width="40dp"
-                android:layout_height="match_parent"></TextView>
-
-        </LinearLayout>
-        <LinearLayout
-            android:layout_width="fill_parent"
-            android:layout_height="30dp"
-            android:orientation="horizontal">
-
-
-            <TextView
-                android:text="shadowOpacity"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"></TextView>
-
-            <androidx.appcompat.widget.AppCompatSeekBar
-                android:id="@+id/shadowOpacitySeekBar"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:max="255" />
-            <TextView
-                android:id="@+id/testShadowOpacity"
-                android:layout_width="40dp"
-                android:layout_height="match_parent"></TextView>
-
-        </LinearLayout>
-        <LinearLayout
-            android:layout_width="fill_parent"
-            android:layout_height="30dp"
-            android:orientation="horizontal">
-
-
-            <TextView
-                android:text="textOpacity"
-                android:layout_width="40dp"
-                android:layout_height="match_parent"></TextView>
-
-            <androidx.appcompat.widget.AppCompatSeekBar
-                android:id="@+id/opacitySeekBar"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:max="100" />
-
-            <TextView
-                android:id="@+id/textOpacity"
-                android:layout_width="40dp"
-                android:layout_height="match_parent"></TextView>
-
-        </LinearLayout>
-        <CheckBox
-            android:id="@+id/slopesCheckBox"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="inspect"></CheckBox>
-    </LinearLayout>
-
+    <!-- "z=.. tilt=.." readout, top-right corner -->
     <TextView
         android:id="@+id/zoomText"
-        android:visibility="gone"
-        android:layout_width="60dp"
-        android:layout_height="30dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.0"
-        app:layout_constraintVertical_bias="0.0"></TextView>
-    <Button
-        android:id="@+id/modeButton"
-        android:visibility="gone"
-        android:text="mode"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        app:layout_constraintBottom_toTopOf="@id/testRoutingButton"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"></Button>
-
-    <Button
-        android:id="@+id/testRoutingButton"
-        android:visibility="gone"
-        android:text="Test Routing"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
-
-    <TextView
-        android:id="@+id/routingResultText"
-        android:visibility="gone"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:paddingStart="8dp"
-        android:paddingEnd="8dp"
+        android:background="#A0FFFFFF"
+        android:padding="4dp"
         android:textSize="12sp"
-        app:layout_constraintBottom_toTopOf="@id/testRoutingButton"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        app:layout_constraintTop_toTopOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

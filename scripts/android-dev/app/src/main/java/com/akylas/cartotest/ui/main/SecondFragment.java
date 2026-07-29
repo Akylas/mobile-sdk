@@ -1,7 +1,6 @@
 package com.akylas.cartotest.ui.main;
 
 import android.Manifest;
-import android.animation.Animator;
 import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -9,1412 +8,118 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
-import android.os.Handler;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
-import android.widget.CheckBox;
-import android.widget.CompoundButton;
-import android.widget.SeekBar;
 import android.widget.TextView;
-
-import com.akylas.cartotest.R;
-import com.akylas.routing.LatLon;
-import com.akylas.routing.RoutingRequest;
-import com.akylas.routing.ValhallaOnlineRoutingService;
-import com.akylas.routing.ValhallaRoutingService;
-import com.carto.components.Options;
-import com.carto.components.PanningMode;
-import com.carto.core.BinaryData;
-import com.carto.core.MapBounds;
-import com.carto.core.MapPos;
-import com.carto.core.MapPosVector;
-import com.carto.core.MapPosVectorVector;
-import com.carto.core.MapRange;
-import com.carto.core.MapVec;
-import com.carto.core.ScreenBounds;
-import com.carto.core.StringMap;
-import com.carto.core.StringVector;
-import com.carto.core.Variant;
-import com.carto.datasources.ContourTileDataSource;
-import com.carto.datasources.GeoJSONVectorTileDataSource;
-import com.carto.datasources.HTTPTileDataSource;
-import com.carto.datasources.MergedMBVTTileDataSource;
-import com.carto.datasources.MultiTileDataSource;
-import com.carto.datasources.LocalVectorDataSource;
-import com.carto.datasources.MBTilesTileDataSource;
-import com.carto.datasources.PersistentCacheTileDataSource;
-import com.carto.datasources.TileDataSource;
-import com.carto.geometry.Feature;
-import com.carto.geometry.FeatureCollection;
-import com.carto.geometry.GeoJSONGeometryReader;
-import com.carto.geometry.GeoJSONGeometryWriter;
-import com.carto.geometry.Geometry;
-import com.carto.geometry.LineGeometry;
-import com.carto.geometry.MultiLineGeometry;
-import com.carto.geometry.PointGeometry;
-import com.carto.geometry.PolygonGeometry;
-import com.carto.geometry.VectorTileFeatureCollection;
-import com.carto.graphics.Color;
-import com.carto.layers.HillshadeMethod;
-import com.carto.layers.CompositeVectorTileLayer;
-import com.carto.layers.CompositeSourceType;
-import com.carto.layers.CustomRasterTileLayer;
-import com.carto.layers.HillshadeRasterTileLayer;
-import com.carto.layers.RasterTileFilterMode;
-import com.carto.layers.RasterTileLayer;
-import com.carto.layers.TileLayer;
-import com.carto.layers.TileSubstitutionPolicy;
-import com.carto.layers.VectorLayer;
-import com.carto.layers.VectorTileLayer;
-import com.carto.layers.VectorTileRenderOrder;
-import com.carto.projections.EPSG4326;
-import com.carto.projections.Projection;
-import com.carto.rastertiles.MapBoxElevationDataDecoder;
-import com.carto.rastertiles.TerrariumElevationDataDecoder;
-import com.carto.routing.RouteMatchingRequest;
-import com.carto.routing.RouteMatchingResult;
-import com.carto.routing.ValhallaOfflineRoutingService;
-import com.carto.search.SearchRequest;
-import com.carto.search.VectorTileSearchService;
-import com.carto.styles.CartoCSSStyleSet;
-import com.carto.styles.CompiledStyleSet;
-import com.carto.styles.LineJoinType;
-import com.carto.styles.LineStyleBuilder;
-import com.carto.ui.MapClickInfo;
-import com.carto.ui.MapEventListener;
-import com.carto.ui.MapView;
-import com.carto.utils.AssetUtils;
-import com.carto.utils.ZippedAssetPackage;
-import com.carto.vectorelements.Line;
-import com.carto.vectortiles.MBVectorTileDecoder;
-
-import java.io.DataInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Timer;
-import java.util.TimerTask;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
-import androidx.appcompat.widget.AppCompatSeekBar;
 import androidx.fragment.app.Fragment;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.akylas.cartotest.R;
+import com.akylas.cartotest.demo.DemoCfg;
+import com.akylas.cartotest.demo.DemoConfig;
+import com.akylas.cartotest.demo.DemoMap;
+import com.akylas.cartotest.demo.DemoPanel;
+import com.carto.components.Options;
+import com.carto.components.PanningMode;
+import com.carto.core.MapPos;
+import com.carto.core.MapRange;
+import com.carto.projections.EPSG4326;
+import com.carto.ui.MapClickInfo;
+import com.carto.ui.MapEventListener;
+import com.carto.ui.MapView;
 
+import java.io.File;
+import java.nio.file.Paths;
+
+/**
+ * The demo screen. Deliberately thin: it owns the Android side (view, permissions, map event
+ * listener) and nothing else.
+ *
+ * WHAT THE DEMO SHOWS lives in three places:
+ *   - com.akylas.cartotest.demo.DemoConfig : all defaults, one static field per knob;
+ *   - com.akylas.cartotest.demo.DemoMap    : builds the map from that config, applies changes;
+ *   - com.akylas.cartotest.demo.DemoPanel  : the on-screen panel that edits the config live.
+ *
+ * There are no separate "examples" any more: every layer (base map, hillshade, contours,
+ * satellite, hypsometric tint, test elements, offline routes) is an independent switch, and the
+ * base map's style source (dir / zip / inline / nuti) and mode (plain / composite) are two more.
+ */
 public class SecondFragment extends Fragment {
-    private final String TAG = "SecondFragment";
 
+    private static final String TAG = "SecondFragment";
 
-//    class MathRouteTask extends TimerTask
-//    {
-//        MathRouteTask(MultiValhallaOfflineRoutingService routingService, Projection projection, String profile) {
-//            super();
-//            this.profile = profile;
-//            this.projection = projection;
-//            this.routingService = routingService;
-//        }
-//        MultiValhallaOfflineRoutingService routingService;
-//        Projection projection;
-//        String profile;
-//        public void run()
-//        {
-//            matchRouteTest(this.routingService, this.projection, this.profile);
-//        }
-//    }
+    private static final int REQUEST_PERMISSIONS_CODE_WRITE_STORAGE = 1435;
+    private static final int REQUEST_PERMISSIONS_MANAGE_STORAGE = 1436;
 
     public static SecondFragment newInstance() {
         return new SecondFragment();
     }
 
-    private static final int REQUEST_PERMISSIONS_CODE_WRITE_STORAGE = 1435;
-    private static final int REQUEST_PERMISSIONS_MANAGE_STORAGE = 1436;
+    private MapView mapView;
+    private DemoMap demo;
+    private TextView zoomText;
 
-    // --- Test harness -----------------------------------------------------------------------
-    // Every knob below can be overridden from adb without rebuilding, e.g.
-    //   adb shell am start -n com.akylas.cartotest/.MainActivity \
-    //       --es demo composite --es drape false --es tilt 60 --es zoom 14.7 \
-    //       --es lon 5.760595 --es lat 45.244172
-    // Defaults keep the behaviour of the hard-coded configuration.
-    private String cfg(String key) {
-        try {
-            android.content.Intent intent = getActivity() != null ? getActivity().getIntent() : null;
-            Object value = intent != null && intent.getExtras() != null ? intent.getExtras().get(key) : null;
-            return value != null ? String.valueOf(value) : null;
-        } catch (Exception e) {
-            return null;
-        }
-    }
-    private String cfgStr(String key, String def) { String v = cfg(key); return v != null ? v : def; }
-    // '#' starts a comment in the adb shell, so colours are passed bare ("ff00ff").
-    private String cfgColor(String key, String def) {
-        String v = cfg(key);
-        if (v == null) return def;
-        return v.startsWith("#") ? v : "#" + v;
-    }
-    private boolean cfgBool(String key, boolean def) { String v = cfg(key); return v != null ? Boolean.parseBoolean(v) : def; }
-    private float cfgFloat(String key, float def) { String v = cfg(key); return v != null ? Float.parseFloat(v) : def; }
-    private int cfgInt(String key, int def) { String v = cfg(key); return v != null ? (int) Float.parseFloat(v) : def; }
-
-    // Applies the camera overrides on top of a demo's own start position.
-    void applyCameraConfig(double lon, double lat, float zoom, float tilt) {
-        Projection proj = mapView.getOptions().getBaseProjection();
-        mapView.setFocusPos(proj.fromWgs84(new MapPos(cfgFloat("lon", (float) lon), cfgFloat("lat", (float) lat))), 0);
-        mapView.setZoom(cfgFloat("zoom", zoom), 0);
-        mapView.setTilt(cfgFloat("tilt", tilt), 0);
-        mapView.setMapRotation(cfgFloat("rotation", 0), 0);
-        lightOptions.setTerrainLightingEnabled(true);
-        if (cfgBool("daycycle", false)) {
-            sunSkyDemoEnabled = true;
-            lightOptions.setTerrainLightingEnabled(true);
-            skyOptions.setEnabled(true);
-            applySunSkyHour(cfgFloat("sunHour", 12));
-        }
-        if (cfgBool("peakfinder", false)) {
-            // After the GL surface exists: attaching a post-process effect before it does
-            // leaves the offscreen colour buffer unwritten and the screen black.
-            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    toggleReliefOutlineEffect();
-                }
-            }, (long) cfgFloat("peakfinderDelay", 8000));
-        }
-        startScriptedAnimation(cfgFloat("lon", (float) lon), cfgFloat("lat", (float) lat), cfgFloat("zoom", zoom), cfgFloat("tilt", tilt));
-    }
-
-    // '--es anim zoom|pan' drives a scripted camera move, so animation artifacts (which still
-    // frames never show) can be captured with adb screenrecord without touch input.
-    void startScriptedAnimation(final double lon, final double lat, final float zoom, final float tilt) {
-        final String anim = cfgStr("anim", "");
-        if (anim.isEmpty()) {
-            return;
-        }
-        final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
-        final float delay = cfgFloat("animDelay", 12000);
-        final float duration = cfgFloat("animDuration", 8);
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                Projection proj = mapView.getOptions().getBaseProjection();
-                if ("zoom".equals(anim)) {
-                    mapView.setZoom(zoom + cfgFloat("animZoomDelta", 3), duration);
-                } else if ("pan".equals(anim)) {
-                    mapView.setFocusPos(proj.fromWgs84(new MapPos(lon + cfgFloat("animLonDelta", 0.05f), lat)), duration);
-                } else if ("rotate".equals(anim)) {
-                    mapView.setMapRotation(cfgFloat("animRotation", 180), duration);
-                }
-            }
-        }, (long) delay);
-    }
-
-    // Sky + sun. '--es sky true' turns on the shader sky; '--es sunHour 8' (UTC) or
-    // '--es sunAzimuth/--es sunAltitude' place the sun; '--es terrainLight true' shades the
-    // draped terrain surface with it.
-    void applySkyAndLightConfig(double lon, double lat) {
-        // Always attach both, so the debug panel can toggle them live; the sky starts disabled
-        // unless asked for, which renders exactly as having no sky options at all.
-        com.carto.components.SkyOptions sky = new com.carto.components.SkyOptions();
-        sky.setEnabled(cfgBool("sky", true));
-        skyOptions = sky;
-        mapView.getOptions().setSkyOptions(sky);
-
-        com.carto.components.LightOptions light = new com.carto.components.LightOptions();
-        light.setAmbientIntensity(1.0f);
-        lightOptions = light;
-        sunLatitude = lat;
-        sunLongitude = lon;
-        if (cfg("sunHour") != null) {
-            light.setSunPositionFromTime(cfgInt("sunYear", 2026), cfgInt("sunMonth", 7), cfgInt("sunDay", 26),
-                    cfgInt("sunHour", 8), cfgInt("sunMinute", 0), lat, lon);
-        } else {
-            light.setSunAzimuth(cfgFloat("sunAzimuth", 355));
-            light.setSunAltitude(cfgFloat("sunAltitude", 9));
-        }
-        light.setSunIntensity(cfgFloat("sunIntensity", light.getSunIntensity()));
-        light.setAmbientIntensity(cfgFloat("ambient", light.getAmbientIntensity()));
-        light.setTerrainLightingEnabled(cfgBool("terrainLight", false));
-        light.setShadowStrength(cfgFloat("shadow", 0.3f));
-        light.setShadowMapSize(cfgInt("shadowMapSize", light.getShadowMapSize()));
-        light.setShadowCascades(cfgInt("shadowCascades", light.getShadowCascades()));
-        light.setShadowBias(cfgFloat("shadowBias", light.getShadowBias()));
-        light.setShadowDistance(cfgFloat("shadowDistance", light.getShadowDistance()));
-        light.setShadowCasterMargin(cfgInt("shadowMargin", light.getShadowCasterMargin()));
-        mapView.getOptions().setLightOptions(light);
-    }
-
-
-    // ---------------------------------------------------------------------------------------------
-    // Sun / sky day-cycle demo. Everything here is driven from Options - no layers are touched -
-    // so it can be switched on and off at runtime from the debug panel.
-    //
-    // The hour drives: the sun position (computed for the CURRENT map centre), the sky, horizon and
-    // ground colours, the sun colour and intensity, the shadow strength, and a generated sky shader
-    // that draws the sun disc, the moon disc, the sun's daily arc and a few procedural clouds.
-    // The arc and the moon are baked into the shader source rather than passed as uniforms, because
-    // the sky shader contract has a fixed uniform set; regenerating the source on an hour change is
-    // cheap enough for a demo.
-    // ---------------------------------------------------------------------------------------------
-    boolean sunSkyDemoEnabled = false;
-    float sunSkyHour = 12;
-
-    private double[] sunVectorAt(float hourUtc, double lat, double lon) {
-        com.carto.components.LightOptions probe = new com.carto.components.LightOptions();
-        int hour = (int) hourUtc;
-        int minute = (int) ((hourUtc - hour) * 60);
-        probe.setSunPositionFromTime(2026, 7, 26, hour, minute, lat, lon);
-        double az = Math.toRadians(probe.getSunAzimuth());
-        double alt = Math.toRadians(probe.getSunAltitude());
-        double cosAlt = Math.cos(alt);
-        return new double[] { cosAlt * Math.sin(az), cosAlt * Math.cos(az), Math.sin(alt) };
-    }
-
-    private String formatVec(double[] v) {
-        return String.format(java.util.Locale.US, "vec3(%.5f, %.5f, %.5f)", v[0], v[1], v[2]);
-    }
-
-    void applySunSkyHour(float hourUtc) {
-        if (lightOptions == null || skyOptions == null) {
-            return;
-        }
-        sunSkyHour = hourUtc;
-        Projection proj = mapView.getOptions().getBaseProjection();
-        MapPos centre = proj.toWgs84(mapView.getFocusPos());
-        double lat = centre.getY(), lon = centre.getX();
-
-        lightOptions.setSunPositionFromTime(2026, 7, 26, (int) hourUtc, (int) ((hourUtc - (int) hourUtc) * 60), lat, lon);
-        float altitude = lightOptions.getSunAltitude();
-
-        // day = 1 well above the horizon, 0 below it, with civil twilight in between.
-        float day = Math.max(0f, Math.min(1f, (altitude + 6f) / 12f));
-        float warm = 1f - Math.max(0f, Math.min(1f, altitude / 25f)); // reddening near the horizon
-
-        lightOptions.setSunColor(new Color(
-                (short) 255,
-                (short) (int) (255 - 90 * warm),
-                (short) (int) (255 - 190 * warm),
-                (short) 255));
-        lightOptions.setSunIntensity(0.15f + 0.85f * day);
-        lightOptions.setAmbientIntensity(0.25f + 0.55f * day);
-        lightOptions.setShadowStrength(0.85f * day); // no sun, no shadows
-
-        int skyR = (int) (10 + 48 * day), skyG = (int) (14 + 102 * day), skyB = (int) (40 + 156 * day);
-        int horR = (int) (25 + (146 + 60 * warm) * day), horG = (int) (25 + 181 * day), horB = (int) (55 + 181 * day);
-        skyOptions.setSkyColor(new Color((short) skyR, (short) skyG, (short) skyB, (short) 255));
-        skyOptions.setHorizonColor(new Color((short) horR, (short) horG, (short) horB, (short) 255));
-        skyOptions.setGroundColor(new Color((short) (horR * 0.8), (short) (horG * 0.8), (short) (horB * 0.8), (short) 255));
-
-        // The sun's daily path is a circle; three positions on it define its plane.
-        double[] a = sunVectorAt(6, lat, lon), b = sunVectorAt(12, lat, lon), c = sunVectorAt(18, lat, lon);
-        double[] u = { b[0] - a[0], b[1] - a[1], b[2] - a[2] };
-        double[] v = { c[0] - a[0], c[1] - a[1], c[2] - a[2] };
-        double[] n = { u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0] };
-        double nlen = Math.sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
-        if (nlen > 1e-9) { n[0] /= nlen; n[1] /= nlen; n[2] /= nlen; }
-
-        // The moon rides roughly the opposite side of the same arc, offset by the monthly phase.
-        double[] moon = sunVectorAt((hourUtc + 12.7f) % 24f, lat, lon);
-
-        skyOptions.setShaderSource(buildSkyShader(n, moon, day, hourUtc));
-        mapView.requestRender();
-    }
-
-    private String buildSkyShader(double[] arcNormal, double[] moonDir, float day, float hourUtc) {
-        // Cloud cover and layout change with the hour: the seed is derived from it, so scrubbing
-        // the slider rolls a different (but stable) sky.
-        float seed = (hourUtc * 7.13f) % 10.0f;
-        float cover = 0.35f + 0.25f * (float) Math.sin(hourUtc * 0.7f);
-        // The sky shader wrapper already declares u_sunDir/u_sunColor/u_skyColor/u_horizonColor/
-        // u_groundColor/u_time - redeclaring any of them is a compile error and the renderer
-        // silently falls back to the built-in sky.
-        return String.join("\n",
-            "const vec3 ARC_N = " + formatVec(arcNormal) + ";",
-            "const vec3 MOON_DIR = " + formatVec(moonDir) + ";",
-            String.format(java.util.Locale.US, "const float SEED = %.4f;", seed),
-            String.format(java.util.Locale.US, "const float COVER = %.4f;", cover),
-            String.format(java.util.Locale.US, "const float DAY = %.4f;", day),
-            "",
-            "float hash(vec2 p) {",
-            "  return fract(sin(dot(p, vec2(127.1, 311.7)) + SEED) * 43758.5453);",
-            "}",
-            "float noise(vec2 p) {",
-            "  vec2 i = floor(p), f = fract(p);",
-            "  f = f * f * (3.0 - 2.0 * f);",
-            "  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),",
-            "             mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);",
-            "}",
-            "float clouds(vec3 dir) {",
-            "  if (dir.z <= 0.02) return 0.0;",
-            "  // Project the ray onto a flat cloud deck: cheap, and the perspective is right.",
-            "  vec2 p = dir.xy / dir.z * 0.6 + vec2(u_time * 0.004, 0.0);",
-            "  float f = 0.55 * noise(p) + 0.28 * noise(p * 2.3) + 0.17 * noise(p * 4.7);",
-            "  float c = smoothstep(COVER, COVER + 0.22, f);",
-            "  return c * smoothstep(0.02, 0.25, dir.z); // fade them out at the horizon",
-            "}",
-            "",
-            "vec4 skyColor(vec3 rayDir) {",
-            "  vec3 dir = normalize(rayDir);",
-            "  float h = clamp(dir.z, -1.0, 1.0);",
-            "  vec3 col = h < 0.0",
-            "      ? mix(u_horizonColor.rgb, u_groundColor.rgb, clamp(-h * 6.0, 0.0, 1.0))",
-            "      : mix(u_horizonColor.rgb, u_skyColor.rgb, pow(clamp(h, 0.0, 1.0), 0.45));",
-            "",
-            "  // Stars, only once the sky is dark enough to see them.",
-            "  if (DAY < 0.55 && h > 0.0) {",
-            "    vec2 sp = floor(dir.xy / max(0.05, dir.z) * 90.0);",
-            "    float star = step(0.995, hash(sp));",
-            "    col += vec3(star * (0.55 - DAY) * 1.6);",
-            "  }",
-            "",
-            "  // The sun's daily arc: the thin band where the ray lies in the plane of its path.",
-            "  float arc = 1.0 - smoothstep(0.0, 0.006, abs(dot(dir, ARC_N)));",
-            "  col = mix(col, u_sunColor.rgb, arc * 0.30 * step(-0.03, h));",
-            "",
-            "  col = mix(col, vec3(1.0, 1.0, 0.98), clouds(dir) * (0.35 + 0.5 * DAY));",
-            "",
-            "  // Sun: disc, then glow, tinted toward the sun colour rather than added, so a bright",
-            "  // sky does not saturate to white far from it.",
-            "  float ds = length(dir - normalize(u_sunDir));",
-            "  col = mix(col, u_sunColor.rgb, clamp(1.0 - smoothstep(0.0, 0.12, ds), 0.0, 1.0) * 0.85);",
-            "  col = mix(col, u_sunColor.rgb * 1.15, (1.0 - smoothstep(0.0, 0.03, ds)));",
-            "",
-            "  // Moon: a small disc with a soft halo, brighter as the sky darkens.",
-            "  float dm = length(dir - normalize(MOON_DIR));",
-            "  float moonLit = 0.35 + 0.65 * (1.0 - DAY);",
-            "  col = mix(col, vec3(0.86, 0.88, 0.92), (1.0 - smoothstep(0.0, 0.020, dm)) * moonLit);",
-            "  col = mix(col, vec3(0.70, 0.74, 0.85), (1.0 - smoothstep(0.02, 0.09, dm)) * 0.18 * moonLit);",
-            "",
-            "  return vec4(col, 1.0);",
-            "}",
-            "");
-    }
-
-    // Applies the terrain overrides shared by every demo that builds a TerrainOptions.
-    void applyTerrainConfig(com.carto.components.TerrainOptions options) {
-        options.setExaggeration(cfgFloat("exaggeration", options.getExaggeration()));
-        options.setMeshResolution(cfgInt("meshResolution", options.getMeshResolution()));
-        options.setDrapeFillsEnabled(cfgBool("drape", options.isDrapeFillsEnabled()));
-        options.setDrapeLinesEnabled(cfgBool("drapeLines", options.isDrapeLinesEnabled()));
-        options.setDrapeResolution(cfgInt("drapeResolution", options.getDrapeResolution()));
-        // Peak-finder: a larger tolerance labels summits that are partly behind a nearer ridge.
-        options.setBillboardOcclusionTolerance(cfgFloat("occlusionTolerance", options.getBillboardOcclusionTolerance()));
-        // Distance fog and the view distance. '--es fog ffffff --es fogDistance 30000' etc.
-        if (cfg("fog") != null) {
-            fogColorARGB = android.graphics.Color.parseColor(cfgColor("fog", "#ffffff"));
-            options.setFogColor(new com.carto.graphics.Color(fogColorARGB));
-        }
-        options.setFogStartDistance(cfgFloat("fogStart", options.getFogStartDistance()));
-        options.setFogDistance(cfgFloat("fogDistance", options.getFogDistance()));
-        options.setMaxVisibleDistance(cfgFloat("maxDistance", options.getMaxVisibleDistance()));
-    }
-
-    // The colour the fog checkbox turns on; '--es fog RRGGBB' picks another one. Kept as a plain
-    // int: a field initializer runs in the fragment's constructor, before the native library is
-    // loaded, and building a com.carto.graphics.Color there dies with UnsatisfiedLinkError.
-    int fogColorARGB = 0xffb8c6d8;
-
-    MapView mapView;
-    MapBoxElevationDataDecoder elevationDecoder;
-    HillshadeRasterTileLayer hillshadeLayer;
-
-    // Function to check and request permission
-    @SuppressLint("NewApi")
-    public void checkStoragePermission(View view) {
-
-        // Checking if permission is not granted
-        if (getActivity().checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_DENIED) {
-            requestPermissions(
-                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
-                    REQUEST_PERMISSIONS_CODE_WRITE_STORAGE);
-
-        } else {
-            proceedWithSdCard(view);
-        }
-    }
-
-
-    public void toggleSlopes(boolean activated) {
-        hillshadeLayer.setExagerateHeightScaleEnabled(!activated);
-        hillshadeLayer.setNormalMapLightingShader(activated ? "uniform vec4 u_shadowColor;\n" +
-                "        uniform vec4 u_highlightColor;\n" +
-                "        uniform vec4 u_accentColor;\n" +
-                "        uniform vec3 u_lightDir;\n" +
-                "        vec4 applyLighting(lowp vec4 color, mediump vec3 normal, mediump vec3 surfaceNormal, mediump float intensity) {\n" +
-                "            mediump float lighting = max(0.0, dot(normal, u_lightDir));\n" +
-                "            mediump float slope = acos(dot(normal, surfaceNormal)) *180.0 / 3.14159 * 1.2;\n" +
-                "            if (slope >= 45.0) {return vec4(0.7568627450980392* 0.5, 0.5450980392156863* 0.5, 0.7176470588235294* 0.5, 0.5); }\n" +
-                "            if (slope >= 40.0) {return vec4( 0.5, 0, 0, 0.5); }\n" +
-                "            if (slope >= 35.0) {return vec4(0.9098039215686275* 0.5, 0.4627450980392157* 0.5, 0.2235294117647059* 0.5, 0.5); }\n" +
-                "            if (slope >= 30.0) {return vec4(0.9411764705882353* 0.5, 0.9019607843137255* 0.5, 0.3058823529411765* 0.5, 0.5); }\n" +
-                "            return vec4(0, 0, 0, 0.0);\n" +
-                "        }\n" +
-                " " : "");
-    }
-
-    @RequiresApi(api = Build.VERSION_CODES.R)
+    @RequiresApi(api = Build.VERSION_CODES.M)
+    @Nullable
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-//        if (requestCode == REQUEST_PERMISSIONS_CODE_WRITE_STORAGE) {
-//            if (permissions[0].equals(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-//                    && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-//                if (Build.VERSION.SDK_INT >= 30) {
-//                    // If you have access to the external storage, do whatever you need
-                    if (Environment.isExternalStorageManager()) {
-//
-//                        // If you don't have access, launch a new activity to show the user the system's dialog
-//                        // to allow access to the external storage
-                    proceedWithSdCard(this.getView());
-                    } else {
-                        Intent intent = new Intent();
-                        intent.setAction(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
-                        Uri uri = Uri.fromParts("package", getActivity().getPackageName(), null);
-                        intent.setData(uri);
-                        startActivityForResult(intent, REQUEST_PERMISSIONS_MANAGE_STORAGE);
-                    }
-//                } else {
-//                    proceedWithSdCard(this.getView());
-//
-////                }
-//            }
-//        } else if (requestCode == REQUEST_PERMISSIONS_CODE_WRITE_STORAGE) {
-//            proceedWithSdCard(this.getView());
-//
-//        }
-    }
-    com.carto.components.TerrainOptions terrainOptions;
-    com.carto.components.LightOptions lightOptions;
-    double sunLatitude = 45.24, sunLongitude = 5.76;
-    com.carto.components.SkyOptions skyOptions;
-    TextView terrainZoomText;
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
+                             @Nullable Bundle savedInstanceState) {
+        View view = inflater.inflate(R.layout.second_fragment, container, false);
 
-    // --- small builders for the debug panel ---------------------------------------------------
-    private interface BoolSetting { void set(boolean value); }
-    private interface FloatSetting { void set(float value); }
+        com.carto.utils.Log.setShowInfo(true);
+        com.carto.utils.Log.setShowDebug(true);
+        com.carto.utils.Log.setShowWarn(true);
+        com.carto.utils.Log.setShowError(true);
 
-    private void panelHeader(android.content.Context context, android.widget.LinearLayout panel, String label) {
-        final TextView text = new TextView(context);
-        text.setText(label);
-        text.setTextColor(0xFF204060);
-        text.setPadding(0, 18, 0, 2);
-        text.setTypeface(null, android.graphics.Typeface.BOLD);
-        panel.addView(text);
+        mapView = (MapView) view.findViewById(R.id.mapView);
+        zoomText = (TextView) view.findViewById(R.id.zoomText);
+
+        // Base map options that are not part of the demo configuration itself.
+        final Options options = mapView.getOptions();
+        options.setBaseProjection(new EPSG4326());
+        options.setZoomGestures(true);
+        options.setRestrictedPanning(true);
+        options.setSeamlessPanning(true);
+        options.setRotatable(true);
+        options.setTiltRange(new MapRange(10, 90));
+        options.setPanningMode(PanningMode.PANNING_MODE_STICKY);
+
+        // Intent extras override the DemoConfig defaults; read them before anything is built.
+        DemoCfg.attach(getActivity() != null ? getActivity().getIntent() : null);
+        DemoConfig.applyIntentOverrides();
+
+        checkStoragePermission(view);
+        return view;
     }
 
-    private CheckBox panelCheck(android.content.Context context, android.widget.LinearLayout panel,
-                                String label, boolean initial, final BoolSetting setting) {
-        final CheckBox check = new CheckBox(context);
-        check.setText(label);
-        check.setChecked(initial);
-        check.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                setting.set(isChecked);
-                mapView.requestRender();
-            }
-        });
-        panel.addView(check);
-        return check;
-    }
-
-    // Continuous while dragging unless applyOnRelease: some settings (mesh/drape resolution)
-    // throw away every cached tile texture when they change, so applying them per pixel of drag
-    // is a guaranteed stall.
-    private void panelSlider(android.content.Context context, android.widget.LinearLayout panel,
-                             final String label, float min, float max, float initial,
-                             final boolean applyOnRelease, final FloatSetting setting) {
-        final float lo = min, span = max - min;
-        final TextView text = new TextView(context);
-        text.setText(String.format("%s %.2f", label, initial));
-        panel.addView(text);
-        final SeekBar seek = new SeekBar(context);
-        seek.setMax(1000);
-        seek.setProgress((int) ((initial - lo) / span * 1000));
-        seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            private float valueOf(SeekBar bar) { return lo + span * bar.getProgress() / 1000.0f; }
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                text.setText(String.format("%s %.2f", label, valueOf(seekBar)));
-                if (!applyOnRelease) {
-                    setting.set(valueOf(seekBar));
-                    mapView.requestRender();
-                }
-            }
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) { }
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-                setting.set(valueOf(seekBar));
-                mapView.requestRender();
-            }
-        });
-        panel.addView(seek, new android.widget.LinearLayout.LayoutParams(500, ViewGroup.LayoutParams.WRAP_CONTENT));
-    }
-
-    void addTerrain(View view, String dataPath) {
-        // Shared elevation source: used simultaneously by the 3D terrain and the hillshade layer.
-        // The memory cache avoids downloading/decoding each elevation tile twice.
-        final HTTPTileDataSource demSource = new HTTPTileDataSource(1, 12, "https://tiles.mapterhorn.com/{z}/{x}/{y}.webp");
-        demSource.setEncoding("terrarium");
-        final com.carto.datasources.MemoryCacheTileDataSource cachedDemSource = new com.carto.datasources.MemoryCacheTileDataSource(demSource);
-
-        // 3D terrain. The decoder is resolved from the data source "encoding" setting
-        // (delegated through the cache wrapper); passing it explicitly works as well.
-        terrainOptions = new com.carto.components.TerrainOptions(cachedDemSource, new TerrariumElevationDataDecoder());
-        terrainOptions.setExaggeration(1.0f);
-        terrainOptions.setMeshResolution(64);
-        // Optional: cap terrain LOD tile detail at what flat rendering would show
-        // (offset 0), to hide LOD rings if the style renders differently at different
-        // tile zoom levels. Disabled: the LOD rings turned out not to be the cause of
-        // the washed-out alpine faces (style/hillshade appearance).
-        //terrainOptions.setMaxTileZoomOffset(0);
-
-//        terrainOptions.setRegularGridEnabled(true);
-        terrainOptions.setPainterOrderDepthEnabled(true);
-        applyTerrainConfig(terrainOptions);
-        mapView.getOptions().setTerrainOptions(terrainOptions);
-
-        // Hillshade layer draped over the 3D terrain, sharing the elevation source
-        final HillshadeRasterTileLayer hillshade = new HillshadeRasterTileLayer(cachedDemSource, new TerrariumElevationDataDecoder());
-        hillshade.setHillshadeMethod(HillshadeMethod.IGOR);
-        hillshade.setContrast(0.5f);
-        hillshade.setHeightScale(0.05f);
-        // Piece 1+2: GPU contour lines drawn IN the hillshade pass. The normal map encodes the
-        // absolute elevation, and the hillshade fragment shader draws anti-aliased contour lines from
-        // it (tangram/ascendmaps style). This is the shader alternative to the ContourTileDataSource
-        // geometry path below: cheaper, no labels, not styled from CartoCSS. Unlike the geometry path
-        // it is unaffected by the DEM/tile zoom (drawn per fragment at a fixed metre interval).
-//        hillshade.setContourEnabled(true);
-//        hillshade.setContourInterval(100f);
-//        hillshade.setContourColor(new Color((short) 0xC5, (short) 0x60, (short) 0x08, (short) 0xFF));
-//        hillshade.setContourWidth(0.8f);
-
-        // --- Fully CUSTOM per-zoom "div" contour shader (Piece 1+2, configurable) ---------------
-        // A custom normal-map lighting shader can call getElevation() (metres at the fragment) and
-        // getMapZoom() (fractional map zoom), so it picks the interval per zoom and draws several line
-        // weights ("div"). To use it instead of the built-in contours: keep elevation encoding on, turn
-        // the built-in contours OFF, and set the shader. (Uncomment to try.)
-        // hillshade.setContourEnabled(false);
-//         hillshade.setElevationEncodingEnabled(true);
-//         // Contour-ONLY custom shader: returns PREMULTIPLIED color and is fully TRANSPARENT where there
-//         // is no line (alpha = coverage), so the map below shows through. Returning an opaque base (as a
-//         // "grey hillshade") is what caused the grey wash. To also draw hillshade, composite the lines
-//         // OVER a slope-based shadow whose alpha is 0 on flat/lit ground (not a constant).
-//         hillshade.setNormalMapLightingShader(
-//             "vec4 applyLighting(lowp vec4 color, mediump vec3 normal, mediump vec3 surfaceNormal, mediump float intensity) {\n" +
-//             "  float e = getElevation();\n" +
-//             "  float z = getMapZoom();\n" +
-//             "  float aa = max(fwidth(e), 1e-4);\n" +
-//             "  float interval = z >= 14.0 ? 25.0 : (z >= 12.0 ? 50.0 : 100.0);\n" +   // per-zoom div
-//             "  float f1 = fract(e / interval); float d1 = min(f1, 1.0 - f1) * interval;\n" +
-//             "  float minor = clamp(0.6 - d1 / aa, 0.0, 1.0);\n" +
-//             "  float majorI = interval * 5.0;\n" +
-//             "  float f2 = fract(e / majorI); float d2 = min(f2, 1.0 - f2) * majorI;\n" +
-//             "  float major = clamp(1.2 - d2 / aa, 0.0, 1.0);\n" +
-//             "  float cov = max(minor * 0.5, major);\n" +           // line coverage (0 where no line)
-//             "  vec3 cc = vec3(0.77, 0.38, 0.03);\n" +
-//             "  return vec4(cc * cov, cov);\n" +                    // premultiplied, transparent elsewhere
-//             "}\n");
-
-        mapView.getLayers().add(hillshade);
-
-        // --- General CustomRasterTileLayer: run ANY custom "filter" shader over ANY raster source -----
-        // The base class of HillshadeRasterTileLayer. The shader gets getRawColor() (the untouched RGBA
-        // texel), getMapZoom() and vUV, and returns a PREMULTIPLIED color. Here: a hypsometric tint that
-        // decodes terrarium elevation from the raw RGB terrain tile and colors it by height. (Uncomment.)
-//         final CustomRasterTileLayer tinted = new CustomRasterTileLayer(cachedDemSource);
-//         tinted.setShaderSource(
-//             "vec4 applyLighting(lowp vec4 color, mediump vec3 normal, mediump vec3 surfaceNormal, mediump float intensity) {\n" +
-//             "  vec4 c = getRawColor();\n" +
-//             "  float h = (c.r * 255.0 * 256.0 + c.g * 255.0 + c.b * 255.0 / 256.0) - 32768.0;\n" + // terrarium metres
-//             "  float t = clamp(h / 3000.0, 0.0, 1.0);\n" +
-//             "  vec3 col = mix(vec3(0.2, 0.4, 0.8), vec3(0.9, 0.9, 0.4), t);\n" +          // blue -> yellow
-//             "  col = mix(col, vec3(0.5, 0.3, 0.1), clamp((h - 1500.0) / 1500.0, 0.0, 1.0));\n" + // -> brown high
-//             "  return vec4(col, 1.0);\n" +
-//             "}\n");
-//         mapView.getLayers().add(tinted);
-
-        // Piece 3 test: on-the-fly contour lines generated from the SAME shared elevation
-        // source (no second download/decode of terrain tiles). The generated vector tiles
-        // expose 'ele' (elevation in m) and 'div' (importance = largest nice divisor), so the
-        // whole look is driven from CartoCSS - here line width/opacity scale by 'div'.
-        // IMPORTANT: in CartoCSS 'zoom' means the TILE zoom, not the camera zoom. Contour tiles are
-        // generated at the DEM source's zoom, so the DEM source max zoom must be high enough for the
-        // per-zoom style rules ([div=10][zoom>=14] ...) to ever fire and for detail to change as you
-        // zoom. The 3D terrain DEM is capped at z12, so use a DEDICATED higher-zoom DEM source for
-        // contours (same tiles, just allowed deeper). generation interval: z<=12 100 m, z13 50 m, z>=14 10 m.
-        final HTTPTileDataSource contourDemSource = new HTTPTileDataSource(5, 12, "https://tiles.mapterhorn.com/{z}/{x}/{y}.webp");
-        contourDemSource.setEncoding("terrarium");
-        final com.carto.datasources.MemoryCacheTileDataSource cachedContourDemSource = new com.carto.datasources.MemoryCacheTileDataSource(contourDemSource);
-        final ContourTileDataSource contourSource = new ContourTileDataSource(cachedContourDemSource);
-        contourSource.setEncoding("terrarium");
-        contourSource.setBaseInterval(10f);
-        // Perf knobs: the DEM is subsampled to at most 'resolution' samples/side before tracing,
-        // and geometry is simplified by 'simplifyTolerance' tile pixels. Lower resolution / higher
-        // tolerance => far fewer line vertices to trace, upload and drape over the 3D terrain.
-        contourSource.setResolution(96);
-        contourSource.setSimplifyTolerance(1.5f);
-        // Fetch E/N/NE neighbour DEM tiles so contour lines meet across tile boundaries (removes seams).
-        // Costs up to 3 extra DEM fetches/decodes per tile (usually cached).
-        contourSource.setSeamlessEdgesEnabled(true);
-        // Contours are generated only at zoom >= MinVisibleZoom (default 12). This style has no zoom filter,
-        // so lower it to see contours below z12 too. (At very low zoom a tile spans huge relief; the source
-        // caps levels per tile. CartoCSS 'zoom' is the TILE zoom, so add zoom rules if you want per-zoom style.)
-        contourSource.setMinVisibleZoom(contourDemSource.getMinZoom());
-//        try {
-                    String contourCss =
-                "#contour {\n" +
-                "  line-color: #C56008;\n" +
-                "  line-width: 0.8;\n" +
-                "  line-opacity: 0.4;\n" +
-                "  [div>=50]  { line-opacity: 0.7; line-width: 1.0; }\n" +
-                "  [div>=100] { line-opacity: 0.9; line-width: 1.4; }\n" +
-                "  [div>=500] { line-width: 2.0; }\n" +
-                // Labels need a font asset package (text-face-name -> a bundled font); enable
-                // once a decoder with fonts is used:
-                // "  text-name: [ele] + ' m';\n" +
-                // "  text-face-name: \"fonts/NotoSans-Regular.ttf\";\n" +
-                // "  text-placement: line;\n" +
-                // "  text-size: 10;\n" +
-                // "  text-fill: #C56008;\n" +
-                // "  text-halo-fill: #ffffff;\n" +
-                // "  text-halo-radius: 1.5;\n" +
-                "}\n";
-        MBVectorTileDecoder decoder = new MBVectorTileDecoder(new CartoCSSStyleSet(contourCss));
-            final VectorTileLayer contourLayer = new VectorTileLayer(contourSource, decoder);
-            mapView.getLayers().add(contourLayer);
-
-//        } catch (IOException e) {
-//            throw new RuntimeException(e);
-//        }
-
-
-        addTerrainTestElements();
-        // Light and sky must exist before the panel is built, or its sun rows are skipped.
-        applySkyAndLightConfig(cfgFloat("lon", 5.76f), cfgFloat("lat", 45.24f));
-        addTerrainControls(view);
-
-        // Start tilted over the Alps (Grenoble). Note: setFocusPos expects base projection
-        // coordinates, so WGS84 positions must be converted first.
-        applyCameraConfig(5.770689, 45.232494, 13.80f, 35f);
-    }
-
-    void addTerrainTestElements() {
-        // Vector elements draped on the terrain: markers on summits (test billboard
-        // occlusion by orbiting around a ridge) and a line crossing the Isere valley.
-        final Projection proj = mapView.getOptions().getBaseProjection();
-        LocalVectorDataSource source = new LocalVectorDataSource(proj);
-
-        com.carto.styles.MarkerStyleBuilder markerStyle = new com.carto.styles.MarkerStyleBuilder();
-        markerStyle.setSize(24);
-        markerStyle.setColor(new Color((short) 255, (short) 0, (short) 0, (short) 255));
-        double[][] peaks = {
-                { 5.7869, 45.2876 }, // Chamechaude
-                { 5.9207, 45.2989 }, // Dent de Crolles
-                { 5.5433, 45.1861 }, // Le Moucherotte
-                { 5.7247, 45.1988 }, // Bastille above Grenoble
-        };
-        for (double[] p : peaks) {
-            source.add(new com.carto.vectorelements.Marker(proj.fromWgs84(new MapPos(p[0], p[1])), markerStyle.buildStyle()));
-        }
-
-        LineStyleBuilder lineStyle = new LineStyleBuilder();
-        lineStyle.setWidth(8);
-        lineStyle.setColor(new Color((short) 0, (short) 90, (short) 255, (short) 255));
-        MapPosVector linePoses = new MapPosVector();
-        linePoses.add(proj.fromWgs84(new MapPos(5.6800, 45.1600)));
-        linePoses.add(proj.fromWgs84(new MapPos(5.7247, 45.1927)));
-        linePoses.add(proj.fromWgs84(new MapPos(5.7869, 45.2876)));
-        source.add(new Line(linePoses, lineStyle.buildStyle()));
-
-        mapView.getLayers().add(new VectorLayer(source));
-    }
-
-    void addTerrainControls(View view) {
-        if (!cfgBool("ui", true)) {
-            return; // '--es ui false': clean screenshots for automated rendering checks
-        }
-        final android.content.Context context = getContext();
-        android.widget.LinearLayout panel = new android.widget.LinearLayout(context);
-        panel.setOrientation(android.widget.LinearLayout.VERTICAL);
-        panel.setBackgroundColor(0xA0FFFFFF);
-        panel.setPadding(10, 10, 10, 10);
-
-        terrainZoomText = new TextView(context);
-        terrainZoomText.setText("zoom -");
-        panel.addView(terrainZoomText);
-
-        panelHeader(context, panel, "TERRAIN");
-        final CheckBox terrainCheck = new CheckBox(context);
-        terrainCheck.setText("3D terrain");
-        terrainCheck.setChecked(terrainOptions.isEnabled());
-        terrainCheck.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                terrainOptions.setEnabled(isChecked); // 2D <-> 3D switch
-                mapView.requestRender();
-            }
-        });
-        panel.addView(terrainCheck);
-
-        final CheckBox occlusionCheck = new CheckBox(context);
-        occlusionCheck.setText("terrain occlusion");
-        occlusionCheck.setChecked(terrainOptions.isBillboardOcclusionEnabled());
-        occlusionCheck.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                terrainOptions.setBillboardOcclusionEnabled(isChecked);
-                mapView.requestRender();
-            }
-        });
-        panel.addView(occlusionCheck);
-
-        final CheckBox reliefCheck = new CheckBox(context);
-        reliefCheck.setText("relief outline");
-        reliefCheck.setChecked(false);
-        reliefCheck.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                toggleReliefOutlineEffect();
-                mapView.requestRender();
-            }
-        });
-        panel.addView(reliefCheck);
-
-        final TextView exText = new TextView(context);
-        exText.setText("exaggeration 1.0 (release to apply)");
-        panel.addView(exText);
-        final SeekBar exSeek = new SeekBar(context);
-        exSeek.setMax(300);
-        exSeek.setProgress(100);
-        exSeek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                exText.setText(String.format("exaggeration %.1f (release to apply)", progress / 100.0f));
-            }
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-            }
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-                // Applying exaggeration re-tesselates loaded tiles, so apply on release only
-                terrainOptions.setExaggeration(seekBar.getProgress() / 100.0f);
-                mapView.requestRender();
-            }
-        });
-        panel.addView(exSeek, new android.widget.LinearLayout.LayoutParams(500, ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        // --- rendering architecture knobs (same set the intent extras drive) ------------------
-        panelHeader(context, panel, "DRAPE");
-        panelCheck(context, panel, "drape (RTT)", terrainOptions.isDrapeFillsEnabled(), new BoolSetting() {
-            public void set(boolean value) { terrainOptions.setDrapeFillsEnabled(value); }
-        });
-        panelCheck(context, panel, "drape lines", terrainOptions.isDrapeLinesEnabled(), new BoolSetting() {
-            public void set(boolean value) { terrainOptions.setDrapeLinesEnabled(value); }
-        });
-        panelSlider(context, panel, "drape resolution", 256, 2048, terrainOptions.getDrapeResolution(), true, new FloatSetting() {
-            public void set(float value) { terrainOptions.setDrapeResolution(Math.max(256, ((int) value / 256) * 256)); }
-        });
-        panelSlider(context, panel, "mesh resolution", 16, 192, terrainOptions.getMeshResolution(), true, new FloatSetting() {
-            public void set(float value) { terrainOptions.setMeshResolution(Math.max(16, ((int) value / 16) * 16)); }
-        });
-        panelSlider(context, panel, "occlusion tolerance", 0.0f, 0.5f, terrainOptions.getBillboardOcclusionTolerance(), false, new FloatSetting() {
-            public void set(float value) { terrainOptions.setBillboardOcclusionTolerance(value); }
-        });
-
-        if (lightOptions != null) {
-            panelHeader(context, panel, "SUN");
-            panelCheck(context, panel, "sun lighting", true, new BoolSetting() {
-                public void set(boolean value) { lightOptions.setTerrainLightingEnabled(value); }
-            });
-            panelCheck(context, panel, "day-cycle demo (sun/moon/sky)", sunSkyDemoEnabled, new BoolSetting() {
-                public void set(boolean value) {
-                    sunSkyDemoEnabled = value;
-                    if (value) {
-                        lightOptions.setTerrainLightingEnabled(true);
-                        skyOptions.setEnabled(true);
-                        applySunSkyHour(sunSkyHour);
-                    } else {
-                        skyOptions.setShaderSource("");
-                    }
-                }
-            });
-            panelSlider(context, panel, "sun hour (UTC)", 0, 24, 12, false, new FloatSetting() {
-                public void set(float value) {
-                    if (sunSkyDemoEnabled) {
-                        applySunSkyHour(value);
-                        return;
-                    }
-                    int hour = (int) value;
-                    int minute = (int) ((value - hour) * 60);
-                    lightOptions.setSunPositionFromTime(2026, 7, 26, hour, minute, sunLatitude, sunLongitude);
-                }
-            });
-            panelSlider(context, panel, "sun azimuth", 0, 360, lightOptions.getSunAzimuth(), false, new FloatSetting() {
-                public void set(float value) { lightOptions.setSunAzimuth(value); }
-            });
-            panelSlider(context, panel, "sun altitude", -10, 90, lightOptions.getSunAltitude(), false, new FloatSetting() {
-                public void set(float value) { lightOptions.setSunAltitude(value); }
-            });
-            panelSlider(context, panel, "ambient", 0, 1, lightOptions.getAmbientIntensity(), false, new FloatSetting() {
-                public void set(float value) { lightOptions.setAmbientIntensity(value); }
-            });
-            panelHeader(context, panel, "SHADOWS");
-            panelSlider(context, panel, "strength", 0, 1, lightOptions.getShadowStrength(), false, new FloatSetting() {
-                public void set(float value) { lightOptions.setShadowStrength(value); }
-            });
-            panelSlider(context, panel, "softness (texels)", 0, 4, lightOptions.getShadowSoftness(), false, new FloatSetting() {
-                public void set(float value) { lightOptions.setShadowSoftness(value); }
-            });
-            // Reallocates the shadow map, so apply on release only.
-            panelSlider(context, panel, "map size", 512, 4096, lightOptions.getShadowMapSize(), true, new FloatSetting() {
-                public void set(float value) { lightOptions.setShadowMapSize(Math.max(512, ((int) value / 512) * 512)); }
-            });
-            panelSlider(context, panel, "distance (m, 0=all)", 0, 20000, lightOptions.getShadowDistance(), false, new FloatSetting() {
-                public void set(float value) { lightOptions.setShadowDistance(value < 200 ? 0 : value); }
-            });
-            panelSlider(context, panel, "caster margin (tiles)", 0, 6, lightOptions.getShadowCasterMargin(), true, new FloatSetting() {
-                public void set(float value) { lightOptions.setShadowCasterMargin(Math.round(value)); }
-            });
-            // Reallocates the shadow map atlas, so apply on release only.
-            panelSlider(context, panel, "cascades", 1, 4, lightOptions.getShadowCascades(), true, new FloatSetting() {
-                public void set(float value) { lightOptions.setShadowCascades(Math.round(value)); }
-            });
-            panelSlider(context, panel, "depth bias (m)", 0.0f, 5.0f, lightOptions.getShadowBias(), false, new FloatSetting() {
-                public void set(float value) { lightOptions.setShadowBias(value); }
-            });
-        }
-        // Fog and the view distance: the two go together, since the distance ENDS the ground and
-        // the fog is what makes it fade out instead.
-        panelHeader(context, panel, "FOG / DISTANCE");
-        panelCheck(context, panel, "fog", terrainOptions.getFogColor().getA() != 0, new BoolSetting() {
-            public void set(boolean value) {
-                terrainOptions.setFogColor(new com.carto.graphics.Color(value ? fogColorARGB : 0));
-                if (value && terrainOptions.getFogDistance() <= 0) {
-                    terrainOptions.setFogDistance(30000);
-                }
-            }
-        });
-        panelSlider(context, panel, "fog start (m)", 0, 40000, terrainOptions.getFogStartDistance(), false, new FloatSetting() {
-            public void set(float value) { terrainOptions.setFogStartDistance(value); }
-        });
-        panelSlider(context, panel, "fog distance (m, 0=off)", 0, 120000, terrainOptions.getFogDistance(), false, new FloatSetting() {
-            public void set(float value) { terrainOptions.setFogDistance(value < 500 ? 0 : value); }
-        });
-        // Changes the tile set, so apply on release only.
-        panelSlider(context, panel, "max visible distance (m, 0=all)", 0, 120000, terrainOptions.getMaxVisibleDistance(), true, new FloatSetting() {
-            public void set(float value) { terrainOptions.setMaxVisibleDistance(value < 500 ? 0 : value); }
-        });
-
-        if (skyOptions != null) {
-            panelHeader(context, panel, "SKY");
-            panelCheck(context, panel, "sky", skyOptions.isEnabled(), new BoolSetting() {
-                public void set(boolean value) { skyOptions.setEnabled(value); }
-            });
-        }
-
-        // The panel is taller than the screen: scroll it, and keep it hidden behind a small
-        // toggle so the map is unobstructed unless something is actually being tested.
-        final android.widget.ScrollView scroll = new android.widget.ScrollView(context);
-        scroll.addView(panel);
-        scroll.setVisibility(View.GONE);
-
-        androidx.constraintlayout.widget.ConstraintLayout root = view.findViewById(R.id.main);
-        androidx.constraintlayout.widget.ConstraintLayout.LayoutParams lp = new androidx.constraintlayout.widget.ConstraintLayout.LayoutParams(
-                760, 1500);
-        lp.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID;
-        lp.startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID;
-        lp.bottomMargin = 320;
-        lp.leftMargin = 10;
-        root.addView(scroll, lp);
-
-        final android.widget.Button toggle = new android.widget.Button(context);
-        toggle.setText("\u2699");
-        toggle.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                scroll.setVisibility(scroll.getVisibility() == View.GONE ? View.VISIBLE : View.GONE);
-            }
-        });
-        androidx.constraintlayout.widget.ConstraintLayout.LayoutParams tlp = new androidx.constraintlayout.widget.ConstraintLayout.LayoutParams(
-                150, ViewGroup.LayoutParams.WRAP_CONTENT);
-        tlp.bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID;
-        tlp.startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID;
-        tlp.bottomMargin = 100; // clear of the system navigation bar
-        tlp.leftMargin = 10;
-        root.addView(toggle, tlp);
-    }
-
-    void toggleReliefOutlineEffect() {
-        // PeakFinder-style relief outline post-process effect demo
-        com.carto.renderers.MapRenderer renderer = mapView.getMapRenderer();
-        if (renderer.getPostProcessEffect() == null) {
-            com.carto.renderers.PostProcessEffect effect = com.carto.renderers.PostProcessEffect.createReliefOutlineEffect();
-            effect.setFloatParameter("uIntensity", 1.0f);
-            renderer.setPostProcessEffect(effect);
-        } else {
-            renderer.setPostProcessEffect(null);
-        }
-    }
-
-    void addHillshadeLayer(View view, String dataPath) {
-        MBTilesTileDataSource hillshadeSourceFrance = null;
-        HTTPTileDataSource hillshadeSource = null;
-        MultiTileDataSource  dataSource = new MultiTileDataSource();
-        try {
-//            hillshadeSourceFrance = new MBTilesTileDataSource( dataPath+"/france_terrain.etiles");
-//            hillshadeSourceWorld = new MBTilesTileDataSource( dataPath+"/world_terrain.etiles");
-            hillshadeSource = new HTTPTileDataSource(1, 16, "https://tiles.mapterhorn.com/{z}/{x}/{y}.webp");
-            hillshadeSource.setEncoding("terrarium");
-            //        HTTPTileDataSource hillshadeSource =   new HTTPTileDataSource(1, 15, "https://api.mapbox.com/v4/mapbox.terrain-rgb/{z}/{x}/{y}.pngraw?access_token=pk.eyJ1IjoiYWt5bGFzIiwiYSI6IkVJVFl2OXMifQ.TGtrEmByO3-99hA0EI44Ew");
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-//        hillshadeSourceWorld.setMaxOverzoomLevel(1);
-//        dataSource.add(hillshadeSourceFrance, "wzAzMzDAwMBwwwXFfBcVXAzAxE8BcVfMxXFXMBFfxVVVwMzMBMVwMB8RVPHFV9QQ1xDUPwMDFfMRwFVzwFXMVxFVUz/MQD1BAPXENQTMQAP1dA1xV9AxExFc1NQDXNQDUxAAAPD/ww3BV8FxVfDAcVwVcwMMFwXwxV8BwVV/FVVV/DMBXwXFV8DBcMFVX/AcEXBV8MED0Q0QH9ENED0Q0AN1fVNQDV1dU/VNQA9EAP1dU11AAB9/RDRAw0QN1dEfBDRcEDfDRcEEdw0QfRR0QP1111FXdXV0DXV1T1TUNAPXRNQA/MQD1FMQDdXRM1EN0DUAP9Q0AAAP3V1DUPUAPXUNA3QAAAAAAAAA%");
-//        dataSource.add(hillshadeSourceWorld);
-//        final TerrariumElevationDataDecoder elevationDecoder = new TerrariumElevationDataDecoder();
-        final HillshadeRasterTileLayer layer = hillshadeLayer = new HillshadeRasterTileLayer(hillshadeSource);
-        layer.setPreloading(true);
-//        layer.setContrast(0.3f);
-
-        layer.setHillshadeMethod(HillshadeMethod.IGOR);
-        layer.setContrast( 0.5f);
-        layer.setHeightScale(0.02f);
-//        layer.setVisibleZoomRange(new MapRange(0, 16));
-//        layer.setIlluminationMapRotationEnabled(true);
-//        layer.setIlluminationDirection(new MapVec(-1, 0, 0));
-        MapVec current = layer.getIlluminationDirection();
-        double rad = 180 * Math.PI / 180;
-        double sin = Math.sin(rad);
-        double cos = Math.cos(rad);
-        layer.setIlluminationDirection(new MapVec(sin, cos, current.getZ()));
-        layer.setTileSubstitutionPolicy(TileSubstitutionPolicy.TILE_SUBSTITUTION_POLICY_VISIBLE);
-        layer.setTileFilterMode(RasterTileFilterMode.RASTER_TILE_FILTER_MODE_BILINEAR);
-        layer.setHighlightColor(new Color((short) 0, (short) 0, (short) 0, (short) 255));
-        layer.setShadowColor(new Color((short) 0, (short) 0, (short) 0, (short) 176));
-        layer.setAccentColor(new Color((short) 0, (short) 0, (short) 0, (short) 255));
-
-        mapView.getLayers().add(layer);
-//        toggleSlopes(true);
-        final CheckBox slopesCheckBox = view.findViewById(R.id.slopesCheckBox); // initiate the Seek bar
-        slopesCheckBox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
-                toggleSlopes(b);
-            }
-        });
-        final AppCompatSeekBar contrastSeekBar = (AppCompatSeekBar) view.findViewById(R.id.contrastSeekBar); // initiate the Seek bar
-        final TextView textContrast = (TextView) view.findViewById(R.id.textContrast); // initiate the Seek bar
-        contrastSeekBar.setProgress((int) (layer.getContrast() * 100.0f));
-        textContrast.setText(layer.getContrast() + "");
-        contrastSeekBar.setOnSeekBarChangeListener(new AppCompatSeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
-
-                layer.setContrast(i / 100.0f);
-                textContrast.setText(layer.getContrast() + "");
-                mapView.requestRender();
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-            }
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-            }
-
-        });
-        final AppCompatSeekBar illuminationDirectionSeekBar = (AppCompatSeekBar) view.findViewById(R.id.illuminationDirectionSeekBar); // initiate the Seek bar
-        final TextView textIlluminationDirection = (TextView) view.findViewById(R.id.textIlluminationDirection); // initiate the Seek bar
-
-        final double degrees = (Math.acos(layer.getIlluminationDirection().getY()) * 180 / Math.PI);
-        illuminationDirectionSeekBar.setProgress((int) degrees);
-        textIlluminationDirection.setText((int) degrees + "");
-        illuminationDirectionSeekBar.setOnSeekBarChangeListener(new AppCompatSeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
-                MapVec current = layer.getIlluminationDirection();
-                double rad = i * Math.PI / 180;
-                double sin = Math.sin(rad);
-                double cos = Math.cos(rad);
-                layer.setIlluminationDirection(new MapVec(sin, cos, current.getZ()));
-                textIlluminationDirection.setText(i + "");
-                mapView.requestRender();
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-            }
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-            }
-
-        });
-
-
-        final AppCompatSeekBar heightScaleSeekBar = (AppCompatSeekBar) view.findViewById(R.id.heightScaleSeekBar); // initiate the Seek bar
-        final TextView textHeightScale = (TextView) view.findViewById(R.id.textHeightScale); // initiate the Seek bar
-        heightScaleSeekBar.setProgress((int) (layer.getHeightScale() * 100.0f));
-        textHeightScale.setText(layer.getHeightScale() + "");
-        heightScaleSeekBar.setOnSeekBarChangeListener(new AppCompatSeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
-
-                layer.setHeightScale(i / 100.0f);
-                textHeightScale.setText(layer.getHeightScale() + "");
-                mapView.requestRender();
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-            }
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-            }
-
-        });
-
-        final AppCompatSeekBar highlightOpacitySeekBar = (AppCompatSeekBar) view.findViewById(R.id.highlightOpacitySeekBar); // initiate the Seek bar
-        final TextView textHighlightOpacity = (TextView) view.findViewById(R.id.testHighlightOpacity); // initiate the Seek bar
-        highlightOpacitySeekBar.setProgress(255);
-        textHighlightOpacity.setText("255");
-        highlightOpacitySeekBar.setOnSeekBarChangeListener(new AppCompatSeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
-                Color color = layer.getHighlightColor();
-                Color highlightColor = new Color(color.getR(), color.getG(), color.getB(), (short) i);
-                layer.setHighlightColor(highlightColor);
-                textHighlightOpacity.setText(i + "");
-                mapView.requestRender();
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-            }
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-            }
-
-        });
-        final AppCompatSeekBar shadowOpacitySeekBar = (AppCompatSeekBar) view.findViewById(R.id.shadowOpacitySeekBar); // initiate the Seek bar
-        final TextView textShadowOpacity = (TextView) view.findViewById(R.id.testShadowOpacity); // initiate the Seek bar
-        shadowOpacitySeekBar.setProgress(255);
-        textShadowOpacity.setText("255");
-        shadowOpacitySeekBar.setOnSeekBarChangeListener(new AppCompatSeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
-                Color color = layer.getShadowColor();
-                Color shadowColor = new Color(color.getR(), color.getG(), color.getB(), (short) i);
-                layer.setShadowColor(shadowColor);
-                textShadowOpacity.setText(i + "");
-                mapView.requestRender();
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-            }
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-            }
-
-        });
-
-    }
-
-    MBVectorTileDecoder decoder = null;
-    MBVectorTileDecoder getStyleDecoder(String dataPath) throws IOException {
-        if (decoder == null) {
-            final File file = new File(dataPath+"/osm.zip");
-            final FileInputStream stream = new java.io.FileInputStream(file);
-            final DataInputStream dataInputStream = new java.io.DataInputStream(stream);
-            final byte[] bytes = new byte[(int)file.length()];
-            dataInputStream.readFully(bytes);
-            decoder = new MBVectorTileDecoder(new CompiledStyleSet(new ZippedAssetPackage(new com.carto.core.BinaryData(bytes))));
-
-        }
-        return decoder;
-    }
-    TileLayer mainMapLayer;
-    void addMap(String dataPath) {
-        MultiTileDataSource  dataSource = new MultiTileDataSource();
-        HTTPTileDataSource sourceHTTP = null;
-        MBTilesTileDataSource sourceItaly = null;
-        MBTilesTileDataSource sourceFranceContours = null;
-        MBTilesTileDataSource sourceWorld = null;
-        try {
-//            sourceHTTP = new HTTPTileDataSource(0,19,"https://demo-bucket.protomaps.com/v4.pmtiles");
-            sourceHTTP = new HTTPTileDataSource(0,14,"https://tiles.openfreemap.org/planet/latest/{z}/{x}/{y}.pbf");
-            StringMap headers = new StringMap();
-            headers.set("User-Agent", "AlpiMaps");
-            sourceHTTP.setHTTPHeaders(headers);
-            MBVectorTileDecoder decoder = getStyleDecoder(dataPath);
-            mainMapLayer  = new VectorTileLayer(sourceHTTP, decoder);
-            mapView.getLayers().add(mainMapLayer);
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-//        MergedMBVTTileDataSource mergedSource = new MergedMBVTTileDataSource(sourceFranceContours, sourceFrance);
-//        dataSource.add(sourceFrance);
-//        dataSource.add(mergedSource);
-//        dataSource.add(sourceItaly);
-//        dataSource.add(sourceWorld);
-//        mainMapLayer  = new RasterTileLayer(sourceHTTP);
-    }
-    // ---------------------------------------------------------------------------------------------
-    // CompositeVectorTileLayer demo: one vector-tile layer that weaves external sources (hillshade,
-    // raster, contour) into the master style's layer order. Placement of each external source is
-    // the position of its '#name' first-reference in the CartoCSS below; per-source settings come
-    // from the matching '#name { ... }' block, with zoom-dependent expressions.
-    //
-    // Uses a self-contained CartoCSS over the OpenMapTiles schema (openfreemap) so it does not
-    // depend on osm.zip internals. Text is omitted to avoid needing a font asset package.
-    // NOTE: nuti:: parameters need a project-bundle style (loadMapProject) - a raw CartoCSS string
-    // cannot declare them - so this demo uses zoom-based visibility/config only.
-    // ---------------------------------------------------------------------------------------------
-    CompositeVectorTileLayer compositeLayer;
-    void addCompositeMap(View view, String dataPath) {
-        // Master vector source: OpenMapTiles vector tiles.
-        HTTPTileDataSource baseSource = new HTTPTileDataSource(0, 14, "https://tiles.akylas.fr/data/france/{z}/{x}/{y}.pbf");
-        StringMap headers = new StringMap();
-        headers.set("User-Agent", "AlpiMaps/1.4 (contact: contact@akylas.fr)");
-        baseSource.setHTTPHeaders(headers);
-        PersistentCacheTileDataSource baseSourceCached = new PersistentCacheTileDataSource(baseSource, getContext().getExternalFilesDir(null) + "/akylas_vect.db");
-
-        // First-reference order = slot order: water, landcover, HILLSHADE, SATELLITE,
-        // transportation, building, CONTOUR.
-        // '--es sat false' drops the satellite raster: without it the vector fills are visible,
-        // which is where the terrain rendering artifacts show.
-        final boolean withSatellite = cfgBool("sat", false);
-        String css = String.join("\n",
-            // '--es styleLight true' moves the sun, the shadows and the fog INTO the style, with
-            // a couple of them zoom-dependent, which is what the Map-block properties are for.
-            "Map { background-color: " + cfgColor("bg", "#eef2f0") + ";" + (cfgBool("styleLight", false) ?
-                " terrain-lighting: 1;" +
-                " sun-azimuth: 250;" +
-                " sun-altitude: linear([view::zoom], (11, 55), (15, 12));" +
-                " sun-intensity: 1;" +
-                " ambient-intensity: 0.4;" +
-                " shadow-strength: 0.8;" +
-                " shadow-softness: 1;" +
-                " fog-color: #b8c6d8;" +
-                " fog-start-distance: 1500;" +
-                " fog-distance: linear([view::zoom], (11, 60000), (15, 12000));" +
-                " terrain-max-visible-distance: 40000;" : "") + " }",
-            "#water { polygon-fill: #9cc3e0; }",
-            "#landcover { polygon-fill: #dbe8cc; }",
-            // hillshade woven above land/water fills, below roads; exaggeration ramps with zoom.
-                "#satellite[zoom>=11] { raster-opacity: " + (withSatellite ? "1" : "0") + "; raster-comp-op: src-over; }",
-            "#hillshade[zoom>=4][zoom<=16] {",
-//            "  hillshade-opacity: linear([view::zoom], (11, 0.6), (12, 1));",
-//            "  hillshade-exaggeration: linear([view::zoom], (11, 0.6), (12, 1.0));",
-            "  hillshade-illumination-direction: 365;",
-            "  hillshade-shadow-color: #103040;",
-            "}",
-            // satellite raster overlay, faint, only high zoom.
-            // '--es bld3d true' extrudes buildings, which is what exercises 3D shadow casters.
-            cfgBool("bld3d", true)
-                ? "#building[zoom>=14] { building-fill: #d9cfc4; building-height: 14; }"
-                : "#building[zoom>=14] { polygon-fill: #d9cfc4; }",
-
-                "#contour[zoom>=5] {",
-                "  line-color: #9a5a12; line-width: 0.8; line-opacity: 0.7;",
-                "  contour-base-interval: 20;",
-                "}"
-            // contour lines: merged vector source, styled with normal line symbolizer; the
-            // contour-base-interval config drives the ContourTileDataSource generation.
-
-        );
-        MBVectorTileDecoder decoder = null;
-        try {
-            decoder = getStyleDecoder(dataPath);
-        } catch (IOException e) {
-            decoder = new MBVectorTileDecoder(new CartoCSSStyleSet(css));
-        }
-        compositeLayer = new CompositeVectorTileLayer(baseSourceCached, decoder);
-        compositeLayer.setLabelRenderOrder(VectorTileRenderOrder.VECTOR_TILE_RENDER_ORDER_LAST);
-        // Shared terrarium-encoded DEM for both hillshade and contours (fetched once).
-        HTTPTileDataSource demSource = new HTTPTileDataSource(1, 12, "https://tiles.mapterhorn.com/{z}/{x}/{y}.webp");
-        demSource.setEncoding("terrarium");
-        PersistentCacheTileDataSource cachedDem = new PersistentCacheTileDataSource(demSource, getContext().getExternalFilesDir(null) + "/mapterhorn.db");
-
-        // contour: merged into the master source and styled by '#contour'.
-        ContourTileDataSource contour = new ContourTileDataSource(cachedDem);
-        contour.setMinVisibleZoom(5);
-        contour.setMaxOverzoomLevel(15);
-        if (cfgBool("contour", true)) {
-            compositeLayer.addVectorDataSource("contour", contour);
-        }
-        // hillshade: decoder resolved from the DEM source 'encoding' (terrarium) - no decoder arg.
-        if (cfgBool("hs", true)) {
-            compositeLayer.addExternalDataSource("hillshade", cachedDem, CompositeSourceType.COMPOSITE_SOURCE_TYPE_HILLSHADE);
-        }
-        // satellite: a raster source drawn at the '#satellite' slot with the style opacity.
-        HTTPTileDataSource satSource = new HTTPTileDataSource(0, 19, "https://tile.openstreetmap.org/{z}/{x}/{y}.png");
-        satSource.setHTTPHeaders(headers);
-        PersistentCacheTileDataSource cachedSat = new PersistentCacheTileDataSource(satSource, getContext().getExternalFilesDir(null) + "/openstreetmap.db");
-        if (withSatellite) {
-            compositeLayer.addExternalDataSource("satellite", cachedSat, CompositeSourceType.COMPOSITE_SOURCE_TYPE_RASTER);
-        }
-
-        mapView.getLayers().add(compositeLayer);
-
-        compositeLayer.setSinglePassRenderingEnabled(true);
-
-        // 3D terrain. The decoder is resolved from the data source "encoding" setting
-        // (delegated through the cache wrapper); passing it explicitly works as well.
-        terrainOptions = new com.carto.components.TerrainOptions(cachedDem, new TerrariumElevationDataDecoder());
-        terrainOptions.setExaggeration(1.0f);
-        terrainOptions.setPainterOrderDepthEnabled(true);
-        terrainOptions.setMeshResolution(128);
-        terrainOptions.setDrapeFillsEnabled(true);
-        terrainOptions.setDrapeLinesEnabled(false);
-        applyTerrainConfig(terrainOptions);
-        mapView.getOptions().setTerrainOptions(terrainOptions);
-
-
-        addTerrainTestElements();
-        // Light and sky must exist before the panel is built, or its sun rows are skipped.
-        applySkyAndLightConfig(cfgFloat("lon", 5.76f), cfgFloat("lat", 45.24f));
-        addTerrainControls(view);
-        // Start tilted over the Alps (Grenoble). Note: setFocusPos expects base projection
-        // coordinates, so WGS84 positions must be converted first.
-        applyCameraConfig(5.770752, 45.251918, 11.53f, 39f);
-    }
-
-    // ---------------------------------------------------------------------------------------------
-    // CompositeVectorTileLayer + nuti parameter demo.
-    // nuti parameters must be declared in a project-bundle style (raw CartoCSS strings cannot declare
-    // them). Here the style is built in-memory (project.json + style.mss zipped) so no external file
-    // is needed. The project declares a boolean nuti parameter 'show_relief'; the hillshade slot is
-    // gated by #hillshade[nuti::show_relief=true]. A repeating handler flips the parameter every few
-    // seconds via decoder.setStyleParameter to demonstrate runtime, user-setting-driven visibility.
-    // ---------------------------------------------------------------------------------------------
-    MBVectorTileDecoder nutiDecoder;
-    boolean nutiReliefOn = true;
-    void addCompositeMapNuti(String dataPath) {
-        // Master vector source (OpenMapTiles), cached so all group sub-layers share one fetch.
-        HTTPTileDataSource baseSource = new HTTPTileDataSource(0, 14, "https://tiles.openfreemap.org/planet/latest/{z}/{x}/{y}.pbf");
-        PersistentCacheTileDataSource baseSourceCached = new PersistentCacheTileDataSource(baseSource, getContext().getExternalFilesDir(null) + "/openfreemap_vect.db");
-
-        // project.json: 'layers' is TOP->BOTTOM (reversed into draw order), plus the nuti parameter.
-        String projectJson = String.join("\n",
-            "{",
-            "  \"styles\": [\"style.mss\"],",
-            "  \"layers\": [\"contour\", \"building\", \"transportation\", \"satellite\", \"hillshade\", \"landcover\", \"water\"],",
-            "  \"nutiparameters\": { \"show_relief\": { \"default\": true } }",
-            "}");
-        String mss = String.join("\n",
-            "Map { background-color: #eef2f0; }",
-            "#water { polygon-fill: #9cc3e0; }",
-            "#landcover { polygon-fill: #dbe8cc; }",
-            // hillshade only when the 'show_relief' user setting is on
-            "#hillshade['nuti::show_relief'=true][zoom>=4] {",
-            "  hillshade-opacity: linear([view::zoom], (4, 0.5), (12, 0.9));",
-            "  hillshade-exaggeration: linear([view::zoom], (4, 0.6), (12, 1.4));",
-            "  hillshade-illumination-direction: 315;",
-            "  hillshade-shadow-color: #103040;",
-            "}",
-            "#satellite[zoom>=13] { raster-opacity: 0.45; }",
-            "#transportation { line-color: #ffffff; line-width: 1.2; }",
-            "#transportation['class'='motorway'] { line-color: #e27d60; line-width: 3; }",
-            // '--es bld3d true' extrudes buildings, which is what exercises 3D shadow casters.
-            cfgBool("bld3d", false)
-                ? "#building[zoom>=14] { building-fill: #d9cfc4; building-height: 14; }"
-                : "#building[zoom>=14] { polygon-fill: #d9cfc4; }",
-            "#contour[zoom>=12] { line-color: #9a5a12; line-width: 0.8; line-opacity: 0.7; }");
-
-        MBVectorTileDecoder styleDecoder = null;
-        try {
-            java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
-            java.util.zip.ZipOutputStream zos = new java.util.zip.ZipOutputStream(bos);
-            String[][] entries = new String[][] { { "project.json", projectJson }, { "style.mss", mss } };
-            for (String[] entry : entries) {
-                zos.putNextEntry(new java.util.zip.ZipEntry(entry[0]));
-                zos.write(entry[1].getBytes("UTF-8"));
-                zos.closeEntry();
-            }
-            zos.close();
-            CompiledStyleSet styleSet = new CompiledStyleSet(new ZippedAssetPackage(new com.carto.core.BinaryData(bos.toByteArray())));
-            styleDecoder = new MBVectorTileDecoder(styleSet);
-        } catch (java.io.IOException e) {
-            e.printStackTrace();
-            return;
-        }
-        nutiDecoder = styleDecoder;
-
-        compositeLayer = new CompositeVectorTileLayer(baseSourceCached, styleDecoder);
-
-        // Shared terrarium DEM for hillshade + contours.
-        HTTPTileDataSource demSource = new HTTPTileDataSource(1, 12, "https://tiles.mapterhorn.com/{z}/{x}/{y}.webp");
-        demSource.setEncoding("terrarium");
-        PersistentCacheTileDataSource cachedDem = new PersistentCacheTileDataSource(demSource, getContext().getExternalFilesDir(null) + "/mapterhorn.db");
-
-        compositeLayer.addExternalDataSource("hillshade", cachedDem, CompositeSourceType.COMPOSITE_SOURCE_TYPE_HILLSHADE);
-
-        ContourTileDataSource contour = new ContourTileDataSource(cachedDem);
-        contour.setMinVisibleZoom(12);
-        contour.setMaxOverzoomLevel(15);
-        compositeLayer.addVectorDataSource("contour", contour);
-
-        mapView.getLayers().add(compositeLayer);
-
-        // Demo: flip the 'show_relief' user setting every 3s so the hillshade fades in/out live.
-        final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                nutiReliefOn = !nutiReliefOn;
-                nutiDecoder.setStyleParameter("show_relief", Boolean.toString(nutiReliefOn));
-                Log.d(TAG, "nuti show_relief=" + nutiReliefOn);
-                handler.postDelayed(this, 3000);
-            }
-        }, 3000);
-    }
-
-    void addRoutes(String dataPath) {
-        MultiTileDataSource  dataSource = new MultiTileDataSource();
-        MBTilesTileDataSource sourceFrance = null;
-        MBTilesTileDataSource sourceWorld = null;
-        MBVectorTileDecoder decoder = null;
-        try {
-            sourceFrance = new MBTilesTileDataSource( dataPath+"/france/france_routes.mbtiles");
-//            sourceWorld = new MBTilesTileDataSource( dataPath+"/world_routes_9.mbtiles");
-            final File file = new File(dataPath+"/inner.zip");
-            final FileInputStream stream = new java.io.FileInputStream(file);
-            final DataInputStream dataInputStream = new java.io.DataInputStream(stream);
-            final byte[] bytes = new byte[(int)file.length()];
-            dataInputStream.readFully(bytes);
-            decoder = new MBVectorTileDecoder(new CompiledStyleSet(new ZippedAssetPackage(new com.carto.core.BinaryData(bytes))));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-//        dataSource.add(sourceWorld);
-        dataSource.add(sourceFrance);
-        VectorTileLayer backlayer  = new VectorTileLayer(dataSource, decoder);
-        mapView.getLayers().add(backlayer);
-    }
-
+    /** Builds the whole demo once the data directory is reachable. */
     @RequiresApi(api = Build.VERSION_CODES.O)
-    void proceedWithSdCard(View view) {
+    void startDemo(View view) {
+        if (demo != null || view == null) {
+            return; // permission flow can call back more than once
+        }
+        String dataPath = resolveDataPath();
+        Log.i(TAG, "data path: " + dataPath);
+
+        demo = new DemoMap(getContext(), mapView, dataPath);
+        demo.build();
+
+        DemoPanel.build(getContext(), view.findViewById(R.id.main), demo);
+        installMapListener();
+    }
+
+    /**
+     * The data root: <sd-card>/alpimaps_mbtiles, i.e. four levels above the app's own external
+     * files dir, so the same files can be shared with the other test apps.
+     */
+    private String resolveDataPath() {
         File externalPath = null;
         File[] externalPaths = getContext().getExternalFilesDirs(null);
         if (externalPaths != null && externalPaths.length > 1) {
@@ -1423,63 +128,29 @@ public class SecondFragment extends Fragment {
         if (externalPath == null) {
             externalPath = getContext().getExternalFilesDir(null);
         }
-        String dataPath = Paths.get(externalPath.getAbsolutePath(), "../../../../alpimaps_mbtiles").normalize().toString();
+        return Paths.get(externalPath.getAbsolutePath(), "../../../../" + DemoConfig.DATA_DIR_NAME).normalize().toString();
+    }
 
-
-        // --- CompositeVectorTileLayer demo (2D). Comment this and restore addMap/addTerrain to go back. ---
-//        addCompositeMapNuti(dataPath); // nuti-parameter demo: relief toggles every 3s
-        if (!cfgBool("ui", true)) {
-            View controls = view.findViewById(R.id.controlsPanel);
-            if (controls != null) {
-                controls.setVisibility(View.GONE);
-            }
-        }
-        // 'demo' intent extra picks the configuration; default is the composite demo as before.
-        String demo = cfgStr("demo", "composite");
-        if ("terrain".equals(demo)) {
-            addTerrain(view, dataPath);
-        } else if ("nuti".equals(demo)) {
-            addCompositeMapNuti(dataPath);
-        } else {
-            addCompositeMap(view, dataPath);
-        }
-//        addMap(dataPath);
-//        addTerrain(view, dataPath);
-//        addRoutes(dataPath);
-//        addHillshadeLayer(view, dataPath);
-
-//            MBTilesTileDataSource dataSource = new MBTilesTileDataSource(dataPath+"/france/france_terrain.etiles");
-//            RasterTileLayer layer = new RasterTileLayer(dataSource);
-//            mapView.getLayers().add(layer);
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-
-//        HTTPTileDataSource dataSource = new HTTPTileDataSource(0,19,"https://tile.openstreetmap.org/{z}/{x}/{y}.png");
-//        StringMap headers = new StringMap();
-//        headers.set("User-Agent", "test app");
-//        dataSource.setHTTPHeaders(headers);
-//        PersistentCacheTileDataSource pDataSource = new PersistentCacheTileDataSource(dataSource, getContext().getExternalFilesDir(null) + "/mapcache.db");
-//        RasterTileLayer layer = new RasterTileLayer(pDataSource);
-//        mapView.getLayers().add(layer);
-
-
-//        testLineDrawing();
-//        testLineDrawing2();
-        final TextView textZoom = (TextView) view.findViewById(R.id.zoomText); // initiate the Seek bar
+    /** Camera readout (also used by scripted runs through logcat) + terrain-aware click probe. */
+    private void installMapListener() {
         mapView.setMapEventListener(new MapEventListener() {
             @Override
             public void onMapMoved() {
                 super.onMapMoved();
-                Log.d(TAG, String.format("lat=%.6f lng=%.6f rotation=%.2f z=%.2f tilt=%.0f", mapView.getFocusPos().getY(), mapView.getFocusPos().getX(), mapView.getMapRotation(),  mapView.getZoom(), mapView.getTilt()
-                ));
+                Log.d(TAG, String.format("lat=%.6f lng=%.6f rotation=%.2f z=%.2f tilt=%.0f",
+                        mapView.getFocusPos().getY(), mapView.getFocusPos().getX(),
+                        mapView.getMapRotation(), mapView.getZoom(), mapView.getTilt()));
+                if (getActivity() == null) {
+                    return;
+                }
                 getActivity().runOnUiThread(new Runnable() {
-                    @Override
                     public void run() {
-                        String zoomStr = String.format("z=%.2f tilt=%.0f", mapView.getZoom(), mapView.getTilt());
-                        textZoom.setText(zoomStr);
-                        if (terrainZoomText != null) {
-                            terrainZoomText.setText(zoomStr);
+                        String text = String.format("z=%.2f tilt=%.0f", mapView.getZoom(), mapView.getTilt());
+                        if (zoomText != null) {
+                            zoomText.setText(text);
+                        }
+                        if (DemoPanel.statusText != null) {
+                            DemoPanel.statusText.setText(text);
                         }
                     }
                 });
@@ -1488,402 +159,62 @@ public class SecondFragment extends Fragment {
             @Override
             public void onMapClicked(MapClickInfo mapClickInfo) {
                 super.onMapClicked(mapClickInfo);
-                final MapPos clickPos = mapClickInfo.getClickPos();
-                if (terrainOptions == null) {
-                    return;
-                }
-                // Terrain-aware picking: clickPos already resolves to the terrain surface.
-                // Read the elevation on a background thread (may block on tile loading).
-                final MapPos wgs84Pos = mapView.getOptions().getBaseProjection().toWgs84(clickPos);
+                // clickPos already resolves to the TERRAIN surface; the elevation query itself may
+                // block on tile loading, so it runs off the UI thread.
+                final MapPos wgs84Pos = mapView.getOptions().getBaseProjection().toWgs84(mapClickInfo.getClickPos());
                 new Thread(new Runnable() {
-                    @Override
                     public void run() {
-                        final double elevation = terrainOptions.getElevation(wgs84Pos);
+                        final double elevation = demo.getElevation(wgs84Pos);
+                        if (getActivity() == null) {
+                            return;
+                        }
                         getActivity().runOnUiThread(new Runnable() {
-                            @Override
                             public void run() {
-                                android.widget.Toast.makeText(getContext(),
+                                Toast.makeText(getContext(),
                                         String.format("%.5f, %.5f: %.0f m", wgs84Pos.getY(), wgs84Pos.getX(), elevation),
-                                        android.widget.Toast.LENGTH_SHORT).show();
+                                        Toast.LENGTH_SHORT).show();
                             }
                         });
                     }
                 }).start();
             }
         });
-
-        final Options options = mapView.getOptions();
-
-        final Button modeButton = (Button) view.findViewById(R.id.modeButton); // initiate the Seek bar
-        modeButton.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                    // testVectorTileSearch("pub");
-               testValhallaBicycle(dataPath, options);
-//                testMatchRoute(options);
-//                testVectoTileSearch(backlayer, options);
-                // Code here executes on main thread after user presses button
-//                if (options.getRenderProjectionMode() == RenderProjectionMode.RENDER_PROJECTION_MODE_SPHERICAL) {
-//                    options.setRenderProjectionMode(RenderProjectionMode.RENDER_PROJECTION_MODE_PLANAR);
-//                } else {
-//                    options.setRenderProjectionMode(RenderProjectionMode.RENDER_PROJECTION_MODE_SPHERICAL);
-//                }
-            }
-        });
     }
 
-    public void testLineDrawing() {
+    // =============================================================================================
+    // STORAGE PERMISSION (the data files live outside the app's own directory)
+    // =============================================================================================
 
-        String geojson = "{\"type\": \"FeatureCollection\", \"features\":[{\"type\":\"Feature\",\"id\":1668607642215,\"properties\":{\"name\":\"Bastille - 45.192, 5.726\",\"class\":\"pedestrian\",\"id\":1668607642215,\"zoomBounds\":{\"southwest\":{\"lat\":45.191462,\"lon\":5.719694,\"altitude\":0},\"northeast\":{\"lat\":45.198495,\"lon\":5.725541,\"altitude\":0}},\"route\":{\"costing_options\":{\"pedestrian\":{\"use_ferry\":0,\"shortest\":false,\"driveway_factor\":200,\"walkway_factor\":0.8,\"use_tracks\":1,\"sidewalk_factor\":10,\"max_hiking_difficulty\":3}},\"totalTime\":1452.0199999999995,\"totalDistance\":1994,\"type\":\"pedestrian\",\"subtype\":\"normal\"}},\"geometry\":{\"type\":\"LineString\",\"coordinates\":[[5.724991999999999,45.198263999999995],[5.724781,45.198305999999995],[5.724622999999999,45.198335],[5.724584999999999,45.198342],[5.724461,45.198384],[5.724422,45.198426],[5.724425,45.198446999999994],[5.72432,45.198468],[5.7242869999999995,45.198476],[5.724237,45.198479],[5.724199,45.198481],[5.7240899999999995,45.198488999999995],[5.724057999999999,45.198491999999995],[5.724011,45.198495],[5.724009,45.198485],[5.724072,45.198479999999996],[5.7240709999999995,45.19847],[5.723933,45.198478],[5.723930999999999,45.198467],[5.723980999999999,45.198463],[5.723978,45.198451999999996],[5.72391,45.198451999999996],[5.723897,45.19845],[5.723898,45.198442],[5.723902,45.198425],[5.723916,45.198375],[5.723934,45.198370999999995],[5.723947,45.198329],[5.723929,45.198327],[5.723917,45.198364],[5.723875,45.198358999999996],[5.723752999999999,45.198343],[5.723758,45.198324],[5.723777999999999,45.198251],[5.723794,45.198175],[5.723775,45.198163],[5.723751,45.198156999999995],[5.723688999999999,45.198175],[5.723624,45.198203],[5.7235759999999996,45.198215999999995],[5.7234989999999994,45.198217],[5.723252,45.198201999999995],[5.7232389999999995,45.198175],[5.723484,45.198088],[5.7234989999999994,45.198119999999996],[5.723387,45.198156999999995],[5.723345999999999,45.198114],[5.723256999999999,45.198051],[5.723043,45.198113],[5.722871,45.198204999999994],[5.722697,45.198249],[5.722523,45.198312],[5.722471,45.198361],[5.722366999999999,45.198356],[5.7223559999999996,45.198339999999995],[5.722421,45.198307],[5.722478,45.198291999999995],[5.722595999999999,45.19826],[5.722585,45.198246],[5.722563999999999,45.198226999999996],[5.72253,45.198195],[5.722509,45.198187999999995],[5.722351,45.198212999999996],[5.7223679999999995,45.198153],[5.722252,45.198141],[5.72222,45.198088],[5.722366,45.198060999999996],[5.722497,45.198046999999995],[5.722523,45.198026999999996],[5.722532999999999,45.197995999999996],[5.722532999999999,45.197987],[5.722532999999999,45.197981],[5.722594,45.197981],[5.722633999999999,45.197981999999996],[5.722633999999999,45.197981],[5.722624,45.197979],[5.722621,45.197976],[5.722636,45.197970999999995],[5.722601999999999,45.197961],[5.722631,45.197919],[5.722544,45.197950999999996],[5.7225909999999995,45.197888],[5.722498,45.197922999999996],[5.722549,45.197873],[5.722493999999999,45.197897999999995],[5.722448,45.197913],[5.722453,45.197899],[5.72251,45.197852],[5.722411999999999,45.197888],[5.722428,45.197858],[5.722449999999999,45.197828],[5.722411,45.197846999999996],[5.722392999999999,45.197859],[5.722364,45.197858],[5.7223559999999996,45.197838999999995],[5.722366999999999,45.197821999999995],[5.722421,45.197796],[5.722497,45.197755],[5.722506,45.197739999999996],[5.722512,45.197722],[5.722515,45.197705],[5.722499,45.1977],[5.722484,45.197708999999996],[5.722442,45.197725],[5.722403,45.197724],[5.722395,45.197705],[5.722404999999999,45.197649999999996],[5.722398,45.197581],[5.72241,45.19753],[5.7224319999999995,45.197483],[5.722421,45.197409],[5.722417,45.197331999999996],[5.722405999999999,45.197237],[5.722396,45.197148999999996],[5.722318,45.197112999999995],[5.7222219999999995,45.197075999999996],[5.722169,45.197125],[5.722085,45.197209],[5.722022,45.197269],[5.722009,45.197210999999996],[5.721998999999999,45.197136],[5.722036,45.197055],[5.722083,45.19701],[5.722144,45.196959],[5.7222159999999995,45.196928],[5.722327,45.196873],[5.722449,45.196833],[5.722517,45.196781],[5.722595999999999,45.196709999999996],[5.72264,45.196687999999995],[5.722669,45.196639999999995],[5.722707,45.196518999999995],[5.722725,45.196402],[5.722696,45.196284],[5.722702,45.196157],[5.722684,45.196053],[5.722614999999999,45.195842999999996],[5.722516,45.195705],[5.722417999999999,45.195591],[5.722369,45.195533],[5.722322999999999,45.195437],[5.722347999999999,45.195391],[5.72235,45.195353],[5.722313,45.195299],[5.722179,45.195167],[5.722080999999999,45.195015],[5.721939,45.194826],[5.721836,45.194733],[5.721722,45.194655],[5.721741,45.194632],[5.721741,45.194614],[5.721667,45.194519],[5.72166,45.194509],[5.721617,45.194525999999996],[5.721609,45.19452],[5.721653,45.1945],[5.721645,45.194489999999995],[5.7215929999999995,45.194514],[5.72122,45.194590999999996],[5.721182,45.194579],[5.721137,45.194576],[5.721083,45.194593999999995],[5.721041,45.194627999999994],[5.721,45.19464],[5.720738,45.194770999999996],[5.720686,45.194803],[5.720632,45.194778],[5.720625999999999,45.194773999999995],[5.7206209999999995,45.19477],[5.72052,45.194811],[5.720431,45.194809],[5.720349,45.194773],[5.720244999999999,45.194638999999995],[5.720203,45.194590999999996],[5.720161,45.194579],[5.720134,45.194562999999995],[5.720116,45.194541],[5.720111999999999,45.194488],[5.72009,45.194468],[5.7200359999999995,45.194455999999995],[5.720003,45.194438999999996],[5.7199979999999995,45.194403],[5.7199789999999995,45.194387],[5.7199279999999995,45.194331],[5.7198709999999995,45.194317999999996],[5.719755999999999,45.194291],[5.719694,45.194244999999995],[5.7197059999999995,45.194187],[5.719761999999999,45.194167],[5.71981,45.194213],[5.719823,45.194216],[5.719863999999999,45.194224],[5.719895999999999,45.194237],[5.719936,45.194199],[5.719949,45.194191],[5.7199409999999995,45.194181],[5.719945,45.194168],[5.719965999999999,45.194168],[5.720041,45.194181],[5.72011,45.194143],[5.720148,45.194072],[5.720155999999999,45.194005999999995],[5.720142999999999,45.193894],[5.720135,45.193822999999995],[5.720127,45.193774999999995],[5.720072,45.193737999999996],[5.720044,45.193673],[5.7200679999999995,45.193611],[5.720184,45.193559],[5.720178,45.193509],[5.720289999999999,45.193508],[5.720431,45.193506],[5.721293999999999,45.19354],[5.721585,45.193549],[5.721619,45.193549999999995],[5.723077,45.193596],[5.723552,45.193624],[5.72358,45.193591],[5.723805,45.193608999999995],[5.723789,45.193574],[5.723806,45.193525],[5.72385,45.193526999999996],[5.723913,45.193535999999995],[5.723964,45.193543999999996],[5.723967,45.19352],[5.72419,45.192761],[5.7241979999999995,45.192735],[5.724209,45.192727999999995],[5.7242239999999995,45.192671],[5.724235999999999,45.192616],[5.724412999999999,45.19265],[5.724696,45.192709],[5.724729,45.192715],[5.724765,45.192721999999996],[5.724876999999999,45.19231],[5.724895,45.192285999999996],[5.724959,45.192254],[5.7250179999999995,45.192218],[5.725121,45.191857999999996],[5.725156,45.191828],[5.725169999999999,45.191769],[5.725185,45.191704],[5.725249,45.191478],[5.725264,45.191466],[5.725541,45.191462]]}}]}";
-        String cartoCss =
-                "#items[zoom > 'nuti::test'] {\n" +
-                        "  line-color: #374C70;\n" +
-                        "  line-cap: round;\n" +
-                        "  line-join: round;\n" +
-                        "  line-width: 12;\n" +
-                        "}\n" ;
-
-        MBVectorTileDecoder decoder = new MBVectorTileDecoder(new CartoCSSStyleSet(cartoCss));
-        decoder.setStyleParameter("test", "10");
-        GeoJSONVectorTileDataSource dataSource = new GeoJSONVectorTileDataSource(0,24);
-        try {
-            dataSource.createLayer("items");
-            dataSource.addGeoJSONStringFeature(1, "{\"type\":\"Feature\",\"id\":1668607642215,\"properties\":{\"name\":\"Bastille - 45.192, 5.726\",\"class\":\"pedestrian\",\"id\":1668607642215,\"zoomBounds\":{\"southwest\":{\"lat\":45.191462,\"lon\":5.719694,\"altitude\":0},\"northeast\":{\"lat\":45.198495,\"lon\":5.725541,\"altitude\":0}},\"route\":{\"costing_options\":{\"pedestrian\":{\"use_ferry\":0,\"shortest\":false,\"driveway_factor\":200,\"walkway_factor\":0.8,\"use_tracks\":1,\"sidewalk_factor\":10,\"max_hiking_difficulty\":3}},\"totalTime\":1452.0199999999995,\"totalDistance\":1994,\"type\":\"pedestrian\",\"subtype\":\"normal\"}},\"geometry\":{\"type\":\"LineString\",\"coordinates\":[[5.7223559999999996,45.198339999999995],[5.722421,45.198307],[5.722478,45.198291999999995],[5.722595999999999,45.19826],[5.722585,45.198246],[5.722563999999999,45.198226999999996],[5.72253,45.198195],[5.722509,45.198187999999995],[5.722351,45.198212999999996],[5.7223679999999995,45.198153],[5.722252,45.198141],[5.72222,45.198088],[5.722366,45.198060999999996],[5.722497,45.198046999999995],[5.722523,45.198026999999996],[5.722532999999999,45.197995999999996],[5.722532999999999,45.197987],[5.722532999999999,45.197981],[5.722594,45.197981],[5.722633999999999,45.197981999999996],[5.722633999999999,45.197981],[5.722624,45.197979],[5.722621,45.197976],[5.722636,45.197970999999995],[5.722601999999999,45.197961],[5.722631,45.197919],[5.722544,45.197950999999996],[5.7225909999999995,45.197888],[5.722498,45.197922999999996],[5.722549,45.197873],[5.722493999999999,45.197897999999995],[5.722448,45.197913],[5.722453,45.197899],[5.72251,45.197852],[5.722411999999999,45.197888],[5.722428,45.197858],[5.722449999999999,45.197828],[5.722411,45.197846999999996],[5.722392999999999,45.197859],[5.722364,45.197858],[5.7223559999999996,45.197838999999995],[5.722366999999999,45.197821999999995],[5.722421,45.197796],[5.722497,45.197755],[5.722506,45.197739999999996],[5.722512,45.197722],[5.722515,45.197705],[5.722499,45.1977],[5.722484,45.197708999999996],[5.722442,45.197725],[5.722403,45.197724],[5.722395,45.197705],[5.722404999999999,45.197649999999996],[5.722398,45.197581],[5.72241,45.19753],[5.7224319999999995,45.197483],[5.722421,45.197409],[5.722417,45.197331999999996],[5.722405999999999,45.197237],[5.722396,45.197148999999996],[5.722318,45.197112999999995],[5.7222219999999995,45.197075999999996],[5.722169,45.197125],[5.722085,45.197209],[5.722022,45.197269],[5.722009,45.197210999999996],[5.721998999999999,45.197136],[5.722036,45.197055],[5.722083,45.19701],[5.722144,45.196959],[5.7222159999999995,45.196928],[5.722327,45.196873],[5.722449,45.196833],[5.722517,45.196781],[5.722595999999999,45.196709999999996],[5.72264,45.196687999999995],[5.722669,45.196639999999995],[5.722707,45.196518999999995],[5.722725,45.196402],[5.722696,45.196284],[5.722702,45.196157],[5.722684,45.196053],[5.722614999999999,45.195842999999996],[5.722516,45.195705],[5.722417999999999,45.195591],[5.722369,45.195533],[5.722322999999999,45.195437],[5.722347999999999,45.195391],[5.72235,45.195353],[5.722313,45.195299],[5.722179,45.195167],[5.722080999999999,45.195015],[5.721939,45.194826],[5.721836,45.194733],[5.721722,45.194655],[5.721741,45.194632],[5.721741,45.194614],[5.721667,45.194519],[5.72166,45.194509],[5.721617,45.194525999999996],[5.721609,45.19452],[5.721653,45.1945],[5.721645,45.194489999999995],[5.7215929999999995,45.194514],[5.72122,45.194590999999996],[5.721182,45.194579],[5.721137,45.194576],[5.721083,45.194593999999995],[5.721041,45.194627999999994],[5.721,45.19464],[5.720738,45.194770999999996],[5.720686,45.194803],[5.720632,45.194778],[5.720625999999999,45.194773999999995],[5.7206209999999995,45.19477],[5.72052,45.194811],[5.720431,45.194809],[5.720349,45.194773],[5.720244999999999,45.194638999999995],[5.720203,45.194590999999996],[5.720161,45.194579],[5.720134,45.194562999999995],[5.720116,45.194541],[5.720111999999999,45.194488],[5.72009,45.194468],[5.7200359999999995,45.194455999999995],[5.720003,45.194438999999996],[5.7199979999999995,45.194403],[5.7199789999999995,45.194387],[5.7199279999999995,45.194331],[5.7198709999999995,45.194317999999996],[5.719755999999999,45.194291],[5.719694,45.194244999999995],[5.7197059999999995,45.194187],[5.719761999999999,45.194167],[5.71981,45.194213],[5.719823,45.194216],[5.719863999999999,45.194224],[5.719895999999999,45.194237],[5.719936,45.194199],[5.719949,45.194191],[5.7199409999999995,45.194181],[5.719945,45.194168],[5.719965999999999,45.194168],[5.720041,45.194181],[5.72011,45.194143],[5.720148,45.194072],[5.720155999999999,45.194005999999995],[5.720142999999999,45.193894],[5.720135,45.193822999999995],[5.720127,45.193774999999995],[5.720072,45.193737999999996],[5.720044,45.193673],[5.7200679999999995,45.193611],[5.720184,45.193559],[5.720178,45.193509],[5.720289999999999,45.193508],[5.720431,45.193506],[5.721293999999999,45.19354],[5.721585,45.193549],[5.721619,45.193549999999995],[5.723077,45.193596],[5.723552,45.193624],[5.72358,45.193591],[5.723805,45.193608999999995],[5.723789,45.193574],[5.723806,45.193525],[5.72385,45.193526999999996],[5.723913,45.193535999999995],[5.723964,45.193543999999996],[5.723967,45.19352],[5.72419,45.192761],[5.7241979999999995,45.192735],[5.724209,45.192727999999995],[5.7242239999999995,45.192671],[5.724235999999999,45.192616],[5.724412999999999,45.19265],[5.724696,45.192709],[5.724729,45.192715],[5.724765,45.192721999999996],[5.724876999999999,45.19231],[5.724895,45.192285999999996],[5.724959,45.192254],[5.7250179999999995,45.192218],[5.725121,45.191857999999996],[5.725156,45.191828],[5.725169999999999,45.191769],[5.725185,45.191704],[5.725249,45.191478],[5.725264,45.191466],[5.725541,45.191462]]}}");
-            dataSource.addGeoJSONStringFeature(1, "{\"type\":\"Feature\",\"id\":1668607642235,\"properties\":{\"name\":\"Bastille - 45.192, 5.726\",\"class\":\"pedestrian\",\"id\":1668607642235,\"zoomBounds\":{\"southwest\":{\"lat\":45.191462,\"lon\":5.719694,\"altitude\":0},\"northeast\":{\"lat\":45.198495,\"lon\":5.725541,\"altitude\":0}},\"route\":{\"costing_options\":{\"pedestrian\":{\"use_ferry\":0,\"shortest\":false,\"driveway_factor\":200,\"walkway_factor\":0.8,\"use_tracks\":1,\"sidewalk_factor\":10,\"max_hiking_difficulty\":3}},\"totalTime\":1452.0199999999995,\"totalDistance\":1994,\"type\":\"pedestrian\",\"subtype\":\"normal\"}},\"geometry\":{\"type\":\"LineString\",\"coordinates\":[[5.724991999999999,45.198263999999995],[5.724781,45.198305999999995],[5.724622999999999,45.198335],[5.724584999999999,45.198342],[5.724461,45.198384],[5.724422,45.198426],[5.724425,45.198446999999994],[5.72432,45.198468],[5.7242869999999995,45.198476],[5.724237,45.198479],[5.724199,45.198481],[5.7240899999999995,45.198488999999995],[5.724057999999999,45.198491999999995]]}}");
-//            dataSource.setLayerGeoJSON(1,com.carto.core.Variant.fromString(geojson));
-            dataSource.removeGeoJSONFeature(1, new Variant(1668607642235L));
-            VectorTileLayer mbLayer = new VectorTileLayer(dataSource,decoder);
-            mapView.getLayers().add(mbLayer);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        mapView.setFocusPos(new MapPos(5.72476358599884, 45.19272038067931), 0);
-        mapView.setZoom(12f, 0);
-    }
-
-
-    public void testLineDrawing2() {
-        final Options options = mapView.getOptions();
-
-        String geojson = "{\"type\": \"FeatureCollection\", \"features\":[{\"type\":\"Feature\",\"id\":1668607642215,\"properties\":{\"name\":\"Bastille - 45.192, 5.726\",\"class\":\"pedestrian\",\"id\":1668607642215,\"zoomBounds\":{\"southwest\":{\"lat\":45.191462,\"lon\":5.719694,\"altitude\":0},\"northeast\":{\"lat\":45.198495,\"lon\":5.725541,\"altitude\":0}},\"route\":{\"costing_options\":{\"pedestrian\":{\"use_ferry\":0,\"shortest\":false,\"driveway_factor\":200,\"walkway_factor\":0.8,\"use_tracks\":1,\"sidewalk_factor\":10,\"max_hiking_difficulty\":3}},\"totalTime\":1452.0199999999995,\"totalDistance\":1994,\"type\":\"pedestrian\",\"subtype\":\"normal\"}},\"geometry\":{\"type\":\"LineString\",\"coordinates\":[[5.724991999999999,45.198263999999995],[5.724781,45.198305999999995],[5.724622999999999,45.198335],[5.724584999999999,45.198342],[5.724461,45.198384],[5.724422,45.198426],[5.724425,45.198446999999994],[5.72432,45.198468],[5.7242869999999995,45.198476],[5.724237,45.198479],[5.724199,45.198481],[5.7240899999999995,45.198488999999995],[5.724057999999999,45.198491999999995],[5.724011,45.198495],[5.724009,45.198485],[5.724072,45.198479999999996],[5.7240709999999995,45.19847],[5.723933,45.198478],[5.723930999999999,45.198467],[5.723980999999999,45.198463],[5.723978,45.198451999999996],[5.72391,45.198451999999996],[5.723897,45.19845],[5.723898,45.198442],[5.723902,45.198425],[5.723916,45.198375],[5.723934,45.198370999999995],[5.723947,45.198329],[5.723929,45.198327],[5.723917,45.198364],[5.723875,45.198358999999996],[5.723752999999999,45.198343],[5.723758,45.198324],[5.723777999999999,45.198251],[5.723794,45.198175],[5.723775,45.198163],[5.723751,45.198156999999995],[5.723688999999999,45.198175],[5.723624,45.198203],[5.7235759999999996,45.198215999999995],[5.7234989999999994,45.198217],[5.723252,45.198201999999995],[5.7232389999999995,45.198175],[5.723484,45.198088],[5.7234989999999994,45.198119999999996],[5.723387,45.198156999999995],[5.723345999999999,45.198114],[5.723256999999999,45.198051],[5.723043,45.198113],[5.722871,45.198204999999994],[5.722697,45.198249],[5.722523,45.198312],[5.722471,45.198361],[5.722366999999999,45.198356],[5.7223559999999996,45.198339999999995],[5.722421,45.198307],[5.722478,45.198291999999995],[5.722595999999999,45.19826],[5.722585,45.198246],[5.722563999999999,45.198226999999996],[5.72253,45.198195],[5.722509,45.198187999999995],[5.722351,45.198212999999996],[5.7223679999999995,45.198153],[5.722252,45.198141],[5.72222,45.198088],[5.722366,45.198060999999996],[5.722497,45.198046999999995],[5.722523,45.198026999999996],[5.722532999999999,45.197995999999996],[5.722532999999999,45.197987],[5.722532999999999,45.197981],[5.722594,45.197981],[5.722633999999999,45.197981999999996],[5.722633999999999,45.197981],[5.722624,45.197979],[5.722621,45.197976],[5.722636,45.197970999999995],[5.722601999999999,45.197961],[5.722631,45.197919],[5.722544,45.197950999999996],[5.7225909999999995,45.197888],[5.722498,45.197922999999996],[5.722549,45.197873],[5.722493999999999,45.197897999999995],[5.722448,45.197913],[5.722453,45.197899],[5.72251,45.197852],[5.722411999999999,45.197888],[5.722428,45.197858],[5.722449999999999,45.197828],[5.722411,45.197846999999996],[5.722392999999999,45.197859],[5.722364,45.197858],[5.7223559999999996,45.197838999999995],[5.722366999999999,45.197821999999995],[5.722421,45.197796],[5.722497,45.197755],[5.722506,45.197739999999996],[5.722512,45.197722],[5.722515,45.197705],[5.722499,45.1977],[5.722484,45.197708999999996],[5.722442,45.197725],[5.722403,45.197724],[5.722395,45.197705],[5.722404999999999,45.197649999999996],[5.722398,45.197581],[5.72241,45.19753],[5.7224319999999995,45.197483],[5.722421,45.197409],[5.722417,45.197331999999996],[5.722405999999999,45.197237],[5.722396,45.197148999999996],[5.722318,45.197112999999995],[5.7222219999999995,45.197075999999996],[5.722169,45.197125],[5.722085,45.197209],[5.722022,45.197269],[5.722009,45.197210999999996],[5.721998999999999,45.197136],[5.722036,45.197055],[5.722083,45.19701],[5.722144,45.196959],[5.7222159999999995,45.196928],[5.722327,45.196873],[5.722449,45.196833],[5.722517,45.196781],[5.722595999999999,45.196709999999996],[5.72264,45.196687999999995],[5.722669,45.196639999999995],[5.722707,45.196518999999995],[5.722725,45.196402],[5.722696,45.196284],[5.722702,45.196157],[5.722684,45.196053],[5.722614999999999,45.195842999999996],[5.722516,45.195705],[5.722417999999999,45.195591],[5.722369,45.195533],[5.722322999999999,45.195437],[5.722347999999999,45.195391],[5.72235,45.195353],[5.722313,45.195299],[5.722179,45.195167],[5.722080999999999,45.195015],[5.721939,45.194826],[5.721836,45.194733],[5.721722,45.194655],[5.721741,45.194632],[5.721741,45.194614],[5.721667,45.194519],[5.72166,45.194509],[5.721617,45.194525999999996],[5.721609,45.19452],[5.721653,45.1945],[5.721645,45.194489999999995],[5.7215929999999995,45.194514],[5.72122,45.194590999999996],[5.721182,45.194579],[5.721137,45.194576],[5.721083,45.194593999999995],[5.721041,45.194627999999994],[5.721,45.19464],[5.720738,45.194770999999996],[5.720686,45.194803],[5.720632,45.194778],[5.720625999999999,45.194773999999995],[5.7206209999999995,45.19477],[5.72052,45.194811],[5.720431,45.194809],[5.720349,45.194773],[5.720244999999999,45.194638999999995],[5.720203,45.194590999999996],[5.720161,45.194579],[5.720134,45.194562999999995],[5.720116,45.194541],[5.720111999999999,45.194488],[5.72009,45.194468],[5.7200359999999995,45.194455999999995],[5.720003,45.194438999999996],[5.7199979999999995,45.194403],[5.7199789999999995,45.194387],[5.7199279999999995,45.194331],[5.7198709999999995,45.194317999999996],[5.719755999999999,45.194291],[5.719694,45.194244999999995],[5.7197059999999995,45.194187],[5.719761999999999,45.194167],[5.71981,45.194213],[5.719823,45.194216],[5.719863999999999,45.194224],[5.719895999999999,45.194237],[5.719936,45.194199],[5.719949,45.194191],[5.7199409999999995,45.194181],[5.719945,45.194168],[5.719965999999999,45.194168],[5.720041,45.194181],[5.72011,45.194143],[5.720148,45.194072],[5.720155999999999,45.194005999999995],[5.720142999999999,45.193894],[5.720135,45.193822999999995],[5.720127,45.193774999999995],[5.720072,45.193737999999996],[5.720044,45.193673],[5.7200679999999995,45.193611],[5.720184,45.193559],[5.720178,45.193509],[5.720289999999999,45.193508],[5.720431,45.193506],[5.721293999999999,45.19354],[5.721585,45.193549],[5.721619,45.193549999999995],[5.723077,45.193596],[5.723552,45.193624],[5.72358,45.193591],[5.723805,45.193608999999995],[5.723789,45.193574],[5.723806,45.193525],[5.72385,45.193526999999996],[5.723913,45.193535999999995],[5.723964,45.193543999999996],[5.723967,45.19352],[5.72419,45.192761],[5.7241979999999995,45.192735],[5.724209,45.192727999999995],[5.7242239999999995,45.192671],[5.724235999999999,45.192616],[5.724412999999999,45.19265],[5.724696,45.192709],[5.724729,45.192715],[5.724765,45.192721999999996],[5.724876999999999,45.19231],[5.724895,45.192285999999996],[5.724959,45.192254],[5.7250179999999995,45.192218],[5.725121,45.191857999999996],[5.725156,45.191828],[5.725169999999999,45.191769],[5.725185,45.191704],[5.725249,45.191478],[5.725264,45.191466],[5.725541,45.191462]]}}]}";
-
-        GeoJSONGeometryReader reader = new GeoJSONGeometryReader();
-        reader.setTargetProjection(options.getBaseProjection());
-        FeatureCollection collection = reader.readFeatureCollection(geojson);
-
-        GeoJSONVectorTileDataSource dataSource = new GeoJSONVectorTileDataSource(0,24);
-
-        LineStyleBuilder builder = new LineStyleBuilder();
-        builder.setWidth(9);
-        builder.setColor(new Color((short) 255, (short)0,(short)0,(short)255));
-        builder.setLineJoinType(LineJoinType.LINE_JOIN_TYPE_MITER);
-        builder.setColor(new Color((short) 255, (short) 0, (short) 0, (short) 255));
-        Line line = new Line((LineGeometry) collection.getFeature(0).getGeometry(), builder.buildStyle());
-
-        LocalVectorDataSource localSource = new LocalVectorDataSource(options.getBaseProjection());
-        VectorLayer vectorLayer = new VectorLayer(localSource);
-        mapView.getLayers().add(vectorLayer);
-        localSource.add(line);
-
-        mapView.setFocusPos(new MapPos(5.72476358599884, 45.19272038067931), 0);
-        mapView.setZoom(12f, 0);
-    }
-
-
-    public void testVectoTileSearch(final VectorTileLayer layer, final Options options) {
-
-        final VectorTileSearchService searchService = new VectorTileSearchService(layer.getDataSource(), layer.getTileDecoder());
-        searchService.setMaxZoom(14);
-        searchService.setMinZoom(14);
-        MapPosVector vector = new MapPosVector();
-        vector.add(new MapPos(5.853,45.096));
-        vector.add(new MapPos(6.009,45.225));
-        PolygonGeometry boundsGeo = new PolygonGeometry(vector);
-        final SearchRequest request = new SearchRequest();
-        request.setFilterExpression("layer::name='route' AND osmid=-2535348");
-        request.setGeometry(boundsGeo);
-        request.setProjection(options.getBaseProjection());
-        new Thread() {
-            public void run() {
-                final VectorTileFeatureCollection result = searchService.findFeatures(request);
-                MapPosVectorVector points = new MapPosVectorVector();
-                for (int i=0; i < result.getFeatureCount(); i++){
-                    Feature feature = result.getFeature(i);
-                    Geometry geometry = feature.getGeometry();
-                    if (geometry instanceof MultiLineGeometry) {
-                        for (int j=0; j < ((MultiLineGeometry)geometry).getGeometryCount(); j++) {
-                            points.add(((MultiLineGeometry) geometry).getGeometry(j).getPoses());
-                        }
-                    } else {
-                        points.add(((LineGeometry)geometry).getPoses());
-                    }
-                }
-//                LineStyleBuilder builder = new LineStyleBuilder();
-//                builder.setWidth(4);
-//                builder.setColor(new Color((short) 255, (short) 0, (short) 0, (short) 255));
-//                Line line = new Line(points, builder.buildStyle());
-//                localSource.add(line);
-                new Handler(android.os.Looper.getMainLooper()).post(new Runnable() {
-                    @Override
-                    public void run() {
-                        Log.d(TAG, "findFeatures done " + result.getFeatureCount());
-                    }
-
-                });
-            }
-        }.start();
-    }
-
-
-    public void runValhallaInThread(final ValhallaRoutingService routingService, final RoutingRequest request, String profile, final LocalVectorDataSource localSource) {
-        Thread thread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    GeoJSONGeometryReader reader = new GeoJSONGeometryReader();
-                    routingService.setProfile(profile);
-                    String result = routingService.calculateRoute(request);
-                    Log.d(TAG,"rawresult "+ result);
-
-                    JSONObject obj = new JSONObject(result);
-                    JSONArray legs = obj.getJSONObject("trip").getJSONArray("legs");
-                    for (int i = 0; i < legs.length(); i++) {
-                        JSONObject legInfo = legs.getJSONObject(i);
-                        String coordinatesStr = routingService.parseShape(legInfo.getString("shape"));
-                        LineGeometry geometry = (LineGeometry) reader.readGeometry("{\"type\":\"LineString\", \"coordinates\":" + coordinatesStr +"}");
-                        MapPosVector points = geometry.getPoses();
-                        Log.d(TAG, "showing route " + points.size());
-                        LineStyleBuilder builder = new LineStyleBuilder();
-                        builder.setWidth(4);
-                        builder.setColor(new Color((short) 255, (short) 0, (short) 0, (short) 255));
-                        Line line = new Line(points, builder.buildStyle());
-
-                        localSource.add(line);
-                        MapBounds bounds = line.getGeometry().getBounds();
-                        mapView.moveToFitBounds(bounds, new ScreenBounds(), false, 10);
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        });
-        thread.start();
-    }
-//
-//    public void matchRouteTest(final MultiValhallaOfflineRoutingService routingService, Projection projection, String profile) {
-//        Thread thread = new Thread(new Runnable() {
-//            @Override
-//            public void run() {
-//                try {
-//                    routingService.setProfile(profile);
-//                    MapPosVector vector = new MapPosVector();
-//                    vector.add(new MapPos(5.721619, 45.193549999999995));
-//                    vector.add(new MapPos(5.721585, 45.193549));
-//                    RouteMatchingRequest matchrequest = new RouteMatchingRequest(projection, vector, 1);
-//                    matchrequest.setCustomParameter("shape_match", new Variant("edge_walk"));
-//                    matchrequest.setCustomParameter("filters", Variant.fromString("{ \"attributes\": [\"edge.surface\", \"edge.road_class\", \"edge.sac_scale\", \"edge.use\"], \"action\": \"include\" }"));
-//                    RouteMatchingResult matchresult = routingService.matchRoute(matchrequest);
-//                    largeLog(TAG,"matchresult "+ matchresult.getRawResult());
-//                } catch (IOException e) {
-//                    e.printStackTrace();
-//                }
-//            }
-//        });
-//        thread.start();
-//    }
-//
-//        public void testMatchRoute(String dataPath, Options options) {
-//            Projection projection = options.getBaseProjection();
-//            MultiValhallaOfflineRoutingService routingService = new MultiValhallaOfflineRoutingService();
-//            routingService.add(dataPath+"/france.vtiles");
-//            LocalVectorDataSource localSource = new LocalVectorDataSource(projection);
-//            Timer timer = new Timer();
-//            TimerTask task = new MathRouteTask(routingService, options.getBaseProjection(), "pedestrian");
-//            timer.schedule(task, 0, 500);
-//        }
-//
-//    public void testValhalla(String dataPath, Options options) {
-//        Projection projection = options.getBaseProjection();
-//        MultiValhallaOfflineRoutingService routingService = new MultiValhallaOfflineRoutingService();
-////        routingService.add(dataPath+"/italy/italy.vtiles");
-//        routingService.add(dataPath+"/france/france.vtiles");
-//        LocalVectorDataSource localSource = new LocalVectorDataSource(projection);
-//        VectorLayer vectorLayer = new VectorLayer(localSource);
-//        mapView.getLayers().add(vectorLayer);
-//        MapPosVector vector = new MapPosVector();
-//        vector.add(new MapPos(5.7233, 45.1924));
-//        vector.add(new MapPos(5.7247, 45.1992));
-//        RoutingRequest request = new RoutingRequest(projection, vector);
-//        request.setCustomParameter("costing_options", Variant.fromString("{\"pedestrian\":{\"use_ferry\":0,\"shortest\":false,\"use_hills\":1,\"max_hiking_difficulty\":6,\"step_penalty\":10,\"driveway_factor\":200,\"use_roads\":0,\"use_tracks\":1,\"walking_speed\":4,\"sidewalk_factor\":10}}"));
-//        request.setCustomParameter("directions_options", Variant.fromString("{\"language\":\"en\"}"));
-//        runValhallaInThread(routingService, request, "pedestrian", localSource);
-////            request = new RoutingRequest(projection, vector);
-////            request.setCustomParameter("costing_options", Variant.fromString("{\"pedestrian\":{\"driveway_factor\":10,\"max_hiking_difficulty\":6,\"shortest\":false,\"step_penalty\":1,\"use_ferry\":0,\"use_hills\":0,\"use_roads\":0,\"use_tracks\":1,\"walking_speed\":4}},\"directions_options\":{\"language\":\"en\"}}"));
-////            runValhallaInThread(routingService, request, "pedestrian", localSource);
-////            request = new RoutingRequest(projection, vector);
-////            request.setCustomParameter("costing_options", Variant.fromString("{\"pedestrian\":{\"driveway_factor\":10,\"max_hiking_difficulty\":6,\"shortest\":true,\"step_penalty\":5,\"use_ferry\":0,\"use_hills\":1,\"use_roads\":0,\"use_tracks\":1,\"walking_speed\":4}},\"directions_options\":{\"language\":\"en\"}}"));
-////            runValhallaInThread(routingService, request, "pedestrian", localSource);
-//    }
-
-//    public void testVectorTileSearch(String query) {
-//        Thread thread = new Thread(new Runnable() {
-//            @Override
-//            public void run() {
-//                long startTime = System.nanoTime();
-//                SearchRequest request = new SearchRequest();
-//                request.setFilterExpression("regexp_ilike(name,'.*" + query + ".*') OR regexp_ilike(class,'.*" + query + ".*')");
-//                request.setSearchRadius(2000);
-//                request.setGeometry(new PointGeometry(mapView.getFocusPos()));
-//                request.setProjection(mapView.getOptions().getBaseProjection());
-//                VectorTileSearchService service = new VectorTileSearchService(mainMapLayer.getDataSource(), mainMapLayer.getTileDecoder());
-//                service.setMaxZoom(14);
-//                service.setMinZoom(14);
-//                StringVector layers = new StringVector();
-//                layers.add("poi");
-//                layers.add("transportation_name");
-//                layers.add("place");
-//                service.setLayers(layers);
-//                service.setSortByDistance(true);
-//                service.setPreventDuplicates(true);
-//                VectorTileFeatureCollection result = service.findFeatures(request);
-//                Log.d("TAG", "testVectorTileSearch done " + result.getFeatureCount() + " " + ((System.nanoTime() - startTime)/1000000));
-//                GeoJSONGeometryWriter writer = new GeoJSONGeometryWriter();
-//                ;
-//                largeLog("TAG", writer.writeFeatureCollection(result));
-//            }
-//        });
-//        thread.start();
-//    }
-
-
-   public void testValhallaBicycle(String dataPath, Options options) {
-
-       ValhallaRoutingService service = new ValhallaRoutingService();
-       service.setProfile("pedestrian");
-       service.addMBTilesPath(dataPath+"/france/france.vtiles");
-       Projection projection = options.getBaseProjection();
-//       MultiValhallaOfflineRoutingService routingService = new MultiValhallaOfflineRoutingService();
-//       routingService.add(dataPath+"/france/france.vtiles");
-       service.addLocale("fr-FR", "{\"posix_locale\":\"fr_FR.UTF-8\",\"aliases\":[\"fr\"],\"instructions\":{\"arrive\":{\"phrases\":{\"0\":\"Arriver : <TIME>.\",\"1\":\"Arriver : <TIME> \\u00E0 <TRANSIT_STOP>.\"},\"example_phrases\":{\"0\":[\"Arriver : 8:02 AM.\"],\"1\":[\"Arriver : 8:02 AM \\u00E0 8 St - NYU.\"]}},\"arrive_verbal\":{\"phrases\":{\"0\":\"Arriver \\u00E0 <TIME>.\",\"1\":\"Arriver \\u00E0 <TIME> \\u00E0 <TRANSIT_STOP>.\"},\"example_phrases\":{\"0\":[\"Arriver \\u00E0 8:02 AM.\"],\"1\":[\"Arriver \\u00E0 8:02 AM \\u00E0 8 St - NYU.\"]}},\"bear\":{\"phrases\":{\"0\":\"Serrez \\u00E0 <RELATIVE_DIRECTION>.\",\"1\":\"Serrez \\u00E0 <RELATIVE_DIRECTION> dans <STREET_NAMES>.\",\"2\":\"Serrez \\u00E0 <RELATIVE_DIRECTION> dans <BEGIN_STREET_NAMES>. Continuez sur <STREET_NAMES>.\",\"3\":\"Serrez \\u00E0 <RELATIVE_DIRECTION> pour rester sur <STREET_NAMES>.\",\"4\":\"Serrez \\u00E0 <RELATIVE_DIRECTION> \\u00E0 <JUNCTION_NAME>.\",\"5\":\"Serrez \\u00E0 <RELATIVE_DIRECTION> vers <TOWARD_SIGN>.\"},\"empty_street_name_labels\":[\"l'all\\u00E9e\",\"la piste cyclable\",\"la piste de v\\u00E9lo de montagne\",\"le passage prot\\u00E9g\\u00E9\",\"the stairs\",\"the bridge\",\"the tunnel\"],\"relative_directions\":[\"gauche\",\"droite\"],\"example_phrases\":{\"0\":[\"Serrez \\u00E0 droite.\"],\"1\":[\"Serrez \\u00E0 gauche dans Arlen Road.\"],\"2\":[\"Serrez \\u00E0 droite dans Belair Road\\/US 1 Business. Continuez sur US 1 Business.\"],\"3\":[\"Serrez \\u00E0 gauche pour rester sur US 15 South.\"],\"4\":[\"Bear right at Mannenbashi East.\"],\"5\":[\"Bear left toward Baltimore.\"]}},\"bear_verbal\":{\"phrases\":{\"0\":\"Serrez \\u00E0 <RELATIVE_DIRECTION>.\",\"1\":\"Serrez \\u00E0 <RELATIVE_DIRECTION> dans <STREET_NAMES>.\",\"2\":\"Serrez \\u00E0 <RELATIVE_DIRECTION> dans <BEGIN_STREET_NAMES>.\",\"3\":\"Serrez \\u00E0 <RELATIVE_DIRECTION> pour rester sur <STREET_NAMES>.\",\"4\":\"Serrez \\u00E0 <RELATIVE_DIRECTION> \\u00E0 <JUNCTION_NAME>.\",\"5\":\"Serrez \\u00E0 <RELATIVE_DIRECTION> vers <TOWARD_SIGN>.\"},\"empty_street_name_labels\":[\"l'all\\u00E9e\",\"la piste cyclable\",\"la piste de v\\u00E9lo de montagne\",\"le passage prot\\u00E9g\\u00E9\",\"the stairs\",\"the bridge\",\"the tunnel\"],\"relative_directions\":[\"gauche\",\"droite\"],\"example_phrases\":{\"0\":[\"Serrez \\u00E0 droite.\"],\"1\":[\"Serrez \\u00E0 gauche dans Arlen Road.\"],\"2\":[\"Serrez \\u00E0 droite dans Belair Road, U.S. 1 Business.\"],\"3\":[\"Serrez \\u00E0 gauche pour rester sur U.S. 15 South.\"],\"4\":[\"Bear right at Mannenbashi East.\"],\"5\":[\"Bear left toward Baltimore.\"]}},\"becomes\":{\"phrases\":{\"0\":\"<PREVIOUS_STREET_NAMES> devient <STREET_NAMES>.\"},\"example_phrases\":{\"0\":[\"Vine Street devient Middletown Road.\"]}},\"becomes_verbal\":{\"phrases\":{\"0\":\"<PREVIOUS_STREET_NAMES> devient <STREET_NAMES>.\"},\"example_phrases\":{\"0\":[\"Vine Street devient Middletown Road.\"]}},\"continue\":{\"phrases\":{\"0\":\"Continuez.\",\"1\":\"Continuez sur <STREET_NAMES>.\",\"2\":\"Continuez \\u00E0 <JUNCTION_NAME>.\",\"3\":\"Continuez vers <TOWARD_SIGN>.\"},\"empty_street_name_labels\":[\"l'all\\u00E9e\",\"la piste cyclable\",\"la piste de v\\u00E9lo de montagne\",\"le passage prot\\u00E9g\\u00E9\",\"the stairs\",\"the bridge\",\"the tunnel\"],\"example_phrases\":{\"0\":[\"Continuez.\"],\"1\":[\"Continuez sur 10th Avenue.\"],\"2\":[\"Continue at Mannenbashi East.\"],\"3\":[\"Continue toward Baltimore.\"]}},\"continue_verbal\":{\"phrases\":{\"0\":\"Continuez.\",\"1\":\"Continuez pendant <LENGTH>.\",\"2\":\"Continuez sur <STREET_NAMES>.\",\"3\":\"Continuez vers <STREET_NAMES> pendant <LENGTH>.\",\"4\":\"Continuez \\u00E0 <JUNCTION_NAME>.\",\"5\":\"Continuez \\u00E0 <JUNCTION_NAME> pendant <LENGTH>.\",\"6\":\"Continuez vers <TOWARD_SIGN>.\",\"7\":\"Continuez vers <TOWARD_SIGN> pendant <LENGTH>.\"},\"empty_street_name_labels\":[\"l'all\\u00E9e\",\"la piste cyclable\",\"la piste de v\\u00E9lo de montagne\",\"le passage prot\\u00E9g\\u00E9\",\"the stairs\",\"the bridge\",\"the tunnel\"],\"metric_lengths\":[\"<KILOMETERS> kilom\\u00E8tres\",\"1 kilometre\",\"<METERS> m\\u00E8tres\",\"moins de 10 m\\u00E8tres\"],\"us_customary_lengths\":[\"<MILES> miles\",\"1 mile\",\"un demi mile\",\"un quart de mile\",\"<FEET> pieds\",\"moins de 10 pieds\"],\"example_phrases\":{\"0\":[\"Continue.\"],\"1\":[\"Continue for 300 feet.\"],\"2\":[\"Continue on 10th Avenue.\"],\"3\":[\"Continue on 10th Avenue for 3 miles.\"],\"4\":[\"Continue at Mannenbashi East.\"],\"5\":[\"Continue at Mannenbashi East for 2 miles.\"],\"6\":[\"Continue toward Baltimore.\"],\"7\":[\"Continue toward Baltimore for 5 miles.\"]}},\"continue_verbal_alert\":{\"phrases\":{\"0\":\"Continuez.\",\"1\":\"Continuez sur <STREET_NAMES>.\",\"2\":\"Continuez \\u00E0 <JUNCTION_NAME>.\",\"3\":\"Continuez vers <TOWARD_SIGN>.\"},\"empty_street_name_labels\":[\"l'all\\u00E9e\",\"la piste cyclable\",\"la piste de v\\u00E9lo de montagne\",\"le passage prot\\u00E9g\\u00E9\",\"the stairs\",\"the bridge\",\"the tunnel\"],\"example_phrases\":{\"0\":[\"Continuez.\"],\"1\":[\"Continuez sur 10th Avenue.\"],\"2\":[\"Continue at Mannenbashi East.\"],\"3\":[\"Continue toward Baltimore.\"]}},\"depart\":{\"phrases\":{\"0\":\"D\\u00E9part : <TIME>.\",\"1\":\"D\\u00E9part : <TIME> de <TRANSIT_STOP>.\"},\"example_phrases\":{\"0\":[\"D\\u00E9part : 8:02 AM.\"],\"1\":[\"D\\u00E9part : 8:02 AM de 8 St - NYU.\"]}},\"depart_verbal\":{\"phrases\":{\"0\":\"D\\u00E9part \\u00E0 <TIME>.\",\"1\":\"D\\u00E9part \\u00E0 <TIME> de <TRANSIT_STOP>.\"},\"example_phrases\":{\"0\":[\"D\\u00E9part at 8:02 AM.\"],\"1\":[\"D\\u00E9part at 8:02 AM from 8 St - NYU.\"]}},\"destination\":{\"phrases\":{\"0\":\"Vous \\u00EAtes arriv\\u00E9 \\u00E0 votre destination.\",\"1\":\"Vous \\u00EAtes arriv\\u00E9 \\u00E0 <DESTINATION>.\",\"2\":\"Votre destination est sur la <RELATIVE_DIRECTION>.\",\"3\":\"<DESTINATION> est sur la <RELATIVE_DIRECTION>.\"},\"relative_directions\":[\"gauche\",\"droite\"],\"example_phrases\":{\"0\":[\"Vous \\u00EAtes arriv\\u00E9 \\u00E0 votre destination.\"],\"1\":[\"Vous \\u00EAtes arriv\\u00E9 \\u00E0 3206 Powelton Avenue.\"],\"2\":[\"Votre destination est sur la gauche.\",\"Votre destination est sur la droite.\"],\"3\":[\"Lancaster Brewing Company est sur la gauche.\"]}},\"destination_verbal\":{\"phrases\":{\"0\":\"Vous \\u00EAtes arriv\\u00E9 \\u00E0 votre destination.\",\"1\":\"Vous \\u00EAtes arriv\\u00E9 \\u00E0 <DESTINATION>.\",\"2\":\"Votre destination est sur la <RELATIVE_DIRECTION>.\",\"3\":\"<DESTINATION> est sur la <RELATIVE_DIRECTION>.\"},\"relative_directions\":[\"gauche\",\"droite\"],\"example_phrases\":{\"0\":[\"Vous \\u00EAtes arriv\\u00E9 \\u00E0 votre destination.\"],\"1\":[\"Vous \\u00EAtes arriv\\u00E9 \\u00E0 32 o6 Powelton Avenue.\"],\"2\":[\"Votre destination est sur la gauche.\",\"Votre destination est sur la droite.\"],\"3\":[\"Lancaster Brewing Company est sur la gauche.\"]}},\"destination_verbal_alert\":{\"phrases\":{\"0\":\"Vous arriverez \\u00E0 votre destination.\",\"1\":\"Vous arriverez \\u00E0 <DESTINATION>.\",\"2\":\"Votre destination sera sur la <RELATIVE_DIRECTION>.\",\"3\":\"<DESTINATION> sera sur la <RELATIVE_DIRECTION>.\"},\"relative_directions\":[\"gauche\",\"droite\"],\"example_phrases\":{\"0\":[\"Vous arriverez \\u00E0 votre destination.\"],\"1\":[\"Vous arriverez \\u00E0 32 o6 Powelton Avenue.\"],\"2\":[\"Votre destination sera sur la gauche.\",\"Votre destination sera sur la droite.\"],\"3\":[\"Lancaster Brewing Company sera sur la gauche.\"]}},\"enter_ferry\":{\"phrases\":{\"0\":\"Prenez le ferry.\",\"1\":\"Prenez <STREET_NAMES>.\",\"2\":\"Prenez <STREET_NAMES> <FERRY_LABEL>.\",\"3\":\"Prenez le ferry vers <TOWARD_SIGN>.\"},\"empty_street_name_labels\":[\"l'all\\u00E9e\",\"la piste cyclable\",\"la piste de v\\u00E9lo de montagne\",\"le passage prot\\u00E9g\\u00E9\",\"the stairs\",\"the bridge\",\"the tunnel\"],\"ferry_label\":\"Ferry\",\"example_phrases\":{\"0\":[\"Prenez le ferry.\"],\"1\":[\"Prenez Millersburg Ferry.\"],\"2\":[\"Prenez Bridgeport - Port Jefferson Ferry.\"],\"3\":[\"Take the ferry toward Cape May.\"]}},\"enter_ferry_verbal\":{\"phrases\":{\"0\":\"Prenez le ferry.\",\"1\":\"Prenez <STREET_NAMES>.\",\"2\":\"Prenez <STREET_NAMES> <FERRY_LABEL>.\",\"3\":\"Prenez le ferry vers <TOWARD_SIGN>.\"},\"empty_street_name_labels\":[\"l'all\\u00E9e\",\"la piste cyclable\",\"la piste de v\\u00E9lo de montagne\",\"le passage prot\\u00E9g\\u00E9\",\"the stairs\",\"the bridge\",\"the tunnel\"],\"ferry_label\":\"Ferry\",\"example_phrases\":{\"0\":[\"Prenez le ferry.\"],\"1\":[\"Prenez Millersburg Ferry.\"],\"2\":[\"Prenez Bridgeport - Port Jefferson Ferry.\"],\"3\":[\"Take the ferry toward Cape May.\"]}},\"enter_roundabout\":{\"phrases\":{\"0\":\"Entrez dans le rond-point.\",\"1\":\"Entrez dans le rond-point et prenez la <ORDINAL_VALUE> sortie.\",\"2\":\"Entrez dans le rond-point et prenez la <ORDINAL_VALUE> sortie dans <ROUNDABOUT_EXIT_STREET_NAMES>.\",\"3\":\"Entrez dans le rond-point et prenez la <ORDINAL_VALUE> sortie dans <ROUNDABOUT_EXIT_BEGIN_STREET_NAMES>. Continuez sur <ROUNDABOUT_EXIT_STREET_NAMES>.\",\"4\":\"Entrez dans le rond-point et prenez la <ORDINAL_VALUE> sortie vers <TOWARD_SIGN>.\",\"5\":\"Entrez dans le rond-point et prenez la sortie dans <ROUNDABOUT_EXIT_STREET_NAMES>.\",\"6\":\"Entrez dans le rond-point et prenez la sortie dans <ROUNDABOUT_EXIT_BEGIN_STREET_NAMES>. Continuez sur <ROUNDABOUT_EXIT_STREET_NAMES>.\",\"7\":\"Entrez sur le rond-point et prenez la sortie vers <TOWARD_SIGN>.\",\"8\":\"Entrez dans <STREET_NAMES>.\",\"9\":\"Entrez dans <STREET_NAMES> et prenez la <ORDINAL_VALUE> sortie.\",\"10\":\"Entrez dans <STREET_NAMES> et prenez la <ORDINAL_VALUE> sortie dans <ROUNDABOUT_EXIT_STREET_NAMES>.\",\"11\":\"Entrez dans <STREET_NAMES> et prenez la <ORDINAL_VALUE> sortie dans <ROUNDABOUT_EXIT_BEGIN_STREET_NAMES>. Continuez sur <ROUNDABOUT_EXIT_STREET_NAMES>.\",\"12\":\"Entrez dans <STREET_NAMES> et prenez la <ORDINAL_VALUE> sortie vers <TOWARD_SIGN>.\",\"13\":\"Entrez dans <STREET_NAMES> et prenez la sortie dans <ROUNDABOUT_EXIT_STREET_NAMES>.\",\"14\":\"Entrez dans <STREET_NAMES> et prenez la sortie dans <ROUNDABOUT_EXIT_BEGIN_STREET_NAMES>. Continuez sur <ROUNDABOUT_EXIT_STREET_NAMES>.\",\"15\":\"Entrez dans <STREET_NAMES> et prenez la sortie vers <TOWARD_SIGN>.\"},\"ordinal_values\":[\"1er\",\"2e\",\"3\\u00E8me\",\"4\\u00E8me\",\"5\\u00E8me\",\"6\\u00E8me\",\"7\\u00E8me\",\"8\\u00E8me\",\"9\\u00E8me\",\"10\\u00E8me\"],\"empty_street_name_labels\":[\"l'all\\u00E9e\",\"la piste cyclable\",\"la piste de v\\u00E9lo de montagne\",\"le passage prot\\u00E9g\\u00E9\",\"the stairs\",\"the bridge\",\"the tunnel\"],\"example_phrases\":{\"0\":[\"Entrez dans le rond-point.\"],\"1\":[\"Entrez dans le rond-point et prenez la 1er sortie.\",\"Entrez dans le rond-point et prenez la 2nd sortie.\",\"Entrez dans le rond-point et prenez la 3\\u00E8me sortie.\",\"Entrez dans le rond-point et prenez la 4\\u00E8me sortie.\",\"Entrez dans le rond-point et prenez la 5\\u00E8me sortie.\",\"Entrez dans le rond-point et prenez la 6\\u00E8me sortie.\",\"Entrez dans le rond-point et prenez la 7\\u00E8me sortie.\",\"Entrez dans le rond-point et prenez la 8\\u00E8me sortie.\",\"Entrez dans le rond-point et prenez la 9\\u00E8me sortie.\",\"Entrez dans le rond-point et prenez la 10\\u00E8me sortie.\"],\"2\":[\"Enter the roundabout and take the 3rd exit onto Main Street.\"],\"3\":[\"Enter the roundabout and take the 3rd exit onto US 322\\/Main Street. Continue on US 322.\"],\"4\":[\"Enter the roundabout and take the 3rd exit toward Baltimore.\"],\"5\":[\"Enter the roundabout and take the exit onto Main Street.\"],\"6\":[\"Enter the roundabout and take the exit onto US 322\\/Main Street. Continue on US 322.\"],\"7\":[\"Enter the roundabout and take the exit toward Baltimore.\"],\"8\":[\"Enter Dupont Circle.\"],\"9\":[\"Enter Dupont Circle and take the 1st exit.\"],\"10\":[\"Enter Dupont Circle and take the 3rd exit onto Main Street.\"],\"11\":[\"Enter Dupont Circle and take the 3rd exit onto US 322\\/Main Street. Continue on US 322.\"],\"12\":[\"Enter Dupont Circle and take the 3rd exit toward Baltimore.\"],\"13\":[\"Enter Dupont Circle and take the exit onto Main Street.\"],\"14\":[\"Enter Dupont Circle and take the exit onto US 322\\/Main Street. Continue on US 322.\"],\"15\":[\"Enter Dupont Circle and take the exit toward Baltimore.\"]}},\"enter_roundabout_verbal\":{\"phrases\":{\"0\":\"Entrez dans le rond-point.\",\"1\":\"Entrez dans le rond-point et prenez la <ORDINAL_VALUE> sortie.\",\"2\":\"Entrez dans le rond-point et prenez la <ORDINAL_VALUE> sortie dans <ROUNDABOUT_EXIT_STREET_NAMES>.\",\"3\":\"Entrez dans le rond-point et prenez la <ORDINAL_VALUE> sortie dans <ROUNDABOUT_EXIT_BEGIN_STREET_NAMES>.\",\"4\":\"Entrez dans le rond-point et prenez la <ORDINAL_VALUE> sortie vers <TOWARD_SIGN>.\",\"5\":\"Entrez dans le rond-point et prenez la sortie dans <ROUNDABOUT_EXIT_STREET_NAMES>.\",\"6\":\"Entrez dans le rond-point et prenez la sortie dans <ROUNDABOUT_EXIT_BEGIN_STREET_NAMES>.\",\"7\":\"Entrez sur le rond-point et prenez la sortie vers <TOWARD_SIGN>.\",\"8\":\"Entrez dans <STREET_NAMES>.\",\"9\":\"Entrez dans <STREET_NAMES> et prenez la <ORDINAL_VALUE> sortie.\",\"10\":\"Entrez dans <STREET_NAMES> et prenez la <ORDINAL_VALUE> sortie dans <ROUNDABOUT_EXIT_STREET_NAMES>.\",\"11\":\"Entrez dans <STREET_NAMES> et prenez la <ORDINAL_VALUE> sortie dans <ROUNDABOUT_EXIT_BEGIN_STREET_NAMES>.\",\"12\":\"Entrez dans <STREET_NAMES> et prenez la <ORDINAL_VALUE> sortie vers <TOWARD_SIGN>.\",\"13\":\"Entrez dans <STREET_NAMES> et prenez la sortie dans <ROUNDABOUT_EXIT_STREET_NAMES>.\",\"14\":\"Entrez dans <STREET_NAMES> et prenez la sortie dans <ROUNDABOUT_EXIT_BEGIN_STREET_NAMES>.\",\"15\":\"Entrez dans <STREET_NAMES> et prenez la sortie vers <TOWARD_SIGN>.\"},\"ordinal_values\":[\"1er\",\"2e\",\"3\\u00E8me\",\"4\\u00E8me\",\"5\\u00E8me\",\"6\\u00E8me\",\"7\\u00E8me\",\"8\\u00E8me\",\"9\\u00E8me\",\"10\\u00E8me\"],\"empty_street_name_labels\":[\"l'all\\u00E9e\",\"la piste cyclable\",\"la piste de v\\u00E9lo de montagne\",\"le passage prot\\u00E9g\\u00E9\",\"the stairs\",\"the bridge\",\"the tunnel\"],\"example_phrases\":{\"0\":[\"Entrez dans le rond-point.\"],\"1\":[\"Entrez dans le rond-point et prenez la 1st sortie.\",\"Entrez dans le rond-point et prenez la 2nd sortie.\",\"Entrez dans le rond-point et prenez la 3\\u00E8me sortie.\",\"Entrez dans le rond-point et prenez la 4\\u00E8me sortie.\",\"Entrez dans le rond-point et prenez la 5\\u00E8me sortie.\",\"Entrez dans le rond-point et prenez la 6\\u00E8me sortie.\",\"Entrez dans le rond-point et prenez la 7\\u00E8me sortie.\",\"Entrez dans le rond-point et prenez la 8\\u00E8me sortie.\",\"Entrez dans le rond-point et prenez la 9\\u00E8me sortie.\",\"Entrez dans le rond-point et prenez la 10\\u00E8me sortie.\"],\"2\":[\"Enter the roundabout and take the 3rd exit onto Main Street.\"],\"3\":[\"Enter the roundabout and take the 3rd exit onto U.S. 3 22\\/Main Street.\"],\"4\":[\"Enter the roundabout and take the 3rd exit toward Baltimore.\"],\"5\":[\"Enter the roundabout and take the exit onto Main Street.\"],\"6\":[\"Enter the roundabout and take the exit onto U.S. 3 22\\/Main Street.\"],\"7\":[\"Enter the roundabout and take the exit toward Baltimore.\"],\"8\":[\"Enter Dupont Circle.\"],\"9\":[\"Enter Dupont Circle and take the 1st exit.\"],\"10\":[\"Enter Dupont Circle and take the 3rd exit onto Main Street.\"],\"11\":[\"Enter Dupont Circle and take the 3rd exit onto U.S. 3 22\\/Main Street.\"],\"12\":[\"Enter Dupont Circle and take the 3rd exit toward Baltimore.\"],\"13\":[\"Enter Dupont Circle and take the exit onto Main Street.\"],\"14\":[\"Enter Dupont Circle and take the exit onto U.S. 3 22\\/Main Street.\"],\"15\":[\"Enter Dupont Circle and take the exit toward Baltimore.\"]}},\"exit\":{\"phrases\":{\"0\":\"Prenez la sortie sur la <RELATIVE_DIRECTION>.\",\"1\":\"Prenez la sortie <NUMBER_SIGN> sur la <RELATIVE_DIRECTION>.\",\"2\":\"Prenez la sortie <BRANCH_SIGN> sur la <RELATIVE_DIRECTION>.\",\"3\":\"Prenez la sortie <NUMBER_SIGN> sur la <RELATIVE_DIRECTION> dans <BRANCH_SIGN>.\",\"4\":\"Prenez la sortie sur la <RELATIVE_DIRECTION> vers <TOWARD_SIGN>.\",\"5\":\"Prenez la sortie <NUMBER_SIGN> sur la <RELATIVE_DIRECTION> vers <TOWARD_SIGN>.\",\"6\":\"Prenez la sortie <BRANCH_SIGN> sur la <RELATIVE_DIRECTION> vers <TOWARD_SIGN>.\",\"7\":\"Prenez la sortie <NUMBER_SIGN> sur la <RELATIVE_DIRECTION> dans <BRANCH_SIGN> vers <TOWARD_SIGN>.\",\"8\":\"Prenez la sortie <NAME_SIGN> sur la <RELATIVE_DIRECTION>.\",\"10\":\"Prenez la sortie <NAME_SIGN> sur la <RELATIVE_DIRECTION> dans <BRANCH_SIGN>.\",\"12\":\"Prenez la sortie <NAME_SIGN> sur la <RELATIVE_DIRECTION> vers <TOWARD_SIGN>.\",\"14\":\"Prenez la sortie <NAME_SIGN> sur la <RELATIVE_DIRECTION> dans <BRANCH_SIGN> vers <TOWARD_SIGN>.\",\"15\":\"Prenez la sortie.\",\"16\":\"Prenez la sortie <NUMBER_SIGN>.\",\"17\":\"Prenez la sortie <BRANCH_SIGN>.\",\"18\":\"Prenez la sortie <NUMBER_SIGN> dans <BRANCH_SIGN>.\",\"19\":\"Prenez la sortie vers <TOWARD_SIGN>.\",\"20\":\"Prenez la sortie <NUMBER_SIGN> vers <TOWARD_SIGN>.\",\"21\":\"Prenez la sortie <BRANCH_SIGN> vers <TOWARD_SIGN>.\",\"22\":\"Prenez la sortie <NUMBER_SIGN> dans <BRANCH_SIGN> vers <TOWARD_SIGN>.\",\"23\":\"Prenez la sortie <NAME_SIGN>.\",\"25\":\"Prenez la sortie <NAME_SIGN> dans <BRANCH_SIGN>.\",\"27\":\"Prenez la sortie <NAME_SIGN> vers <TOWARD_SIGN>.\",\"29\":\"Prenez la sortie <NAME_SIGN> dans <BRANCH_SIGN> vers <TOWARD_SIGN>.\"},\"relative_directions\":[\"gauche\",\"droite\"],\"example_phrases\":{\"0\":[\"Prenez la sortie sur la gauche.\",\"Prenez la sortie sur la droite.\"],\"1\":[\"Prenez la sortie 67 B-A sur la droite.\"],\"2\":[\"Prenez la sortie US 322 West sur la droite.\"],\"3\":[\"Prenez la sortie 67 B-A sur la droite dans US 322 West.\"],\"4\":[\"Prenez la sortie sur la droite vers Lewistown.\"],\"5\":[\"Prenez la sortie 67 B-A sur la droite vers Lewistown.\"],\"6\":[\"Prenez la sortie US 322 West sur la droite vers Lewistown.\"],\"7\":[\"Prenez la sortie 67 B-A sur la droite dans US 322 West vers Lewistown\\/State College.\"],\"8\":[\"Prenez la sortie White Marsh Boulevard sur la gauche.\"],\"10\":[\"Prenez la sortie White Marsh Boulevard sur la gauche dans MD 43 East.\"],\"12\":[\"Prenez la sortie White Marsh Boulevard sur la gauche vers White Marsh.\"],\"14\":[\"Prenez la sortie White Marsh Boulevard sur la gauche dans MD 43 East vers White Marsh.\"],\"15\":[\"Prenez la sortie.\"],\"16\":[\"Prenez la sortie 67 B-A.\"],\"17\":[\"Prenez la sortie US 322 West.\"],\"18\":[\"Prenez la sortie 67 B-A dans US 322 West.\"],\"19\":[\"Prenez la sortie toward Lewistown.\"],\"20\":[\"Prenez la sortie 67 B-A toward Lewistown.\"],\"21\":[\"Prenez la sortie US 322 West toward Lewistown.\"],\"22\":[\"Prenez la sortie 67 B-A dans US 322 West toward Lewistown\\/State College.\"],\"23\":[\"Prenez la sortie White Marsh Boulevard.\"],\"25\":[\"Prenez la sortie White Marsh Boulevard dans MD 43 East.\"],\"27\":[\"Prenez la sortie White Marsh Boulevard toward White Marsh.\"],\"29\":[\"Prenez la sortie White Marsh Boulevard dans MD 43 East toward White Marsh.\"]}},\"exit_roundabout\":{\"phrases\":{\"0\":\"Quittez le rond-point.\",\"1\":\"Quittez le rond-point dans <STREET_NAMES>.\",\"2\":\"Quittez le rond-point dans <BEGIN_STREET_NAMES>. Continuez sur <STREET_NAMES>.\",\"3\":\"Quittez le rond-point vers <TOWARD_SIGN>.\"},\"empty_street_name_labels\":[\"l'all\\u00E9e\",\"la piste cyclable\",\"la piste de v\\u00E9lo de montagne\",\"le passage prot\\u00E9g\\u00E9\",\"the stairs\",\"the bridge\",\"the tunnel\"],\"example_phrases\":{\"0\":[\"Quittez le rond-point.\"],\"1\":[\"Quittez le rond-point dans Philadelphia Road\\/MD 7.\"],\"2\":[\"Quittez le rond-point dans Catoctin Mountain Highway\\/US 15. Continuez sur US 15.\"],\"3\":[\"Exit the roundabout toward Baltimore.\"]}},\"exit_roundabout_verbal\":{\"phrases\":{\"0\":\"Quittez le rond-point.\",\"1\":\"Quittez le rond-point dans <STREET_NAMES>.\",\"2\":\"Quittez le rond-point pour <BEGIN_STREET_NAMES>.\",\"3\":\"Quittez le rond-point vers <TOWARD_SIGN>.\"},\"empty_street_name_labels\":[\"l'all\\u00E9e\",\"la piste cyclable\",\"la piste de v\\u00E9lo de montagne\",\"le passage prot\\u00E9g\\u00E9\",\"the stairs\",\"the bridge\",\"the tunnel\"],\"example_phrases\":{\"0\":[\"Quittez le rond-point.\"],\"1\":[\"Quittez le rond-point pour Philadelphia Road, Maryland 7.\"],\"2\":[\"Quittez le rond-point pour Catoctin Mountain Highway, U.S. 15.\"],\"3\":[\"Exit the roundabout toward Baltimore.\"]}},\"exit_verbal\":{\"phrases\":{\"0\":\"Prenez la sortie sur la <RELATIVE_DIRECTION>.\",\"1\":\"Prenez la sortie <NUMBER_SIGN> sur la <RELATIVE_DIRECTION>.\",\"2\":\"Prenez la sortie <BRANCH_SIGN> sur la <RELATIVE_DIRECTION>.\",\"3\":\"Prenez la sortie <NUMBER_SIGN> sur la <RELATIVE_DIRECTION> dans <BRANCH_SIGN>.\",\"4\":\"Prenez la sortie sur la <RELATIVE_DIRECTION> vers <TOWARD_SIGN>.\",\"5\":\"Prenez la sortie <NUMBER_SIGN> sur la <RELATIVE_DIRECTION> vers <TOWARD_SIGN>.\",\"6\":\"Prenez la sortie <BRANCH_SIGN> sur la <RELATIVE_DIRECTION> vers <TOWARD_SIGN>.\",\"7\":\"Prenez la sortie <NUMBER_SIGN> sur la <RELATIVE_DIRECTION> dans <BRANCH_SIGN> vers <TOWARD_SIGN>.\",\"8\":\"Prenez la sortie <NAME_SIGN> sur la <RELATIVE_DIRECTION>.\",\"10\":\"Prenez la sortie <NAME_SIGN> sur la <RELATIVE_DIRECTION> dans <BRANCH_SIGN>.\",\"12\":\"Prenez la sortie <NAME_SIGN> sur la <RELATIVE_DIRECTION> vers <TOWARD_SIGN>.\",\"14\":\"Prenez la sortie <NAME_SIGN> sur la <RELATIVE_DIRECTION> dans <BRANCH_SIGN> vers <TOWARD_SIGN>.\",\"15\":\"Prenez la sortie.\",\"16\":\"Prenez la sortie <NUMBER_SIGN>.\",\"17\":\"Prenez la sortie <BRANCH_SIGN>.\",\"18\":\"Prenez la sortie <NUMBER_SIGN> dans <BRANCH_SIGN>.\",\"19\":\"Prenez la sortie vers <TOWARD_SIGN>.\",\"20\":\"Prenez la sortie <NUMBER_SIGN> vers <TOWARD_SIGN>.\",\"21\":\"Prenez la sortie <BRANCH_SIGN> vers <TOWARD_SIGN>.\",\"22\":\"Prenez la sortie <NUMBER_SIGN> dans <BRANCH_SIGN> vers <TOWARD_SIGN>.\",\"23\":\"Prenez la sortie <NAME_SIGN>.\",\"25\":\"Prenez la sortie <NAME_SIGN> dans <BRANCH_SIGN>.\",\"27\":\"Prenez la sortie <NAME_SIGN> vers <TOWARD_SIGN>.\",\"29\":\"Prenez la sortie <NAME_SIGN> dans <BRANCH_SIGN> vers <TOWARD_SIGN>.\"},\"relative_directions\":[\"gauche\",\"droite\"],\"example_phrases\":{\"0\":[\"Prenez la sortie sur la gauche.\",\"Prenez la sortie sur la droite.\"],\"1\":[\"Prenez la sortie 67 B-A sur la droite.\"],\"2\":[\"Prenez la sortie U.S. 3 22 West sur la droite.\"],\"3\":[\"Prenez la sortie 67 B-A sur la droite dans U.S. 3 22 West.\"],\"4\":[\"Prenez la sortie sur la droite vers Lewistown.\"],\"5\":[\"Prenez la sortie 67 B-A sur la droite vers Lewistown.\"],\"6\":[\"Prenez la sortie U.S. 3 22 West sur la droite vers Lewistown.\"],\"7\":[\"Prenez la sortie 67 B-A sur la droite dans U.S. 3 22 West vers Lewistown, State College.\"],\"8\":[\"Prenez la sortie White Marsh Boulevard sur la gauche.\"],\"10\":[\"Prenez la sortie White Marsh Boulevard sur la gauche dans Maryland 43 East.\"],\"12\":[\"Prenez la sortie White Marsh Boulevard sur la gauche vers White Marsh.\"],\"14\":[\"Prenez la sortie White Marsh Boulevard sur la gauche dans Maryland 43 East vers White Marsh.\"],\"15\":[\"Prenez la sortie.\"],\"16\":[\"Prenez la sortie 67 B-A.\"],\"17\":[\"Prenez la sortie US 322 West.\"],\"18\":[\"Prenez la sortie 67 B-A dans US 322 West.\"],\"19\":[\"Prenez la sortie vers Lewistown.\"],\"20\":[\"Prenez la sortie 67 B-A vers Lewistown.\"],\"21\":[\"Prenez la sortie US 322 West vers Lewistown.\"],\"22\":[\"Prenez la sortie 67 B-A dans US 322 West vers Lewistown\\/State College.\"],\"23\":[\"Prenez la sortie White Marsh Boulevard.\"],\"25\":[\"Prenez la sortie White Marsh Boulevard dans MD 43 East.\"],\"27\":[\"Prenez la sortie White Marsh Boulevard vers White Marsh.\"],\"29\":[\"Prenez la sortie White Marsh Boulevard dans MD 43 East vers White Marsh.\"]}},\"exit_visual\":{\"phrases\":{\"0\":\"Sortie n\\u00B0<EXIT_NUMBERS>\"},\"example_phrases\":{\"0\":[\"Sortie n\\u00B01A\"]}},\"keep\":{\"phrases\":{\"0\":\"Gardez la <RELATIVE_DIRECTION> \\u00E0 la fourche.\",\"1\":\"Gardez la <RELATIVE_DIRECTION> pour prendre la sortie <NUMBER_SIGN>.\",\"2\":\"Gardez la <RELATIVE_DIRECTION> pour prendre <STREET_NAMES>.\",\"3\":\"Gardez la <RELATIVE_DIRECTION> pour prendre la sortie <NUMBER_SIGN> dans <STREET_NAMES>.\",\"4\":\"Gardez la <RELATIVE_DIRECTION> vers <TOWARD_SIGN>.\",\"5\":\"Gardez la <RELATIVE_DIRECTION> pour prendre la sortie <NUMBER_SIGN> vers <TOWARD_SIGN>.\",\"6\":\"Gardez la <RELATIVE_DIRECTION> pour prendre <STREET_NAMES> vers <TOWARD_SIGN>.\",\"7\":\"Gardez la <RELATIVE_DIRECTION> pour prendre la sortie <NUMBER_SIGN> dans <STREET_NAMES> vers <TOWARD_SIGN>.\"},\"empty_street_name_labels\":[\"l'all\\u00E9e\",\"la piste cyclable\",\"la piste de v\\u00E9lo de montagne\",\"le passage prot\\u00E9g\\u00E9\",\"the stairs\",\"the bridge\",\"the tunnel\"],\"relative_directions\":[\"gauche\",\"route\",\"droite\"],\"example_phrases\":{\"0\":[\"Gardez la gauche \\u00E0 la fourche.\",\"Gardez la route \\u00E0 la fourche.\",\"Gardez la droite \\u00E0 la fourche.\"],\"1\":[\"Gardez la droite pour prendre la sortie 62.\"],\"2\":[\"Gardez la droite pour prendre I 895 South.\"],\"3\":[\"Gardez la droite pour prendre la sortie 62 dans I 895 South.\"],\"4\":[\"Gardez la droite vers Annapolis.\"],\"5\":[\"Gardez la droite pour prendre la sortie 62 vers Annapolis.\"],\"6\":[\"Gardez la droite pour prendre I 895 South vers Annapolis.\"],\"7\":[\"Gardez la droite pour prendre la sortie 62 dans I 895 South vers Annapolis.\"]}},\"keep_to_stay_on\":{\"phrases\":{\"0\":\"Gardez la <RELATIVE_DIRECTION> pour rester sur <STREET_NAMES>.\",\"1\":\"Gardez la <RELATIVE_DIRECTION> pour prendre la sortie <NUMBER_SIGN> pour rester sur <STREET_NAMES>.\",\"2\":\"Gardez la <RELATIVE_DIRECTION> pour rester sur <STREET_NAMES> vers <TOWARD_SIGN>.\",\"3\":\"Gardez la <RELATIVE_DIRECTION> pour prendre la sortie <NUMBER_SIGN> pour rester sur <STREET_NAMES> vers <TOWARD_SIGN>.\"},\"empty_street_name_labels\":[\"l'all\\u00E9e\",\"la piste cyclable\",\"la piste de v\\u00E9lo de montagne\",\"le passage prot\\u00E9g\\u00E9\",\"the stairs\",\"the bridge\",\"the tunnel\"],\"relative_directions\":[\"gauche\",\"route\",\"droite\"],\"example_phrases\":{\"0\":[\"Gardez la gauche pour rester sur I 95 South.\",\"Gardez la route pour rester sur I 95 South.\",\"Gardez la droite pour rester sur I 95 South.\"],\"1\":[\"Gardez la gauche pour prendre la sortie 62 pour rester sur I 95 South.\"],\"2\":[\"Gardez la gauche pour rester sur I 95 South vers Baltimore.\"],\"3\":[\"Gardez la gauche pour prendre la sortie 62 pour rester sur I 95 South vers Baltimore.\"]}},\"keep_to_stay_on_verbal\":{\"phrases\":{\"0\":\"Gardez la <RELATIVE_DIRECTION> pour rester sur <STREET_NAMES>.\",\"1\":\"Gardez la <RELATIVE_DIRECTION> pour prendre la sortie <NUMBER_SIGN> pour rester sur <STREET_NAMES>.\",\"2\":\"Gardez la <RELATIVE_DIRECTION> pour rester sur <STREET_NAMES> vers <TOWARD_SIGN>.\",\"3\":\"Gardez la <RELATIVE_DIRECTION> pour prendre la sortie <NUMBER_SIGN> pour rester sur <STREET_NAMES> vers <TOWARD_SIGN>.\"},\"empty_street_name_labels\":[\"l'all\\u00E9e\",\"la piste cyclable\",\"la piste de v\\u00E9lo de montagne\",\"le passage prot\\u00E9g\\u00E9\",\"the stairs\",\"the bridge\",\"the tunnel\"],\"relative_directions\":[\"gauche\",\"route\",\"droite\"],\"example_phrases\":{\"0\":[\"Gardez la gauche pour rester sur Interstate 95 South.\",\"Gardez la route pour rester sur Interstate 95 South.\",\"Gardez la droite pour rester sur Interstate 95 South.\"],\"1\":[\"Gardez la gauche pour prendre la sortie 62 pour rester sur Interstate 95 South.\"],\"2\":[\"Gardez la gauche pour rester sur I 95 South vers Baltimore.\"],\"3\":[\"Gardez la gauche pour prendre la sortie 62 pour rester sur Interstate 95 South vers Baltimore.\"]}},\"keep_verbal\":{\"phrases\":{\"0\":\"Gardez la <RELATIVE_DIRECTION> \\u00E0 la fourche.\",\"1\":\"Gardez la <RELATIVE_DIRECTION> pour prendre la sortie <NUMBER_SIGN>.\",\"2\":\"Gardez la <RELATIVE_DIRECTION> pour prendre <STREET_NAMES>.\",\"3\":\"Gardez la <RELATIVE_DIRECTION> pour prendre la sortie <NUMBER_SIGN> dans <STREET_NAMES>.\",\"4\":\"Gardez la <RELATIVE_DIRECTION> vers <TOWARD_SIGN>.\",\"5\":\"Gardez la <RELATIVE_DIRECTION> pour prendre la sortie <NUMBER_SIGN> vers <TOWARD_SIGN>.\",\"6\":\"Gardez la <RELATIVE_DIRECTION> pour prendre <STREET_NAMES> vers <TOWARD_SIGN>.\",\"7\":\"Gardez la <RELATIVE_DIRECTION> pour prendre la sortie <NUMBER_SIGN> dans <STREET_NAMES> vers <TOWARD_SIGN>.\"},\"empty_street_name_labels\":[\"l'all\\u00E9e\",\"la piste cyclable\",\"la piste de v\\u00E9lo de montagne\",\"le passage prot\\u00E9g\\u00E9\",\"the stairs\",\"the bridge\",\"the tunnel\"],\"relative_directions\":[\"gauche\",\"route\",\"droite\"],\"example_phrases\":{\"0\":[\"Gardez la gauche \\u00E0 la fourche.\",\"Gardez la route \\u00E0 la fourche.\",\"Gardez la droite \\u00E0 la fourche.\"],\"1\":[\"Gardez la droite pour prendre la sortie 62.\"],\"2\":[\"Gardez la droite pour prendre Interstate 8 95 South.\"],\"3\":[\"Gardez la droite pour prendre la sortie 62 dans Interstate 8 95 South.\"],\"4\":[\"Gardez la droite vers Annapolis.\"],\"5\":[\"Gardez la droite pour prendre la sortie 62 vers Annapolis.\"],\"6\":[\"Gardez la droite pour prendre Interstate 8 95 South vers Annapolis.\"],\"7\":[\"Gardez la droite pour prendre la sortie 62 dans Interstate 8 95 South vers Annapolis.\"]}},\"merge\":{\"phrases\":{\"0\":\"Ins\\u00E9rez-vous.\",\"1\":\"Ins\\u00E9rez-vous \\u00E0 <RELATIVE_DIRECTION>.\",\"2\":\"Ins\\u00E9rez-vous sur <STREET_NAMES>.\",\"3\":\"Ins\\u00E9rez-vous \\u00E0 <RELATIVE_DIRECTION> sur <STREET_NAMES>.\",\"4\":\"Ins\\u00E9rez-vous vers <TOWARD_SIGN>.\",\"5\":\"Ins\\u00E9rez-vous \\u00E0 <RELATIVE_DIRECTION> vers <TOWARD_SIGN>.\"},\"relative_directions\":[\"gauche\",\"droite\"],\"empty_street_name_labels\":[\"l'all\\u00E9e\",\"la piste cyclable\",\"la piste de v\\u00E9lo de montagne\",\"le passage prot\\u00E9g\\u00E9\",\"the stairs\",\"the bridge\",\"the tunnel\"],\"example_phrases\":{\"0\":[\"Rejoignez.\"],\"1\":[\"Rejoignez \\u00E0 gauche.\"],\"2\":[\"Rejoignez I 76 West\\/Pennsylvania Turnpike.\"],\"3\":[\"Rejoignez \\u00E0 droite I 83 South.\"],\"4\":[\"Merge toward Baltimore.\"],\"5\":[\"Merge right toward Baltimore.\"]}},\"merge_verbal\":{\"phrases\":{\"0\":\"Ins\\u00E9rez-vous.\",\"1\":\"Ins\\u00E9rez-vous \\u00E0 <RELATIVE_DIRECTION>.\",\"2\":\"Ins\\u00E9rez-vous sur <STREET_NAMES>.\",\"3\":\"Ins\\u00E9rez-vous \\u00E0 <RELATIVE_DIRECTION> sur <STREET_NAMES>.\",\"4\":\"Ins\\u00E9rez-vous vers <TOWARD_SIGN>.\",\"5\":\"Ins\\u00E9rez-vous \\u00E0 <RELATIVE_DIRECTION> vers <TOWARD_SIGN>.\"},\"relative_directions\":[\"gauche\",\"droite\"],\"empty_street_name_labels\":[\"l'all\\u00E9e\",\"la piste cyclable\",\"la piste de v\\u00E9lo de montagne\",\"le passage prot\\u00E9g\\u00E9\",\"the stairs\",\"the bridge\",\"the tunnel\"],\"example_phrases\":{\"0\":[\"Merge.\"],\"1\":[\"Rejoignez \\u00E0 gauche.\"],\"2\":[\"Rejoignez I 76 West\\/Pennsylvania Turnpike.\"],\"3\":[\"Rejoignez \\u00E0 droite I 83 South.\"],\"4\":[\"Merge toward Baltimore.\"],\"5\":[\"Merge right toward Baltimore.\"]}},\"post_transition_transit_verbal\":{\"phrases\":{\"0\":\"Voyage \\u00E0 <TRANSIT_STOP_COUNT> <TRANSIT_STOP_COUNT_LABEL>.\"},\"transit_stop_count_labels\":{\"one\":\"arr\\u00EAt\",\"other\":\"arr\\u00EAts\"},\"example_phrases\":{\"0\":[\"Travel 1 stop.\",\"Travel 3 stops.\"]}},\"post_transition_verbal\":{\"phrases\":{\"0\":\"Continuez pendant <LENGTH>.\",\"1\":\"Continuez vers <STREET_NAMES> pendant <LENGTH>.\"},\"empty_street_name_labels\":[\"l'all\\u00E9e\",\"la piste cyclable\",\"la piste de v\\u00E9lo de montagne\",\"le passage prot\\u00E9g\\u00E9\",\"the stairs\",\"the bridge\",\"the tunnel\"],\"metric_lengths\":[\"<KILOMETERS> kilom\\u00E8tres\",\"1 kilom\\u00E8tre\",\"<METERS> m\\u00E8tres\",\"moins de 10 m\\u00E8tres\"],\"us_customary_lengths\":[\"<MILES> miles\",\"1 mile\",\"un demi mile\",\"un quart de mile\",\"<FEET> pieds\",\"moins de 10 pieds\"],\"example_phrases\":{\"0\":[\"Continuez pendant 300 pieds.\",\"Continuez pendant 9 miles.\"],\"1\":[\"Continuez sur Pennsylvania 7 43 pendant 6.2 miles.\",\"Continuez sur Main Street, Vermont 30 pendant 1 dixi\\u00E8me de mile.\"]}},\"ramp\":{\"phrases\":{\"0\":\"Prenez la bretelle sur la <RELATIVE_DIRECTION>.\",\"1\":\"Prenez la bretelle <BRANCH_SIGN> sur la <RELATIVE_DIRECTION>.\",\"2\":\"Prenez la bretelle sur la <RELATIVE_DIRECTION> vers <TOWARD_SIGN>.\",\"3\":\"Prenez la bretelle <BRANCH_SIGN> sur la <RELATIVE_DIRECTION> vers <TOWARD_SIGN>.\",\"4\":\"Prenez la bretelle <NAME_SIGN> sur la <RELATIVE_DIRECTION>.\",\"5\":\"Tournez \\u00E0 <RELATIVE_DIRECTION> pour prendre la bretelle.\",\"6\":\"Tournez \\u00E0 <RELATIVE_DIRECTION> pour prendre la bretelle <BRANCH_SIGN>.\",\"7\":\"Tournez \\u00E0 <RELATIVE_DIRECTION> pour prendre la bretelle vers <TOWARD_SIGN>.\",\"8\":\"Tournez \\u00E0 <RELATIVE_DIRECTION> pour prendre la bretelle <BRANCH_SIGN> vers <TOWARD_SIGN>.\",\"9\":\"Tournez \\u00E0 <RELATIVE_DIRECTION> pour prendre la bretelle <NAME_SIGN>.\",\"10\":\"Prenez la bretelle.\",\"11\":\"Prenez la bretelle <BRANCH_SIGN>.\",\"12\":\"Prenez la bretelle vers <TOWARD_SIGN>.\",\"13\":\"Prenez la bretelle <BRANCH_SIGN> vers <TOWARD_SIGN>.\",\"14\":\"Prenez la bretelle <NAME_SIGN>.\"},\"relative_directions\":[\"gauche\",\"droite\"],\"example_phrases\":{\"0\":[\"Prenez la bretelle sur la gauche.\",\"Prenez la bretelle sur la droite.\"],\"1\":[\"Prenez la bretelle I 95 sur la droite.\"],\"2\":[\"Prenez la bretelle sur la gauche vers JFK.\"],\"3\":[\"Prenez la bretelle South Conduit Avenue sur la gauche vers JFK.\"],\"4\":[\"Prenez la bretelle Gettysburg Pike sur la droite.\"],\"5\":[\"Tournez \\u00E0 gauche pour prendre la bretelle.\",\"Tournez \\u00E0 droite pour prendre la bretelle.\"],\"6\":[\"Tournez \\u00E0 gauche pour prendre la bretelle PA 283 West.\"],\"7\":[\"Tournez \\u00E0 gauche pour prendre la bretelle vers Harrisburg\\/Harrisburg International Airport.\"],\"8\":[\"Tournez \\u00E0 gauche pour prendre la bretelle PA 283 West vers Harrisburg\\/Harrisburg International Airport.\"],\"9\":[\"Tournez \\u00E0 droite pour prendre la bretelle Gettysburg Pike.\"],\"10\":[\"Prenez la bretelle.\"],\"11\":[\"Prenez la bretelle I 95.\"],\"12\":[\"Prenez la bretelle vers JFK.\"],\"13\":[\"Prenez la bretelle Soutch Conduit Avenue vers JFK.\"],\"14\":[\"Prenez la bretelle Gettysburg.\"]}},\"ramp_straight\":{\"phrases\":{\"0\":\"Continuez tout droit pour prendre la bretelle.\",\"1\":\"Continuez tout droit pour prendre la bretelle <BRANCH_SIGN>.\",\"2\":\"Continuez tout droit pour prendre la bretelle vers <TOWARD_SIGN>.\",\"3\":\"Continuez tout droit pour prendre la bretelle <BRANCH_SIGN> vers <TOWARD_SIGN>.\",\"4\":\"Continuez tout droit pour prendre la bretelle <NAME_SIGN>.\"},\"example_phrases\":{\"0\":[\"Continuez tout droit pour prendre la bretelle.\"],\"1\":[\"Continuez tout droit pour prendre la bretelle US 322 East.\"],\"2\":[\"Continuez tout droit pour prendre la bretelle vers Hershey.\"],\"3\":[\"Continuez tout droit pour prendre la bretelle US 322 East\\/US 422 East\\/US 522 East\\/US 622 East vers Hershey\\/Palmdale\\/Palmyra\\/Campbelltown.\"],\"4\":[\"Continuez tout droit pour prendre la bretelle Gettysburg Pike.\"]}},\"ramp_straight_verbal\":{\"phrases\":{\"0\":\"Continuez tout droit pour prendre la bretelle.\",\"1\":\"Continuez tout droit pour prendre la bretelle <BRANCH_SIGN>.\",\"2\":\"Continuez tout droit pour prendre la bretelle vers <TOWARD_SIGN>.\",\"3\":\"Continuez tout droit pour prendre la bretelle <BRANCH_SIGN> vers <TOWARD_SIGN>.\",\"4\":\"Continuez tout droit pour prendre la bretelle <NAME_SIGN>.\"},\"example_phrases\":{\"0\":[\"Continuez tout droit pour prendre la bretelle.\"],\"1\":[\"Continuez tout droit pour prendre la bretelle US 322 East.\"],\"2\":[\"Continuez tout droit pour prendre la bretelle vers Hershey.\"],\"3\":[\"Continuez tout droit pour prendre la bretelle US 322 East\\/US 422 East\\/US 522 East\\/US 622 East vers Hershey\\/Palmdale\\/Palmyra\\/Campbelltown.\"],\"4\":[\"Continuez tout droit pour prendre la bretelle Gettysburg Pike.\"]}},\"ramp_verbal\":{\"phrases\":{\"0\":\"Prenez la bretelle sur la <RELATIVE_DIRECTION>.\",\"1\":\"Prenez la bretelle <BRANCH_SIGN> sur la <RELATIVE_DIRECTION>.\",\"2\":\"Prenez la bretelle sur la <RELATIVE_DIRECTION> vers <TOWARD_SIGN>.\",\"3\":\"Prenez la bretelle <BRANCH_SIGN> sur la <RELATIVE_DIRECTION> vers <TOWARD_SIGN>.\",\"4\":\"Prenez la bretelle <NAME_SIGN> sur la <RELATIVE_DIRECTION>.\",\"5\":\"Tournez \\u00E0 <RELATIVE_DIRECTION> pour prendre la bretelle.\",\"6\":\"Tournez \\u00E0 <RELATIVE_DIRECTION> pour prendre la bretelle <BRANCH_SIGN>.\",\"7\":\"Tournez \\u00E0 <RELATIVE_DIRECTION> pour prendre la bretelle vers <TOWARD_SIGN>.\",\"8\":\"Tournez \\u00E0 <RELATIVE_DIRECTION> pour prendre la bretelle <BRANCH_SIGN> vers <TOWARD_SIGN>.\",\"9\":\"Tournez \\u00E0 <RELATIVE_DIRECTION> pour prendre la bretelle <NAME_SIGN>.\",\"10\":\"Prenez la bretelle.\",\"11\":\"Prenez la bretelle <BRANCH_SIGN>.\",\"12\":\"Prenez la bretelle vers <TOWARD_SIGN>.\",\"13\":\"Prenez la bretelle <BRANCH_SIGN> vers <TOWARD_SIGN>.\",\"14\":\"Prenez la bretelle <NAME_SIGN>.\"},\"relative_directions\":[\"gauche\",\"droite\"],\"example_phrases\":{\"0\":[\"Prenez la bretelle sur la gauche.\",\"Prenez la bretelle sur la droite.\"],\"1\":[\"Prenez la bretelle Interstate 95 sur la droite.\"],\"2\":[\"Prenez la bretelle sur la gauche vers JFK.\"],\"3\":[\"Prenez la bretelle South Conduit Avenue sur la gauche vers JFK.\"],\"4\":[\"Prenez la bretelle Gettysburg Pike sur la droite.\"],\"5\":[\"Tournez \\u00E0 gauche pour prendre la bretelle.\",\"Tournez \\u00E0 droite pour prendre la bretelle.\"],\"6\":[\"Tournez \\u00E0 gauche pour prendre la bretelle Pennsylvania 2 83 West.\"],\"7\":[\"Tournez \\u00E0 gauche pour prendre la bretelle vers Harrisburg\\/Harrisburg International Airport.\"],\"8\":[\"Tournez \\u00E0 gauche pour prendre la bretelle Pennsylvania 2 83 West vers Harrisburg, Harrisburg International Airport.\"],\"9\":[\"Tournez \\u00E0 droite pour prendre la bretelle Gettysburg Pike.\"],\"10\":[\"Prenez la bretelle.\"],\"11\":[\"Prenez la bretelle Interstate 95.\"],\"12\":[\"Prenez la bretelle vers JFK.\"],\"13\":[\"Prenez la bretelle South Conduit Avenue vers JFK.\"],\"14\":[\"Prenez la bretelle Gettysburg Pike.\"]}},\"sharp\":{\"phrases\":{\"0\":\"Tournez tout de suite \\u00E0 <RELATIVE_DIRECTION>.\",\"1\":\"Tournez tout de suite \\u00E0 <RELATIVE_DIRECTION> dans <STREET_NAMES>.\",\"2\":\"Tournez tout de suite \\u00E0 <RELATIVE_DIRECTION> dans <BEGIN_STREET_NAMES>. Continuez sur <STREET_NAMES>.\",\"3\":\"Tournez tout de suite \\u00E0 <RELATIVE_DIRECTION> pour rester sur <STREET_NAMES>.\",\"4\":\"Tournez tout de suite \\u00E0 <RELATIVE_DIRECTION> \\u00E0 <JUNCTION_NAME>.\",\"5\":\"Tournez tout de suite \\u00E0 <RELATIVE_DIRECTION> vers <TOWARD_SIGN>.\"},\"empty_street_name_labels\":[\"l'all\\u00E9e\",\"la piste cyclable\",\"la piste de v\\u00E9lo de montagne\",\"le passage prot\\u00E9g\\u00E9\",\"the stairs\",\"the bridge\",\"the tunnel\"],\"relative_directions\":[\"gauche\",\"droite\"],\"example_phrases\":{\"0\":[\"Tournez \\u00E0 tout de suite \\u00E0 gauche.\"],\"1\":[\"Tournez \\u00E0 tout de suite \\u00E0 droite dans Flatbush Avenue.\"],\"2\":[\"Tournez \\u00E0 tout de suite \\u00E0 gauche dans North Bond Street\\/US 1 Business\\/MD 924. Continuez sur MD 924.\"],\"3\":[\"Tournez \\u00E0 tout de suite \\u00E0 droite pour rester sur Sunstone Drive.\"],\"4\":[\"Make a sharp right at Mannenbashi East.\"],\"5\":[\"Make a sharp left toward Baltimore.\"]}},\"sharp_verbal\":{\"phrases\":{\"0\":\"Tournez tout de suite \\u00E0 <RELATIVE_DIRECTION>.\",\"1\":\"Tournez tout de suite \\u00E0 <RELATIVE_DIRECTION> dans <STREET_NAMES>.\",\"2\":\"Tournez tout de suite \\u00E0 <RELATIVE_DIRECTION> dans <BEGIN_STREET_NAMES>.\",\"3\":\"Tournez tout de suite \\u00E0 <RELATIVE_DIRECTION> pour rester sur <STREET_NAMES>.\",\"4\":\"Tournez tout de suite \\u00E0 <RELATIVE_DIRECTION> \\u00E0 <JUNCTION_NAME>.\",\"5\":\"Tournez tout de suite \\u00E0 <RELATIVE_DIRECTION> vers <TOWARD_SIGN>.\"},\"empty_street_name_labels\":[\"l'all\\u00E9e\",\"la piste cyclable\",\"la piste de v\\u00E9lo de montagne\",\"le passage prot\\u00E9g\\u00E9\",\"the stairs\",\"the bridge\",\"the tunnel\"],\"relative_directions\":[\"gauche\",\"droite\"],\"example_phrases\":{\"0\":[\"Tournez \\u00E0 tout de suite \\u00E0 gauche.\"],\"1\":[\"Tournez \\u00E0 tout de suite \\u00E0 droite dans Flatbush Avenue.\"],\"2\":[\"Tournez \\u00E0 tout de suite \\u00E0 gauche dans North Bond Street, U.S. 1 Business.\"],\"3\":[\"Tournez \\u00E0 tout de suite \\u00E0 droite pour rester sur Sunstone Drive.\"],\"4\":[\"Make a sharp right at Mannenbashi East.\"],\"5\":[\"Make a sharp left toward Baltimore.\"]}},\"start\":{\"phrases\":{\"0\":\"Allez vers <CARDINAL_DIRECTION>.\",\"1\":\"Allez vers <CARDINAL_DIRECTION> sur <STREET_NAMES>.\",\"2\":\"Allez vers <CARDINAL_DIRECTION> sur <BEGIN_STREET_NAMES>. Continuez sur <STREET_NAMES>.\",\"4\":\"Conduisez vers <CARDINAL_DIRECTION>.\",\"5\":\"Conduisez vers <CARDINAL_DIRECTION> sur <STREET_NAMES>.\",\"6\":\"Conduisez vers <CARDINAL_DIRECTION> sur <BEGIN_STREET_NAMES>. Continuez sur <STREET_NAMES>.\",\"8\":\"Marchez vers <CARDINAL_DIRECTION>.\",\"9\":\"Marchez vers <CARDINAL_DIRECTION> sur <STREET_NAMES>.\",\"10\":\"Marchez vers <CARDINAL_DIRECTION> sur <BEGIN_STREET_NAMES>. Continuez sur <STREET_NAMES>.\",\"16\":\"P\\u00E9dalez vers <CARDINAL_DIRECTION>.\",\"17\":\"P\\u00E9dalez vers <CARDINAL_DIRECTION> sur <STREET_NAMES>.\",\"18\":\"P\\u00E9dalez vers <CARDINAL_DIRECTION> sur <BEGIN_STREET_NAMES>. Continuez sur <STREET_NAMES>.\"},\"cardinal_directions\":[\"le nord\",\"le nord-est\",\"l'est\",\"le sud-est\",\"le sud\",\"le sud-est\",\"l'ouest\",\"le nord-ouest\"],\"empty_street_name_labels\":[\"l'all\\u00E9e\",\"la piste cyclable\",\"la piste de v\\u00E9lo de montagne\",\"le passage prot\\u00E9g\\u00E9\",\"the stairs\",\"the bridge\",\"the tunnel\"],\"example_phrases\":{\"0\":[\"Allez vers l'est.\",\"Allez vers le nord.\"],\"1\":[\"Allez vers le sud-est sur la 5th Avenue.\",\"Allez vers l'ouest sur l'all\\u00E9e\",\"Allez vers l'est sur la piste cyclable\",\"Allez vers le nord sur la piste de v\\u00E9lo de montagne\"],\"2\":[\"Allez vers le sud sur North Prince Street\\/US 222\\/PA 272. Continuez sur US 222\\/PA 272.\"],\"4\":[\"Conduisez vers l'est.\",\"Conduisez vers le nord.\"],\"5\":[\"Conduisez vers le sud-est sur 5th Avenue.\"],\"6\":[\"Conduisez vers le sud sur North Prince Street\\/US 222\\/PA 272. Continuez sur US 222\\/PA 272.\"],\"8\":[\"Marchez vers l'est.\",\"Marchez vers le nord.\"],\"9\":[\"Marchez vers le sud-est sur 5th Avenue.\",\"Marchez vers l'ouest sur l'all\\u00E9e\"],\"10\":[\"Marchez vers le sud sur North Prince Street\\/US 222\\/PA 272. Continuez sur US 222\\/PA 272.\"],\"16\":[\"P\\u00E9dalez vers l'est.\",\"P\\u00E9dalez vers le nord.\"],\"17\":[\"P\\u00E9dalez vers le sud-est sur 5th Avenue.\",\"P\\u00E9dalez vers l'est sur la piste cyclable\",\"P\\u00E9dalez vers le nord sur la piste de v\\u00E9lo de montagne\"],\"18\":[\"P\\u00E9dalez vers le sud sur North Prince Street\\/US 222\\/PA 272. Continuez sur US 222\\/PA 272.\"]}},\"start_verbal\":{\"phrases\":{\"0\":\"Allez vers <CARDINAL_DIRECTION>.\",\"1\":\"Allez vers <CARDINAL_DIRECTION> pendant <LENGTH>.\",\"2\":\"Allez vers <CARDINAL_DIRECTION> sur <STREET_NAMES>.\",\"3\":\"Allez vers <CARDINAL_DIRECTION> sur <STREET_NAMES> pendant <LENGTH>.\",\"4\":\"Allez vers <CARDINAL_DIRECTION> sur <BEGIN_STREET_NAMES>.\",\"5\":\"Conduisez vers <CARDINAL_DIRECTION>.\",\"6\":\"Conduisez vers <CARDINAL_DIRECTION> pendant <LENGTH>.\",\"7\":\"Conduisez vers <CARDINAL_DIRECTION> sur <STREET_NAMES>.\",\"8\":\"Conduisez vers <CARDINAL_DIRECTION> sur <STREET_NAMES> pendant <LENGTH>.\",\"9\":\"Conduisez vers <CARDINAL_DIRECTION> sur <BEGIN_STREET_NAMES>.\",\"10\":\"Marchez vers <CARDINAL_DIRECTION>.\",\"11\":\"Marchez vers <CARDINAL_DIRECTION> pendant <LENGTH>.\",\"12\":\"Marchez vers <CARDINAL_DIRECTION> sur <STREET_NAMES>.\",\"13\":\"Marchez vers <CARDINAL_DIRECTION> sur <STREET_NAMES> pendant <LENGTH>.\",\"14\":\"Marchez vers <CARDINAL_DIRECTION> sur <BEGIN_STREET_NAMES>.\",\"15\":\"P\\u00E9dalez vers <CARDINAL_DIRECTION>.\",\"16\":\"P\\u00E9dalez vers <CARDINAL_DIRECTION> pendant <LENGTH>.\",\"17\":\"P\\u00E9dalez vers <CARDINAL_DIRECTION> sur <STREET_NAMES>.\",\"18\":\"P\\u00E9dalez vers <CARDINAL_DIRECTION> sur <STREET_NAMES> pendant <LENGTH>.\",\"19\":\"P\\u00E9dalez vers <CARDINAL_DIRECTION> sur <BEGIN_STREET_NAMES>.\"},\"cardinal_directions\":[\"le nord\",\"le nord-est\",\"l'est\",\"le sud-est\",\"le sud\",\"le sud-est\",\"l'ouest\",\"le nord-ouest\"],\"empty_street_name_labels\":[\"l'all\\u00E9e\",\"la piste cyclable\",\"la piste de v\\u00E9lo de montagne\",\"le passage prot\\u00E9g\\u00E9\",\"the stairs\",\"the bridge\",\"the tunnel\"],\"metric_lengths\":[\"<KILOMETERS> kilom\\u00E8tres\",\"1 kilometre\",\"<METERS> m\\u00E8tres\",\"moins de 10 m\\u00E8tres\"],\"us_customary_lengths\":[\"<MILES> miles\",\"1 mile\",\"un demi mile\",\"un quart de mile\",\"<FEET> pieds\",\"moins de 10 pieds\"],\"example_phrases\":{\"0\":[\"Head east.\",\"Head north.\"],\"1\":[\"Head east for a half mile.\",\"Head north for 1 kilometer.\"],\"2\":[\"Head southwest on 5th Avenue.\"],\"3\":[\"Head southwest on 5th Avenue for 1 tenth of a mile.\"],\"4\":[\"Head south on North Prince Street, U.S. 2 22.\"],\"5\":[\"Drive east.\",\"Drive north.\"],\"6\":[\"Drive east for a half mile.\",\"Drive north for 1 kilometer.\"],\"7\":[\"Drive southwest on 5th Avenue.\"],\"8\":[\"Drive southwest on 5th Avenue for 1 tenth of a mile.\"],\"9\":[\"Drive south on North Prince Street, U.S. 2 22.\"],\"10\":[\"Walk east.\",\"Walk north.\"],\"11\":[\"Walk east for a half mile.\",\"Walk north for 1 kilometer.\"],\"12\":[\"Walk southwest on 5th Avenue.\"],\"13\":[\"Walk southwest on 5th Avenue for 1 tenth of a mile.\"],\"14\":[\"Walk south on North Prince Street, U.S. 2 22.\"],\"15\":[\"Bike east.\",\"Bike north.\"],\"16\":[\"Bike east for a half mile.\",\"Bike north for 1 kilometer.\"],\"17\":[\"Bike southwest on 5th Avenue.\"],\"18\":[\"Bike southwest on 5th Avenue for 1 tenth of a mile.\"],\"19\":[\"Bike south on North Prince Street, U.S. 2 22.\"]}},\"transit\":{\"phrases\":{\"0\":\"Prenez <TRANSIT_NAME>. (<TRANSIT_STOP_COUNT> <TRANSIT_STOP_COUNT_LABEL>)\",\"1\":\"Prenez <TRANSIT_NAME> vers <TRANSIT_HEADSIGN>. (<TRANSIT_STOP_COUNT> <TRANSIT_STOP_COUNT_LABEL>)\"},\"empty_transit_name_labels\":[\"le tram\",\"le metro\",\"le train\",\"le bus\",\"le ferry\",\"le t\\u00E9l\\u00E9ph\\u00E9rique\",\"la gondole\",\"le funiculaire\"],\"transit_stop_count_labels\":{\"one\":\"arr\\u00EAt\",\"other\":\"arr\\u00EAts\"},\"example_phrases\":{\"0\":[\"Prenez New Haven. (1 arr\\u00EAt)\",\"Prenez le metro. (2 arr\\u00EAts)\",\"Prenez le bus. (12 arr\\u00EAts)\"],\"1\":[\"Prenez F vers JAMAICA - 179 ST. (10 arr\\u00EAts)\",\"Prenez le ferry vers Staten Island. (1 arr\\u00EAt)\"]}},\"transit_connection_destination\":{\"phrases\":{\"0\":\"Sortez de la station.\",\"1\":\"Sortez de <TRANSIT_STOP>.\",\"2\":\"Sortez de <TRANSIT_STOP> <STATION_LABEL>.\"},\"station_label\":\"Station\",\"example_phrases\":{\"0\":[\"Sortez de la station.\"],\"1\":[\"Sortez de Embarcadero Station.\"],\"2\":[\"Sortez de 8 St - NYU Station.\"]}},\"transit_connection_destination_verbal\":{\"phrases\":{\"0\":\"Sortez de la station.\",\"1\":\"Sortez de <TRANSIT_STOP>.\",\"2\":\"Sortez de <TRANSIT_STOP> <STATION_LABEL>.\"},\"station_label\":\"Station\",\"example_phrases\":{\"0\":[\"Sortez de la station.\"],\"1\":[\"Sortez de Embarcadero Station.\"],\"2\":[\"Sortez de 8 St - NYU Station.\"]}},\"transit_connection_start\":{\"phrases\":{\"0\":\"Entez dans la station.\",\"1\":\"Entez dans <TRANSIT_STOP>.\",\"2\":\"Entez dans <TRANSIT_STOP> <STATION_LABEL>.\"},\"station_label\":\"Station\",\"example_phrases\":{\"0\":[\"Entez dans la station.\"],\"1\":[\"Entez dans Embarcadero Station.\"],\"2\":[\"Entez dans 8 St - NYU Station.\"]}},\"transit_connection_start_verbal\":{\"phrases\":{\"0\":\"Entez dans la station.\",\"1\":\"Entez dans <TRANSIT_STOP>.\",\"2\":\"Entez dans <TRANSIT_STOP> <STATION_LABEL>.\"},\"station_label\":\"Station\",\"example_phrases\":{\"0\":[\"Entez dans la station.\"],\"1\":[\"Entez dans Embarcadero Station.\"],\"2\":[\"Entez dans 8 St - NYU Station.\"]}},\"transit_connection_transfer\":{\"phrases\":{\"0\":\"Changez \\u00E0 station.\",\"1\":\"Changez \\u00E0 <TRANSIT_STOP>.\",\"2\":\"Changez \\u00E0 <TRANSIT_STOP> <STATION_LABEL>.\"},\"station_label\":\"Station\",\"example_phrases\":{\"0\":[\"Changez \\u00E0 station.\"],\"1\":[\"Changez \\u00E0 Embarcadero Station.\"],\"2\":[\"Changez \\u00E0 8 St - NYU Station.\"]}},\"transit_connection_transfer_verbal\":{\"phrases\":{\"0\":\"Changez \\u00E0 station.\",\"1\":\"Changez \\u00E0 <TRANSIT_STOP>.\",\"2\":\"Changez \\u00E0 <TRANSIT_STOP> <STATION_LABEL>.\"},\"station_label\":\"Station\",\"example_phrases\":{\"0\":[\"Changez \\u00E0 station.\"],\"1\":[\"Changez \\u00E0 Embarcadero Station.\"],\"2\":[\"Changez \\u00E0 8 St - NYU Station.\"]}},\"transit_remain_on\":{\"phrases\":{\"0\":\"Restez sur <TRANSIT_NAME>. (<TRANSIT_STOP_COUNT> <TRANSIT_STOP_COUNT_LABEL>)\",\"1\":\"Restez sur <TRANSIT_NAME> vers <TRANSIT_HEADSIGN>. (<TRANSIT_STOP_COUNT> <TRANSIT_STOP_COUNT_LABEL>)\"},\"empty_transit_name_labels\":[\"le tram\",\"le metro\",\"le train\",\"le bus\",\"le ferry\",\"le t\\u00E9l\\u00E9ph\\u00E9rique\",\"la gondole\",\"le funiculaire\"],\"transit_stop_count_labels\":{\"one\":\"arr\\u00EAt\",\"other\":\"arr\\u00EAts\"},\"example_phrases\":{\"0\":[\"Restez sur New Haven. (1 arr\\u00EAt)\",\"Restez sur le train. (3 arr\\u00EAts)\"],\"1\":[\"Restez sur F vers JAMAICA - 179 ST. (10 arr\\u00EAts)\"]}},\"transit_remain_on_verbal\":{\"phrases\":{\"0\":\"Restez sur <TRANSIT_NAME>.\",\"1\":\"Restez sur <TRANSIT_NAME> vers <TRANSIT_HEADSIGN>.\"},\"empty_transit_name_labels\":[\"le tram\",\"le metro\",\"le train\",\"le bus\",\"le ferry\",\"le t\\u00E9l\\u00E9ph\\u00E9rique\",\"la gondole\",\"le funiculaire\"],\"example_phrases\":{\"0\":[\"Restez sur New Haven.\"],\"1\":[\"Restez sur F vers JAMAICA - 179 ST.\"]}},\"transit_transfer\":{\"phrases\":{\"0\":\"Changez pour prendre <TRANSIT_NAME>. (<TRANSIT_STOP_COUNT> <TRANSIT_STOP_COUNT_LABEL>)\",\"1\":\"Changez pour prendre <TRANSIT_NAME> vers <TRANSIT_HEADSIGN>. (<TRANSIT_STOP_COUNT> <TRANSIT_STOP_COUNT_LABEL>)\"},\"empty_transit_name_labels\":[\"le tram\",\"le metro\",\"le train\",\"le bus\",\"le ferry\",\"le t\\u00E9l\\u00E9ph\\u00E9rique\",\"la gondole\",\"le funiculaire\"],\"transit_stop_count_labels\":{\"one\":\"arr\\u00EAt\",\"other\":\"arr\\u00EAts\"},\"example_phrases\":{\"0\":[\"Changez pour prendre New Haven. (1 arr\\u00EAt)\",\"Changez pour prendre le tram. (4 arr\\u00EAts)\"],\"1\":[\"Changez pour prendre F vers JAMAICA - 179 ST. (10 arr\\u00EAts)\"]}},\"transit_transfer_verbal\":{\"phrases\":{\"0\":\"Changez pour prendre <TRANSIT_NAME>.\",\"1\":\"Changez pour prendre <TRANSIT_NAME> vers <TRANSIT_HEADSIGN>.\"},\"empty_transit_name_labels\":[\"le tram\",\"le metro\",\"le train\",\"le bus\",\"le ferry\",\"le t\\u00E9l\\u00E9ph\\u00E9rique\",\"la gondole\",\"le funiculaire\"],\"example_phrases\":{\"0\":[\"Changez pour prendre New Haven.\"],\"1\":[\"Changez pour prendre F vers JAMAICA - 179 ST.\"]}},\"transit_verbal\":{\"phrases\":{\"0\":\"Prenez <TRANSIT_NAME>.\",\"1\":\"Prenez <TRANSIT_NAME> vers <TRANSIT_HEADSIGN>.\"},\"empty_transit_name_labels\":[\"le tram\",\"le metro\",\"le train\",\"le bus\",\"le ferry\",\"le t\\u00E9l\\u00E9ph\\u00E9rique\",\"la gondole\",\"le funiculaire\"],\"example_phrases\":{\"0\":[\"Prenez New Haven.\"],\"1\":[\"Prenez F vers JAMAICA - 179 ST.\"]}},\"turn\":{\"phrases\":{\"0\":\"Tournez \\u00E0 <RELATIVE_DIRECTION>.\",\"1\":\"Tournez \\u00E0 <RELATIVE_DIRECTION> dans <STREET_NAMES>.\",\"2\":\"Tournez \\u00E0 <RELATIVE_DIRECTION> dans <BEGIN_STREET_NAMES>. Continuez sur <STREET_NAMES>.\",\"3\":\"Tournez \\u00E0 <RELATIVE_DIRECTION> pour rester sur <STREET_NAMES>.\",\"4\":\"Tournez \\u00E0 <RELATIVE_DIRECTION> \\u00E0 <JUNCTION_NAME>.\",\"5\":\"Tournez \\u00E0 <RELATIVE_DIRECTION> vers <TOWARD_SIGN>.\"},\"empty_street_name_labels\":[\"l'all\\u00E9e\",\"la piste cyclable\",\"la piste de v\\u00E9lo de montagne\",\"le passage prot\\u00E9g\\u00E9\",\"the stairs\",\"the bridge\",\"the tunnel\"],\"relative_directions\":[\"gauche\",\"droite\"],\"example_phrases\":{\"0\":[\"Tournez \\u00E0 gauche.\"],\"1\":[\"Tournez \\u00E0 droite dans Flatbush Avenue.\"],\"2\":[\"Tournez \\u00E0 gauche dans North Bond Street\\/US 1 Business\\/MD 924. Continuez sur MD 924.\"],\"3\":[\"Tournez \\u00E0 droite pour rester sur Sunstone Drive.\"],\"4\":[\"Turn right at Mannenbashi East.\"],\"5\":[\"Turn left toward Baltimore.\"]}},\"turn_verbal\":{\"phrases\":{\"0\":\"Tournez \\u00E0 <RELATIVE_DIRECTION>.\",\"1\":\"Tournez \\u00E0 <RELATIVE_DIRECTION> dans <STREET_NAMES>.\",\"2\":\"Tournez \\u00E0 <RELATIVE_DIRECTION> dans <BEGIN_STREET_NAMES>.\",\"3\":\"Tournez \\u00E0 <RELATIVE_DIRECTION> pour rester sur <STREET_NAMES>.\",\"4\":\"Tournez \\u00E0 <RELATIVE_DIRECTION> \\u00E0 <JUNCTION_NAME>.\",\"5\":\"Tournez \\u00E0 <RELATIVE_DIRECTION> vers <TOWARD_SIGN>.\"},\"empty_street_name_labels\":[\"l'all\\u00E9e\",\"la piste cyclable\",\"la piste de v\\u00E9lo de montagne\",\"le passage prot\\u00E9g\\u00E9\",\"the stairs\",\"the bridge\",\"the tunnel\"],\"relative_directions\":[\"gauche\",\"droite\"],\"example_phrases\":{\"0\":[\"Turn left.\"],\"1\":[\"Tournez \\u00E0 droite dans Flatbush Avenue.\"],\"2\":[\"Tournez \\u00E0 gauche dans North Bond Street, U.S. 1 Business.\"],\"3\":[\"Tournez \\u00E0 droite pour rester sur Sunstone Drive.\"],\"4\":[\"Turn right at Mannenbashi East.\"],\"5\":[\"Turn left toward Baltimore.\"]}},\"uturn\":{\"phrases\":{\"0\":\"Faites demi-tour \\u00E0 <RELATIVE_DIRECTION>.\",\"1\":\"Faites demi-tour \\u00E0 <RELATIVE_DIRECTION> dans <STREET_NAMES>.\",\"2\":\"Faites demi-tour \\u00E0 <RELATIVE_DIRECTION> pour rester sur <STREET_NAMES>.\",\"3\":\"Faites demi-tour \\u00E0 <RELATIVE_DIRECTION> \\u00E0 <CROSS_STREET_NAMES>.\",\"4\":\"Faites demi-tour \\u00E0 <RELATIVE_DIRECTION> \\u00E0 <CROSS_STREET_NAMES> dans <STREET_NAMES>.\",\"5\":\"Faites demi-tour \\u00E0 <RELATIVE_DIRECTION> \\u00E0 <CROSS_STREET_NAMES> pour rester sur <STREET_NAMES>.\",\"6\":\"Faites demi-tour \\u00E0 <RELATIVE_DIRECTION> \\u00E0 <JUNCTION_NAME>.\",\"7\":\"Faites demi-tour \\u00E0 <RELATIVE_DIRECTION> vers <TOWARD_SIGN>.\"},\"empty_street_name_labels\":[\"l'all\\u00E9e\",\"la piste cyclable\",\"la piste de v\\u00E9lo de montagne\",\"le passage prot\\u00E9g\\u00E9\",\"the stairs\",\"the bridge\",\"the tunnel\"],\"relative_directions\":[\"gauche\",\"droite\"],\"example_phrases\":{\"0\":[\"Faites demi-tour \\u00E0 gauche un demi-tour.\"],\"1\":[\"Faites demi-tour \\u00E0 droite dans Bunker Hill Road.\"],\"2\":[\"Faites demi-tour \\u00E0 gauche pour rester sur Bunker Hill Road.\"],\"3\":[\"Faites demi-tour \\u00E0 gauche \\u00E0 Devonshire Road.\"],\"4\":[\"Faites demi-tour \\u00E0 gauche \\u00E0 Devonshire Road dans Jonestown Road\\/US 22.\"],\"5\":[\"Faites demi-tour \\u00E0 gauche \\u00E0 Devonshire Road pour rester sur Jonestown Road\\/US 22.\"],\"6\":[\"Make a right U-turn at Mannenbashi East.\"],\"7\":[\"Make a left U-turn toward Baltimore.\"]}},\"uturn_verbal\":{\"phrases\":{\"0\":\"Faites demi-tour \\u00E0 <RELATIVE_DIRECTION> un demi-tour.\",\"1\":\"Faites demi-tour \\u00E0 <RELATIVE_DIRECTION> dans <STREET_NAMES>.\",\"2\":\"Faites demi-tour \\u00E0 <RELATIVE_DIRECTION> pour rester sur <STREET_NAMES>.\",\"3\":\"Faites demi-tour \\u00E0 <RELATIVE_DIRECTION> \\u00E0 <CROSS_STREET_NAMES>.\",\"4\":\"Faites demi-tour \\u00E0 <RELATIVE_DIRECTION> \\u00E0 <CROSS_STREET_NAMES> dans <STREET_NAMES>.\",\"5\":\"Faites demi-tour \\u00E0 <RELATIVE_DIRECTION> \\u00E0 <CROSS_STREET_NAMES> pour rester sur <STREET_NAMES>.\",\"6\":\"Faites demi-tour \\u00E0 <RELATIVE_DIRECTION> \\u00E0 <JUNCTION_NAME>.\",\"7\":\"Faites demi-tour \\u00E0 <RELATIVE_DIRECTION> vers <TOWARD_SIGN>.\"},\"empty_street_name_labels\":[\"l'all\\u00E9e\",\"la piste cyclable\",\"la piste de v\\u00E9lo de montagne\",\"le passage prot\\u00E9g\\u00E9\",\"the stairs\",\"the bridge\",\"the tunnel\"],\"relative_directions\":[\"gauche\",\"droite\"],\"example_phrases\":{\"0\":[\"Faites demi-tour \\u00E0 gauche un demi-tour.\"],\"1\":[\"Faites demi-tour \\u00E0 droite dans Bunker Hill Road.\"],\"2\":[\"Faites demi-tour \\u00E0 gauche pour rester sur Bunker Hill Road.\"],\"3\":[\"Faites demi-tour \\u00E0 gauche \\u00E0 Devonshire Road.\"],\"4\":[\"Faites demi-tour \\u00E0 gauche \\u00E0 Devonshire Road dans Jonestown Road, U.S. 22.\"],\"5\":[\"Faites demi-tour \\u00E0 gauche \\u00E0 Devonshire Road pour rester sur Jonestown Road, U.S. 22.\"],\"6\":[\"Make a right U-turn at Mannenbashi East.\"],\"7\":[\"Make a left U-turn toward Baltimore.\"]}},\"verbal_multi_cue\":{\"phrases\":{\"0\":\"<CURRENT_VERBAL_CUE> Ensuite, <NEXT_VERBAL_CUE>\",\"1\":\"<CURRENT_VERBAL_CUE> Ensuite, dans <LENGTH>, <NEXT_VERBAL_CUE>\"},\"metric_lengths\":[\"<KILOMETERS> kilom\\u00E8tres\",\"1 kilometre\",\"<METERS> m\\u00E8tres\",\"moins de 10 m\\u00E8tres\"],\"us_customary_lengths\":[\"<MILES> miles\",\"1 mile\",\"un demi mile\",\"un quart de mile\",\"<FEET> pieds\",\"moins de 10 pieds\"],\"example_phrases\":{\"0\":[\"Serrez \\u00E0 droite sur East Fayette Street. Ensuite, Tournez \\u00E0 droite vers North Gay Street.\"],\"1\":[\"Bear right onto East Fayette Street. Then, in 500 feet, Turn right onto North Gay Street.\"]}},\"approach_verbal_alert\":{\"phrases\":{\"0\":\"Dans <LENGTH>, <CURRENT_VERBAL_CUE>.\"},\"metric_lengths\":[\"<KILOMETERS> kilom\\u00E8tres\",\"1 kilometre\",\"<METERS> m\\u00E8tres\",\"moins de 10 m\\u00E8tres\"],\"us_customary_lengths\":[\"<MILES> miles\",\"1 mile\",\"un demi mile\",\"un quart de mile\",\"<FEET> pieds\",\"moins de 10 pieds\"],\"example_phrases\":{\"0\":[\"In a quarter mile, Turn right onto North Gay Street.\"]}},\"pass\":{\"phrases\":{\"0\":\"Pass <OBJECT_LABEL>.\",\"1\":\"Pass traffic signals on <OBJECT_LABEL>.\"},\"object_labels\":[\"the gate\",\"the bollards\",\"ways intersection\"],\"example_phrases\":{\"0\":[\"Pass the gate.\"]}},\"elevator\":{\"phrases\":{\"0\":\"Prenez l'ascenseur.\",\"1\":\"Prenez l'ascenseur jusqu'au niveau <LEVEL>.\"},\"example_phrases\":{\"0\":[\"Take the elevator.\"],\"1\":[\"Take the elevator to Level 1.\"]}},\"steps\":{\"phrases\":{\"0\":\"Prenez les escaliers.\",\"1\":\"Prenez les escaliers jusqu'au niveau <LEVEL>.\"},\"example_phrases\":{\"0\":[\"Take the stairs.\"],\"1\":[\"Take the stairs to Level 2.\"]}},\"escalator\":{\"phrases\":{\"0\":\"Prenez l'escalator.\",\"1\":\"Prenez l'escalator jusqu'au niveau <LEVEL>.\"},\"example_phrases\":{\"0\":[\"Take the escalator.\"],\"1\":[\"Take the escalator to Level 3.\"]}},\"enter_building\":{\"phrases\":{\"0\":\"Entrez dans le b\\u00E2timent.\",\"1\":\"Entrez dans le b\\u00E2timent et continuez sur <STREET_NAMES>.\"},\"empty_street_name_labels\":[\"l'all\\u00E9e\",\"la piste cyclable\",\"la piste de v\\u00E9lo de montagne\",\"le passage prot\\u00E9g\\u00E9\"],\"example_phrases\":{\"0\":[\"Enter the building.\"],\"1\":[\"Enter the building, and continue on the walkway.\"]}},\"exit_building\":{\"phrases\":{\"0\":\"Sortez du b\\u00E2timent.\",\"1\":\"Sortez du b\\u00E2timent et continuez sur <STREET_NAMES>.\"},\"empty_street_name_labels\":[\"l'all\\u00E9e\",\"la piste cyclable\",\"la piste de v\\u00E9lo de montagne\",\"le passage prot\\u00E9g\\u00E9\"],\"example_phrases\":{\"0\":[\"Exit the building.\"],\"1\":[\"Exit the building, and continue on the walkway.\"]}}}}");
-       LocalVectorDataSource localSource = new LocalVectorDataSource(projection);
-       VectorLayer vectorLayer = new VectorLayer(localSource);
-       mapView.getLayers().add(vectorLayer);
-       java.util.List vector = new ArrayList();
-       vector.add(new LatLon(45.1845, 5.7168));
-       vector.add(new LatLon(45.24433, 5.74027));
-       RoutingRequest request = new RoutingRequest(vector);
-       request.setParameter("costing_options", "{\"bicycle\":{\"non_network_penalty\":0,\"use_ferry\":0,\"shortest\":true,\"use_roads\":0.0,\"use_tracks\":0.5,\"bicycle_type\":\"Hybrid\"}}");
-//       request.setCustomParameter("directions_options", Variant.fromString("{\"language\":\"fr-FR\"}"));
-       request.setParameter("language", ("\"fr-FR\""));
-       runValhallaInThread(service, request, "bicycle", localSource);
-//            request = new RoutingRequest(projection, vector);
-   }
-    public static void largeLog(String tag, String content) {
-        if (content.length() > 4000) {
-            Log.d(tag, content.substring(0, 4000));
-            largeLog(tag, content.substring(4000));
+    @SuppressLint("NewApi")
+    public void checkStoragePermission(View view) {
+        if (getActivity().checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_DENIED) {
+            requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_PERMISSIONS_CODE_WRITE_STORAGE);
         } else {
-            Log.d(tag, content);
+            startDemo(view);
         }
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.M)
-    @Nullable
+    @RequiresApi(api = Build.VERSION_CODES.R)
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
-                             @Nullable Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.second_fragment, container, false);
-        com.carto.utils.Log.setShowInfo(true);
-        com.carto.utils.Log.setShowDebug(true);
-        com.carto.utils.Log.setShowWarn(true);
-        com.carto.utils.Log.setShowError(true);
-
-        final MapView mapView = this.mapView = (MapView) view.findViewById(R.id.mapView);
-        final EPSG4326 projection = new EPSG4326();
-        final Options options = mapView.getOptions();
-        options.setZoomGestures(true);
-        options.setRestrictedPanning(true);
-        options.setSeamlessPanning(true);
-        options.setRotatable(true);
-        options.setTiltRange(new MapRange(10, 90));
-//        options.setTileThreadPoolSize(1);
-
-//        options.setRenderProjectionMode(RenderProjectionMode.RENDER_PROJECTION_MODE_SPHERICAL);
-        options.setPanningMode(PanningMode.PANNING_MODE_STICKY);
-        options.setBaseProjection(projection);
-        mapView.setFocusPos(new MapPos(5.7279, 45.1949), 0);
-        mapView.setZoom(13f, 0);
-        checkStoragePermission(view);
-
-        final TextView routingResultText = (TextView) view.findViewById(R.id.routingResultText);
-        final Button testRoutingButton = (Button) view.findViewById(R.id.testRoutingButton);
-        testRoutingButton.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                testValhallaRoutingLib(routingResultText);
-            }
-        });
-
-        return view;
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        // API 30+: WRITE_EXTERNAL_STORAGE is not enough for a shared folder, the app also needs
+        // "all files access", which only the system settings screen can grant.
+        if (Environment.isExternalStorageManager()) {
+            startDemo(getView());
+        } else {
+            Intent intent = new Intent();
+            intent.setAction(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+            intent.setData(Uri.fromParts("package", getActivity().getPackageName(), null));
+            startActivityForResult(intent, REQUEST_PERMISSIONS_MANAGE_STORAGE);
+        }
     }
 
-    /**
-     * Demonstrates usage of the standalone ValhallaRoutingService from routing-lib.
-     * Uses the online routing service to calculate a short route in Grenoble and
-     * displays the raw Valhalla JSON summary in the result TextView.
-     */
-    public void testValhallaRoutingLib(final TextView resultView) {
-        new Thread(() -> {
-            try {
-
-
-                // Online routing via Valhalla API (no MBTiles needed for the demo)
-                ValhallaOnlineRoutingService service = new ValhallaOnlineRoutingService(
-                        "https://valhalla.openstreetmap.de",
-                        (url, body, headers) -> {
-                            try {
-                                // Minimal synchronous HTTP POST using java.net
-                                java.net.URL netUrl = new java.net.URL(url);
-                                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) netUrl.openConnection();
-                                conn.setRequestMethod("POST");
-                                conn.setDoOutput(true);
-                                conn.setRequestProperty("Content-Type", "application/json");
-                                conn.getOutputStream().write(body.getBytes("UTF-8"));
-                                int code = conn.getResponseCode();
-                                java.io.InputStream is = (code < 400) ? conn.getInputStream() : conn.getErrorStream();
-                                java.util.Scanner s = new java.util.Scanner(is).useDelimiter("\\A");
-                                return s.hasNext() ? s.next() : "";
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            }
-
-                        }
-                );
-                service.setProfile("pedestrian");
-
-                // Route: Place Grenette → Gare de Grenoble (raw JSON result)
-                java.util.List<com.akylas.routing.LatLon> points = new java.util.ArrayList<>();
-                points.add(new com.akylas.routing.LatLon(45.1877, 5.7249));
-                points.add(new com.akylas.routing.LatLon(45.1916, 5.7148));
-                com.akylas.routing.RoutingRequest request = new com.akylas.routing.RoutingRequest(points);
-
-                String rawJson = service.calculateRoute(request);
-
-                // Display a short summary
-                String summary = rawJson.length() > 200 ? rawJson.substring(0, 200) + "…" : rawJson;
-                String msg = "Routing OK (" + rawJson.length() + " bytes):\n" + summary;
-
-                if (resultView != null) {
-                    resultView.post(() -> resultView.setText(msg));
-                }
-                android.util.Log.i("ValhallaRoutingLib", msg);
-            } catch (Exception e) {
-                String err = "Routing error: " + e.getMessage();
-                if (resultView != null) {
-                    resultView.post(() -> resultView.setText(err));
-                }
-                android.util.Log.e("ValhallaRoutingLib", err, e);
-            }
-        }).start();
+    @RequiresApi(api = Build.VERSION_CODES.O)
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_PERMISSIONS_MANAGE_STORAGE && getView() != null) {
+            startDemo(getView());
+        }
     }
-
 }

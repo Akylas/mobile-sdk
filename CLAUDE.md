@@ -21,10 +21,27 @@ repo. Commit style is conventional-commits (`fix:`, `feat:`, `chore:`).
 
 ## Working in this checkout
 
-`scripts/android-dev/app/src/main/java/.../SecondFragment.java` is the live test bench and
-normally carries **uncommitted** edits (start camera, style rules, per-demo knobs). Read it
-before touching it, keep changes additive, never restore it from a backup or an older commit,
-and never commit it — an older copy silently throws away work in progress.
+`scripts/android-dev` is the live test bench. It is ONE composable demo, not a set of examples:
+
+| File (under `app/src/main/java/com/akylas/cartotest/`) | Role |
+|---|---|
+| `demo/DemoConfig.java` | every default, one static field per knob + the intent-extra key map (`applyIntentOverrides`) |
+| `demo/DemoCfg.java` | `cfgBool/cfgFloat/cfgInt/cfgStr/cfgColor` intent readers (`--es key value`) |
+| `demo/DemoMap.java` | builds/updates the map: layer registry, shared sources, terrain/light/sky, camera |
+| `demo/DemoStyles.java` | style decoders (dir / zip / inline CartoCSS / nuti project) + demo shaders |
+| `demo/DemoSky.java` | day-cycle sun/sky + generated sky shader |
+| `demo/DemoPanel.java` | on-screen panel — writes DemoConfig, then calls a `DemoMap.apply*()` |
+| `demo/DemoTests.java` | one-shot actions (routing, search, GeoJSON) |
+| `ui/main/SecondFragment.java` | Android glue only (view, permissions, map listener) |
+
+Layers (`base`, `satellite`, `hillshade`, `hypso`, `contour`, `routes`, `elements`) toggle live
+from the panel or with `--es <name> true|false`; the base map has `--es base plain|composite` and
+`--es style dir|zip|inline|nuti`. `dir` reads the style from a FOLDER via `DirAssetPackage`
+(`/sdcard/alpimaps_mbtiles/osm`), falling back to `osm.zip` then to inline CartoCSS.
+
+Change defaults in `DemoConfig` only — those fields are also what the panel mutates. These files
+may carry **uncommitted** local edits (camera, per-demo knobs): read before touching, keep changes
+additive, never restore from a backup or an older commit.
 
 Comparing against older SDK code (A/B-ing a regression) takes three steps, not one:
 
