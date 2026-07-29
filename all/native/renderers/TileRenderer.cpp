@@ -445,6 +445,12 @@ namespace carto {
             }
             if (_maxVertexTextureUnits > 0) {
                 std::shared_ptr<ElevationManager> elevationManager = activeTerrainOptions->getElevationManager();
+                if (elevationManager) {
+                    // Cap elevation levels at what the mesh can express - for every elevation
+                    // consumer, not just the drawn surface (billboard occlusion ray marching and
+                    // element placement query the same manager and must see the same heights).
+                    elevationManager->setSurfaceResolution(activeTerrainOptions->getMeshResolution());
+                }
                 if (_elevationTextureCache && _elevationTextureCache->getElevationManager() != elevationManager) {
                     _elevationTextureCache.reset();
                 }
@@ -454,7 +460,6 @@ namespace carto {
                     }
                 }
                 if (_elevationTextureCache) {
-                    _elevationTextureCache->setSurfaceResolution(activeTerrainOptions->getMeshResolution());
                     _elevationTextureCache->beginFrame();
                     std::shared_ptr<ElevationTextureCache> elevationTextureCache = _elevationTextureCache;
                     terrainTextureProvider = [elevationTextureCache](const vt::TileId& tileId, vt::GLTileRenderer::TerrainTexture& terrainTexture) {

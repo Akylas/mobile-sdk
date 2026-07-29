@@ -46,6 +46,8 @@ namespace carto {
         _dataSourceListener(),
         _exaggeration(1.0f),
         _seamlessTileEdges(true),
+        _surfaceResolution(32),
+        _gridSizeHint(256),
         _neighbourPrefetch(true),
         _version(1),
         _maxSeenElevation(0.0f),
@@ -98,6 +100,13 @@ namespace carto {
     void ElevationManager::setSeamlessTileEdgesEnabled(bool enabled) {
         if (_seamlessTileEdges.exchange(enabled) != enabled) {
             _version++; // elevation texture borders change, force a rebuild
+        }
+    }
+
+    void ElevationManager::setSurfaceResolution(int resolution) {
+        int value = std::max(1, resolution);
+        if (_surfaceResolution.exchange(value) != value) {
+            _version++; // the elevation level cap changes with it
         }
     }
 
@@ -523,6 +532,14 @@ namespace carto {
 
     MapTile ElevationManager::clampTileZoom(const MapTile& mapTile) const {
         MapTile tile = mapTile;
+        // Cap by the resolution the terrain mesh can express: an elevation tile is 256-512 texels
+        // while the surface has _surfaceResolution cells, so taking the tile zoom literally would
+        // give every tile its own elevation tile - and its own decoded grid and GL texture - for
+        // detail that cannot be rendered. One texel per half surface cell is the useful limit.
+        int surfaceResolution = _surfaceResolution.load();
+        for (int size = _gridSizeHint.load(); size > 2 * surfaceResolution && tile.getZoom() > 0; size /= 2) {
+            tile = tile.getParent();
+        }
         int maxZoom = _dataSource->getMaxZoom();
         while (tile.getZoom() > maxZoom) {
             tile = tile.getParent();
@@ -562,6 +579,10 @@ namespace carto {
                                  MapPos(std::max(internalMin.getX(), internalMax.getX()), std::max(internalMin.getY(), internalMax.getY())));
 
         std::array<double, 4> coeffs = _elevationDecoder->getColorComponentCoefficients();
-        return ElevationTileGrid::DecodeBitmap(mapTile, internalBounds, tileBitmap, coeffs);
+        std::shared_ptr<ElevationTileGrid> grid = ElevationTileGrid::DecodeBitmap(mapTile, internalBounds, tileBitmap, coeffs);
+        if (grid && grid->getWidth() > 0) {
+            _gridSizeHint.store(grid->getWidth()); // drives the elevation level cap in clampTileZoom
+        }
+        return grid;
     }
 }

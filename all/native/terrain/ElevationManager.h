@@ -72,6 +72,16 @@ namespace carto {
         bool isNeighbourPrefetchEnabled() const;
         void setNeighbourPrefetchEnabled(bool enabled);
 
+        /**
+         * Sets the terrain surface resolution (mesh cells per tile edge). Elevation levels are
+         * capped so that one elevation texel covers at most half a surface cell: finer data cannot
+         * be expressed by the mesh, but every level costs four times the tiles, decoded grids and
+         * GL textures. The cap applies to EVERY elevation query, so the displaced surface, the
+         * elevation lookups, the ray intersection used for billboard occlusion and the CPU-side
+         * element placement all agree on one height field.
+         */
+        void setSurfaceResolution(int resolution);
+
         std::size_t getCacheCapacity() const;
         void setCacheCapacity(std::size_t capacityInBytes);
 
@@ -172,6 +182,8 @@ namespace carto {
 
         std::atomic<float> _exaggeration;
         std::atomic<bool> _seamlessTileEdges;
+        std::atomic<int> _surfaceResolution;      // terrain mesh cells per tile edge
+        mutable std::atomic<int> _gridSizeHint;   // texels per elevation tile edge, from the last decoded grid
         std::atomic<bool> _neighbourPrefetch;
         mutable std::atomic<unsigned int> _version;
         mutable std::atomic<float> _maxSeenElevation;

@@ -57,23 +57,13 @@ namespace carto {
         int tileMask = (1 << tileId.zoom) - 1;
         MapTile mapTile(tileId.x & tileMask, std::min(std::max(tileId.y, 0), tileMask), tileId.zoom, 0);
 
-        // The tile that should carry this tile's elevation data: the tile's own level, capped by
-        // the data source maximum zoom AND by the resolution the surface mesh can express. An
-        // elevation tile is typically 256-512 texels while the mesh has MeshResolution cells, so
-        // taking the level literally would give every render tile its own elevation texture for
-        // detail that cannot be rendered - four times the decoded grids, texture uploads and tile
-        // requests per level. One texel per half surface cell is the useful limit; the coarser
-        // level also means neighbouring tiles share one texture, which is seamless by construction.
-        MapTile levelTile = mapTile;
-        for (int size = _gridSizeHint; size > 2 * _surfaceResolution && levelTile.getZoom() > 0; size /= 2) {
-            levelTile = levelTile.getParent();
-        }
-        MapTile dataTile = _elevationManager->getDataTile(levelTile);
+        // The tile that carries this tile's elevation data: its own level, capped by the data
+        // source maximum zoom and by the resolution the surface mesh can express (see
+        // ElevationManager::setSurfaceResolution). The cap lives in the manager so that the
+        // displaced surface and every CPU-side elevation query use the same height field.
+        MapTile dataTile = _elevationManager->getDataTile(mapTile);
 
         std::shared_ptr<ElevationTileGrid> grid = _elevationManager->getTileGrid(dataTile, ElevationManager::LoadMode::CACHED_ONLY);
-        if (grid && grid->getWidth() > 0) {
-            _gridSizeHint = grid->getWidth();
-        }
         if (!grid || !(grid->getTile() == dataTile)) {
             // Missing or resolved through a coarser ancestor: request the real thing, ahead of
             // any neighbour request. Until it arrives this tile is displaced by an ancestor grid
@@ -186,14 +176,6 @@ namespace carto {
     void ElevationTextureCache::beginFrame() {
         _frameResolved.clear();
         _frameStartCounter = _accessCounter;
-    }
-
-    void ElevationTextureCache::setSurfaceResolution(int resolution) {
-        int value = std::max(1, resolution);
-        if (_surfaceResolution != value) {
-            _surfaceResolution = value;
-            clear(); // the elevation level cap changes with it
-        }
     }
 
     void ElevationTextureCache::clear() {
