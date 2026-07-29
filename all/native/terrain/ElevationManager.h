@@ -111,27 +111,38 @@ namespace carto {
         void getDisplayGradient(double internalX, double internalY, LoadMode mode, double& dhdx, double& dhdy) const;
 
         /**
-         * Returns the decoded elevation grid covering the given tile (the tile zoom is clamped to the
-         * data source zoom range and cached ancestors act as fallbacks). May return null.
+         * Returns the decoded elevation grid covering the given RENDER tile (the tile zoom is
+         * mapped to the elevation level by getDataTile and cached ancestors act as fallbacks).
+         * May return null.
          * The tile must be in XYZ convention (y=0 north, same as vt::TileId and TileDataSource::loadTile).
          */
         std::shared_ptr<ElevationTileGrid> getTileGrid(const MapTile& mapTile, LoadMode mode) const;
 
         /**
-         * Returns the tile that actually carries the elevation data for the given tile: the same
-         * tile, or its ancestor at the data source maximum zoom level.
+         * Like getTileGrid, but the tile is an ELEVATION tile (a getDataTile result or one of its
+         * neighbours), not a render tile: only the data source zoom range is applied to it. Passing
+         * an already-resolved elevation tile to getTileGrid would map it down a second time, which
+         * costs one elevation level per hop.
+         */
+        std::shared_ptr<ElevationTileGrid> getDataTileGrid(const MapTile& dataTile, LoadMode mode) const;
+
+        /**
+         * Returns the tile that actually carries the elevation data for the given render tile: the
+         * same tile, or an ancestor - capped by the data source maximum zoom level and by the
+         * resolution the terrain mesh can express.
          */
         MapTile getDataTile(const MapTile& mapTile) const;
 
         /**
-         * Requests an asynchronous load of the given elevation tile. Never blocks and never
+         * Requests an asynchronous load of the given ELEVATION tile (as returned by getDataTile,
+         * or one of its neighbours - it is not mapped down again). Never blocks and never
          * performs IO on the calling thread. A no-op if the grid is already cached, already
          * queued or currently being loaded, or if neighbour prefetching is disabled.
          * Priority 2 (the tile's own elevation level) is served before 1 (edge neighbours),
          * which is served before 0 (diagonal neighbours, which only fill a corner texel).
          * The tile must be in XYZ convention (y=0 north, same as getTileGrid).
          */
-        void prefetchTileGrid(const MapTile& mapTile, int priority) const;
+        void prefetchTileGrid(const MapTile& dataTile, int priority) const;
 
         /**
          * Returns the meters-to-internal-display-units scale at the given internal y coordinate
@@ -180,6 +191,8 @@ namespace carto {
         void bumpGlobalVersion();
         double wrapInternalX(double internalX) const;
         MapTile clampTileZoom(const MapTile& mapTile) const;
+        MapTile clampDataTileZoom(const MapTile& dataTile) const;
+        std::shared_ptr<ElevationTileGrid> lookupTileGrid(const MapTile& dataTile, LoadMode mode) const;
         std::shared_ptr<ElevationTileGrid> getGridForInternalPos(double internalX, double internalY, LoadMode mode) const;
         std::shared_ptr<ElevationTileGrid> loadTileGrid(const MapTile& mapTile) const;
         void getMinMaxDisplayHeight(const MapTile& tile, double& minZ, double& maxZ, bool exact) const;
