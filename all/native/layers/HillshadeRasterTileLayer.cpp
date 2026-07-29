@@ -32,9 +32,10 @@ namespace carto
     HillshadeRasterTileLayer::HillshadeRasterTileLayer(const std::shared_ptr<TileDataSource> &dataSource, const std::shared_ptr<ElevationDecoder> &elevationDecoder) : CustomRasterTileLayer(dataSource),
         _elevationDecoder(elevationDecoder),
         _contrast(0.5f),
-        _heightScale(0.09f),
+        _heightScale(1.0f),
         _exaggeration(1.0f),
         _exagerateHeightScaleEnabled(true),
+        _legacyHeightScaleEnabled(false),
         _normalMapLightingShader(),
         _accentColor(Color(0, 0, 0, 255)),
         _shadowColor(Color(0, 0, 0, 255)),
@@ -56,6 +57,7 @@ namespace carto
         _heightScale(1.0f),
         _exaggeration(1.0f),
         _exagerateHeightScaleEnabled(true),
+        _legacyHeightScaleEnabled(false),
         _normalMapLightingShader(),
         _accentColor(Color(0, 0, 0, 255)),
         _shadowColor(Color(0, 0, 0, 255)),
@@ -171,6 +173,15 @@ namespace carto
         _exagerateHeightScaleEnabled.store(enabled);
         updateTiles(false);
     }
+    bool HillshadeRasterTileLayer::isLegacyHeightScaleEnabled() const
+    {
+        return _legacyHeightScaleEnabled.load();
+    }
+    void HillshadeRasterTileLayer::setLegacyHeightScaleEnabled(bool enabled)
+    {
+        _legacyHeightScaleEnabled.store(enabled);
+        updateTiles(false);
+    }
 
     HillshadeMethod::HillshadeMethod HillshadeRasterTileLayer::getHillshadeMethod() const {
         return _hillshadeMethod.load();
@@ -274,7 +285,10 @@ namespace carto
                     break;
             }
             _tileRenderer->setHillshadeMethod(hillshadeMethod);
-            _tileRenderer->setHillshadeExaggeration(getContrast() * getExaggeration());
+            // Two separate jobs: exaggeration scales the slope, contrast is MapLibre's
+            // 'hillshade-exaggeration' (the slope response curve and the overall strength).
+            _tileRenderer->setHillshadeExaggeration(getExaggeration());
+            _tileRenderer->setHillshadeIntensity(getContrast());
             bool refresh = _tileRenderer->onDrawFrame(deltaSeconds, viewState);
 
             if (opacity < 1.0f)
@@ -317,11 +331,24 @@ namespace carto
             elevationCoeffs = { { static_cast<float>(rawCoeffs[0]), static_cast<float>(rawCoeffs[1]), static_cast<float>(rawCoeffs[2]), static_cast<float>(rawCoeffs[3]) } };
             alpha = static_cast<std::uint8_t>(getContrast() * 255.0f);
             float heightScale = decoder->getMinimumHeightScale();
-            float scale = heightScale * static_cast<float>(bitmap->getHeight() * std::pow(2.0, tile.getZoom()) / 40075016.6855785);
-            if (_exagerateHeightScaleEnabled) {
-                 float exaggeration = tile.getZoom() < 2 ? 0.2f : tile.getZoom() < 5 ? 0.3f : 0.35f;
-                 scale = heightScale * 160 * getHeightScale() * static_cast<float>(bitmap->getHeight() * std::pow(2.0, tile.getZoom() * (1 - exaggeration)) / 40075016.6855785);
-
+            double zoom = tile.getZoom();
+            // Heights are converted into tile-pixel units so the Sobel gradient in NormalMapBuilder
+            // comes out as a true slope: bitmapHeight * 2^zoom / earthCircumference = pixels/metre.
+            float scale = heightScale * getHeightScale() * static_cast<float>(bitmap->getHeight() * std::pow(2.0, zoom) / 40075016.6855785);
+            if (_legacyHeightScaleEnabled) {
+                // Pre-MapLibre-parity formula, kept for styles tuned against it. Relief is damped by
+                // the ABSOLUTE zoom, so it washes out as you zoom in. Needs heightScale 0.09 to
+                // reproduce the old default appearance.
+                float exaggeration = zoom < 2 ? 0.2f : zoom < 5 ? 0.3f : 0.35f;
+                scale = heightScale * 160 * getHeightScale() * static_cast<float>(bitmap->getHeight() * std::pow(2.0, zoom * (1 - exaggeration)) / 40075016.6855785);
+            } else if (_exagerateHeightScaleEnabled && zoom < 15.0) {
+                // MapLibre hillshade_prepare.fragment.glsl, verbatim: relief is the true slope from
+                // zoom 15 up (15 being the max zoom of Mapbox terrain-RGB, where this constant comes
+                // from) and boosted below it, because otherwise it is barely noticeable at low zoom.
+                // Unlike the legacy formula it does not flatten as the camera zooms in, which is what
+                // keeps the detail on a high-resolution (z15+) DEM.
+                float exaggerationFactor = zoom < 2.0 ? 0.4f : zoom < 4.5 ? 0.35f : 0.3f;
+                scale *= static_cast<float>(std::pow(2.0, (15.0 - zoom) * exaggerationFactor));
             }
             std::transform(scales.begin(), scales.end(), scales.begin(), [&scale](float &c) { return c * scale; });
         }

@@ -42,6 +42,13 @@ namespace carto {
          */
         bool getTexture(const vt::TileId& tileId, vt::GLTileRenderer::TerrainTexture& terrainTexture);
 
+        /**
+         * Starts a new frame: drops the per-frame tile resolution memo. The provider is called
+         * once per tile per render pass, so without the memo every pass would redo the grid and
+         * neighbour lookups (9 locked cache lookups per tile) for the same result.
+         */
+        void beginFrame();
+
         void clear();
 
     private:
@@ -55,10 +62,15 @@ namespace carto {
 
         static constexpr std::size_t MAX_CACHED_TEXTURES = 96; // ~24MB of RGBA 256x256 textures
 
+        bool resolveEntry(const vt::TileId& tileId, long long& gridTileId);
+        static void fillTexture(const CacheEntry& entry, float metersToInternal, vt::GLTileRenderer::TerrainTexture& terrainTexture);
+
         const std::shared_ptr<ElevationManager> _elevationManager;
         const std::shared_ptr<GLResourceManager> _glResourceManager;
         std::map<long long, CacheEntry> _cache; // keyed by the grid tile id
+        std::map<long long, long long> _frameResolved; // render tile id -> grid tile id (-1: no data), reset every frame
         std::uint64_t _accessCounter = 0; // monotonic LRU clock
+        std::uint64_t _frameStartCounter = 0; // LRU clock at the start of the current frame
     };
 }
 

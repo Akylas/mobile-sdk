@@ -113,8 +113,17 @@ namespace carto {
 
         {
             std::lock_guard<std::recursive_mutex> lock(_sourceMutex);
+            ExternalSource source { name, type, dataSource, childLayer };
+            if (const ExternalSource* previous = findExternalSource(name)) {
+                // Replacing a source keeps whatever per-source tile properties were set on it.
+                source.zoomLevelBiasSet = previous->zoomLevelBiasSet;
+                source.zoomLevelBias = previous->zoomLevelBias;
+                source.maxOverzoomLevelSet = previous->maxOverzoomLevelSet;
+                source.maxOverzoomLevel = previous->maxOverzoomLevel;
+            }
             removeExternalDataSource(name); // replace if it exists
-            _externalSources.push_back({ name, type, dataSource, childLayer });
+            _externalSources.push_back(source);
+            applyChildTileProperties(_externalSources.back());
             if (_componentsSet) {
                 wireChild(childLayer);
             }
@@ -142,8 +151,16 @@ namespace carto {
 
         {
             std::lock_guard<std::recursive_mutex> lock(_sourceMutex);
+            ExternalSource source { name, CompositeSourceType::COMPOSITE_SOURCE_TYPE_VECTOR, dataSource, childLayer };
+            if (const ExternalSource* previous = findExternalSource(name)) {
+                source.zoomLevelBiasSet = previous->zoomLevelBiasSet;
+                source.zoomLevelBias = previous->zoomLevelBias;
+                source.maxOverzoomLevelSet = previous->maxOverzoomLevelSet;
+                source.maxOverzoomLevel = previous->maxOverzoomLevel;
+            }
             removeExternalDataSource(name);
-            _externalSources.push_back({ name, CompositeSourceType::COMPOSITE_SOURCE_TYPE_VECTOR, dataSource, childLayer });
+            _externalSources.push_back(source);
+            applyChildTileProperties(_externalSources.back());
             if (_componentsSet) {
                 wireChild(childLayer);
             }
@@ -182,6 +199,86 @@ namespace carto {
             names.push_back(s.name);
         }
         return names;
+    }
+
+    void CompositeVectorTileLayer::setZoomLevelBias(float bias) {
+        VectorTileLayer::setZoomLevelBias(bias);
+
+        std::lock_guard<std::recursive_mutex> lock(_sourceMutex);
+        for (const ExternalSource& s : _externalSources) {
+            applyChildTileProperties(s);
+        }
+        for (const DrawItem& item : _drawItems) {
+            if (auto groupLayer = std::dynamic_pointer_cast<TileLayer>(item.groupLayer)) {
+                groupLayer->setZoomLevelBias(bias);
+            }
+        }
+    }
+
+    void CompositeVectorTileLayer::setPreloading(bool preloading) {
+        VectorTileLayer::setPreloading(preloading);
+
+        std::lock_guard<std::recursive_mutex> lock(_sourceMutex);
+        for (const ExternalSource& s : _externalSources) {
+            applyChildTileProperties(s);
+        }
+        for (const DrawItem& item : _drawItems) {
+            if (auto groupLayer = std::dynamic_pointer_cast<TileLayer>(item.groupLayer)) {
+                groupLayer->setPreloading(preloading);
+            }
+        }
+    }
+
+    void CompositeVectorTileLayer::setExternalDataSourceZoomLevelBias(const std::string& name, float bias) {
+        std::lock_guard<std::recursive_mutex> lock(_sourceMutex);
+        ExternalSource& source = getExternalSource(name);
+        source.zoomLevelBiasSet = true;
+        source.zoomLevelBias = bias;
+        applyChildTileProperties(source);
+    }
+
+    float CompositeVectorTileLayer::getExternalDataSourceZoomLevelBias(const std::string& name) const {
+        std::lock_guard<std::recursive_mutex> lock(_sourceMutex);
+        const ExternalSource& source = getExternalSource(name);
+        return source.zoomLevelBiasSet ? source.zoomLevelBias : getZoomLevelBias();
+    }
+
+    void CompositeVectorTileLayer::clearExternalDataSourceZoomLevelBias(const std::string& name) {
+        std::lock_guard<std::recursive_mutex> lock(_sourceMutex);
+        ExternalSource& source = getExternalSource(name);
+        source.zoomLevelBiasSet = false;
+        source.zoomLevelBias = 0.0f;
+        applyChildTileProperties(source);
+    }
+
+    void CompositeVectorTileLayer::setExternalDataSourceMaxOverzoomLevel(const std::string& name, int level) {
+        std::lock_guard<std::recursive_mutex> lock(_sourceMutex);
+        ExternalSource& source = getExternalSource(name);
+        source.maxOverzoomLevelSet = true;
+        source.maxOverzoomLevel = level;
+        applyChildTileProperties(source);
+    }
+
+    int CompositeVectorTileLayer::getExternalDataSourceMaxOverzoomLevel(const std::string& name) const {
+        std::lock_guard<std::recursive_mutex> lock(_sourceMutex);
+        const ExternalSource& source = getExternalSource(name);
+        if (source.maxOverzoomLevelSet) {
+            return source.maxOverzoomLevel;
+        }
+        auto childLayer = std::dynamic_pointer_cast<TileLayer>(source.childLayer);
+        return childLayer ? childLayer->getMaxOverzoomLevel() : getMaxOverzoomLevel();
+    }
+
+    void CompositeVectorTileLayer::applyChildTileProperties(const ExternalSource& source) {
+        auto childLayer = std::dynamic_pointer_cast<TileLayer>(source.childLayer);
+        if (!childLayer) {
+            return;
+        }
+        childLayer->setPreloading(isPreloading());
+        childLayer->setZoomLevelBias(source.zoomLevelBiasSet ? source.zoomLevelBias : getZoomLevelBias());
+        if (source.maxOverzoomLevelSet) {
+            childLayer->setMaxOverzoomLevel(source.maxOverzoomLevel);
+        }
     }
 
     bool CompositeVectorTileLayer::isSinglePassRenderingEnabled() const {
@@ -255,6 +352,9 @@ namespace carto {
         groupLayer->setRendererLayerFilter(filter);
         groupLayer->setLabelRenderOrder(getLabelRenderOrder());
         groupLayer->setBuildingRenderOrder(getBuildingRenderOrder());
+        // The groups render the same source as this layer, so they must select the same tiles.
+        groupLayer->setZoomLevelBias(getZoomLevelBias());
+        groupLayer->setPreloading(isPreloading());
         std::shared_ptr<Layer> child = groupLayer;
         if (_componentsSet) {
             wireChild(child);
@@ -451,6 +551,25 @@ namespace carto {
         return it != _externalSources.end() ? &(*it) : nullptr;
     }
 
+    CompositeVectorTileLayer::ExternalSource* CompositeVectorTileLayer::findExternalSource(const std::string& name) {
+        auto it = std::find_if(_externalSources.begin(), _externalSources.end(), [&](const ExternalSource& s) { return s.name == name; });
+        return it != _externalSources.end() ? &(*it) : nullptr;
+    }
+
+    CompositeVectorTileLayer::ExternalSource& CompositeVectorTileLayer::getExternalSource(const std::string& name) {
+        if (ExternalSource* source = findExternalSource(name)) {
+            return *source;
+        }
+        throw InvalidArgumentException("No external data source named " + name);
+    }
+
+    const CompositeVectorTileLayer::ExternalSource& CompositeVectorTileLayer::getExternalSource(const std::string& name) const {
+        if (const ExternalSource* source = findExternalSource(name)) {
+            return *source;
+        }
+        throw InvalidArgumentException("No external data source named " + name);
+    }
+
     bool CompositeVectorTileLayer::isDrawnSlot(const std::string& name) const {
         // Caller holds _sourceMutex. A source with no draw item is not in the style's 'layers'.
         for (const DrawItem& item : _drawItems) {
@@ -492,6 +611,23 @@ namespace carto {
             applied[key] = value;
             return true;
         };
+
+        // Tile selection, common to every source type. A style value takes precedence over
+        // setExternalDataSourceZoomLevelBias / setExternalDataSourceMaxOverzoomLevel while it is
+        // present, the same way the other per-source config values win over programmatic setters.
+        const mvt::Value* biasValue = getValue("zoom-level-bias");
+        const mvt::Value* overzoomValue = getValue("max-overzoom-level");
+        if (biasValue || overzoomValue) {
+            auto childTileLayer = std::dynamic_pointer_cast<TileLayer>(source.childLayer);
+            if (childTileLayer && biasValue) {
+                float bias = valueToFloat(*biasValue, 0.0f);
+                if (changed("zoom-level-bias", bias)) { childTileLayer->setZoomLevelBias(bias); }
+            }
+            if (childTileLayer && overzoomValue) {
+                int level = static_cast<int>(valueToFloat(*overzoomValue, 0.0f));
+                if (changed("max-overzoom-level", level)) { childTileLayer->setMaxOverzoomLevel(level); }
+            }
+        }
 
         if (source.type == CompositeSourceType::COMPOSITE_SOURCE_TYPE_RASTER) {
             auto raster = std::static_pointer_cast<RasterTileLayer>(source.childLayer);
