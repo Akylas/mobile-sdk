@@ -12,7 +12,9 @@
 #include "core/MapTile.h"
 
 #include <atomic>
+#include <deque>
 #include <future>
+#include <utility>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -117,6 +119,14 @@ namespace carto {
         virtual unsigned int getVersion() const override;
 
         /**
+         * Appends the elevation tiles whose data changed between 'sinceVersion' (exclusive) and
+         * the current version to 'tiles', in XYZ convention. Returns false if the change log no
+         * longer reaches back to 'sinceVersion' (log overflow, or the whole cache was dropped):
+         * the caller must then treat every tile as changed.
+         */
+        bool getChangedTiles(unsigned int sinceVersion, std::vector<MapTile>& tiles) const;
+
+        /**
          * Resolves the effective elevation decoder: the data source "encoding" setting takes precedence,
          * then the preferred decoder, then the MapBox decoder as the default.
          */
@@ -126,6 +136,7 @@ namespace carto {
         struct DataSourceListener;
 
         void tilesChanged();
+        void bumpGlobalVersion();
         double wrapInternalX(double internalX) const;
         MapTile clampTileZoom(const MapTile& mapTile) const;
         std::shared_ptr<ElevationTileGrid> getGridForInternalPos(double internalX, double internalY, LoadMode mode) const;
@@ -140,6 +151,13 @@ namespace carto {
         std::atomic<float> _exaggeration;
         mutable std::atomic<unsigned int> _version;
         mutable std::atomic<float> _maxSeenElevation;
+
+        // Which tiles changed at which version, so that consumers holding per-tile derived
+        // data (tile surfaces) can invalidate only what actually changed instead of
+        // everything on every decoded elevation tile.
+        static constexpr std::size_t MAX_CHANGE_LOG_ENTRIES = 256;
+        mutable std::deque<std::pair<unsigned int, MapTile> > _changeLog;
+        mutable unsigned int _changeLogFirstVersion = 1; // earliest version still covered by the log
 
         mutable cache::timed_lru_cache<long long, std::shared_ptr<ElevationTileGrid> > _gridCache;
         mutable std::map<long long, std::shared_future<std::shared_ptr<ElevationTileGrid> > > _pendingLoads; // single-flight de-duplication of concurrent loads
