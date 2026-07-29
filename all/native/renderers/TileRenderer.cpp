@@ -290,6 +290,15 @@ namespace carto {
         return -4;
     }
 
+    int TileRenderer::blitDrapeTexture(unsigned int srcTexture, float dstOffsetX, float dstOffsetY, float dstScale, float uvOffsetX, float uvOffsetY, float uvScale) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            return tileRenderer->blitDrapeTexture(static_cast<GLuint>(srcTexture), dstOffsetX, dstOffsetY, dstScale, uvOffsetX, uvOffsetY, uvScale);
+        }
+        return -4;
+    }
+
     int TileRenderer::renderDrapedSurfaceFill(const vt::TileId& tileId, const Color& color) {
         std::lock_guard<std::mutex> lock(_mutex);
 

@@ -70,6 +70,7 @@ import com.carto.layers.TileLayer;
 import com.carto.layers.TileSubstitutionPolicy;
 import com.carto.layers.VectorLayer;
 import com.carto.layers.VectorTileLayer;
+import com.carto.layers.VectorTileRenderOrder;
 import com.carto.projections.EPSG4326;
 import com.carto.projections.Projection;
 import com.carto.rastertiles.MapBoxElevationDataDecoder;
@@ -1242,14 +1243,13 @@ public class SecondFragment extends Fragment {
 
         );
         MBVectorTileDecoder decoder = null;
-//        try {
-//            decoder = getStyleDecoder(dataPath);
-//            decoder = getStyleDecoder(dataPath);
-//        } catch (IOException e) {
+        try {
+            decoder = getStyleDecoder(dataPath);
+        } catch (IOException e) {
             decoder = new MBVectorTileDecoder(new CartoCSSStyleSet(css));
-//        }
+        }
         compositeLayer = new CompositeVectorTileLayer(baseSourceCached, decoder);
-
+        compositeLayer.setLabelRenderOrder(VectorTileRenderOrder.VECTOR_TILE_RENDER_ORDER_LAST);
         // Shared terrarium-encoded DEM for both hillshade and contours (fetched once).
         HTTPTileDataSource demSource = new HTTPTileDataSource(1, 12, "https://tiles.mapterhorn.com/{z}/{x}/{y}.webp");
         demSource.setEncoding("terrarium");

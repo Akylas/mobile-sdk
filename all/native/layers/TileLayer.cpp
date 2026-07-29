@@ -264,13 +264,19 @@ namespace carto {
             // wasted work - and the subdivided fill VBOs are uploaded on the render thread, which
             // stalls fast zooms. Draping fills therefore implies source-density (no fill
             // subdivision), exactly like the tangram source-density mode.
-            // ...but draping is decided PER TILE at render time (only native tiles are draped;
-            // overzoomed and proxy tiles fall through to the 3D geometry path), while
-            // source-density is decided GLOBALLY here at decode time. An un-subdivided fill that
-            // then does not get draped is a few large flat triangles chorded across the terrain:
-            // it sags below the depth-writing surface, fails the depth test and leaves the bare
-            // background colour - the documented "landcover holes". Since a tile cannot know at
-            // decode time whether it will be draped, always subdivide.
+            // ...but draping is decided PER TILE at render time, while source-density is decided
+            // GLOBALLY here at decode time. An un-subdivided fill that then does NOT get draped is
+            // a few large flat triangles chorded across the terrain: it sags below the surface,
+            // fails the depth test and leaves the bare background colour - the documented
+            // "landcover holes". Tiles fall through constantly, not just transiently: the drape
+            // cover is capped at the camera zoom and a hillshade contributes its DEM-limited zoom,
+            // so render tiles finer than the cover are normal - and they can not be suppressed
+            // instead (tried: the map becomes a stretched coarse drape). So: always subdivide.
+            // Measured on the emulator, meshResolution 128, drape on, scripted 3-level zoom:
+            // median 58-60 fps and the same worst-case bake spike either way, i.e. the
+            // subdivision is not what costs.
+            // This value MUST match what resetTileTransformer() passes, or a change to it silently
+            // keeps tiles decoded for the other mode.
             bool terrainSourceDensity = false;
             bool terrainSourceDensityLines = terrainOptions && terrainOptions->isDrapeLinesEnabled();
             if (_terrainOptions.lock() != terrainOptions || _terrainEnabled != terrainEnabled || _terrainExaggeration != terrainExaggeration || _terrainMeshResolution != terrainMeshResolution || _terrainMinZoom != terrainMinZoom || _terrainRegularGrid != terrainRegularGrid || _terrainSourceDensity != terrainSourceDensity || _terrainSourceDensityLines != terrainSourceDensityLines) {
@@ -811,8 +817,12 @@ namespace carto {
         _tileRenderer->setTerrainDepthWriteMode(enabled);
     }
 
-    void TileLayer::collectDrapeLayers(std::vector<std::shared_ptr<TileLayer> >& drapeLayers) {
-        if (isVisible()) {
+    void TileLayer::collectDrapeLayers(std::vector<std::shared_ptr<TileLayer> >& drapeLayers, const ViewState& viewState) {
+        // The same gate the draw path uses (loadData, onDrawFrame). Under a cross-layer drape the
+        // bake IS the drawing, so a layer that would not be drawn must not be collected either -
+        // otherwise a layer outside its visible zoom range, or at zero opacity, is baked into the
+        // terrain texture and shows up as ground that no style asked for.
+        if (isVisible() && getVisibleZoomRange().inRange(viewState.getZoom()) && getOpacity() > 0) {
             drapeLayers.push_back(std::static_pointer_cast<TileLayer>(shared_from_this()));
         }
     }
@@ -839,6 +849,10 @@ namespace carto {
 
     int TileLayer::renderDrapedSurface(const vt::TileId& tileId, unsigned int drapeTexture, float uvOffsetX, float uvOffsetY, float uvScale) {
         return _tileRenderer->renderDrapedSurface(tileId, drapeTexture, uvOffsetX, uvOffsetY, uvScale);
+    }
+
+    int TileLayer::blitDrapeTexture(unsigned int srcTexture, float dstOffsetX, float dstOffsetY, float dstScale, float uvOffsetX, float uvOffsetY, float uvScale) {
+        return _tileRenderer->blitDrapeTexture(srcTexture, dstOffsetX, dstOffsetY, dstScale, uvOffsetX, uvOffsetY, uvScale);
     }
 
     int TileLayer::renderDrapedSurfaceFill(const vt::TileId& tileId, const Color& color) {
@@ -877,7 +891,11 @@ namespace carto {
             }
             else if (auto terrainOptions = options->getTerrainOptions()) {
                 if (terrainOptions->isEnabled()) {
-                    tileTransformer = std::make_shared<TerrainTileTransformer>(static_cast<float>(Const::WORLD_SIZE), terrainOptions->getElevationManager(), terrainOptions->getMeshResolution(), terrainOptions->getMinZoom(), terrainOptions->isRegularGridEnabled() || terrainOptions->isPainterOrderDepthEnabled(), terrainOptions->isDrapeFillsEnabled(), terrainOptions->isDrapeLinesEnabled());
+                    // The source-density flags must match the ones calculateDrawData compares
+                    // against: they decide the tesselation the tiles in the cache were built with,
+                    // so a mismatch leaves tiles decoded for the other mode in place forever
+                    // (un-subdivided fills sagging through the terrain once draping is switched off).
+                    tileTransformer = std::make_shared<TerrainTileTransformer>(static_cast<float>(Const::WORLD_SIZE), terrainOptions->getElevationManager(), terrainOptions->getMeshResolution(), terrainOptions->getMinZoom(), terrainOptions->isRegularGridEnabled() || terrainOptions->isPainterOrderDepthEnabled(), false, terrainOptions->isDrapeLinesEnabled());
                 }
             }
         }

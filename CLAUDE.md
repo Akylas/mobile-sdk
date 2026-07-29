@@ -19,6 +19,30 @@ Valhalla routing, custom label rules, PMTiles, ...).
 inside the submodule (branch `develop`), then the submodule pointer updated in the main
 repo. Commit style is conventional-commits (`fix:`, `feat:`, `chore:`).
 
+## Working in this checkout
+
+`scripts/android-dev/app/src/main/java/.../SecondFragment.java` is the live test bench and
+normally carries **uncommitted** edits (start camera, style rules, per-demo knobs). Read it
+before touching it, keep changes additive, never restore it from a backup or an older commit,
+and never commit it — an older copy silently throws away work in progress.
+
+Comparing against older SDK code (A/B-ing a regression) takes three steps, not one:
+
+```sh
+git checkout <sha> -- all/                       # 1. old sources
+(cd libs-carto && git checkout <matching-sha>)   # 2. matching submodule commit
+cd scripts && python3 swigpp-java.py --profile "standard+valhalla+geocoding+routing+packagemanager" \
+  --swig /Volumes/dev/carto/mobile-swig/swig     # 3. regenerate wrappers, else the build fails
+```
+
+The checked-in `generated/` wrappers reference the newer API and will not compile against older
+headers. Restore the same way (`git checkout HEAD -- all/`, submodule back to its branch,
+regenerate). SWIG is never run by gradle — any change to `all/modules/*.i` needs step 3 too.
+
+`gh pr create` needs `--repo Akylas/mobile-sdk` (or `--repo farfromrefug/mobile-carto-libs`).
+Both repos are forks of the archived CartoDB originals, and without `--repo` gh targets the
+upstream and fails with "Repository was archived so is read-only".
+
 ## Building / checking
 
 Full builds take 1+ hour (see `BUILDING.md`; requires SWIG fork + boost symlink).
