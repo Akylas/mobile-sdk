@@ -62,40 +62,14 @@ namespace carto {
         MapTile dataTile = _elevationManager->getDataTile(mapTile);
 
         std::shared_ptr<ElevationTileGrid> grid = _elevationManager->getTileGrid(mapTile, ElevationManager::LoadMode::CACHED_ONLY);
-
-        // Level consistency: report what this tile could resolve on its own, then fall back to
-        // the coarsest level its render-zoom siblings could resolve. Without this, one tile
-        // displaced by a z14 grid next to a tile displaced by its z12 ancestor tears the surface
-        // open along the shared edge - the ancestor is an average of its children, so the two
-        // height fields simply differ. The reported level stays uncapped, so the cap lifts by
-        // itself once the missing elevation tiles arrive.
-        if (grid && _elevationManager->isSeamlessTileEdgesEnabled()) {
-            int ownLevel = grid->getTile().getZoom();
-            auto capIt = _levelCapNext.find(tileId.zoom);
-            if (capIt == _levelCapNext.end()) {
-                _levelCapNext[tileId.zoom] = ownLevel;
-            } else if (ownLevel < capIt->second) {
-                capIt->second = ownLevel;
-            }
-            auto levelIt = _levelCap.find(tileId.zoom);
-            if (levelIt != _levelCap.end() && levelIt->second < ownLevel) {
-                MapTile cappedTile = mapTile;
-                while (cappedTile.getZoom() > levelIt->second) {
-                    cappedTile = cappedTile.getParent();
-                }
-                if (std::shared_ptr<ElevationTileGrid> cappedGrid = _elevationManager->getTileGrid(cappedTile, ElevationManager::LoadMode::CACHED_ONLY)) {
-                    grid = cappedGrid;
-                }
-            }
-        }
-
         if (!grid || !(grid->getTile() == dataTile)) {
-            // Missing or resolved through a coarser ancestor: request the real thing. Without
-            // this, elevation tiles are only loaded as a side effect of map tile fetches - map
-            // tiles served from the cache never trigger one, so neighbouring surface tiles can
-            // stay displaced by different DEM levels, which is a hard step at the tile border.
+            // Missing or resolved through a coarser ancestor: request the real thing, ahead of
+            // any neighbour request. Until it arrives this tile is displaced by an ancestor grid
+            // - which is a 2x2 average of its children, i.e. a different height field than the
+            // neighbouring tiles that already have their own level - and the surface tears along
+            // the shared edge. Loading the right level fast is what closes it.
             // No-op when elevation prefetching is disabled or the tile is already queued.
-            _elevationManager->prefetchTileGrid(dataTile);
+            _elevationManager->prefetchTileGrid(dataTile, 2);
         }
         if (!grid || grid->getWidth() < 1 || grid->getHeight() < 1) {
             return false;
@@ -118,7 +92,11 @@ namespace carto {
             MapTile neighbourTile((gridTile.getX() + dx) & gridMask, ny, gridTile.getZoom(), 0);
             std::shared_ptr<ElevationTileGrid> neighbour = _elevationManager->getTileGrid(neighbourTile, ElevationManager::LoadMode::CACHED_ONLY);
             if (!neighbour || !(neighbour->getTile() == neighbourTile)) {
-                _elevationManager->prefetchTileGrid(neighbourTile); // border texels want the real neighbour tile
+                // Border texels want the real neighbour tile, but after every tile's own level:
+                // a missing neighbour costs one texel of border accuracy, a missing own level
+                // displaces the whole tile. Diagonal neighbours only fill the corner texel where
+                // four tiles meet, so they come last.
+                _elevationManager->prefetchTileGrid(neighbourTile, dx == 0 || dy == 0 ? 1 : 0);
             }
             if (neighbour && !(neighbour->getTile() == neighbourTile) && !seamless) {
                 neighbour.reset(); // strict mode: only exact same-level neighbours
@@ -195,15 +173,11 @@ namespace carto {
 
     void ElevationTextureCache::beginFrame() {
         _frameResolved.clear();
-        _levelCap = _levelCapNext;
-        _levelCapNext.clear();
         _frameStartCounter = _accessCounter;
     }
 
     void ElevationTextureCache::clear() {
         _cache.clear();
         _frameResolved.clear();
-        _levelCap.clear();
-        _levelCapNext.clear();
     }
 }

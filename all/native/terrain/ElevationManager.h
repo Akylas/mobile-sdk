@@ -48,7 +48,13 @@ namespace carto {
             /**
              * The elevation tile may be synchronously loaded from the data source. May block on IO/network.
              */
-            ALLOW_LOAD
+            ALLOW_LOAD,
+            /**
+             * Like ALLOW_LOAD, but a cached ancestor is not accepted as a stand-in: the tile itself
+             * is loaded unless the data source has already answered that this level does not exist.
+             * May block on IO/network.
+             */
+            LOAD_EXACT
         };
 
         ElevationManager(const std::shared_ptr<TileDataSource>& dataSource, const std::shared_ptr<ElevationDecoder>& elevationDecoder);
@@ -110,9 +116,11 @@ namespace carto {
          * Requests an asynchronous load of the given elevation tile. Never blocks and never
          * performs IO on the calling thread. A no-op if the grid is already cached, already
          * queued or currently being loaded, or if neighbour prefetching is disabled.
+         * Priority 2 (the tile's own elevation level) is served before 1 (edge neighbours),
+         * which is served before 0 (diagonal neighbours, which only fill a corner texel).
          * The tile must be in XYZ convention (y=0 north, same as getTileGrid).
          */
-        void prefetchTileGrid(const MapTile& mapTile) const;
+        void prefetchTileGrid(const MapTile& mapTile, int priority) const;
 
         /**
          * Returns the meters-to-internal-display-units scale at the given internal y coordinate
@@ -175,9 +183,10 @@ namespace carto {
         // Background prefetch worker: loads elevation tiles requested by the render thread
         // (visible tiles + their neighbours) without ever blocking it. The thread is started
         // on the first request and joined in the destructor.
-        mutable std::deque<MapTile> _prefetchQueue;
+        mutable std::deque<MapTile> _prefetchQueue;      // low priority (neighbour borders)
+        mutable std::deque<MapTile> _prefetchQueueHigh;  // high priority (the tile's own level)
         mutable std::set<long long> _prefetchTileIds;
-        mutable std::thread _prefetchThread;
+        mutable std::vector<std::thread> _prefetchThreads;
         mutable std::condition_variable _prefetchCondition;
         mutable bool _prefetchStopped;
         mutable std::mutex _prefetchMutex;

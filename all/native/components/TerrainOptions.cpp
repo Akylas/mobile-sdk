@@ -18,7 +18,7 @@ namespace carto {
         _enabled(true),
         _meshResolution(32),
         _regularGridEnabled(false),
-        _tileEdgeStitchingEnabled(false),
+        _tileEdgeStitchingEnabled(true),
         _painterOrderDepthEnabled(true),
         _drapeFillsEnabled(true),
         _drapeLinesEnabled(true),

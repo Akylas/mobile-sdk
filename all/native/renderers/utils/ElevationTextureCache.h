@@ -69,15 +69,6 @@ namespace carto {
         const std::shared_ptr<GLResourceManager> _glResourceManager;
         std::map<long long, CacheEntry> _cache; // keyed by the grid tile id
         std::map<long long, long long> _frameResolved; // render tile id -> grid tile id (-1: no data), reset every frame
-        // Coarsest elevation level actually available among the tiles of one render zoom level.
-        // Neighbouring tiles displaced by DIFFERENT elevation levels disagree along their shared
-        // edge (a parent grid is an average of its children, not the same height field), which
-        // tears the surface open. Tiles of the same render zoom therefore all fall back to the
-        // coarsest level any of them can resolve; the cap lifts again as the missing tiles load.
-        // Collected while resolving a frame, applied to the next one (one frame of lag, no extra
-        // pass). Only the coarsest LEVEL is shared, the tiles keep their own elevation textures.
-        std::map<int, int> _levelCap;      // render zoom -> elevation level cap (from the previous frame)
-        std::map<int, int> _levelCapNext;  // render zoom -> coarsest level seen in this frame
         std::uint64_t _accessCounter = 0; // monotonic LRU clock
         std::uint64_t _frameStartCounter = 0; // LRU clock at the start of the current frame
     };

@@ -21,6 +21,7 @@ namespace carto {
     static const int FAILED_TILE_TTL_MILLISECONDS = 30 * 1000;
     static const int MAX_ANCESTOR_SEARCH_DEPTH = 8;
     static const std::size_t MAX_PREFETCH_QUEUE_SIZE = 64;
+    static const int PREFETCH_THREADS = 3; // elevation tiles are network+decode bound; one worker converges too slowly
     static constexpr double NO_DATA_ELEVATION = -1000000.0;
     static constexpr double DEFAULT_MIN_ELEVATION = -500.0;
     static constexpr double DEFAULT_MAX_ELEVATION = 9000.0;
@@ -61,11 +62,14 @@ namespace carto {
             std::lock_guard<std::mutex> lock(_prefetchMutex);
             _prefetchStopped = true;
             _prefetchQueue.clear();
+            _prefetchQueueHigh.clear();
             _prefetchTileIds.clear();
         }
         _prefetchCondition.notify_all();
-        if (_prefetchThread.joinable()) {
-            _prefetchThread.join();
+        for (std::thread& thread : _prefetchThreads) {
+            if (thread.joinable()) {
+                thread.join();
+            }
         }
         _dataSource->unregisterOnChangeListener(_dataSourceListener);
     }
@@ -182,7 +186,21 @@ namespace carto {
 
         // Look for the tile or any of its cached ancestors
         bool tileFailed = false;
-        {
+        if (mode == LoadMode::LOAD_EXACT) {
+            // The caller wants THIS level, not a stand-in: a cached ancestor must not short
+            // circuit the load, or a tile that once fell back to its parent would stay on it
+            // forever - and neighbouring tiles displaced by different elevation levels tear the
+            // surface open along their shared edge. A grid cached under this tile id that covers
+            // an ancestor is the data source saying the level does not exist here, so it stands.
+            std::lock_guard<std::mutex> lock(_mutex);
+            std::shared_ptr<ElevationTileGrid> grid;
+            if (_gridCache.read(tile.getTileId(), grid)) {
+                if (grid) {
+                    return grid;
+                }
+                tileFailed = true; // recently failed to load, do not retry until the failure marker expires
+            }
+        } else {
             std::lock_guard<std::mutex> lock(_mutex);
             MapTile searchTile = tile;
             for (int depth = 0; depth <= MAX_ANCESTOR_SEARCH_DEPTH; depth++) {
@@ -260,7 +278,7 @@ namespace carto {
         return clampTileZoom(mapTile);
     }
 
-    void ElevationManager::prefetchTileGrid(const MapTile& mapTile) const {
+    void ElevationManager::prefetchTileGrid(const MapTile& mapTile, int priority) const {
         if (!_neighbourPrefetch.load()) {
             return;
         }
@@ -289,13 +307,20 @@ namespace carto {
             if (!_prefetchTileIds.insert(tileId).second) {
                 return; // already queued
             }
-            _prefetchQueue.push_back(tile);
-            while (_prefetchQueue.size() > MAX_PREFETCH_QUEUE_SIZE) {
-                _prefetchTileIds.erase(_prefetchQueue.front().getTileId());
-                _prefetchQueue.pop_front();
+            std::deque<MapTile>& queue = (priority >= 2 ? _prefetchQueueHigh : _prefetchQueue);
+            // The queues are drained newest first, so the lowest priority requests (diagonal
+            // neighbours) go to the far end instead of the near one.
+            if (priority <= 0) {
+                queue.push_front(tile);
+            } else {
+                queue.push_back(tile);
             }
-            if (!_prefetchThread.joinable()) {
-                _prefetchThread = std::thread([this]() { runPrefetchWorker(); });
+            while (queue.size() > MAX_PREFETCH_QUEUE_SIZE) {
+                _prefetchTileIds.erase(queue.front().getTileId());
+                queue.pop_front();
+            }
+            while (static_cast<int>(_prefetchThreads.size()) < PREFETCH_THREADS) {
+                _prefetchThreads.emplace_back([this]() { runPrefetchWorker(); });
             }
         }
         _prefetchCondition.notify_one();
@@ -306,18 +331,20 @@ namespace carto {
             MapTile tile(0, 0, 0, 0);
             {
                 std::unique_lock<std::mutex> lock(_prefetchMutex);
-                _prefetchCondition.wait(lock, [this]() { return _prefetchStopped || !_prefetchQueue.empty(); });
+                _prefetchCondition.wait(lock, [this]() { return _prefetchStopped || !_prefetchQueue.empty() || !_prefetchQueueHigh.empty(); });
                 if (_prefetchStopped) {
                     return;
                 }
-                // Newest request first: it belongs to the current viewport, while the oldest
+                // High priority (a tile's own elevation level) before border neighbours, and
+                // newest request first: it belongs to the current viewport, while the oldest
                 // entries may already have scrolled out of view.
-                tile = _prefetchQueue.back();
-                _prefetchQueue.pop_back();
+                std::deque<MapTile>& queue = (_prefetchQueueHigh.empty() ? _prefetchQueue : _prefetchQueueHigh);
+                tile = queue.back();
+                queue.pop_back();
                 _prefetchTileIds.erase(tile.getTileId());
             }
             try {
-                getTileGrid(tile, LoadMode::ALLOW_LOAD);
+                getTileGrid(tile, LoadMode::LOAD_EXACT);
             }
             catch (const std::exception& ex) {
                 Log::Warnf("ElevationManager::runPrefetchWorker: Failed to prefetch elevation tile: %s", ex.what());

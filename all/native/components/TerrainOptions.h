@@ -160,7 +160,7 @@ namespace carto {
 
         /**
          * Returns whether cross-LOD tile edge stitching is enabled.
-         * @return True if grid surface edges follow a coarser neighbour's lattice. The default is false.
+         * @return True if grid surface edges follow a coarser neighbour's lattice. The default is true.
          */
         bool isTileEdgeStitchingEnabled() const;
         /**
