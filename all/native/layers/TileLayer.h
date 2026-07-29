@@ -482,6 +482,7 @@ namespace carto {
         bool _terrainRegularGrid = false;
         bool _terrainSourceDensity = false;
         bool _terrainSourceDensityLines = false;
+        float _terrainMaxVisibleDistanceOption = 0.0f; // last TerrainOptions view distance a cull ran with
     };
     
 }

@@ -320,6 +320,22 @@ namespace carto {
             return;
         }
 
+        // The view distance decides which tiles are visible, but it is not part of the view
+        // matrix: changing it on a still map would otherwise only take effect the next time the
+        // camera moves (the option looks dead, then the ground suddenly ends mid-pan).
+        {
+            float maxVisibleDistanceOption = 0.0f;
+            if (auto options = getOptions()) {
+                if (auto terrainOptions = options->getTerrainOptions()) {
+                    maxVisibleDistanceOption = terrainOptions->getMaxVisibleDistance();
+                }
+            }
+            if (_terrainMaxVisibleDistanceOption != maxVisibleDistanceOption) {
+                _terrainMaxVisibleDistanceOption = maxVisibleDistanceOption;
+                _tileCullState.reset(); // re-cull with the new distance, tiles themselves stay valid
+            }
+        }
+
         // Check if tiles need to be recalculated
         bool recalculateTiles = (!_tileCullState || _frameNr != _lastFrameNr || cullState->getViewState().getModelviewProjectionMat() != _tileCullState->getViewState().getModelviewProjectionMat());
         if (recalculateTiles) {

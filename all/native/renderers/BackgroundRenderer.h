@@ -33,6 +33,7 @@ namespace carto {
         void onSurfaceDestroyed();
     
     protected:
+        void setupFogUniforms(bool enabled);
         void drawBackground(const ViewState& viewState);
         void drawSky(const ViewState& viewState);
         void drawContour(const ViewState& viewState);
@@ -81,6 +82,8 @@ namespace carto {
         GLuint _u_tex;
         GLuint _u_lightDir;
         GLuint _u_mvpMat;
+        GLuint _u_fogColor;
+        GLuint _u_fogParams;
 
         std::shared_ptr<GLResourceManager> _glResourceManager;
     
