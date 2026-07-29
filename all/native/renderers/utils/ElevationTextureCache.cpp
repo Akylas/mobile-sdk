@@ -63,7 +63,7 @@ namespace carto {
         // displaced surface and every CPU-side elevation query use the same height field.
         MapTile dataTile = _elevationManager->getDataTile(mapTile);
 
-        std::shared_ptr<ElevationTileGrid> grid = _elevationManager->getTileGrid(dataTile, ElevationManager::LoadMode::CACHED_ONLY);
+        std::shared_ptr<ElevationTileGrid> grid = _elevationManager->getDataTileGrid(dataTile, ElevationManager::LoadMode::CACHED_ONLY);
         if (!grid || !(grid->getTile() == dataTile)) {
             // Missing or resolved through a coarser ancestor: request the real thing, ahead of
             // any neighbour request. Until it arrives this tile is displaced by an ancestor grid
@@ -92,7 +92,7 @@ namespace carto {
                 return std::shared_ptr<ElevationTileGrid>();
             }
             MapTile neighbourTile((gridTile.getX() + dx) & gridMask, ny, gridTile.getZoom(), 0);
-            std::shared_ptr<ElevationTileGrid> neighbour = _elevationManager->getTileGrid(neighbourTile, ElevationManager::LoadMode::CACHED_ONLY);
+            std::shared_ptr<ElevationTileGrid> neighbour = _elevationManager->getDataTileGrid(neighbourTile, ElevationManager::LoadMode::CACHED_ONLY);
             if (!neighbour || !(neighbour->getTile() == neighbourTile)) {
                 // Border texels want the real neighbour tile, but after every tile's own level:
                 // a missing neighbour costs one texel of border accuracy, a missing own level

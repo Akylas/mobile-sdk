@@ -188,7 +188,14 @@ namespace carto {
     }
 
     std::shared_ptr<ElevationTileGrid> ElevationManager::getTileGrid(const MapTile& mapTile, LoadMode mode) const {
-        MapTile tile = clampTileZoom(mapTile);
+        return lookupTileGrid(clampTileZoom(mapTile), mode);
+    }
+
+    std::shared_ptr<ElevationTileGrid> ElevationManager::getDataTileGrid(const MapTile& dataTile, LoadMode mode) const {
+        return lookupTileGrid(clampDataTileZoom(dataTile), mode);
+    }
+
+    std::shared_ptr<ElevationTileGrid> ElevationManager::lookupTileGrid(const MapTile& tile, LoadMode mode) const {
         if (tile.getZoom() < _dataSource->getMinZoom()) {
             return std::shared_ptr<ElevationTileGrid>();
         }
@@ -295,11 +302,11 @@ namespace carto {
         return clampTileZoom(mapTile);
     }
 
-    void ElevationManager::prefetchTileGrid(const MapTile& mapTile, int priority) const {
+    void ElevationManager::prefetchTileGrid(const MapTile& dataTile, int priority) const {
         if (!_neighbourPrefetch.load()) {
             return;
         }
-        MapTile tile = clampTileZoom(mapTile);
+        MapTile tile = clampDataTileZoom(dataTile);
         if (tile.getZoom() < _dataSource->getMinZoom()) {
             return;
         }
@@ -361,7 +368,7 @@ namespace carto {
                 _prefetchTileIds.erase(tile.getTileId());
             }
             try {
-                getTileGrid(tile, LoadMode::LOAD_EXACT);
+                getDataTileGrid(tile, LoadMode::LOAD_EXACT); // queued tiles are elevation tiles already
             }
             catch (const std::exception& ex) {
                 Log::Warnf("ElevationManager::runPrefetchWorker: Failed to prefetch elevation tile: %s", ex.what());
@@ -569,10 +576,20 @@ namespace carto {
         // while the surface has _surfaceResolution cells, so taking the tile zoom literally would
         // give every tile its own elevation tile - and its own decoded grid and GL texture - for
         // detail that cannot be rendered. One texel per half surface cell is the useful limit.
+        // NOTE: this maps a RENDER tile to its elevation tile and is deliberately NOT idempotent -
+        // it drops a fixed number of levels on every call. Applying it to an elevation tile again
+        // (getTileGrid on a getDataTile result, or on a neighbour of one) costs another level each
+        // hop, which is why the elevation-tile entry points use clampDataTileZoom instead.
         int surfaceResolution = _surfaceResolution.load();
         for (int size = _gridSizeHint.load(); size > 2 * surfaceResolution && tile.getZoom() > 0; size /= 2) {
             tile = tile.getParent();
         }
+        return clampDataTileZoom(tile);
+    }
+
+    MapTile ElevationManager::clampDataTileZoom(const MapTile& dataTile) const {
+        // Only the data source zoom range: idempotent, safe to apply to an elevation tile.
+        MapTile tile = dataTile;
         int maxZoom = _dataSource->getMaxZoom();
         while (tile.getZoom() > maxZoom) {
             tile = tile.getParent();
