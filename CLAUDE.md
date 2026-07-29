@@ -43,6 +43,76 @@ regenerate). SWIG is never run by gradle — any change to `all/modules/*.i` nee
 Both repos are forks of the archived CartoDB originals, and without `--repo` gh targets the
 upstream and fails with "Repository was archived so is read-only".
 
+## The Android demo app (the main dev loop)
+
+`scripts/android-dev` builds the native SDK *and* the demo in one gradle run. This is the
+fast loop — not the full `build-android.py`:
+
+```sh
+cd scripts/android-dev && ./gradlew :app:assembleDebug -x lint   # ~40 s incremental (native included)
+adb install -r -t app/build/outputs/apk/debug/app-debug.apk      # -t: the APK is test-only
+adb shell am force-stop com.akylas.cartotest
+adb shell am start -n com.akylas.cartotest/.MainActivity --es ui false --es drape false
+```
+
+- Install from `app/build/outputs/apk/debug/`. `app/build/intermediates/apk/debug/` also holds
+  an `app-debug.apk` and it is **stale** — installing it silently runs old code. Verify with
+  `unzip -p <apk> classes*.dex | strings | grep <new symbol>` (the demo's Java lands in classes5.dex).
+- Tiles need **60-90 s** to settle before a screenshot means anything (network + persistent
+  cache + label placement). `pm clear com.akylas.cartotest` resets camera/caches; without it the
+  persistent tile caches stay warm, which is usually what you want.
+- `--es demo terrain|nuti|composite` picks the configuration (default `composite`).
+  Every knob in `applyTerrainConfig`/`applyCameraConfig`/`applySkyAndLightConfig` is an intent
+  extra, so most experiments need no rebuild: `lon lat zoom tilt rotation`, `drape drapeLines
+  drapeResolution meshResolution exaggeration`, `fog fogStart fogDistance maxDistance`,
+  `hs sat satZoom contour bld3d stitch`, `daycycle sunHour sunAzimuth sunAltitude shadow`,
+  `ui false` (hide the panel), `anim zoom|zoomseq`.
+- Runtime UI: the gear at the bottom-left opens a settings panel (checkboxes + sliders for
+  drape, mesh resolution, sun, shadows, fog, max visible distance). Driving it from adb works:
+  `adb shell input tap 84 2236` toggles the panel, `input swipe` scrolls it and drags sliders.
+- **Camera clamp gotcha**: the terrain keeps a `cameraClearance` above the ground, so a start
+  position inside a slope (e.g. lat 45.2442 / lon 5.7606 at z14.68) auto-zooms out to ~z11.6 and
+  you get an empty grid screen. Zoom out a notch (z13.6) instead of assuming the render broke.
+
+## Debugging the renderer (what actually works)
+
+- **A/B by feature, per screen row band, before probing the plumbing.** Screenshot with a layer
+  on and off (`--es hs false`, `--es sat false`, `--es drape false`), diff the two, and count
+  differing pixels per horizontal band (PIL, no numpy on this machine). If a band is 0.0%
+  different, that content is *not being drawn there*; if it differs, it is drawn and the problem
+  is elsewhere. This is what separated "tile never loaded" from "tile drawn but depth-rejected".
+- Probes go in these places, in this order — layer culling → draw data → vt render tiles → draw:
+  `TileLayer::buildFetchTiles` (visible set + cache misses, `typeid(*this).name()` tells you
+  which layer), `TileRenderer::refreshTiles` (per-zoom tiles/bitmaps/geometries, log `this` to
+  separate the composite's children), `RasterTileLayer::FetchTask::loadTile` (why a tile is not
+  stored), `ElevationTextureCache::getTexture` (render zoom → DEM grid zoom), and
+  `GLTileRenderer::renderGeometry2D` for what is actually visible/blended per target zoom.
+- **vt has no logger** — use `__android_log_print(4, "carto-mobile-sdk", ...)` there. When
+  throttling a probe with a frame counter shared by several renderer instances, use a **prime**
+  modulus: `% 120` with 4 instances always logs the same one.
+- `Shader::getUniformLoc` returns **0** for a uniform the compiler dropped, and 0 is a valid
+  location — writing to it clobbers whatever lives at 0. `SkyRenderer` uses `glGetUniformLocation`
+  and `>= 0` guards for this reason; copy that pattern.
+- `setDebugWireframe` / `setDebugSurfacePrefill` in `TileRenderer.cpp` are hardwired false and
+  mostly wash the frame out; the A/B diff above is more informative.
+
+## Terrain, fog and sky wiring
+
+- One resolution point for both: `all/native/components/StyleEnvironment.h` — `resolveLighting()`
+  and `resolveFog()` merge the app's `LightOptions`/`TerrainOptions` with the style's Map-block
+  values, and `resolveFog` also *lights* the fog (dark at night, warm at a low sun). Every
+  consumer (`TileRenderer` → vt, `BackgroundRenderer`, `SkyRenderer`) must go through them, or
+  the ground and the sky end up with different fog.
+- `SkyRenderer` draws a full-screen ray-direction quad. Apps can replace the body with
+  `SkyOptions.setShaderSource` — the wrapper declares `u_sunDir/u_sunColor/u_skyColor/
+  u_horizonColor/u_groundColor/u_fogColor/u_fogBlend/u_time/u_zoom/...` and a `fogAmount(rayDir)`
+  helper; redeclaring any of them is a compile error and the renderer silently falls back to the
+  built-in sky (watch for that when a custom sky "does nothing").
+- `BackgroundRenderer` draws the flat z=0 plane that fills the view past the terrain (and past
+  `TerrainOptions.MaxVisibleDistance`). It uses `Options.getBackgroundBitmap()` — **not** the
+  CartoCSS `Map { background-color }`, which is why changing the style background does not tint it.
+- `TerrainOptions.MaxVisibleDistance` ends the ground; pair it with fog or it ends on a hard edge.
+
 ## Building / checking
 
 Full builds take 1+ hour (see `BUILDING.md`; requires SWIG fork + boost symlink).
