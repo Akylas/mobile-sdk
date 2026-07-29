@@ -105,6 +105,71 @@ namespace carto {
             double py = _internalBounds.getMin().getY() + (gy + 0.5) * texelY;
             return EncodeHeight(grid->sampleHeight(px, py));
         };
+        // EDGE BOX FILTER. A coarser neighbour's height field is the 2^k x 2^k average of this
+        // level's (mapterhorn and every other overview pyramid downsamples that way), so along a
+        // shared edge it only ever interpolates those averages while this tile interpolates its
+        // own full-detail texels. Border backfill alone does not close that: this side meets the
+        // border at (own texel + neighbour average) / 2 while the neighbour meets it at
+        // (neighbour average + own average) / 2, and the difference - half the local high-frequency
+        // detail - is the dotted speckle line along LOD-ring borders.
+        // Averaging THIS tile's outermost texel row/column over the neighbour's texel footprint
+        // removes that term: both sides then meet the border on the same average. What is left is
+        // an eighth of the difference between the neighbour's texel and this tile's average over
+        // it - the border texel is itself an interpolation of the coarse field, not one of its
+        // texels - so the seam is reduced rather than eliminated. Only the outermost row/column is
+        // touched, and only towards a coarser neighbour: everything else keeps full DEM detail.
+        // Groups are found geographically rather than assumed to be a power of two, so an unaligned
+        // or non-quadtree neighbour degrades to a no-op instead of a shift.
+        // In the steady state this rarely fires: the elevation level cap usually gives two render
+        // tiles of different zoom the SAME DEM level (see ElevationManager::clampTileZoom), and the
+        // lattice mismatch that remains at a LOD ring is what TileEdgeStitchingEnabled handles.
+        // It does fire while tiles stream in, when a tile is still standing on an ancestor grid.
+        // alongY: the edge runs north-south (west/east edge), so texel ROWS are grouped and
+        // fixedIndex is the column; otherwise columns are grouped and fixedIndex is the row.
+        auto edgeFilter = [&, this](const std::shared_ptr<ElevationTileGrid>& neighbour, bool alongY, int fixedIndex) -> std::vector<std::uint16_t> {
+            std::vector<std::uint16_t> result;
+            if (!neighbour || sameLevel(neighbour) || neighbour->_width < 1 || neighbour->_height < 1) {
+                return result;
+            }
+            double ourTexel = alongY ? texelY : texelX;
+            double neighbourTexel = alongY
+                ? (neighbour->_internalBounds.getMax().getY() - neighbour->_internalBounds.getMin().getY()) / neighbour->_height
+                : (neighbour->_internalBounds.getMax().getX() - neighbour->_internalBounds.getMin().getX()) / neighbour->_width;
+            if (!(neighbourTexel > ourTexel * 1.5)) {
+                return result; // same resolution or finer: this tile is already the smooth side
+            }
+            double neighbourOrigin = alongY ? neighbour->_internalBounds.getMin().getY() : neighbour->_internalBounds.getMin().getX();
+            double ourOrigin = alongY ? _internalBounds.getMin().getY() : _internalBounds.getMin().getX();
+            auto groupOf = [&](int i) {
+                return static_cast<long long>(std::floor((ourOrigin + (i + 0.5) * ourTexel - neighbourOrigin) / neighbourTexel));
+            };
+            int count = alongY ? _height : _width;
+            result.resize(count);
+            for (int i = 0; i < count; ) {
+                long long group = groupOf(i);
+                int last = i;
+                double sum = 0;
+                while (last < count && groupOf(last) == group) {
+                    // The stored value is a linear encoding of the height, so averaging encoded
+                    // values is averaging heights (up to half a quantum).
+                    sum += alongY
+                        ? _heights[static_cast<std::size_t>(last) * _width + fixedIndex]
+                        : _heights[static_cast<std::size_t>(fixedIndex) * _width + last];
+                    last++;
+                }
+                std::uint16_t average = static_cast<std::uint16_t>(sum / (last - i) + 0.5);
+                for (int j = i; j < last; j++) {
+                    result[j] = average;
+                }
+                i = last;
+            }
+            return result;
+        };
+        std::vector<std::uint16_t> westEdge = edgeFilter(neighbours[0], true, 0);
+        std::vector<std::uint16_t> eastEdge = edgeFilter(neighbours[1], true, _width - 1);
+        std::vector<std::uint16_t> southEdge = edgeFilter(neighbours[2], false, 0);
+        std::vector<std::uint16_t> northEdge = edgeFilter(neighbours[3], false, _height - 1);
+
         // texel value at padded coordinates (gx, gy in [-1, width/height]); border texels
         // come from the neighbour that actually covers them, falling back to edge clamping
         auto rawValue = [&, this](int gx, int gy) -> std::uint16_t {
@@ -133,6 +198,30 @@ namespace carto {
             // no neighbour data: duplicate our own edge texel
             int cx = std::min(std::max(gx, 0), _width - 1);
             int cy = std::min(std::max(gy, 0), _height - 1);
+            // Own texel, but on an edge shared with a coarser neighbour: the box-filtered value.
+            // A corner texel lies on two such edges and takes the mean of both, which is what the
+            // two neighbours (and the diagonal one between them) average to as well.
+            double filtered = 0;
+            int filterCount = 0;
+            if (!westEdge.empty() && cx == 0) {
+                filtered += westEdge[cy];
+                filterCount++;
+            }
+            if (!eastEdge.empty() && cx == _width - 1) {
+                filtered += eastEdge[cy];
+                filterCount++;
+            }
+            if (!southEdge.empty() && cy == 0) {
+                filtered += southEdge[cx];
+                filterCount++;
+            }
+            if (!northEdge.empty() && cy == _height - 1) {
+                filtered += northEdge[cx];
+                filterCount++;
+            }
+            if (filterCount > 0) {
+                return static_cast<std::uint16_t>(filtered / filterCount + 0.5);
+            }
             return _heights[static_cast<std::size_t>(cy) * _width + cx];
         };
 
