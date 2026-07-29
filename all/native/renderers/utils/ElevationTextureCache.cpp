@@ -62,6 +62,33 @@ namespace carto {
         MapTile dataTile = _elevationManager->getDataTile(mapTile);
 
         std::shared_ptr<ElevationTileGrid> grid = _elevationManager->getTileGrid(mapTile, ElevationManager::LoadMode::CACHED_ONLY);
+
+        // Level consistency: report what this tile could resolve on its own, then fall back to
+        // the coarsest level its render-zoom siblings could resolve. Without this, one tile
+        // displaced by a z14 grid next to a tile displaced by its z12 ancestor tears the surface
+        // open along the shared edge - the ancestor is an average of its children, so the two
+        // height fields simply differ. The reported level stays uncapped, so the cap lifts by
+        // itself once the missing elevation tiles arrive.
+        if (grid && _elevationManager->isSeamlessTileEdgesEnabled()) {
+            int ownLevel = grid->getTile().getZoom();
+            auto capIt = _levelCapNext.find(tileId.zoom);
+            if (capIt == _levelCapNext.end()) {
+                _levelCapNext[tileId.zoom] = ownLevel;
+            } else if (ownLevel < capIt->second) {
+                capIt->second = ownLevel;
+            }
+            auto levelIt = _levelCap.find(tileId.zoom);
+            if (levelIt != _levelCap.end() && levelIt->second < ownLevel) {
+                MapTile cappedTile = mapTile;
+                while (cappedTile.getZoom() > levelIt->second) {
+                    cappedTile = cappedTile.getParent();
+                }
+                if (std::shared_ptr<ElevationTileGrid> cappedGrid = _elevationManager->getTileGrid(cappedTile, ElevationManager::LoadMode::CACHED_ONLY)) {
+                    grid = cappedGrid;
+                }
+            }
+        }
+
         if (!grid || !(grid->getTile() == dataTile)) {
             // Missing or resolved through a coarser ancestor: request the real thing. Without
             // this, elevation tiles are only loaded as a side effect of map tile fetches - map
@@ -168,11 +195,15 @@ namespace carto {
 
     void ElevationTextureCache::beginFrame() {
         _frameResolved.clear();
+        _levelCap = _levelCapNext;
+        _levelCapNext.clear();
         _frameStartCounter = _accessCounter;
     }
 
     void ElevationTextureCache::clear() {
         _cache.clear();
         _frameResolved.clear();
+        _levelCap.clear();
+        _levelCapNext.clear();
     }
 }

@@ -19,7 +19,7 @@ namespace carto {
         _meshResolution(32),
         _regularGridEnabled(false),
         _tileEdgeStitchingEnabled(false),
-        _painterOrderDepthEnabled(false),
+        _painterOrderDepthEnabled(true),
         _drapeFillsEnabled(true),
         _drapeLinesEnabled(true),
         _drapeResolution(512),

@@ -177,7 +177,7 @@ namespace carto {
 
         /**
          * Returns whether the painter-order terrain depth model is used.
-         * @return True if painter-order depth is used, false for the surface-occluder model. The default is false.
+         * @return True if painter-order depth is used, false for the surface-occluder model. The default is true.
          */
         bool isPainterOrderDepthEnabled() const;
         /**
@@ -186,7 +186,6 @@ namespace carto {
          * per-layer clip-space delta instead of being depth-tested against a surface pre-pass occluder,
          * which removes the distance-growing depth slack (no see-through band). Implies (and forces)
          * RegularGridEnabled. Only takes effect in GPU draping mode (vertex texture fetch, planar).
-         * Experimental.
          * @param painterOrderDepthEnabled True to use painter-order depth, false for the occluder model.
          */
         void setPainterOrderDepthEnabled(bool painterOrderDepthEnabled);
