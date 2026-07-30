@@ -194,6 +194,8 @@ namespace carto {
         virtual std::shared_ptr<VectorTileDecoder::TileMap> getTileMap(long long tileId) const;
         virtual std::shared_ptr<vt::Tile> getPoleTile(int y) const;
 
+        virtual void collectLabelLayers(std::vector<std::shared_ptr<VectorTileLayer> >& labelLayers);
+
         virtual void calculateDrawData(const MapTile& visTile, const MapTile& closestTile, bool preloadingTile);
         virtual void refreshDrawData(const std::shared_ptr<CullState>& cullState, bool tilesChanged);
     

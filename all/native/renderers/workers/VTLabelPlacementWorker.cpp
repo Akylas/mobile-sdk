@@ -101,29 +101,26 @@ namespace carto {
         ViewState viewState = mapRenderer->getViewState();
         std::vector<std::shared_ptr<Layer>> layers = mapRenderer->getLayers()->getAll();
 
+        // A composite layer draws its style-layer groups and its vector slots through internal
+        // child layers that are not in the layer list - they append themselves here, in draw order.
+        std::vector<std::shared_ptr<VectorTileLayer> > labelLayers;
+        for (const std::shared_ptr<Layer>& layer : layers) {
+            layer->collectLabelLayers(labelLayers);
+        }
+
         vt::LabelCuller culler(Const::WORLD_SIZE);
 
         bool reversedOrder = mapRenderer->getOptions()->isLayersLabelsProcessedInReverseOrder();
         bool changed = false;
         if (reversedOrder) {
-            for (auto it = layers.rbegin(); it != layers.rend(); it++) {
-                auto vectorTileLayer = std::dynamic_pointer_cast<VectorTileLayer>(*it);
-                if (!vectorTileLayer) {
-                    continue;
-                }
-
-                if (vectorTileLayer->_tileRenderer->cullLabels(culler, viewState)) {
+            for (auto it = labelLayers.rbegin(); it != labelLayers.rend(); it++) {
+                if ((*it)->_tileRenderer->cullLabels(culler, viewState)) {
                     changed = true;
                 }
             }
         } else {
-            for (auto it = layers.begin(); it != layers.end(); it++) {
-                auto vectorTileLayer = std::dynamic_pointer_cast<VectorTileLayer>(*it);
-                if (!vectorTileLayer) {
-                    continue;
-                }
-
-                if (vectorTileLayer->_tileRenderer->cullLabels(culler, viewState)) {
+            for (auto it = labelLayers.begin(); it != labelLayers.end(); it++) {
+                if ((*it)->_tileRenderer->cullLabels(culler, viewState)) {
                     changed = true;
                 }
             }
