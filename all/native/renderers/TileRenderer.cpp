@@ -530,8 +530,13 @@ namespace carto {
         tileRenderer->setTerrainPainterOrder(painterOrder);
         tileRenderer->setTerrainEdgeStitching(regularGrid && activeTerrainOptions && activeTerrainOptions->isTileEdgeStitchingEnabled());
         // Draped content is baked FLAT (orthographic, no displacement), so lines need no terrain
-        // subdivision either - draping them is strictly cheaper as well as artifact-free.
-        tileRenderer->setTerrainDrapeFills(drapeFills, drapeFills);
+        // subdivision either - draping them is strictly cheaper as well as artifact-free. It is
+        // also the drape texture's resolution though: a line baked into it is magnified with the
+        // texture, which turns dense thin lines (contours on a steep slope) into a blurred wash.
+        // DrapeLines is what trades the one for the other, and TileLayer already decodes lines at
+        // source density / subdivided to match it.
+        bool drapeLines = drapeFills && activeTerrainOptions && activeTerrainOptions->isDrapeLinesEnabled();
+        tileRenderer->setTerrainDrapeFills(drapeFills, drapeLines);
         tileRenderer->setTerrainDrapeResolution(activeTerrainOptions ? activeTerrainOptions->getDrapeResolution() : 512);
         // Sun lighting of the draped surface. Once every 2D layer is baked into the drape
         // texture the surface is the only lit ground geometry in the scene, so the whole map
