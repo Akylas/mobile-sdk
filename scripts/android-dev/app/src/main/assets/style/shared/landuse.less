@@ -1,0 +1,300 @@
+Map {
+  background-color: @background;
+  south-pole-color: @background;
+  north-pole-color: @water;
+}
+
+#landcover['mapnik::geometry_type'=3] {
+  [class=tidalflat] {
+    polygon-fill: @mud;
+  }
+
+  [class=ice] {
+      polygon-fill: @ice;
+      [subclass=iceshelf] {
+        polygon-fill: @iceshelf;
+      }
+  }
+
+  [class=farmland]{
+      polygon-fill: @farmland;
+      [subclass=vineyard][zoom>=$vineyard_pattern_zoom] {
+        polygon-pattern-fill: $vineyard_pattern_fill;
+        polygon-pattern-opacity: $vineyard_pattern_opacity;
+        polygon-pattern-file: $vineyard_pattern;
+      }
+      [subclass=orchard][zoom>=$orchard_pattern_zoom] {
+        polygon-pattern-fill: $orchard_pattern_fill;
+        polygon-pattern-opacity: $orchard_pattern_opacity;
+        polygon-pattern-file: $orchard_pattern;
+      }
+  }
+  
+  [class=rock]{
+    polygon-fill: @rock;
+    [subclass=bare_rock]  {
+      [zoom>='nuti::rock_pattern_zoom'] {
+        polygon-pattern-fill: $rock_pattern_fill;
+        polygon-pattern-opacity: $rock_pattern_opacity;
+        polygon-pattern-file: $rock_pattern;
+      }
+    }
+    [subclass=scree]{
+      polygon-fill: @scree;
+      [zoom>='nuti::scree_pattern_zoom'] {
+        polygon-pattern-fill: $scree_pattern_fill;
+        polygon-pattern-opacity: $scree_pattern_opacity;
+        polygon-pattern-file: $scree_pattern;
+      }
+    }
+  }
+  [class=grass]{
+    polygon-fill: @grass; 
+    [subclass=golf_course],
+    [subclass=miniature_golf]{
+      polygon-fill: @golf_course;
+    }
+    // [subclass=grassland],
+    // [subclass=meadow],
+    // [subclass=grass],
+    // [subclass=null],
+    // [subclass=village_green],
+    // [subclass=garden]{
+    // }
+    [subclass=park] {
+      park/polygon-fill: @park;
+    }
+    [subclass=heath] {
+      polygon-fill: @heath;
+    }
+    [subclass=fell] {
+      polygon-fill: @fell;
+    }
+    [subclass=scrub] {
+      polygon-fill:@scrub;
+      [zoom>='nuti::scrub_pattern_zoom'] {
+        polygon-pattern-fill: $scrub_pattern_fill;
+        polygon-pattern-file: $scrub_pattern;
+        polygon-pattern-opacity: $scrub_pattern_opacity;
+        // polygon-pattern-opacity:linear([view::zoom], (14, 1), (17,0.5));
+      }
+    }
+    [subclass=allotments]{
+      polygon-fill:@allotments;
+      [zoom>=$allotments_pattern_zoom] {
+        polygon-pattern-fill: @allotments_pattern_fill;
+        polygon-pattern-file: $allotments_pattern;
+        polygon-pattern-opacity:@allotments_pattern_opacity;
+      }
+    }
+  }
+
+  ::sand [class=sand]{
+    polygon-fill: @sand;
+  }
+  ::wood [class=wood]{
+    polygon-fill: @forest;
+    [zoom>='nuti::forest_pattern_zoom'] {
+      polygon-pattern-fill: @forest_pattern_fill;
+      polygon-pattern-file: $forest_pattern;
+      polygon-pattern-opacity:@forest_pattern_opacity;
+    //  polygon-pattern-opacity:[view::rotation]/360;
+    }
+  }
+
+  [class=wetland] {
+    [subclass=swamp] {
+      polygon-fill: @forest;
+    }
+    [subclass=bog] {
+      polygon-fill: @heath;
+    }
+  
+    [subclass=wet_meadow],
+    [subclass=wetland],
+    [subclass=saltmarsh],
+    [subclass=marsh] {
+        polygon-fill: @grass;
+    }
+    [zoom>='nuti::wetland_pattern_zoom'] {
+      polygon-pattern-fill: $wetland_pattern_fill;
+      polygon-pattern-opacity: $wetland_pattern_opacity;
+      polygon-pattern-file: $wetland_pattern;
+    }
+  }
+}
+
+#landuse_under['mapnik::geometry_type'=3][zoom>=4],
+#landuse['mapnik::geometry_type'=3][zoom>=4] {
+  [class=residential],
+  [class=quarter],
+  [class=neighbourhood]{
+       polygon-fill: @residential; 
+  }
+  ::top_of_residential {
+    [class=recreation_ground][zoom>=14],
+    [class=playground][zoom>=15]{
+      polygon-fill: @leisure;
+    }
+
+    [class=park] {
+      polygon-fill: @park;
+    }
+
+    [class=cemetery][zoom>=10]{
+        polygon-fill: @cemetery;
+        [zoom >= $cemetery_pattern_zoom] {
+          polygon-pattern-fill:$cemetery_pattern_fill;
+          polygon-pattern-file:$cemetery_pattern ;
+          polygon-pattern-opacity:$cemetery_pattern_opacity;
+        }
+    }
+
+    [class=industrial] {
+      polygon-fill: @industrial;
+    }
+    [class=dam][zoom>=13]{
+      polygon-fill: @dam_fill;
+      line-color: @dam_casing;
+      line-width: 1;
+    }
+    [class=quarry][zoom>=10] {
+      polygon-fill: @quarry;
+      [zoom>=13] {
+        line-width: 0.5;
+        line-color: darken(@quarry, 30%);
+      }
+    }
+
+    // [class=commercial]{
+    //   polygon-fill: @commercial; 
+    //   [zoom>=16] {
+    //     line-width: 0.5;
+    //     line-color: darken(@commercial, 20%);
+    //   }
+    // }
+    [class=university] {
+      polygon-fill:  @university;
+    }
+    [class=hospital] {
+      polygon-fill:  @hospital;
+    }
+    [class=college],
+    [class=school] {
+      polygon-fill:  @school;
+    }
+    [class=parking][zoom>=14]{
+      polygon-fill: @parking;
+      [zoom>=15] {
+        line-width: 0.3;
+        line-color: @parking-outline;
+      }
+      [zoom>=$parking_pattern_zoom] {
+        polygon-pattern-fill: $parking_pattern_fill;
+        polygon-pattern-opacity: $parking_pattern_opacity;
+        polygon-pattern-file: $parking_pattern;
+      }
+    }
+    [class=pedestrian]{
+      polygon-fill: @pedestrian-polygon-fill;
+      line-color: darken(@pedestrian-polygon-fill, 10%);
+      line-width: 0.5;
+    }
+
+
+    [class=military][zoom>=13]{
+      [zoom >= $military_pattern_zoom] {
+        polygon-pattern-fill:$military_pattern_fill;
+        polygon-pattern-file:$military_pattern ;
+        polygon-pattern-opacity:$military_pattern_opacity;
+      }
+      line-color: @military;
+      line-opacity: 0.24;
+      line-width: linear([view::zoom], (13, 1), (15,2));
+    }
+    [class=zoo][zoom>=17],
+    [class=theme_park][zoom>=17] {
+      line-width: 2;
+      line-color: @tourism;
+      line-opacity: 0.5;
+    }
+    [class=bus_station][zoom>=15] {
+      polygon-fill: @transportation-area;
+      line-width: 0.2;
+      line-color: saturate(darken(@transportation-area, 40%), 20%);
+    }
+    [class=stadium] {
+      [zoom>=10] {
+        polygon-fill: @stadium;
+        [zoom>=13] {
+          line-width: 0.3;
+          line-color: darken(@stadium, 35%);
+        }
+      }
+    }
+
+    [class=track][zoom>=10] {
+      polygon-fill: @track;
+      [zoom>=15] {
+        line-width: 0.5;
+        line-color: desaturate(darken(@track, 20%), 10%);
+      }
+    }
+
+    [class=pitch][zoom>=12]::pitch {
+      polygon-fill: @pitch;
+      [zoom>=15] {
+        line-width: 0.5;
+        line-color: desaturate(darken(@pitch, 20%), 10%);
+      }
+    }
+  }
+}
+
+#landcover['mapnik::geometry_type'=2] {
+  [name!=null] {
+    text-name: @name;
+    text-face-name: @mont;
+    text-fill: @building_label;
+    text-size: 9;
+    text-placement: line;
+    text-wrap-width: 100;
+  }
+  [class=barrier][zoom>=15] {
+		[subclass=citywalls],
+		[subclass=city_wall] {
+		  line-width:linear([view::zoom], (15, 1), (17, 2),(20,3));
+		  line-color: @walls;
+    }
+		[subclass=retaining_wall] {
+      line-width:linear([view::zoom], (16, 0.5), (20,1.5));
+      line-opacity:0.6;
+			line-color: @walls;
+		}
+	}
+}
+#building['mapnik::geometry_type'=3]['nuti::buildings'>0][zoom>='nuti::building_min_zoom'] {
+  ['nuti::buildings'>1][hide_3d!=true][zoom>=16]::3d  {
+      building-height: [render_height] ? [render_height] : 5;
+      building-min-height: [render_min_height];
+      building-fill: @building-fill;
+      building-fill-opacity: 0.45;
+  } 
+  
+  polygon-fill: @building-fill;
+  polygon-opacity: @building-opacity;
+  ::line {
+    line-color: @building-line;
+    line-width: @building-line-width;
+  }
+}
+
+#aeroway['mapnik::geometry_type'=3]{
+  [class=aerodrome] {
+    polygon-fill: @aeroway;
+  }
+  [class=apron] {
+    polygon-fill: @apron-fill;
+  }
+
+}

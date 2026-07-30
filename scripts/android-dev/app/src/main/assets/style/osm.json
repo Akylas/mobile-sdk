@@ -1,0 +1,14 @@
+{
+    "extends":"./base.json",
+    "styles": [
+        "osm/style.less",
+        "shared/style.less",
+        "shared/admin.less",
+        "shared/terrain.less",
+        "shared/hydro.less",
+        "shared/landuse.less",
+        "shared/roads.less",
+        "shared/labels.less",
+        "shared/route.mss"
+    ]
+}

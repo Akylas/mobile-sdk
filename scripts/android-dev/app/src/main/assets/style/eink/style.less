@@ -1,0 +1,385 @@
+@applied_eink_lighten: 20%;
+@applied_eink_lighten_medium: 14%;
+@applied_eink_lighten_mlight: 10%;
+@applied_eink_lighten_light: 5%;
+
+@standard-halo-radius: 2;
+@standard-halo-fill: #ffffff;
+
+@background: lighten(#e6e4e0, @applied_eink_lighten);
+@contour_color: lighten(#29660a, @applied_eink_lighten);
+@water: lighten(#9ecad8, @applied_eink_lighten);
+@park: lighten(#C8FACC, @applied_eink_lighten_light);
+@n_park: lighten(#b6e69e, @applied_eink_lighten);
+@park_line: lighten(#82bf5a, @applied_eink_lighten);
+@grass_color: lighten(#cdebb0, @applied_eink_lighten_mlight);
+@scrub_color: lighten(#c8d7ab, @applied_eink_lighten_mlight);
+@heath_color: lighten(#d6d99f, @applied_eink_lighten_medium);
+@forest_color: lighten(#add19e, @applied_eink_lighten_medium);
+@allotments_color: #add19e00;
+@bare_rock: lighten(#eee5dc, @applied_eink_lighten_light);
+@rock_pattern_fill: lighten(#ccc, @applied_eink_lighten_light);
+@cliff: lighten(#867056, @applied_eink_lighten);
+@walls: lighten(#777777, @applied_eink_lighten);
+@residential_color: lighten(#bdbfb3, @applied_eink_lighten);
+@retail: lighten(#ffd6d1, @applied_eink_lighten);
+@commercial: lighten(#e8e6df, @applied_eink_lighten);
+@industrial: lighten(#d6d8e177, @applied_eink_lighten);
+//@aeroway: lighten(#d6d8e177, @applied_eink_lighten_light);
+@aeroway: #d6d8e177;
+@farmland: lighten(#d8e0bd, @applied_eink_lighten);
+@university: lighten(#e5deb8, @applied_eink_lighten);
+@hospital: lighten(#ead2da, @applied_eink_lighten);
+@school: lighten(#e5deb8, @applied_eink_lighten);
+@building-fill: lighten(#dddddd, @applied_eink_lighten_light);
+@building-line: lighten(#d2d2d2, @applied_eink_lighten_light);
+@cemetery: lighten(#d3dcc1, @applied_eink_lighten);
+@pitch: lighten(#AAE0CB, @applied_eink_lighten);
+@tourism: lighten(#660033, @applied_eink_lighten);
+@quarry: lighten(#c5c3c388, @applied_eink_lighten);
+@military: lighten(#f55, @applied_eink_lighten);
+@sand: lighten(#ededcf, @applied_eink_lighten);
+@golf_course: lighten(#b5e3b5, @applied_eink_lighten);
+
+
+@via_ferrata: #cccccc;
+
+@via_ferrata-dasharray: 3, 2, 1, 2;
+@via_ferrata-line-width: 2;
+
+@lowevel_road_color: #bbb;
+@motorway-color: lighten(#e66e89, @applied_eink_lighten);
+@trunk-color: lighten(#f9b29c, @applied_eink_lighten_light);
+@primary-color: lighten(#f3ba5c, @applied_eink_lighten);
+@secondary-color: linear([view::zoom], (12, darken(#f7fabf, @applied_eink_lighten_medium)), (13, darken(#f7fabf, @applied_eink_lighten_light))) @tertiary-color: linear([view::zoom], (12, darken(#fff, @applied_eink_lighten_mlight)), (13, darken(#fff, @applied_eink_lighten_light))) @path-fill: lighten(#bb6868, @applied_eink_lighten);
+@track-fill: lighten(#996600, @applied_eink_lighten);
+@railway-line-color: lighten(#666, @applied_eink_lighten);
+@aerial-fill: lighten(#47484d, @applied_eink_lighten);
+@pedestrian-fill: #ffffff;
+@pedestrian-casing: lighten(#999, @applied_eink_lighten);
+@step-fill: #ffffff;
+@pedestrian-tunnel-fill: @pedestrian-fill;
+@track-tunnel-fill: @pedestrian-fill;
+
+@step-casing: @pedestrian-casing;
+// @track-casing: lighten(#9b7057, @applied_eink_lighten);
+
+@bridleway-fill: lighten(green, @applied_eink_lighten);
+@aeroway-fill: lighten(#c7cce5, @applied_eink_lighten);
+@steps-tunnel-casing: lighten(#808080, @applied_eink_lighten);
+@dam_fill: lighten(#cac9c9, @applied_eink_lighten);
+@piste-fill: lighten(#c47aff, @applied_eink_lighten);
+@bridge: lighten(#8b8282, @applied_eink_lighten);
+@glacier: lighten(#e0f3faaa, @applied_eink_lighten);
+@ice: lighten(#ddecec, @applied_eink_lighten);
+@iceshelf: lighten(#ddecec77, @applied_eink_lighten);
+
+@border_country: #787b8c;
+@border_country_opacity: 1;
+@border_region_color: lighten(#787b8ca9, @applied_eink_lighten);
+@border_region: linear([view::zoom], (11, @border_region_color), (13, fadeout(@border_region_color, 0.5)), (14, fadeout(@border_region_color, 1)));
+@border_region_dasharray: 1, 2;
+@border_country_dasharray: 20, 4, 10, 4;
+
+@contour_width: linear([view::zoom], (16, 0.6), (22, 1.6));
+@contour_label: @contour_color;
+@contour_halo: @standard-halo-fill;
+@contour_halo_radius: 1;
+
+
+// @water_stroke: darken(@water, 0%);
+// @river: linear([view::zoom], (8, darken(@water, 20%)), (9, @water));
+@river: darken(@water, 30%);
+@river-selected: darken(@water, 60%);
+@waterway: darken(@water, 30%);
+@river_polygon: @water;
+
+@aboriginal_label: #82643a;
+@national_park_label: rgb(99, 150, 65);
+@national_park_fill: linear([view::zoom], (6, fadeout(@n_park, 0.25)), (11, fadeout(@n_park, 1)));
+@protected_area_line: linear([view::zoom], (12, darken(@n_park, 20%)), (14, fadeout(darken(@n_park, 20%), 0.7)));
+@aboriginal_line: #D9B391;
+
+@protected-area: #09330c;
+@protected-area_halo: #ffffff88;
+@aboriginal_label: #82643a;
+
+@grass: linear([view::zoom], (6, fadeout(@grass_color, 0.7)), (12, fadeout(@grass_color, 0.5)));
+@scrub: linear([view::zoom], (6, fadeout(@scrub_color, 0.7)), (12, fadeout(@scrub_color, 0.5)));
+@heath: linear([view::zoom], (6, fadeout(@heath_color, 0.7)), (12, fadeout(@heath_color, 0.5)));
+@fell: @heath; 
+@forest: linear([view::zoom], (6, fadeout(@forest_color, 0.3)), (10, fadeout(@forest_color, 0.3)), (12, fadeout(@forest_color, 0.5)));
+
+@forest_pattern_opacity: 0.4;
+@allotments: linear([view::zoom], (6, fadeout(@allotments_color, 0.7)), (12, @allotments_color));
+@rock: step([view::zoom], (12, @bare_rock), (13, fadeout(@bare_rock, 0.7)), (14, fadeout(@bare_rock, 0.9)));
+@scree: @rock;
+@scree_pattern_fill: darken(@bare_rock, 30%);
+@cliff-width: linear([view::zoom], (12, 0.5), (15, 1));
+
+@residential: linear([view::zoom], (4, fadeout(@residential_color, 0.3)), (12, fadeout(@residential_color, 0.8)));
+// @farmland: #d8e0bd; 
+
+@iceshelf_pattern_opacity: 0.4;
+@iceshelf_pattern_fill: @water;
+@military_pattern_opacity: linear([view::zoom], (13, 0.2), (15, 0.1), (17, 0));
+
+@building-opacity: linear([view::zoom], (15, 0), (15.01, 0.8), (16, 1));
+
+@building-line-width: linear([view::zoom], (15, 0), (15.01, .75));
+
+@mud: rgba(203, 177, 154, 0.3);
+@leisure: lighten(@park, 5%);
+
+@track: @pitch;
+@stadium: @leisure;
+
+@marine_labels: @water_label;
+@marine_labels_halo: @water_halo;
+@marine_labels_halo_radius: @standard-halo-radius;
+
+
+
+@housenumber: rgb(77, 76, 76);
+
+@motorway-fill: linear([view::zoom], (6, fadeout(@motorway-color, 0.8)), (7, fadeout(@motorway-color, 0.2)), (10, @motorway-color));
+@motorway-tunnel-fill: lighten(@motorway-color, 15%);
+@motorway-casing-color: darken(@motorway-color, 30%);
+@motorway-casing: linear([view::zoom], (9, fadeout(@motorway-casing-color, 1)), (10, @motorway-casing-color));
+@motorway-casing-width: linear([view::zoom], (5, 0), (7, 1), (18, 2));
+@motorway-width: linear([view::zoom], (5, 0), (5.01, 0.75), (7, 0.9), (8, 1.14), (9, 1.4), (10, 1.82), (11, 2.34), (12, 3.3), (13, 4.74), (14, 6.74), (15, 10), (17, 15), (18, 18));
+@motorway-link-width: linear([view::zoom], (12, 0), (12.01, 0.5), (14, 2), (15, 4), (17, 8.4), (18, 16));
+
+@trunk-fill: linear([view::zoom], (5, fadeout(@trunk-color, 0.6)), (10, @trunk-color));
+@trunk-tunnel-fill: lighten(@trunk-color, 10%);
+@trunk-casing-color: darken(@trunk-color, 35%);
+@trunk-casing: linear([view::zoom], (10, fadeout(@trunk-casing-color, 1)), (11, @trunk-casing-color));
+@trunk-width: linear([view::zoom], (4, 0), (4.01, 0.75), (7, 0.9), (8, 1.14), (9, 1.4), (10, 1.82), (11, 2.34), (12, 3.3), (13, 4.74), (14, 6.74), (15, 10), (17, 15), (18, 18));
+@trunk-casing-width: linear([view::zoom], (4, 0), (4.01, 1), (10, 1), (18, 2));
+@trunk-link-width: linear([view::zoom], (12, 0), (12.01, 0.5), (14, 2), (15, 4), (17, 8.4), (18, 16));
+
+@primary-fill: @primary-color;
+@primary-tunnel-fill: lighten(@primary-color, 10%);
+@primary-casing-color: darken(@primary-color, 35%);
+@primary-casing: linear([view::zoom], (10.99, @lowevel_road_color), (11, @primary-casing-color));
+@primary-casing-width: linear([view::zoom], (7, 0), (7.01, 0.5), (8, 1), (10, 1), (18, 2));
+@primary-width: linear([view::zoom], (10, 0), (10.5, 2), (13, 3), (15, 4.3), (16, 8), (17, 9.5), (18, 12.5));
+
+
+@secondary-fill: @secondary-color;
+@secondary-tunnel-fill: @tertiary-fill;
+@secondary-casing: linear([view::zoom], (11, @lowevel_road_color), (12, #707d05));
+@secondary-casing-width: linear([view::zoom], (9, 0), (9.01, 0.4), (10, 1), (11, 0.6), (15, 0.7), (18, 2));
+@secondary-width: linear([view::zoom], (10, 0), (11, 2), (12, 2.15), (14, 3.8), (15, 4.3), (16, 8), (17, 9.5), (18, 12.5));
+
+@primary-link-width: linear([view::zoom], (7, 0), (7.01, 0.5), (8, 0.7), (9, 0.9), (10, 0.9), (11, 1.25), (12, 1.5), (13, 1.5), (15, 3.3), (16, 5.2), (17, 5.7), (18, 7.2));
+
+@tertiary-fill: @tertiary-color;
+@tertiary-tunnel-fill: @tertiary-fill;
+@tertiary-casing: @lowevel_road_color;
+@tertiary-casing-width: linear([view::zoom], (11, 0), (11.01, 1.5), (12, 1.6), (16, 2.6), (17, 3.2), (18, 3));
+@tertiary-width: linear([view::zoom], (10, 0), (10.01, 0.35), (11, 0.95), (12, 1.5), (13, 1.95), (14, 3.9), (15, 4.4), (16, 8.2), (17, 9.7), (18, 12.7));
+
+@residential-fill: #fff;
+@noaccess-opacity: 0.8;
+@residential-tunnel-fill: @residential-fill;
+@residential-casing: @lowevel_road_color;
+@residential-casing-width: linear([view::zoom], (12, 0), (12.01, 0.75), (12, 1), (14, 1.5), (16, 2));
+@residential-width: linear([view::zoom], (12, 0.5), (13, 0.95), (14, 1.9), (15, 2.4), (16, 5.2), (17, 5.7), (18, 7.7));
+
+
+@service-fill: #ffffff;
+@service-tunnel-fill: darken(#ffffff, 5%);
+@service-casing: @residential-casing;
+@service-casing-width: linear([view::zoom], (14, 1), (16, 1));
+
+@service-width: linear([view::zoom], (12, 0.5), (13, 0.95), (14, 1), (15, 1.2), (16, 2), (17, 2.5), (18, 3), (20, 6));
+
+
+@pedestrian-polygon-fill: fadeout(#E5E7F1, 0.2);
+@pedestrian-casing-width: linear([view::zoom], (15, 0), (15.01, 1), (16, 2));
+@pedestrian-width: linear([view::zoom], (15, 0.5), (16, 1), (18, 1), (20, 3));
+@pedestrian-dasharray: 7, 2;
+@footway-width: linear([view::zoom], (15, 0.5), (16, 1), (18, 1), (20, 3));
+
+@footway-casing-width: linear([view::zoom], (16, 0), (16.01, 1), (18, 2));
+
+@path-casing: linear([view::zoom], (10, #ffffff00), (13, #ffffff));
+@path-casing-width: linear([view::zoom], (14, 0), (14.01, 0.5), (16, 1), (18, 2.5));
+@cycleway-casing-width: linear([view::zoom], (14, 0), (14.01, 1), (16, 1.5));
+@path-width: linear([view::zoom], (13, 0.5), (14, 1), (18, 2), (20, 3));
+@path-dasharray: 7, 1;
+@track_path_text_dy: linear([view::zoom], (13, 0), (16, 1), (18, 2));
+
+@step-width: @path-width + linear([view::zoom], (20, 0), (22, 10));
+@path-tunnel-casing-width: linear([view::zoom], (14, 0), (14.01, 0.5), (16, 1), (20, 2));
+@step-dasharray: 2, 3;
+
+@track-casing: linear([view::zoom], (10, #ffffff00), (14, #ffffff77));
+@track-casing-width: linear([view::zoom], (14, 0), (14.01, 1), (16, 2.5));
+@track-width: @path-width + 0.2;
+@track-dasharray: 6, 3, 6;
+@track-grade1-dasharray: 0, 0;
+@track-grade2-dasharray: 7, 1;
+@track-grade3-dasharray: 5, 2, 5;
+@track-grade4-dasharray: @track-dasharray;
+@track-grade5-dasharray: @track-dasharray;
+@track_line_join: miter;
+@track_line_cap: butt;
+
+@railway: @pedestrian-polygon-fill;
+@railway-line: linear([view::zoom], (8, lighten(@railway-line-color, 20%)), (13, @railway-line-color));
+@railway-line-width: linear([view::zoom], (8, 1), (16, 2));
+@railway-track-line-width: linear([view::zoom], (8, 3.5), (14, 5), (20, 8));
+@railway-track-line-dasharray: 1, 20;
+@railway-track-line: @railway-line;
+@tram-track-line-dasharray: 0;
+
+@tram-track-line-width: 0;
+
+@aerial-width: linear([view::zoom], (14, 0.5), (20, 1));
+@aerial-casing-width: linear([view::zoom], (14, 0.5), (20, 1));
+@aerial-casing-fill: #ffffff;
+
+@piste-width: linear([view::zoom], (14, 0), (14.1, 0.8), (18, 5));
+@piste-fill: #ffffff88;
+@piste-casing-width: linear([view::zoom], (14, 0), (14.1, 0.6), (20, 2));
+@piste-casing-fill: #647BF288;
+
+@default-casing: white;
+@path-casing: @default-casing;
+
+@raceway-fill: #f0eeeb;
+@raceway-casing: #d6d9e6;
+@raceway-width: linear([view::zoom], (12, 0), (12.01, 0.5), (14, 2), (16, 6), (18, 18));
+@raceway-casing-width: linear([view::zoom], (12, 0), (12.01, 0.75), (20, 2));
+
+@footway-fill: #ffffff;
+@steps-fill: @path;
+@cycleway-fill: 0;
+@apron-fill: #dadae0;
+@runway-fill: @aeroway-fill;
+@taxiway-fill: @aeroway-fill;
+@helipad-fill: @aeroway-fill;
+@runway-width: linear([view::zoom], (13, 2), (16, 24));
+@taxiway-width: linear([view::zoom], (11, 1), (13, 2), (14, 4), (15, 6), (16, 8));
+
+@tunnel-casing: #ffffff;
+@tunnel-opacity: 0.9;
+@tunnel-dasharray: 8, 6;
+
+@bridge_fill: fadeout(@bridge, 0.5);
+@bridge-casing: @bridge_fill;
+@railway-bridge-casing: @bridge-casing;
+@dam_casing: darken(@dam_fill, 20%);
+
+@piste-width: linear([view::zoom], (12, 0.8), (17, 2), (18, 8), (19, 12), (20, 24));
+
+
+@transportation-area: #e9e7e2;
+@apron: #dadae0;
+// @garages: #dfddce;
+@parking: fadeout(#eeeeee, 0.5);
+@parking-outline: darken(@parking, 40%);
+
+
+@glacier_label: #1C88AF;
+@glacier_label_wrap_width: 20;
+@water_label: #4d80b3;
+@water_halo: @standard-halo-fill;
+@water_halo_radius: @standard-halo-radius;
+@waterway_label_dy: 0;
+@waterway_label_spacing: linear([view::zoom], (12,5), (17, 100), (19, 160));
+
+@river-width: linear([view::zoom], (8, 1), (15, 2), (16, 4));
+@river-width-selected: @river-width + 1;
+@waterway-dasharray: 5, 2;
+@river-dasharray: @waterway-dasharray;
+@river-dasharray-selected: 5, 2;
+@canal_width: linear([view::zoom], (13, 0.9), (14, 1.3), (15, 2));
+@stream-width: @canal_width;
+
+@park_label: #3a7921;
+@halo_park_label: @standard-halo-radius;
+
+@peak_icon_fill: #ae874d;
+@peak_label: #684a1e;
+@saddle_icon_fill: #666600;
+@sadle_label: #454545;
+@peak_halo: @standard-halo-fill;
+@peak_halo_radius: @standard-halo-radius;
+
+@peak_icon: [nuti::osm-mountain];
+@saddle_icon: [nuti::osm-saddle];
+
+@city-label-icon-size: 4;
+@city-label-dy: linear([view::zoom], (4, -5), (7.99, -10), (8, 0));
+@city_label_min_dist: 1;
+@town-label-icon-size: 3;
+@town_label: #000000;
+
+@place_line_spacing: -2;
+@city_label: #000000;
+@country_label: #000000;
+@village_label: #333333;
+@island_label: #333333;
+@state_label: #666;
+@district_label: #7f7f7f;
+@suburb_label: #3f4873;
+@neighbourhood_label: #7f7f7f;
+@housename: #000000;
+@building_label: #61615a;
+@poi_label: #444444;
+@locality_label_fill: #777777;
+@hamlet_label: step([view::zoom], (11, #333333), (14, #777777));
+
+@continent_text: #405c78;
+@continent_halo: @standard-halo-fill;
+@country_halo: @standard-halo-fill;
+@state_halo: @standard-halo-fill;
+@place_halo: @standard-halo-fill;
+@place_halo_radius: @standard-halo-radius;
+@road_label: #303030;
+
+@road_label_halo: @standard-halo-fill;
+@road_large_label_fill: #000;
+@road_large_label_halo_radius: @standard-halo-radius;
+
+@road_small_label_fill: #000;
+@road_small_label_halo_radius: @standard-halo-radius;
+
+@poi-fill: #956e50;
+@poi-park-fill: #76BC54;
+@poi-national_park-fill: @national_park_label;
+@poi-aboriginal-fill: @aboriginal_label;
+@poi-food-drink-fill: #c18567;
+@poi-medical-fill: #a96078;
+@poi-medical-fill: #a96078;
+@poi-education-fill: #8f813d;
+@poi-lodging-fill: #854d04;
+@poi-campsite-fill: #854d04;
+@poi-hospital-fill: #4AA0E7;
+@poi-bus-fill: #3a4ca6;
+@poi-pharmacy-fill: #AF2418;
+@poi-water-fill: #4AA0E7;
+@poi-spring-size: linear([view::zoom], (14, 3), (16, 10));
+@poi-spring_halo_radius: @standard-halo-radius;
+@poi-bakery-fill: #EF8000;
+@poi-restaurant-fill: #BC7729;
+@poi-shop-fill: #9F43A7;
+@poi_halo_radius: @standard-halo-radius;
+@poi_halo: @standard-halo-fill;
+@poi_icon_halo_radius: @standard-halo-radius;
+@poi_icon_halo: @standard-halo-fill;
+
+
+@peak_icon_width: @poi_icon_width + 0.00000001 * [ele];
+
+
+@parking_pattern_opacity: 0.3;
+
+@biking_route_dasharray: 6, 6;
+@hiking_route_dasharray: 3, 3;
+
+@cycleway-inner-fill: @biking_route_fill;
+@cycleway-inner-dasharray: @biking_route_dasharray;

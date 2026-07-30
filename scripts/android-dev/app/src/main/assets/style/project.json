@@ -1,5 +1,0 @@
-{
-  "styles": ["style.mss"],
-  "layers": ["contour", "building", "transportation", "satellite", "hillshade", "landcover", "landuse", "water"],
-  "nutiparameters": { "show_relief": { "default": true } }
-}
