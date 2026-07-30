@@ -1,0 +1,16 @@
+{
+    "extends":"./base.json",
+    
+    "styles": [
+        "streets/style.less",
+        "shared/style.less",
+        "shared/admin.less",
+        "shared/terrain.less",
+        "shared/hydro.less",
+        "shared/landuse.less",
+        "shared/roads.less",
+        "shared/labels.less"
+    ],
+    
+    "name": "streets"
+}

@@ -1,0 +1,106 @@
+#boundary {
+    [admin_level=2] {
+        line-color: @border_country;
+        line-width: @border_country_width;
+        line-opacity: @border_country_opacity;
+        [zoom>=7] {
+            line-dasharray: @border_country_dasharray;
+        }
+    }
+    ['nuti::sub_boundaries'>0] {
+        [admin_level=4][zoom>=4][zoom<=14],
+        [admin_level>=5][zoom>=7][zoom<=14] {
+            line-color: @border_region;
+            line-width: @border_region_width;
+            line-opacity: @border_region_opacity;
+            line-dasharray: @border_region_dasharray;
+        }
+    }
+}
+
+
+// #park['mapnik::geometry_type'=1][zoom>=12][zoom<14] {
+//     text-size: @protected_area_font_size;
+//     [class='national_park'] {
+//         text-size: @park_font_size;
+//     }
+//     text-name: @name;
+//     text-face-name: @mont;
+//     text-wrap-width: 100;
+//     text-vertical-alignment: middle;
+//     text-halo-radius: @standard-halo-radius;
+//     text-halo-fill: @protected-area_halo;
+//     [class='aboriginal_lands'] {
+//         text-fill: @aboriginal_label;
+//     }
+//     text-fill: @protected-area;
+// }
+
+@id: [name] + [class];
+
+#park['mapnik::geometry_type'=3]{
+
+    [class!='national_park'][zoom>=12],
+    [class='national_park'][zoom>=$national_park_min_zoom] {
+        [class='national_park'] {
+            polygon-fill: @national_park_fill;
+        }
+        [zoom>=12][zoom<16]::label{
+            text-name: @name;
+            text-face-name: @mont_it;
+            text-wrap-width: 60;
+            text-placement: point;
+            text-size: @protected_area_font_size;
+            text-halo-radius: @standard-halo-radius;
+            text-halo-fill: @standard-halo-fill;
+            text-fill: @national_park_label;
+        }
+        [class='national_park'][zoom>=$national_park_line_min_zoom], [class!='national_park'][zoom>=$park_line_min_zoom]{
+            line-width: @protected_area_line_width;
+            line-color: @protected_area_line;
+            [class='aboriginal_lands'] {
+                line-color: @aboriginal_line;
+            }
+        }
+        [zoom>=16]::label {
+            // [way_pixels>750] {
+            //     line-color: @protected_area_line;
+            //     [class=aboriginal_lands] {
+            //         line-color: @park;
+            //     }
+            //     line-width: 1;
+            //     // narrowline/line-opacity: 0.15;
+            //     // narrowline/line-color: @protected-area;
+            //     // [class=aboriginal_lands] {
+            //     //     narrowline/line-color: @aboriginal_line;
+            //     // }
+            // }
+            text-size: @protected_area_font_size;
+            text-fill: @national_park_label;
+            [class='national_park'] {
+                text-size: @park_font_size;
+            }
+            // [class='aboriginal_lands'] {
+            //     text-fill: @aboriginal_label;
+            // }
+            text-name: @name;
+            text-face-name: @mont;
+            text-placement: line;
+            text-halo-fill: @protected-area_halo;
+            text-halo-radius: @standard-halo-radius;
+            text-wrap-width: 10000;
+            text-dy: 3;
+        }
+    }
+}
+#park['mapnik::geometry_type'=3][name != null]{
+    when ([nuti::selected_id] ='' + [name] + [class])::selected {
+        line-width: @protected_area_line_width;
+        line-color: darken(@protected_area_line, 10%);
+        [class='aboriginal_lands'] {
+            line-color: @aboriginal_line;
+        }
+        polygon-pattern-fill:darken(@n_park,50%) ;
+        polygon-pattern-file: $military_pattern ;
+    }
+}

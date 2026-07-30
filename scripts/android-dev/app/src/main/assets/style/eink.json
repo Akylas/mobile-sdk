@@ -1,0 +1,41 @@
+{
+    "extends":"./base.json",
+    
+    "styles": [
+        "eink/style.less",
+        "shared/style.less",
+        "shared/admin.less",
+        "shared/terrain.less",
+        "shared/hydro.less",
+        "shared/landuse.less",
+        "shared/roads.less",
+        "shared/labels.less",
+        "eink/extended.less",
+        "shared/route.mss"
+    ],
+    "constants":{
+        "parking_pattern_zoom":15,
+        "parking_pattern":"symbols/parking.png",
+        "national_park_line_min_zoom":24,
+        "park_line_min_zoom":24,
+        "iceshelf_pattern_zoom":4,
+        "iceshelf_pattern":"symbols/ice_sheet.png",
+        "wetland_pattern_opacity":0.4,
+        "water_pattern_zoom":0, 
+        "water_pattern":"symbols/wetland.png",
+        "cemetery_pattern_zoom":15,
+        "cemetery_pattern_opacity":0.51,
+        "cemetery_pattern":"symbols/grave_yard_generic.svg"
+    },
+    "nutiparameters": {
+        "river_min_zoom":4,
+        "polygons_border": 0,
+        "wetland_pattern_zoom":13,
+        "rock_pattern_zoom":10,
+        "scree_pattern_zoom":12,
+        "scrub_pattern_zoom":12,
+        "forest_pattern_zoom":11,
+        "contoursOpacity": 0.85
+    },
+    "name": "eink"
+}

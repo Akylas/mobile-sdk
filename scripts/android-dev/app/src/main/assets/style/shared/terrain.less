@@ -1,0 +1,157 @@
+#hillshade[zoom>=4][zoom<=19] {
+	hillshade-illumination-direction: 365;
+	hillshade-shadow-color: #473B24;
+	hillshade-contrast: 0.26;
+	hillshade-exaggeration: linear([view::zoom], (4, 0.6), (12, 1));
+}
+
+#mountain_peak {
+	['mapnik::geometry_type'=1][class=peak][rank<=2],
+	['mapnik::geometry_type'=1][class=volcano][rank<=2],
+	['mapnik::geometry_type'=1][zoom>=12] {
+		// ::icon {
+		// 	text-placement: nutibillboard;
+		// 	text-name: @peak_icon;
+		// 	text-feature-id: [name]+[ele];
+		// 	// text-placement-priority: [ele];
+		// 	text-size: @peak_icon_width + 0.0000001 * [ele] + 0.000001 * [rank]; 
+		// 	text-face-name: @osm;
+		// 	text-halo-fill: @poi_halo;
+		// 	text-halo-radius: @poi_halo_radius;
+		// 	text-fill: @peak_icon_fill;
+		// 	text-allow-overlap-same-feature-id: true;
+		// }
+		// [rank=1][zoom>=4],
+		// [rank=2][zoom>=11],
+		// [zoom>=14]::label {
+		// 	// text-placement-priority: [ele];
+		// 	text-name: @name;
+		// 	[zoom>=10] {
+		// 		text-name: @name ? ([ele] ? @name + ' ' +[ele] + 'm': @name): '';
+		// 	}
+		// 	text-feature-id: [name]+[ele];
+		// 	text-face-name: @mont_md;
+		// 	text-placement: nutibillboard;
+		// 	text-halo-fill: @peak_halo;
+		// 	text-halo-radius: @peak_halo_radius;
+		// 	text-size: @peak_label_width + 0.0000001 *[ele] + 0.000001 * [rank];
+		// 	text-wrap-character: @wrap_characters;
+		// 	text-dy: @poi_label_dy;
+		// 	text-fill: @peak_label;
+
+		// 	[class="saddle"] {
+		// 		text-fill: @sadle_label;
+		// 		text-size: @peak_label_width + 0.0000001 *[ele] + 0.000001 * [rank] - 0.0001;
+		// 	}
+		// 	text-wrap-width: @poi_label_wrap_width;
+		// 	text-allow-overlap-same-feature-id: true;
+		// 	text-same-feature-id-dependent: true;
+		// }
+			::label {
+
+				shield-file: url(shields/[class].svg);
+				shield-name: " ";
+				shield-feature-id: [name]+[ele];
+
+				[rank=1][zoom>=4],
+				[rank=2][zoom>=11],
+				[zoom>=14] {
+					shield-name: @name;
+
+					[zoom>=10] {
+						shield-name: @name ? ([ele] ? @name + '\n' +[ele] + 'm': @name): '';
+					}
+				}
+
+				shield-unlock-image: true;
+				shield-face-name: @mont_md;
+				// shield-placement-priority: [ele];
+				shield-size: @peak_label_width + 0.0000001 *[ele];
+				shield-line-spacing: -1;
+				shield-placement: nutibillboard;
+				shield-text-dy: @peak_label_dy;
+				shield-fill: @peak_label;
+
+				[class="saddle"] {
+					shield-fill: @sadle_label;
+					shield-size: @peak_label_width - 0.0001;
+				}
+
+				shield-wrap-width: @poi_label_wrap_width;
+				shield-halo-fill: @peak_halo;
+				shield-halo-radius: @peak_halo_radius;
+			}
+
+	}
+	['mapnik::geometry_type'=2] {
+		[class=cliff][zoom>=12],
+		[class=valley][zoom>=13],
+		[class!=valley][class!=cliff][zoom>=11] {
+			line-color: @cliff;
+			line-width: @cliff-width;
+			[class=valley] {
+				line-offset: -4;
+				line-dasharray:2,10;
+			}
+			[class=cliff][zoom>=14] {
+				line/line-offset: linear([view::zoom], (14, 0), (16, -2));
+				line/line-color: @cliff;
+				line/line-dasharray: 1, 8;
+				line/line-width: linear([view::zoom], (14, 0), (16, 3));
+			}
+		}
+		[name !=null][zoom>=13]{
+			text-name: @name;
+			text-face-name: @mont_md;
+			text-fill: @building_label;
+			text-size: 9;
+			text-dy: 5;
+			text-placement: line;
+			// text-spacing: 1;
+			[class=valley] {
+			//	text-placement: point;
+			}
+		}
+	}
+}
+
+#contour['nuti::contours'>0] {
+	[div=10][zoom>=14],
+	[div=20][zoom>=14] {
+		line-color: @contour_color;
+		line-opacity: @contour_opacity_low;
+		line-width: @contour_width ;
+	}
+
+	[div=100][zoom>=12],
+	[div=200][zoom>=12],
+	[div=50][zoom>=13] {
+		line-color: @contour_color;
+		line-opacity: @contour_opacity_semi;
+		line-width: @contour_width;
+	}
+
+	[div=1000][zoom>=12],
+	[div=500][zoom>=12],
+	[div=250][zoom>=13][zoom<14] {
+		line-color: @contour_color;
+		line-opacity: @contour_opacity;
+		line-width: @contour_width ;
+	}
+
+	[div=1000][zoom>=12],
+	[div=500][zoom>=12],
+	[div=200][zoom>=14],
+	[div=250][zoom>=13][zoom<14],
+	[div=100][zoom>=14],
+	[div=50][zoom>=15] {
+		text-face-name: @mont_md;
+		text-name: [ele]+' m';
+		text-fill: @contour_label;
+		text-spacing: 100;
+		text-placement: line;
+		text-halo-radius: @contour_halo_radius;
+		text-halo-fill: @contour_halo;
+		text-size: @contour_label_size;
+	}
+}

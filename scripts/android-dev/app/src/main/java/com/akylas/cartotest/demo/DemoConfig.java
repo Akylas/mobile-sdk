@@ -43,7 +43,7 @@ public final class DemoConfig {
     }
 
     public static BaseMode BASE_MODE = BaseMode.COMPOSITE;
-    public static StyleSource STYLE_SOURCE = StyleSource.DIR;
+    public static StyleSource STYLE_SOURCE = StyleSource.ASSETS;
 
     // =============================================================================================
     // FILES ON THE DEVICE
@@ -93,7 +93,7 @@ public final class DemoConfig {
 
     public static boolean COMPOSITE_HILLSHADE = true;
     public static boolean COMPOSITE_SATELLITE = true;
-    public static boolean COMPOSITE_CONTOUR = false;
+    public static boolean COMPOSITE_CONTOUR = true;
     /** Single-pass segmented rendering (A/B switch of the composite renderer). */
     public static boolean COMPOSITE_SINGLE_PASS = true;
     /** Per-source zoom bias: +1 fetches the DEM one zoom deeper than the base map. */
