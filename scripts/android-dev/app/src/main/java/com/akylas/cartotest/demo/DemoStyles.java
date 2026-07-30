@@ -194,7 +194,14 @@ public final class DemoStyles {
             "  hillshade-illumination-direction: " + (int) DemoConfig.INLINE_HILLSHADE_ILLUMINATION + ";",
             "  hillshade-shadow-color: " + DemoConfig.INLINE_HILLSHADE_SHADOW_COLOR + ";",
             "}",
-            "#transportation { line-color: #ffffff; line-width: 1.2; }",
+            "#transportation { line-color: #ffffff; line-width: 1.2;}",
+            "#transportation_name {" ,
+                        "text-name: [name];",
+                "text-fill: #000000;",
+                " text-spacing: 10;",
+                "text-placement: line;",
+                "text-size: 10;",
+                " }",
             "#transportation['class'='motorway'] { line-color: #e27d60; line-width: 3; }",
             DemoConfig.INLINE_BUILDINGS_3D
                 ? "#building[zoom>=14] { building-fill: #d9cfc4; building-height: 14; }"
@@ -214,9 +221,11 @@ public final class DemoStyles {
 	"[div=50][zoom>=15] {",
             "text-name: [ele]+' m';",
             "text-fill: #000000;",
-           " text-spacing: 100;",
+           " text-spacing: 10;",
             "text-placement: line;",
-            "text-size: 14;",
+            // [zoom] here is the CONTOUR TILE zoom, which never drops below the DEM zoom - it does
+            // not gate on the camera. [view::zoom] is evaluated per frame, and size 0 hides the label.
+            "text-size: linear([view::zoom], (11.99, 0), (12, 14));",
         "}",
             "  contour-base-interval: " + (int) DemoConfig.CONTOUR_BASE_INTERVAL + ";",
             "}");
@@ -239,6 +248,64 @@ public final class DemoStyles {
             "  [div>=500] { line-width: 2.0; }",
             // Labels need a font asset package (text-face-name -> a bundled font), so they are
             // only available with a DIR/ZIP style, not with this raw CartoCSS string.
+            "}");
+    }
+
+    /**
+     * Style of the PRE-BAKED contour tile layer (DemoConfig.LAYER_CONTOUR_TILES).
+     *
+     * This is the '#contour' block of assets/style/shared/terrain.less, verbatim except that the
+     * style variables are inlined with their osm/style.less + shared/style.less values and the
+     * ['nuti::contours'>0] guard is dropped (a raw CartoCSS string can not declare nuti
+     * parameters). Same rules, same 'ele'/'div' attributes as the generated contours, so the two
+     * layers can be compared one against the other.
+     *
+     * NOTE: 'zoom' is the TILE zoom. The tileset stops at z14, so the [zoom>=15] label rule of the
+     * original never fires here (kept as-is on purpose - it does not in the real style either
+     * until the source goes deeper).
+     */
+    public static String contourTilesStyle() {
+        String font = DemoConfig.CONTOUR_TILES_FONT;
+        return String.join("\n",
+            "#contour {",
+            "  [div=10][zoom>=14],",
+            "  [div=20][zoom>=14] {",
+            "    line-color: #226600;",
+            "    line-opacity: 0.2;",                                              // @contour_opacity * 0.5
+            "    line-width: linear([view::zoom], (16, 0.6), (22, 1.6));",
+            "  }",
+            "",
+            "  [div=100][zoom>=12],",
+            "  [div=200][zoom>=12],",
+            "  [div=50][zoom>=13] {",
+            "    line-color: #226600;",
+            "    line-opacity: step([view::zoom], (12, 0.2), (14, 0.4));",         // @contour_opacity_semi
+            "    line-width: linear([view::zoom], (16, 0.6), (22, 1.6));",
+            "  }",
+            "",
+            "  [div=1000][zoom>=12],",
+            "  [div=500][zoom>=12],",
+            "  [div=250][zoom>=13][zoom<14] {",
+            "    line-color: #226600;",
+            "    line-opacity: 0.4;",                                              // [nuti::contoursOpacity]
+            "    line-width: linear([view::zoom], (16, 0.6), (22, 1.6));",
+            "  }",
+            "",
+            "  [div=1000][zoom>=12],",
+            "  [div=500][zoom>=12],",
+            "  [div=200][zoom>=14],",
+            "  [div=250][zoom>=13][zoom<14],",
+            "  [div=100][zoom>=14],",
+            "  [div=50][zoom>=15] {",
+            "    text-face-name: '" + font + "';",
+            "    text-name: [ele]+' m';",
+            "    text-fill: #226600;",
+            "    text-spacing: 10;",
+            "    text-placement: line;",
+            "    text-halo-radius: 1;",
+            "    text-halo-fill: #f2f5f888;",
+            "    text-size: linear([view::zoom], (12, 7), (16, 8), (20, 9));",
+            "  }",
             "}");
     }
 

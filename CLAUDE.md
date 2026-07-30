@@ -34,7 +34,7 @@ repo. Commit style is conventional-commits (`fix:`, `feat:`, `chore:`).
 | `demo/DemoTests.java` | one-shot actions (routing, search, GeoJSON) |
 | `ui/main/SecondFragment.java` | Android glue only (view, permissions, map listener) |
 
-Layers (`base`, `satellite`, `hillshade`, `hypso`, `contour`, `routes`, `elements`) toggle live
+Layers (`base`, `satellite`, `hillshade`, `hypso`, `contour`, `contourTiles`, `routes`, `elements`) toggle live
 from the panel or with `--es <name> true|false`; the base map has `--es base plain|composite` and
 `--es style dir|zip|inline|nuti`. `dir` reads the style from a FOLDER via `DirAssetPackage`
 (`/sdcard/alpimaps_mbtiles/osm`), falling back to `osm.zip` then to inline CartoCSS.

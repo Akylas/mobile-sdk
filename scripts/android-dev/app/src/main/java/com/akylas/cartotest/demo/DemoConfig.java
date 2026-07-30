@@ -77,6 +77,9 @@ public final class DemoConfig {
     public static boolean LAYER_HILLSHADE = false;
     /** Stand-alone contour layer: ContourTileDataSource + its own CartoCSS. */
     public static boolean LAYER_CONTOUR = false;
+    /** PRE-BAKED contour vector tiles fetched over HTTP, styled like the real style's '#contour'
+     *  rules. The A/B reference for LAYER_CONTOUR / the '#contour' composite slot. */
+    public static boolean LAYER_CONTOUR_TILES = false;
     /** Stand-alone raster layer (OSM raster tiles by default). */
     public static boolean LAYER_SATELLITE = false;
     /** CustomRasterTileLayer running a hypsometric-tint shader over the raw DEM tiles. */
@@ -91,8 +94,8 @@ public final class DemoConfig {
     // These are sources woven into the master style at the position of their '#name' rule.
     // =============================================================================================
 
-    public static boolean COMPOSITE_HILLSHADE = true;
-    public static boolean COMPOSITE_SATELLITE = true;
+    public static boolean COMPOSITE_HILLSHADE = false;
+    public static boolean COMPOSITE_SATELLITE = false;
     public static boolean COMPOSITE_CONTOUR = true;
     /** Single-pass segmented rendering (A/B switch of the composite renderer). */
     public static boolean COMPOSITE_SINGLE_PASS = true;
@@ -120,6 +123,13 @@ public final class DemoConfig {
     public static String DEM_ENCODING = "terrarium";
     public static String DEM_CACHE_DB = "mapterhorn.db";
 
+    /** Pre-baked contour vector tiles (tippecanoe, layer 'contour', fields 'ele' + 'div').
+     *  Zooms 11..14 only: the tileset has no data below 11 and 14 is overzoomed above. */
+    public static String CONTOUR_TILES_URL = "https://tiles.akylas.fr/data/contours/{z}/{x}/{y}.pbf";
+    public static int CONTOUR_TILES_MIN_ZOOM = 11;
+    public static int CONTOUR_TILES_MAX_ZOOM = 14;
+    public static String CONTOUR_TILES_CACHE_DB = "akylas_contours.db";
+
     /** Raster source used by the satellite layer / '#satellite' composite slot. */
     public static String RASTER_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
     public static int RASTER_MIN_ZOOM = 0;
@@ -130,17 +140,17 @@ public final class DemoConfig {
     // CAMERA (start position; every value can be overridden with --es lon/lat/zoom/tilt/rotation)
     // =============================================================================================
 
-    public static double START_LON = 5.855664;
-    public static double START_LAT = 45.370363;
-    public static float START_ZOOM = 13.46f;
+    public static double START_LON = 5.718957;
+    public static double START_LAT = 45.187362;
+    public static float START_ZOOM = 16.22f;
     public static float START_TILT = 26f;
-    public static float START_ROTATION = 115f;
+    public static float START_ROTATION = -15.12f;
 
     // =============================================================================================
     // 3D TERRAIN (com.carto.components.TerrainOptions)
     // =============================================================================================
 
-    public static boolean TERRAIN_ENABLED = true;
+    public static boolean TERRAIN_ENABLED = false;
     public static float TERRAIN_EXAGGERATION = 1.0f;
     /** Triangles per tile side. Slack against the draped content scales as (32/res)^2. */
     public static int TERRAIN_MESH_RESOLUTION = 128;
@@ -236,6 +246,10 @@ public final class DemoConfig {
     public static boolean CONTOUR_SEAMLESS_EDGES = true;
     public static int CONTOUR_MAX_OVERZOOM = 15;
 
+    /** Font of the pre-baked contour tile labels. An inline CartoCSS string carries no font asset
+     *  package, so this goes through the system-font fallback ("Arial" -> Roboto on Android). */
+    public static String CONTOUR_TILES_FONT = "Arial";
+
     // =============================================================================================
     // INLINE STYLE KNOBS (StyleSource.INLINE / NUTI - see DemoStyles)
     // =============================================================================================
@@ -300,6 +314,7 @@ public final class DemoConfig {
         LAYER_BASE = DemoCfg.cfgBool("map", LAYER_BASE);
         LAYER_HILLSHADE = DemoCfg.cfgBool("hillshade", LAYER_HILLSHADE);
         LAYER_CONTOUR = DemoCfg.cfgBool("contourLayer", LAYER_CONTOUR);
+        LAYER_CONTOUR_TILES = DemoCfg.cfgBool("contourTiles", LAYER_CONTOUR_TILES);
         LAYER_SATELLITE = DemoCfg.cfgBool("satLayer", LAYER_SATELLITE);
         LAYER_HYPSO = DemoCfg.cfgBool("hypso", LAYER_HYPSO);
         LAYER_ELEMENTS = DemoCfg.cfgBool("elements", LAYER_ELEMENTS);
@@ -318,6 +333,8 @@ public final class DemoConfig {
         DEM_URL = DemoCfg.cfgStr("demUrl", DEM_URL);
         DEM_MAX_ZOOM = DemoCfg.cfgInt("demMaxZoom", DEM_MAX_ZOOM);
         RASTER_URL = DemoCfg.cfgStr("rasterUrl", RASTER_URL);
+        CONTOUR_TILES_URL = DemoCfg.cfgStr("contourTilesUrl", CONTOUR_TILES_URL);
+        CONTOUR_TILES_MAX_ZOOM = DemoCfg.cfgInt("contourTilesMaxZoom", CONTOUR_TILES_MAX_ZOOM);
         STYLE_DIR_NAME = DemoCfg.cfgStr("styleDir", STYLE_DIR_NAME);
         STYLE_ZIP_NAME = DemoCfg.cfgStr("styleZip", STYLE_ZIP_NAME);
         STYLE_ASSETS_PATH = DemoCfg.cfgStr("styleAssets", STYLE_ASSETS_PATH);

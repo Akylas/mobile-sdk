@@ -76,13 +76,13 @@ public class DemoMap {
 
     /** One switchable layer of the demo. */
     public enum Feature {
-        BASE, SATELLITE, HILLSHADE, HYPSO, CONTOUR, ROUTES, ELEMENTS
+        BASE, SATELLITE, HILLSHADE, HYPSO, CONTOUR, CONTOUR_TILES, ROUTES, ELEMENTS
     }
 
     /** Bottom -> top draw order. Toggling a layer never reorders the others. */
     private static final Feature[] LAYER_ORDER = {
         Feature.BASE, Feature.SATELLITE, Feature.HILLSHADE, Feature.HYPSO,
-        Feature.CONTOUR, Feature.ROUTES, Feature.ELEMENTS
+        Feature.CONTOUR, Feature.CONTOUR_TILES, Feature.ROUTES, Feature.ELEMENTS
     };
 
     private final Context context;
@@ -107,6 +107,7 @@ public class DemoMap {
     private TileDataSource cachedDem;
     private TileDataSource cachedVector;
     private TileDataSource cachedRaster;
+    private TileDataSource cachedContourTiles;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private boolean nutiParameterOn = true;
@@ -158,6 +159,7 @@ public class DemoMap {
             case HILLSHADE: return DemoConfig.LAYER_HILLSHADE;
             case HYPSO: return DemoConfig.LAYER_HYPSO;
             case CONTOUR: return DemoConfig.LAYER_CONTOUR;
+            case CONTOUR_TILES: return DemoConfig.LAYER_CONTOUR_TILES;
             case ROUTES: return DemoConfig.LAYER_ROUTES;
             case ELEMENTS: return DemoConfig.LAYER_ELEMENTS;
             default: return false;
@@ -171,6 +173,7 @@ public class DemoMap {
             case HILLSHADE: DemoConfig.LAYER_HILLSHADE = enabled; break;
             case HYPSO: DemoConfig.LAYER_HYPSO = enabled; break;
             case CONTOUR: DemoConfig.LAYER_CONTOUR = enabled; break;
+            case CONTOUR_TILES: DemoConfig.LAYER_CONTOUR_TILES = enabled; break;
             case ROUTES: DemoConfig.LAYER_ROUTES = enabled; break;
             case ELEMENTS: DemoConfig.LAYER_ELEMENTS = enabled; break;
         }
@@ -214,6 +217,7 @@ public class DemoMap {
             case HILLSHADE: return createHillshadeLayer();
             case HYPSO: return createHypsoLayer();
             case CONTOUR: return createContourLayer();
+            case CONTOUR_TILES: return createContourTilesLayer();
             case ROUTES: return createRoutesLayer();
             case ELEMENTS: return createElementsLayer();
             default: return null;
@@ -398,6 +402,16 @@ public class DemoMap {
         return new VectorTileLayer(contourSource(), decoder);
     }
 
+    /**
+     * PRE-BAKED contour tiles over HTTP, styled with the '#contour' rules of the real style
+     * (shared/terrain.less, variables inlined). This is the A/B reference: same rules, same
+     * 'ele'/'div' attributes, but geometry baked at zoom 11..14 instead of traced from the DEM.
+     */
+    private Layer createContourTilesLayer() {
+        MBVectorTileDecoder decoder = new MBVectorTileDecoder(new CartoCSSStyleSet(DemoStyles.contourTilesStyle()));
+        return new VectorTileLayer(contourTilesSource(), decoder);
+    }
+
     /** Offline vector tiles + packaged style; skipped (with a log) when the files are missing. */
     private Layer createRoutesLayer() {
         try {
@@ -483,6 +497,16 @@ public class DemoMap {
             cachedRaster = new PersistentCacheTileDataSource(source, cacheDbPath(DemoConfig.RASTER_CACHE_DB));
         }
         return cachedRaster;
+    }
+
+    /** Pre-baked contour vector tiles, persistently cached (Feature.CONTOUR_TILES only). */
+    public TileDataSource contourTilesSource() {
+        if (cachedContourTiles == null) {
+            HTTPTileDataSource source = new HTTPTileDataSource(DemoConfig.CONTOUR_TILES_MIN_ZOOM, DemoConfig.CONTOUR_TILES_MAX_ZOOM, DemoConfig.CONTOUR_TILES_URL);
+            source.setHTTPHeaders(userAgentHeaders());
+            cachedContourTiles = new PersistentCacheTileDataSource(source, cacheDbPath(DemoConfig.CONTOUR_TILES_CACHE_DB));
+        }
+        return cachedContourTiles;
     }
 
     /** Contours generated from the shared DEM; the same instance feeds layer and composite slot. */
