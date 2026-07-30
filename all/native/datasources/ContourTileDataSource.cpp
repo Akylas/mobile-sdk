@@ -17,7 +17,6 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
-#include <unordered_map>
 #include <vector>
 
 #include <mbvtbuilder/MBVTTileBuilder.h>
@@ -28,6 +27,31 @@ namespace {
 
     using GridPoint = std::pair<double, double>; // (gx, gy) in grid node coordinates
     using Polyline = std::vector<GridPoint>;
+
+    // One marching-squares segment: the two cell edges it crosses (used to link segments into
+    // polylines without any floating point matching) plus the crossing points themselves.
+    struct Segment {
+        std::int32_t edgeA, edgeB;
+        float ax, ay, bx, by;
+    };
+
+    // Reusable scratch for linking one level's segments. Indexed by edge id, so no hashing and
+    // no per-level allocation: 'stamp' marks which level an entry belongs to, which is what
+    // makes reuse without clearing 2*W*H entries per level possible.
+    struct LinkBuffers {
+        std::vector<std::int32_t> firstSegment;
+        std::vector<std::int32_t> secondSegment;
+        std::vector<std::uint32_t> stamp;
+        std::uint32_t generation = 0;
+        std::vector<char> used;
+
+        void resize(std::size_t edgeCount) {
+            firstSegment.assign(edgeCount, -1);
+            secondSegment.assign(edgeCount, -1);
+            stamp.assign(edgeCount, 0);
+            generation = 0;
+        }
+    };
 
     // Linear crossing position of 'level' between corner values va (at ta) and vb (at tb).
     inline double lerpT(float va, float vb, double level) {
@@ -41,135 +65,168 @@ namespace {
         return t;
     }
 
-    // Marching squares over a WxH height grid (row-major, row 0 = south) for a single level.
-    // Segments are linked into polylines using shared cell-edge ids (no floating point matching).
-    std::vector<Polyline> marchingSquares(const std::vector<float>& heights, int W, int H, double level) {
+    // Marching squares over a WxH height grid (row-major, row 0 = south), for EVERY level in one
+    // pass: a cell can only be crossed by the levels between its lowest and highest corner (one
+    // or two in practice), so the cost follows the number of crossings instead of grid area x
+    // level count - re-scanning the whole grid per level was the dominant cost of a contour tile
+    // (a tile spanning 40 levels scanned 96x96 cells 40 times to emit a few thousand segments).
+    void marchingSquaresAllLevels(const std::vector<float>& heights, int W, int H,
+                                  double interval, long long firstLevel, long long lastLevel,
+                                  std::vector<std::vector<Segment>>& segmentsPerLevel) {
         // Edge id: horizontal edge (between (x,y) and (x+1,y)) -> (y*W + x)*2 + 0
         //          vertical   edge (between (x,y) and (x,y+1)) -> (y*W + x)*2 + 1
-        auto hEdge = [W](int x, int y) -> std::int64_t { return (static_cast<std::int64_t>(y) * W + x) * 2 + 0; };
-        auto vEdge = [W](int x, int y) -> std::int64_t { return (static_cast<std::int64_t>(y) * W + x) * 2 + 1; };
-
-        std::unordered_map<std::int64_t, GridPoint> points; // edge id -> crossing point
-        // adjacency: edge id -> the (up to two) edge ids it is connected to by a segment
-        std::unordered_map<std::int64_t, std::vector<std::int64_t>> adj;
-
-        auto addSegment = [&](std::int64_t ea, GridPoint pa, std::int64_t eb, GridPoint pb) {
-            points[ea] = pa;
-            points[eb] = pb;
-            adj[ea].push_back(eb);
-            adj[eb].push_back(ea);
-        };
+        auto hEdge = [W](int x, int y) -> std::int32_t { return (y * W + x) * 2 + 0; };
+        auto vEdge = [W](int x, int y) -> std::int32_t { return (y * W + x) * 2 + 1; };
 
         for (int y = 0; y + 1 < H; y++) {
+            const float* row0 = &heights[static_cast<std::size_t>(y) * W];
+            const float* row1 = &heights[static_cast<std::size_t>(y + 1) * W];
             for (int x = 0; x + 1 < W; x++) {
-                float v00 = heights[static_cast<std::size_t>(y) * W + x];         // SW
-                float v10 = heights[static_cast<std::size_t>(y) * W + (x + 1)];   // SE
-                float v01 = heights[static_cast<std::size_t>(y + 1) * W + x];     // NW
-                float v11 = heights[static_cast<std::size_t>(y + 1) * W + (x + 1)]; // NE
+                float v00 = row0[x];     // SW
+                float v10 = row0[x + 1]; // SE
+                float v01 = row1[x];     // NW
+                float v11 = row1[x + 1]; // NE
 
-                int idx = 0;
-                if (v00 >= level) idx |= 1; // SW
-                if (v10 >= level) idx |= 2; // SE
-                if (v11 >= level) idx |= 4; // NE
-                if (v01 >= level) idx |= 8; // NW
-                if (idx == 0 || idx == 15) {
-                    continue;
-                }
+                float lo = std::min(std::min(v00, v10), std::min(v01, v11));
+                float hi = std::max(std::max(v00, v10), std::max(v01, v11));
+                // The corner test below is 'value >= level', so a level crosses this cell when
+                // lo < level <= hi.
+                long long cellFirst = static_cast<long long>(std::floor(lo / interval)) + 1;
+                long long cellLast = static_cast<long long>(std::floor(hi / interval));
+                if (cellFirst < firstLevel) cellFirst = firstLevel;
+                if (cellLast > lastLevel) cellLast = lastLevel;
 
-                // Crossing points on the 4 cell edges (only some are used per case).
-                std::int64_t eB = hEdge(x, y);       GridPoint pB(x + lerpT(v00, v10, level), y);           // bottom (S)
-                std::int64_t eT = hEdge(x, y + 1);   GridPoint pT(x + lerpT(v01, v11, level), y + 1);       // top (N)
-                std::int64_t eL = vEdge(x, y);       GridPoint pL(x, y + lerpT(v00, v01, level));           // left (W)
-                std::int64_t eR = vEdge(x + 1, y);   GridPoint pR(x + 1, y + lerpT(v10, v11, level));       // right (E)
+                for (long long l = cellFirst; l <= cellLast; l++) {
+                    double level = l * interval;
 
-                switch (idx) {
-                    case 1:  case 14: addSegment(eL, pL, eB, pB); break;
-                    case 2:  case 13: addSegment(eB, pB, eR, pR); break;
-                    case 3:  case 12: addSegment(eL, pL, eR, pR); break;
-                    case 4:  case 11: addSegment(eR, pR, eT, pT); break;
-                    case 6:  case 9:  addSegment(eB, pB, eT, pT); break;
-                    case 7:  case 8:  addSegment(eL, pL, eT, pT); break;
-                    case 5: // saddle: two segments (consistent resolution)
-                        addSegment(eL, pL, eT, pT);
-                        addSegment(eB, pB, eR, pR);
-                        break;
-                    case 10: // saddle
-                        addSegment(eL, pL, eB, pB);
-                        addSegment(eR, pR, eT, pT);
-                        break;
-                    default: break;
-                }
-            }
-        }
+                    int idx = 0;
+                    if (v00 >= level) idx |= 1; // SW
+                    if (v10 >= level) idx |= 2; // SE
+                    if (v11 >= level) idx |= 4; // NE
+                    if (v01 >= level) idx |= 8; // NW
+                    if (idx == 0 || idx == 15) {
+                        continue;
+                    }
 
-        // Link segments into polylines. Walk each unvisited connection, extending from endpoints
-        // with degree 1 first (open chains), then remaining loops.
-        std::vector<Polyline> polylines;
-        std::unordered_map<std::int64_t, std::vector<char>> used; // parallels adj: consumed flags
-        for (const auto& e : adj) {
-            used[e.first] = std::vector<char>(e.second.size(), 0);
-        }
+                    std::vector<Segment>& segments = segmentsPerLevel[static_cast<std::size_t>(l - firstLevel)];
+                    auto addSegment = [&](std::int32_t ea, GridPoint pa, std::int32_t eb, GridPoint pb) {
+                        Segment segment;
+                        segment.edgeA = ea;
+                        segment.edgeB = eb;
+                        segment.ax = static_cast<float>(pa.first);
+                        segment.ay = static_cast<float>(pa.second);
+                        segment.bx = static_cast<float>(pb.first);
+                        segment.by = static_cast<float>(pb.second);
+                        segments.push_back(segment);
+                    };
 
-        auto takeEdge = [&](std::int64_t from, std::int64_t to) -> bool {
-            auto it = adj.find(from);
-            if (it == adj.end()) return false;
-            auto& usedVec = used[from];
-            for (std::size_t i = 0; i < it->second.size(); i++) {
-                if (!usedVec[i] && it->second[i] == to) {
-                    usedVec[i] = 1;
-                    return true;
-                }
-            }
-            return false;
-        };
+                    // Crossing points on the 4 cell edges (only some are used per case).
+                    std::int32_t eB = hEdge(x, y);       GridPoint pB(x + lerpT(v00, v10, level), y);           // bottom (S)
+                    std::int32_t eT = hEdge(x, y + 1);   GridPoint pT(x + lerpT(v01, v11, level), y + 1);       // top (N)
+                    std::int32_t eL = vEdge(x, y);       GridPoint pL(x, y + lerpT(v00, v01, level));           // left (W)
+                    std::int32_t eR = vEdge(x + 1, y);   GridPoint pR(x + 1, y + lerpT(v10, v11, level));       // right (E)
 
-        auto degree = [&](std::int64_t e) -> int {
-            auto it = adj.find(e);
-            return it == adj.end() ? 0 : static_cast<int>(it->second.size());
-        };
-
-        // Helper: from a starting edge, greedily follow unused connections to build a chain.
-        auto buildChain = [&](std::int64_t start) {
-            Polyline line;
-            std::int64_t cur = start;
-            line.push_back(points[cur]);
-            while (true) {
-                auto it = adj.find(cur);
-                if (it == adj.end()) break;
-                std::int64_t next = -1;
-                auto& usedVec = used[cur];
-                for (std::size_t i = 0; i < it->second.size(); i++) {
-                    if (!usedVec[i]) {
-                        next = it->second[i];
-                        usedVec[i] = 1;
-                        // consume the reverse edge too
-                        takeEdge(next, cur);
-                        break;
+                    switch (idx) {
+                        case 1:  case 14: addSegment(eL, pL, eB, pB); break;
+                        case 2:  case 13: addSegment(eB, pB, eR, pR); break;
+                        case 3:  case 12: addSegment(eL, pL, eR, pR); break;
+                        case 4:  case 11: addSegment(eR, pR, eT, pT); break;
+                        case 6:  case 9:  addSegment(eB, pB, eT, pT); break;
+                        case 7:  case 8:  addSegment(eL, pL, eT, pT); break;
+                        case 5: // saddle: two segments (consistent resolution)
+                            addSegment(eL, pL, eT, pT);
+                            addSegment(eB, pB, eR, pR);
+                            break;
+                        case 10: // saddle
+                            addSegment(eL, pL, eB, pB);
+                            addSegment(eR, pR, eT, pT);
+                            break;
+                        default: break;
                     }
                 }
-                if (next < 0) break;
-                line.push_back(points[next]);
-                cur = next;
+            }
+        }
+    }
+
+    // Links one level's segments into polylines through their shared cell-edge ids (no floating
+    // point matching). A grid edge carries at most one crossing point per cell, so at most two
+    // segments meet on it - which is what lets the adjacency live in two flat arrays.
+    std::vector<Polyline> linkSegments(const std::vector<Segment>& segments, LinkBuffers& buffers) {
+        std::vector<Polyline> polylines;
+        if (segments.empty()) {
+            return polylines;
+        }
+
+        buffers.generation++;
+        std::uint32_t generation = buffers.generation;
+        auto attach = [&](std::int32_t edge, std::int32_t segmentIndex) {
+            if (buffers.stamp[edge] != generation) {
+                buffers.stamp[edge] = generation;
+                buffers.firstSegment[edge] = segmentIndex;
+                buffers.secondSegment[edge] = -1;
+            } else if (buffers.secondSegment[edge] < 0) {
+                buffers.secondSegment[edge] = segmentIndex;
+            }
+        };
+        for (std::size_t i = 0; i < segments.size(); i++) {
+            attach(segments[i].edgeA, static_cast<std::int32_t>(i));
+            attach(segments[i].edgeB, static_cast<std::int32_t>(i));
+        }
+
+        buffers.used.assign(segments.size(), 0);
+        auto takeSegment = [&](std::int32_t edge) -> std::int32_t {
+            std::int32_t first = buffers.firstSegment[edge];
+            if (first >= 0 && !buffers.used[first]) {
+                buffers.used[first] = 1;
+                return first;
+            }
+            std::int32_t second = buffers.secondSegment[edge];
+            if (second >= 0 && !buffers.used[second]) {
+                buffers.used[second] = 1;
+                return second;
+            }
+            return -1;
+        };
+
+        // From a starting edge, follow unused segments as far as they go. A closed ring comes
+        // back to its first edge and ends there with the first point repeated, i.e. closed.
+        auto buildChain = [&](std::int32_t start) {
+            Polyline line;
+            std::int32_t current = start;
+            bool first = true;
+            while (true) {
+                std::int32_t segmentIndex = takeSegment(current);
+                if (segmentIndex < 0) {
+                    break;
+                }
+                const Segment& segment = segments[segmentIndex];
+                bool forward = (segment.edgeA == current);
+                if (first) {
+                    line.emplace_back(forward ? segment.ax : segment.bx, forward ? segment.ay : segment.by);
+                    first = false;
+                }
+                line.emplace_back(forward ? segment.bx : segment.ax, forward ? segment.by : segment.ay);
+                current = forward ? segment.edgeB : segment.edgeA;
             }
             return line;
         };
 
-        // Open chains first (endpoints on the tile border have degree 1).
-        for (const auto& e : adj) {
-            if (degree(e.first) == 1) {
-                bool anyLeft = false;
-                for (char c : used[e.first]) { if (!c) { anyLeft = true; break; } }
-                if (!anyLeft) continue;
-                Polyline line = buildChain(e.first);
-                if (line.size() >= 2) polylines.push_back(std::move(line));
+        // Open chains first: their endpoints (on the tile border) carry a single segment, so
+        // starting anywhere else would cut them in two.
+        for (const Segment& segment : segments) {
+            for (std::int32_t edge : { segment.edgeA, segment.edgeB }) {
+                if (buffers.secondSegment[edge] < 0) {
+                    Polyline line = buildChain(edge);
+                    if (line.size() >= 2) polylines.push_back(std::move(line));
+                }
             }
         }
         // Remaining closed loops.
-        for (const auto& e : adj) {
-            bool anyLeft = false;
-            for (char c : used[e.first]) { if (!c) { anyLeft = true; break; } }
-            if (!anyLeft) continue;
-            Polyline line = buildChain(e.first);
+        for (std::size_t i = 0; i < segments.size(); i++) {
+            if (buffers.used[i]) {
+                continue;
+            }
+            Polyline line = buildChain(segments[i].edgeA);
             if (line.size() >= 2) polylines.push_back(std::move(line));
         }
 
@@ -310,6 +367,46 @@ namespace carto {
         return terrariumDecoder;
     }
 
+    const std::size_t ContourTileDataSource::MAX_CACHED_BITMAPS = 16;
+
+    std::shared_ptr<Bitmap> ContourTileDataSource::loadCachedBitmap(const MapTile& tile) {
+        long long key = (static_cast<long long>(tile.getZoom()) << 58) | (static_cast<long long>(tile.getX()) << 29) | static_cast<long long>(tile.getY());
+        {
+            std::lock_guard<std::mutex> lock(_bitmapCacheMutex);
+            for (std::size_t i = 0; i < _bitmapCache.size(); i++) {
+                if (_bitmapCache[i].first == key) {
+                    std::shared_ptr<Bitmap> bitmap = _bitmapCache[i].second;
+                    std::rotate(_bitmapCache.begin(), _bitmapCache.begin() + i, _bitmapCache.begin() + i + 1);
+                    return bitmap;
+                }
+            }
+        }
+
+        std::shared_ptr<TileData> tileData = _dataSource->loadTile(tile);
+        if (!tileData || !tileData->getData() || tileData->isReplaceWithParent()) {
+            return std::shared_ptr<Bitmap>();
+        }
+        std::shared_ptr<Bitmap> bitmap = Bitmap::CreateFromCompressed(tileData->getData());
+        if (bitmap) {
+            cacheBitmap(tile, bitmap);
+        }
+        return bitmap;
+    }
+
+    void ContourTileDataSource::cacheBitmap(const MapTile& tile, const std::shared_ptr<Bitmap>& bitmap) {
+        long long key = (static_cast<long long>(tile.getZoom()) << 58) | (static_cast<long long>(tile.getX()) << 29) | static_cast<long long>(tile.getY());
+        std::lock_guard<std::mutex> lock(_bitmapCacheMutex);
+        for (const std::pair<long long, std::shared_ptr<Bitmap> >& entry : _bitmapCache) {
+            if (entry.first == key) {
+                return;
+            }
+        }
+        _bitmapCache.insert(_bitmapCache.begin(), std::make_pair(key, bitmap));
+        if (_bitmapCache.size() > MAX_CACHED_BITMAPS) {
+            _bitmapCache.resize(MAX_CACHED_BITMAPS);
+        }
+    }
+
     double ContourTileDataSource::getIntervalForZoom(int zoom) const {
         double base = _baseInterval;
         if (zoom <= 9)  return base * 50.0; // very coarse (e.g. 500m) - only relevant if MinVisibleZoom lowered
@@ -376,7 +473,9 @@ namespace carto {
         std::shared_ptr<ElevationDecoder> decoder = resolveDecoder(elevTileData);
         std::array<double, 4> coeffs = decoder->getColorComponentCoefficients();
 
-        std::shared_ptr<Bitmap> bitmap = Bitmap::CreateFromCompressed(elevTileData->getData());
+        // Through the MRU cache: with seamless edges this tile was very likely already decoded as
+        // a neighbour of a tile traced just before it.
+        std::shared_ptr<Bitmap> bitmap = loadCachedBitmap(mapTile);
         if (!bitmap) {
             Log::Errorf("ContourTileDataSource::loadTile: Failed to decode elevation bitmap for %s", mapTile.toString().c_str());
             return std::shared_ptr<TileData>();
@@ -421,11 +520,7 @@ namespace carto {
         if (seamless) {
             auto fetchNeighbour = [&](int dx, int dy) -> std::shared_ptr<Bitmap> {
                 MapTile nt(mapTile.getX() + dx, mapTile.getY() + dy, zoom, mapTile.getFrameNr());
-                std::shared_ptr<TileData> td = _dataSource->loadTile(nt);
-                if (!td || !td->getData() || td->isReplaceWithParent()) {
-                    return std::shared_ptr<Bitmap>();
-                }
-                std::shared_ptr<Bitmap> bm = Bitmap::CreateFromCompressed(td->getData());
+                std::shared_ptr<Bitmap> bm = loadCachedBitmap(nt);
                 if (!bm || bm->getWidth() != fullW || bm->getHeight() != fullH || bm->getColorFormat() != bitmap->getColorFormat()) {
                     return std::shared_ptr<Bitmap>(); // fall back to edge duplication
                 }
@@ -524,11 +619,21 @@ namespace carto {
                        mapTile.toString().c_str(), lastLevel - firstLevel + 1, interval, MAX_LEVELS);
             lastLevel = firstLevel + MAX_LEVELS - 1;
         }
+        if (lastLevel < firstLevel) {
+            lastLevel = firstLevel - 1; // flat tile: no level crosses it
+        }
+        std::vector<std::vector<Segment>> segmentsPerLevel(static_cast<std::size_t>(std::max(0LL, lastLevel - firstLevel + 1)));
+        if (!segmentsPerLevel.empty()) {
+            marchingSquaresAllLevels(heights, W, H, interval, firstLevel, lastLevel, segmentsPerLevel);
+        }
+        LinkBuffers linkBuffers;
+        linkBuffers.resize(static_cast<std::size_t>(W) * H * 2);
+
         for (long long l = firstLevel; l <= lastLevel; l++) {
             double level = l * interval;
             long long ele = static_cast<long long>(std::llround(level));
 
-            std::vector<Polyline> polylines = marchingSquares(heights, W, H, level);
+            std::vector<Polyline> polylines = linkSegments(segmentsPerLevel[static_cast<std::size_t>(l - firstLevel)], linkBuffers);
             if (polylines.empty()) {
                 continue;
             }

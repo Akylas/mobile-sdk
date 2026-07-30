@@ -13,8 +13,11 @@
 #include <atomic>
 #include <mutex>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace carto {
+    class Bitmap;
     class ElevationDecoder;
 
     /**
@@ -147,6 +150,15 @@ namespace carto {
         double getIntervalForZoom(int zoom) const;
         static long long computeDiv(long long ele);
 
+        /**
+         * Returns the decoded DEM bitmap of a tile, through a small MRU cache. With seamless edges
+         * every tile also reads its east/north/north-east neighbours, and each of those is a tile
+         * that is decoded for itself as well - the cache turns those 3 extra image decodes per
+         * tile back into (mostly) one.
+         */
+        std::shared_ptr<Bitmap> loadCachedBitmap(const MapTile& tile);
+        void cacheBitmap(const MapTile& tile, const std::shared_ptr<Bitmap>& bitmap);
+
         const DirectorPtr<TileDataSource> _dataSource;
         const std::shared_ptr<ElevationDecoder> _elevationDecoder;
 
@@ -157,6 +169,10 @@ namespace carto {
         std::atomic<bool> _seamlessEdges;
         std::string _layerName;
         mutable std::mutex _mutex;
+
+        static const std::size_t MAX_CACHED_BITMAPS;
+        std::vector<std::pair<long long, std::shared_ptr<Bitmap> > > _bitmapCache; // most recent first
+        std::mutex _bitmapCacheMutex;
 
     private:
         std::shared_ptr<DataSourceListener> _dataSourceListener;
