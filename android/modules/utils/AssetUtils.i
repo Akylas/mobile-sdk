@@ -3,15 +3,18 @@
 
 %module AssetUtils
 
-!proxy_imports(carto::AssetUtils, core.BinaryData)
+!proxy_imports(carto::AssetUtils, core.BinaryData, core.StringVector)
 
 %{
 #include "utils/AssetUtils.h"	
 %}
 
 %include <std_string.i>
+%include <std_vector.i>
+%include <cartoswig.i>
 
 %import "core/BinaryData.i"
+%import "core/StringVector.i"
 
 %typemap(in) jobject androidAssetManager %{
     $1 = (jobject)$input;

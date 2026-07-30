@@ -5,6 +5,7 @@ import android.util.Log;
 import com.carto.core.BinaryData;
 import com.carto.styles.CartoCSSStyleSet;
 import com.carto.styles.CompiledStyleSet;
+import com.carto.utils.AndroidAssetPackage;
 import com.carto.utils.AssetPackage;
 import com.carto.utils.DirAssetPackage;
 import com.carto.utils.ZippedAssetPackage;
@@ -24,7 +25,10 @@ import java.io.FileInputStream;
  *  - INLINE : a self-contained CartoCSS string - no file on the device, always works, and is the
  *             style that documents the composite slot syntax ('#hillshade', '#satellite', ...);
  *  - NUTI   : an in-memory style PROJECT (project.json + style.mss zipped). Only a project can
- *             declare 'nuti::' parameters, which is how a user setting drives the style at runtime.
+ *             declare 'nuti::' parameters, which is how a user setting drives the style at runtime;
+ *  - ASSETS : the style PROJECT bundled in the APK (app/src/main/assets/style), read with
+ *             AndroidAssetPackage. APK assets are not files, so DirAssetPackage cannot read them.
+ *             This is also the reference example of a style that composite slots work with.
  */
 public final class DemoStyles {
 
@@ -51,6 +55,13 @@ public final class DemoStyles {
             }
             case ZIP: {
                 AssetPackage pack = openZip(dataPath);
+                if (pack != null) {
+                    return new MBVectorTileDecoder(new CompiledStyleSet(pack));
+                }
+                break;
+            }
+            case ASSETS: {
+                AssetPackage pack = openAppAssets();
                 if (pack != null) {
                     return new MBVectorTileDecoder(new CompiledStyleSet(pack));
                 }
@@ -87,6 +98,23 @@ public final class DemoStyles {
         } catch (Exception e) {
             // Missing folder is the normal case on a device where only osm.zip was pushed.
             Log.w(TAG, "style dir not usable (" + dirPath + "): " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * The style bundled in the APK. Note the asset manager must already be connected, which a
+     * MapView does when it is constructed - so this cannot be called before the map view exists.
+     */
+    private static AssetPackage openAppAssets() {
+        try {
+            AndroidAssetPackage pack = new AndroidAssetPackage(DemoConfig.STYLE_ASSETS_PATH);
+            lastLoadedDescription = "app assets " + DemoConfig.STYLE_ASSETS_PATH
+                    + " (" + pack.getAssetNames().size() + " assets)";
+            Log.i(TAG, "style: " + lastLoadedDescription);
+            return pack;
+        } catch (Exception e) {
+            Log.w(TAG, "app asset style not usable (" + DemoConfig.STYLE_ASSETS_PATH + "): " + e.getMessage());
             return null;
         }
     }

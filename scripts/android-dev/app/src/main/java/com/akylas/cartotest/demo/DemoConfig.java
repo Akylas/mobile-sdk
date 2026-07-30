@@ -36,7 +36,10 @@ public final class DemoConfig {
         /** A CartoCSS string built in DemoStyles - self-contained, no file needed. */
         INLINE,
         /** In-memory project bundle declaring a 'nuti::' parameter (see DemoStyles.nutiProject). */
-        NUTI
+        NUTI,
+        /** AndroidAssetPackage over the style project bundled in the APK assets (assets/style).
+         *  The smallest complete example of a style a composite layer can weave sources into. */
+        ASSETS
     }
 
     public static BaseMode BASE_MODE = BaseMode.COMPOSITE;
@@ -54,6 +57,8 @@ public final class DemoConfig {
     /** Zip (relative to the data root) read by ZippedAssetPackage for StyleSource.ZIP, and the
      *  automatic fallback when STYLE_DIR_NAME does not exist on the device. */
     public static String STYLE_ZIP_NAME = "osm.zip";
+    /** Style project inside the APK assets, read by AndroidAssetPackage for StyleSource.ASSETS. */
+    public static String STYLE_ASSETS_PATH = "style";
     /** Style zip used by the offline "routes" layer. */
     public static String ROUTES_STYLE_ZIP_NAME = "inner.zip";
     /** MBTiles used by the offline "routes" layer. */
@@ -315,6 +320,7 @@ public final class DemoConfig {
         RASTER_URL = DemoCfg.cfgStr("rasterUrl", RASTER_URL);
         STYLE_DIR_NAME = DemoCfg.cfgStr("styleDir", STYLE_DIR_NAME);
         STYLE_ZIP_NAME = DemoCfg.cfgStr("styleZip", STYLE_ZIP_NAME);
+        STYLE_ASSETS_PATH = DemoCfg.cfgStr("styleAssets", STYLE_ASSETS_PATH);
 
         // camera
         START_LON = DemoCfg.cfgFloat("lon", (float) START_LON);

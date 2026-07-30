@@ -196,7 +196,7 @@ if(WIN32 OR APPLE OR ANDROID)
 endif()
 
 if(ANDROID)
-  file(GLOB SDK_ANDROID_SRC_FILES
+  file(GLOB SDK_ANDROID_SRC_FILES CONFIGURE_DEPENDS
     "${WRAPPER_DIR}/*.cpp"
     "${WRAPPER_DIR}/*.h"
     "${SDK_BASE_DIR}/android/native/*/*.cpp"
@@ -207,7 +207,7 @@ if(ANDROID)
   set(SDK_SRC_FILES "${SDK_SRC_FILES}" "${SDK_ANDROID_SRC_FILES}")
 elseif(APPLE)
   if(INCLUDE_OBJC)
-    file(GLOB SDK_OBJC_SRC_FILES
+    file(GLOB SDK_OBJC_SRC_FILES CONFIGURE_DEPENDS
       "${SDK_BASE_DIR}/ios/objc/*/*.cpp"
       "${SDK_BASE_DIR}/ios/objc/*/*.mm"
       "${SDK_BASE_DIR}/ios/objc/*/*.h"
@@ -215,7 +215,7 @@ elseif(APPLE)
     )
     set(SDK_SRC_FILES "${SDK_SRC_FILES}" "${SDK_OBJC_SRC_FILES}")
   endif(INCLUDE_OBJC)
-  file(GLOB SDK_IOS_SRC_FILES
+  file(GLOB SDK_IOS_SRC_FILES CONFIGURE_DEPENDS
     "${WRAPPER_DIR}/*.cpp"
     "${WRAPPER_DIR}/*.mm"
     "${WRAPPER_DIR}/*.h"
@@ -225,7 +225,7 @@ elseif(APPLE)
   )
   set(SDK_SRC_FILES "${SDK_SRC_FILES}" "${SDK_IOS_SRC_FILES}")
 elseif(WIN32)
-  file(GLOB SDK_WINRT_SRC_FILES
+  file(GLOB SDK_WINRT_SRC_FILES CONFIGURE_DEPENDS
     "${WRAPPER_DIR}/*.cpp"
     "${WRAPPER_DIR}/*.h"
     "${SDK_BASE_DIR}/winphone/native/*/*.cpp"

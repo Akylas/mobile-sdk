@@ -66,7 +66,15 @@ The base map itself has two more switches:
 
 - **mode**: `plain` (VectorTileLayer) or `composite` (CompositeVectorTileLayer, which weaves the
   `#hillshade` / `#satellite` / `#contour` sources into the style's own layer order);
-- **style**: `dir` | `zip` | `inline` | `nuti`.
+- **style**: `dir` | `zip` | `inline` | `nuti` | `assets`.
+
+`assets` reads the style project bundled in the APK (`app/src/main/assets/style`) through
+`AndroidAssetPackage` — APK assets are not files, so `DirAssetPackage` cannot read them. That
+bundled project is also the reference example of a style composite slots work with: `project.json`
+declares `hillshade` / `satellite` / `contour` in `"layers"` and `style.mss` has the matching
+`#name { ... }` rules. A **compiled Mapnik XML** style (what a packaged `osm.zip` usually holds)
+can never declare those slots — the XML symbolizer set has no hillshade/raster config symbolizer.
+The panel prints, per slot, `OK` or `MISSING in style`.
 
 `dir` is the live-editing one: the style is read from a plain folder with the SDK's
 `DirAssetPackage`, so a modified style only needs a push and a restart, no repackaging:
