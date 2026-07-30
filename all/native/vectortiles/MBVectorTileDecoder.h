@@ -201,6 +201,7 @@ namespace carto {
         bool setStyleParameterInternal(const std::string& param, const std::string& value);
         void updateSymbolizer();
 
+        static const std::string DEFAULT_FALLBACK_FONT_NAME;
         static const int DEFAULT_TILE_SIZE;
         static const int STROKEMAP_SIZE;
         static const int GLYPHMAP_SIZE;

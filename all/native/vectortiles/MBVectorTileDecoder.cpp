@@ -24,6 +24,7 @@
 #include "vectortiles/utils/CartoCSSAssetLoader.h"
 #include "utils/AssetPackage.h"
 #include "utils/FileUtils.h"
+#include "utils/SystemFontUtils.h"
 #include "utils/Const.h"
 #include "utils/Log.h"
 
@@ -604,15 +605,7 @@ namespace carto {
             auto strokeMap = std::make_shared<vt::StrokeMap>(STROKEMAP_SIZE, STROKEMAP_SIZE);
             auto glyphMap = std::make_shared<vt::GlyphMap>(GLYPHMAP_SIZE, GLYPHMAP_SIZE);
 
-            std::shared_ptr<const vt::Font> fallbackFont;
-            for (auto it = _fallbackFonts.rbegin(); it != _fallbackFonts.rend(); it++) {
-                std::shared_ptr<BinaryData> fontData = *it;
-                std::string fontName = fontManager->loadFontData(*fontData->getDataPtr());
-                fallbackFont = fontManager->getFont(fontName, fallbackFont);
-            }
-            mvt::SymbolizerContext::Settings settings(DEFAULT_TILE_SIZE, std::make_shared<std::map<std::string, mvt::Value>>(), fallbackFont);
-            symbolizerContext = std::make_shared<mvt::SymbolizerContext>(bitmapManager, fontManager, strokeMap, glyphMap, settings);
-
+            // Register the fonts of the style first, they take precedence over the system fonts
             if (assetPackage) {
                 std::string fontPrefix = map->getSettings().fontDirectory;
                 fontPrefix = FileUtils::NormalizePath(FileUtils::GetFilePath(styleAssetName) + fontPrefix + "/");
@@ -625,6 +618,27 @@ namespace carto {
                     }
                 }
             }
+
+            // Fonts the style asks for but does not provide are loaded from the system
+            fontManager->setFontDataLoader([](const std::string& name) {
+                if (std::shared_ptr<BinaryData> fontData = SystemFontUtils::LoadFont(name)) {
+                    return *fontData->getDataPtr();
+                }
+                return std::vector<unsigned char>();
+            });
+
+            std::shared_ptr<const vt::Font> fallbackFont;
+            for (auto it = _fallbackFonts.rbegin(); it != _fallbackFonts.rend(); it++) {
+                std::shared_ptr<BinaryData> fontData = *it;
+                std::string fontName = fontManager->loadFontData(*fontData->getDataPtr());
+                fallbackFont = fontManager->getFont(fontName, fallbackFont);
+            }
+            if (!fallbackFont) {
+                // Styles without any font (inline CartoCSS, for example) still need a font for their labels
+                fallbackFont = fontManager->getFont(DEFAULT_FALLBACK_FONT_NAME, fallbackFont);
+            }
+            mvt::SymbolizerContext::Settings settings(DEFAULT_TILE_SIZE, std::make_shared<std::map<std::string, mvt::Value>>(), fallbackFont);
+            symbolizerContext = std::make_shared<mvt::SymbolizerContext>(bitmapManager, fontManager, strokeMap, glyphMap, settings);
         }
 
         auto parameterValueMap = std::make_shared<std::map<std::string, mvt::Value>>();
@@ -667,6 +681,7 @@ namespace carto {
         _cachedFeatureDecoder.second.reset();
     }
 
+    const std::string MBVectorTileDecoder::DEFAULT_FALLBACK_FONT_NAME = "Arial";
     const int MBVectorTileDecoder::DEFAULT_TILE_SIZE = 256;
     const int MBVectorTileDecoder::STROKEMAP_SIZE = 512;
     const int MBVectorTileDecoder::GLYPHMAP_SIZE = 2048;
