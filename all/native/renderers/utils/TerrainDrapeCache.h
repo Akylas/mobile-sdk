@@ -42,6 +42,22 @@ namespace carto {
         void setResolution(int resolution);
 
         /**
+         * Identifies the set of layers the textures are baked from. A tile's fingerprint only
+         * covers the CONTENT of the layers that are present, so replacing a layer (switching the
+         * base map's style rebuilds the layer) or removing one leaves every cached texture holding
+         * a picture of a stack that no longer exists - and those textures stay cached, off screen,
+         * until panning brings them back. That is the old style flashing back tile by tile.
+         * Changing the signature marks every entry stale: it may still be shown (it is better than
+         * a flat fill) but it is re-baked with priority and never seeds or stands in for another
+         * tile, so old content cannot spread into tiles that never had it.
+         */
+        void setStackSignature(std::size_t signature);
+        /**
+         * Whether this tile's texture was baked from an earlier layer stack.
+         */
+        bool isStale(const vt::TileId& tileId, int stack) const;
+
+        /**
          * Starts a frame. Tiles not acquired before endFrame() are released back to the pool.
          */
         void beginFrame();
@@ -116,6 +132,7 @@ namespace carto {
             std::size_t layerMask = 0;
             bool baked = false;
             bool seeded = false;
+            bool stale = false; // baked from an earlier layer stack
             bool used = false;
             unsigned int lastUsedFrame = 0;
         };
@@ -126,6 +143,7 @@ namespace carto {
         static const std::size_t MAX_ENTRIES;         // cached tiles kept alive across frames
 
         int _resolution;
+        std::size_t _stackSignature;
         unsigned int _frameBuffer;
         std::map<Key, Entry> _entries;
         std::vector<unsigned int> _texturePool;

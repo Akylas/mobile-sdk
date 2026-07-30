@@ -1299,6 +1299,17 @@ namespace carto {
                         _terrainDrapeCache = std::make_unique<TerrainDrapeCache>();
                     }
                     _terrainDrapeCache->setResolution(terrainOptions->getDrapeResolution());
+                    // WHICH layers bake, not what is in them. Switching the base map's style
+                    // builds a new layer object, so the cached textures - including the ones held
+                    // off screen for panning - are pictures of the previous style. They are only
+                    // ever noticed through the per-tile fingerprint, which is re-baked at one tile
+                    // per frame, so panning kept bringing the old style back a tile at a time.
+                    std::size_t stackSignature = 0;
+                    for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
+                        std::size_t layerHash = static_cast<std::size_t>(reinterpret_cast<std::uintptr_t>(tileLayer.get()));
+                        stackSignature ^= layerHash + 0x9e3779b9 + (stackSignature << 6) + (stackSignature >> 2);
+                    }
+                    _terrainDrapeCache->setStackSignature(stackSignature);
 
                     // Every participating layer's render tiles must exist before any of them
                     // bakes, so start their frames first.
@@ -1573,8 +1584,15 @@ namespace carto {
                     // second, which reads as the hillshade layer flashing on top of everything.
                     static const int DRAPE_BAKE_BUDGET_PARTIAL = 6;
                     static const int DRAPE_BAKE_BUDGET_STALE = 1;
+                    // A tile baked from a layer stack that no longer exists (the base map's style
+                    // was switched, a layer was turned off) shows the PREVIOUS MAP. One per frame
+                    // is the budget for a tile that is merely out of date; here the picture is
+                    // wrong, and since the cache keeps a generation of tiles alive off screen,
+                    // panning kept walking back over them and flashing the old style tile by tile.
+                    // Cleared at the blank-tile rate instead: a couple of frames, like a zoom.
+                    static const int DRAPE_BAKE_BUDGET_RESTACK = 8;
                     struct BakeRequest { vt::TileId tileId; std::size_t fingerprint; std::size_t drapedIndex; };
-                    std::vector<BakeRequest> blankTiles, standInTiles, partialTiles, staleTiles;
+                    std::vector<BakeRequest> blankTiles, standInTiles, partialTiles, staleTiles, restackTiles;
 
                     // A tile whose DEM has not been decoded yet is drawn FLAT, at sea level.
                     // Next to tiles that ARE displaced that is a slab of map hanging in space
@@ -1788,7 +1806,9 @@ namespace carto {
                             continue;
                         }
                         BakeRequest request { it->first, it->second, drapedIndex };
-                        if (baked && !complete) {
+                        if (baked && _terrainDrapeCache->isStale(it->first, 0)) {
+                            restackTiles.push_back(request);     // shows the previous layer stack
+                        } else if (baked && !complete) {
                             partialTiles.push_back(request);     // shows part of the stack: a layer is simply absent
                         } else if (baked) {
                             staleTiles.push_back(request);       // shows its own, older, picture
@@ -1827,6 +1847,10 @@ namespace carto {
                     };
                     int budget = DRAPE_BAKE_BUDGET_BLANK;
                     for (auto it = blankTiles.begin(); it != blankTiles.end() && budget > 0; it++, budget--) {
+                        bakeTile(*it);
+                    }
+                    budget = DRAPE_BAKE_BUDGET_RESTACK;
+                    for (auto it = restackTiles.begin(); it != restackTiles.end() && budget > 0; it++, budget--) {
                         bakeTile(*it);
                     }
                     budget = DRAPE_BAKE_BUDGET_STANDIN;
