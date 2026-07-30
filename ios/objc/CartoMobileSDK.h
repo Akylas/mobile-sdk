@@ -145,6 +145,7 @@
 
 #import "NTAssetPackage.h"
 #import "NTZippedAssetPackage.h"
+#import "NTDirAssetPackage.h"
 #import "NTCompiledStyleSet.h"
 #import "NTCartoCSSStyleSet.h"
 #import "NTVectorTileDecoder.h"

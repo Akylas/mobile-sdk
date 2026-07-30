@@ -25,6 +25,7 @@
 !polymorphic_shared_ptr(carto::MBVectorTileDecoder, vectortiles.MBVectorTileDecoder)
 
 %attributeval(carto::MBVectorTileDecoder, std::vector<std::string>, StyleParameters, getStyleParameters)
+%attributeval(carto::MBVectorTileDecoder, std::vector<std::string>, StyleLayerNames, getStyleLayerNames)
 %attributestring(carto::MBVectorTileDecoder, std::shared_ptr<carto::CompiledStyleSet>, CompiledStyle, getCompiledStyleSet, setCompiledStyleSet)
 %attributestring(carto::MBVectorTileDecoder, std::shared_ptr<carto::CartoCSSStyleSet>, CartoCSSStyle, getCartoCSSStyleSet, setCartoCSSStyleSet)
 %attribute(carto::MBVectorTileDecoder, bool, FeatureIdOverride, isFeatureIdOverride, setFeatureIdOverride)
@@ -46,7 +47,6 @@
 %ignore carto::MBVectorTileDecoder::getSymbolizerContextSettings;
 %ignore carto::MBVectorTileDecoder::loadMapnikMap;
 %ignore carto::MBVectorTileDecoder::loadCartoCSSMap;
-%ignore carto::MBVectorTileDecoder::getStyleLayerNames;
 %ignore carto::MBVectorTileDecoder::resolveLayerConfig;
 %ignore carto::MBVectorTileDecoder::getStyleLayerZoomRange;
 
