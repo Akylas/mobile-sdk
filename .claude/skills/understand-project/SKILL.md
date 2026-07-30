@@ -1,0 +1,21 @@
+---
+name: understand-project
+description: Ground a feature or fix in existing code before planning or building — find a similar pattern, identify reusable assets, map the touch surface across the SDK and its submodules. Internal helper invoked by feat / fix (both modes) — not meant to be run on its own.
+disable-model-invocation: true
+---
+
+Ground every plan and implementation in code that already exists. A plan that says "follows the same pattern as `HillshadeRasterTileLayer`" beats one describing an abstraction in the abstract — the executor gets low cognitive load and a working reference. This is the _method_; the calling skill says what to build.
+
+## Steps
+
+1. **Learn the layout that applies.** The root `CLAUDE.md` holds the repository map, the renderer architecture, and the debugging playbook — read the relevant sections rather than restating them. In short: core C++ in `all/native/` (`layers`, `renderers`, `datasources`, `rastertiles`, `vectortiles`, `components`, `projections`, `ui`), public API in `all/modules/*.i` (SWIG, mirrors `all/native`), GL vector-tile renderer + CartoCSS + routing in the `libs-carto/` submodule, third-party deps in `libs-external/`, platform glue in `android/` `ios/` `dotnet/` `winphone/`, build scripts in `scripts/`, live test bench in `scripts/android-dev`.
+2. **Decide which repos the work spans — first, not last.** Renderer work usually lands in both `all/native/renderers/` and `libs-carto/vt/`; a style/CartoCSS change is `libs-carto/mapnikvt` or `libs-carto/cartocss`; a data-source change is usually main-repo only. This decision drives branching and the PR count ([branch-check](../branch-check/SKILL.md), [open-pr](../open-pr/SKILL.md)), so make it explicitly and state it in the plan.
+3. **Find a similar existing implementation.** Glob/Grep for the layer, renderer, decoder, or data source that solves the comparable problem and read 1-2 end-to-end so you can point at them by path. Strong references: `HillshadeRasterTileLayer` (elevation consumer), `RasterTileLayer` / `VectorTileLayer` (tile lifecycle), `SkyRenderer` (shader-injection + uniform guards), `TileRenderer` → `vt::GLTileRenderer` (the native↔vt boundary), `MapBoxElevationDataDecoder` (decoder shape).
+4. **Identify reusable assets** — reuse by name rather than inventing: `StyleEnvironment` (`resolveLighting()` / `resolveFog()` — the single resolution point every consumer must go through), `ElevationDecoder` implementations, `TileTransformer` / `TileSurfaceBuilder`, `ElevationTextureCache`, `Options` / `TerrainOptions` / `LightOptions` / `SkyOptions`, the workers in `all/native/renderers/workers/` (`CullWorker`, `VTLabelPlacementWorker`), cglib maths (`bbox::inside` = _intersects_, `frustum3::inside` = _intersects frustum_).
+5. **Map the touch surface** — every file that must change, in every repo: the C++ header + source, the SWIG `.i` when the public API moves (plus the regenerated wrappers under `generated/`, since gradle never runs SWIG), the submodule files, and the `scripts/android-dev` demo knob that exercises it (`demo/DemoConfig.java` default + `DemoPanel.java` control + the intent extra). Trace callers: renderers and shared options ripple widely.
+6. **Check how the change is exercised at runtime** before planning it. The demo app is the only harness: which layer toggle, which intent extra, which camera makes the behaviour visible. If nothing exercises it today, the plan must add the knob in `DemoConfig`/`DemoPanel` — keeping demo edits additive, since those files carry the user's uncommitted local edits.
+7. **Check third-party libraries** when one is involved (freetype, harfbuzz, protobuf, boost, cglib, valhalla) — read the source under `libs-external/`, which is checked out and authoritative, before assuming an API. Use Context7 only for genuinely external libraries with published docs.
+
+## Bias
+
+Pick the simplest, cleanest solution: reuse existing patterns, fewest files touched, smallest new surface, and **keep the change out of the submodule when the main repo can carry it** — one repo means one branch, one PR, no pointer-bump dance. If a clever approach and a boring approach reach the same outcome, choose the boring one.
