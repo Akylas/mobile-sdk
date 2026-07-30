@@ -108,9 +108,9 @@ public final class DemoConfig {
     /** Shared elevation source: 3D terrain, hillshade, contours and the hypsometric tint all use it. */
     public static String DEM_URL = "https://tiles.mapterhorn.com/{z}/{x}/{y}.webp";
     public static int DEM_MIN_ZOOM = 1;
-    /** The REAL max zoom of the source (mapterhorn stops at 12). Setting it higher only produces
+    /** The REAL max zoom of the source (mapterhorn stops at 16). Setting it higher only produces
      *  404s: deeper camera zooms are served by overzooming the last available level. */
-    public static int DEM_MAX_ZOOM = 12;
+    public static int DEM_MAX_ZOOM = 16;
     /** "terrarium" or "mapbox" - decides which ElevationDecoder is used. */
     public static String DEM_ENCODING = "terrarium";
     public static String DEM_CACHE_DB = "mapterhorn.db";

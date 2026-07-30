@@ -35,6 +35,19 @@ public final class DemoPanel {
     public static TextView statusText;
     /** Shows which style was actually loaded (dir / zip / inline / nuti). */
     private static TextView styleText;
+    /** Shows, per composite slot, whether the style actually declares it. */
+    private static TextView slotText;
+
+    /** Re-runs the slot check and updates both status lines. */
+    private static void refreshStatus(DemoMap demo) {
+        demo.checkCompositeSlots();
+        if (slotText != null) {
+            slotText.setText(demo.compositeStatus);
+        }
+        if (styleText != null) {
+            styleText.setText("style: " + DemoStyles.lastLoadedDescription);
+        }
+    }
 
     public static void build(final Context context, View root, final DemoMap demo) {
         if (!DemoConfig.UI_ENABLED) {
@@ -106,15 +119,14 @@ public final class DemoPanel {
             public void set(int index) {
                 DemoConfig.BASE_MODE = DemoConfig.BaseMode.values()[index];
                 demo.rebuildBaseLayer();
+                refreshStatus(demo);
             }
         });
         choice(context, panel, "style", enumNames(DemoConfig.StyleSource.values()), DemoConfig.STYLE_SOURCE.ordinal(), new IntSetting() {
             public void set(int index) {
                 DemoConfig.STYLE_SOURCE = DemoConfig.StyleSource.values()[index];
                 demo.rebuildBaseLayer();
-                if (styleText != null) {
-                    styleText.setText("style: " + DemoStyles.lastLoadedDescription);
-                }
+                refreshStatus(demo);
             }
         });
     }
@@ -122,14 +134,17 @@ public final class DemoPanel {
     /** Sources woven INTO the base style (CompositeVectorTileLayer only). */
     private static void buildCompositeSection(Context context, LinearLayout panel, final DemoMap demo) {
         header(context, panel, "COMPOSITE SLOTS");
+        // A slot only exists if the STYLE declares a layer with that name; otherwise the source is
+        // registered but never drawn. This line says which of the two it is, per slot.
+        slotText = label(context, panel, demo.compositeStatus);
         check(context, panel, "#hillshade", DemoConfig.COMPOSITE_HILLSHADE, new BoolSetting() {
-            public void set(boolean value) { DemoConfig.COMPOSITE_HILLSHADE = value; demo.syncCompositeSources(); }
+            public void set(boolean value) { DemoConfig.COMPOSITE_HILLSHADE = value; demo.syncCompositeSources(); refreshStatus(demo); }
         });
         check(context, panel, "#satellite", DemoConfig.COMPOSITE_SATELLITE, new BoolSetting() {
-            public void set(boolean value) { DemoConfig.COMPOSITE_SATELLITE = value; demo.syncCompositeSources(); }
+            public void set(boolean value) { DemoConfig.COMPOSITE_SATELLITE = value; demo.syncCompositeSources(); refreshStatus(demo); }
         });
         check(context, panel, "#contour", DemoConfig.COMPOSITE_CONTOUR, new BoolSetting() {
-            public void set(boolean value) { DemoConfig.COMPOSITE_CONTOUR = value; demo.syncCompositeSources(); }
+            public void set(boolean value) { DemoConfig.COMPOSITE_CONTOUR = value; demo.syncCompositeSources(); refreshStatus(demo); }
         });
         check(context, panel, "single-pass rendering", DemoConfig.COMPOSITE_SINGLE_PASS, new BoolSetting() {
             public void set(boolean value) {

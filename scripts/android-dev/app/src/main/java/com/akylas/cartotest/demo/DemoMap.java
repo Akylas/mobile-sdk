@@ -13,6 +13,7 @@ import com.carto.core.MapPos;
 import com.carto.core.MapPosVector;
 import com.carto.core.MapVec;
 import com.carto.core.StringMap;
+import com.carto.core.StringVector;
 import com.carto.datasources.ContourTileDataSource;
 import com.carto.datasources.HTTPTileDataSource;
 import com.carto.datasources.LocalVectorDataSource;
@@ -97,6 +98,8 @@ public class DemoMap {
     public CompositeVectorTileLayer compositeLayer;      // same object as baseLayer in COMPOSITE mode
     public MBVectorTileDecoder baseDecoder;              // decoder of the base layer
     public ContourTileDataSource contourSource;          // shared by the layer and the composite slot
+    /** Result of the last {@link #checkCompositeSlots()}: which slots the style really has. */
+    public String compositeStatus = "";
 
     private final Map<Feature, Layer> layers = new LinkedHashMap<Feature, Layer>();
 
@@ -269,7 +272,53 @@ public class DemoMap {
         } else {
             compositeLayer.removeExternalDataSource("contour");
         }
+        checkCompositeSlots();
         mapView.requestRender();
+    }
+
+    /**
+     * WHY A COMPOSITE SLOT SILENTLY DOES NOTHING - the check to run first.
+     *
+     * A slot is the position of a style layer with the source's name. If the style does not
+     * DECLARE a layer called 'hillshade' / 'satellite' / 'contour' (project.json "layers", or the
+     * Layer elements of a Mapnik XML style), the source has nowhere to be drawn and the SDK only
+     * warns in the log. The osm/alpimaps style, for instance, declares 'contour' but neither
+     * 'hillshade' nor 'satellite', so those two slots do nothing until the style adds them.
+     *
+     * The result goes to the log AND to {@link #compositeStatus}, which the panel shows.
+     */
+    public void checkCompositeSlots() {
+        if (compositeLayer == null || baseDecoder == null) {
+            compositeStatus = "";
+            return;
+        }
+        StringVector styleLayers = baseDecoder.getStyleLayerNames();
+        java.util.List<String> declared = new java.util.ArrayList<String>();
+        for (int i = 0; i < styleLayers.size(); i++) {
+            declared.add(styleLayers.get(i));
+        }
+
+        StringVector registered = compositeLayer.getExternalDataSourceNames();
+        StringBuilder status = new StringBuilder();
+        boolean missing = false;
+        for (int i = 0; i < registered.size(); i++) {
+            String name = registered.get(i);
+            boolean ok = declared.contains(name);
+            missing |= !ok;
+            status.append(status.length() > 0 ? ", " : "").append(name).append(ok ? " OK" : " MISSING in style");
+        }
+        compositeStatus = status.length() > 0 ? "slots: " + status : "slots: none";
+        Log.i(TAG, compositeStatus + " | style layers: " + declared);
+        if (missing) {
+            // A COMPILED Mapnik XML style (what a packaged osm.zip / osm folder usually contains)
+            // cannot declare these slots at all: the XML symbolizer set has no hillshade/raster
+            // config symbolizer, only CartoCSS has. Either ship the style as a CartoCSS PROJECT
+            // (project.json "layers" + '#hillshade { hillshade-... }' in the .mss, which
+            // DirAssetPackage reads straight from the folder), or use the inline style to test.
+            Log.w(TAG, "a slot is missing: the style declares no layer with that name. Compiled "
+                    + "Mapnik XML styles cannot declare hillshade/satellite slots - use a CartoCSS "
+                    + "project style (project.json + .mss) or switch the panel style to 'inline'");
+        }
     }
 
     /** Rebuilds the base layer: needed after a style-source or base-mode change. */

@@ -172,7 +172,12 @@ public final class DemoStyles {
                 ? "#building[zoom>=14] { building-fill: #d9cfc4; building-height: 14; }"
                 : "#building[zoom>=14] { polygon-fill: #d9cfc4; }",
             "#contour[zoom>=" + DemoConfig.CONTOUR_MIN_VISIBLE_ZOOM + "] {",
-            "  line-color: #9a5a12; line-width: 0.8; line-opacity: 0.7;",
+                "  line-color: #C56008;",
+                "  line-width: 0.8;",
+                "  line-opacity: 0.4;",
+                "  [div>=50]  { line-opacity: 0.7; line-width: 1.0; }",
+                "  [div>=100] { line-opacity: 0.9; line-width: 1.4; }",
+                "  [div>=500] { line-width: 2.0; }",
             "  contour-base-interval: " + (int) DemoConfig.CONTOUR_BASE_INTERVAL + ";",
             "}");
     }

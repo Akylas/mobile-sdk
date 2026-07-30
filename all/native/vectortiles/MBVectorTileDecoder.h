@@ -112,10 +112,12 @@ namespace carto {
         void setJSONStyleParameters(const std::string& params);
 
         /**
-         * Returns the ordered list of style layer names as declared by the style (the
-         * project JSON "layers" array). This defines both the draw order and which layers
-         * exist. Used by CompositeVectorTileLayer to place external data sources in the
-         * layer order. Note: for internal use, not exposed to the public API.
+         * Returns the ordered list of style layer names as declared by the style (the project
+         * JSON "layers" array, or the Layer elements of a Mapnik XML style). This defines both
+         * the draw order and which layers exist. CompositeVectorTileLayer uses it to place
+         * external data sources in the layer order: a source whose name is not in this list has
+         * no slot in the style and is not drawn, so this is the way to check a style before
+         * wiring sources into it.
          * @return The ordered style layer names.
          */
         std::vector<std::string> getStyleLayerNames() const;
