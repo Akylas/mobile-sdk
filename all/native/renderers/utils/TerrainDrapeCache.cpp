@@ -27,6 +27,7 @@ namespace carto {
 
     TerrainDrapeCache::TerrainDrapeCache() :
         _resolution(1024),
+        _stackSignature(0),
         _frameBuffer(0),
         _entries(),
         _texturePool(),
@@ -62,6 +63,28 @@ namespace carto {
         _texturePool.clear();
     }
 
+    void TerrainDrapeCache::setStackSignature(std::size_t signature) {
+        if (signature == _stackSignature) {
+            return;
+        }
+        _stackSignature = signature;
+        // The textures are kept: a stale picture of the same ground is a better thing to show for
+        // the two or three frames the re-bake takes than the flat fill dropping them would leave.
+        // They just stop being trusted - re-baked with the blank-tile budget, and never copied
+        // into another tile.
+        for (auto it = _entries.begin(); it != _entries.end(); it++) {
+            it->second.stale = it->second.baked || it->second.seeded;
+            // A seed is a copy of other tiles' pictures, so a seed made from the old stack is old
+            // content too, and unlike a bake it has no fingerprint to notice that with.
+            it->second.seeded = false;
+        }
+    }
+
+    bool TerrainDrapeCache::isStale(const vt::TileId& tileId, int stack) const {
+        auto it = _entries.find(Key { tileId, stack });
+        return it != _entries.end() && it->second.stale;
+    }
+
     void TerrainDrapeCache::beginFrame() {
         _frameCounter++;
         for (auto it = _entries.begin(); it != _entries.end(); it++) {
@@ -94,12 +117,16 @@ namespace carto {
             entry.texture = createTexture();
             entry.baked = false;
             entry.seeded = false;
+            entry.stale = false;
         }
         entry.used = true;
         entry.lastUsedFrame = _frameCounter;
         // A changed fingerprint means the layers covering this tile changed - a style layer
         // finished loading, or a proxy was replaced by its native tile - so the texture is stale.
-        needsBake = !entry.baked || entry.fingerprint != fingerprint;
+        // Stale means baked from a stack that no longer exists. The fingerprint does not always
+        // catch that: dropping a layer leaves the remaining layers' content - and their hashes -
+        // unchanged for tiles the dropped layer had nothing in.
+        needsBake = !entry.baked || entry.stale || entry.fingerprint != fingerprint;
         // A seeded texture is not a bake, but it does show this tile's ground - sampling it is
         // right, and it is the difference between a stand-in and a flat fill.
         hasContent = entry.baked || entry.seeded;
@@ -113,6 +140,7 @@ namespace carto {
             it->second.layerMask = layerMask;
             it->second.baked = true;
             it->second.seeded = false;
+            it->second.stale = false;
         }
     }
 
@@ -138,7 +166,10 @@ namespace carto {
 
     unsigned int TerrainDrapeCache::findBaked(const vt::TileId& tileId, int stack) {
         auto it = _entries.find(Key { tileId, stack });
-        if (it == _entries.end() || !it->second.baked) {
+        // A stale entry must never be a source: seeding or standing in with it copies the previous
+        // stack's picture into tiles that never had it, and a seed carries no fingerprint, so the
+        // old content then survives every check that would have replaced it.
+        if (it == _entries.end() || !it->second.baked || it->second.stale) {
             return 0;
         }
         // Standing in for a tile that has no texture of its own IS use: without this the entry
