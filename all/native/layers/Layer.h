@@ -33,6 +33,7 @@ namespace carto {
     class CancelableThreadPool;
     class RayIntersectedElement;
     class TileLayer;
+    class VectorTileLayer;
     class ViewState;
     
     /**
@@ -165,6 +166,7 @@ namespace carto {
         friend class BackgroundRenderer;
         friend class TouchHandler;
         friend class CullWorker; // asks the style how far the map should be drawn
+        friend class VTLabelPlacementWorker; // collects the layers whose labels take part in placement
         friend class CompositeVectorTileLayer; // forwards lifecycle/draw to owned child layers
     
         Layer();
@@ -201,6 +203,12 @@ namespace carto {
         // must append them too, or their content is neither baked into the drape texture nor told
         // that the ground is draped - it then paints itself a second time as displaced geometry.
         virtual void collectDrapeLayers(std::vector<std::shared_ptr<TileLayer> >& drapeLayers, const ViewState& viewState);
+
+        // Appends every vector tile layer whose labels must take part in label placement, in draw
+        // order. A layer that owns child layers (CompositeVectorTileLayer) must append them too:
+        // the label culler only sees what is collected here, and a label of an uncollected layer
+        // is never placed, so it never becomes visible.
+        virtual void collectLabelLayers(std::vector<std::shared_ptr<VectorTileLayer> >& labelLayers);
 
         virtual std::shared_ptr<Bitmap> getBackgroundBitmap(const ViewState& viewState) const;
         // The flat colour behind this layer's content. Normally it reaches the screen through the

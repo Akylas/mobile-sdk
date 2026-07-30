@@ -227,6 +227,10 @@ namespace carto {
         // Non-tile layers (vector elements, NML models) are not draped.
     }
 
+    void Layer::collectLabelLayers(std::vector<std::shared_ptr<VectorTileLayer> >& labelLayers) {
+        // Only vector tile layers carry vt labels.
+    }
+
     bool Layer::onDrawFrame3D(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState) {
         return false;
     }

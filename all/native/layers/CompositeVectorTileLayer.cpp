@@ -786,6 +786,31 @@ namespace carto {
         }
     }
 
+    void CompositeVectorTileLayer::collectLabelLayers(std::vector<std::shared_ptr<VectorTileLayer> >& labelLayers) {
+        // Same order as renderComposite: group 0 is this layer itself, then every draw item. The
+        // label culler grid accumulates across the layers it is given, so the order decides which
+        // labels win a slot. Without the children, every style layer after the first external slot
+        // (contours and every other vector slot included) is never culled - and a label that is
+        // never culled is never placed, so it never becomes visible.
+        VectorTileLayer::collectLabelLayers(labelLayers);
+        if (!isVisible()) {
+            return;
+        }
+
+        std::lock_guard<std::recursive_mutex> lock(_sourceMutex);
+        for (const DrawItem& item : _drawItems) {
+            std::shared_ptr<Layer> childLayer;
+            if (item.kind == DRAW_ITEM_VT_GROUP) {
+                childLayer = item.groupLayer;
+            } else if (const ExternalSource* source = findExternalSource(item.slot)) {
+                childLayer = source->childLayer;
+            }
+            if (childLayer) {
+                childLayer->collectLabelLayers(labelLayers);
+            }
+        }
+    }
+
     bool CompositeVectorTileLayer::renderComposite(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState, bool terrain) {
         auto decoder = std::dynamic_pointer_cast<MBVectorTileDecoder>(getTileDecoder());
 

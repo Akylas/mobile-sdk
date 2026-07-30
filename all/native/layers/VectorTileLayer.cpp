@@ -312,6 +312,10 @@ namespace carto {
         return tile;
     }
     
+    void VectorTileLayer::collectLabelLayers(std::vector<std::shared_ptr<VectorTileLayer> >& labelLayers) {
+        labelLayers.push_back(std::static_pointer_cast<VectorTileLayer>(shared_from_this()));
+    }
+
     void VectorTileLayer::calculateDrawData(const MapTile& visTile, const MapTile& closestTile, bool preloadingTile) {
         std::lock_guard<std::recursive_mutex> lock(_mutex);
 
