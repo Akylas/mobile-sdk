@@ -43,7 +43,7 @@ public final class DemoConfig {
     }
 
     public static BaseMode BASE_MODE = BaseMode.COMPOSITE;
-    public static StyleSource STYLE_SOURCE = StyleSource.ASSETS;
+    public static StyleSource STYLE_SOURCE = StyleSource.INLINE;
 
     // =============================================================================================
     // FILES ON THE DEVICE

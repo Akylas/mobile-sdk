@@ -206,6 +206,18 @@ public final class DemoStyles {
                 "  [div>=50]  { line-opacity: 0.7; line-width: 1.0; }",
                 "  [div>=100] { line-opacity: 0.9; line-width: 1.4; }",
                 "  [div>=500] { line-width: 2.0; }",
+                "[div=1000][zoom>=12],",
+	"[div=500][zoom>=12],",
+	"[div=200][zoom>=14],",
+	"[div=250][zoom>=13][zoom<14],",
+	"[div=100][zoom>=14],",
+	"[div=50][zoom>=15] {",
+            "text-name: [ele]+' m';",
+            "text-fill: #000000;",
+           " text-spacing: 100;",
+            "text-placement: line;",
+            "text-size: 14;",
+        "}",
             "  contour-base-interval: " + (int) DemoConfig.CONTOUR_BASE_INTERVAL + ";",
             "}");
     }
