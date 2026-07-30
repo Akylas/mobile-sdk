@@ -162,7 +162,7 @@ public final class DemoStyles {
             "#landcover { polygon-fill: #dbe8cc; }",
             // --- composite slots, in draw order ---
             "#satellite[zoom>=" + DemoConfig.INLINE_SATELLITE_MIN_ZOOM + "] { raster-opacity: 1; raster-comp-op: src-over; }",
-            "#hillshade[zoom>=4][zoom<=16] {",
+            "#hillshade[zoom>=4][zoom<=19] {",
             "  hillshade-illumination-direction: " + (int) DemoConfig.INLINE_HILLSHADE_ILLUMINATION + ";",
             "  hillshade-shadow-color: " + DemoConfig.INLINE_HILLSHADE_SHADOW_COLOR + ";",
             "}",
