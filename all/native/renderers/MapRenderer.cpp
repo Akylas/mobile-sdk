@@ -165,7 +165,7 @@ namespace carto {
                        (labelBatch - lastLabelBatch) / 1.0e6);
             lastLabelBuild = labelBuild; lastLabelBatch = labelBatch; lastLabelVerts = labelVerts;
 
-            static long long lastPrep[4] = { 0 }, lastLabelSplit[2] = { 0 };
+            static long long lastPrep[4] = { 0 }, lastLabelSplit[2] = { 0 }, lastLabelXf = 0, lastLabelAttr = 0;
             const long long prep[4] = {
                 RenderStats::prepTileBlendNs.load(), RenderStats::prepElevDirtyNs.load(),
                 RenderStats::prepElevUpdateNs.load(), RenderStats::prepLabelBlendNs.load()
@@ -173,10 +173,14 @@ namespace carto {
             const long long labelSplit[2] = {
                 RenderStats::labelPlacementNs.load(), RenderStats::labelLineBuildNs.load()
             };
-            Log::Infof("RenderStats: prepare tileBlendMs=%.1f elevDirtyMs=%.1f elevUpdMs=%.1f labelBlendMs=%.1f | labelBuild placementMs=%.1f lineMs=%.1f (per interval)",
+            Log::Infof("RenderStats: prepare tileBlendMs=%.1f elevDirtyMs=%.1f elevUpdMs=%.1f labelBlendMs=%.1f | labelBuild placementMs=%.1f lineMs=%.1f transformMs=%.1f attribMs=%.1f (per interval)",
                        (prep[0] - lastPrep[0]) / 1.0e6, (prep[1] - lastPrep[1]) / 1.0e6,
                        (prep[2] - lastPrep[2]) / 1.0e6, (prep[3] - lastPrep[3]) / 1.0e6,
-                       (labelSplit[0] - lastLabelSplit[0]) / 1.0e6, (labelSplit[1] - lastLabelSplit[1]) / 1.0e6);
+                       (labelSplit[0] - lastLabelSplit[0]) / 1.0e6, (labelSplit[1] - lastLabelSplit[1]) / 1.0e6,
+                       (RenderStats::labelTransformNs.load() - lastLabelXf) / 1.0e6,
+                       (RenderStats::labelAttribNs.load() - lastLabelAttr) / 1.0e6);
+            lastLabelXf = RenderStats::labelTransformNs.load();
+            lastLabelAttr = RenderStats::labelAttribNs.load();
             for (int i = 0; i < 4; i++) { lastPrep[i] = prep[i]; }
             for (int i = 0; i < 2; i++) { lastLabelSplit[i] = labelSplit[i]; }
 
