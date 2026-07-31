@@ -90,6 +90,13 @@ android {
             cmake {
                 arguments "-DSDK_VERSION=Devel", "-DSDK_PLATFORM='Android'", "-DANDROID_STL=c++_static", '-DANDROID_ARM_NEON:BOOL=ON', '-DSINGLE_LIBRARY:BOOL=ON', '-DHAVE_ZSTD:BOOL=ON', '-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON', "-DWRAPPER_DIR=${projectDir.absolutePath.replaceAll('\\\\', '/')}/../../../generated/android-java/wrappers"
                 cmakeOptions().each {option -> arguments option }
+                // Render profiling, off unless asked for: './gradlew :app:assembleDebug -PprofileRender'
+                // turns on the per-frame section timings (utils/FrameProfiler.h) and the vt
+                // draw/label/tile counters (vt/RenderStats.h), both printed to logcat as 'PROF'
+                // and 'RenderStats' lines. Neither exists in the binary otherwise.
+                if (project.hasProperty('profileRender')) {
+                    arguments "-DCMAKE_CXX_FLAGS=-DCARTO_FRAME_PROFILER=1 -DCARTO_VT_RENDER_STATS=1"
+                }
             }
         }
     }

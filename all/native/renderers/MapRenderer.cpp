@@ -40,6 +40,7 @@
 #include "renderers/workers/VTLabelPlacementWorker.h"
 #include "renderers/workers/CullWorker.h"
 #include "utils/Const.h"
+#include "utils/FrameProfiler.h"
 #include "utils/Log.h"
 #include "utils/ThreadUtils.h"
 
@@ -115,6 +116,23 @@ namespace carto {
                        deltas[3], deltas[12], RenderStats::labelsLive.load(), deltas[4],
                        deltas[5], deltas[6], deltas[7], deltas[8], deltas[16],
                        deltas[9], deltas[10], deltaPasses, deltaFlips);
+
+            // Draw submission, per interval. geomDraws is the number that matters: the frame
+            // cost of a style tracks it, not the index count next to it.
+            static long long lastDraws = 0, lastIndices = 0, lastLabelDraws = 0, lastTiles = 0, lastStyleLayers = 0;
+            long long draws = RenderStats::geometryDraws.load();
+            long long indices = RenderStats::geometryIndices.load();
+            long long labelDraws = RenderStats::labelDraws.load();
+            long long tiles = RenderStats::renderTilesDrawn.load();
+            long long styleLayers = RenderStats::styleLayersDrawn.load();
+            Log::Infof("RenderStats: geomDraws=%lld geomIndices=%lld labelDraws=%lld renderTiles=%lld styleLayers=%lld (per interval)",
+                       draws - lastDraws, indices - lastIndices, labelDraws - lastLabelDraws,
+                       tiles - lastTiles, styleLayers - lastStyleLayers);
+            lastDraws = draws;
+            lastIndices = indices;
+            lastLabelDraws = labelDraws;
+            lastTiles = tiles;
+            lastStyleLayers = styleLayers;
         }
     }
 #endif
@@ -772,12 +790,15 @@ namespace carto {
         }
 
         // Render everything
+        FRAME_PROF_NOW(profFrameStart);
+        FRAME_PROF_RESET();
         initializeRenderState();
         // The shader sky replaces the legacy sky band when it draws.
         bool skyDrawn = _skyRenderer.onDrawFrame(viewState);
         _backgroundRenderer.onDrawFrame(viewState, !skyDrawn);
+        FRAME_PROF_ADD(skyMs, profFrameStart);
         drawLayers(deltaSeconds, viewState);
-
+        FRAME_PROF_END(profFrameStart);
         if (postProcessEffect) {
             applyPostProcessEffect(postProcessEffect, viewState);
         }
@@ -1142,6 +1163,7 @@ namespace carto {
     }
     
     void MapRenderer::drawLayers(float deltaSeconds, const ViewState& viewState) {
+        FRAME_PROF_NOW(profDrawStart);
         std::vector<std::shared_ptr<Layer> > layers = _layers->getAll();
 
         // Terrain depth source: the FIRST suitable tile layer writes the depth of its
@@ -1207,6 +1229,12 @@ namespace carto {
                             _terrainRenderer = std::make_unique<TerrainRenderer>();
                         }
                         _terrainRenderer->updateDepthBuffer(viewState, terrainOptions, _glResourceManager);
+                        if (_terrainRenderer->isDepthBufferStale()) {
+                            // The refresh was deferred to keep the read-back stall out of a
+                            // moving frame; keep asking for frames so it happens once the
+                            // camera settles rather than on the next unrelated redraw.
+                            requestRedraw();
+                        }
                     }
 
                     // Camera terrain-following. The clearance is expressed as a BOUND on the
@@ -1313,9 +1341,13 @@ namespace carto {
 
                     // Every participating layer's render tiles must exist before any of them
                     // bakes, so start their frames first.
+                    FRAME_PROF_ADD(preludeMs, profDrawStart);
+                    FRAME_PROF_NOW(profPrepareStart);
                     for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
                         tileLayer->prepareTerrainDrapeFrame(deltaSeconds, viewState);
                     }
+                    FRAME_PROF_ADD(prepareMs, profPrepareStart);
+                    FRAME_PROF_NOW(profCoverStart);
 
                     // Collected PER LAYER, then merged. The union is what the cover is built from,
                     // but which layers actually have something to bake for a tile is what tells a
@@ -1512,6 +1544,7 @@ namespace carto {
                     GLint prevFBO = 0;
                     glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFBO);
                     std::chrono::steady_clock::time_point drapeStart = std::chrono::steady_clock::now();
+                    FRAME_PROF_ADD(coverMs, profCoverStart);
                     try {
                     _terrainDrapeCache->beginFrame();
                     struct DrapedTile { vt::TileId tileId; unsigned int texture; float uvOffsetX, uvOffsetY, uvScale; };
@@ -1591,6 +1624,8 @@ namespace carto {
                     // panning kept walking back over them and flashing the old style tile by tile.
                     // Cleared at the blank-tile rate instead: a couple of frames, like a zoom.
                     static const int DRAPE_BAKE_BUDGET_RESTACK = 8;
+                    // Wall-clock ceiling for all of the classes above together, per frame.
+                    static const double DRAPE_BAKE_TIME_BUDGET = 8.0; // ms
                     struct BakeRequest { vt::TileId tileId; std::size_t fingerprint; std::size_t drapedIndex; };
                     std::vector<BakeRequest> blankTiles, standInTiles, partialTiles, staleTiles, restackTiles;
 
@@ -1845,24 +1880,37 @@ namespace carto {
                             drapedTiles[request.drapedIndex] = DrapedTile { request.tileId, texture, 0.0f, 0.0f, 1.0f }; // baked now, safe to sample
                         }
                     };
+                    // The counts above say how URGENT each class is; how many of them a frame can
+                    // actually afford is a time question, and the answer is not the same on two
+                    // devices: the same bake was measured at ~2 ms on the emulator and 25+ ms on an
+                    // Adreno 610, so eight of them are a hiccup on one and a third of a second on
+                    // the other. Bake in priority order until the frame's bake time is spent (one
+                    // bake always goes through, or a slow device would never fill a tile in).
+                    std::chrono::steady_clock::time_point bakeStart = std::chrono::steady_clock::now();
+                    auto bakeTimeLeft = [&bakeStart, &bakedThisFrame]() {
+                        if (bakedThisFrame == 0) {
+                            return true; // always make progress
+                        }
+                        return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - bakeStart).count() < DRAPE_BAKE_TIME_BUDGET;
+                    };
                     int budget = DRAPE_BAKE_BUDGET_BLANK;
-                    for (auto it = blankTiles.begin(); it != blankTiles.end() && budget > 0; it++, budget--) {
+                    for (auto it = blankTiles.begin(); it != blankTiles.end() && budget > 0 && bakeTimeLeft(); it++, budget--) {
                         bakeTile(*it);
                     }
                     budget = DRAPE_BAKE_BUDGET_RESTACK;
-                    for (auto it = restackTiles.begin(); it != restackTiles.end() && budget > 0; it++, budget--) {
+                    for (auto it = restackTiles.begin(); it != restackTiles.end() && budget > 0 && bakeTimeLeft(); it++, budget--) {
                         bakeTile(*it);
                     }
                     budget = DRAPE_BAKE_BUDGET_STANDIN;
-                    for (auto it = standInTiles.begin(); it != standInTiles.end() && budget > 0; it++, budget--) {
+                    for (auto it = standInTiles.begin(); it != standInTiles.end() && budget > 0 && bakeTimeLeft(); it++, budget--) {
                         bakeTile(*it);
                     }
                     budget = DRAPE_BAKE_BUDGET_PARTIAL;
-                    for (auto it = partialTiles.begin(); it != partialTiles.end() && budget > 0; it++, budget--) {
+                    for (auto it = partialTiles.begin(); it != partialTiles.end() && budget > 0 && bakeTimeLeft(); it++, budget--) {
                         bakeTile(*it);
                     }
                     budget = DRAPE_BAKE_BUDGET_STALE;
-                    for (auto it = staleTiles.begin(); it != staleTiles.end() && budget > 0; it++, budget--) {
+                    for (auto it = staleTiles.begin(); it != staleTiles.end() && budget > 0 && bakeTimeLeft(); it++, budget--) {
                         bakeTile(*it);
                     }
                     // Baking is rationed over several frames, so it only finishes if those frames
@@ -2216,6 +2264,7 @@ namespace carto {
                     static double drapeMsMax = 0;
                     static int drapeMsCount = 0;
                     double drapeMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - drapeStart).count();
+                    FRAME_PROF_SET(drapeMs, drapeMs);
                     drapeMsSum += drapeMs;
                     drapeMsMax = std::max(drapeMsMax, drapeMs);
                     drapeMsCount++;
@@ -2284,6 +2333,7 @@ namespace carto {
 
         // Do base drawing pass
         bool needRedraw = false;
+        FRAME_PROF_NOW(profLayerStart);
         unsigned int redrawMask = 0; // which layer asked, so a map that never settles can be traced
         for (std::size_t i = 0; i < layers.size(); i++) {
             const std::shared_ptr<Layer>& layer = layers[i];
@@ -2297,7 +2347,10 @@ namespace carto {
             }
         }
 
+        FRAME_PROF_ADD(layerMs, profLayerStart);
+
         // Do 3D drawing pass
+        FRAME_PROF_NOW(profLayer3DStart);
         for (std::size_t i = 0; i < layers.size(); i++) {
             if (layers[i]->onDrawFrame3D(deltaSeconds, billboardSorter, viewState)) {
                 needRedraw = true;
@@ -2305,7 +2358,10 @@ namespace carto {
             }
         }
 
+        FRAME_PROF_ADD(layer3DMs, profLayer3DStart);
+
         // Sort billboards, calculate rotation state
+        FRAME_PROF_NOW(profBillboardStart);
         billboardSorter.sort(viewState);
         
         // Draw billboards, grouped by layer renderer
@@ -2331,6 +2387,8 @@ namespace carto {
 
             glEnable(GL_DEPTH_TEST);
         }
+
+        FRAME_PROF_ADD(billboardMs, profBillboardStart);
 
         // Store the active billboard draw data list
         {
