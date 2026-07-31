@@ -187,6 +187,8 @@ namespace carto {
     private:
         struct DataSourceListener;
 
+        static unsigned long long NextInstanceId();
+
         void tilesChanged();
         void bumpGlobalVersion();
         double wrapInternalX(double internalX) const;
@@ -202,6 +204,11 @@ namespace carto {
         const std::shared_ptr<ElevationDecoder> _elevationDecoder;
         const std::shared_ptr<Projection> _projection;
         std::shared_ptr<DataSourceListener> _dataSourceListener;
+
+        // Process-unique, so that the per-thread grid memo in lookupTileGrid can tell two
+        // managers apart without comparing addresses (a destroyed manager's address can be
+        // handed straight back to the next one).
+        const unsigned long long _instanceId;
 
         std::atomic<float> _exaggeration;
         std::atomic<bool> _seamlessTileEdges;

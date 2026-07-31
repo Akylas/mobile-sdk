@@ -426,10 +426,16 @@ namespace carto {
                                     changedTileIds.emplace_back(changedTile.getZoom(), changedTile.getX(), changedTile.getY());
                                 }
                                 tileRenderer->invalidateTileSurfaces(changedTileIds);
+                                // Labels are anchored onto the terrain the same way, and at one
+                                // elevation sample per label vertex a blanket re-anchor of the
+                                // visible label set costs several hundred milliseconds - the
+                                // same targeted list keeps it to the labels actually affected.
+                                tileRenderer->invalidateLabelElevation(changedTileIds);
                             } else if (!_lastSurfaceResetTime || now - *_lastSurfaceResetTime > std::chrono::milliseconds(SURFACE_RESET_DELAY)) {
                                 _elevationVersion = elevationVersion;
                                 _lastSurfaceResetTime = now;
                                 tileRenderer->resetTileSurfaces();
+                                tileRenderer->invalidateLabelElevation();
                             } else if (auto mapRenderer = _mapRenderer.lock()) {
                                 mapRenderer->requestRedraw(); // apply the pending rebuild on a later frame
                                 // This path asks for a frame without drawing anything new. It is
@@ -501,9 +507,9 @@ namespace carto {
             std::shared_ptr<ElevationManager> elevationManager = activeTerrainOptions->getElevationManager();
             tileRenderer->setLabelElevationProvider([elevationManager](const cglib::vec3<double>& pos) {
                 return elevationManager->getDisplayHeight(pos(0), pos(1), ElevationManager::LoadMode::CACHED_ONLY);
-            }, elevationManager->getVersion());
+            });
         } else {
-            tileRenderer->setLabelElevationProvider(std::function<double(const cglib::vec3<double>&)>(), 0);
+            tileRenderer->setLabelElevationProvider(std::function<double(const cglib::vec3<double>&)>());
         }
         tileRenderer->setTerrainMode(terrainMode, terrainDepthBias);
         // The geometry-vs-surface chord error shrinks quadratically with the mesh

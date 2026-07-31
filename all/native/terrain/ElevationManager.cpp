@@ -39,11 +39,17 @@ namespace carto {
         ElevationManager& _manager;
     };
 
+    unsigned long long ElevationManager::NextInstanceId() {
+        static std::atomic<unsigned long long> counter { 0 };
+        return counter.fetch_add(1) + 1;
+    }
+
     ElevationManager::ElevationManager(const std::shared_ptr<TileDataSource>& dataSource, const std::shared_ptr<ElevationDecoder>& elevationDecoder) :
         _dataSource(dataSource),
         _elevationDecoder(ResolveDecoder(dataSource, elevationDecoder)),
         _projection(dataSource->getProjection()),
         _dataSourceListener(),
+        _instanceId(NextInstanceId()),
         _exaggeration(1.0f),
         _seamlessTileEdges(true),
         _surfaceResolution(32),
@@ -200,6 +206,26 @@ namespace carto {
             return std::shared_ptr<ElevationTileGrid>();
         }
 
+        // Dense point queries - label re-anchoring walks every vertex of every label, the
+        // terrain raycast marches a ray - ask for the same tile thousands of times in a row,
+        // and every one of them takes the cache mutex and walks the ancestor chain. Remember
+        // the last resolved (tile -> grid) per thread: grids are immutable and every
+        // elevation change bumps the version, so a memo of the same version is the same
+        // answer the walk below would produce. LOAD_EXACT is excluded on purpose - it must
+        // not be satisfied by a grid resolved through the ancestor search.
+        struct GridMemo {
+            unsigned long long instanceId = 0;
+            unsigned int version = 0;
+            long long tileId = -1;
+            std::shared_ptr<ElevationTileGrid> grid;
+        };
+        static thread_local GridMemo memo;
+        unsigned int memoVersion = _version.load();
+        bool memoizable = (mode != LoadMode::LOAD_EXACT);
+        if (memoizable && memo.instanceId == _instanceId && memo.version == memoVersion && memo.tileId == tile.getTileId() && memo.grid) {
+            return memo.grid;
+        }
+
         // Look for the tile or any of its cached ancestors
         bool tileFailed = false;
         if (mode == LoadMode::LOAD_EXACT) {
@@ -223,6 +249,7 @@ namespace carto {
                 std::shared_ptr<ElevationTileGrid> grid;
                 if (_gridCache.read(searchTile.getTileId(), grid)) {
                     if (grid) {
+                        memo = GridMemo { _instanceId, memoVersion, tile.getTileId(), grid };
                         return grid;
                     }
                     if (searchTile == tile) {
