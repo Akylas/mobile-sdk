@@ -134,6 +134,48 @@ namespace carto {
                        surfaceDraws - lastSurfaceDraws, surfaceIndices - lastSurfaceIndices);
             lastSurfaceDraws = surfaceDraws; lastSurfaceIndices = surfaceIndices;
 
+            static long long lastSurfSplit[7] = { 0 };
+            const long long surfSplit[7] = {
+                RenderStats::surfShadowDraws.load(), RenderStats::surfMaskDraws.load(),
+                RenderStats::surfFillDraws.load(), RenderStats::surfBlitDraws.load(),
+                RenderStats::surfDrapeDraws.load(), RenderStats::surfBackgroundDraws.load(),
+                RenderStats::surfBitmapDraws.load()
+            };
+            Log::Infof("RenderStats: surfaces shadow=%lld mask=%lld fill=%lld blit=%lld drape=%lld background=%lld bitmap=%lld (per interval)",
+                       surfSplit[0] - lastSurfSplit[0], surfSplit[1] - lastSurfSplit[1],
+                       surfSplit[2] - lastSurfSplit[2], surfSplit[3] - lastSurfSplit[3],
+                       surfSplit[4] - lastSurfSplit[4], surfSplit[5] - lastSurfSplit[5],
+                       surfSplit[6] - lastSurfSplit[6]);
+            for (int i = 0; i < 7; i++) {
+                lastSurfSplit[i] = surfSplit[i];
+            }
+            static long long lastMaskNs = 0, lastDrapeNs = 0;
+            long long maskNs = RenderStats::surfMaskNs.load();
+            long long drapeNs = RenderStats::surfDrapeNs.load();
+            Log::Infof("RenderStats: surfaces maskMs=%.1f drapeMs=%.1f (per interval)",
+                       (maskNs - lastMaskNs) / 1.0e6, (drapeNs - lastDrapeNs) / 1.0e6);
+            lastMaskNs = maskNs; lastDrapeNs = drapeNs;
+
+            static long long lastLabelBuild = 0, lastLabelBatch = 0, lastLabelVerts = 0;
+            long long labelBuild = RenderStats::labelVertexBuildNs.load();
+            long long labelBatch = RenderStats::labelBatchNs.load();
+            long long labelVerts = RenderStats::labelsDrawnVertices.load();
+            Log::Infof("RenderStats: labels built=%lld buildMs=%.1f batchMs=%.1f (per interval)",
+                       labelVerts - lastLabelVerts, (labelBuild - lastLabelBuild) / 1.0e6,
+                       (labelBatch - lastLabelBatch) / 1.0e6);
+            lastLabelBuild = labelBuild; lastLabelBatch = labelBatch; lastLabelVerts = labelVerts;
+
+            static long long lastEndFrame = 0, lastSwept = 0;
+            long long endFrameNs = RenderStats::endFrameNs.load();
+            long long swept = RenderStats::endFrameSwept.load();
+            static long long lastMutexWait = 0;
+            long long mutexWait = RenderStats::mutexWaitNs.load();
+            Log::Infof("RenderStats: endFrame ms=%.1f swept=%lld labelLockWaitMs=%.1f (per interval)",
+                       (endFrameNs - lastEndFrame) / 1.0e6, swept - lastSwept,
+                       (mutexWait - lastMutexWait) / 1.0e6);
+            lastMutexWait = mutexWait;
+            lastEndFrame = endFrameNs; lastSwept = swept;
+
             // Where one geometry draw goes, in microseconds. 'skips' are calls that set up and
             // then found the style invisible - they pay everything up to their bail-out point.
             static long long lastProgram = 0, lastTerrain = 0, lastStyle = 0, lastStyleEval = 0, lastCompile = 0, lastBind = 0, lastDraw = 0, lastSkips = 0, lastMisses = 0;
