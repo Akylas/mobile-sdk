@@ -165,6 +165,31 @@ namespace carto {
                        (labelBatch - lastLabelBatch) / 1.0e6);
             lastLabelBuild = labelBuild; lastLabelBatch = labelBatch; lastLabelVerts = labelVerts;
 
+            static long long lastPrep[4] = { 0 }, lastLabelSplit[2] = { 0 };
+            const long long prep[4] = {
+                RenderStats::prepTileBlendNs.load(), RenderStats::prepElevDirtyNs.load(),
+                RenderStats::prepElevUpdateNs.load(), RenderStats::prepLabelBlendNs.load()
+            };
+            const long long labelSplit[2] = {
+                RenderStats::labelPlacementNs.load(), RenderStats::labelLineBuildNs.load()
+            };
+            Log::Infof("RenderStats: prepare tileBlendMs=%.1f elevDirtyMs=%.1f elevUpdMs=%.1f labelBlendMs=%.1f | labelBuild placementMs=%.1f lineMs=%.1f (per interval)",
+                       (prep[0] - lastPrep[0]) / 1.0e6, (prep[1] - lastPrep[1]) / 1.0e6,
+                       (prep[2] - lastPrep[2]) / 1.0e6, (prep[3] - lastPrep[3]) / 1.0e6,
+                       (labelSplit[0] - lastLabelSplit[0]) / 1.0e6, (labelSplit[1] - lastLabelSplit[1]) / 1.0e6);
+            for (int i = 0; i < 4; i++) { lastPrep[i] = prep[i]; }
+            for (int i = 0; i < 2; i++) { lastLabelSplit[i] = labelSplit[i]; }
+
+            static long long lastPass3D[3] = { 0 };
+            const long long pass3D[3] = {
+                RenderStats::pass3DLabels2DNs.load(), RenderStats::pass3DGeometryNs.load(),
+                RenderStats::pass3DLabels3DNs.load()
+            };
+            Log::Infof("RenderStats: pass3D labels2DMs=%.1f geometryMs=%.1f labels3DMs=%.1f (per interval)",
+                       (pass3D[0] - lastPass3D[0]) / 1.0e6, (pass3D[1] - lastPass3D[1]) / 1.0e6,
+                       (pass3D[2] - lastPass3D[2]) / 1.0e6);
+            for (int i = 0; i < 3; i++) { lastPass3D[i] = pass3D[i]; }
+
             static long long lastEndFrame = 0, lastSwept = 0;
             long long endFrameNs = RenderStats::endFrameNs.load();
             long long swept = RenderStats::endFrameSwept.load();

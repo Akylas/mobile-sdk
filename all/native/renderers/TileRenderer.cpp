@@ -1,4 +1,6 @@
 #include "TileRenderer.h"
+
+#include <vt/RenderStats.h>
 #include "components/Options.h"
 #include "components/LightOptions.h"
 #include "components/TerrainOptions.h"
@@ -671,15 +673,19 @@ namespace carto {
 
         bool refresh = false;
         try {
+            VT_STAT_CLOCK(passClock);
             if (_labelOrder == 1) {
                 tileRenderer->renderLabels(true, false);
             }
+            VT_STAT_SPLIT(pass3DLabels2DNs, passClock);
             if (_buildingOrder == 1) {
                 tileRenderer->renderGeometry(false, true);
             }
+            VT_STAT_SPLIT(pass3DGeometryNs, passClock);
             if (_labelOrder == 1) {
                 tileRenderer->renderLabels(false, true);
             }
+            VT_STAT_SPLIT(pass3DLabels3DNs, passClock);
 
             refresh = tileRenderer->endFrame();
         }
