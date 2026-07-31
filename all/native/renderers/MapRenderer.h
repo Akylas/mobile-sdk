@@ -241,6 +241,9 @@ namespace carto {
         // terrain, and the light box is snapped to a world lattice so its matrix repeats exactly
         // while the camera moves inside one texel step: while these match, the existing map is
         // still the right one and the pass is skipped.
+        // Camera pose the last drape-bake pass ran against, to tell a moving frame from a
+        // still one (see the bake time budget in onDrawFrame).
+        cglib::mat4x4<double> _drapeBakeLastMVPMatrix = cglib::mat4x4<double>::identity();
         bool _shadowMapValid = false;
         int _shadowMapSize = 0;
         int _shadowMapCascades = 0;

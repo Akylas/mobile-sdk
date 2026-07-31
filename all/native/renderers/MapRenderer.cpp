@@ -199,6 +199,14 @@ namespace carto {
             long long swept = RenderStats::endFrameSwept.load();
             static long long lastMutexWait = 0;
             long long mutexWait = RenderStats::mutexWaitNs.load();
+            static long long lastBakes = 0, lastBakeNs = 0, lastQueued = 0;
+            long long bakes = RenderStats::drapeBakes.load();
+            long long bakeNs = RenderStats::drapeBakeNs.load();
+            long long queued = RenderStats::drapeBakeQueued.load();
+            Log::Infof("RenderStats: drape bakes=%lld queued=%lld totalMs=%.1f msPerBake=%.1f (per interval)",
+                       bakes - lastBakes, queued - lastQueued, (bakeNs - lastBakeNs) / 1.0e6,
+                       (bakeNs - lastBakeNs) / 1.0e6 / std::max(1LL, bakes - lastBakes));
+            lastBakes = bakes; lastBakeNs = bakeNs; lastQueued = queued;
             Log::Infof("RenderStats: endFrame ms=%.1f swept=%lld labelLockWaitMs=%.1f (per interval)",
                        (endFrameNs - lastEndFrame) / 1.0e6, swept - lastSwept,
                        (mutexWait - lastMutexWait) / 1.0e6);
@@ -1748,7 +1756,15 @@ namespace carto {
                     // Cleared at the blank-tile rate instead: a couple of frames, like a zoom.
                     static const int DRAPE_BAKE_BUDGET_RESTACK = 8;
                     // Wall-clock ceiling for all of the classes above together, per frame.
-                    static const double DRAPE_BAKE_TIME_BUDGET = 8.0; // ms
+                    // Measured on an Adreno 610 from a cold start in 3D: 5-11 bakes a second get
+                    // through against 10-51 queued, while the bakes themselves cost 12-31 ms a
+                    // SECOND - one to three percent of the wall clock. The budget, not the work,
+                    // is what makes roads and fills crawl into view in 3D when 2D shows them at
+                    // once. Give a frame room for several bakes, and much more room when the
+                    // camera is still: a longer frame is invisible on a map that is not moving,
+                    // a tile that takes seconds to appear is not.
+                    static const double DRAPE_BAKE_TIME_BUDGET = 16.0;       // ms, camera moving
+                    static const double DRAPE_BAKE_TIME_BUDGET_STILL = 60.0; // ms, camera at rest
                     struct BakeRequest { vt::TileId tileId; std::size_t fingerprint; std::size_t drapedIndex; };
                     std::vector<BakeRequest> blankTiles, standInTiles, partialTiles, staleTiles, restackTiles;
 
@@ -1999,6 +2015,7 @@ namespace carto {
                         _terrainDrapeCache->markBaked(request.tileId, 0, request.fingerprint, bakedMask);
                         bakedTiles++;
                         bakedThisFrame++;
+                        VT_STAT_INC(drapeBakes);
                         if (request.drapedIndex < drapedTiles.size()) {
                             drapedTiles[request.drapedIndex] = DrapedTile { request.tileId, texture, 0.0f, 0.0f, 1.0f }; // baked now, safe to sample
                         }
@@ -2009,12 +2026,19 @@ namespace carto {
                     // Adreno 610, so eight of them are a hiccup on one and a third of a second on
                     // the other. Bake in priority order until the frame's bake time is spent (one
                     // bake always goes through, or a slow device would never fill a tile in).
+                    // Same "did the camera move since the previous frame" test the occlusion
+                    // read-back throttle uses (TerrainRenderer::updateDepthBuffer).
+                    const cglib::mat4x4<double>& bakeMVPMatrix = viewState.getModelviewProjectionMat();
+                    bool bakeCameraMoving = !(_drapeBakeLastMVPMatrix == bakeMVPMatrix);
+                    _drapeBakeLastMVPMatrix = bakeMVPMatrix;
+                    double bakeTimeBudget = (bakeCameraMoving ? DRAPE_BAKE_TIME_BUDGET : DRAPE_BAKE_TIME_BUDGET_STILL);
                     std::chrono::steady_clock::time_point bakeStart = std::chrono::steady_clock::now();
-                    auto bakeTimeLeft = [&bakeStart, &bakedThisFrame]() {
+                    VT_STAT_ADD(drapeBakeQueued, static_cast<long long>(blankTiles.size() + restackTiles.size() + standInTiles.size() + partialTiles.size() + staleTiles.size()));
+                    auto bakeTimeLeft = [&bakeStart, &bakedThisFrame, bakeTimeBudget]() {
                         if (bakedThisFrame == 0) {
                             return true; // always make progress
                         }
-                        return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - bakeStart).count() < DRAPE_BAKE_TIME_BUDGET;
+                        return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - bakeStart).count() < bakeTimeBudget;
                     };
                     int budget = DRAPE_BAKE_BUDGET_BLANK;
                     for (auto it = blankTiles.begin(); it != blankTiles.end() && budget > 0 && bakeTimeLeft(); it++, budget--) {
@@ -2048,6 +2072,7 @@ namespace carto {
                         || staleTiles.size() > DRAPE_BAKE_BUDGET_STALE) {
                         requestRedraw();
                     }
+                    VT_STAT_ADD(drapeBakeNs, std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - bakeStart).count());
                     if (bakeStarted) {
                         // Detach before sampling: a texture left attached to a framebuffer counts
                         // as a render target, and sampling it in the same frame is undefined - on
