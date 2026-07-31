@@ -91,6 +91,13 @@ namespace carto {
         bool updateDepthBuffer(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager);
 
         /**
+         * True when the occlusion depth data no longer matches the camera because the
+         * update was deferred while the camera moves. The caller must keep asking for
+         * frames while this holds, so that the refresh happens once the camera settles.
+         */
+        bool isDepthBufferStale() const { return _depthStale; }
+
+        /**
          * Returns the linear eye depth (view w, internal units) of the terrain at the
          * given screen position from the last updateDepthBuffer call. Returns a huge
          * value for sky pixels or when no depth data is available.
@@ -102,10 +109,18 @@ namespace carto {
         struct MeshCacheEntry;
 
         static constexpr int BUFFER_DOWNSCALE = 2;    // packed depth texture runs at half resolution
-        static constexpr int DEPTH_READBACK_THROTTLE = 60; // minimum interval (ms) between occlusion depth read-backs while the camera moves
+        // The occlusion read-back is a glReadPixels, i.e. a full pipeline stall: measured on an
+        // Adreno 610 at 55-62 ms (peaks 134 ms) on top of the ~20 ms depth render. Running that
+        // every 60 ms while the camera moves costs more than the whole rest of the frame, so
+        // while it moves the data is only refreshed at a coarse interval and the exact refresh
+        // is done once the camera settles - the occlusion depth is allowed to lag a gesture,
+        // which is invisible (billboards fade), but a stalled frame is not.
+        static constexpr int DEPTH_READBACK_THROTTLE = 60;        // minimum interval (ms) between read-backs
+        static constexpr int DEPTH_READBACK_MOVING_INTERVAL = 500; // ...while the camera keeps moving
         static constexpr int MIN_MESH_GRID_SIZE = 4;  // grid cells per tile edge, lower bound
         static constexpr int MAX_MESH_GRID_SIZE = 96; // grid cells per tile edge, upper bound
         static constexpr int MAX_CACHED_MESHES = 160;
+        static constexpr int DEPTH_TEXTURE_MESH_RESOLUTION = 32; // mesh cap for the occlusion depth texture
 
         static const std::string TERRAIN_DEPTH_VERTEX_SHADER;
         static const std::string TERRAIN_DEPTH_FRAGMENT_SHADER;
@@ -113,7 +128,11 @@ namespace carto {
         static const std::string TERRAIN_BITMAP_VERTEX_SHADER;
         static const std::string TERRAIN_BITMAP_FRAGMENT_SHADER;
 
-        bool renderTiles(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager, const std::shared_ptr<Shader>& shader, const std::function<void(const MapTile&)>& tileUniformsFn = std::function<void(const MapTile&)>());
+        // meshResolutionCap > 0 caps the per-tile mesh grid below what TerrainOptions asks
+        // for. The occlusion depth texture is a half-resolution approximation sampled at
+        // single points, so it does not need the full render mesh - and that mesh is CPU
+        // built and drawn from client memory, which is the expensive part of the pass.
+        bool renderTiles(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager, const std::shared_ptr<Shader>& shader, const std::function<void(const MapTile&)>& tileUniformsFn = std::function<void(const MapTile&)>(), int meshResolutionCap = 0);
         void calculateVisibleTiles(const ViewState& viewState, const std::shared_ptr<ElevationManager>& elevationManager, const MapTile& tile, std::vector<MapTile>& tiles) const;
         std::shared_ptr<TileMesh> buildTileMesh(const MapTile& tile, const std::shared_ptr<ElevationTileGrid>& grid, const std::shared_ptr<ElevationManager>& elevationManager, int gridSize) const;
         int calculateMeshGridSize(const MapTile& tile, const std::shared_ptr<ElevationTileGrid>& grid, int meshResolution) const;
@@ -125,7 +144,10 @@ namespace carto {
         std::shared_ptr<Shader> _bitmapShader;
         std::shared_ptr<Bitmap> _backgroundBitmap; // source of _backgroundTex, for change detection
         std::shared_ptr<Texture> _backgroundTex;
-        std::map<long long, MeshCacheEntry> _meshCache;
+        // Keyed by (tile id, mesh grid size): the occlusion depth texture draws the same
+        // tiles at a coarser grid than the rendered terrain, and a tile-only key would make
+        // the two passes rebuild every mesh in turn.
+        std::map<std::pair<long long, int>, MeshCacheEntry> _meshCache;
 
         std::vector<std::uint8_t> _depthData; // read-back packed depth (RGBA, BUFFER_DOWNSCALE resolution)
         int _depthWidth = 0;
@@ -134,6 +156,8 @@ namespace carto {
         cglib::mat4x4<double> _depthMVPMatrix = cglib::mat4x4<double>::zero(); // camera state of the last read-back
         unsigned int _depthElevationVersion = 0;
         std::chrono::steady_clock::time_point _depthReadbackTime; // throttles read-backs while the camera moves
+        cglib::mat4x4<double> _depthLastSeenMVPMatrix = cglib::mat4x4<double>::zero(); // camera of the previous frame
+        bool _depthStale = false; // an update was deferred: the data no longer matches the camera
     };
 }
 

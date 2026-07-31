@@ -237,7 +237,7 @@ namespace carto {
             _shader = glResourceManager->create<Shader>("terraindepth", TERRAIN_DEPTH_VERTEX_SHADER, TERRAIN_DEPTH_FRAGMENT_SHADER);
         }
         if (_shader) {
-            result = renderTiles(viewState, terrainOptions, glResourceManager, _shader);
+            result = renderTiles(viewState, terrainOptions, glResourceManager, _shader, std::function<void(const MapTile&)>(), DEPTH_TEXTURE_MESH_RESOLUTION);
         }
 
         // Restore state
@@ -265,17 +265,28 @@ namespace carto {
         // depth during motion is invisible (labels fade in/out anyway), while a
         // glReadPixels stall every frame is not.
         unsigned int elevationVersion = (terrainOptions && terrainOptions->getElevationManager() ? terrainOptions->getElevationManager()->getVersion() : 0);
+        const cglib::mat4x4<double>& mvpMatrix = viewState.getModelviewProjectionMat();
         bool unchanged = (_depthWidth == bufferWidth && _depthHeight == bufferHeight &&
-            _depthMVPMatrix == viewState.getModelviewProjectionMat() && _depthElevationVersion == elevationVersion);
+            _depthMVPMatrix == mvpMatrix && _depthElevationVersion == elevationVersion);
         if (unchanged) {
+            _depthStale = false;
+            _depthLastSeenMVPMatrix = mvpMatrix;
             return true;
         }
         auto now = std::chrono::steady_clock::now();
-        if (_depthWidth == bufferWidth && _depthHeight == bufferHeight &&
-            now - _depthReadbackTime < std::chrono::milliseconds(DEPTH_READBACK_THROTTLE)) {
-            return true; // keep the previous (slightly stale) depth data during motion
+        // Is the camera still moving? The read-back stalls the pipeline, so during a gesture
+        // it runs at a coarse interval only and the exact refresh waits for the camera to come
+        // to rest - the frame after the one that moved last.
+        bool moving = (_depthLastSeenMVPMatrix != mvpMatrix);
+        _depthLastSeenMVPMatrix = mvpMatrix;
+        bool haveData = (_depthWidth == bufferWidth && _depthHeight == bufferHeight);
+        int throttle = (moving ? DEPTH_READBACK_MOVING_INTERVAL : DEPTH_READBACK_THROTTLE);
+        if (haveData && now - _depthReadbackTime < std::chrono::milliseconds(throttle)) {
+            _depthStale = true; // keep the previous (stale) depth data, refresh on a later frame
+            return true;
         }
         _depthReadbackTime = now;
+        _depthStale = false;
 
         _depthWidth = 0;
         _depthHeight = 0;
@@ -314,7 +325,7 @@ namespace carto {
         return depth * _depthFar;
     }
 
-    bool TerrainRenderer::renderTiles(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager, const std::shared_ptr<Shader>& shader, const std::function<void(const MapTile&)>& tileUniformsFn) {
+    bool TerrainRenderer::renderTiles(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager, const std::shared_ptr<Shader>& shader, const std::function<void(const MapTile&)>& tileUniformsFn, int meshResolutionCap) {
         std::shared_ptr<ElevationManager> elevationManager = terrainOptions->getElevationManager();
 
         // Calculate visible terrain tiles
@@ -330,6 +341,9 @@ namespace carto {
         float exaggeration = elevationManager->getExaggeration();
         int minZoom = terrainOptions->getMinZoom();
         int meshResolution = terrainOptions->getMeshResolution();
+        if (meshResolutionCap > 0) {
+            meshResolution = std::min(meshResolution, meshResolutionCap);
+        }
         const cglib::mat4x4<double>& mvpMat = viewState.getModelviewProjectionMat();
         for (const MapTile& tile : tiles) {
             long long tileId = tile.getTileId();
@@ -341,7 +355,7 @@ namespace carto {
 
             // Rebuild the mesh only when its inputs actually changed. This avoids rebuilding
             // every cached mesh each time a new elevation tile arrives during loading.
-            auto it = _meshCache.find(tileId);
+            auto it = _meshCache.find(std::make_pair(tileId, gridSize));
             if (it == _meshCache.end() || it->second.grid != grid || it->second.exaggeration != exaggeration || it->second.gridSize != gridSize) {
                 if (_meshCache.size() >= MAX_CACHED_MESHES) {
                     _meshCache.clear(); // simple full flush; meshes are cheap to rebuild
@@ -352,7 +366,7 @@ namespace carto {
                 entry.exaggeration = exaggeration;
                 entry.gridSize = gridSize;
                 entry.mesh = buildTileMesh(tile, grid, elevationManager, gridSize);
-                it = _meshCache.insert_or_assign(tileId, std::move(entry)).first;
+                it = _meshCache.insert_or_assign(std::make_pair(tileId, gridSize), std::move(entry)).first;
             }
             const std::shared_ptr<TileMesh>& mesh = it->second.mesh;
             if (!mesh || mesh->indices.empty()) {
