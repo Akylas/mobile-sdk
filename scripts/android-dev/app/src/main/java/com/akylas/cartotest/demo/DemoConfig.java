@@ -152,8 +152,10 @@ public final class DemoConfig {
 
     public static boolean TERRAIN_ENABLED = true;
     public static float TERRAIN_EXAGGERATION = 1.0f;
-    /** Triangles per tile side. Slack against the draped content scales as (32/res)^2. */
-    public static int TERRAIN_MESH_RESOLUTION = 128;
+    /** Triangles per tile side. Slack against the draped content scales as (32/res)^2.
+     *  64 is what tangram-ng uses (RasterStyle::build, hardcoded); 128 measured 8.5 fps against
+     *  15.2 at 64 on the Crosscall (mesh 64, plain base, no labels/hillshade/contours). */
+    public static int TERRAIN_MESH_RESOLUTION = 64;
     /** Painter-order depth model (per-tile-layer depth domain). Keep on unless debugging depth. */
     public static boolean TERRAIN_PAINTER_ORDER_DEPTH = true;
     /** Render fills through an offscreen drape pass instead of displacing their geometry. */
