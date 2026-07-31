@@ -109,10 +109,29 @@ public class SecondFragment extends Fragment {
         Log.i(TAG, "data path: " + dataPath);
 
         demo = new DemoMap(getContext(), mapView, dataPath);
-        demo.build();
 
-        DemoPanel.build(getContext(), view.findViewById(R.id.main), demo);
-        installMapListener();
+        // Off the UI thread: build() decodes the style, and a real style project takes seconds
+        // (measured 6.5 s for the bundled assets style on a mid-range device). On the UI thread
+        // that is a frozen app and an "isn't responding" dialog before the map ever appears.
+        final View demoView = view;
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                demo.build();
+                demoView.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        DemoPanel.build(getContext(), demoView.findViewById(R.id.main), demo);
+                        installMapListener();
+                        // Re-apply the start camera once the map view has a size: build() sets it
+                        // while the view can still be 0x0, and restricted panning then clamps the
+                        // focus latitude to 0 - the map opens on the equator with only the
+                        // longitude kept.
+                        demo.applyCamera();
+                    }
+                });
+            }
+        }, "demo-build").start();
     }
 
     /**

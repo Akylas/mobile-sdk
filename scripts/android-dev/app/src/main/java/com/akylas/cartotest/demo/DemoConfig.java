@@ -150,7 +150,7 @@ public final class DemoConfig {
     // 3D TERRAIN (com.carto.components.TerrainOptions)
     // =============================================================================================
 
-    public static boolean TERRAIN_ENABLED = false;
+    public static boolean TERRAIN_ENABLED = true;
     public static float TERRAIN_EXAGGERATION = 1.0f;
     /** Triangles per tile side. Slack against the draped content scales as (32/res)^2. */
     public static int TERRAIN_MESH_RESOLUTION = 128;
@@ -256,9 +256,11 @@ public final class DemoConfig {
 
     public static String INLINE_BACKGROUND_COLOR = "#eef2f0";
     /** Extrude buildings: this is what gives the shadow pass real 3D casters. */
-    public static boolean INLINE_BUILDINGS_3D = true;
+    public static boolean INLINE_BUILDINGS_3D = false;
     /** Move sun/shadow/fog INTO the style (Map block properties) instead of setting them in code. */
     public static boolean INLINE_STYLE_LIGHTING = false;
+    /** Text rules of the inline style ('--es labels false' isolates the label pipeline's cost). */
+    public static boolean INLINE_LABELS = true;
     public static int INLINE_SATELLITE_MIN_ZOOM = 11;
     public static String INLINE_HILLSHADE_SHADOW_COLOR = "#473B24";
     public static float INLINE_HILLSHADE_ILLUMINATION = 365f;
@@ -419,6 +421,7 @@ public final class DemoConfig {
         INLINE_BACKGROUND_COLOR = DemoCfg.cfgColor("bg", INLINE_BACKGROUND_COLOR);
         INLINE_BUILDINGS_3D = DemoCfg.cfgBool("bld3d", INLINE_BUILDINGS_3D);
         INLINE_STYLE_LIGHTING = DemoCfg.cfgBool("styleLight", INLINE_STYLE_LIGHTING);
+        INLINE_LABELS = DemoCfg.cfgBool("labels", INLINE_LABELS);
         INLINE_SATELLITE_MIN_ZOOM = DemoCfg.cfgInt("satZoom", INLINE_SATELLITE_MIN_ZOOM);
         NUTI_TOGGLE_INTERVAL_MS = DemoCfg.cfgInt("nutiInterval", NUTI_TOGGLE_INTERVAL_MS);
 

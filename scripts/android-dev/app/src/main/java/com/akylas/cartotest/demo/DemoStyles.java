@@ -195,13 +195,16 @@ public final class DemoStyles {
             "  hillshade-shadow-color: " + DemoConfig.INLINE_HILLSHADE_SHADOW_COLOR + ";",
             "}",
             "#transportation { line-color: #ffffff; line-width: 1.2;}",
-            "#transportation_name {" ,
+            DemoConfig.INLINE_LABELS
+                ? String.join("\n",
+                    "#transportation_name {",
                         "text-name: [name];",
-                "text-fill: #000000;",
-                " text-spacing: 10;",
-                "text-placement: line;",
-                "text-size: 10;",
-                " }",
+                        "text-fill: #000000;",
+                        " text-spacing: 10;",
+                        "text-placement: line;",
+                        "text-size: 10;",
+                        " }")
+                : "",
             "#transportation['class'='motorway'] { line-color: #e27d60; line-width: 3; }",
             DemoConfig.INLINE_BUILDINGS_3D
                 ? "#building[zoom>=14] { building-fill: #d9cfc4; building-height: 14; }"
@@ -213,20 +216,24 @@ public final class DemoStyles {
                 "  [div>=50]  { line-opacity: 0.7; line-width: 1.0; }",
                 "  [div>=100] { line-opacity: 0.9; line-width: 1.4; }",
                 "  [div>=500] { line-width: 2.0; }",
-                "[div=1000][zoom>=12],",
-	"[div=500][zoom>=12],",
-	"[div=200][zoom>=14],",
-	"[div=250][zoom>=13][zoom<14],",
-	"[div=100][zoom>=14],",
-	"[div=50][zoom>=15] {",
-            "text-name: [ele]+' m';",
-            "text-fill: #000000;",
-           " text-spacing: 10;",
-            "text-placement: line;",
-            // [zoom] here is the CONTOUR TILE zoom, which never drops below the DEM zoom - it does
-            // not gate on the camera. [view::zoom] is evaluated per frame, and size 0 hides the label.
-            "text-size: linear([view::zoom], (11.99, 0), (12, 14));",
-        "}",
+                DemoConfig.INLINE_LABELS
+                ? String.join("\n",
+                    "[div=1000][zoom>=12],",
+                    "[div=500][zoom>=12],",
+                    "[div=200][zoom>=14],",
+                    "[div=250][zoom>=13][zoom<14],",
+                    "[div=100][zoom>=14],",
+                    "[div=50][zoom>=15] {",
+                    "text-name: [ele]+' m';",
+                    "text-fill: #000000;",
+                    " text-spacing: 10;",
+                    "text-placement: line;",
+                    // [zoom] here is the CONTOUR TILE zoom, which never drops below the DEM zoom - it
+                    // does not gate on the camera. [view::zoom] is evaluated per frame, and size 0
+                    // hides the label.
+                    "text-size: linear([view::zoom], (11.99, 0), (12, 14));",
+                    "}")
+                : "",
             "  contour-base-interval: " + (int) DemoConfig.CONTOUR_BASE_INTERVAL + ";",
             "}");
     }
