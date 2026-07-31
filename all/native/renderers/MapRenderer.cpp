@@ -125,9 +125,60 @@ namespace carto {
             long long labelDraws = RenderStats::labelDraws.load();
             long long tiles = RenderStats::renderTilesDrawn.load();
             long long styleLayers = RenderStats::styleLayersDrawn.load();
-            Log::Infof("RenderStats: geomDraws=%lld geomIndices=%lld labelDraws=%lld renderTiles=%lld styleLayers=%lld (per interval)",
+            static long long lastSurfaceDraws = 0, lastSurfaceIndices = 0;
+            long long surfaceDraws = RenderStats::surfaceDraws.load();
+            long long surfaceIndices = RenderStats::surfaceIndices.load();
+            Log::Infof("RenderStats: geomDraws=%lld geomIndices=%lld labelDraws=%lld renderTiles=%lld styleLayers=%lld surfDraws=%lld surfIndices=%lld (per interval)",
                        draws - lastDraws, indices - lastIndices, labelDraws - lastLabelDraws,
-                       tiles - lastTiles, styleLayers - lastStyleLayers);
+                       tiles - lastTiles, styleLayers - lastStyleLayers,
+                       surfaceDraws - lastSurfaceDraws, surfaceIndices - lastSurfaceIndices);
+            lastSurfaceDraws = surfaceDraws; lastSurfaceIndices = surfaceIndices;
+
+            // Where one geometry draw goes, in microseconds. 'skips' are calls that set up and
+            // then found the style invisible - they pay everything up to their bail-out point.
+            static long long lastProgram = 0, lastTerrain = 0, lastStyle = 0, lastStyleEval = 0, lastCompile = 0, lastBind = 0, lastDraw = 0, lastSkips = 0, lastMisses = 0;
+            long long program = RenderStats::geomProgramNs.load();
+            long long terrain = RenderStats::geomTerrainNs.load();
+            long long style = RenderStats::geomStyleNs.load();
+            long long styleEval = RenderStats::geomStyleEvalNs.load();
+            long long compile = RenderStats::geomCompileNs.load();
+            long long bind = RenderStats::geomBindNs.load();
+            long long draw = RenderStats::geomDrawNs.load();
+            long long skips = RenderStats::geometrySkips.load();
+            long long misses = RenderStats::geomCompileMisses.load();
+            static long long lastProbe = 0;
+            long long probe = RenderStats::geomProbeNs.load();
+            long long deltaCalls = std::max(1LL, (draws - lastDraws) + (skips - lastSkips));
+            Log::Infof("RenderStats: perDraw us probe=%.2f program=%.1f terrain=%.1f styleEval=%.1f styleUpload=%.1f compile=%.1f bind=%.1f draw=%.1f (calls=%lld skips=%lld vboMisses=%lld)",
+                       (probe - lastProbe) / 1000.0 / deltaCalls,
+                       (program - lastProgram) / 1000.0 / deltaCalls, (terrain - lastTerrain) / 1000.0 / deltaCalls,
+                       (styleEval - lastStyleEval) / 1000.0 / deltaCalls, (style - lastStyle) / 1000.0 / deltaCalls,
+                       (compile - lastCompile) / 1000.0 / deltaCalls,
+                       (bind - lastBind) / 1000.0 / deltaCalls, (draw - lastDraw) / 1000.0 / deltaCalls,
+                       deltaCalls, skips - lastSkips, misses - lastMisses);
+            lastProgram = program; lastTerrain = terrain; lastStyle = style;
+            lastStyleEval = styleEval; lastCompile = compile; lastBind = bind; lastDraw = draw;
+            lastSkips = skips; lastMisses = misses; lastProbe = probe;
+
+            static long long lastLookups = 0, lastFuncMisses = 0, lastConstants = 0, lastParams = 0;
+            long long lookups = RenderStats::styleFuncLookups.load();
+            long long funcMisses = RenderStats::styleFuncMisses.load();
+            long long constants = RenderStats::styleFuncConstants.load();
+            long long params = RenderStats::styleParameters.load();
+            static long long lastFuncEval = 0;
+            long long funcEval = RenderStats::styleFuncEvalNs.load();
+            static long long lastViewStates = 0;
+            long long viewStates = RenderStats::viewStateChanges.load();
+            Log::Infof("RenderStats: styleFuncs lookups=%lld misses=%lld constants=%lld | params/draw=%.1f evalUsPerDraw=%.1f evalUsPerMiss=%.2f viewStates=%lld",
+                       lookups - lastLookups, funcMisses - lastFuncMisses, constants - lastConstants,
+                       (params - lastParams) / (double) deltaCalls,
+                       (funcEval - lastFuncEval) / 1000.0 / deltaCalls,
+                       (funcEval - lastFuncEval) / 1000.0 / std::max(1LL, funcMisses - lastFuncMisses),
+                       viewStates - lastViewStates);
+            lastViewStates = viewStates;
+            lastLookups = lookups; lastFuncMisses = funcMisses; lastConstants = constants; lastParams = params;
+            lastFuncEval = funcEval;
+
             lastDraws = draws;
             lastIndices = indices;
             lastLabelDraws = labelDraws;
