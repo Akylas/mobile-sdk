@@ -136,6 +136,9 @@ namespace carto {
 
         static constexpr int SURFACE_RESET_DELAY = 500; // minimum interval (ms) between elevation-driven tile surface rebuilds
 
+        static constexpr float OCCLUSION_SAMPLE_OFFSET = 8.0f; // screen pixels sampled around a label anchor for the terrain depth
+        static constexpr float MIN_OCCLUSION_TOLERANCE = 0.01f; // relative depth slack a label anchored on the terrain always gets
+
         static const std::string LIGHTING_SHADER_2D;
         static const std::string LIGHTING_SHADER_3D;
         static const std::string LIGHTING_SHADER_NORMALMAP;

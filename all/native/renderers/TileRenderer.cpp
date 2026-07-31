@@ -877,7 +877,7 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
                     float screenWidth = static_cast<float>(viewState.getWidth());
                     float screenHeight = static_cast<float>(viewState.getHeight());
                     std::weak_ptr<MapRenderer> mapRendererWeak = _mapRenderer;
-                    float occlusionTolerance = 1.0f + terrainOptions->getBillboardOcclusionTolerance();
+                    float occlusionTolerance = 1.0f + std::max(MIN_OCCLUSION_TOLERANCE, terrainOptions->getBillboardOcclusionTolerance());
                     tileRenderer->setLabelOcclusionTest([mapRendererWeak, mvpMat, screenWidth, screenHeight, occlusionTolerance](const cglib::vec3<double>& pos) {
                         auto mapRenderer = mapRendererWeak.lock();
                         if (!mapRenderer) {
@@ -893,11 +893,27 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
                         }
                         float screenX = static_cast<float>((clipPos(0) / clipPos(3) * 0.5 + 0.5) * screenWidth);
                         float screenY = static_cast<float>((0.5 - clipPos(1) / clipPos(3) * 0.5) * screenHeight);
+                        // Farthest terrain depth around the anchor rather than the depth of its own
+                        // pixel: labels drawn on the ground sit exactly ON the terrain, the depth
+                        // buffer is read back downscaled and one frame late, and on a slope the
+                        // neighbouring pixel can be a good deal nearer - so an exact comparison
+                        // makes a label's own ground occlude it, differently on every frame, which
+                        // is what made labels blink while panning.
                         float depthW = terrainRenderer->getDepthW(screenX, screenY);
-                        // Occluded if clearly behind the terrain at this pixel. The tolerance is
-                        // relative to distance: at its default it only absorbs the mismatch
-                        // between the anchor and the terrain it sits on, and raising it lets
-                        // partly hidden features label (the peak-finder case).
+                        if (depthW < std::numeric_limits<float>::max()) {
+                            for (int i = 0; i < 4; i++) {
+                                float dx = (i & 1 ? OCCLUSION_SAMPLE_OFFSET : -OCCLUSION_SAMPLE_OFFSET);
+                                float dy = (i & 2 ? OCCLUSION_SAMPLE_OFFSET : -OCCLUSION_SAMPLE_OFFSET);
+                                float neighbourDepthW = terrainRenderer->getDepthW(screenX + dx, screenY + dy);
+                                if (neighbourDepthW < std::numeric_limits<float>::max()) {
+                                    depthW = std::max(depthW, neighbourDepthW);
+                                }
+                            }
+                        }
+                        // Occluded if clearly behind the terrain there. The tolerance is relative to
+                        // distance: at its default it only absorbs the mismatch between the anchor
+                        // and the terrain it sits on, and raising it lets partly hidden features
+                        // label (the peak-finder case).
                         return static_cast<float>(clipPos(3)) > depthW * occlusionTolerance;
                     });
                     return;
