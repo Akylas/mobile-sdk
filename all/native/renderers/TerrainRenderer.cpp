@@ -7,6 +7,7 @@
 #include "renderers/utils/GLContext.h"
 #include "renderers/utils/GLResourceManager.h"
 #include "renderers/utils/Shader.h"
+#include "renderers/utils/TerrainDepthWorker.h"
 #include "renderers/utils/Texture.h"
 #include "terrain/ElevationManager.h"
 #include "terrain/ElevationTileGrid.h"
@@ -256,6 +257,98 @@ namespace carto {
     }
 
     bool TerrainRenderer::updateDepthBuffer(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager) {
+        if (!terrainOptions || viewState.getWidth() <= 0 || viewState.getHeight() <= 0) {
+            return false;
+        }
+        // The worker only reports itself unusable once its thread has tried to create the
+        // context, so the choice is made per frame rather than once.
+        if (TerrainDepthWorker::isSupported() && (!_depthWorker || _depthWorker->isUsable())) {
+            return updateDepthBufferAsync(viewState, terrainOptions);
+        }
+        return updateDepthBufferSync(viewState, terrainOptions, glResourceManager);
+    }
+
+    bool TerrainRenderer::updateDepthBufferAsync(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions) {
+        if (!_depthWorker) {
+            _depthWorker = std::make_unique<TerrainDepthWorker>(TERRAIN_DEPTH_VERTEX_SHADER, TERRAIN_DEPTH_FRAGMENT_SHADER);
+        }
+
+        // Whatever the worker finished since the last frame becomes the data the label
+        // placement reads from now on.
+        if (std::shared_ptr<const TerrainDepthBuffer> result = _depthWorker->takeResult()) {
+            // One line, once: whether the occlusion depth comes from the worker or from the
+            // synchronous fallback is otherwise invisible in a log.
+            static bool firstResultLogged = false;
+            if (!firstResultLogged) {
+                firstResultLogged = true;
+                Log::Infof("TerrainRenderer: terrain occlusion depth read back off the render thread (%d x %d)", result->width, result->height);
+            }
+            std::lock_guard<std::mutex> lock(_depthMutex);
+            _depthDataSnapshot = std::move(result);
+        }
+
+        unsigned int elevationVersion = (terrainOptions->getElevationManager() ? terrainOptions->getElevationManager()->getVersion() : 0);
+        const cglib::mat4x4<double>& mvpMatrix = viewState.getModelviewProjectionMat();
+        int bufferWidth = std::max(1, viewState.getWidth() / BUFFER_DOWNSCALE);
+        int bufferHeight = std::max(1, viewState.getHeight() / BUFFER_DOWNSCALE);
+        if (_depthMVPMatrix == mvpMatrix && _depthElevationVersion == elevationVersion) {
+            // The data in flight (or already published) is for this exact camera. Keep asking
+            // for frames only while it has not landed yet.
+            _depthStale = _depthWorker->isBusy();
+            return true;
+        }
+        if (_depthWorker->isBusy()) {
+            _depthStale = true; // a newer camera, but the worker is still on the previous one
+            return true;
+        }
+
+        // The worker renders on a second GL context, which the driver has to interleave with the
+        // render context - submitting on every camera change makes that contention the new cost.
+        // While the camera moves the occlusion depth is allowed to lag (billboards fade), so
+        // refresh at an interval; the frame the camera comes to rest on refreshes immediately.
+        auto now = std::chrono::steady_clock::now();
+        bool moving = (_depthLastSeenMVPMatrix != mvpMatrix);
+        _depthLastSeenMVPMatrix = mvpMatrix;
+        if (moving && now - _depthReadbackTime < std::chrono::milliseconds(TerrainDepthWorker::getMovingSubmitInterval(DEPTH_SUBMIT_MOVING_INTERVAL))) {
+            _depthStale = true;
+            return true;
+        }
+        _depthReadbackTime = now;
+
+        // Collecting the meshes is all the render thread pays for: no GL calls, no read-back.
+        std::vector<std::pair<MapTile, std::shared_ptr<TileMesh> > > tileMeshes;
+        collectTileMeshes(viewState, terrainOptions, DEPTH_TEXTURE_MESH_RESOLUTION, tileMeshes);
+
+        TerrainDepthWorker::Job job;
+        job.width = bufferWidth;
+        job.height = bufferHeight;
+        job.far = viewState.getFar();
+        job.items.reserve(tileMeshes.size());
+        for (const auto& tileMesh : tileMeshes) {
+            const std::shared_ptr<TileMesh>& mesh = tileMesh.second;
+            if (!mesh || mesh->indices.empty()) {
+                continue;
+            }
+            TerrainDepthWorker::DrawItem item;
+            item.mvpMat = cglib::mat4x4<float>::convert(mvpMatrix * calculateTileMatrix(tileMesh.first));
+            item.owner = mesh; // the worker draws straight out of the mesh, so it must outlive the job
+            item.vertices = mesh->vertices.data();
+            item.indices = mesh->indices.data();
+            item.indexCount = mesh->indices.size();
+            job.items.push_back(std::move(item));
+        }
+
+        if (!_depthWorker->submit(std::move(job))) {
+            _depthStale = true;
+            return true;
+        }
+        _depthMVPMatrix = mvpMatrix;
+        _depthElevationVersion = elevationVersion;
+        _depthStale = true; // the result lands in a later frame; keep rendering until it does
+        return true;
+    }
+
+    bool TerrainRenderer::updateDepthBufferSync(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager) {
         int bufferWidth = std::max(1, viewState.getWidth() / BUFFER_DOWNSCALE);
         int bufferHeight = std::max(1, viewState.getHeight() / BUFFER_DOWNSCALE);
 
@@ -266,7 +359,12 @@ namespace carto {
         // glReadPixels stall every frame is not.
         unsigned int elevationVersion = (terrainOptions && terrainOptions->getElevationManager() ? terrainOptions->getElevationManager()->getVersion() : 0);
         const cglib::mat4x4<double>& mvpMatrix = viewState.getModelviewProjectionMat();
-        bool unchanged = (_depthWidth == bufferWidth && _depthHeight == bufferHeight &&
+        std::shared_ptr<const TerrainDepthBuffer> depthData;
+        {
+            std::lock_guard<std::mutex> lock(_depthMutex);
+            depthData = _depthDataSnapshot;
+        }
+        bool unchanged = (depthData && depthData->width == bufferWidth && depthData->height == bufferHeight &&
             _depthMVPMatrix == mvpMatrix && _depthElevationVersion == elevationVersion);
         if (unchanged) {
             _depthStale = false;
@@ -279,7 +377,7 @@ namespace carto {
         // to rest - the frame after the one that moved last.
         bool moving = (_depthLastSeenMVPMatrix != mvpMatrix);
         _depthLastSeenMVPMatrix = mvpMatrix;
-        bool haveData = (_depthWidth == bufferWidth && _depthHeight == bufferHeight);
+        bool haveData = (depthData && depthData->width == bufferWidth && depthData->height == bufferHeight);
         int throttle = (moving ? DEPTH_READBACK_MOVING_INTERVAL : DEPTH_READBACK_THROTTLE);
         if (haveData && now - _depthReadbackTime < std::chrono::milliseconds(throttle)) {
             _depthStale = true; // keep the previous (stale) depth data, refresh on a later frame
@@ -288,22 +386,25 @@ namespace carto {
         _depthReadbackTime = now;
         _depthStale = false;
 
-        _depthWidth = 0;
-        _depthHeight = 0;
         if (!renderDepthTexture(viewState, terrainOptions, glResourceManager)) {
             return false;
         }
-        _depthData.resize(static_cast<std::size_t>(bufferWidth) * bufferHeight * 4);
+        auto newDepthData = std::make_shared<TerrainDepthBuffer>();
+        newDepthData->data.resize(static_cast<std::size_t>(bufferWidth) * bufferHeight * 4);
 
         GLint prevFBO = 0;
         glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFBO);
         glBindFramebuffer(GL_FRAMEBUFFER, _frameBuffer->getFBOId());
-        glReadPixels(0, 0, bufferWidth, bufferHeight, GL_RGBA, GL_UNSIGNED_BYTE, _depthData.data());
+        glReadPixels(0, 0, bufferWidth, bufferHeight, GL_RGBA, GL_UNSIGNED_BYTE, newDepthData->data.data());
         glBindFramebuffer(GL_FRAMEBUFFER, prevFBO);
 
-        _depthWidth = bufferWidth;
-        _depthHeight = bufferHeight;
-        _depthFar = viewState.getFar();
+        newDepthData->width = bufferWidth;
+        newDepthData->height = bufferHeight;
+        newDepthData->far = viewState.getFar();
+        {
+            std::lock_guard<std::mutex> lock(_depthMutex);
+            _depthDataSnapshot = std::move(newDepthData);
+        }
         _depthMVPMatrix = viewState.getModelviewProjectionMat();
         _depthElevationVersion = elevationVersion;
         GLContext::CheckGLError("TerrainRenderer::updateDepthBuffer");
@@ -311,32 +412,31 @@ namespace carto {
     }
 
     float TerrainRenderer::getDepthW(float screenX, float screenY) const {
-        if (_depthWidth < 1 || _depthHeight < 1) {
+        std::shared_ptr<const TerrainDepthBuffer> depthData;
+        {
+            std::lock_guard<std::mutex> lock(_depthMutex);
+            depthData = _depthDataSnapshot;
+        }
+        if (!depthData || depthData->width < 1 || depthData->height < 1) {
             return std::numeric_limits<float>::max();
         }
-        int x = std::min(std::max(static_cast<int>(screenX) / BUFFER_DOWNSCALE, 0), _depthWidth - 1);
-        int y = std::min(std::max(static_cast<int>(screenY) / BUFFER_DOWNSCALE, 0), _depthHeight - 1);
+        int x = std::min(std::max(static_cast<int>(screenX) / BUFFER_DOWNSCALE, 0), depthData->width - 1);
+        int y = std::min(std::max(static_cast<int>(screenY) / BUFFER_DOWNSCALE, 0), depthData->height - 1);
         // The framebuffer rows start at the bottom of the screen; screen y grows downwards
-        const std::uint8_t* ptr = &_depthData[(static_cast<std::size_t>(_depthHeight - 1 - y) * _depthWidth + x) * 4];
+        const std::uint8_t* ptr = &depthData->data[(static_cast<std::size_t>(depthData->height - 1 - y) * depthData->width + x) * 4];
         if (ptr[3] == 0) {
             return std::numeric_limits<float>::max(); // sky pixel (zero coverage)
         }
         float depth = ptr[0] / 255.0f + ptr[1] / 65025.0f + ptr[2] / 16581375.0f;
-        return depth * _depthFar;
+        return depth * depthData->far;
     }
 
-    bool TerrainRenderer::renderTiles(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager, const std::shared_ptr<Shader>& shader, const std::function<void(const MapTile&)>& tileUniformsFn, int meshResolutionCap) {
+    void TerrainRenderer::collectTileMeshes(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, int meshResolutionCap, std::vector<std::pair<MapTile, std::shared_ptr<TileMesh> > >& tileMeshes) {
         std::shared_ptr<ElevationManager> elevationManager = terrainOptions->getElevationManager();
 
         // Calculate visible terrain tiles
         std::vector<MapTile> tiles;
         calculateVisibleTiles(viewState, elevationManager, MapTile(0, 0, 0, 0), tiles);
-
-        glUseProgram(shader->getProgId());
-        GLuint aCoord = shader->getAttribLoc("a_coord");
-        GLuint uMVPMat = shader->getUniformLoc("u_mvpMat");
-        glEnableVertexAttribArray(aCoord);
-        glUniform1f(shader->getUniformLoc("u_far"), viewState.getFar());
 
         float exaggeration = elevationManager->getExaggeration();
         int minZoom = terrainOptions->getMinZoom();
@@ -344,7 +444,8 @@ namespace carto {
         if (meshResolutionCap > 0) {
             meshResolution = std::min(meshResolution, meshResolutionCap);
         }
-        const cglib::mat4x4<double>& mvpMat = viewState.getModelviewProjectionMat();
+
+        tileMeshes.reserve(tiles.size());
         for (const MapTile& tile : tiles) {
             long long tileId = tile.getTileId();
             std::shared_ptr<ElevationTileGrid> grid;
@@ -368,15 +469,31 @@ namespace carto {
                 entry.mesh = buildTileMesh(tile, grid, elevationManager, gridSize);
                 it = _meshCache.insert_or_assign(std::make_pair(tileId, gridSize), std::move(entry)).first;
             }
-            const std::shared_ptr<TileMesh>& mesh = it->second.mesh;
+            tileMeshes.emplace_back(tile, it->second.mesh);
+        }
+    }
+
+    bool TerrainRenderer::renderTiles(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager, const std::shared_ptr<Shader>& shader, const std::function<void(const MapTile&)>& tileUniformsFn, int meshResolutionCap) {
+        std::vector<std::pair<MapTile, std::shared_ptr<TileMesh> > > tileMeshes;
+        collectTileMeshes(viewState, terrainOptions, meshResolutionCap, tileMeshes);
+
+        glUseProgram(shader->getProgId());
+        GLuint aCoord = shader->getAttribLoc("a_coord");
+        GLuint uMVPMat = shader->getUniformLoc("u_mvpMat");
+        glEnableVertexAttribArray(aCoord);
+        glUniform1f(shader->getUniformLoc("u_far"), viewState.getFar());
+
+        const cglib::mat4x4<double>& mvpMat = viewState.getModelviewProjectionMat();
+        for (const auto& tileMesh : tileMeshes) {
+            const std::shared_ptr<TileMesh>& mesh = tileMesh.second;
             if (!mesh || mesh->indices.empty()) {
                 continue;
             }
 
-            cglib::mat4x4<float> tileMVPMat = cglib::mat4x4<float>::convert(mvpMat * calculateTileMatrix(tile));
+            cglib::mat4x4<float> tileMVPMat = cglib::mat4x4<float>::convert(mvpMat * calculateTileMatrix(tileMesh.first));
             glUniformMatrix4fv(uMVPMat, 1, GL_FALSE, tileMVPMat.data());
             if (tileUniformsFn) {
-                tileUniformsFn(tile);
+                tileUniformsFn(tileMesh.first);
             }
             glVertexAttribPointer(aCoord, 3, GL_FLOAT, GL_FALSE, 0, mesh->vertices.data());
             glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(mesh->indices.size()), GL_UNSIGNED_SHORT, mesh->indices.data());

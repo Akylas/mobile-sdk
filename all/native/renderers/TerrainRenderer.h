@@ -15,6 +15,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <vector>
 
 #include <cglib/vec.h>
@@ -29,6 +30,8 @@ namespace carto {
     class Shader;
     class Texture;
     class GLResourceManager;
+    class TerrainDepthWorker;
+    struct TerrainDepthBuffer;
 
     /**
      * Renders the displaced terrain surface as per-tile grid meshes (with skirts).
@@ -87,6 +90,11 @@ namespace carto {
         /**
          * Renders the terrain depth texture and reads it back into a CPU buffer for
          * pixel-exact occlusion queries (getDepthW). Returns true on success.
+         *
+         * Where an offscreen GL context is available the render and the read-back happen on
+         * the TerrainDepthWorker thread and this call only collects the meshes to draw - the
+         * data then lands a frame or two later. Otherwise both happen here, and the read-back
+         * stall is kept tolerable by only refreshing at a coarse interval while the camera moves.
          */
         bool updateDepthBuffer(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager);
 
@@ -117,6 +125,12 @@ namespace carto {
         // which is invisible (billboards fade), but a stalled frame is not.
         static constexpr int DEPTH_READBACK_THROTTLE = 60;        // minimum interval (ms) between read-backs
         static constexpr int DEPTH_READBACK_MOVING_INTERVAL = 500; // ...while the camera keeps moving
+        // The asynchronous path has no stall to pay for, but its second GL context still shares
+        // the GPU with the render context, and on an Adreno 610 that contention is what the
+        // interval buys back: measured at mesh 64 with occlusion on, 100 ms costs 13.3 fps
+        // (prelude 18-22 ms), 250 ms 14.3 fps (prelude 8-10), 500 ms 14.9 fps (prelude 3-7) -
+        // against 13.7 fps (prelude 12-14) for the synchronous read-back at the same cadence.
+        static constexpr int DEPTH_SUBMIT_MOVING_INTERVAL = 500;   // minimum interval (ms) between worker jobs while moving
         static constexpr int MIN_MESH_GRID_SIZE = 4;  // grid cells per tile edge, lower bound
         static constexpr int MAX_MESH_GRID_SIZE = 96; // grid cells per tile edge, upper bound
         static constexpr int MAX_CACHED_MESHES = 160;
@@ -133,6 +147,12 @@ namespace carto {
         // single points, so it does not need the full render mesh - and that mesh is CPU
         // built and drawn from client memory, which is the expensive part of the pass.
         bool renderTiles(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager, const std::shared_ptr<Shader>& shader, const std::function<void(const MapTile&)>& tileUniformsFn = std::function<void(const MapTile&)>(), int meshResolutionCap = 0);
+        // Visible tiles paired with their (cached, built here if missing) meshes. Both the
+        // rendering path and the offscreen depth job start from this, so they always draw the
+        // same terrain.
+        void collectTileMeshes(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, int meshResolutionCap, std::vector<std::pair<MapTile, std::shared_ptr<TileMesh> > >& tileMeshes);
+        bool updateDepthBufferAsync(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions);
+        bool updateDepthBufferSync(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager);
         void calculateVisibleTiles(const ViewState& viewState, const std::shared_ptr<ElevationManager>& elevationManager, const MapTile& tile, std::vector<MapTile>& tiles) const;
         std::shared_ptr<TileMesh> buildTileMesh(const MapTile& tile, const std::shared_ptr<ElevationTileGrid>& grid, const std::shared_ptr<ElevationManager>& elevationManager, int gridSize) const;
         int calculateMeshGridSize(const MapTile& tile, const std::shared_ptr<ElevationTileGrid>& grid, int meshResolution) const;
@@ -149,10 +169,12 @@ namespace carto {
         // the two passes rebuild every mesh in turn.
         std::map<std::pair<long long, int>, MeshCacheEntry> _meshCache;
 
-        std::vector<std::uint8_t> _depthData; // read-back packed depth (RGBA, BUFFER_DOWNSCALE resolution)
-        int _depthWidth = 0;
-        int _depthHeight = 0;
-        float _depthFar = 0.0f;
+        // The occlusion depth is written by whichever path produced it and read by the label
+        // placement worker, so it is published as a whole immutable snapshot: a reader either
+        // sees the previous read-back or the new one, never half of each.
+        std::unique_ptr<TerrainDepthWorker> _depthWorker;
+        std::shared_ptr<const TerrainDepthBuffer> _depthDataSnapshot;
+        mutable std::mutex _depthMutex;
         cglib::mat4x4<double> _depthMVPMatrix = cglib::mat4x4<double>::zero(); // camera state of the last read-back
         unsigned int _depthElevationVersion = 0;
         std::chrono::steady_clock::time_point _depthReadbackTime; // throttles read-backs while the camera moves
