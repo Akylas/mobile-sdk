@@ -223,6 +223,7 @@ namespace carto {
                        (compile - lastCompile) / 1000.0 / deltaCalls,
                        (bind - lastBind) / 1000.0 / deltaCalls, (draw - lastDraw) / 1000.0 / deltaCalls,
                        deltaCalls, skips - lastSkips, misses - lastMisses);
+            Log::Infof("RenderStats: geomCompileStale=%lld (cumulative)", RenderStats::geomCompileStale.load());
             lastProgram = program; lastTerrain = terrain; lastStyle = style;
             lastStyleEval = styleEval; lastCompile = compile; lastBind = bind; lastDraw = draw;
             lastSkips = skips; lastMisses = misses; lastProbe = probe;
