@@ -34,6 +34,46 @@
 #include "utils/Log.h"
 
 namespace carto {
+    /**
+     * The same frame sections, measured on the GPU with GL_EXT_disjoint_timer_query.
+     *
+     * A CPU timer inside a GL section measures where the driver decided to block, not where the
+     * work is - that is why the 3D layer pass reads as 18 ms with only ~4 ms of it attributable.
+     * A timer query is answered by the GPU itself, so it says how much of a section is actually
+     * GPU work.
+     *
+     * Results are read SLOT_COUNT frames late, so the render thread never waits for the GPU; a
+     * frame whose results are not back yet is skipped rather than measured half way. Sections
+     * cannot nest (one TIME_ELAPSED query is active at a time), which matches the sections here:
+     * they are sequential.
+     *
+     * CAVEAT when reading the numbers: TIME_ELAPSED covers the wall clock between the two markers
+     * in the command stream, so a section where the GPU idles waiting for the CPU counts that
+     * idle time. The trustworthy signal is the TOTAL against the frame time (GPU-bound or not)
+     * and the RATIO between sections, not a single section in isolation.
+     */
+    struct GpuFrameProfiler {
+        enum Section {
+            SECTION_SKY = 0,
+            SECTION_PRELUDE,
+            SECTION_PREPARE,
+            SECTION_COVER,
+            SECTION_DRAPE,
+            SECTION_LAYERS,
+            SECTION_LAYERS3D,
+            SECTION_BILLBOARDS,
+            SECTION_COUNT
+        };
+
+        // Called at the start of every frame: collects whatever the GPU has finished and picks
+        // the query slot this frame writes into.
+        static void beginFrame();
+        static void beginSection(int section);
+        static void endSection();
+        // Logs the averages over the interval the CPU profiler just reported, then resets them.
+        static void logInterval();
+    };
+
     struct FrameProfiler {
         // Where the current frame spent its time. Reset at the start of every frame.
         static inline double skyMs = 0;        // frame start: state, sky, background (includes the swap-buffer wait)
@@ -51,6 +91,7 @@ namespace carto {
 
         static void resetFrame() {
             skyMs = preludeMs = prepareMs = coverMs = drapeMs = layerMs = layer3DMs = billboardMs = 0;
+            GpuFrameProfiler::beginFrame();
         }
 
         // Accumulates one frame and prints the running averages once a second. 'frameMs' is
@@ -77,6 +118,7 @@ namespace carto {
                 sumSky / count, sumPrelude / count, sumPrepare / count, sumCover / count,
                 sumDrape / count, sumLayer / count, sumLayer3D / count, sumBillboard / count,
                 (sumMs - sumSky - sumPrelude - sumPrepare - sumCover - sumDrape - sumLayer - sumLayer3D - sumBillboard) / count);
+            GpuFrameProfiler::logInterval();
             sumMs = maxMs = sumSky = sumPrelude = sumPrepare = sumCover = sumDrape = sumLayer = sumLayer3D = sumBillboard = 0;
             count = 0;
             lastLog = currentTime;
@@ -89,6 +131,8 @@ namespace carto {
 #define FRAME_PROF_ADD(field, startVar) (carto::FrameProfiler::field += carto::FrameProfiler::now() - (startVar))
 #define FRAME_PROF_SET(field, value) (carto::FrameProfiler::field = (value))
 #define FRAME_PROF_END(startVar) (carto::FrameProfiler::endFrame(carto::FrameProfiler::now() - (startVar)))
+#define FRAME_PROF_GPU_BEGIN(section) (carto::GpuFrameProfiler::beginSection(carto::GpuFrameProfiler::section))
+#define FRAME_PROF_GPU_END() (carto::GpuFrameProfiler::endSection())
 
 #else
 
@@ -97,6 +141,8 @@ namespace carto {
 #define FRAME_PROF_ADD(field, startVar) ((void)0)
 #define FRAME_PROF_SET(field, value) ((void)0)
 #define FRAME_PROF_END(startVar) ((void)0)
+#define FRAME_PROF_GPU_BEGIN(section) ((void)0)
+#define FRAME_PROF_GPU_END() ((void)0)
 
 #endif
 

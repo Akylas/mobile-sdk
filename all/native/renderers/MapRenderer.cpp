@@ -923,12 +923,14 @@ namespace carto {
         // Render everything
         FRAME_PROF_NOW(profFrameStart);
         FRAME_PROF_RESET();
+        FRAME_PROF_GPU_BEGIN(SECTION_SKY);
         initializeRenderState();
         // The shader sky replaces the legacy sky band when it draws.
         bool skyDrawn = _skyRenderer.onDrawFrame(viewState);
         _backgroundRenderer.onDrawFrame(viewState, !skyDrawn);
         FRAME_PROF_ADD(skyMs, profFrameStart);
         drawLayers(deltaSeconds, viewState);
+        FRAME_PROF_GPU_END();
         FRAME_PROF_END(profFrameStart);
         if (postProcessEffect) {
             applyPostProcessEffect(postProcessEffect, viewState);
@@ -1295,6 +1297,7 @@ namespace carto {
     
     void MapRenderer::drawLayers(float deltaSeconds, const ViewState& viewState) {
         FRAME_PROF_NOW(profDrawStart);
+        FRAME_PROF_GPU_BEGIN(SECTION_PRELUDE);
         std::vector<std::shared_ptr<Layer> > layers = _layers->getAll();
 
         // Terrain depth source: the FIRST suitable tile layer writes the depth of its
@@ -1474,11 +1477,13 @@ namespace carto {
                     // bakes, so start their frames first.
                     FRAME_PROF_ADD(preludeMs, profDrawStart);
                     FRAME_PROF_NOW(profPrepareStart);
+                    FRAME_PROF_GPU_BEGIN(SECTION_PREPARE);
                     for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
                         tileLayer->prepareTerrainDrapeFrame(deltaSeconds, viewState);
                     }
                     FRAME_PROF_ADD(prepareMs, profPrepareStart);
                     FRAME_PROF_NOW(profCoverStart);
+                    FRAME_PROF_GPU_BEGIN(SECTION_COVER);
 
                     // Collected PER LAYER, then merged. The union is what the cover is built from,
                     // but which layers actually have something to bake for a tile is what tells a
@@ -1676,6 +1681,7 @@ namespace carto {
                     glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFBO);
                     std::chrono::steady_clock::time_point drapeStart = std::chrono::steady_clock::now();
                     FRAME_PROF_ADD(coverMs, profCoverStart);
+                    FRAME_PROF_GPU_BEGIN(SECTION_DRAPE);
                     try {
                     _terrainDrapeCache->beginFrame();
                     struct DrapedTile { vt::TileId tileId; unsigned int texture; float uvOffsetX, uvOffsetY, uvScale; };
@@ -2413,6 +2419,7 @@ namespace carto {
                     static int drapeMsCount = 0;
                     double drapeMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - drapeStart).count();
                     FRAME_PROF_SET(drapeMs, drapeMs);
+                    FRAME_PROF_GPU_END();
                     drapeMsSum += drapeMs;
                     drapeMsMax = std::max(drapeMsMax, drapeMs);
                     drapeMsCount++;
@@ -2482,6 +2489,7 @@ namespace carto {
         // Do base drawing pass
         bool needRedraw = false;
         FRAME_PROF_NOW(profLayerStart);
+        FRAME_PROF_GPU_BEGIN(SECTION_LAYERS);
         unsigned int redrawMask = 0; // which layer asked, so a map that never settles can be traced
         for (std::size_t i = 0; i < layers.size(); i++) {
             const std::shared_ptr<Layer>& layer = layers[i];
@@ -2499,6 +2507,7 @@ namespace carto {
 
         // Do 3D drawing pass
         FRAME_PROF_NOW(profLayer3DStart);
+        FRAME_PROF_GPU_BEGIN(SECTION_LAYERS3D);
         for (std::size_t i = 0; i < layers.size(); i++) {
             if (layers[i]->onDrawFrame3D(deltaSeconds, billboardSorter, viewState)) {
                 needRedraw = true;
@@ -2510,6 +2519,7 @@ namespace carto {
 
         // Sort billboards, calculate rotation state
         FRAME_PROF_NOW(profBillboardStart);
+        FRAME_PROF_GPU_BEGIN(SECTION_BILLBOARDS);
         billboardSorter.sort(viewState);
         
         // Draw billboards, grouped by layer renderer
@@ -2537,6 +2547,7 @@ namespace carto {
         }
 
         FRAME_PROF_ADD(billboardMs, profBillboardStart);
+        FRAME_PROF_GPU_END();
 
         // Store the active billboard draw data list
         {
