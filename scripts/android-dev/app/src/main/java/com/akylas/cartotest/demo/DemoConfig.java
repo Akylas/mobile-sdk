@@ -150,6 +150,10 @@ public final class DemoConfig {
     // 3D TERRAIN (com.carto.components.TerrainOptions)
     // =============================================================================================
 
+    /** Tile decode threads (Options.setTileThreadPoolSize). The SDK default is 1; tangram-ng
+     *  runs 2 (SceneOptions::numTileWorkers). Raise it to get tiles on screen sooner. */
+    public static int TILE_THREAD_POOL_SIZE = 1;
+
     public static boolean TERRAIN_ENABLED = true;
     public static float TERRAIN_EXAGGERATION = 1.0f;
     /** Triangles per tile side. Slack against the draped content scales as (32/res)^2.
@@ -351,6 +355,7 @@ public final class DemoConfig {
         START_ROTATION = DemoCfg.cfgFloat("rotation", START_ROTATION);
 
         // terrain
+        TILE_THREAD_POOL_SIZE = DemoCfg.cfgInt("tilePool", TILE_THREAD_POOL_SIZE);
         TERRAIN_ENABLED = DemoCfg.cfgBool("terrain", TERRAIN_ENABLED);
         TERRAIN_EXAGGERATION = DemoCfg.cfgFloat("exaggeration", TERRAIN_EXAGGERATION);
         TERRAIN_MESH_RESOLUTION = DemoCfg.cfgInt("meshResolution", TERRAIN_MESH_RESOLUTION);
