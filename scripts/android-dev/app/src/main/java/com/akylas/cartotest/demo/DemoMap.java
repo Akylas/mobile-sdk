@@ -679,7 +679,7 @@ public class DemoMap {
                 if ("zoom".equals(anim)) {
                     mapView.setZoom(DemoConfig.START_ZOOM + DemoConfig.ANIM_ZOOM_DELTA, duration);
                 } else if ("pan".equals(anim)) {
-                    mapView.setFocusPos(proj.fromWgs84(new MapPos(DemoConfig.START_LON + DemoConfig.ANIM_LON_DELTA, DemoConfig.START_LAT)), duration);
+                    mapView.setFocusPos(proj.fromWgs84(new MapPos(DemoConfig.START_LON + DemoConfig.ANIM_LON_DELTA, DemoConfig.START_LAT + DemoConfig.ANIM_LAT_DELTA)), duration);
                 } else if ("rotate".equals(anim)) {
                     mapView.setMapRotation(DemoConfig.ANIM_ROTATION, duration);
                 } else if ("zoomseq".equals(anim)) {

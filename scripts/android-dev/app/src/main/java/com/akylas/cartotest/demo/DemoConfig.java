@@ -291,6 +291,9 @@ public final class DemoConfig {
     public static float ANIM_DURATION_S = 8;
     public static float ANIM_ZOOM_DELTA = 3;
     public static float ANIM_LON_DELTA = 0.05f;
+    /** North/south component of the scripted pan. Panning north into the mountains is the case
+     *  that gets slow, and it exercises quite different work from panning over the valley. */
+    public static float ANIM_LAT_DELTA = 0f;
     public static float ANIM_ROTATION = 180;
     public static float ANIM_ZOOM_OUT = 10.2f;
     public static float ANIM_SETTLE_MS = 8000;
@@ -441,6 +444,7 @@ public final class DemoConfig {
         ANIM_DURATION_S = DemoCfg.cfgFloat("animDuration", ANIM_DURATION_S);
         ANIM_ZOOM_DELTA = DemoCfg.cfgFloat("animZoomDelta", ANIM_ZOOM_DELTA);
         ANIM_LON_DELTA = DemoCfg.cfgFloat("animLonDelta", ANIM_LON_DELTA);
+        ANIM_LAT_DELTA = DemoCfg.cfgFloat("animLatDelta", ANIM_LAT_DELTA);
         ANIM_ROTATION = DemoCfg.cfgFloat("animRotation", ANIM_ROTATION);
         ANIM_ZOOM_OUT = DemoCfg.cfgFloat("animZoomOut", ANIM_ZOOM_OUT);
         ANIM_SETTLE_MS = DemoCfg.cfgFloat("animSettle", ANIM_SETTLE_MS);
