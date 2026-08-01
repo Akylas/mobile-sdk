@@ -132,6 +132,8 @@ namespace carto {
 
         bool initializeRenderer();
         bool isPlanarTerrainMode() const;
+        // Tangram-model measurement switch, read once from debug.carto.depthshift (Android only).
+        static float getTerrainContentDepthShift();
         void updateLabelOcclusionTest(const std::shared_ptr<vt::GLTileRenderer>& tileRenderer, const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions);
 
         static constexpr int SURFACE_RESET_DELAY = 500; // minimum interval (ms) between elevation-driven tile surface rebuilds

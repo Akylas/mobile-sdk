@@ -18,6 +18,11 @@
 #include "terrain/ElevationManager.h"
 #include "utils/Const.h"
 #include "utils/Log.h"
+
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#include <cstdlib>
+#endif
 #include "utils/Const.h"
 
 #include <vt/Label.h>
@@ -536,6 +541,11 @@ namespace carto {
         bool regularGrid = painterOrder || drapeFills || (terrainMode && activeTerrainOptions && activeTerrainOptions->isRegularGridEnabled() && (bool) terrainTextureProvider);
         tileRenderer->setTerrainRegularGrid(regularGrid, activeTerrainOptions ? activeTerrainOptions->getMeshResolution() : 0);
         tileRenderer->setTerrainPainterOrder(painterOrder);
+        // Tangram's content depth shift, for measuring the tangram model (un-subdivided content
+        // separated from the surface by a constant clip pull) against ours (content subdivided to
+        // follow the surface exactly, no pull). Off unless asked for:
+        //   adb shell setprop debug.carto.depthshift 0.02
+        tileRenderer->setTerrainContentDepthShift(getTerrainContentDepthShift());
         tileRenderer->setTerrainEdgeStitching(regularGrid && activeTerrainOptions && activeTerrainOptions->isTileEdgeStitchingEnabled());
         // Draped content is baked FLAT (orthographic, no displacement), so lines need no terrain
         // subdivision either - draping them is strictly cheaper as well as artifact-free. It is
@@ -858,6 +868,21 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
         cglib::mat4x4<double> modelViewMat = viewState.getModelviewMat();
         vt::ViewState vtViewState(viewState.getProjectionMat(), modelViewMat, viewState.getZoom(), viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewState.getNormalizedResolution());
         return floatFunc(vtViewState);
+    }
+
+    float TileRenderer::getTerrainContentDepthShift() {
+#ifdef __ANDROID__
+        static const float depthShift = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            if (__system_property_get("debug.carto.depthshift", property) > 0) {
+                return static_cast<float>(std::atof(property));
+            }
+            return 0.0f;
+        }();
+        return depthShift;
+#else
+        return 0.0f;
+#endif
     }
 
     bool TileRenderer::isPlanarTerrainMode() const {

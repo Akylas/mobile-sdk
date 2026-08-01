@@ -21,10 +21,29 @@
 #include "utils/TileUtils.h"
 #include "utils/Log.h"
 
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
+
 #include <vt/TileTransformer.h>
 #include <vt/RenderStats.h>
 
 namespace carto {
+
+#ifdef __ANDROID__
+    static bool isLineSourceDensityForced() {
+        static const bool forced = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            return __system_property_get("debug.carto.linesourcedensity", property) > 0 && property[0] == '1';
+        }();
+        return forced;
+    }
+#else
+    static bool isLineSourceDensityForced() {
+        return false;
+    }
+#endif
+
 
     TileLayer::~TileLayer() {
     }
@@ -279,7 +298,10 @@ namespace carto {
             // This value MUST match what resetTileTransformer() passes, or a change to it silently
             // keeps tiles decoded for the other mode.
             bool terrainSourceDensity = false;
-            bool terrainSourceDensityLines = terrainOptions && terrainOptions->isDrapeLinesEnabled();
+            // Lines at source density with no terrain subdivision is the tangram model; it only
+            // holds up together with a content depth shift (debug.carto.depthshift), so both are
+            // measured through the same switch: adb shell setprop debug.carto.linesourcedensity 1
+            bool terrainSourceDensityLines = (terrainOptions && terrainOptions->isDrapeLinesEnabled()) || isLineSourceDensityForced();
             if (_terrainOptions.lock() != terrainOptions || _terrainEnabled != terrainEnabled || _terrainExaggeration != terrainExaggeration || _terrainMeshResolution != terrainMeshResolution || _terrainMinZoom != terrainMinZoom || _terrainRegularGrid != terrainRegularGrid || _terrainSourceDensity != terrainSourceDensity || _terrainSourceDensityLines != terrainSourceDensityLines) {
                 clearTileCaches(true);
                 resetTileTransformer();
@@ -921,7 +943,7 @@ namespace carto {
                     // against: they decide the tesselation the tiles in the cache were built with,
                     // so a mismatch leaves tiles decoded for the other mode in place forever
                     // (un-subdivided fills sagging through the terrain once draping is switched off).
-                    tileTransformer = std::make_shared<TerrainTileTransformer>(static_cast<float>(Const::WORLD_SIZE), terrainOptions->getElevationManager(), terrainOptions->getMeshResolution(), terrainOptions->getMinZoom(), terrainOptions->isRegularGridEnabled() || terrainOptions->isPainterOrderDepthEnabled(), false, terrainOptions->isDrapeLinesEnabled());
+                    tileTransformer = std::make_shared<TerrainTileTransformer>(static_cast<float>(Const::WORLD_SIZE), terrainOptions->getElevationManager(), terrainOptions->getMeshResolution(), terrainOptions->getMinZoom(), terrainOptions->isRegularGridEnabled() || terrainOptions->isPainterOrderDepthEnabled(), false, terrainOptions->isDrapeLinesEnabled() || isLineSourceDensityForced());
                 }
             }
         }
