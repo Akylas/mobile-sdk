@@ -9,13 +9,14 @@
 
 namespace carto {
 
-    TerrainTileTransformer::TerrainVertexTransformer::TerrainVertexTransformer(const vt::TileId& tileId, double scale, std::shared_ptr<ElevationTileGrid> grid, float exaggeration, float divideThreshold, float lineDivideThreshold) :
+    TerrainTileTransformer::TerrainVertexTransformer::TerrainVertexTransformer(const vt::TileId& tileId, double scale, std::shared_ptr<ElevationTileGrid> grid, float exaggeration, float divideThreshold, float lineDivideThreshold, float latticeCell) :
         _tileId(tileId),
         _scale(scale),
         _grid(std::move(grid)),
         _exaggeration(exaggeration),
         _divideThreshold(divideThreshold),
-        _lineDivideThreshold(lineDivideThreshold)
+        _lineDivideThreshold(lineDivideThreshold),
+        _latticeCell(latticeCell)
     {
         int tileMask = (1 << tileId.zoom) - 1;
         double zoomScale = 1.0 / (1 << tileId.zoom);
@@ -55,10 +56,67 @@ namespace carto {
             for (std::size_t i = 0; i + 1 < count; i++) {
                 const cglib::vec2<float>& pos0 = points[i + 0];
                 const cglib::vec2<float>& pos1 = points[i + 1];
+                // Regular-grid mode: cut the segment exactly where it leaves a surface triangle
+                // instead of halving it until it is small enough to hide the error. Every
+                // sub-segment then lies IN a triangle of the surface, so it follows the surface
+                // exactly rather than approximately - with fewer vertices than the fraction-of-a-cell
+                // halving needed to keep the chord sag under the (zero) painter-order depth slack.
+                if (_latticeCell > 0 && tesselateSegmentOnLattice(pos0, pos1, tesselatedPoints)) {
+                    continue;
+                }
                 float dist = cglib::length(pos1 - pos0) * static_cast<float>(_tileScaleMeters);
                 tesselateSegment(pos0, pos1, dist, tesselatedPoints);
             }
         }
+    }
+
+    bool TerrainTileTransformer::TerrainVertexTransformer::tesselateSegmentOnLattice(const cglib::vec2<float>& pos0, const cglib::vec2<float>& pos1, vt::VertexArray<cglib::vec2<float>>& points) const {
+        // The surface is a regular grid of _latticeCell cells, each split into two triangles.
+        // The shader folds a cell along fg.x + fg.y = 1 in ELEVATION-UV space; these points are
+        // in tile (u, v) space, and the surface builder emits its vertices at y = 1 - v, so the
+        // same fold reads as u + v = const here. A segment therefore stays inside one triangle
+        // as long as it crosses none of x = k*cell, y = k*cell, x + y = k*cell.
+        const cglib::vec2<float> delta = pos1 - pos0;
+        const float cell = _latticeCell;
+        const float f0[3] = { pos0(0), pos0(1), pos0(0) + pos0(1) };
+        const float f1[3] = { pos1(0), pos1(1), pos1(0) + pos1(1) };
+
+        float ts[3 * MAX_LATTICE_SPLITS_PER_SEGMENT];
+        std::size_t tCount = 0;
+        for (int axis = 0; axis < 3; axis++) {
+            float d = f1[axis] - f0[axis];
+            if (std::abs(d) < 1.0e-9f) {
+                continue;
+            }
+            float from = std::min(f0[axis], f1[axis]);
+            float to = std::max(f0[axis], f1[axis]);
+            double firstK = std::floor(from / cell) + 1;
+            double lastK = std::ceil(to / cell) - 1;
+            if (lastK - firstK + 1 > MAX_LATTICE_SPLITS_PER_SEGMENT) {
+                return false; // spans too many cells: not worth enumerating
+            }
+            for (double k = firstK; k <= lastK; k += 1) {
+                float t = (static_cast<float>(k * cell) - f0[axis]) / d;
+                if (t > 1.0e-5f && t < 1.0f - 1.0e-5f) {
+                    if (tCount >= sizeof(ts) / sizeof(ts[0])) {
+                        return false;
+                    }
+                    ts[tCount++] = t;
+                }
+            }
+        }
+
+        std::sort(ts, ts + tCount);
+        float prevT = 0.0f;
+        for (std::size_t i = 0; i < tCount; i++) {
+            if (ts[i] - prevT < 1.0e-5f) {
+                continue; // the segment passes through a lattice node: one point, not three
+            }
+            points.append(pos0 + delta * ts[i]);
+            prevT = ts[i];
+        }
+        points.append(pos1);
+        return true;
     }
 
     void TerrainTileTransformer::TerrainVertexTransformer::tesselateTriangles(const std::size_t* indices, std::size_t count, vt::VertexArray<cglib::vec2<float>>& coords, vt::VertexArray<cglib::vec2<float>>& texCoords, vt::VertexArray<std::size_t>& tesselatedIndices) const {
@@ -245,6 +303,7 @@ namespace carto {
 
         float divideThreshold = std::numeric_limits<float>::infinity();
         float lineDivideThreshold = std::numeric_limits<float>::infinity();
+        float latticeCell = 0.0f;
         if (grid && grid->getMaxHeight() - grid->getMinHeight() > FLAT_HEIGHT_RANGE_EPSILON) {
             double tileScaleMeters = EARTH_CIRCUMFERENCE / (1 << tileId.zoom);
             double threshold = tileScaleMeters / _meshResolution;
@@ -280,7 +339,12 @@ namespace carto {
                 // infinity here; the line threshold is unchanged.
                 divideThreshold = _sourceDensity ? std::numeric_limits<float>::infinity() : static_cast<float>(threshold);
                 // Draped lines are baked flat too, so skip their subdivision as well.
-                lineDivideThreshold = _sourceDensityLines ? std::numeric_limits<float>::infinity() : static_cast<float>(threshold * REGULAR_GRID_LINE_SUBDIVISION);
+                // Otherwise the lattice split below cuts lines exactly at the surface triangle
+                // boundaries, which removes the chord sag entirely - so the threshold only has to
+                // bound the segment length at one cell (it is what the lattice split falls back
+                // to for segments spanning very many cells).
+                lineDivideThreshold = _sourceDensityLines ? std::numeric_limits<float>::infinity() : static_cast<float>(threshold);
+                latticeCell = _sourceDensityLines ? 0.0f : static_cast<float>(1.0 / _meshResolution);
             } else {
                 // No point in subdividing finer than the elevation grid resolution
                 double gridInternalWidth = grid->getInternalBounds().getMax().getX() - grid->getInternalBounds().getMin().getX();
@@ -290,6 +354,6 @@ namespace carto {
             }
         }
 
-        return std::make_shared<TerrainVertexTransformer>(tileId, _scale, std::move(grid), _elevationManager->getExaggeration(), divideThreshold, lineDivideThreshold);
+        return std::make_shared<TerrainVertexTransformer>(tileId, _scale, std::move(grid), _elevationManager->getExaggeration(), divideThreshold, lineDivideThreshold, latticeCell);
     }
 }
