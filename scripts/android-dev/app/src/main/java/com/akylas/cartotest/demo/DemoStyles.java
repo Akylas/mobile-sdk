@@ -183,6 +183,19 @@ public final class DemoStyles {
         }
         map.append(" }");
 
+        if (DemoConfig.INLINE_STYLE_MINIMAL) {
+            // Background plus the composite slots only: no vector geometry, so a frame costs the
+            // terrain and the slots and nothing else. The slot blocks have to stay - a source's
+            // position in the draw order IS the position of the first rule naming it.
+            return String.join("\n",
+                map.toString(),
+                "#hillshade[zoom>=4][zoom<=19] {",
+                "  hillshade-illumination-direction: " + (int) DemoConfig.INLINE_HILLSHADE_ILLUMINATION + ";",
+                "  hillshade-shadow-color: " + DemoConfig.INLINE_HILLSHADE_SHADOW_COLOR + ";",
+                "}",
+                "#satellite[zoom>=" + DemoConfig.INLINE_SATELLITE_MIN_ZOOM + "] { raster-opacity: 1; raster-comp-op: src-over; }");
+        }
+
         return String.join("\n",
             map.toString(),
             "#water { polygon-fill: #9cc3e0; }",

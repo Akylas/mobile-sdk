@@ -267,6 +267,12 @@ public final class DemoConfig {
     public static boolean INLINE_STYLE_LIGHTING = false;
     /** Text rules of the inline style ('--es labels false' isolates the label pipeline's cost). */
     public static boolean INLINE_LABELS = true;
+    /** Strip the inline style down to the Map background plus the composite slot blocks
+     *  ('--es minimal true'). Nothing of the vector data is drawn, so what is left on screen is the
+     *  terrain and whatever the slots put on it - which is how the hillshade's own cost is measured
+     *  without the base map's geometry dominating the frame. The base layer stays, because it is
+     *  what gives the drape its tile cover. */
+    public static boolean INLINE_STYLE_MINIMAL = false;
     public static int INLINE_SATELLITE_MIN_ZOOM = 11;
     public static String INLINE_HILLSHADE_SHADOW_COLOR = "#473B24";
     public static float INLINE_HILLSHADE_ILLUMINATION = 365f;
@@ -432,6 +438,7 @@ public final class DemoConfig {
         INLINE_BUILDINGS_3D = DemoCfg.cfgBool("bld3d", INLINE_BUILDINGS_3D);
         INLINE_STYLE_LIGHTING = DemoCfg.cfgBool("styleLight", INLINE_STYLE_LIGHTING);
         INLINE_LABELS = DemoCfg.cfgBool("labels", INLINE_LABELS);
+        INLINE_STYLE_MINIMAL = DemoCfg.cfgBool("minimal", INLINE_STYLE_MINIMAL);
         INLINE_SATELLITE_MIN_ZOOM = DemoCfg.cfgInt("satZoom", INLINE_SATELLITE_MIN_ZOOM);
         NUTI_TOGGLE_INTERVAL_MS = DemoCfg.cfgInt("nutiInterval", NUTI_TOGGLE_INTERVAL_MS);
 

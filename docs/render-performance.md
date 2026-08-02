@@ -372,18 +372,26 @@ whole tile (79 ms per texture measured; 45-53 ms after).
 
 ### 9.5 Measured, and what is left
 
-Device (Crosscall, north pan, interleaved, `bench/abpaint.sh`, 33-34 windows each):
+Device (Crosscall, north pan, interleaved, `bench/abpaint.sh`). **Measure the hillshade with a
+background-only style** (`--es minimal true`, which strips the inline style to the Map background
+plus the composite slots): with the full style, the base map's own geometry is most of the frame and
+hides the whole effect. 37-39 windows each:
 
 | config | fps | frame | drape | layers |
+|---|---|---|---|---|
+| **terrain paint** | **22.0** | 38.7 ms | 2.8 | 10.0 |
+| paint + full DEM detail | 13.2 | 66.6 ms | 26.6 | 11.6 |
+| normal-map hillshade | 17.0 | 49.9 ms | 5.2 | 16.5 |
+
+**+29% fps, 49.9 -> 38.7 ms per frame.** With the full style over the same pan the two are a wash
+(6.7 vs 7.0 fps, 33-34 windows) - the hillshade's cost there is tile loading, which the frame timer
+does not see, while `layers` is the base map:
+
+| config (full style) | fps | frame | drape | layers |
 |---|---|---|---|---|
 | terrain paint | 6.7 | 134 ms | 10.2 | 47.2 |
 | paint + full DEM detail | 2.5 | 400 ms | 218 | 79 |
 | normal-map hillshade | 7.0 | 117 ms | 7.7 | 53.3 |
-
-**No win yet in this configuration** - and that is informative: the hillshade layer's cost here is
-tile loading (network, decode, normal map), not the render thread, while `layers` is the base map's
-own geometry. The paint removes the former, which this bench does not measure. Measuring the
-hillshade alone is the right next bench, and it needs the gap in §9.5 closed first.
 
 Emulator counters for the same pan (structural, fps there is capped and means nothing):
 
