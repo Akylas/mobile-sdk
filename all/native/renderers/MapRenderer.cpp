@@ -1651,16 +1651,14 @@ namespace carto {
                         std::size_t layerMask = 0;
                         for (std::size_t i = 0; i < layerTiles.size() && i < sizeof(std::size_t) * 8; i++) {
                             // A layer whose content is not made of tiles - a terrain paint - paints
-                            // EVERY tile of the cover it CAN paint, and reports none of them. Left
-                            // out of the wanted mask, a tile baked in a frame where the paint had
-                            // no elevation yet counts as complete and is never baked again: the
-                            // shading is then missing from that tile for as long as it stays
-                            // cached. Wanted where the tile has no elevation either, and the tile
-                            // never completes at all - which is a tile that is not drawn.
+                            // every tile it can and reports none of them, so it cannot be part of
+                            // this mask: an incomplete tile is NOT DRAWN, and the paint is the
+                            // layer most likely to be a frame late (its textures are prepared
+                            // asynchronously). Gating on it blanked the top of the screen and the
+                            // whole map during a zoom, where every tile is new. It gets a re-bake
+                            // instead - through the fingerprint below when the elevation arrives,
+                            // and through the bake itself when it could not paint (see bakeTile).
                             if (drapeLayers[i]->paintsEveryDrapeTile()) {
-                                if (paintable) {
-                                    layerMask |= static_cast<std::size_t>(1) << i;
-                                }
                                 continue;
                             }
                             for (auto it = layerTiles[i].begin(); it != layerTiles[i].end(); it++) {
@@ -2082,7 +2080,19 @@ namespace carto {
                         // What went in, not what was asked for: a layer that turned out to have
                         // nothing stays missing from the mask, so the tile is re-baked as soon as
                         // that layer does have something.
-                        _terrainDrapeCache->markBaked(request.tileId, 0, request.fingerprint, bakedMask);
+                        // A terrain paint is not in that mask (it reports no tiles), so a tile it
+                        // could not paint - its elevation texture was still being prepared - would
+                        // otherwise keep its unshaded picture for as long as it stays cached. Mark
+                        // such a tile with a fingerprint that cannot match, which makes it STALE:
+                        // it is drawn, with what it has, and baked again at the first opportunity.
+                        std::size_t bakedFingerprint = request.fingerprint;
+                        for (std::size_t i = 0; i < drapeLayers.size() && i < sizeof(std::size_t) * 8; i++) {
+                            if (drapeLayers[i]->paintsEveryDrapeTile() && (bakedMask & (static_cast<std::size_t>(1) << i)) == 0) {
+                                bakedFingerprint = ~request.fingerprint;
+                                break;
+                            }
+                        }
+                        _terrainDrapeCache->markBaked(request.tileId, 0, bakedFingerprint, bakedMask);
                         bakedTiles++;
                         bakedThisFrame++;
                         VT_STAT_INC(drapeBakes);
