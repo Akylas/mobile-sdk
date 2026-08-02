@@ -14,6 +14,30 @@ reversed, record it here with the evidence.
 
 ## 0. Next session: start here
 
+> ### DECIDED — do not re-open
+>
+> **tangram-ng is the reference. Where it does something differently, we adopt its way; we do not
+> weigh alternatives.** (Martin, explicitly: "they do it right, no need to think.")
+>
+> **The RTT drape goes.** Tangram does not bake anything into per-tile textures - vector geometry is
+> displaced per vertex and drawn directly, the terrain raster is drawn once per tile. So we do not
+> keep the drape "for ordering", "for quality" or "for the hillshade slot": the answer to every such
+> question is what tangram does. Removing it removes the bake, the drape texture memory, the drape
+> sample on the surface, and the whole stand-in/seed/stale machinery that keeps producing tile
+> artifacts.
+>
+> Read the reference before designing: `res/scenes/terrain-3d.yaml` (per-vertex displacement),
+> `core/src/style/rasterStyle.cpp` (one shared 64-grid mesh, vertex = 2 x GL_SHORT, one draw per
+> tile, no depth pre-pass), `res/scenes/hillshade.yaml` (shading in the terrain draw's colour block).
+>
+> **Build trap:** gradle prints BUILD SUCCESSFUL while ninja has failed - two benches in this session
+> measured stale native code. After any change under `libs-carto/` or a renamed symbol, verify:
+> `unzip -p app/build/outputs/apk/debug/app-debug.apk lib/arm64-v8a/libcarto_mobile_sdk.so | strings | grep <new symbol>`
+>
+> **Measure the terrain with a background-only style** (`--es minimal true`): with the full style the
+> base map's geometry is most of the frame and hides everything else (measured: a change worth +29%
+> read as a wash).
+
 Before anything, reproduce the slow case — every ranking below depends on it:
 
 ```sh
