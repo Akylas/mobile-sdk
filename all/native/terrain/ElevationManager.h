@@ -134,6 +134,14 @@ namespace carto {
         MapTile getDataTile(const MapTile& mapTile) const;
 
         /**
+         * Returns the tile carrying the elevation data for the given render tile at FULL detail:
+         * capped by the data source maximum zoom level only, not by what the terrain mesh can
+         * express. For consumers that resolve more than the mesh does - shading is per fragment,
+         * so it shows relief the surface geometry could never carry.
+         */
+        MapTile getFullDetailDataTile(const MapTile& mapTile) const;
+
+        /**
          * Requests an asynchronous load of the given ELEVATION tile (as returned by getDataTile,
          * or one of its neighbours - it is not mapped down again). Never blocks and never
          * performs IO on the calling thread. A no-op if the grid is already cached, already

@@ -1466,9 +1466,12 @@ namespace carto {
                     // off screen for panning - are pictures of the previous style. They are only
                     // ever noticed through the per-tile fingerprint, which is re-baked at one tile
                     // per frame, so panning kept bringing the old style back a tile at a time.
+                    // A layer that bakes something which is NOT made of its tiles - a terrain paint
+                    // shading the elevation texture - has no per-tile fingerprint to be noticed
+                    // through, so it folds its own appearance into this signature instead.
                     std::size_t stackSignature = 0;
                     for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
-                        std::size_t layerHash = static_cast<std::size_t>(reinterpret_cast<std::uintptr_t>(tileLayer.get()));
+                        std::size_t layerHash = tileLayer->drapeStackSignature();
                         stackSignature ^= layerHash + 0x9e3779b9 + (stackSignature << 6) + (stackSignature >> 2);
                     }
                     _terrainDrapeCache->setStackSignature(stackSignature);
@@ -1499,6 +1502,38 @@ namespace carto {
                         for (auto it = layerTiles[i].begin(); it != layerTiles[i].end(); it++) {
                             std::size_t& fingerprint = collectedTiles[it->first];
                             fingerprint ^= it->second + 0x9e3779b9 + (fingerprint << 6) + (fingerprint >> 2);
+                        }
+                    }
+                    // A layer that bakes something not made of tiles - a terrain paint - cannot
+                    // contribute a cover, so a stack of nothing but such layers (a hillshade-only
+                    // map) would have no ground to paint on at all. The terrain's own tile cover
+                    // is the right one there: it is what the surface would be drawn from anyway.
+                    if (collectedTiles.empty()) {
+                        bool wantsCover = false;
+                        for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
+                            wantsCover = wantsCover || tileLayer->needsDrapeCover();
+                        }
+                        if (wantsCover && _terrainRenderer) {
+                            std::vector<MapTile> terrainTiles;
+                            _terrainRenderer->collectVisibleTiles(viewState, terrainOptions, terrainTiles);
+                            std::shared_ptr<ElevationManager> coverElevationManager = terrainOptions->getElevationManager();
+                            for (const MapTile& terrainTile : terrainTiles) {
+                                collectedTiles[vt::TileId(terrainTile.getZoom(), terrainTile.getX(), terrainTile.getY())] = 0;
+                                // Nothing else asks for elevation in this stack: the layers that
+                                // normally drive it are the ones with tiles, and a paint has none.
+                                // Without this the terrain stays flat and the paint has nothing to
+                                // shade - the map is an empty grid.
+                                if (coverElevationManager) {
+                                    MapTile dataTile = coverElevationManager->getDataTile(terrainTile);
+                                    coverElevationManager->prefetchTileGrid(dataTile, 2);
+                                    // And keep the frames coming until it arrives: in a stack with
+                                    // no tile layer nothing else asks for a redraw, so the map goes
+                                    // idle on a flat, unpainted terrain and never comes back.
+                                    if (!coverElevationManager->getDataTileGrid(dataTile, ElevationManager::LoadMode::CACHED_ONLY)) {
+                                        requestRedraw();
+                                    }
+                                }
+                            }
                         }
                     }
 

@@ -1,6 +1,9 @@
 #include "HillshadeRasterTileLayer.h"
+#include "components/Options.h"
+#include "components/TerrainOptions.h"
 #include "renderers/MapRenderer.h"
 #include "renderers/TileRenderer.h"
+#include "renderers/drawdatas/TileDrawData.h"
 #include "utils/Log.h"
 #include "utils/TileUtils.h"
 #include "core/BinaryData.h"
@@ -14,6 +17,12 @@
 
 #include <array>
 #include <algorithm>
+#include <cmath>
+#include <functional>
+
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
 
 #include "graphics/Bitmap.h"
 
@@ -28,6 +37,23 @@
 
 namespace carto
 {
+
+#ifdef __ANDROID__
+    // Interleaved A/B of the paint against the normal-map tile set, without a rebuild and
+    // without reaching into a composite layer's internal hillshade child:
+    //   adb shell setprop debug.carto.terrainpaint 0
+    static bool isTerrainPaintDisabledByProperty() {
+        static const bool disabled = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            return __system_property_get("debug.carto.terrainpaint", property) > 0 && property[0] == '0';
+        }();
+        return disabled;
+    }
+#else
+    static bool isTerrainPaintDisabledByProperty() {
+        return false;
+    }
+#endif
 
     HillshadeRasterTileLayer::HillshadeRasterTileLayer(const std::shared_ptr<TileDataSource> &dataSource, const std::shared_ptr<ElevationDecoder> &elevationDecoder) : CustomRasterTileLayer(dataSource),
         _elevationDecoder(elevationDecoder),
@@ -47,7 +73,9 @@ namespace carto
         _elevationEncodingEnabled(false),
         _contourInterval(100.0f),
         _contourColor(Color(0xC5, 0x60, 0x08, 0xff)),
-        _contourWidth(0.75f)
+        _contourWidth(0.75f),
+        _terrainPaintEnabled(true),
+        _paintRotationStep(0)
     {
         setTileBlendingSpeed(0.0f);
     }
@@ -69,7 +97,9 @@ namespace carto
         _elevationEncodingEnabled(false),
         _contourInterval(100.0f),
         _contourColor(Color(0xC5, 0x60, 0x08, 0xff)),
-        _contourWidth(0.75f)
+        _contourWidth(0.75f),
+        _terrainPaintEnabled(true),
+        _paintRotationStep(0)
     {
         setTileBlendingSpeed(0.0f);
     }
@@ -239,6 +269,150 @@ namespace carto
         redraw();
     }
 
+    bool HillshadeRasterTileLayer::isTerrainPaintEnabled() const {
+        return _terrainPaintEnabled.load();
+    }
+
+    void HillshadeRasterTileLayer::setTerrainPaintEnabled(bool enabled) {
+        _terrainPaintEnabled.store(enabled);
+        updateTiles(false); // the layer switches between having a tile set and having none
+    }
+
+    bool HillshadeRasterTileLayer::isTerrainPaintActive() const {
+        if (!_terrainPaintEnabled.load() || isTerrainPaintDisabledByProperty()) {
+            return false;
+        }
+        // The built-in GPU contour lines are drawn by the normal-map fragment shader, outside the
+        // lighting shader the paint reuses - in paint mode they would silently disappear. Layers
+        // that ask for them keep the normal map until the paint grows a contour kind of its own.
+        if (isContourEnabled()) {
+            return false;
+        }
+        auto options = getOptions();
+        if (!options) {
+            return false;
+        }
+        std::shared_ptr<TerrainOptions> terrainOptions = options->getTerrainOptions();
+        // Draped fills are what puts every layer in one texture in layer order; that shared bake
+        // is where the paint takes its place. Without it there is nothing to paint into.
+        if (!terrainOptions || !terrainOptions->isEnabled() || !terrainOptions->isDrapeFillsEnabled()) {
+            return false;
+        }
+        // The paint shades the TERRAIN's elevation texture. Shading it for a layer pointed at a
+        // different DEM would quietly show the wrong data, so that configuration keeps its tiles.
+        return terrainOptions->getDataSource() == getDataSource();
+    }
+
+    void HillshadeRasterTileLayer::loadData(const std::shared_ptr<CullState>& cullState) {
+        if (isTerrainPaintActive()) {
+            // Nothing to fetch, decode, build a normal map from or upload: the DEM is already on
+            // the GPU for the terrain itself. Any tiles from before the switch are dropped, or the
+            // renderer would keep drawing them on top of the paint.
+            _tileRenderer->refreshTiles(std::vector<std::shared_ptr<TileDrawData> >());
+            return;
+        }
+        CustomRasterTileLayer::loadData(cullState);
+    }
+
+    std::size_t HillshadeRasterTileLayer::calculatePaintFingerprint() const {
+        std::size_t fingerprint = 0;
+        auto mix = [&fingerprint](std::size_t value) {
+            fingerprint ^= value + 0x9e3779b9 + (fingerprint << 6) + (fingerprint >> 2);
+        };
+        auto mixFloat = [&mix](float value) {
+            mix(std::hash<float>()(value));
+        };
+        MapVec illumination = getIlluminationDirection();
+        mixFloat(getHeightScale());
+        mixFloat(getExaggeration());
+        mixFloat(getContrast());
+        mixFloat(getOpacity());
+        mixFloat(static_cast<float>(illumination.getX()));
+        mixFloat(static_cast<float>(illumination.getY()));
+        mixFloat(static_cast<float>(illumination.getZ()));
+        mix(getShadowColor().getARGB());
+        mix(getHighlightColor().getARGB());
+        mix(getAccentColor().getARGB());
+        mix(static_cast<std::size_t>(getHillshadeMethod()));
+        mix(getExagerateHeightScaleEnabled() ? 1 : 2);
+        mix(isLegacyHeightScaleEnabled() ? 1 : 2);
+        mix(std::hash<std::string>()(getNormalMapLightingShader()));
+        if (getIlluminationMapRotationEnabled()) {
+            mix(static_cast<std::size_t>(_paintRotationStep.load()));
+        }
+        return fingerprint;
+    }
+
+    bool HillshadeRasterTileLayer::needsDrapeCover() const {
+        return isTerrainPaintActive();
+    }
+
+    std::size_t HillshadeRasterTileLayer::drapeStackSignature() const {
+        std::size_t signature = CustomRasterTileLayer::drapeStackSignature();
+        if (isTerrainPaintActive()) {
+            // The paint is not made of this layer's tiles, so nothing per-tile can report that it
+            // changed: its appearance belongs to the identity of the whole drape stack.
+            std::size_t paintFingerprint = calculatePaintFingerprint();
+            signature ^= paintFingerprint + 0x9e3779b9 + (signature << 6) + (signature >> 2);
+        }
+        return signature;
+    }
+
+    void HillshadeRasterTileLayer::applyRendererSettings() const {
+        _tileRenderer->setNormalMapLightingShader(getNormalMapLightingShader());
+        _tileRenderer->setRasterFilterMode(getRasterFilterMode());
+        _tileRenderer->setLayerBlendingSpeed(getTileBlendingSpeed());
+        _tileRenderer->setNormalMapShadowColor(getShadowColor());
+        _tileRenderer->setNormalMapAccentColor(getAccentColor());
+        _tileRenderer->setNormalMapHighlightColor(getHighlightColor());
+        _tileRenderer->setNormalMapElevationEncoded(isElevationEncoded());
+        _tileRenderer->setNormalMapContourInterval(isContourEnabled() ? getContourInterval() : 0.0f);
+        _tileRenderer->setNormalMapContourColor(getContourColor());
+        _tileRenderer->setNormalMapContourWidth(getContourWidth());
+        _tileRenderer->setNormalIlluminationDirection(getIlluminationDirection());
+        _tileRenderer->setNormalIlluminationMapRotationEnabled(getIlluminationMapRotationEnabled());
+
+        int hillshadeMethod = 0;
+        switch (getHillshadeMethod()) {
+            case HillshadeMethod::HillshadeMethod::STANDARD:
+                hillshadeMethod = 0;
+                break;
+            case HillshadeMethod::HillshadeMethod::COMBINED:
+                hillshadeMethod = 1;
+                break;
+            case HillshadeMethod::HillshadeMethod::IGOR:
+                hillshadeMethod = 2;
+                break;
+            case HillshadeMethod::HillshadeMethod::MULTIDIRECTIONAL:
+                hillshadeMethod = 3;
+                break;
+            case HillshadeMethod::HillshadeMethod::BASIC:
+                hillshadeMethod = 4;
+                break;
+        }
+        _tileRenderer->setHillshadeMethod(hillshadeMethod);
+        // Two separate jobs: exaggeration scales the slope, contrast is MapLibre's
+        // 'hillshade-exaggeration' (the slope response curve and the overall strength).
+        _tileRenderer->setHillshadeExaggeration(getExaggeration());
+        _tileRenderer->setHillshadeIntensity(getContrast());
+        // The paint reads the SAME values through the same lighting shader; only where the
+        // gradient comes from differs (the terrain DEM instead of a normal map raster).
+        // getExaggeration() is applied by the lighting shader itself, so it is not repeated here.
+        bool paintActive = isTerrainPaintActive();
+        _tileRenderer->setTerrainPaint(paintActive, getHeightScale(), getExagerateHeightScaleEnabled(), isLegacyHeightScaleEnabled(), getContrast(), getOpacity(), calculatePaintFingerprint());
+    }
+
+    bool HillshadeRasterTileLayer::prepareTerrainDrapeFrame(float deltaSeconds, const ViewState& viewState) {
+        // The shared drape bakes BEFORE any layer draws, so the paint's parameters have to be on
+        // the renderer by now - otherwise the first bake of every tile uses the previous frame's
+        // values and, being cached, keeps them. The map rotation is one of those parameters when
+        // the illumination follows the map: 2 degree steps, so a rotation gesture re-bakes a
+        // bounded number of times instead of once per frame.
+        _paintRotationStep.store(static_cast<int>(std::floor(viewState.getRotation() / 2.0f)));
+        applyRendererSettings();
+        return CustomRasterTileLayer::prepareTerrainDrapeFrame(deltaSeconds, viewState);
+    }
+
     bool HillshadeRasterTileLayer::onDrawFrame(float deltaSeconds, BillboardSorter &billboardSorter, const ViewState &viewState)
     {
         updateTileLoadListener();
@@ -252,43 +426,7 @@ namespace carto
                 mapRenderer->clearAndBindScreenFBO(Color(0, 0, 0, 0), false, false);
             }
 
-            _tileRenderer->setNormalMapLightingShader(getNormalMapLightingShader());
-            _tileRenderer->setRasterFilterMode(getRasterFilterMode());
-            _tileRenderer->setLayerBlendingSpeed(getTileBlendingSpeed());
-            _tileRenderer->setNormalMapShadowColor(getShadowColor());
-            _tileRenderer->setNormalMapAccentColor(getAccentColor());
-            _tileRenderer->setNormalMapHighlightColor(getHighlightColor());
-            _tileRenderer->setNormalMapElevationEncoded(isElevationEncoded());
-            _tileRenderer->setNormalMapContourInterval(isContourEnabled() ? getContourInterval() : 0.0f);
-            _tileRenderer->setNormalMapContourColor(getContourColor());
-            _tileRenderer->setNormalMapContourWidth(getContourWidth());
-            _tileRenderer->setNormalIlluminationDirection(getIlluminationDirection());
-            _tileRenderer->setNormalIlluminationMapRotationEnabled(getIlluminationMapRotationEnabled());
-
-
-            int hillshadeMethod = 0;
-            switch (getHillshadeMethod()) {
-                case HillshadeMethod::HillshadeMethod::STANDARD:
-                    hillshadeMethod = 0;
-                    break;
-                case HillshadeMethod::HillshadeMethod::COMBINED:
-                    hillshadeMethod = 1;
-                    break;
-                case HillshadeMethod::HillshadeMethod::IGOR:
-                    hillshadeMethod = 2;
-                    break;
-                case HillshadeMethod::HillshadeMethod::MULTIDIRECTIONAL:
-                    hillshadeMethod = 3;
-                    break;
-                case HillshadeMethod::HillshadeMethod::BASIC:
-                    hillshadeMethod = 4;
-                    break;
-            }
-            _tileRenderer->setHillshadeMethod(hillshadeMethod);
-            // Two separate jobs: exaggeration scales the slope, contrast is MapLibre's
-            // 'hillshade-exaggeration' (the slope response curve and the overall strength).
-            _tileRenderer->setHillshadeExaggeration(getExaggeration());
-            _tileRenderer->setHillshadeIntensity(getContrast());
+            applyRendererSettings();
             bool refresh = _tileRenderer->onDrawFrame(deltaSeconds, viewState);
 
             if (opacity < 1.0f)
@@ -300,7 +438,7 @@ namespace carto
         }
         return false;
     }
-    
+
     std::shared_ptr<vt::Tile> HillshadeRasterTileLayer::createVectorTile(const MapTile& subTile, const MapTile& tile, const std::shared_ptr<TileData>& tileData, const std::shared_ptr<Bitmap>& bitmap, const std::shared_ptr<vt::TileTransformer>& tileTransformer) const {
         std::uint8_t alpha = 0;
         std::array<float, 4> scales;

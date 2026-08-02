@@ -265,11 +265,35 @@ namespace carto {
          */
         void setContourWidth(float width);
 
+        /**
+         * Returns whether the layer may shade the 3D terrain's own elevation texture instead of
+         * loading a DEM tile set of its own.
+         * @return True if terrain paint mode is allowed. Default is true.
+         */
+        bool isTerrainPaintEnabled() const;
+        /**
+         * Sets whether the layer may shade the shared 3D terrain elevation texture instead of
+         * loading, decoding and uploading a DEM tile set of its own. It applies only when the map
+         * renders 3D terrain with draped fills FROM THE SAME data source, and not while the
+         * built-in contour lines are enabled: the layer then draws one quad per terrain tile, at
+         * its own place in the layer order, and fetches nothing. In any other configuration the
+         * layer keeps its normal map tile set. Disable it to compare the two paths.
+         * Note that the shading is then computed from the TERRAIN's elevation grid, so it does not
+         * follow this layer's own zoom level bias, and it resolves the relief slightly differently
+         * from a magnified normal map raster.
+         * @param enabled True to allow terrain paint mode.
+         */
+        void setTerrainPaintEnabled(bool enabled);
+
         double getElevation(const MapPos& pos) const;
         std::vector<double> getElevations(const std::vector<MapPos> poses) const;
 
     protected:
         virtual bool onDrawFrame(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState);
+        virtual bool prepareTerrainDrapeFrame(float deltaSeconds, const ViewState& viewState);
+        virtual void loadData(const std::shared_ptr<CullState>& cullState);
+        virtual std::size_t drapeStackSignature() const;
+        virtual bool needsDrapeCover() const;
 
         virtual std::shared_ptr<vt::Tile> createVectorTile(const MapTile& subTile, const MapTile& tile, const std::shared_ptr<TileData>& tileData, const std::shared_ptr<Bitmap>& bitmap, const std::shared_ptr<vt::TileTransformer>& tileTransformer) const;
 
@@ -299,6 +323,23 @@ namespace carto {
         std::atomic<float> _contourInterval;
         std::atomic<Color> _contourColor;
         std::atomic<float> _contourWidth;
+        std::atomic<bool> _terrainPaintEnabled;
+
+        // Whether the layer shades the shared terrain elevation texture this frame instead of its
+        // own tile set: 3D terrain with draped fills, over the SAME data source (a different DEM
+        // would silently be replaced by the terrain's one).
+        bool isTerrainPaintActive() const;
+        // Pushes every appearance value onto the tile renderer. Called both before the shared
+        // drape bake and from the layer's own draw, so the paint and the normal map agree.
+        void applyRendererSettings() const;
+        // Hash of everything the paint's appearance depends on - including what only the lighting
+        // shader sees - so cached drape textures are re-baked when any of it changes.
+        std::size_t calculatePaintFingerprint() const;
+        // Map rotation at the last prepared frame, quantised. The paint is BAKED, so when the
+        // illumination follows the map the bake has to be redone as the map turns; the normal map
+        // path only had to change a uniform. Quantised so that a slow rotation does not re-bake
+        // every frame for a light direction nobody can tell apart.
+        std::atomic<int> _paintRotationStep;
 
         // Elevation is packed into the normal map when contours are on or when explicitly requested
         // for a custom shader.

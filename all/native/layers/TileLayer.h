@@ -390,6 +390,15 @@ namespace carto {
          * layer order, and then draws the terrain surface once. Internal methods.
          */
         virtual void collectDrapeLayers(std::vector<std::shared_ptr<TileLayer> >& drapeLayers, const ViewState& viewState);
+        // What this layer contributes to the drape stack's identity. The layer's own address by
+        // default - a new layer object means new content - plus, for layers whose bake does not
+        // come from their tiles (a terrain paint), whatever their appearance depends on: they
+        // have no per-tile fingerprint through which a change could be noticed.
+        virtual std::size_t drapeStackSignature() const;
+        // Whether this layer needs ground to draw on that it cannot provide itself: a terrain
+        // paint bakes into the shared drape but contributes no tiles to its cover, so a stack of
+        // nothing but paints has to be given the terrain's own cover.
+        virtual bool needsDrapeCover() const { return false; }
 
         bool prepareTerrainDrapeFrame(float deltaSeconds, const ViewState& viewState);
         void setExternalDrapeTarget(bool enabled);

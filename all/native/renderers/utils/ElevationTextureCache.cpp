@@ -61,7 +61,7 @@ namespace carto {
         // source maximum zoom and by the resolution the surface mesh can express (see
         // ElevationManager::setSurfaceResolution). The cap lives in the manager so that the
         // displaced surface and every CPU-side elevation query use the same height field.
-        MapTile dataTile = _elevationManager->getDataTile(mapTile);
+        MapTile dataTile = (_fullDetail ? _elevationManager->getFullDetailDataTile(mapTile) : _elevationManager->getDataTile(mapTile));
 
         std::shared_ptr<ElevationTileGrid> grid = _elevationManager->getDataTileGrid(dataTile, ElevationManager::LoadMode::CACHED_ONLY);
         if (!grid || !(grid->getTile() == dataTile)) {
@@ -171,6 +171,16 @@ namespace carto {
         terrainTexture.decode = cglib::vec4<float>(entry.decode[0], entry.decode[1], entry.decode[2], entry.decode[3]);
         terrainTexture.metersToInternal = metersToInternal;
         terrainTexture.mercatorYScale = static_cast<float>(2.0 * Const::PI / Const::WORLD_SIZE);
+        // What the DEM itself resolves, for consumers that shade from it (the terrain paint):
+        // the ground distance one texel covers at the equator.
+        terrainTexture.metersPerTexel = static_cast<float>(texelX * Const::EARTH_CIRCUMFERENCE / Const::WORLD_SIZE);
+    }
+
+    void ElevationTextureCache::setFullDetail(bool enabled) {
+        if (_fullDetail != enabled) {
+            _fullDetail = enabled;
+            clear(); // every entry was resolved at the other level
+        }
     }
 
     void ElevationTextureCache::beginFrame() {

@@ -372,6 +372,23 @@ namespace carto {
         }
     }
 
+    void TileRenderer::setTerrainPaint(bool enabled, float heightScale, bool exaggerateHeightScale, bool legacyHeightScale, float contrast, float opacity, std::size_t fingerprint) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        _terrainPaintEnabled = enabled;
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            vt::GLTileRenderer::TerrainPaint paint;
+            paint.enabled = enabled;
+            paint.heightScale = heightScale;
+            paint.exaggerateHeightScale = exaggerateHeightScale;
+            paint.legacyHeightScale = legacyHeightScale;
+            paint.contrast = contrast;
+            paint.opacity = opacity;
+            paint.fingerprint = fingerprint;
+            tileRenderer->setTerrainPaint(paint);
+        }
+    }
+
     bool TileRenderer::onDrawFrame(float deltaSeconds, const ViewState& viewState) {
         std::lock_guard<std::mutex> lock(_mutex);
 
@@ -491,6 +508,16 @@ namespace carto {
                     }
                 }
                 if (_elevationTextureCache) {
+                    // A paint renderer's only consumer of the elevation texture is the shading,
+                    // which is per fragment: it resolves relief the mesh cannot, so its cache can
+                    // ignore the mesh's level cap (which costs two zoom levels - at high zoom, all
+                    // the relief there is). It is OFF by default because our elevation textures are
+                    // CPU re-encoded per tile with borders from 8 neighbours: one texture per
+                    // render tile thrashes that cache and costs far more than the relief is worth
+                    // (measured on the Crosscall: drape 7.9 -> 200 ms per frame). Tangram can do
+                    // this because it binds the source raster as-is and extrapolates edges in the
+                    // shader. Measure with: adb shell setprop debug.carto.paintdetail 1
+                    _elevationTextureCache->setFullDetail(_terrainPaintEnabled && isTerrainPaintFullDetail());
                     _elevationTextureCache->beginFrame();
                     std::shared_ptr<ElevationTextureCache> elevationTextureCache = _elevationTextureCache;
                     terrainTextureProvider = [elevationTextureCache](const vt::TileId& tileId, vt::GLTileRenderer::TerrainTexture& terrainTexture) {
@@ -882,6 +909,19 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
         return depthShift;
 #else
         return 0.0f;
+#endif
+    }
+
+    bool TileRenderer::isTerrainPaintFullDetail() {
+#ifdef __ANDROID__
+        // Measurement switch: adb shell setprop debug.carto.paintdetail 1
+        static const bool fullDetail = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            return __system_property_get("debug.carto.paintdetail", property) > 0 && property[0] == '1';
+        }();
+        return fullDetail;
+#else
+        return false;
 #endif
     }
 

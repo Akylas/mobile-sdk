@@ -112,6 +112,13 @@ namespace carto {
          */
         float getDepthW(float screenX, float screenY) const;
 
+        /**
+         * The terrain tile cover for this camera - the tiles the surface would be drawn from.
+         * For consumers that need ground to draw on without having a tile set of their own
+         * (a terrain paint layer with no vector layer under it).
+         */
+        void collectVisibleTiles(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, std::vector<MapTile>& tiles) const;
+
     private:
         struct TileMesh;
         struct MeshCacheEntry;

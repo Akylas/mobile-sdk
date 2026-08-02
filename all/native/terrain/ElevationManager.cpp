@@ -329,6 +329,12 @@ namespace carto {
         return clampTileZoom(mapTile);
     }
 
+    MapTile ElevationManager::getFullDetailDataTile(const MapTile& mapTile) const {
+        // No mesh-resolution cap: a per-fragment consumer (hillshade shading) resolves relief the
+        // surface geometry cannot, so capping it there leaves it blurred by two zoom levels.
+        return clampDataTileZoom(mapTile);
+    }
+
     void ElevationManager::prefetchTileGrid(const MapTile& dataTile, int priority) const {
         if (!_neighbourPrefetch.load()) {
             return;

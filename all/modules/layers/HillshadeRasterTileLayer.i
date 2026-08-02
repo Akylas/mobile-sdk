@@ -40,6 +40,7 @@
 %attribute(carto::HillshadeRasterTileLayer, float, ContourInterval, getContourInterval, setContourInterval)
 %attributeval(carto::HillshadeRasterTileLayer, carto::Color, ContourColor, getContourColor, setContourColor)
 %attribute(carto::HillshadeRasterTileLayer, float, ContourWidth, getContourWidth, setContourWidth)
+%attribute(carto::HillshadeRasterTileLayer, bool, TerrainPaintEnabled, isTerrainPaintEnabled, setTerrainPaintEnabled)
 %std_exceptions(carto::HillshadeRasterTileLayer::HillshadeRasterTileLayer)
 
 %include "layers/HillshadeRasterTileLayer.h"

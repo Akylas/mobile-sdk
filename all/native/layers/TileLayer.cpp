@@ -875,6 +875,10 @@ namespace carto {
         }
     }
 
+    std::size_t TileLayer::drapeStackSignature() const {
+        return static_cast<std::size_t>(reinterpret_cast<std::uintptr_t>(this));
+    }
+
     bool TileLayer::prepareTerrainDrapeFrame(float deltaSeconds, const ViewState& viewState) {
         return _tileRenderer->prepareFrame(deltaSeconds, viewState);
     }

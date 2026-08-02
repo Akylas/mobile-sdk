@@ -49,6 +49,13 @@ namespace carto {
          */
         void beginFrame();
 
+        /**
+         * Resolves every tile at the elevation source's own maximum detail instead of at the level
+         * the terrain mesh can express. For a cache feeding per-fragment shading (the terrain
+         * paint): the mesh cap costs two zoom levels of relief, which at high zoom is all of it.
+         */
+        void setFullDetail(bool enabled);
+
         void clear();
 
     private:
@@ -69,6 +76,7 @@ namespace carto {
         const std::shared_ptr<GLResourceManager> _glResourceManager;
         std::map<long long, CacheEntry> _cache; // keyed by the grid tile id
         std::map<long long, long long> _frameResolved; // render tile id -> grid tile id (-1: no data), reset every frame
+        bool _fullDetail = false; // resolve at the source's own max zoom, not at the mesh's level
         std::uint64_t _accessCounter = 0; // monotonic LRU clock
         std::uint64_t _frameStartCounter = 0; // LRU clock at the start of the current frame
     };

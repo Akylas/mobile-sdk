@@ -431,6 +431,15 @@ namespace carto {
         return depth * depthData->far;
     }
 
+    void TerrainRenderer::collectVisibleTiles(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, std::vector<MapTile>& tiles) const {
+        if (!terrainOptions) {
+            return;
+        }
+        if (std::shared_ptr<ElevationManager> elevationManager = terrainOptions->getElevationManager()) {
+            calculateVisibleTiles(viewState, elevationManager, MapTile(0, 0, 0, 0), tiles);
+        }
+    }
+
     void TerrainRenderer::collectTileMeshes(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, int meshResolutionCap, std::vector<std::pair<MapTile, std::shared_ptr<TileMesh> > >& tileMeshes) {
         std::shared_ptr<ElevationManager> elevationManager = terrainOptions->getElevationManager();
 
