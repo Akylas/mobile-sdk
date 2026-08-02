@@ -24,11 +24,14 @@ adb install -r -t app/build/outputs/apk/debug/app-debug.apk
 Expect ~6.8 fps, ~131 ms/frame, ~130 render tiles/frame. If it is not that, the camera or the layer
 set is wrong — fix that before optimising anything.
 
-**Move 1 — hillshade as a shader block on the terrain draw (§4).** The one with real leverage: the
-hillshade layer alone multiplies render tiles ~5× (132 → 693 per interval). Bind the shared DEM
-raster to the tile draw and let the composite slot's shader compute the shading where the style
-places it, instead of giving the slot its own `HillshadeRasterTileLayer`. Ordering survives (see
-§4); the duplicate tile set, surface pass and stencil mask disappear.
+**Move 1 — hillshade AND contours as shader blocks on the terrain draw (§4).** The one with real
+leverage, and now also the fix for a correctness problem: the hillshade layer alone multiplies render
+tiles ~5× (132 → 693 per interval), and contours drawn as geometry are what see through ridges when
+any depth bias is applied (§3.1). Bind the shared DEM raster to the tile draw and let the composite
+slot's shader compute shading and contour lines where the style places them, instead of giving the
+slot its own `HillshadeRasterTileLayer` / contour source. Ordering survives (see §4); the duplicate
+tile set, surface pass and stencil mask disappear, and contours painted onto the surface cannot show
+through it at all.
 *Acceptance:* render tiles per frame in the north pan drop toward the base-only count (~40) with the
 hillshade still in its style position, and `/tmp/north.sh` improves materially. Read
 `res/scenes/hillshade.yaml` and `core/src/style/style.cpp` (`m_rasterType`, `TANGRAM_NUM_RASTER_SOURCES`)
@@ -163,7 +166,22 @@ Our shader already has the term (`uLayerDepthOffset * (2⁻¹⁹·w + uDepthShif
 Measurable with `adb shell setprop debug.carto.depthshift 0.02` plus
 `debug.carto.linesourcedensity 1` (lines at source density): **18.0 → 19.3 fps, 2.7× fewer content
 indices per render tile**, and no visible difference at the ridge camera beyond label placement.
-Left off by default: see-through is grazing-angle dependent and needs judging at more cameras.
+
+**VERDICT (Martin, on device): rejected as a default — "a bit of see-through, on ridges I see bits of
+contour lines from the other side".** Which is the expected worst case: contours lie exactly ON the
+surface, so any pull towards the viewer lifts the far side of a crest over the near side.
+
+The important conclusion is *why tangram does not have this problem*, and it is not the depth shift:
+**their contours are not geometry.** `res/scenes/hillshade.yaml` computes hillshade, contour lines
+and the hypsometric tint in the `color:` block of the terrain raster draw — painted onto the surface,
+so they have no depth relationship with it and cannot show through a ridge. Their `depth_shift` only
+ever has to separate roads and buildings, which are sparse and far less sensitive than lines lying on
+the ground.
+
+So the answer for contours is §4 (compute them in the terrain draw), not a depth bias. Keep our
+lattice split (§2.2) as the default for line geometry: it is exact, needs no bias, and is only 7%
+slower than the un-subdivided version. A smaller shift (0.005) was never measured — worth a try only
+for road-like content, and only once contours no longer depend on it.
 
 ---
 
