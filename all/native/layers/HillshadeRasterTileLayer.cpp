@@ -75,6 +75,7 @@ namespace carto
         _contourColor(Color(0xC5, 0x60, 0x08, 0xff)),
         _contourWidth(0.75f),
         _terrainPaintEnabled(true),
+        _terrainPaintFullDetailEnabled(true),
         _paintRotationStep(0)
     {
         setTileBlendingSpeed(0.0f);
@@ -99,6 +100,7 @@ namespace carto
         _contourColor(Color(0xC5, 0x60, 0x08, 0xff)),
         _contourWidth(0.75f),
         _terrainPaintEnabled(true),
+        _terrainPaintFullDetailEnabled(true),
         _paintRotationStep(0)
     {
         setTileBlendingSpeed(0.0f);
@@ -278,6 +280,15 @@ namespace carto
         updateTiles(false); // the layer switches between having a tile set and having none
     }
 
+    bool HillshadeRasterTileLayer::isTerrainPaintFullDetailEnabled() const {
+        return _terrainPaintFullDetailEnabled.load();
+    }
+
+    void HillshadeRasterTileLayer::setTerrainPaintFullDetailEnabled(bool enabled) {
+        _terrainPaintFullDetailEnabled.store(enabled);
+        redraw();
+    }
+
     bool HillshadeRasterTileLayer::isTerrainPaintActive() const {
         if (!_terrainPaintEnabled.load() || isTerrainPaintDisabledByProperty()) {
             return false;
@@ -343,7 +354,7 @@ namespace carto
         return fingerprint;
     }
 
-    bool HillshadeRasterTileLayer::needsDrapeCover() const {
+    bool HillshadeRasterTileLayer::paintsEveryDrapeTile() const {
         return isTerrainPaintActive();
     }
 
@@ -399,7 +410,7 @@ namespace carto
         // gradient comes from differs (the terrain DEM instead of a normal map raster).
         // getExaggeration() is applied by the lighting shader itself, so it is not repeated here.
         bool paintActive = isTerrainPaintActive();
-        _tileRenderer->setTerrainPaint(paintActive, getHeightScale(), getExagerateHeightScaleEnabled(), isLegacyHeightScaleEnabled(), getContrast(), getOpacity(), calculatePaintFingerprint());
+        _tileRenderer->setTerrainPaint(paintActive, isTerrainPaintFullDetailEnabled(), getHeightScale(), getExagerateHeightScaleEnabled(), isLegacyHeightScaleEnabled(), getContrast(), getOpacity(), calculatePaintFingerprint());
     }
 
     bool HillshadeRasterTileLayer::prepareTerrainDrapeFrame(float deltaSeconds, const ViewState& viewState) {

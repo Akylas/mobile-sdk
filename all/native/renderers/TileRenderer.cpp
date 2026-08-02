@@ -372,10 +372,11 @@ namespace carto {
         }
     }
 
-    void TileRenderer::setTerrainPaint(bool enabled, float heightScale, bool exaggerateHeightScale, bool legacyHeightScale, float contrast, float opacity, std::size_t fingerprint) {
+    void TileRenderer::setTerrainPaint(bool enabled, bool fullDetail, float heightScale, bool exaggerateHeightScale, bool legacyHeightScale, float contrast, float opacity, std::size_t fingerprint) {
         std::lock_guard<std::mutex> lock(_mutex);
 
         _terrainPaintEnabled = enabled;
+        _terrainPaintFullDetail = fullDetail;
         if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
             vt::GLTileRenderer::TerrainPaint paint;
             paint.enabled = enabled;
@@ -517,7 +518,7 @@ namespace carto {
                     // (measured on the Crosscall: drape 7.9 -> 200 ms per frame). Tangram can do
                     // this because it binds the source raster as-is and extrapolates edges in the
                     // shader. Measure with: adb shell setprop debug.carto.paintdetail 1
-                    _elevationTextureCache->setFullDetail(_terrainPaintEnabled && isTerrainPaintFullDetail());
+                    _elevationTextureCache->setFullDetail(_terrainPaintEnabled && _terrainPaintFullDetail && isTerrainPaintFullDetailAllowed());
                     _elevationTextureCache->beginFrame();
                     std::shared_ptr<ElevationTextureCache> elevationTextureCache = _elevationTextureCache;
                     terrainTextureProvider = [elevationTextureCache](const vt::TileId& tileId, vt::GLTileRenderer::TerrainTexture& terrainTexture) {
@@ -912,16 +913,16 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
 #endif
     }
 
-    bool TileRenderer::isTerrainPaintFullDetail() {
+    bool TileRenderer::isTerrainPaintFullDetailAllowed() {
 #ifdef __ANDROID__
-        // Measurement switch: adb shell setprop debug.carto.paintdetail 1
-        static const bool fullDetail = [] {
+        // Measurement switch: adb shell setprop debug.carto.paintdetail 0 forces the mesh level.
+        static const bool allowed = [] {
             char property[PROP_VALUE_MAX] = { 0 };
-            return __system_property_get("debug.carto.paintdetail", property) > 0 && property[0] == '1';
+            return !(__system_property_get("debug.carto.paintdetail", property) > 0 && property[0] == '0');
         }();
-        return fullDetail;
+        return allowed;
 #else
-        return false;
+        return true;
 #endif
     }
 

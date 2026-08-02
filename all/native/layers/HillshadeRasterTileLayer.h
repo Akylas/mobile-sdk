@@ -285,6 +285,21 @@ namespace carto {
          */
         void setTerrainPaintEnabled(bool enabled);
 
+        /**
+         * Returns whether the terrain paint shades from the elevation source's own maximum zoom.
+         * @return True if full DEM detail is used. Default is true.
+         */
+        bool isTerrainPaintFullDetailEnabled() const;
+        /**
+         * Sets whether the terrain paint shades from the elevation source's own maximum zoom
+         * instead of the coarser level the terrain MESH needs (one texel per half surface cell,
+         * which costs two zoom levels of relief - at high zoom, all of it). Shading is per fragment
+         * and resolves what the mesh cannot, so this is on by default; turning it off gives the
+         * terrain's own elevation textures back and is measurably faster.
+         * @param enabled True to shade from the DEM's own maximum zoom.
+         */
+        void setTerrainPaintFullDetailEnabled(bool enabled);
+
         double getElevation(const MapPos& pos) const;
         std::vector<double> getElevations(const std::vector<MapPos> poses) const;
 
@@ -293,7 +308,7 @@ namespace carto {
         virtual bool prepareTerrainDrapeFrame(float deltaSeconds, const ViewState& viewState);
         virtual void loadData(const std::shared_ptr<CullState>& cullState);
         virtual std::size_t drapeStackSignature() const;
-        virtual bool needsDrapeCover() const;
+        virtual bool paintsEveryDrapeTile() const;
 
         virtual std::shared_ptr<vt::Tile> createVectorTile(const MapTile& subTile, const MapTile& tile, const std::shared_ptr<TileData>& tileData, const std::shared_ptr<Bitmap>& bitmap, const std::shared_ptr<vt::TileTransformer>& tileTransformer) const;
 
@@ -324,6 +339,7 @@ namespace carto {
         std::atomic<Color> _contourColor;
         std::atomic<float> _contourWidth;
         std::atomic<bool> _terrainPaintEnabled;
+        std::atomic<bool> _terrainPaintFullDetailEnabled;
 
         // Whether the layer shades the shared terrain elevation texture this frame instead of its
         // own tile set: 3D terrain with draped fills, over the SAME data source (a different DEM

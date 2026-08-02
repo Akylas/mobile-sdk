@@ -41,6 +41,7 @@
 %attributeval(carto::HillshadeRasterTileLayer, carto::Color, ContourColor, getContourColor, setContourColor)
 %attribute(carto::HillshadeRasterTileLayer, float, ContourWidth, getContourWidth, setContourWidth)
 %attribute(carto::HillshadeRasterTileLayer, bool, TerrainPaintEnabled, isTerrainPaintEnabled, setTerrainPaintEnabled)
+%attribute(carto::HillshadeRasterTileLayer, bool, TerrainPaintFullDetailEnabled, isTerrainPaintFullDetailEnabled, setTerrainPaintFullDetailEnabled)
 %std_exceptions(carto::HillshadeRasterTileLayer::HillshadeRasterTileLayer)
 
 %include "layers/HillshadeRasterTileLayer.h"

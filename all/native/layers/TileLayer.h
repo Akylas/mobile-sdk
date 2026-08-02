@@ -395,10 +395,11 @@ namespace carto {
         // come from their tiles (a terrain paint), whatever their appearance depends on: they
         // have no per-tile fingerprint through which a change could be noticed.
         virtual std::size_t drapeStackSignature() const;
-        // Whether this layer needs ground to draw on that it cannot provide itself: a terrain
-        // paint bakes into the shared drape but contributes no tiles to its cover, so a stack of
-        // nothing but paints has to be given the terrain's own cover.
-        virtual bool needsDrapeCover() const { return false; }
+        // Whether this layer's drape contribution is not made of tiles: a terrain paint bakes into
+        // EVERY tile of the shared drape and reports none of them. The owner needs both facts - a
+        // stack of nothing but such layers has to be given the terrain's own cover, and every tile
+        // of that cover must expect this layer's content or a tile baked without it looks finished.
+        virtual bool paintsEveryDrapeTile() const { return false; }
 
         bool prepareTerrainDrapeFrame(float deltaSeconds, const ViewState& viewState);
         void setExternalDrapeTarget(bool enabled);

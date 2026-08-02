@@ -9,6 +9,7 @@
 #include "utils/Const.h"
 
 #include <algorithm>
+#include <chrono>
 #include <vector>
 
 namespace carto {
@@ -27,30 +28,40 @@ namespace carto {
 
         // The provider is called once per tile per render pass; resolve the tile at most
         // once per frame and reuse the resolution for the remaining passes.
-        long long gridTileId = -1;
+        MapTile gridTile;
+        bool resolved = false;
         auto frameIt = _frameResolved.find(mapTileId);
         if (frameIt != _frameResolved.end()) {
-            gridTileId = frameIt->second;
+            gridTile = frameIt->second;
+            resolved = gridTile.getZoom() >= 0;
         } else {
-            if (!resolveEntry(tileId, gridTileId)) {
-                gridTileId = -1;
-            }
-            _frameResolved[mapTileId] = gridTileId;
+            resolved = resolveEntry(tileId, gridTile);
+            _frameResolved[mapTileId] = (resolved ? gridTile : MapTile(0, 0, -1, 0));
         }
-        if (gridTileId < 0) {
+        if (!resolved) {
             return false;
         }
 
-        auto it = _cache.find(gridTileId);
-        if (it == _cache.end() || !it->second.texture || it->second.texture->getTexId() == 0) {
-            return false;
+        // The exact grid's texture if it is on the GPU, otherwise the nearest ancestor's: a tile
+        // whose own texture is still being encoded must not be left WITHOUT elevation. Its surface
+        // would render flat, and - since the drape bake re-fills a tile from scratch - a terrain
+        // paint would bake that tile with no hillshade at all, taking the shading off ground that
+        // already had it. An ancestor texture is coarser and geometrically correct (the uv mapping
+        // covers it), which is the same stand-in the drape itself uses while a tile catches up.
+        for (MapTile tile = gridTile; ; tile = tile.getParent()) {
+            auto it = _cache.find(tile.getTileId());
+            if (it != _cache.end() && it->second.texture && it->second.texture->getTexId() != 0) {
+                it->second.lastUsed = ++_accessCounter;
+                fillTexture(it->second, static_cast<float>(_elevationManager->getExaggeration() * Const::WORLD_SIZE / Const::EARTH_CIRCUMFERENCE), terrainTexture);
+                return true;
+            }
+            if (tile.getZoom() <= 0) {
+                return false;
+            }
         }
-        it->second.lastUsed = ++_accessCounter;
-        fillTexture(it->second, static_cast<float>(_elevationManager->getExaggeration() * Const::WORLD_SIZE / Const::EARTH_CIRCUMFERENCE), terrainTexture);
-        return true;
     }
 
-    bool ElevationTextureCache::resolveEntry(const vt::TileId& tileId, long long& gridTileId) {
+    bool ElevationTextureCache::resolveEntry(const vt::TileId& tileId, MapTile& gridTileOut) {
         // Resolve the best already-decoded elevation grid for the tile. This mirrors the
         // CPU displacement path (TerrainTileTransformer), so the GPU-sampled heights stay
         // consistent with element placement, hit testing and label anchors.
@@ -114,49 +125,142 @@ namespace carto {
             neighbourGrid(-1, 1), neighbourGrid(1, 1), neighbourGrid(-1, -1), neighbourGrid(1, -1)
         } };
 
-        gridTileId = gridTile.getTileId();
-        auto it = _cache.find(gridTileId);
+        gridTileOut = gridTile;
+        auto it = _cache.find(gridTile.getTileId());
         if (it == _cache.end() || it->second.grid != grid || it->second.neighbours != neighbours) {
-            if (_cache.size() >= MAX_CACHED_TEXTURES && it == _cache.end()) {
-                // Evict the least-recently-used entry, NOT the whole cache. A full flush
-                // re-encodes+re-uploads every texture whenever the working set exceeds the cap,
-                // which stalls the render thread on fast multi-level zooms (the working set of
-                // visible + neighbour DEM tiles briefly exceeds the cap). LRU keeps the warm set.
-                // Entries already used in this frame are kept if possible: dropping one would
-                // make the tile fall back to flat in its remaining render passes.
-                auto lru = _cache.end();
-                for (auto entryIt = _cache.begin(); entryIt != _cache.end(); entryIt++) {
-                    if (entryIt->second.lastUsed > _frameStartCounter) {
-                        continue;
+            // Not encoded yet, or encoded from data that has since changed (the tile's own grid
+            // arrived, or a neighbour did and the border can be filled properly now). Either way
+            // the work goes to the worker; what is already on the GPU keeps being used until the
+            // new texture is uploaded, so a border refinement never blanks the tile.
+            requestEncode(gridTile.getTileId(), grid, neighbours);
+            if (it == _cache.end()) {
+                return false;
+            }
+        }
+        it->second.lastUsed = ++_accessCounter;
+        return it->second.texture && it->second.texture->getTexId() != 0;
+    }
+
+    void ElevationTextureCache::requestEncode(long long gridTileId, const std::shared_ptr<ElevationTileGrid>& grid, const std::array<std::shared_ptr<ElevationTileGrid>, 8>& neighbours) {
+        std::lock_guard<std::mutex> lock(_encodeMutex);
+        if (_encodeStopped) {
+            return;
+        }
+        if (!_encodePending.insert(gridTileId).second) {
+            return; // queued or being encoded; the newest inputs win when it is re-requested later
+        }
+        // Newest first (the queue is drained from the back): the newest request belongs to the
+        // current viewport, while the oldest may already have scrolled away.
+        _encodeQueue.push_back(EncodeJob { gridTileId, grid, neighbours });
+        while (_encodeQueue.size() > MAX_ENCODE_QUEUE) {
+            _encodePending.erase(_encodeQueue.front().gridTileId);
+            _encodeQueue.pop_front();
+        }
+        if (!_encodeThread) {
+            _encodeThread = std::make_unique<std::thread>([this]() { runEncodeWorker(); });
+        }
+        _encodeCondition.notify_one();
+    }
+
+    void ElevationTextureCache::runEncodeWorker() {
+        while (true) {
+            EncodeJob job;
+            {
+                std::unique_lock<std::mutex> lock(_encodeMutex);
+                _encodeCondition.wait(lock, [this]() { return _encodeStopped || !_encodeQueue.empty(); });
+                if (_encodeStopped) {
+                    return;
+                }
+                job = std::move(_encodeQueue.back());
+                _encodeQueue.pop_back();
+            }
+
+            EncodedTexture encoded;
+            encoded.gridTileId = job.gridTileId;
+            encoded.grid = job.grid;
+            encoded.neighbours = job.neighbours;
+            encoded.width = job.grid->getWidth() + 2;
+            encoded.height = job.grid->getHeight() + 2;
+            job.grid->encodeTextureWithBorders(job.neighbours, encoded.rgbaData, encoded.decode);
+
+            {
+                std::lock_guard<std::mutex> lock(_encodeMutex);
+                _encodePending.erase(job.gridTileId);
+                if (_encodeStopped) {
+                    return;
+                }
+                // Supersede an older encode of the same grid that has not been uploaded yet: only
+                // the newest inputs matter, and uploading both would cost two uploads for one tile.
+                for (auto it = _encodedQueue.begin(); it != _encodedQueue.end(); it++) {
+                    if (it->gridTileId == encoded.gridTileId) {
+                        _encodedQueue.erase(it);
+                        break;
                     }
-                    if (lru == _cache.end() || entryIt->second.lastUsed < lru->second.lastUsed) {
-                        lru = entryIt;
-                    }
                 }
-                if (lru == _cache.end()) {
-                    lru = std::min_element(_cache.begin(), _cache.end(), [](const std::pair<const long long, CacheEntry>& a, const std::pair<const long long, CacheEntry>& b) {
-                        return a.second.lastUsed < b.second.lastUsed;
-                    });
+                _encodedQueue.push_back(std::move(encoded));
+            }
+        }
+    }
+
+    void ElevationTextureCache::uploadReadyTextures() {
+        auto uploadStart = std::chrono::steady_clock::now();
+        for (int i = 0; i < MAX_UPLOADS_PER_FRAME; i++) {
+            if (i > 0 && std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - uploadStart).count() > MAX_UPLOAD_MS_PER_FRAME) {
+                return; // the rest waits for the next frame; those tiles keep their old texture
+            }
+            EncodedTexture encoded;
+            {
+                std::lock_guard<std::mutex> lock(_encodeMutex);
+                if (_encodedQueue.empty()) {
+                    return;
                 }
-                if (lru != _cache.end()) {
-                    _cache.erase(lru);
-                }
+                encoded = std::move(_encodedQueue.back()); // newest first, as in the encode queue
+                _encodedQueue.pop_back();
+            }
+
+            auto it = _cache.find(encoded.gridTileId);
+            if (it == _cache.end() && _cache.size() >= MAX_CACHED_TEXTURES) {
+                evictLeastRecentlyUsed();
             }
             CacheEntry entry;
-            entry.grid = grid;
-            entry.neighbours = neighbours;
-            std::vector<std::uint8_t> rgbaData;
-            grid->encodeTextureWithBorders(neighbours, rgbaData, entry.decode);
+            entry.grid = encoded.grid;
+            entry.neighbours = encoded.neighbours;
+            entry.decode = encoded.decode;
+            entry.lastUsed = (it != _cache.end() ? it->second.lastUsed : _accessCounter);
             // The encoded rows are south-to-north, i.e. already bottom-up in the Bitmap
             // convention. Bitmap treats a POSITIVE stride as top-down input and flips the
             // rows - pass a negative stride so the data is taken as-is (a flipped texture
             // mirrors every tile's terrain north-south).
-            auto bitmap = std::make_shared<Bitmap>(rgbaData.data(), grid->getWidth() + 2, grid->getHeight() + 2, ColorFormat::COLOR_FORMAT_RGBA, -static_cast<int>(4 * (grid->getWidth() + 2)));
+            auto bitmap = std::make_shared<Bitmap>(encoded.rgbaData.data(), encoded.width, encoded.height, ColorFormat::COLOR_FORMAT_RGBA, -static_cast<int>(4 * encoded.width));
             entry.texture = _glResourceManager->create<Texture>(bitmap, false, false); // no mipmaps, clamp to edge
-            it = _cache.insert_or_assign(gridTileId, std::move(entry)).first;
+            _cache.insert_or_assign(encoded.gridTileId, std::move(entry));
         }
-        it->second.lastUsed = ++_accessCounter;
-        return it->second.texture && it->second.texture->getTexId() != 0;
+    }
+
+    void ElevationTextureCache::evictLeastRecentlyUsed() {
+        // Evict the least-recently-used entry, NOT the whole cache. A full flush re-encodes and
+        // re-uploads every texture whenever the working set exceeds the cap, which stalls the
+        // render thread on fast multi-level zooms (the working set of visible + neighbour DEM
+        // tiles briefly exceeds the cap). LRU keeps the warm set. Entries already used in this
+        // frame are kept if possible: dropping one would make the tile fall back to flat in its
+        // remaining render passes.
+        auto lru = _cache.end();
+        for (auto entryIt = _cache.begin(); entryIt != _cache.end(); entryIt++) {
+            if (entryIt->second.lastUsed > _frameStartCounter) {
+                continue;
+            }
+            if (lru == _cache.end() || entryIt->second.lastUsed < lru->second.lastUsed) {
+                lru = entryIt;
+            }
+        }
+        if (lru == _cache.end()) {
+            lru = std::min_element(_cache.begin(), _cache.end(), [](const std::pair<const long long, CacheEntry>& a, const std::pair<const long long, CacheEntry>& b) {
+                return a.second.lastUsed < b.second.lastUsed;
+            });
+        }
+        if (lru != _cache.end()) {
+            _cache.erase(lru);
+        }
     }
 
     void ElevationTextureCache::fillTexture(const CacheEntry& entry, float metersToInternal, vt::GLTileRenderer::TerrainTexture& terrainTexture) {
@@ -176,6 +280,26 @@ namespace carto {
         terrainTexture.metersPerTexel = static_cast<float>(texelX * Const::EARTH_CIRCUMFERENCE / Const::WORLD_SIZE);
     }
 
+    ElevationTextureCache::~ElevationTextureCache() {
+        stopEncodeWorker();
+    }
+
+    void ElevationTextureCache::stopEncodeWorker() {
+        std::unique_ptr<std::thread> thread;
+        {
+            std::lock_guard<std::mutex> lock(_encodeMutex);
+            _encodeStopped = true;
+            _encodeQueue.clear();
+            _encodePending.clear();
+            _encodedQueue.clear();
+            thread = std::move(_encodeThread);
+        }
+        _encodeCondition.notify_all();
+        if (thread && thread->joinable()) {
+            thread->join();
+        }
+    }
+
     void ElevationTextureCache::setFullDetail(bool enabled) {
         if (_fullDetail != enabled) {
             _fullDetail = enabled;
@@ -184,6 +308,8 @@ namespace carto {
     }
 
     void ElevationTextureCache::beginFrame() {
+        // Textures encoded since the last frame go up now, ahead of the draws that sample them.
+        uploadReadyTextures();
         _frameResolved.clear();
         _frameStartCounter = _accessCounter;
     }
@@ -191,5 +317,11 @@ namespace carto {
     void ElevationTextureCache::clear() {
         _cache.clear();
         _frameResolved.clear();
+        {
+            std::lock_guard<std::mutex> lock(_encodeMutex);
+            _encodeQueue.clear();
+            _encodePending.clear();
+            _encodedQueue.clear(); // encoded from grids this cache no longer stands behind
+        }
     }
 }

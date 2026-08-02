@@ -1511,7 +1511,7 @@ namespace carto {
                     if (collectedTiles.empty()) {
                         bool wantsCover = false;
                         for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
-                            wantsCover = wantsCover || tileLayer->needsDrapeCover();
+                            wantsCover = wantsCover || tileLayer->paintsEveryDrapeTile();
                         }
                         if (wantsCover && _terrainRenderer) {
                             std::vector<MapTile> terrainTiles;
@@ -1627,9 +1627,42 @@ namespace carto {
                     // against what the cached texture was actually baked from, this separates
                     // "the picture moved on a little" from "a whole layer is missing here".
                     std::map<vt::TileId, std::size_t> drapeTileLayerMasks;
+                    // Whether the DEM for a tile is decoded YET. A terrain paint can only paint a
+                    // tile that has elevation, so this decides both whether the tile is expected to
+                    // carry the paint and - through the fingerprint below - that it is baked again
+                    // once the elevation does arrive.
+                    std::shared_ptr<ElevationManager> drapeElevationManager = terrainOptions->getElevationManager();
+                    auto hasElevationData = [&drapeElevationManager](const vt::TileId& tileId) {
+                        if (!drapeElevationManager) {
+                            return true; // no elevation source at all: nothing is displaced
+                        }
+                        int tileMask = (1 << tileId.zoom) - 1;
+                        MapTile mapTile(tileId.x & tileMask, std::min(std::max(tileId.y, 0), tileMask), tileId.zoom, 0);
+                        return static_cast<bool>(drapeElevationManager->getTileGrid(mapTile, ElevationManager::LoadMode::CACHED_ONLY));
+                    };
+                    std::map<vt::TileId, bool> leafElevation;
+                    bool anyPaintLayer = false;
+                    for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
+                        anyPaintLayer = anyPaintLayer || tileLayer->paintsEveryDrapeTile();
+                    }
                     for (const vt::TileId& tileId : leaves) {
+                        bool paintable = hasElevationData(tileId);
+                        leafElevation[tileId] = paintable;
                         std::size_t layerMask = 0;
                         for (std::size_t i = 0; i < layerTiles.size() && i < sizeof(std::size_t) * 8; i++) {
+                            // A layer whose content is not made of tiles - a terrain paint - paints
+                            // EVERY tile of the cover it CAN paint, and reports none of them. Left
+                            // out of the wanted mask, a tile baked in a frame where the paint had
+                            // no elevation yet counts as complete and is never baked again: the
+                            // shading is then missing from that tile for as long as it stays
+                            // cached. Wanted where the tile has no elevation either, and the tile
+                            // never completes at all - which is a tile that is not drawn.
+                            if (drapeLayers[i]->paintsEveryDrapeTile()) {
+                                if (paintable) {
+                                    layerMask |= static_cast<std::size_t>(1) << i;
+                                }
+                                continue;
+                            }
                             for (auto it = layerTiles[i].begin(); it != layerTiles[i].end(); it++) {
                                 if (it->second == 0) {
                                     continue; // reported for the cover, but nothing drapeable in it
@@ -1665,6 +1698,13 @@ namespace carto {
                             if (covers(it->first, tileId) || covers(tileId, it->first)) {
                                 fingerprint ^= it->second + 0x9e3779b9 + (fingerprint << 6) + (fingerprint >> 2);
                             }
+                        }
+                        if (anyPaintLayer) {
+                            // The paint has no per-tile content to fingerprint, but whether it can
+                            // paint this tile at all is per-tile: fold it in, so the tile is baked
+                            // again the moment its elevation arrives.
+                            std::size_t elevationTerm = (paintable ? 0x9e3779b9u : 0x85ebca6bu);
+                            fingerprint ^= elevationTerm + 0x9e3779b9 + (fingerprint << 6) + (fingerprint >> 2);
                         }
                         drapeTiles[tileId] = fingerprint;
                     }
@@ -1822,21 +1862,10 @@ namespace carto {
                     // zero is not, and it also writes depth, so it hides what is behind it.
                     // When NOTHING has elevation (cold start, or ground the DEM does not cover)
                     // the whole scene is flat and internally consistent, so the flat draw stays.
-                    std::shared_ptr<ElevationManager> drapeElevationManager = terrainOptions->getElevationManager();
-                    auto hasElevationData = [&drapeElevationManager](const vt::TileId& tileId) {
-                        if (!drapeElevationManager) {
-                            return true; // no elevation source at all: nothing is displaced
-                        }
-                        int tileMask = (1 << tileId.zoom) - 1;
-                        MapTile mapTile(tileId.x & tileMask, std::min(std::max(tileId.y, 0), tileMask), tileId.zoom, 0);
-                        return static_cast<bool>(drapeElevationManager->getTileGrid(mapTile, ElevationManager::LoadMode::CACHED_ONLY));
-                    };
-                    std::map<vt::TileId, bool> leafElevation;
+                    // Already resolved above, where the paint's per-tile expectation was decided.
                     int displacedLeaves = 0;
                     for (auto it = drapeTiles.begin(); it != drapeTiles.end(); it++) {
-                        bool displaced = hasElevationData(it->first);
-                        leafElevation[it->first] = displaced;
-                        displacedLeaves += displaced ? 1 : 0;
+                        displacedLeaves += leafElevation[it->first] ? 1 : 0;
                     }
                     bool sceneDisplaced = displacedLeaves > 0;
 

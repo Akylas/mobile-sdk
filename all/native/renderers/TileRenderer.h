@@ -113,7 +113,7 @@ namespace carto {
         // a tile set of its own. The fingerprint must cover every value the paint's appearance
         // depends on, including the lighting shader's own uniforms, or already-baked drape
         // textures survive a parameter change.
-        void setTerrainPaint(bool enabled, float heightScale, bool exaggerateHeightScale, bool legacyHeightScale, float contrast, float opacity, std::size_t fingerprint);
+        void setTerrainPaint(bool enabled, bool fullDetail, float heightScale, bool exaggerateHeightScale, bool legacyHeightScale, float contrast, float opacity, std::size_t fingerprint);
 
         bool onDrawFrame(float deltaSeconds, const ViewState& viewState);
         bool onDrawFrame3D(float deltaSeconds, const ViewState& viewState);
@@ -140,9 +140,9 @@ namespace carto {
         bool isPlanarTerrainMode() const;
         // Tangram-model measurement switch, read once from debug.carto.depthshift (Android only).
         static float getTerrainContentDepthShift();
-        // Whether a terrain paint resolves the DEM at the source's own max zoom instead of at the
-        // level the mesh can express. Read once from debug.carto.paintdetail (Android only).
-        static bool isTerrainPaintFullDetail();
+        // Measurement override for the paint's DEM level: debug.carto.paintdetail 0 forces the
+        // mesh level, whatever the layer asks for. Read once (Android only).
+        static bool isTerrainPaintFullDetailAllowed();
         void updateLabelOcclusionTest(const std::shared_ptr<vt::GLTileRenderer>& tileRenderer, const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions);
 
         static constexpr int SURFACE_RESET_DELAY = 500; // minimum interval (ms) between elevation-driven tile surface rebuilds
@@ -195,6 +195,7 @@ namespace carto {
         float _hillshadeIntensity;
         bool _terrainDepthWriteMode = false;
         bool _terrainPaintEnabled = false; // this renderer shades the DEM instead of drawing tiles
+        bool _terrainPaintFullDetail = true; // shade from the DEM's own max zoom, not the mesh's level
         bool prepareFrameUnsafe(float deltaSeconds, const ViewState& viewState); // caller holds _mutex
 
         bool _framePrepared = false;   // startFrame already ran this frame (cross-layer drape ordering)
