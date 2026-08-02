@@ -26,6 +26,15 @@ reversed, record it here with the evidence.
 > sample on the surface, and the whole stand-in/seed/stale machinery that keeps producing tile
 > artifacts.
 >
+> **The drape cannot go on its own** (measured, device, north pan, background-only style):
+> paint + drape 19.9 fps / `layers` 10.6 ms, paint without drape **15.5 fps / 26.0 ms**. Without the
+> drape each layer still draws its own depth pre-pass surface AND its stencil mask, and a paint adds
+> a third surface pass per tile - where the drape drew one shared surface plus one mask. Tangram has
+> NEITHER a per-layer pre-pass nor stencil masks. So it is one change: drape + pre-pass + masks go
+> together, leaving one ground draw per tile and displaced geometry for everything else.
+>
+> **Shadows stay** (Martin). They are their own caster pass and FBO, not part of the drape.
+>
 > Read the reference before designing: `res/scenes/terrain-3d.yaml` (per-vertex displacement),
 > `core/src/style/rasterStyle.cpp` (one shared 64-grid mesh, vertex = 2 x GL_SHORT, one draw per
 > tile, no depth pre-pass), `res/scenes/hillshade.yaml` (shading in the terrain draw's colour block).
