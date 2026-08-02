@@ -875,6 +875,10 @@ namespace carto {
         }
     }
 
+    void TileLayer::setTerrainPaintTiles(const std::vector<vt::TileId>& tileIds) {
+        _tileRenderer->setTerrainPaintTiles(tileIds);
+    }
+
     std::size_t TileLayer::drapeStackSignature() const {
         return static_cast<std::size_t>(reinterpret_cast<std::uintptr_t>(this));
     }

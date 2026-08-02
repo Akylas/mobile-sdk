@@ -400,6 +400,9 @@ namespace carto {
         // stack of nothing but such layers has to be given the terrain's own cover, and every tile
         // of that cover must expect this layer's content or a tile baked without it looks finished.
         virtual bool paintsEveryDrapeTile() const { return false; }
+        // The terrain cover a paint layer draws itself on when nothing bakes it. Ignored by
+        // layers that are not paints.
+        virtual void setTerrainPaintTiles(const std::vector<vt::TileId>& tileIds);
 
         bool prepareTerrainDrapeFrame(float deltaSeconds, const ViewState& viewState);
         void setExternalDrapeTarget(bool enabled);

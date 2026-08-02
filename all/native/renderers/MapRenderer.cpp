@@ -1444,6 +1444,33 @@ namespace carto {
         // the 3D scene at all, which is what removes the whole content-vs-surface depth problem.
         std::vector<std::shared_ptr<TileLayer> > drapeLayers;
         if (terrainMode) {
+            // A terrain paint has no tile set: without a drape to bake into it draws itself, on
+            // the terrain's own cover. Pushed every frame, before any layer draws, and harmless
+            // for a paint that does bake (it ignores the list).
+            if (auto paintTerrainOptions = _options->getTerrainOptions()) {
+                std::vector<std::shared_ptr<TileLayer> > paintLayers;
+                for (const std::shared_ptr<Layer>& layer : layers) {
+                    layer->collectDrapeLayers(paintLayers, viewState);
+                }
+                bool anyPaint = false;
+                for (const std::shared_ptr<TileLayer>& tileLayer : paintLayers) {
+                    anyPaint = anyPaint || tileLayer->paintsEveryDrapeTile();
+                }
+                if (anyPaint && _terrainRenderer) {
+                    std::vector<MapTile> terrainTiles;
+                    _terrainRenderer->collectVisibleTiles(viewState, paintTerrainOptions, terrainTiles);
+                    std::vector<vt::TileId> paintTileIds;
+                    paintTileIds.reserve(terrainTiles.size());
+                    for (const MapTile& terrainTile : terrainTiles) {
+                        paintTileIds.emplace_back(terrainTile.getZoom(), terrainTile.getX(), terrainTile.getY());
+                    }
+                    for (const std::shared_ptr<TileLayer>& tileLayer : paintLayers) {
+                        if (tileLayer->paintsEveryDrapeTile()) {
+                            tileLayer->setTerrainPaintTiles(paintTileIds);
+                        }
+                    }
+                }
+            }
             if (auto terrainOptions = _options->getTerrainOptions()) {
                 if (terrainOptions->isDrapeFillsEnabled()) {
                     // Layers report their own drapeable tile layers, so a composite layer can

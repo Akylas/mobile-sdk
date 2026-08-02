@@ -113,6 +113,8 @@ namespace carto {
         // a tile set of its own. The fingerprint must cover every value the paint's appearance
         // depends on, including the lighting shader's own uniforms, or already-baked drape
         // textures survive a parameter change.
+        // The terrain tiles a paint draws itself on when there is no drape to bake into.
+        void setTerrainPaintTiles(const std::vector<vt::TileId>& tileIds);
         void setTerrainPaint(bool enabled, bool fullDetail, float heightScale, bool exaggerateHeightScale, bool legacyHeightScale, float contrast, float opacity, std::size_t fingerprint);
 
         bool onDrawFrame(float deltaSeconds, const ViewState& viewState);

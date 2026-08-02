@@ -372,6 +372,14 @@ namespace carto {
         }
     }
 
+    void TileRenderer::setTerrainPaintTiles(const std::vector<vt::TileId>& tileIds) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            tileRenderer->setTerrainPaintTiles(tileIds);
+        }
+    }
+
     void TileRenderer::setTerrainPaint(bool enabled, bool fullDetail, float heightScale, bool exaggerateHeightScale, bool legacyHeightScale, float contrast, float opacity, std::size_t fingerprint) {
         std::lock_guard<std::mutex> lock(_mutex);
 
