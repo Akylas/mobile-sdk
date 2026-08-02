@@ -225,14 +225,31 @@ namespace carto {
             return _heights[static_cast<std::size_t>(cy) * _width + cx];
         };
 
+        // Only the border ring and the two outermost own rows/columns can come from anywhere but
+        // this grid: the border ring by definition, the outermost own texels because a coarser
+        // neighbour box-filters them (edgeFilter above). Everything else is this grid's own texel
+        // at its own index. Running the general rawValue() lambda over the whole tile instead -
+        // with its neighbour dispatch and four edge-filter tests PER TEXEL - is what made encoding
+        // one texture cost 79 ms on the device (measured, 514x514), which is most of a frame.
+        auto writeTexel = [&rgbaData](std::size_t index, std::uint16_t value) {
+            rgbaData[index + 0] = static_cast<std::uint8_t>(value >> 8);
+            rgbaData[index + 1] = static_cast<std::uint8_t>(value & 255);
+            rgbaData[index + 2] = 0;
+            rgbaData[index + 3] = 255;
+        };
         std::size_t i = 0;
         for (int gy = -1; gy <= _height; gy++) {
+            bool ownRow = (gy > 0 && gy < _height - 1);
             for (int gx = -1; gx <= _width; gx++) {
-                std::uint16_t value = rawValue(gx, gy);
-                rgbaData[i + 0] = static_cast<std::uint8_t>(value >> 8);
-                rgbaData[i + 1] = static_cast<std::uint8_t>(value & 255);
-                rgbaData[i + 2] = 0;
-                rgbaData[i + 3] = 255;
+                if (ownRow && gx == 1) {
+                    // The row's own span, straight from the height field.
+                    const std::uint16_t* row = &_heights[static_cast<std::size_t>(gy) * _width];
+                    for (; gx < _width - 1; gx++) {
+                        writeTexel(i, row[gx]);
+                        i += 4;
+                    }
+                }
+                writeTexel(i, rawValue(gx, gy));
                 i += 4;
             }
         }
