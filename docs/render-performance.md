@@ -12,6 +12,46 @@ reversed, record it here with the evidence.
 
 ---
 
+## 0. Next session: start here
+
+Before anything, reproduce the slow case — every ranking below depends on it:
+
+```sh
+cd scripts/android-dev && ./gradlew :app:assembleDebug -x lint -PprofileRender
+adb install -r -t app/build/outputs/apk/debug/app-debug.apk
+/bin/sh /tmp/north.sh "baseline"      # recreate from §1 if /tmp was cleared
+```
+Expect ~6.8 fps, ~131 ms/frame, ~130 render tiles/frame. If it is not that, the camera or the layer
+set is wrong — fix that before optimising anything.
+
+**Move 1 — hillshade as a shader block on the terrain draw (§4).** The one with real leverage: the
+hillshade layer alone multiplies render tiles ~5× (132 → 693 per interval). Bind the shared DEM
+raster to the tile draw and let the composite slot's shader compute the shading where the style
+places it, instead of giving the slot its own `HillshadeRasterTileLayer`. Ordering survives (see
+§4); the duplicate tile set, surface pass and stencil mask disappear.
+*Acceptance:* render tiles per frame in the north pan drop toward the base-only count (~40) with the
+hillshade still in its style position, and `/tmp/north.sh` improves materially. Read
+`res/scenes/hillshade.yaml` and `core/src/style/style.cpp` (`m_rasterType`, `TANGRAM_NUM_RASTER_SOURCES`)
+before designing it.
+
+**Move 2 — screen-area LOD as an option (§7.2).** Mechanical, already quantified (+11%):
+`--es maxTileZoomOffset -1` emulates it today. Port tangram's rule into
+`TileLayer::calculateVisibleTilesRecursive` behind an option defaulting to current behaviour.
+
+**Move 3 — the unexplained blocking (§6).** ~23 ms per frame sits inside GL calls that no counter
+explains, and it does not move with pixels, vertices, draws or bakes. If it turns out to be one
+systemic stall it could outweigh moves 1 and 2. Needs per-pass GPU timer queries *inside* the layer
+pass (the section machinery exists in `FrameProfiler.h`; Adreno returns `0xFFFFFFFF` for sections it
+cannot time, so accumulate per section and drop those).
+
+Do **not** re-run the dead ends in §6 — nine of them are already measured.
+
+Two decisions are Martin's, not the agent's: whether the tangram content model
+(`debug.carto.linesourcedensity` + `debug.carto.depthshift`) is free of see-through at his cameras,
+and whether the coarser LOD's label density is acceptable.
+
+---
+
 ## 1. How to measure (do this before believing anything)
 
 Build the demo with the profilers on and read `PROF` / `PROF GPU` / `RenderStats` from logcat:
