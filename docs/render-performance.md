@@ -19,7 +19,7 @@ Before anything, reproduce the slow case — every ranking below depends on it:
 ```sh
 cd scripts/android-dev && ./gradlew :app:assembleDebug -x lint -PprofileRender
 adb install -r -t app/build/outputs/apk/debug/app-debug.apk
-/bin/sh /tmp/north.sh "baseline"      # recreate from §1 if /tmp was cleared
+cd bench && ANDROID_SERIAL=<serial> sh north.sh baseline
 ```
 Expect ~6.8 fps, ~131 ms/frame, ~130 render tiles/frame. If it is not that, the camera or the layer
 set is wrong — fix that before optimising anything.
@@ -33,7 +33,7 @@ slot its own `HillshadeRasterTileLayer` / contour source. Ordering survives (see
 tile set, surface pass and stencil mask disappear, and contours painted onto the surface cannot show
 through it at all.
 *Acceptance:* render tiles per frame in the north pan drop toward the base-only count (~40) with the
-hillshade still in its style position, and `/tmp/north.sh` improves materially. Read
+hillshade still in its style position, and `bench/north.sh` improves materially. Read
 `res/scenes/hillshade.yaml` and `core/src/style/style.cpp` (`m_rasterType`, `TANGRAM_NUM_RASTER_SOURCES`)
 before designing it.
 
@@ -49,9 +49,9 @@ cannot time, so accumulate per section and drop those).
 
 Do **not** re-run the dead ends in §6 — nine of them are already measured.
 
-Two decisions are Martin's, not the agent's: whether the tangram content model
-(`debug.carto.linesourcedensity` + `debug.carto.depthshift`) is free of see-through at his cameras,
-and whether the coarser LOD's label density is acceptable.
+**Decided already:** the tangram content model is rejected as a default — Martin saw contour lines
+from the far side of ridges (§3.1). The switches stay for experiments; the lattice split (§2.2) is
+the default. Still Martin's call: whether the coarser LOD's label density is acceptable (Move 2).
 
 ---
 
@@ -73,14 +73,9 @@ cd scripts/android-dev && ./gradlew :app:assembleDebug -x lint -PprofileRender
 across a morning. Only **interleaved** A/B is trustworthy: build two APKs, alternate them, take
 medians over ≥40 one-second windows. Helper scripts used for the numbers below:
 
-| script | what |
-|---|---|
-| `/tmp/ab.sh` | run one config, print `PROF` lines tagged with a label |
-| `/tmp/abapk.sh` | install APK, then `ab.sh` — for interleaving two builds |
-| `/tmp/abprop.sh` | same, but A/B by system property (one APK) |
-| `/tmp/ab2.sh` | as `ab.sh` at a mountain camera |
-| `/tmp/north.sh` | pan **north into the mountains**, full stack — the slow case |
-| `/tmp/absum.py` | median summary, discards windows > 1600 ms (idle) |
+They live in [`scripts/android-dev/bench/`](../scripts/android-dev/bench/README.md) — `ab.sh`,
+`ab2.sh` (mountain camera), `north.sh` (the slow case), `abapk.sh` / `abprop.sh` (interleaved A/B by
+APK or by system property), `startup2.sh`, `absum.py` (median summary, discards idle windows).
 
 **The camera decides what you measure.** The demo default is Grenoble **city, z16.22, tilt 26** —
 content-heavy. Panning *east* crosses the flat valley and is cheap; panning *north* climbs into the
