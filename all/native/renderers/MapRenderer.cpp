@@ -2055,7 +2055,13 @@ namespace carto {
                         // low hundreds, and a stride of 32 per layer reaches it with five layers.
                         // A style layer count is tens. One frame of lag in the counts is harmless:
                         // they only have to be consistent, not current.
-                        int ordinalBase = 0;
+                        // Starting at ONE, not zero: the ground is a numbered draw in the same list
+                        // and it is the bottom of it. Tangram draws the terrain raster at the earth
+                        // layer's `order` (res/scenes/hillshade.yaml, `order: global.earth_order`)
+                        // and every content layer sits above it - so content at ordinal 0 would
+                        // share the ground's term exactly and have no clearance over ground it
+                        // chords across, which is the bottom style layer of the first layer.
+                        int ordinalBase = 1;
                         for (const std::shared_ptr<TileLayer>& tileLayer : groundLayers) {
                             tileLayer->setExternalDrapeTarget(false);
                             tileLayer->setExternalDrapeTiles(std::vector<vt::TileId>());
