@@ -35,8 +35,10 @@ reversed, record it here with the evidence.
 > **That change has LANDED behind `--es drape false` — see §10.** The default is still the drape,
 > because the device verdict is not in: on the emulator the ground side got 39% cheaper and the mask
 > pass vanished, while the fills - baked once with the drape - now cost 13× the index throughput
-> every frame. **§10.2 is therefore the next move: stop subdividing content** (tangram does not
-> subdivide at all), then take the device numbers and flip the default.
+> every frame. **§10.4 is therefore the next move: stop subdividing content** (tangram does not
+> subdivide at all), then re-take the device numbers and flip the default. §10.3 has the device A/B
+> so far: 26.6 vs 36.6 fps before the paint was made to work without the drape, not re-measured
+> since (the phone went away).
 >
 > **Shadows stay** (Martin). They are their own caster pass and FBO, not part of the drape.
 >
@@ -115,6 +117,13 @@ medians over ≥40 one-second windows. Helper scripts used for the numbers below
 They live in [`scripts/android-dev/bench/`](../scripts/android-dev/bench/README.md) — `ab.sh`,
 `ab2.sh` (mountain camera), `north.sh` (the slow case), `abapk.sh` / `abprop.sh` (interleaved A/B by
 APK or by system property), `startup2.sh`, `absum.py` (median summary, discards idle windows).
+
+**`bench/ab2.sh` passes `--es base plain`, and the `#hillshade` slot only exists inside the
+COMPOSITE base layer** - so a hillshade run started from it silently measures a frame with no
+hillshade in it. Add `--es base composite` for anything involving the hillshade or the satellite
+slot. (Cost one whole device A/B round before Martin spotted the missing shading on screen.)
+**Tilt is 90 = straight down**, so a "tilted" camera for occlusion work is t=20, not t=55: at t=55
+the view is close to plan and no ridge occludes anything.
 
 **The camera decides what you measure.** The demo default is Grenoble **city, z16.22, tilt 26** —
 content-heavy. Panning *east* crosses the flat valley and is cheap; panning *north* climbs into the
@@ -537,7 +546,38 @@ So the ground side is 39% cheaper and the mask pass is gone — and the fills th
 once now cost 13× more index throughput, every frame. That is the whole trade, and it is why the
 next step is not optional:
 
-**§10.3 The fills must stop being subdivided.** `TileLayer.cpp` decodes every fill subdivided to
+### 10.3 The paint had to come with it (device, measured)
+
+The first device A/B said **26.6 fps against the drape's 36.6** — and it was not the ground pass.
+`HillshadeRasterTileLayer::isTerrainPaintActive` required draped fills, so turning the drape off
+turned the *paint* off too and the layer went back to its own DEM tile set: fetch, decode, normal
+map, upload and ~5x the render tiles, to draw what the terrain already had on the GPU. The paint now
+only requires 3D terrain: with the drape it takes its place in the shared bake, without it it draws
+itself as the terrain surface on the shared ground cover
+(`GLTileRenderer::renderTerrainPaintSurfaces`, which until now had never actually run).
+
+Two bugs surfaced the moment it did, both fixed:
+
+- **The sky went black.** The paint surface pass left its VBOs bound, and `SkyRenderer` draws its
+  quad from a CLIENT-SIDE array - with a `GL_ARRAY_BUFFER` bound, that pointer is an offset into it,
+  so the sky quad flew off screen and the clear colour showed. Any renderer that feeds a client
+  array is exposed to this; unbind after every vt draw loop.
+- **White speckles over the shading.** The paint draws the same grid, displaced by the same DEM, as
+  the ground pass already drew - but from a different program, so the clip z differs in the last
+  float bits and GL_LEQUAL dropped a scatter of fragments, showing the bare ground colour. One
+  `TERRAIN_LAYER_DEPTH_DELTA` of clearance (what backgrounds carry over the surface they share)
+  fixes it.
+
+**Ground-shaped draws per tile is now the number to watch.** The drape does ONE (plus a cached
+bake); the shared ground was doing THREE - the ground fill, the paint, and the style's tile
+background. The third is gone: a patternless background of exactly the ground colour is skipped,
+because the ground pass has already painted it with the same displaced grid (emulator: background
+draws 1234 -> 160 against 487 ground fills). Two remain wherever a paint is in the stack, and each
+is a full grid draw whose vertex stage does ~20 elevation texture fetches. Folding the paint INTO
+the ground pass would take it to one, which is exactly tangram's arrangement, but it moves the
+hillshade to the bottom of the layer order - it needs a decision, not a patch.
+
+**§10.4 The fills must stop being subdivided.** `TileLayer.cpp` decodes every fill subdivided to
 `tileMeters / meshResolution` (`terrainSourceDensity = false`, always) because an un-subdivided fill
 that is NOT draped sags below the surface. With no drape at all that reason is gone and tangram's
 answer applies instead: source-density content plus the constant-clip `depth_shift`
@@ -545,7 +585,7 @@ answer applies instead: source-density content plus the constant-clip `depth_shi
 content indices. It was rejected as a default because contour lines showed through ridges — which
 §4 (contours as a shader block on the terrain draw) is what actually fixes.
 
-### 10.3 What this path still does not do
+### 10.5 What this path still does not do
 
 - **Shadows are not cast from it.** The caster pass and the shadow map still live in the drape
   block, so the shared ground explicitly clears the shadow map (a stale one is worse than none) and

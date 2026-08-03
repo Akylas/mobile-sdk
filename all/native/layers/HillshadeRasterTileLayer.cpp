@@ -304,9 +304,14 @@ namespace carto
             return false;
         }
         std::shared_ptr<TerrainOptions> terrainOptions = options->getTerrainOptions();
-        // Draped fills are what puts every layer in one texture in layer order; that shared bake
-        // is where the paint takes its place. Without it there is nothing to paint into.
-        if (!terrainOptions || !terrainOptions->isEnabled() || !terrainOptions->isDrapeFillsEnabled()) {
+        // 3D terrain is the whole requirement: the paint shades the elevation texture the terrain
+        // has already bound. WITH draped fills it takes its place in the shared bake; WITHOUT them
+        // it draws itself as the terrain surface, on the shared ground cover, at its own place in
+        // the layer order (GLTileRenderer::renderTerrainPaintSurfaces). Requiring the drape here is
+        // what made turning the drape off cost 10 fps: the layer fell back to its own DEM tile set
+        // - fetch, decode, normal map, upload, and ~5x the render tiles - to draw what the terrain
+        // already had on the GPU.
+        if (!terrainOptions || !terrainOptions->isEnabled()) {
             return false;
         }
         // The paint shades the TERRAIN's elevation texture. Shading it for a layer pointed at a
