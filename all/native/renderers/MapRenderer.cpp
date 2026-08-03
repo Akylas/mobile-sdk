@@ -2018,13 +2018,20 @@ namespace carto {
                         // style layers in depth by their order in one global list, and our stack is
                         // several renderers - a composite's children included. The stride leaves
                         // room for a layer's own style layers before the next layer starts.
-                        static const int TERRAIN_LAYER_ORDINAL_STRIDE = 32;
-                        for (std::size_t i = 0; i < groundLayers.size(); i++) {
-                            const std::shared_ptr<TileLayer>& tileLayer = groundLayers[i];
+                        // Numbered DENSELY, as a running sum of what each layer actually drew last
+                        // frame - not a fixed stride. The ordinal feeds a constant-NDC pull whose
+                        // eye tolerance grows as distance^2, so its TOTAL is what decides whether
+                        // far content leaks over a near ridge; rounds 45-56 saw that start in the
+                        // low hundreds, and a stride of 32 per layer reaches it with five layers.
+                        // A style layer count is tens. One frame of lag in the counts is harmless:
+                        // they only have to be consistent, not current.
+                        int ordinalBase = 0;
+                        for (const std::shared_ptr<TileLayer>& tileLayer : groundLayers) {
                             tileLayer->setExternalDrapeTarget(false);
                             tileLayer->setExternalDrapeTiles(std::vector<vt::TileId>());
                             tileLayer->setTerrainGroundTiles(groundTileIds);
-                            tileLayer->setTerrainLayerOrdinalBase(static_cast<int>(i) * TERRAIN_LAYER_ORDINAL_STRIDE);
+                            tileLayer->setTerrainLayerOrdinalBase(ordinalBase);
+                            ordinalBase += std::max(1, tileLayer->getStyleLayerCount());
                         }
 
                         // The caster pass and the sun, over the same cover. Both have to be set

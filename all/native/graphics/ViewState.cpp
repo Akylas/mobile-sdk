@@ -709,6 +709,22 @@ namespace carto {
 
         near = std::max(Const::MIN_NEAR, near) * 0.8f;
         far  = std::max(Const::MIN_NEAR, far)  * 1.1f;
+
+        // In terrain mode, floor the near plane at a fraction of the camera's height, the way
+        // tangram does (view.cpp: `float near = m_pos.z / 50.0;`). Taking it from the nearest
+        // visible ground point - which is what the loop above does - puts it at centimetres when
+        // the camera sits close to a slope, and a far/near ratio of 10^4-10^6 makes NDC depth so
+        // non-linear that a constant-NDC bias is worth hundreds of metres at range. That is the
+        // mechanism behind every see-through round on this branch, and it is why tangram can
+        // separate style layers by ordinals of up to ~1200 and write depth from all of them:
+        // their ratio is a few hundred, fixed.
+        // Only the floor is taken. Their far (2*height/cos(pitch+fov/2)) would also end the view
+        // much closer than TerrainOptions::MaxVisibleDistance does, which is the app's call.
+        if (_terrainHeightMax > _terrainHeightMin) {
+            double cameraHeight = cglib::dot_product(_cameraPos - options.getProjectionSurface()->calculateNearestPoint(_cameraPos, heightMax), zProjVector);
+            float terrainNear = static_cast<float>(std::abs(cameraHeight) / 50.0);
+            near = std::max(near, std::min(terrainNear, far * 0.5f));
+        }
     }
     
     float ViewState::calculateMinZoom(const Options& options) const {

@@ -271,6 +271,15 @@ namespace carto {
         }
     }
 
+    int TileRenderer::getStyleLayerCount() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            return tileRenderer->getStyleLayerCount();
+        }
+        return 0;
+    }
+
     void TileRenderer::setTerrainLayerOrdinalBase(int base) {
         std::lock_guard<std::mutex> lock(_mutex);
 

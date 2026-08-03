@@ -903,6 +903,10 @@ namespace carto {
         _tileRenderer->setTerrainLayerOrdinalBase(base);
     }
 
+    int TileLayer::getStyleLayerCount() const {
+        return _tileRenderer->getStyleLayerCount();
+    }
+
     int TileLayer::renderTerrainGround(const Color& color) {
         return _tileRenderer->renderTerrainGround(color);
     }

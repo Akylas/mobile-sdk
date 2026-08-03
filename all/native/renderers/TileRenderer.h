@@ -95,6 +95,7 @@ namespace carto {
         void setExternalDrapeTiles(const std::vector<vt::TileId>& tileIds);
         void setTerrainGroundTiles(const std::vector<vt::TileId>& tileIds);
         void setTerrainLayerOrdinalBase(int base);
+        int getStyleLayerCount() const;
         int renderTerrainGround(const Color& color);
         bool isDrapeEnabled() const;
         void collectDrapeTiles(std::map<vt::TileId, std::size_t>& drapeTiles) const;

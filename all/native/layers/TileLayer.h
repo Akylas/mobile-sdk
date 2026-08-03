@@ -415,6 +415,7 @@ namespace carto {
         // order - without it a composite's children all claim ordinal 0 and the base map's fills
         // are pulled in front of the hillshade above them.
         void setTerrainLayerOrdinalBase(int base);
+        int getStyleLayerCount() const;
         int renderTerrainGround(const Color& color);
         void collectDrapeTiles(std::map<vt::TileId, std::size_t>& drapeTiles) const;
         int bakeDrapeTile(const vt::TileId& tileId);
