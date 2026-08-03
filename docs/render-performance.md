@@ -34,24 +34,20 @@ snapping straight on zoom-out, and content see-through on mountains — are **fi
 terrain poking through contours. The SDK option `TerrainOptions.DrapeFillsEnabled` still defaults to
 the drape, so no app changes behaviour until it opts in.
 
-**Next, in order:**
+**Next, in order** (rewritten after the head-to-head of §11 — several older entries are now
+measured to be dead ends, see §11.4):
 
-1. **Re-take the device numbers, then flip the default and delete the drape.** Nothing has been
-   measured since the content model landed, and it is the change that should pay: content indices
-   were 13× the drape's before it, and the subdivision is now gone. `bench/ab2.sh` with
-   `--es base composite --es minimal true --es hs true` (see §1 for why both extras matter).
-2. **Shadows on the shared ground.** Wired and lit, but the caster pass is switched off there
+1. **Stop rebuilding tile surfaces on the render thread** (§11.5). This is the pan hang, and it is
+   the single largest known item: the terrain block of `TileRenderer::onDrawFrame` costs 0.1 ms
+   normally and **21 ms** when a DEM tile lands.
+2. **Port `ContourTextStyleBuilder`** (§11.3). Contour lines are already a fragment block and cost
+   nothing; the labels still drag in a whole contour tile set that tangram does not have.
+3. **Attribute the rest of the layer pass.** `geometry` is a steady 6–9 ms per layer per frame and
+   the per-draw counters explain ~7 ms of a 39–235 ms block — the remainder is still unmapped.
+4. **Shadows on the shared ground.** Wired and lit, but the caster pass is switched off there
    (`applyTerrainShadows(..., castShadows = false, ...)`) because the map reads as acne instead of
    cast shadows. The drape path is clean on the same scene — diff against it. §10.5.
-3. **Hillshade and contours as fragment blocks on the terrain draw** (§4), which is the last
-   structural difference and the one with real leverage: it is what removes the extra tile set, and
-   tangram's `res/scenes/hillshade.yaml` is the whole recipe.
-4. **Screen-area LOD** (§7.2), quantified at +11% and emulated today by `--es maxTileZoomOffset -1`;
-   `core/src/tile/tileManager.cpp` is the rule to port.
-5. **Their far plane.** We took `near = height/50` (§10.6) but not
-   `far = 2*height/cos(pitch+fovy/2)`, because it ends the view closer than
-   `TerrainOptions.MaxVisibleDistance` — Martin's call, and worth asking: it would tighten the depth
-   range further.
+5. **Delete the drape.** It now has the baseline it was waiting for.
 
 Do **not** re-run the dead ends in §6 and §10.6 — they are measured.
 
@@ -619,3 +615,122 @@ chorded across the terrain until the tile for the new zoom arrived.
   pay for the whole arrangement. Nothing in §10.2 reflects it.
 - `proxy *= 48` is ported for the ground; the rest of tangram's raster-style handling (binding the
   DEM to the tile draw through `u_raster_offsets` instead of re-encoding a texture per tile) is not.
+
+
+---
+
+## 11. Head-to-head with tangram, and what it found (2026-08-03)
+
+The first session where our fps and tangram's were measured **on the same device, in the same
+motion, with the same instrument**. Most of what it produced is negative results, which is the
+point: several things we were about to optimise are measured not to matter.
+
+### 11.1 How to measure across the two apps
+
+`PROF` is ours only and is **not comparable** to anything tangram reports — it read 20–27 fps for a
+config that the cross-app instrument put at 11–13. Use SurfaceFlinger for both:
+
+```sh
+adb shell dumpsys SurfaceFlinger --timestats -disable ; --timestats -clear ; --timestats -enable
+# drive the motion, then
+adb shell dumpsys SurfaceFlinger --timestats -dump --maxlayers 8
+```
+
+Read `averageFPS` of the **`SurfaceView[<pkg>/...](BLAST)`** layer. Two traps: our app also reports
+an activity-window layer that reads ~30–50 fps and means nothing, and `dumpsys gfxinfo` counts only
+the UI layer (6 frames) because the map renders on its own thread. `--latency` returns just the
+refresh period on this Android.
+
+Their demo APK is prebuilt at
+`platforms/android/demo/build/outputs/apk/release/demo-release.apk` (`com.styluslabs.tangram.android`).
+**Tap the "3D" chip at (276,152) after every launch** — it sets `global.terrain_3d` *and* tilts to
+1.0 rad, and it does **not** survive a restart. A forgotten tap silently compares their 2D map to
+our 3D one; that produced a bogus "tangram 38 fps" before the chip pixel was checked for blue.
+1.0 rad ≈ **tilt 33 in our convention**, so run ours at `--es tilt 33` to match.
+
+**The device throttles over a session.** The same build measured 8.4, 11.2 and 16.1 fps in one
+evening. Only interleaved arms inside a single run mean anything, 3 repeats minimum, report median
+and spread. A conclusion drawn by comparing to a number taken earlier is worthless — that mistake
+produced, and then unproduced, a "we are 1.5× slower" headline.
+
+### 11.2 Where we stand
+
+| config | fps |
+|---|---|
+| terrain only — tangram full stack vs ours (background + hillshade) | 17.9 vs **16.2** |
+| with content — tangram full stack vs ours (roads + labels + hillshade) | 18.1 vs **8.3** |
+
+**Terrain is at parity. The entire gap is the layer pass**, and ours draws less than theirs while
+losing 2.2×.
+
+### 11.3 Contours: lines ported, labels not
+
+Their `core/src/style/contourTextStyle.cpp` builds contour labels from the **elevation texture**:
+a `gridSize = 4` grid of seeds per tile, each marching along the elevation gradient to
+`round(elev/elevStep)*elevStep` (≤12 iterations, bisecting once it brackets the level), then walking
+the tangent for `labelLen = 32/tileSize` worth of points — a short polyline to lay the text along.
+**No contour geometry, no contour source, no contour tiles.**
+
+Ours draws the lines the same way (a fragment block on the terrain paint, measured **free**: 7.25 fps
+without contours against 7.57 with) but gets labels from `ContourTileDataSource` or pre-baked
+contour vector tiles — a whole tile set with fetch, decode, geometry and label placement. Porting
+their builder would delete that layer and keep labelled contours.
+
+### 11.4 Measured NOT to be the problem — do not re-run
+
+- **Geometry volume.** Area subdivision off cuts vector indices 37.3M → 7.5M per interval (3× per
+  render tile) and buys **+6.5%, inside the noise**.
+- **Per-vertex DEM taps.** 16 → 1 (`debug.carto.demtaps`) with content on: 5.69 vs 5.86 fps, i.e.
+  nothing. Worth ~20% in the terrain-only config and nothing once content is there.
+- **The GPU.** `PROF GPU` with content: layers 29–43 ms, total 38–53 ms, against a CPU frame of
+  120–175 ms. The GPU could sustain ~20 fps; we are CPU-bound.
+- **Tile LOD granularity.** `--es maxTileZoomOffset -1` moved 11.46 → 11.16 fps. This supersedes the
+  +11% in §7.2, which was measured with `PROF` on a different config.
+- **Paint-as-ground** (`debug.carto.groundpaint 1`): 13.80/15.02 against a 13.96/15.66 baseline —
+  nothing, twice. So the hillshade keeps its place in the layer order at no cost.
+- **The far plane.** Porting `far = 2*height/cos(pitch+fovy/2)` (`TerrainOptions.FarPlaneFactor`,
+  default 2) changed neither tile count nor fps: the ground-derived far is already inside the bound
+  their formula gives at that camera, so it never binds.
+
+### 11.5 What the layer pass actually spends, and the pan hang
+
+Probing down the call chain, with roads + labels + hillshade on:
+
+| | ms/frame |
+|---|---|
+| `CompositeVectorTileLayer::onDrawFrame` (the whole layers block) | 36–51 |
+| ├ group 0 — the base map's own vt render | 17.8–24.2 |
+| ├ hillshade slot child | 6.5–13.1 |
+| └ `DRAW_ITEM_VT_GROUP` children | ~11–14 |
+
+and inside one `TileRenderer::onDrawFrame`:
+
+| | ms/call |
+|---|---|
+| waiting for `_mutex` | **0.00** — not contention |
+| `prepareFrameUnsafe` | 0.00 |
+| `renderGeometry` | 6–9 |
+| the terrain state block | **0.10 … 20.98** |
+
+**The terrain state block is the pan hang.** It costs a tenth of a millisecond when nothing changes
+and up to 21 ms when a DEM tile lands, because that is where `invalidateTileSurfaces` /
+`resetTileSurfaces` rebuild tile surfaces — on the render thread. Tangram never does this: their
+surface is one static shared grid and an elevation change only replaces a texture, never geometry.
+The existing `SURFACE_RESET_DELAY` debounce covers `resetTileSurfaces` but not the per-tile
+`invalidateTileSurfaces`.
+
+Note the shared static grid VBO itself is **already implemented and active** —
+`surfIndices / surfDraws` comes out at exactly `24576 = 64×64×2×3`, one unit grid per draw with a
+per-tile matrix, which is tangram's `RasterStyle` arrangement. It does not need porting again.
+
+### 11.6 What landed this session
+
+- Per-tile background meshes retired under a shared ground (tangram has none — their map background
+  is the framebuffer clear colour, `core/src/map.cpp`): 14.0/15.5 → 16.1/16.3 fps interleaved.
+- Contour lines as a fragment block on the terrain paint, so a layer asking for contours no longer
+  falls back to its own DEM tile set: render tiles 494 → 216, `layers` 18.4 → 16.1 ms.
+- The depth budget (§10) rescaled to the stack's ordinal span, and area fills subdivided to two
+  surface cells instead of one: 16.6 → 20.6 fps at the mountain camera.
+- Measurement switches, all defaulting to current behaviour: `debug.carto.demtaps`,
+  `debug.carto.groundpaint`, `debug.carto.tilebg`, `debug.carto.areathreshold`,
+  `debug.carto.areasourcedensity`.
