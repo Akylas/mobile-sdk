@@ -410,6 +410,11 @@ namespace carto {
         // The shared terrain ground: the cover every layer of the stack composites onto, drawn
         // once per frame by the front layer (see vt::GLTileRenderer::setTerrainGroundTiles).
         void setTerrainGroundTiles(const std::vector<vt::TileId>& tileIds);
+        // Where this layer's style layers start in the stack's depth ordering. Tangram has ONE
+        // ordered style list; our stack is several renderers, so the owner numbers them in draw
+        // order - without it a composite's children all claim ordinal 0 and the base map's fills
+        // are pulled in front of the hillshade above them.
+        void setTerrainLayerOrdinalBase(int base);
         int renderTerrainGround(const Color& color);
         void collectDrapeTiles(std::map<vt::TileId, std::size_t>& drapeTiles) const;
         int bakeDrapeTile(const vt::TileId& tileId);

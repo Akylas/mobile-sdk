@@ -899,6 +899,10 @@ namespace carto {
         _tileRenderer->setTerrainGroundTiles(tileIds);
     }
 
+    void TileLayer::setTerrainLayerOrdinalBase(int base) {
+        _tileRenderer->setTerrainLayerOrdinalBase(base);
+    }
+
     int TileLayer::renderTerrainGround(const Color& color) {
         return _tileRenderer->renderTerrainGround(color);
     }

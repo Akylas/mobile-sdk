@@ -271,6 +271,14 @@ namespace carto {
         }
     }
 
+    void TileRenderer::setTerrainLayerOrdinalBase(int base) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            tileRenderer->setTerrainLayerOrdinalBase(base);
+        }
+    }
+
     void TileRenderer::setTerrainGroundTiles(const std::vector<vt::TileId>& tileIds) {
         std::lock_guard<std::mutex> lock(_mutex);
 
@@ -595,10 +603,11 @@ namespace carto {
         bool regularGrid = painterOrder || drapeFills || (terrainMode && activeTerrainOptions && activeTerrainOptions->isRegularGridEnabled() && (bool) terrainTextureProvider);
         tileRenderer->setTerrainRegularGrid(regularGrid, activeTerrainOptions ? activeTerrainOptions->getMeshResolution() : 0);
         tileRenderer->setTerrainPainterOrder(painterOrder);
-        // Tangram's content depth shift, for measuring the tangram model (un-subdivided content
-        // separated from the surface by a constant clip pull) against ours (content subdivided to
-        // follow the surface exactly, no pull). Off unless asked for:
-        //   adb shell setprop debug.carto.depthshift 0.02
+        // Tangram's content depth shift. Read from their source rather than assumed: polygon.vs and
+        // polyline.vs set `depth_shift = 0.0` and leave it for a shader block to override - the
+        // -0.02*u_proj[2][3] is debug.vs, which pushes the debug overlay 1010 layers back. So the
+        // per-layer separation is the 2^-19*w term alone, and this stays an experiment switch:
+        //   adb shell setprop debug.carto.depthshift <value>
         tileRenderer->setTerrainContentDepthShift(getTerrainContentDepthShift());
         tileRenderer->setTerrainEdgeStitching(regularGrid && activeTerrainOptions && activeTerrainOptions->isTileEdgeStitchingEnabled());
         // Draped content is baked FLAT (orthographic, no displacement), so lines need no terrain
