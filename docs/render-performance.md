@@ -437,6 +437,25 @@ Appearance at the ridge camera (45.244172/5.760595 z13.2 t55): 25% of pixels dif
 mean absolute difference 8.4/255 — the paint is sharper, because it samples the DEM per fragment
 instead of magnifying a 256² normal map. No brightness shift.
 
+### 9.6 Open bugs, as of 2026-08-02
+
+- **Tiles blink while zooming in.** Distinct from the missing-tile bug (fixed, confirmed on device):
+  a flash as tiles turn over. Most likely the drape cache's generation swap - seed, stand-in, then
+  the tile's own bake - rather than the paint. Expected to go with the drape, but verify rather than
+  assume it.
+- **Artifacts at high zoom (z15+):** blurred ground with the background bitmap's pattern showing
+  through. One 1024 drape texture per tile, magnified far past its resolution. Drawing the paint
+  without the drape (`--es drape false`) is sharp at the same camera, which is corroboration, not
+  proof.
+- **Tile edge stitching is probably not applied at all** (read from the code, not yet seen on
+  screen). `buildTerrainEdgeCoarsening` runs only from `setVisibleTiles`, so the coarsening map is
+  built from A LAYER'S OWN visible tiles - while the surfaces actually drawn come from the drape
+  cover (normalised leaves, drawn by `drapeLayers.front()`) and, for a paint, from the terrain
+  cover. A paint has no tiles, so its map is empty and its surfaces stitch nothing; if the paint is
+  the front drape layer, the shared surface loses stitching too. The symptom would be cracks along
+  LOD-ring edges. Fix: build the map from the cover that is drawn, not per layer - natural to do
+  while removing the drape, where that cover becomes a single explicit set.
+
 **Open: a hillshade-only stack draws nothing under the paint.** With no vector layer there is no
 drape cover, so the paint is given the terrain's own cover (`TerrainRenderer::collectVisibleTiles`
 via `TileLayer::needsDrapeCover`) - but nothing in such a stack ever loads elevation, and the drape
