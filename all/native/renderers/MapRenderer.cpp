@@ -1968,6 +1968,7 @@ namespace carto {
                         std::map<vt::TileId, std::size_t> groundCollectedTiles;
                         std::vector<vt::TileId> groundTileIds;
                         std::vector<int> groundProxyDepths;
+                        std::vector<bool> groundStandingIn; // parallel: this tile is drawn in place of a finer one
                         int groundZoom = 0, groundMaxCollectedZoom = 0;
                         collectTerrainCover(groundLayers, viewState, terrainOptions, terrainCoverTileIds, groundLayerTiles, groundCollectedTiles, groundTileIds, groundZoom, groundMaxCollectedZoom);
 
@@ -1985,8 +1986,9 @@ namespace carto {
                                 return static_cast<bool>(groundElevationManager->getTileGrid(mapTile, ElevationManager::LoadMode::CACHED_ONLY));
                             };
                             std::vector<vt::TileId> loadedTileIds;
+                            std::vector<bool> standingIn;
                             loadedTileIds.reserve(groundTileIds.size());
-                            groundProxyDepths.clear();
+                            standingIn.reserve(groundTileIds.size());
                             for (const vt::TileId& tileId : groundTileIds) {
                                 vt::TileId standIn = tileId;
                                 while (standIn.zoom > 0 && !hasElevation(standIn)) {
@@ -1994,15 +1996,37 @@ namespace carto {
                                 }
                                 // The walk can bring several leaves onto one ancestor; drawing it
                                 // once is both correct and cheaper.
-                                if (std::find(loadedTileIds.begin(), loadedTileIds.end(), standIn) == loadedTileIds.end()) {
+                                auto it = std::find(loadedTileIds.begin(), loadedTileIds.end(), standIn);
+                                if (it == loadedTileIds.end()) {
                                     loadedTileIds.push_back(standIn);
-                                    // How far it stood in, which is what the renderer pushes it
-                                    // back by - a coarser height field pokes through the content
-                                    // drawn on the level it replaces.
-                                    groundProxyDepths.push_back(tileId.zoom - standIn.zoom);
+                                    standingIn.push_back(standIn != tileId);
+                                } else if (standIn != tileId) {
+                                    standingIn[it - loadedTileIds.begin()] = true;
                                 }
                             }
                             groundTileIds = std::move(loadedTileIds);
+                            groundStandingIn = std::move(standingIn);
+                        }
+
+                        // Tangram's proxy depth for the ground, their formula
+                        // (core/src/tile/tileManager.cpp):
+                        //     setProxyDepth(m_proxyCounter > 0 ? std::max(maxVisS - tileId.s, 1) : 0)
+                        // The `m_proxyCounter > 0` is a GUARD, and it is the whole point: the depth
+                        // applies ONLY to a tile drawn in place of one that has no data of its own.
+                        // A legitimately coarse tile of a mixed-LOD cover is a live tile and takes
+                        // ZERO however far it is - give it a depth and 48 units per level pushes
+                        // most of a tilted view's far field back by clip units, taking the hillshade
+                        // paint (which carries the same push) behind the ground it shades: far
+                        // hillshade missing, blinking as the cover's deepest level moves.
+                        int groundCoverZoom = 0;
+                        for (const vt::TileId& tileId : groundTileIds) {
+                            groundCoverZoom = std::max(groundCoverZoom, tileId.zoom);
+                        }
+                        groundStandingIn.resize(groundTileIds.size(), false);
+                        groundProxyDepths.clear();
+                        groundProxyDepths.reserve(groundTileIds.size());
+                        for (std::size_t i = 0; i < groundTileIds.size(); i++) {
+                            groundProxyDepths.push_back(groundStandingIn[i] ? std::max(groundCoverZoom - groundTileIds[i].zoom, 1) : 0);
                         }
 
                         // What the ground is painted with where no layer paints anything. Ground
