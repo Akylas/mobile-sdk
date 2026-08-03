@@ -14,85 +14,46 @@ reversed, record it here with the evidence.
 
 ## 0. Next session: start here
 
-> ### DECIDED — do not re-open
+> ### THE RULE — tangram-ng is the reference, and we COPY it
 >
-> **tangram-ng is the reference. Where it does something differently, we adopt its way; we do not
-> weigh alternatives.** (Martin, explicitly: "they do it right, no need to think.")
+> `/Volumes/dev/carto/tangram-ng` renders this data sharply, on the same devices, with no
+> see-through. Where it does something differently, adopt its way; do not design an alternative and
+> compare. **Copy its constants — every one this branch derived instead was wrong**: `depth_shift`
+> scaled by the projection (theirs is a flat `0.02`), a proxy push of 8 (theirs is 1 per level, ×48
+> for the terrain raster), an ordinal stride of 32 (theirs is the dense style-layer order).
+> **And port each piece whole**: half of their depth model is worse than none of it, three times
+> over (§10.6). Read the SCENE files, not only the shaders — `polygon.vs` sets `depth_shift = 0.0`
+> "to allow blocks to modify", and the value that matters is in `res/scenes/terrain-3d.yaml`.
 >
-> **The RTT drape goes.** Tangram does not bake anything into per-tile textures - vector geometry is
-> displaced per vertex and drawn directly, the terrain raster is drawn once per tile. So we do not
-> keep the drape "for ordering", "for quality" or "for the hillshade slot": the answer to every such
-> question is what tangram does. Removing it removes the bake, the drape texture memory, the drape
-> sample on the surface, and the whole stand-in/seed/stale machinery that keeps producing tile
-> artifacts.
->
-> **The drape cannot go on its own** (measured, device, north pan, background-only style):
-> paint + drape 19.9 fps / `layers` 10.6 ms, paint without drape **15.5 fps / 26.0 ms**. Without the
-> drape each layer still draws its own depth pre-pass surface AND its stencil mask, and a paint adds
-> a third surface pass per tile - where the drape drew one shared surface plus one mask. Tangram has
-> NEITHER a per-layer pre-pass nor stencil masks. So it is one change: drape + pre-pass + masks go
-> together, leaving one ground draw per tile and displaced geometry for everything else.
-> **That change has LANDED behind `--es drape false` — see §10.** The default is still the drape,
-> because the device verdict is not in: on the emulator the ground side got 39% cheaper and the mask
-> pass vanished, while the fills - baked once with the drape - now cost 13× the index throughput
-> every frame. **§10.4 is therefore the next move: stop subdividing content** (tangram does not
-> subdivide at all), then re-take the device numbers and flip the default. §10.3 has the device A/B
-> so far: 26.6 vs 36.6 fps before the paint was made to work without the drape, not re-measured
-> since (the phone went away).
->
-> **Shadows stay** (Martin). They are their own caster pass and FBO, not part of the drape.
->
-> Read the reference before designing: `res/scenes/terrain-3d.yaml` (per-vertex displacement),
-> `core/src/style/rasterStyle.cpp` (one shared 64-grid mesh, vertex = 2 x GL_SHORT, one draw per
-> tile, no depth pre-pass), `res/scenes/hillshade.yaml` (shading in the terrain draw's colour block).
->
-> **Build trap:** gradle prints BUILD SUCCESSFUL while ninja has failed - two benches in one session
-> measured stale native code. After any change under `libs-carto/` or a renamed symbol, verify the
-> symbol is really in the library. The APK's copy is STRIPPED, so grep the unstripped one ninja
-> produced and check the mtimes line up with the APK:
-> ```sh
-> strings -a scripts/android-dev/carto_mobile_sdk/build/intermediates/cxx/Debug/*/obj/arm64-v8a/libcarto_mobile_sdk.so | grep <new symbol>
-> ```
->
-> **Measure the terrain with a background-only style** (`--es minimal true`): with the full style the
-> base map's geometry is most of the frame and hides everything else (measured: a change worth +29%
-> read as a wash).
+> The full model now landed is §10. What it replaced: the RTT drape, the per-layer depth pre-pass,
+> the stencil tile masks, and all terrain subdivision of content.
 
-Before anything, reproduce the slow case — every ranking below depends on it:
+**Where it stands.** The drape-free path is the demo default (`--es drape true` brings the drape
+back for an A/B). On the emulator and on Martin's device the two long-standing symptoms — roads
+snapping straight on zoom-out, and content see-through on mountains — are **fixed**, as is the
+terrain poking through contours. The SDK option `TerrainOptions.DrapeFillsEnabled` still defaults to
+the drape, so no app changes behaviour until it opts in.
 
-```sh
-cd scripts/android-dev && ./gradlew :app:assembleDebug -x lint -PprofileRender
-adb install -r -t app/build/outputs/apk/debug/app-debug.apk
-cd bench && ANDROID_SERIAL=<serial> sh north.sh baseline
-```
-Expect ~6.8 fps, ~131 ms/frame, ~130 render tiles/frame. If it is not that, the camera or the layer
-set is wrong — fix that before optimising anything.
+**Next, in order:**
 
-**Move 1 — hillshade AND contours as shader blocks on the terrain draw (§4).** The one with real
-leverage, and now also the fix for a correctness problem: the hillshade layer alone multiplies render
-tiles ~5× (132 → 693 per interval), and contours drawn as geometry are what see through ridges when
-any depth bias is applied (§3.1). **Hillshade landed — see §9**; contours and the hypsometric tint
-are the remaining kinds, then the contour labels (§9.4).
-*Acceptance:* render tiles per frame in the north pan drop toward the base-only count (~40) with the
-hillshade still in its style position, and `bench/north.sh` improves materially. Read
-`res/scenes/hillshade.yaml` and `core/src/style/style.cpp` (`m_rasterType`, `TANGRAM_NUM_RASTER_SOURCES`)
-before designing it.
+1. **Re-take the device numbers, then flip the default and delete the drape.** Nothing has been
+   measured since the content model landed, and it is the change that should pay: content indices
+   were 13× the drape's before it, and the subdivision is now gone. `bench/ab2.sh` with
+   `--es base composite --es minimal true --es hs true` (see §1 for why both extras matter).
+2. **Shadows on the shared ground.** Wired and lit, but the caster pass is switched off there
+   (`applyTerrainShadows(..., castShadows = false, ...)`) because the map reads as acne instead of
+   cast shadows. The drape path is clean on the same scene — diff against it. §10.5.
+3. **Hillshade and contours as fragment blocks on the terrain draw** (§4), which is the last
+   structural difference and the one with real leverage: it is what removes the extra tile set, and
+   tangram's `res/scenes/hillshade.yaml` is the whole recipe.
+4. **Screen-area LOD** (§7.2), quantified at +11% and emulated today by `--es maxTileZoomOffset -1`;
+   `core/src/tile/tileManager.cpp` is the rule to port.
+5. **Their far plane.** We took `near = height/50` (§10.6) but not
+   `far = 2*height/cos(pitch+fovy/2)`, because it ends the view closer than
+   `TerrainOptions.MaxVisibleDistance` — Martin's call, and worth asking: it would tighten the depth
+   range further.
 
-**Move 2 — screen-area LOD as an option (§7.2).** Mechanical, already quantified (+11%):
-`--es maxTileZoomOffset -1` emulates it today. Port tangram's rule into
-`TileLayer::calculateVisibleTilesRecursive` behind an option defaulting to current behaviour.
-
-**Move 3 — the unexplained blocking (§6).** ~23 ms per frame sits inside GL calls that no counter
-explains, and it does not move with pixels, vertices, draws or bakes. If it turns out to be one
-systemic stall it could outweigh moves 1 and 2. Needs per-pass GPU timer queries *inside* the layer
-pass (the section machinery exists in `FrameProfiler.h`; Adreno returns `0xFFFFFFFF` for sections it
-cannot time, so accumulate per section and drop those).
-
-Do **not** re-run the dead ends in §6 — nine of them are already measured.
-
-**Decided already:** the tangram content model is rejected as a default — Martin saw contour lines
-from the far side of ridges (§3.1). The switches stay for experiments; the lattice split (§2.2) is
-the default. Still Martin's call: whether the coarser LOD's label density is acceptable (Move 2).
+Do **not** re-run the dead ends in §6 and §10.6 — they are measured.
 
 ---
 
@@ -457,11 +418,8 @@ instead of magnifying a 256² normal map. No brightness shift.
 
 ### 9.6 Open bugs, as of 2026-08-02
 
-- **Tiles blink while zooming in.** Distinct from the missing-tile bug (fixed, confirmed on device):
-  a flash as tiles turn over. Most likely the drape cache's generation swap - seed, stand-in, then
-  the tile's own bake - rather than the paint. Both this and the next one are properties of the
-  drape, so `--es drape false` is now the way to confirm them: with §10 that path is the tangram
-  arrangement rather than the old slow fallback. **Still to be verified on device.**
+- ~~**Tiles blink while zooming in.**~~ Gone with the drape: the shared ground has no bake, no
+  generation swap and no stand-in textures. Confirmed by Martin on the emulator.
 - **Artifacts at high zoom (z15+):** blurred ground with the background bitmap's pattern showing
   through. One 1024 drape texture per tile, magnified far past its resolution. Drawing the paint
   without the drape (`--es drape false`) is sharp at the same camera, which is corroboration, not
@@ -513,6 +471,7 @@ numbers are in. **The drape is being dropped, not kept as an option.**
 | depth | the drape surface is the only depth writer | the ground pass is the only depth writer |
 | per-layer depth pre-pass | already skipped | skipped |
 | stencil tile masks | one grid draw per tile per layer | none - the proxy loses on depth instead (§10.1.1) |
+| content subdivision | every fill and line cut to the surface's mesh threshold at decode | none at all, as tangram (§10.4) |
 
 Two rules hold the depth model together, both inherited from rounds 45-56 and unchanged:
 
@@ -524,31 +483,58 @@ Two rules hold the depth model together, both inherited from rounds 45-56 and un
    z14 ground. On the cover it is coincident to the bit. That is why the cover computation
    (`MapRenderer::collectTerrainCover`, extracted from the drape path) is shared by both modes.
 
-#### 10.1.1 What replaced the stencil masks
+#### 10.1.1 The depth model, which is tangram's, whole
 
-Dropping them did not work the first time: while zooming, the retained tile from the previous zoom
-keeps painting its whole footprint through every gap in the new tile's content - the same roads
-twice, one zoom level apart, blinking as the blend runs (Martin, on the emulator: "flashing rendered
-map tiles decaled as I zoom in out"). Painter's order alone cannot express "this pixel belongs to
-that tile".
+Read out of their source rather than derived. `res/scenes/terrain-3d.yaml` is the file that matters
+— `polygon.vs` and `polyline.vs` only set the defaults it overrides:
 
-Tangram has no masks because **its content writes depth**, and that is what we adopted - in the one
-form that does not bring back the z-fights this renderer spent rounds 45-56 removing:
+```glsl
+// core/shaders/polygon.vs
+gl_Position.z += (proxy - layer) * (TANGRAM_DEPTH_DELTA * gl_Position.w + depth_shift);
 
-- **Ground-shaped content writes depth** (the tile background, the rasters), and a retained (proxy)
-  tile writes it pushed BACK by `TERRAIN_PROXY_DEPTH_UNITS` (8 deltas). The tile that replaces it
-  therefore wins the ground.
-- **Its geometry does not write**, but it is depth-TESTED - so a proxy tile's roads, pushed back
-  with it, fail against the live tile's written ground and simply do not appear. That is exactly
-  what the mask was for.
-- **No per-style-layer ordinal.** Tangram separates layers with `(proxy - layer) * (2⁻¹⁹·w +
-  depth_shift)` because all its content writes; ours does not, so the ordinal would buy nothing and
-  cost the thing it always costs - a constant-NDC pull whose eye tolerance grows as distance²,
-  which is the see-through of rounds 45-56. Two style layers painting the same ground still stack
-  by painter's order, which is why road casings do not wash out (round 52).
+// res/scenes/terrain-3d.yaml, the 3D terrain block
+// "use larger depth delta near camera to prevent terrain from covering geometry"
+depth_shift = -0.02*u_proj[2][3];          // [2][3] is -1 => a FLAT 0.02, unscaled
+#ifdef TANGRAM_RASTER_STYLE
+// "need sufficient offset for proxy levels to prevent terrain poking through level above"
+proxy *= 48.0;
+#endif
+```
 
-The shader already had the whole term (`uLayerDepthOffset * (2⁻¹⁹·w + uDepthShift)`); it was being
-fed zero.
+with `TANGRAM_DEPTH_DELTA` = 2⁻¹⁹ on a 24-bit buffer (2⁻¹⁵ on 16-bit), `layer` = the style layer's
+order, `proxy` = the tile's proxy depth, and — `core/src/style/style.cpp` — opaque and translucent
+both drawing with depth test **and depth write**.
+
+Ours, matching it: the ground pass writes depth for the cover (pushed back 48 per proxy level where
+a tile stands in on a coarser one); content writes depth and carries `(proxy - layer)`, with the
+style layers numbered densely across the whole stack, because our stack is several renderers where
+tangram has one ordered style list; `depth_shift` = 0.02, flat.
+
+**And the near plane, which is why any of it works.** `core/src/view/view.cpp:452` sets
+`near = m_pos.z / 50.0` and bounds `far` to about twice the camera height — a far/near ratio of a
+few hundred, fixed. Ours took `near` from the nearest visible ground point, floored at
+`MIN_NEAR = 1/16` of an internal unit: centimetres with the camera near a slope, a ratio of
+10⁴-10⁶, and NDC depth so non-linear that a constant-NDC bias is worth hundreds of metres at range.
+That is the mechanism behind rounds 45-56 and every see-through since, and it is why tangram can
+afford ordinals up to ~1200 while this branch could not afford 128. Terrain mode now floors `near`
+the same way (their `far` is not taken — it would end the view closer than
+`TerrainOptions.MaxVisibleDistance`).
+
+#### 10.1.2 Four ways to get this wrong, all of them tried
+
+Each of these shipped, was tested, and had to be undone. They are the argument for porting a model
+whole rather than by parts:
+
+| attempt | what it produced |
+|---|---|
+| masks dropped, content not writing depth | the previous zoom's roads painting through every gap in the new tile's content, blinking as the blend runs |
+| content writing depth, no per-style-layer ordinal | fills shredded into stripes; washed road casings (round 52 again) |
+| no subdivision, no `depth_shift` | all content sunk into the terrain and occluded by it — contours and roads swallowed |
+| ground stand-in walking to an ancestor, content not | roads snapping to straight lines over ground that IS displaced |
+
+Two more, from choosing constants instead of copying them: `depth_shift` scaled by `|m22|` (did
+nothing) then by `|m23|` (dragged a landcover fill in front of the mountain); an ordinal stride of
+32 per renderer (reached the leak range with five layers).
 
 ### 10.2 Measured (emulator, structural)
 
@@ -599,13 +585,17 @@ is a full grid draw whose vertex stage does ~20 elevation texture fetches. Foldi
 the ground pass would take it to one, which is exactly tangram's arrangement, but it moves the
 hillshade to the bottom of the layer order - it needs a decision, not a patch.
 
-**§10.4 The fills must stop being subdivided.** `TileLayer.cpp` decodes every fill subdivided to
-`tileMeters / meshResolution` (`terrainSourceDensity = false`, always) because an un-subdivided fill
-that is NOT draped sags below the surface. With no drape at all that reason is gone and tangram's
-answer applies instead: source-density content plus the constant-clip `depth_shift`
-(`debug.carto.linesourcedensity 1`, `debug.carto.depthshift 0.02`, §3.1), measured at 2.7× fewer
-content indices. It was rejected as a default because contour lines showed through ridges — which
-§4 (contours as a shader block on the terrain draw) is what actually fixes.
+**§10.4 The fills no longer subdivide - landed.** `TileLayer` used to decode every fill and line
+subdivided to `tileMeters / meshResolution`, because an un-subdivided fill that was NOT draped sagged
+below the surface. With no drape at all that reason is gone: content is displaced by the same
+function the ground uses, and `depth_shift` covers the chord it makes between its own vertices -
+which is precisely what tangram's comment says it is for. Both flags now follow "terrain without a
+drape", in `calculateDrawData` and `resetTileTransformer` alike (they must agree, or tiles decoded
+for the other mode stay cached forever).
+
+That removes the 13× index throughput noted above, and with it the "roads go straight when zooming
+out" report: the subdivision was a property of the tile's own zoom, so a coarse or proxy tile's roads
+chorded across the terrain until the tile for the new zoom arrived.
 
 ### 10.5 What this path still does not do
 
@@ -625,4 +615,7 @@ content indices. It was rejected as a default because contour lines showed throu
   drape path, which is the reference.
 - **A cover leaf coarser than a render tile** (only when the split hits its 256-tile cap) makes that
   tile draw on its own surface, one tesselation finer than the ground it stands on.
-- Device numbers, and the verdict on the two drape bugs in §9.6, are still to be taken.
+- **Device numbers have not been re-taken since the content model landed** - the change that should
+  pay for the whole arrangement. Nothing in §10.2 reflects it.
+- `proxy *= 48` is ported for the ground; the rest of tangram's raster-style handling (binding the
+  DEM to the tile draw through `u_raster_offsets` instead of re-encoding a texture per tile) is not.

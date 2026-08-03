@@ -2,6 +2,32 @@
 
 Process rules. The **architecture, debugging playbook and demo-app loop live in the root [`CLAUDE.md`](../CLAUDE.md)** — read it for anything technical; this file does not restate it.
 
+## Tangram-ng is the reference implementation. Copy it.
+
+`/Volumes/dev/carto/tangram-ng` renders the same data, on the same devices, sharply and with no
+see-through. **Martin's standing instruction: where it does something differently, we adopt its way
+— we do not design an alternative and compare.** ("we know how well it works", "Tangram is our go
+to! we want to copy it", "use their model ALL THE WAY".)
+
+- **Copy their constants, do not derive your own.** Every constant this branch invented was wrong
+  and cost a round: `depth_shift` scaled by the projection (theirs is a flat `0.02`), a proxy push
+  of 8 (theirs is `1` per level, `× 48` for the terrain raster), an ordinal stride of 32 (theirs is
+  the dense style-layer order). `grep` their source for the value before choosing one.
+- **If they do something, there is a reason — port it whole.** Adopting half of their depth model
+  produced two rounds of artifacts: writes without the per-layer ordinal are washed road casings,
+  no subdivision without `depth_shift` sinks all content into the terrain, and their
+  `proxy *= 48` is what stops a coarse ground tile poking through the level above. When a piece
+  looks unnecessary, assume it is load-bearing until proven otherwise.
+- **Read the SCENE files, not only the shaders.** `polygon.vs` sets `depth_shift = 0.0` "to allow
+  blocks to modify" — the value that matters is in `res/scenes/terrain-3d.yaml`. Concluding from
+  the shader alone lost a round.
+- Where to look: `res/scenes/terrain-3d.yaml` (the whole terrain depth model), `res/scenes/
+  elevation.yaml`, `res/scenes/hillshade.yaml` (hillshade/contours as fragment blocks on the terrain
+  draw), `core/src/style/style.cpp` (blend mode → depth state), `core/src/style/rasterStyle.cpp`
+  (one shared grid mesh per tile), `core/src/view/view.cpp` (near/far — `near = m_pos.z / 50.0`,
+  which is why their depth model has room our tiny near plane never had),
+  `core/src/tile/tileManager.cpp` (screen-area LOD).
+
 ## Working principles
 
 - **Ask if ambiguous.** Never decide silently — surface the choice and let the user pick.
