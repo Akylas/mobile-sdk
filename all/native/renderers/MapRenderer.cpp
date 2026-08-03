@@ -111,8 +111,9 @@ namespace carto {
             lastPasses = passes;
             lastFlips = flips;
 
-            Log::Infof("RenderStats: cullUpd=%lld tileRecalc=%lld tileSkip=%lld tileSets=%lld labelMaps=%lld | labelsAlloc=%lld reused=%lld live=%lld elevReanchor=%lld | placeUpd=%lld reNull=%lld reHidden=%lld reVisible=%lld search=%lld | snap=%lld snapMoved=%lld | cullPasses=%lld visFlips=%lld",
+            Log::Infof("RenderStats: cullUpd=%lld tileRecalc=%lld tileSkip=%lld tileSets=%lld labelMaps=%lld | surfBuilt=%lld surfInval=%lld | labelsAlloc=%lld reused=%lld live=%lld elevReanchor=%lld | placeUpd=%lld reNull=%lld reHidden=%lld reVisible=%lld search=%lld | snap=%lld snapMoved=%lld | cullPasses=%lld visFlips=%lld",
                        deltas[13], deltas[14], deltas[15], deltas[0], deltas[11],
+                       deltas[1], deltas[2],
                        deltas[3], deltas[12], RenderStats::labelsLive.load(), deltas[4],
                        deltas[5], deltas[6], deltas[7], deltas[8], deltas[16],
                        deltas[9], deltas[10], deltaPasses, deltaFlips);
