@@ -1604,7 +1604,7 @@ namespace carto {
         return (other.x >> deltaZoom) == tileId.x && (other.y >> deltaZoom) == tileId.y;
     }
 
-    void MapRenderer::collectTerrainCover(const std::vector<std::shared_ptr<TileLayer> >& tileLayers, const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, std::vector<std::map<vt::TileId, std::size_t> >& layerTiles, std::map<vt::TileId, std::size_t>& collectedTiles, std::vector<vt::TileId>& leaves, int& coverZoom, int& maxCollectedZoom) {
+    void MapRenderer::collectTerrainCover(const std::vector<std::shared_ptr<TileLayer> >& tileLayers, const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::vector<vt::TileId>& seedTileIds, std::vector<std::map<vt::TileId, std::size_t> >& layerTiles, std::map<vt::TileId, std::size_t>& collectedTiles, std::vector<vt::TileId>& leaves, int& coverZoom, int& maxCollectedZoom) {
         // Collected PER LAYER, then merged. The union is what the cover is built from,
         // but which layers actually have something to bake for a tile is what tells a
         // texture baked from the full stack apart from one baked while only the
@@ -1619,6 +1619,15 @@ namespace carto {
                 std::size_t& fingerprint = collectedTiles[it->first];
                 fingerprint ^= it->second + 0x9e3779b9 + (fingerprint << 6) + (fingerprint >> 2);
             }
+        }
+        // Ground the cover has to cover, whatever the layers happen to hold. The layers' tiles
+        // follow their own fetching, so right after a zoom OUT they still describe the small area
+        // the previous zoom showed - and a cover built from them alone leaves most of the screen
+        // with no terrain at all, falling through to the flat background plane. That is the
+        // "tiles blink white while zooming" report. The terrain's own cover is camera-driven and
+        // always covers the view, which is where tangram takes its ground tiles from.
+        for (const vt::TileId& tileId : seedTileIds) {
+            collectedTiles.emplace(tileId, static_cast<std::size_t>(0));
         }
         // A layer that bakes something not made of tiles - a terrain paint - cannot
         // contribute a cover, so a stack of nothing but such layers (a hillshade-only
@@ -1686,10 +1695,13 @@ namespace carto {
         for (const vt::TileId& tileId : pending) {
             minTopZoom = std::min(minTopZoom, tileId.zoom);
         }
-        // The split level. The plain maximum over collected tiles is wrong: zooming
-        // out, a render tile from before the gesture is still 'visible' while it
-        // blends away and would drag the whole cover several levels finer than the
-        // camera. Cap it at what the camera can show.
+        // The split level. The plain maximum over collected tiles is wrong: zooming out, a render
+        // tile from before the gesture is still 'visible' while it blends away and would drag the
+        // whole cover several levels finer than the camera. Cap it at what the camera can show.
+        // TRIED AND REVERTED for the shared ground, where there is no texture budget to respect:
+        // following the finest collected tile instead makes a zoom OUT explode the split, hit the
+        // leaf cap, and truncate the cover - most of the screen then falls through to the flat
+        // background plane, which is the "tiles blink white" report. The cap is not about textures.
         int viewZoomCap = static_cast<int>(std::ceil(viewState.getZoom())) + 1;
         coverZoom = std::min(maxCollectedZoom, std::max(viewZoomCap, minTopZoom));
         // Split a tile ONLY where a finer collected tile actually sits inside it.
@@ -1941,11 +1953,51 @@ namespace carto {
                         FRAME_PROF_NOW(profCoverStart);
                         FRAME_PROF_GPU_BEGIN(SECTION_COVER);
 
+                        // The terrain's own visible cover seeds the ground: it is what the camera
+                        // can see, not what the layers happen to have fetched.
+                        std::vector<vt::TileId> terrainCoverTileIds;
+                        if (_terrainRenderer) {
+                            std::vector<MapTile> terrainTiles;
+                            _terrainRenderer->collectVisibleTiles(viewState, terrainOptions, terrainTiles);
+                            terrainCoverTileIds.reserve(terrainTiles.size());
+                            for (const MapTile& terrainTile : terrainTiles) {
+                                terrainCoverTileIds.emplace_back(terrainTile.getZoom(), terrainTile.getX(), terrainTile.getY());
+                            }
+                        }
                         std::vector<std::map<vt::TileId, std::size_t> > groundLayerTiles;
                         std::map<vt::TileId, std::size_t> groundCollectedTiles;
                         std::vector<vt::TileId> groundTileIds;
                         int groundZoom = 0, groundMaxCollectedZoom = 0;
-                        collectTerrainCover(groundLayers, viewState, terrainOptions, groundLayerTiles, groundCollectedTiles, groundTileIds, groundZoom, groundMaxCollectedZoom);
+                        collectTerrainCover(groundLayers, viewState, terrainOptions, terrainCoverTileIds, groundLayerTiles, groundCollectedTiles, groundTileIds, groundZoom, groundMaxCollectedZoom);
+
+                        // A leaf whose DEM has not arrived is drawn FLAT, and the paint skips it
+                        // (it has nothing to shade), so it flashes in the bare ground colour until
+                        // the elevation lands - which during a zoom is every tile on screen, and
+                        // reads as tiles blinking white then filling in. The drape hid this behind
+                        // a stand-in texture from an ancestor; without textures the equivalent is
+                        // to STAND ON the ancestor: keep the coarsest displaced ground that is
+                        // actually loaded rather than introduce a flat one.
+                        if (std::shared_ptr<ElevationManager> groundElevationManager = terrainOptions->getElevationManager()) {
+                            auto hasElevation = [&groundElevationManager](const vt::TileId& tileId) {
+                                int tileMask = (1 << tileId.zoom) - 1;
+                                MapTile mapTile(tileId.x & tileMask, std::min(std::max(tileId.y, 0), tileMask), tileId.zoom, 0);
+                                return static_cast<bool>(groundElevationManager->getTileGrid(mapTile, ElevationManager::LoadMode::CACHED_ONLY));
+                            };
+                            std::vector<vt::TileId> loadedTileIds;
+                            loadedTileIds.reserve(groundTileIds.size());
+                            for (const vt::TileId& tileId : groundTileIds) {
+                                vt::TileId standIn = tileId;
+                                while (standIn.zoom > 0 && !hasElevation(standIn)) {
+                                    standIn = standIn.getParent();
+                                }
+                                // The walk can bring several leaves onto one ancestor; drawing it
+                                // once is both correct and cheaper.
+                                if (std::find(loadedTileIds.begin(), loadedTileIds.end(), standIn) == loadedTileIds.end()) {
+                                    loadedTileIds.push_back(standIn);
+                                }
+                            }
+                            groundTileIds = std::move(loadedTileIds);
+                        }
 
                         // What the ground is painted with where no layer paints anything. Ground
                         // with a hole in it shows the flat map background plane BEHIND the terrain
@@ -2048,7 +2100,7 @@ namespace carto {
                     std::map<vt::TileId, std::size_t> collectedTiles;
                     std::vector<vt::TileId> leaves;
                     int drapeZoom = 0, maxCollectedZoom = 0;
-                    collectTerrainCover(drapeLayers, viewState, terrainOptions, layerTiles, collectedTiles, leaves, drapeZoom, maxCollectedZoom);
+                    collectTerrainCover(drapeLayers, viewState, terrainOptions, std::vector<vt::TileId>(), layerTiles, collectedTiles, leaves, drapeZoom, maxCollectedZoom);
                     std::map<vt::TileId, std::size_t> drapeTiles;
                     // Which drape layers have content to bake into each leaf right now. Compared
                     // against what the cached texture was actually baked from, this separates

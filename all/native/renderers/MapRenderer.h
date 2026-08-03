@@ -211,7 +211,7 @@ namespace carto {
         // build on it - the drape bakes one texture per leaf, the shared ground draws one surface
         // per leaf - because the surfaces of two different tesselations of the same height field
         // do not agree and fight wherever they overlap.
-        void collectTerrainCover(const std::vector<std::shared_ptr<TileLayer> >& tileLayers, const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, std::vector<std::map<vt::TileId, std::size_t> >& layerTiles, std::map<vt::TileId, std::size_t>& collectedTiles, std::vector<vt::TileId>& leaves, int& coverZoom, int& maxCollectedZoom);
+        void collectTerrainCover(const std::vector<std::shared_ptr<TileLayer> >& tileLayers, const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::vector<vt::TileId>& seedTileIds, std::vector<std::map<vt::TileId, std::size_t> >& layerTiles, std::map<vt::TileId, std::size_t>& collectedTiles, std::vector<vt::TileId>& leaves, int& coverZoom, int& maxCollectedZoom);
 
         // Directional shadows for one terrain stack: resolves the light from the styles, fits a
         // light box per cascade to the cover, re-renders the caster pass only when it has actually
