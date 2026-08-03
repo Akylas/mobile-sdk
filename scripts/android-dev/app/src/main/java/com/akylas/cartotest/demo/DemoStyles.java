@@ -173,6 +173,11 @@ public final class DemoStyles {
         return " polygon-opacity: " + DemoConfig.INLINE_LANDCOVER_OPACITY + ";";
     }
 
+    /** An ARGB int as the '#rrggbb' CartoCSS literal (the alpha goes in a *-opacity property). */
+    private static String hex(int argb) {
+        return String.format("#%06X", argb & 0xFFFFFF);
+    }
+
     public static String inlineStyle() {
         StringBuilder map = new StringBuilder("Map { background-color: ").append(DemoConfig.INLINE_BACKGROUND_COLOR).append(";");
         if (DemoConfig.INLINE_STYLE_LIGHTING) {
@@ -218,6 +223,15 @@ public final class DemoStyles {
             "#hillshade[zoom>=4][zoom<=19] {",
             "  hillshade-illumination-direction: " + (int) DemoConfig.INLINE_HILLSHADE_ILLUMINATION + ";",
             "  hillshade-shadow-color: " + DemoConfig.INLINE_HILLSHADE_SHADOW_COLOR + ";",
+            // The composite slot takes its contour settings from the STYLE, not from the
+            // HillshadeRasterTileLayer setters (those only reach the stand-alone layer) - so this
+            // is what turns the shader-drawn contour lines on in the composite base.
+            DemoConfig.HILLSHADE_CONTOUR_LINES
+                ? String.join("\n",
+                    "  hillshade-contour-interval: " + (int) DemoConfig.HILLSHADE_CONTOUR_INTERVAL + ";",
+                    "  hillshade-contour-width: " + DemoConfig.HILLSHADE_CONTOUR_WIDTH + ";",
+                    "  hillshade-contour-color: " + DemoStyles.hex(DemoConfig.HILLSHADE_CONTOUR_COLOR_ARGB) + ";")
+                : "",
             "}",
             "#transportation { line-color: #ffffff; line-width: 1.2;}",
             DemoConfig.INLINE_LABELS
@@ -235,12 +249,18 @@ public final class DemoStyles {
                 ? "#building[zoom>=14] { building-fill: #d9cfc4; building-height: 14; }"
                 : "#building[zoom>=14] { polygon-fill: #d9cfc4; }",
             "#contour[zoom>=" + DemoConfig.CONTOUR_MIN_VISIBLE_ZOOM + "] {",
-                "  line-color: #C56008;",
-                "  line-width: 0.8;",
-                "  line-opacity: 0.4;",
-                "  [div>=50]  { line-opacity: 0.7; line-width: 1.0; }",
-                "  [div>=100] { line-opacity: 0.9; line-width: 1.4; }",
-                "  [div>=500] { line-width: 2.0; }",
+                // Lines only for the traced geometry: a label stub is a ~20 point fragment of a
+                // contour, long enough to lay text along and nothing more, so drawing it as a line
+                // paints dashes over the map. Both modes carry 'stub', so the filter is safe in
+                // either. In stub mode the LINES come from the hillshade shader instead.
+                "  [stub=0] {",
+                "    line-color: #C56008;",
+                "    line-width: 0.8;",
+                "    line-opacity: 0.4;",
+                "    [div>=50]  { line-opacity: 0.7; line-width: 1.0; }",
+                "    [div>=100] { line-opacity: 0.9; line-width: 1.4; }",
+                "    [div>=500] { line-width: 2.0; }",
+                "  }",
                 DemoConfig.INLINE_LABELS
                 ? String.join("\n",
                     "[div=1000][zoom>=12],",
@@ -260,6 +280,12 @@ public final class DemoStyles {
                     "}")
                 : "",
             "  contour-base-interval: " + (int) DemoConfig.CONTOUR_BASE_INTERVAL + ";",
+            // The composite slot reads the source's generation parameters from the style too.
+            DemoConfig.CONTOUR_LABEL_STUBS
+                ? String.join("\n",
+                    "  contour-label-stubs: 1;",
+                    "  contour-label-interval: " + (int) DemoConfig.CONTOUR_LABEL_INTERVAL + ";")
+                : "",
             "}");
     }
 

@@ -536,6 +536,10 @@ public class DemoMap {
         // so per-zoom style rules only fire if the DEM source max zoom is high enough.
         contourSource.setMinVisibleZoom(DemoConfig.CONTOUR_MIN_VISIBLE_ZOOM);
         contourSource.setMaxOverzoomLevel(DemoConfig.CONTOUR_MAX_OVERZOOM);
+        // Labels only: the lines come from the hillshade shader, so the tile carries a handful of
+        // stubs to lay the text along instead of the traced geometry.
+        contourSource.setLabelStubsEnabled(DemoConfig.CONTOUR_LABEL_STUBS);
+        contourSource.setLabelInterval(DemoConfig.CONTOUR_LABEL_INTERVAL);
         mapView.requestRender();
     }
 

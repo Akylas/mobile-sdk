@@ -258,6 +258,13 @@ public final class DemoConfig {
     /** Fetch neighbour DEM tiles so lines meet across tile borders (up to 3 extra fetches/tile). */
     public static boolean CONTOUR_SEAMLESS_EDGES = true;
     public static int CONTOUR_MAX_OVERZOOM = 15;
+    /** Emit only short label stubs (tangram's contour label generator) instead of traced contour
+     *  geometry. Pair it with HILLSHADE_CONTOUR_LINES, which draws the lines in the shader for
+     *  free, and with CONTOUR_LABEL_INTERVAL matching HILLSHADE_CONTOUR_INTERVAL. */
+    public static boolean CONTOUR_LABEL_STUBS = false;
+    /** Contour interval of the label stubs in meters; 0 follows the zoom ladder of the traced
+     *  geometry. Must match the interval the shader draws or the labels sit between the lines. */
+    public static float CONTOUR_LABEL_INTERVAL = 0f;
 
     /** Font of the pre-baked contour tile labels. An inline CartoCSS string carries no font asset
      *  package, so this goes through the system-font fallback ("Arial" -> Roboto on Android). */
@@ -448,6 +455,8 @@ public final class DemoConfig {
         CONTOUR_SIMPLIFY_TOLERANCE = DemoCfg.cfgFloat("contourSimplify", CONTOUR_SIMPLIFY_TOLERANCE);
         CONTOUR_MIN_VISIBLE_ZOOM = DemoCfg.cfgInt("contourMinZoom", CONTOUR_MIN_VISIBLE_ZOOM);
         CONTOUR_SEAMLESS_EDGES = DemoCfg.cfgBool("contourSeamless", CONTOUR_SEAMLESS_EDGES);
+        CONTOUR_LABEL_STUBS = DemoCfg.cfgBool("contourStubs", CONTOUR_LABEL_STUBS);
+        CONTOUR_LABEL_INTERVAL = DemoCfg.cfgFloat("contourStubInterval", CONTOUR_LABEL_INTERVAL);
 
         // inline style
         INLINE_BACKGROUND_COLOR = DemoCfg.cfgColor("bg", INLINE_BACKGROUND_COLOR);
