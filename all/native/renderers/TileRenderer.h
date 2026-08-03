@@ -12,6 +12,7 @@
 #include "graphics/ViewState.h"
 #include "renderers/utils/GLResource.h"
 
+#include <atomic>
 #include <chrono>
 #include <memory>
 #include <mutex>
@@ -95,6 +96,9 @@ namespace carto {
         void setExternalDrapeTiles(const std::vector<vt::TileId>& tileIds);
         void setTerrainGroundTiles(const std::vector<vt::TileId>& tileIds, const std::vector<int>& proxyDepths);
         void setTerrainLayerOrdinalBase(int base);
+        // Total ordinal span of the whole ground stack. The per-step depth shift is scaled to
+        // tangram's depth BUDGET across it - see TERRAIN_TANGRAM_DEPTH_BUDGET.
+        void setTerrainStackOrdinalSpan(int span);
         int getStyleLayerCount() const;
         int renderTerrainGround(const Color& color);
         bool isDrapeEnabled() const;
@@ -148,6 +152,21 @@ namespace carto {
         static float getTerrainContentDepthShift();
         // tangram res/scenes/terrain-3d.yaml: depth_shift = -0.02*u_proj[2][3], and [2][3] is -1.
         static constexpr float TERRAIN_TANGRAM_DEPTH_SHIFT = 0.02f;
+        // ...times the order span their scenes use (res/osm-bright.yaml numbers style layers
+        // 1..93) = the clip-space depth budget the whole stack gets, ~1.86. The per-step constant
+        // is meaningless on its own: it only says what a step is worth once you know how many steps
+        // there are, and our ordinals are a dense rank of however many style layers the stack has.
+        // OURS IS SMALLER THAN THEIRS, and the reason is the far plane. Tangram takes
+        // far = 2*m_pos.z/cos(pitch + fovy/2) (core/src/view/view.cpp); we kept
+        // TerrainOptions.MaxVisibleDistance instead, which is deeper, so the same clip pull spends
+        // more NDC precision and leaks sooner. Measured at 45.244172/5.760595 z13.2 t26 with a
+        // 7-ordinal stack: 0.2 per step is clean, 0.26 (their full budget) opens a faint pale wedge
+        // through a ridge and 0.3 a clear one. 1.4 is the largest budget measured with no leak.
+        // Taking their far plane would earn the rest back - it is not taken because it ends the
+        // view closer than MaxVisibleDistance, which is the app's call, not the renderer's.
+        static constexpr float TERRAIN_TANGRAM_DEPTH_BUDGET = 1.4f;
+        // Total ordinal span of the whole ground stack, set by the owner (MapRenderer numbers it).
+        std::atomic<int> _terrainStackOrdinalSpan = { 1 };
         // Measurement override for the paint's DEM level: debug.carto.paintdetail 0 forces the
         // mesh level, whatever the layer asks for. Read once (Android only).
         static bool isTerrainPaintFullDetailAllowed();

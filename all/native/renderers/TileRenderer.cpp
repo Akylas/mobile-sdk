@@ -271,6 +271,10 @@ namespace carto {
         }
     }
 
+    void TileRenderer::setTerrainStackOrdinalSpan(int span) {
+        _terrainStackOrdinalSpan.store(span);
+    }
+
     int TileRenderer::getStyleLayerCount() const {
         std::lock_guard<std::mutex> lock(_mutex);
 
@@ -640,9 +644,19 @@ namespace carto {
         // not an experiment, and it is what keeps un-subdivided content from sinking into the
         // ground it chords over. Overridable for measurement:
         //   adb shell setprop debug.carto.depthshift <value>
+        // Their CONSTANT is 0.02, but the quantity that matters is the constant times the ORDER
+        // SPAN of the stack - that product is the depth budget the whole stack gets, and it is what
+        // has to be reproduced. res/osm-bright.yaml numbers its style layers 1..93, so tangram
+        // spends ~1.86 clip units across the scene. Our ordinals are a dense rank, so a style with
+        // nine style layers spends 0.18 at their constant - a tenth of the budget, and far too
+        // little for a fill's tesselation to clear the surface. Scale to their budget instead: a
+        // 93-layer style gets 0.02 back, exactly their number.
+        // Measured on device (45.244172/5.760595 z13.2 t26, 9 ordinals): 0.2 is the largest value
+        // with no see-through, 0.3 opens pale wedges through the ridges and 0.5 more - and 0.2 is
+        // what the budget gives. Their budget IS the leak threshold; do not raise it.
         float contentDepthShift = getTerrainContentDepthShift();
         if (_terrainGroundActive && contentDepthShift == 0.0f) {
-            contentDepthShift = TERRAIN_TANGRAM_DEPTH_SHIFT;
+            contentDepthShift = TERRAIN_TANGRAM_DEPTH_BUDGET / std::max(1, _terrainStackOrdinalSpan.load());
         }
         tileRenderer->setTerrainContentDepthShift(contentDepthShift);
         tileRenderer->setTerrainEdgeStitching(regularGrid && activeTerrainOptions && activeTerrainOptions->isTileEdgeStitchingEnabled());
