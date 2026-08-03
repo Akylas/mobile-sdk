@@ -902,8 +902,8 @@ namespace carto {
         _tileRenderer->setExternalDrapeTiles(tileIds);
     }
 
-    void TileLayer::setTerrainGroundTiles(const std::vector<vt::TileId>& tileIds) {
-        _tileRenderer->setTerrainGroundTiles(tileIds);
+    void TileLayer::setTerrainGroundTiles(const std::vector<vt::TileId>& tileIds, const std::vector<int>& proxyDepths) {
+        _tileRenderer->setTerrainGroundTiles(tileIds, proxyDepths);
     }
 
     void TileLayer::setTerrainLayerOrdinalBase(int base) {

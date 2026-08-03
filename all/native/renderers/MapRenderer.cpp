@@ -1967,6 +1967,7 @@ namespace carto {
                         std::vector<std::map<vt::TileId, std::size_t> > groundLayerTiles;
                         std::map<vt::TileId, std::size_t> groundCollectedTiles;
                         std::vector<vt::TileId> groundTileIds;
+                        std::vector<int> groundProxyDepths;
                         int groundZoom = 0, groundMaxCollectedZoom = 0;
                         collectTerrainCover(groundLayers, viewState, terrainOptions, terrainCoverTileIds, groundLayerTiles, groundCollectedTiles, groundTileIds, groundZoom, groundMaxCollectedZoom);
 
@@ -1985,6 +1986,7 @@ namespace carto {
                             };
                             std::vector<vt::TileId> loadedTileIds;
                             loadedTileIds.reserve(groundTileIds.size());
+                            groundProxyDepths.clear();
                             for (const vt::TileId& tileId : groundTileIds) {
                                 vt::TileId standIn = tileId;
                                 while (standIn.zoom > 0 && !hasElevation(standIn)) {
@@ -1994,6 +1996,10 @@ namespace carto {
                                 // once is both correct and cheaper.
                                 if (std::find(loadedTileIds.begin(), loadedTileIds.end(), standIn) == loadedTileIds.end()) {
                                     loadedTileIds.push_back(standIn);
+                                    // How far it stood in, which is what the renderer pushes it
+                                    // back by - a coarser height field pokes through the content
+                                    // drawn on the level it replaces.
+                                    groundProxyDepths.push_back(tileId.zoom - standIn.zoom);
                                 }
                             }
                             groundTileIds = std::move(loadedTileIds);
@@ -2029,7 +2035,7 @@ namespace carto {
                         for (const std::shared_ptr<TileLayer>& tileLayer : groundLayers) {
                             tileLayer->setExternalDrapeTarget(false);
                             tileLayer->setExternalDrapeTiles(std::vector<vt::TileId>());
-                            tileLayer->setTerrainGroundTiles(groundTileIds);
+                            tileLayer->setTerrainGroundTiles(groundTileIds, groundProxyDepths);
                             tileLayer->setTerrainLayerOrdinalBase(ordinalBase);
                             ordinalBase += std::max(1, tileLayer->getStyleLayerCount());
                         }
@@ -2747,7 +2753,7 @@ namespace carto {
                 // No shared ground either (terrain off, or a stack with no drapeable layer):
                 // release the cover so a layer left holding one from a terrain frame does not
                 // keep suppressing its own depth pre-pass and drawing on tiles nobody covers.
-                tileLayer->setTerrainGroundTiles(std::vector<vt::TileId>());
+                tileLayer->setTerrainGroundTiles(std::vector<vt::TileId>(), std::vector<int>());
             }
             if (terrainMode) {
                 static bool noDrapeLogged = false;

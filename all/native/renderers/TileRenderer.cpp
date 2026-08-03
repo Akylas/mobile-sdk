@@ -288,12 +288,12 @@ namespace carto {
         }
     }
 
-    void TileRenderer::setTerrainGroundTiles(const std::vector<vt::TileId>& tileIds) {
+    void TileRenderer::setTerrainGroundTiles(const std::vector<vt::TileId>& tileIds, const std::vector<int>& proxyDepths) {
         std::lock_guard<std::mutex> lock(_mutex);
 
         _terrainGroundActive = !tileIds.empty();
         if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
-            tileRenderer->setTerrainGroundTiles(tileIds);
+            tileRenderer->setTerrainGroundTiles(tileIds, proxyDepths);
         }
     }
 
