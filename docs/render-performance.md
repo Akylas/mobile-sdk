@@ -723,6 +723,55 @@ Note the shared static grid VBO itself is **already implemented and active** —
 `surfIndices / surfDraws` comes out at exactly `24576 = 64×64×2×3`, one unit grid per draw with a
 per-tile matrix, which is tangram's `RasterStyle` arrangement. It does not need porting again.
 
+### 11.5b How tangram avoids it entirely — the target design
+
+Their terrain geometry is built **once, at scene load**, and never again:
+
+```cpp
+// core/src/style/rasterStyle.cpp — RasterStyle::build(const Scene&)
+uint32_t resolution = _scene.elevationManager() ? 64 : 1;
+... one (resolution+1)^2 grid of {x, y} ...
+m_rasterMesh = std::move(rasterMesh);          // vertex layout: a_position, 2 x GL_SHORT
+```
+
+So in tangram a DEM tile arriving is **a texture upload and nothing else**. There is no per-tile
+terrain mesh anywhere, therefore nothing to invalidate, therefore no render-thread rebuild.
+
+Everything that needs elevation on the CPU reads the texture instead of a mesh:
+
+- `ElevationManager::elevationLerp(tex, pos, &grad)` bilinear-samples the texture's own CPU buffer
+  (`tex.bufferData()`), with a one-entry `prevTex`/`prevTileId` memo. That is what serves label and
+  marker placement, and what `contourTextStyle.cpp` marches along (§11.3).
+- Occlusion and picking come from `renderTerrainDepth()` — the same shared grid drawn into an FBO —
+  read back through `getDepth(screenpos)`.
+
+**Where ours differs, precisely.** We already have the shared grid and the draw path uses it in
+regular-grid mode:
+
+```cpp
+// GLTileRenderer.cpp:3528
+for (const auto& tileSurface : (gridMode ? buildCompiledTerrainGridSurfaces()
+                                         : buildCompiledTileSurfaces(tileId))) {
+```
+
+But we *also* build per-tile CPU surface meshes in `setVisibleTiles` → `buildTileSurfaces(tileIds)`,
+and throw them away on every elevation change via `invalidateTileSurfaces`. In grid mode the draw
+does not use them at all — their remaining consumers are the raycast/picking path
+(`_tileSurfaceMap` at GLTileRenderer.cpp:1802, `findTileBitmapIntersections`) and the non-grid draw
+path. So we are paying 21 ms on the render thread to rebuild geometry that the renderer does not
+draw.
+
+**The work, in tangram's order:**
+
+1. In grid mode, stop building and invalidating per-tile CPU surfaces for rendering — the shared
+   grid already covers the draw.
+2. Serve picking the way they do: `elevationLerp` over the elevation texture, or the terrain depth
+   read-back we already have in `TerrainDepthWorker`. Failing that, build a tile's surface lazily on
+   the pick itself, which is a user gesture and not a frame.
+3. If any surface rebuild must survive, move it off the render thread or debounce it the way
+   `resetTileSurfaces` already is via `SURFACE_RESET_DELAY` — `invalidateTileSurfaces` currently has
+   no debounce at all, which is why a stream of arriving DEM tiles stalls every frame.
+
 ### 11.6 What landed this session
 
 - Per-tile background meshes retired under a shared ground (tangram has none — their map background
