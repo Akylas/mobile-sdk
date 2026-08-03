@@ -146,6 +146,8 @@ namespace carto {
         bool isPlanarTerrainMode() const;
         // Tangram-model measurement switch, read once from debug.carto.depthshift (Android only).
         static float getTerrainContentDepthShift();
+        // tangram res/scenes/terrain-3d.yaml: depth_shift = -0.02*u_proj[2][3], and [2][3] is -1.
+        static constexpr float TERRAIN_TANGRAM_DEPTH_SHIFT = 0.02f;
         // Measurement override for the paint's DEM level: debug.carto.paintdetail 0 forces the
         // mesh level, whatever the layer asks for. Read once (Android only).
         static bool isTerrainPaintFullDetailAllowed();

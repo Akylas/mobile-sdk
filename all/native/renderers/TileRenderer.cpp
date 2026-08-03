@@ -612,12 +612,18 @@ namespace carto {
         bool regularGrid = painterOrder || drapeFills || (terrainMode && activeTerrainOptions && activeTerrainOptions->isRegularGridEnabled() && (bool) terrainTextureProvider);
         tileRenderer->setTerrainRegularGrid(regularGrid, activeTerrainOptions ? activeTerrainOptions->getMeshResolution() : 0);
         tileRenderer->setTerrainPainterOrder(painterOrder);
-        // Tangram's content depth shift. Read from their source rather than assumed: polygon.vs and
-        // polyline.vs set `depth_shift = 0.0` and leave it for a shader block to override - the
-        // -0.02*u_proj[2][3] is debug.vs, which pushes the debug overlay 1010 layers back. So the
-        // per-layer separation is the 2^-19*w term alone, and this stays an experiment switch:
+        // Tangram's content depth shift. polygon.vs/polyline.vs set `depth_shift = 0.0` and leave
+        // it "to allow blocks to modify" - and their 3D TERRAIN scene is one of the blocks that
+        // does: res/scenes/terrain-3d.yaml sets `depth_shift = -0.02*u_proj[2][3]`, which with
+        // glm::perspective's [2][3] = -1 is a flat 0.02. So it is part of the terrain depth model,
+        // not an experiment, and it is what keeps un-subdivided content from sinking into the
+        // ground it chords over. Overridable for measurement:
         //   adb shell setprop debug.carto.depthshift <value>
-        tileRenderer->setTerrainContentDepthShift(getTerrainContentDepthShift());
+        float contentDepthShift = getTerrainContentDepthShift();
+        if (_terrainGroundActive && contentDepthShift == 0.0f) {
+            contentDepthShift = TERRAIN_TANGRAM_DEPTH_SHIFT;
+        }
+        tileRenderer->setTerrainContentDepthShift(contentDepthShift);
         tileRenderer->setTerrainEdgeStitching(regularGrid && activeTerrainOptions && activeTerrainOptions->isTileEdgeStitchingEnabled());
         // Draped content is baked FLAT (orthographic, no displacement), so lines need no terrain
         // subdivision either - draping them is strictly cheaper as well as artifact-free. It is

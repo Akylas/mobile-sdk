@@ -297,11 +297,18 @@ namespace carto {
             // subdivision is not what costs.
             // This value MUST match what resetTileTransformer() passes, or a change to it silently
             // keeps tiles decoded for the other mode.
-            bool terrainSourceDensity = false;
-            // Lines at source density with no terrain subdivision is the tangram model; it only
-            // holds up together with a content depth shift (debug.carto.depthshift), so both are
-            // measured through the same switch: adb shell setprop debug.carto.linesourcedensity 1
-            bool terrainSourceDensityLines = (terrainOptions && terrainOptions->isDrapeLinesEnabled()) || isLineSourceDensityForced();
+            // WITHOUT a drape this is the tangram content model: no terrain subdivision at all,
+            // every vertex displaced in the vertex shader, and the depth model (per-style-layer
+            // ordinal, content writing depth) doing the rest. Subdividing exists to make content
+            // match a SEPARATE surface exactly; under the shared ground there is no separate
+            // surface to match, and the cost is real - measured at 13x the index throughput, and a
+            // coarse or proxy tile's roads chord straight across the terrain until the tile for the
+            // new zoom arrives, which is the "roads go straight when zooming out" report.
+            // WITH a drape the fills are baked flat and must still follow the drape surface, so
+            // that path keeps its subdivision.
+            bool terrainTangramContent = terrainEnabled && terrainOptions && !terrainOptions->isDrapeFillsEnabled();
+            bool terrainSourceDensity = terrainTangramContent;
+            bool terrainSourceDensityLines = terrainTangramContent || (terrainOptions && terrainOptions->isDrapeLinesEnabled()) || isLineSourceDensityForced();
             if (_terrainOptions.lock() != terrainOptions || _terrainEnabled != terrainEnabled || _terrainExaggeration != terrainExaggeration || _terrainMeshResolution != terrainMeshResolution || _terrainMinZoom != terrainMinZoom || _terrainRegularGrid != terrainRegularGrid || _terrainSourceDensity != terrainSourceDensity || _terrainSourceDensityLines != terrainSourceDensityLines) {
                 clearTileCaches(true);
                 resetTileTransformer();
@@ -967,7 +974,10 @@ namespace carto {
                     // against: they decide the tesselation the tiles in the cache were built with,
                     // so a mismatch leaves tiles decoded for the other mode in place forever
                     // (un-subdivided fills sagging through the terrain once draping is switched off).
-                    tileTransformer = std::make_shared<TerrainTileTransformer>(static_cast<float>(Const::WORLD_SIZE), terrainOptions->getElevationManager(), terrainOptions->getMeshResolution(), terrainOptions->getMinZoom(), terrainOptions->isRegularGridEnabled() || terrainOptions->isPainterOrderDepthEnabled(), false, terrainOptions->isDrapeLinesEnabled() || isLineSourceDensityForced());
+                    // MUST match what calculateDrawData compares against, or tiles decoded for the
+                    // other mode stay in the cache forever.
+                    bool tangramContent = !terrainOptions->isDrapeFillsEnabled();
+                    tileTransformer = std::make_shared<TerrainTileTransformer>(static_cast<float>(Const::WORLD_SIZE), terrainOptions->getElevationManager(), terrainOptions->getMeshResolution(), terrainOptions->getMinZoom(), terrainOptions->isRegularGridEnabled() || terrainOptions->isPainterOrderDepthEnabled(), tangramContent, tangramContent || terrainOptions->isDrapeLinesEnabled() || isLineSourceDensityForced());
                 }
             }
         }
