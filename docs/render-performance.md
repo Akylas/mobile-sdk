@@ -512,7 +512,7 @@ numbers are in. **The drape is being dropped, not kept as an option.**
 | tile backgrounds / rasters | baked | drawn on the COVER tiles, with the source uv sub-rect the overzoom path already computes |
 | depth | the drape surface is the only depth writer | the ground pass is the only depth writer |
 | per-layer depth pre-pass | already skipped | skipped |
-| stencil tile masks | one grid draw per tile per layer | none |
+| stencil tile masks | one grid draw per tile per layer | only while tile footprints can overlap (see below) - which is most of the time |
 
 Two rules hold the depth model together, both inherited from rounds 45-56 and unchanged:
 
@@ -524,9 +524,21 @@ Two rules hold the depth model together, both inherited from rounds 45-56 and un
    z14 ground. On the cover it is coincident to the bit. That is why the cover computation
    (`MapRenderer::collectTerrainCover`, extracted from the drape path) is shared by both modes.
 
-Without the masks, a retained blend-out (proxy) tile could paint over the live tile that replaced
-it during an LOD change, so the near-to-far sort inside a style layer now puts proxies first — the
-same intent the mask stamping order had.
+**The masks came back, and this is the lesson.** Dropping them was one third of the change and it
+did not survive contact: while zooming, the retained tile from the previous zoom keeps painting its
+whole footprint through every gap in the new tile's content — the same roads twice, one zoom level
+apart, blinking as the blend runs (Martin, on the emulator: "flashing rendered map tiles decaled as
+I zoom in out"). Tangram has no masks because **its content WRITES depth**, so the live tile beats
+the proxy; ours deliberately does not, because that is what stops road casings and fills of
+different style layers z-fighting each other. Painter's order alone cannot express "this pixel
+belongs to that tile".
+So the masks are stamped whenever anything can overlap — a tile blending out, or more than one zoom
+level on screen — and skipped only when nothing can. In practice a vector layer almost always holds
+two zoom levels (overzoom), so they are usually on: the honest summary is that **the drape and the
+per-layer depth pre-pass are removed, the masks are not**. Removing them for real needs a way for a
+live tile to beat its proxy that is not painter's order.
+The near-to-far sort inside a style layer still puts proxies first, which is the same intent the
+mask stamping order had, and it is what covers the frames where the masks are skipped.
 
 ### 10.2 Measured (emulator, structural)
 
