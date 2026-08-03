@@ -23,6 +23,7 @@
 #include <vt/GLTileRenderer.h>
 
 namespace carto {
+    class Bitmap;
     class ElevationManager;
     class ElevationTileGrid;
     class GLResourceManager;
@@ -92,14 +93,16 @@ namespace carto {
             std::shared_ptr<ElevationTileGrid> grid;
             std::array<std::shared_ptr<ElevationTileGrid>, 8> neighbours;
         };
+        // The BITMAP, not the encoded bytes: building it copies the whole padded texture
+        // (514x514 RGBA, a megabyte, byte by byte in Bitmap::loadFromUncompressedBytes) and that
+        // copy has no reason to be on the render thread - measured on the Crosscall, north pan,
+        // it was 20% of it, with another 11% freeing the encode buffer there.
         struct EncodedTexture {
             long long gridTileId = -1;
             std::shared_ptr<ElevationTileGrid> grid;
             std::array<std::shared_ptr<ElevationTileGrid>, 8> neighbours;
-            std::vector<std::uint8_t> rgbaData;
+            std::shared_ptr<Bitmap> bitmap;
             std::array<float, 4> decode = { { 0, 0, 0, 0 } };
-            int width = 0;
-            int height = 0;
         };
 
         static constexpr std::size_t MAX_CACHED_TEXTURES = 96; // ~24MB of RGBA 256x256 textures
@@ -134,6 +137,7 @@ namespace carto {
         std::deque<EncodeJob> _encodeQueue;      // drained newest first: the newest request is the visible one
         std::set<long long> _encodePending;      // queued or being encoded
         std::deque<EncodedTexture> _encodedQueue; // waiting for the GL thread to upload
+        std::vector<std::uint8_t> _encodeScratch; // worker-thread only: the encode buffer, reused
         std::unique_ptr<std::thread> _encodeThread;
         bool _encodeStopped = false;
     };

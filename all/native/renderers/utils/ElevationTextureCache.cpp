@@ -193,9 +193,16 @@ namespace carto {
             encoded.gridTileId = job.gridTileId;
             encoded.grid = job.grid;
             encoded.neighbours = job.neighbours;
-            encoded.width = job.grid->getWidth() + 2;
-            encoded.height = job.grid->getHeight() + 2;
-            job.grid->encodeTextureWithBorders(job.neighbours, encoded.rgbaData, encoded.decode);
+            int width = job.grid->getWidth() + 2;
+            int height = job.grid->getHeight() + 2;
+            // The scratch buffer belongs to this thread alone and is reused by every job, so the
+            // megabyte behind it is allocated once instead of per encode.
+            job.grid->encodeTextureWithBorders(job.neighbours, _encodeScratch, encoded.decode);
+            // The encoded rows are south-to-north, i.e. already bottom-up in the Bitmap
+            // convention. Bitmap treats a POSITIVE stride as top-down input and flips the
+            // rows - pass a negative stride so the data is taken as-is (a flipped texture
+            // mirrors every tile's terrain north-south).
+            encoded.bitmap = std::make_shared<Bitmap>(_encodeScratch.data(), width, height, ColorFormat::COLOR_FORMAT_RGBA, -4 * width);
 
             {
                 std::lock_guard<std::mutex> lock(_encodeMutex);
@@ -241,12 +248,7 @@ namespace carto {
             entry.neighbours = encoded.neighbours;
             entry.decode = encoded.decode;
             entry.lastUsed = (it != _cache.end() ? it->second.lastUsed : _accessCounter);
-            // The encoded rows are south-to-north, i.e. already bottom-up in the Bitmap
-            // convention. Bitmap treats a POSITIVE stride as top-down input and flips the
-            // rows - pass a negative stride so the data is taken as-is (a flipped texture
-            // mirrors every tile's terrain north-south).
-            auto bitmap = std::make_shared<Bitmap>(encoded.rgbaData.data(), encoded.width, encoded.height, ColorFormat::COLOR_FORMAT_RGBA, -static_cast<int>(4 * encoded.width));
-            entry.texture = _glResourceManager->create<Texture>(bitmap, false, false); // no mipmaps, clamp to edge
+            entry.texture = _glResourceManager->create<Texture>(encoded.bitmap, false, false); // no mipmaps, clamp to edge
             _cache.insert_or_assign(encoded.gridTileId, std::move(entry));
         }
     }
