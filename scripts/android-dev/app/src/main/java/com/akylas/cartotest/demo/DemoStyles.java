@@ -164,6 +164,15 @@ public final class DemoStyles {
     // the per-source settings live (they accept zoom-dependent expressions).
     // =============================================================================================
 
+    /** 'polygon-opacity' for the ground-shaped fills, or nothing at all while they are opaque -
+     *  so the default style string is byte-identical to what it was before the knob existed. */
+    private static String landcoverOpacity() {
+        if (DemoConfig.INLINE_LANDCOVER_OPACITY >= 1.0f) {
+            return "";
+        }
+        return " polygon-opacity: " + DemoConfig.INLINE_LANDCOVER_OPACITY + ";";
+    }
+
     public static String inlineStyle() {
         StringBuilder map = new StringBuilder("Map { background-color: ").append(DemoConfig.INLINE_BACKGROUND_COLOR).append(";");
         if (DemoConfig.INLINE_STYLE_LIGHTING) {
@@ -199,8 +208,11 @@ public final class DemoStyles {
         return String.join("\n",
             map.toString(),
             "#water { polygon-fill: #9cc3e0; }",
-            "#landuse { polygon-fill: #dddddd; }",
-            "#landcover { polygon-fill: #dbe8cc; }",
+            // Ground-shaped fills carry the landcover opacity: opaque by default, translucent when
+            // the hillshade and the contours underneath have to read through them (tangram's
+            // 'translucent-polygons', alpha 0.25).
+            "#landuse { polygon-fill: #dddddd;" + landcoverOpacity() + " }",
+            "#landcover { polygon-fill: #dbe8cc;" + landcoverOpacity() + " }",
             // --- composite slots, in draw order ---
             "#satellite[zoom>=" + DemoConfig.INLINE_SATELLITE_MIN_ZOOM + "] { raster-opacity: 1; raster-comp-op: src-over; }",
             "#hillshade[zoom>=4][zoom<=19] {",
@@ -350,7 +362,7 @@ public final class DemoStyles {
         String mss = String.join("\n",
             "Map { background-color: " + DemoConfig.INLINE_BACKGROUND_COLOR + "; }",
             "#water { polygon-fill: #9cc3e0; }",
-            "#landcover { polygon-fill: #dbe8cc; }",
+            "#landcover { polygon-fill: #dbe8cc;" + landcoverOpacity() + " }",
             // the hillshade slot exists only while the user setting is on
             "#hillshade['nuti::" + NUTI_PARAMETER + "'=true][zoom>=4] {",
             "  hillshade-opacity: linear([view::zoom], (4, 0.5), (12, 0.9));",

@@ -276,6 +276,14 @@ public final class DemoConfig {
      *  without the base map's geometry dominating the frame. The base layer stays, because it is
      *  what gives the drape its tile cover. */
     public static boolean INLINE_STYLE_MINIMAL = false;
+    /** Opacity of the ground-shaped fills (#landcover, #landuse). 1 = opaque, today's behaviour.
+     *  Tangram draws these translucent whenever something under them has to show: their
+     *  'translucent-polygons' style is alpha 0.25 (res/scenes/hillshade.yaml), selected through
+     *  global.earth_style, and it is how the hillshade and the contours read through the map
+     *  instead of being painted over. An un-subdivided fill also floats above the ground by its
+     *  chord error, and a translucent one hides far less of what it floats over.
+     *  '--es landcoverOpacity 0.25' */
+    public static float INLINE_LANDCOVER_OPACITY = 1.0f;
     public static int INLINE_SATELLITE_MIN_ZOOM = 11;
     public static String INLINE_HILLSHADE_SHADOW_COLOR = "#473B24";
     public static float INLINE_HILLSHADE_ILLUMINATION = 365f;
@@ -442,6 +450,7 @@ public final class DemoConfig {
         INLINE_STYLE_LIGHTING = DemoCfg.cfgBool("styleLight", INLINE_STYLE_LIGHTING);
         INLINE_LABELS = DemoCfg.cfgBool("labels", INLINE_LABELS);
         INLINE_STYLE_MINIMAL = DemoCfg.cfgBool("minimal", INLINE_STYLE_MINIMAL);
+        INLINE_LANDCOVER_OPACITY = DemoCfg.cfgFloat("landcoverOpacity", INLINE_LANDCOVER_OPACITY);
         INLINE_SATELLITE_MIN_ZOOM = DemoCfg.cfgInt("satZoom", INLINE_SATELLITE_MIN_ZOOM);
         NUTI_TOGGLE_INTERVAL_MS = DemoCfg.cfgInt("nutiInterval", NUTI_TOGGLE_INTERVAL_MS);
 
