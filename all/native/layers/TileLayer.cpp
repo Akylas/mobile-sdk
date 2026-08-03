@@ -38,8 +38,25 @@ namespace carto {
         }();
         return forced;
     }
+
+    // Measurement switch for what AREA subdivision costs: it is the expensive half (a triangle
+    // subdivides 1/factor^2, see TerrainTileTransformer.h) and it is on for correctness, not for
+    // speed - an un-subdivided fill floats above the ground and hides every ground-shaped draw
+    // stacked after it. Off = the shipped behaviour.
+    //   adb shell setprop debug.carto.areasourcedensity 1
+    static bool isAreaSourceDensityForced() {
+        static const bool forced = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            return __system_property_get("debug.carto.areasourcedensity", property) > 0 && property[0] == '1';
+        }();
+        return forced;
+    }
 #else
     static bool isLineSourceDensityForced() {
+        return false;
+    }
+
+    static bool isAreaSourceDensityForced() {
         return false;
     }
 #endif
@@ -313,7 +330,7 @@ namespace carto {
             // camera, so no ordering recovers it. Subdividing the fill to the ground lattice is
             // what makes it coincident, and coincident is what lets a raster sit at ANY level.
             bool terrainTangramContent = terrainEnabled && terrainOptions && !terrainOptions->isDrapeFillsEnabled();
-            bool terrainSourceDensity = false;
+            bool terrainSourceDensity = isAreaSourceDensityForced();
             bool terrainSourceDensityLines = terrainTangramContent || (terrainOptions && terrainOptions->isDrapeLinesEnabled()) || isLineSourceDensityForced();
             if (_terrainOptions.lock() != terrainOptions || _terrainEnabled != terrainEnabled || _terrainExaggeration != terrainExaggeration || _terrainMeshResolution != terrainMeshResolution || _terrainMinZoom != terrainMinZoom || _terrainRegularGrid != terrainRegularGrid || _terrainSourceDensity != terrainSourceDensity || _terrainSourceDensityLines != terrainSourceDensityLines) {
                 clearTileCaches(true);
@@ -983,7 +1000,7 @@ namespace carto {
                     // MUST match what calculateDrawData compares against, or tiles decoded for the
                     // other mode stay in the cache forever.
                     bool tangramContent = !terrainOptions->isDrapeFillsEnabled();
-                    tileTransformer = std::make_shared<TerrainTileTransformer>(static_cast<float>(Const::WORLD_SIZE), terrainOptions->getElevationManager(), terrainOptions->getMeshResolution(), terrainOptions->getMinZoom(), terrainOptions->isRegularGridEnabled() || terrainOptions->isPainterOrderDepthEnabled(), false, tangramContent || terrainOptions->isDrapeLinesEnabled() || isLineSourceDensityForced());
+                    tileTransformer = std::make_shared<TerrainTileTransformer>(static_cast<float>(Const::WORLD_SIZE), terrainOptions->getElevationManager(), terrainOptions->getMeshResolution(), terrainOptions->getMinZoom(), terrainOptions->isRegularGridEnabled() || terrainOptions->isPainterOrderDepthEnabled(), isAreaSourceDensityForced(), tangramContent || terrainOptions->isDrapeLinesEnabled() || isLineSourceDensityForced());
                 }
             }
         }

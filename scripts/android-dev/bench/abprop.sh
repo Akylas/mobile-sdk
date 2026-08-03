@@ -4,6 +4,8 @@ ANDROID_SERIAL="${ANDROID_SERIAL:?set it to the device serial}"; export ANDROID_
 LABEL="$1"; LSD="$2"; SHIFT="$3"; shift 3
 adb shell setprop debug.carto.linesourcedensity "$LSD"
 adb shell setprop debug.carto.depthshift "$SHIFT"
+# Area subdivision, off by default = the shipped behaviour. ASD=1 measures what it costs.
+adb shell setprop debug.carto.areasourcedensity "${ASD:-0}"
 adb shell am force-stop com.akylas.cartotest >/dev/null 2>&1
 adb shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1
 adb shell am start -n com.akylas.cartotest/.MainActivity --es ui false \
