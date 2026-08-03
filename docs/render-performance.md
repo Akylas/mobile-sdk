@@ -34,20 +34,23 @@ snapping straight on zoom-out, and content see-through on mountains — are **fi
 terrain poking through contours. The SDK option `TerrainOptions.DrapeFillsEnabled` still defaults to
 the drape, so no app changes behaviour until it opts in.
 
-**Next, in order** (rewritten after the head-to-head of §11 — several older entries are now
-measured to be dead ends, see §11.4):
+**Next, in order** (rewritten after the render-thread profile of §12 — several older entries are
+now measured to be dead ends, see §11.4 and §12.1):
 
-1. **Stop rebuilding tile surfaces on the render thread** (§11.5). This is the pan hang, and it is
-   the single largest known item: the terrain block of `TileRenderer::onDrawFrame` costs 0.1 ms
-   normally and **21 ms** when a DEM tile lands.
-2. **Port `ContourTextStyleBuilder`** (§11.3). Contour lines are already a fragment block and cost
+1. ~~**Stop rebuilding tile surfaces on the render thread**~~ — **measured not to happen at all**
+   in the shipped configuration, see §12.1. What the render thread actually spends is in §12.
+2. **Take the next two items off the render thread** (§12.4): `HillshadeRasterTileLayer::onDrawFrame`
+   (10.5% of it) and `TerrainRenderer::updateDepthBuffer`, which spends 7.7% of the render thread
+   *destroying* the previous depth buffer's CPU meshes there.
+3. **Port `ContourTextStyleBuilder`** (§11.3). Contour lines are already a fragment block and cost
    nothing; the labels still drag in a whole contour tile set that tangram does not have.
-3. **Attribute the rest of the layer pass.** `geometry` is a steady 6–9 ms per layer per frame and
+4. **Attribute the rest of the layer pass.** `geometry` is a steady 6–9 ms per layer per frame and
    the per-draw counters explain ~7 ms of a 39–235 ms block — the remainder is still unmapped.
-4. **Shadows on the shared ground.** Wired and lit, but the caster pass is switched off there
+   Profile it, do not reason about it (§12.2).
+5. **Shadows on the shared ground.** Wired and lit, but the caster pass is switched off there
    (`applyTerrainShadows(..., castShadows = false, ...)`) because the map reads as acne instead of
    cast shadows. The drape path is clean on the same scene — diff against it. §10.5.
-5. **Delete the drape.** It now has the baseline it was waiting for.
+6. **Delete the drape.** It now has the baseline it was waiting for.
 
 Do **not** re-run the dead ends in §6 and §10.6 — they are measured.
 
@@ -712,6 +715,9 @@ and inside one `TileRenderer::onDrawFrame`:
 | `renderGeometry` | 6–9 |
 | the terrain state block | **0.10 … 20.98** |
 
+> **Superseded by §12.1 — this attribution is wrong.** Measured with counters and a timer inside the
+> block itself: nothing is rebuilt there, and the block costs **0.04 ms**. Read §12 instead.
+
 **The terrain state block is the pan hang.** It costs a tenth of a millisecond when nothing changes
 and up to 21 ms when a DEM tile lands, because that is where `invalidateTileSurfaces` /
 `resetTileSurfaces` rebuild tile surfaces — on the render thread. Tangram never does this: their
@@ -783,3 +789,101 @@ draw.
 - Measurement switches, all defaulting to current behaviour: `debug.carto.demtaps`,
   `debug.carto.groundpaint`, `debug.carto.tilebg`, `debug.carto.areathreshold`,
   `debug.carto.areasourcedensity`.
+
+---
+
+## 12. The render thread, profiled (2026-08-03)
+
+Every previous section reasoned about where the frame goes from timers we placed by hand. This one
+**sampled** it. The instrument is the device's own `simpleperf`, and it moved the top of the list
+somewhere nobody had guessed.
+
+### 12.1 First, the dead end it killed
+
+§11.5 claimed the pan hang was `invalidateTileSurfaces` / `resetTileSurfaces` rebuilding per-tile
+CPU surfaces on the render thread, and §0 had that as the largest known item. It does not happen:
+
+```
+RenderStats: ... | surfBuilt=0 surfInval=0 | ...        (every interval, whole north pan)
+PROBE terrainstate: tiles=2 changed=0.03 invalSurf=0.00 invalLabel=0.01 ms
+```
+
+`_tileSurfaceMap` is filled **only** by `buildCompiledTileSurfaces` (`GLTileRenderer.cpp:5631`),
+which only the NON-grid draw path calls — and every terrain configuration we ship is grid mode. So
+the map is empty, `invalidateTileSurfaces` iterates nothing, and the block costs 0.04 ms, not 21.
+(`surfBuilt` / `surfInval` were being collected but never printed; the `RenderStats` line carries
+them now.)
+
+### 12.2 How to profile the render thread
+
+```sh
+adb shell simpleperf record --app com.akylas.cartotest -g -f 500 --duration 12 -o /data/local/tmp/perf.data
+adb pull /data/local/tmp/perf.data /tmp/perf.data
+```
+
+Symbols need the **unstripped** library, and `--symfs` matches by the dso's path on device, so the
+tree has to mirror it:
+
+```sh
+D='/tmp/symfs/data/app/~~<hash>==/com.akylas.cartotest-<hash>==/lib/arm64'
+mkdir -p "$D"
+cp scripts/android-dev/carto_mobile_sdk/build/intermediates/cxx/Debug/*/obj/arm64-v8a/libcarto_mobile_sdk.so "$D/"
+$NDK/simpleperf/bin/darwin/x86_64/simpleperf report -i /tmp/perf.data --symfs /tmp/symfs \
+  --tids <gl-thread-tid> --children --sort symbol -n
+```
+
+Two traps: the report is **per process** by default and the tile decode threads are as busy as the
+render thread (`Thread-7` 28%, `GLThread 32` 27%), so always pass `--tids`; and there are several
+threads called `GLThread 32` — the render thread is the one whose call graph starts at
+`MapRenderer::onDrawFrame`.
+
+### 12.3 Where it goes (Crosscall, north pan, 12 s, 4308 samples on the render thread)
+
+| | share of the render thread |
+|---|---|
+| `ElevationTextureCache::beginFrame` → `uploadReadyTextures` | **37.5%** |
+| ├ `Bitmap::loadFromUncompressedBytes` — a 514² RGBA copy, byte by byte | 19.6% |
+| ├ `EncodedTexture::~EncodedTexture` — freeing the encode buffer there | 10.8% |
+| └ `Bitmap::~Bitmap` / `Texture::~Texture` | 6.6% |
+| `GLTileRenderer::renderGeometry2D` | 31.0% |
+| └ **`std::sort` for the near-to-far tile order** | **21.4%** |
+| ⤷ its comparator: `TerrainTileTransformer::calculateTileBBox` 22.2% incl., `ElevationManager::getMinMaxDisplayHeight` 8.0% | |
+| `HillshadeRasterTileLayer::onDrawFrame` | 10.5% |
+| `TerrainRenderer::updateDepthBuffer` (7.7% of it destroying the previous buffer) | 8.7% |
+
+Two thirds of the render thread was doing no GL work at all: **one memcpy-shaped copy and one
+sort key computed inside a comparator.**
+
+### 12.4 What landed
+
+- **One distance per tile, not one per comparison.** The near-to-far comparator called
+  `_transformer->calculateTileBBox` on both sides of every comparison; on the terrain transformer
+  that samples the elevation manager for the tile's min/max height and transforms the box in double
+  precision. The distances are now computed once per tile per frame and the sort reads them.
+- **The elevation texture's bitmap is built on the encode worker**, not on the render thread. The
+  worker already encodes the padded texture; it now also constructs the `Bitmap` (which is where the
+  megabyte copy is) and hands that over, so the render thread does the upload and nothing else. The
+  encode buffer is a worker-owned scratch vector reused by every job, so neither the allocation nor
+  the free is in a frame any more.
+
+Interleaved A/B on the device (north pan, hillshade + contours, composite base, 3 repeats each,
+57 vs 61 one-second windows):
+
+| | fps median | frame | `layers` | fps p25 |
+|---|---|---|---|---|
+| before | 7.3 | 118.6 ms | 49.5 ms | 3.9 |
+| **after** | **8.7** | **96.4 ms** | **26.0 ms** | **8.1** |
+
+**+19% fps, and the frame-time floor rises from 3.9 to 8.1 fps** — the stalls this pan was known for
+are the elevation upload, and they are gone. Appearance at the ridge camera (45.244172/5.760595
+z13.2 t20): 0.71% of pixels differ at all, 0.49% by more than 12, mean absolute difference
+0.36/255 — label placement and tile arrival timing, no rendering change.
+
+### 12.5 What the profile says to do next
+
+- `Bitmap::loadFromUncompressedBytes` copies **one byte at a time** (`Bitmap.cpp:672`). It is off the
+  render thread now, but the tile decode threads (28% of the process) run it for every tile bitmap.
+  A row-wise `memcpy` is a small, contained change with a wide effect.
+- `HillshadeRasterTileLayer::onDrawFrame` at 10.5% of the render thread has not been broken down.
+- `TerrainRenderer::updateDepthBuffer` spends 7.7% of the render thread destroying the previous
+  depth buffer's CPU meshes; that free belongs on the worker that builds them.
