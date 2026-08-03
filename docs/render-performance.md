@@ -936,3 +936,68 @@ Re-profiled at `-O2`, the render thread has no dominant leaf left: it is draw su
 10%, `startFrame` 9%, and ~9% of JNI (`CheckJNI` is on in a debuggable APK, so that part is an
 artifact of the demo, not of the SDK). Which puts the next win back where §4 left it: **fewer
 draws and fewer layers**, not micro-optimization.
+
+---
+
+## 13. Contour labels without contour geometry (2026-08-04)
+
+§11.3 said the contour LINES were already free (a fragment block on the terrain paint) while the
+LABELS still dragged in a whole contour tile set, and that tangram generates them from the elevation
+texture instead. That generator is now ported.
+
+### 13.1 What it does
+
+`ContourTileDataSource.LabelStubsEnabled` makes the source emit, instead of traced contours, a
+**short polyline per seed** — tangram's `ContourTextStyleBuilder` (`core/src/style/contourTextStyle.cpp`),
+their algorithm and their constants: a 4x4 grid of seeds per tile, each walked down the elevation
+gradient onto `round(elev/interval)*interval` (≤12 iterations, interpolating straight onto the level
+once it is bracketed, `maxPosErr = 0.25/256`), then along the contour tangent in steps of `2/256`
+until the stub is `1.25 * 32/256` long. A stub is exactly long enough to lay the text along.
+
+The features keep the layer name and the `ele`/`div` attributes, so **existing `#contour` text rules
+style them unchanged**, and they carry `stub` (1 for a stub, 0 for traced geometry) so the same style
+can keep its line rules with a `[stub=0]` filter. Both values are always present: an undefined
+attribute does not compare equal to 0, so a one-sided property would silently drop the traced lines.
+
+For the composite layer the parameters are style-driven like the rest
+(`contour-label-stubs`, `contour-label-interval` in the `#contour` block), because
+`CompositeVectorTileLayer` applies the source's generation parameters from the resolved style.
+
+### 13.2 The trap: the levels have to match the shader
+
+The stub levels must be the levels the *shader* draws (`hillshade-contour-interval`), or the labels
+sit between the lines. Tangram has the same note in their source. In the demo both come from
+`DemoConfig.HILLSHADE_CONTOUR_INTERVAL` / `CONTOUR_LABEL_INTERVAL`.
+
+And in a COMPOSITE base the hillshade slot takes its contour settings **from the style**, not from
+`HillshadeRasterTileLayer` setters — those only reach a stand-alone layer. `--es hsContours true`
+therefore did nothing until the inline style grew a `hillshade-contour-interval`, which is why a
+first pass showed stubs and labels but no lines at all.
+
+### 13.3 Measured (emulator, structural - fps there means nothing)
+
+Ridge camera 45.244172/5.760595 z13.2 t20, composite base, hillshade + contours, per one-second
+interval:
+
+| | traced contours | label stubs |
+|---|---|---|
+| geometry draws | 2035 | **1217** (−40%) |
+| geometry indices | 51.6 M | **29.4 M** (−43%) |
+| render tiles | 1197 | **712** (−41%) |
+| style layers | 108 | **66** |
+| surface draws | 828 | **506** |
+
+Visual check at the same camera: the lines are the shader's, the labels sit on them, and no stub
+fragments are painted (the `[stub=0]` filter).
+
+**Device numbers are still to take** — the interleaved A/B on the Crosscall has not been run for
+this. Do it with `bench/north.sh` and `--es contourStubs true --es hsContours true` against the
+traced arm.
+
+### 13.4 Left to do
+
+- Device A/B, at the north pan and at a settled ridge camera.
+- Label density: tangram's 4x4 grid per tile is theirs, but our tiles are not their tiles - if the
+  labels come out too sparse or too dense, `gridSize` is the knob to expose, not the interval.
+- The stubs do not follow the DEM's own zoom ladder: `LabelInterval` is one value for all zooms
+  (0 falls back to the traced-geometry ladder). Tangram switches 100/200/500 m by zoom.
