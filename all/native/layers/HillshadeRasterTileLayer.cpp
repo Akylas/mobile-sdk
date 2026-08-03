@@ -293,12 +293,11 @@ namespace carto
         if (!_terrainPaintEnabled.load() || isTerrainPaintDisabledByProperty()) {
             return false;
         }
-        // The built-in GPU contour lines are drawn by the normal-map fragment shader, outside the
-        // lighting shader the paint reuses - in paint mode they would silently disappear. Layers
-        // that ask for them keep the normal map until the paint grows a contour kind of its own.
-        if (isContourEnabled()) {
-            return false;
-        }
+        // Contours no longer disqualify the paint: it grew a contour kind of its own, the same
+        // screen-width block the normal-map path uses, computed from the shared DEM in
+        // terrainPaintFsh. Asking for contours used to drop the layer back to its own DEM tile set
+        // - fetch, decode, normal map, upload and ~5x the render tiles - to draw what the terrain
+        // already had on the GPU.
         auto options = getOptions();
         if (!options) {
             return false;
@@ -353,6 +352,11 @@ namespace carto
         mix(getExagerateHeightScaleEnabled() ? 1 : 2);
         mix(isLegacyHeightScaleEnabled() ? 1 : 2);
         mix(std::hash<std::string>()(getNormalMapLightingShader()));
+        // The paint draws the contours itself now, so they are part of its appearance: without
+        // them here a contour change leaves every already-baked drape texture in place.
+        mixFloat(isContourEnabled() ? getContourInterval() : 0.0f);
+        mixFloat(getContourWidth());
+        mix(getContourColor().getARGB());
         if (getIlluminationMapRotationEnabled()) {
             mix(static_cast<std::size_t>(_paintRotationStep.load()));
         }
