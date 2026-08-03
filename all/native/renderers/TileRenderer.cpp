@@ -271,6 +271,23 @@ namespace carto {
         }
     }
 
+    void TileRenderer::setTerrainGroundTiles(const std::vector<vt::TileId>& tileIds) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            tileRenderer->setTerrainGroundTiles(tileIds);
+        }
+    }
+
+    int TileRenderer::renderTerrainGround(const Color& color) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            return tileRenderer->renderTerrainGround(vt::Color(color.getR() / 255.0f, color.getG() / 255.0f, color.getB() / 255.0f, color.getA() / 255.0f));
+        }
+        return 0;
+    }
+
     bool TileRenderer::isDrapeEnabled() const {
         std::lock_guard<std::mutex> lock(_mutex);
 

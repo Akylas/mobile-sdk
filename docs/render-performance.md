@@ -32,6 +32,11 @@ reversed, record it here with the evidence.
 > a third surface pass per tile - where the drape drew one shared surface plus one mask. Tangram has
 > NEITHER a per-layer pre-pass nor stencil masks. So it is one change: drape + pre-pass + masks go
 > together, leaving one ground draw per tile and displaced geometry for everything else.
+> **That change has LANDED behind `--es drape false` — see §10.** The default is still the drape,
+> because the device verdict is not in: on the emulator the ground side got 39% cheaper and the mask
+> pass vanished, while the fills - baked once with the drape - now cost 13× the index throughput
+> every frame. **§10.2 is therefore the next move: stop subdividing content** (tangram does not
+> subdivide at all), then take the device numbers and flip the default.
 >
 > **Shadows stay** (Martin). They are their own caster pass and FBO, not part of the drape.
 >
@@ -39,9 +44,13 @@ reversed, record it here with the evidence.
 > `core/src/style/rasterStyle.cpp` (one shared 64-grid mesh, vertex = 2 x GL_SHORT, one draw per
 > tile, no depth pre-pass), `res/scenes/hillshade.yaml` (shading in the terrain draw's colour block).
 >
-> **Build trap:** gradle prints BUILD SUCCESSFUL while ninja has failed - two benches in this session
-> measured stale native code. After any change under `libs-carto/` or a renamed symbol, verify:
-> `unzip -p app/build/outputs/apk/debug/app-debug.apk lib/arm64-v8a/libcarto_mobile_sdk.so | strings | grep <new symbol>`
+> **Build trap:** gradle prints BUILD SUCCESSFUL while ninja has failed - two benches in one session
+> measured stale native code. After any change under `libs-carto/` or a renamed symbol, verify the
+> symbol is really in the library. The APK's copy is STRIPPED, so grep the unstripped one ninja
+> produced and check the mtimes line up with the APK:
+> ```sh
+> strings -a scripts/android-dev/carto_mobile_sdk/build/intermediates/cxx/Debug/*/obj/arm64-v8a/libcarto_mobile_sdk.so | grep <new symbol>
+> ```
 >
 > **Measure the terrain with a background-only style** (`--es minimal true`): with the full style the
 > base map's geometry is most of the frame and hides everything else (measured: a change worth +29%
@@ -441,20 +450,21 @@ instead of magnifying a 256² normal map. No brightness shift.
 
 - **Tiles blink while zooming in.** Distinct from the missing-tile bug (fixed, confirmed on device):
   a flash as tiles turn over. Most likely the drape cache's generation swap - seed, stand-in, then
-  the tile's own bake - rather than the paint. Expected to go with the drape, but verify rather than
-  assume it.
+  the tile's own bake - rather than the paint. Both this and the next one are properties of the
+  drape, so `--es drape false` is now the way to confirm them: with §10 that path is the tangram
+  arrangement rather than the old slow fallback. **Still to be verified on device.**
 - **Artifacts at high zoom (z15+):** blurred ground with the background bitmap's pattern showing
   through. One 1024 drape texture per tile, magnified far past its resolution. Drawing the paint
   without the drape (`--es drape false`) is sharp at the same camera, which is corroboration, not
   proof.
-- **Tile edge stitching is probably not applied at all** (read from the code, not yet seen on
-  screen). `buildTerrainEdgeCoarsening` runs only from `setVisibleTiles`, so the coarsening map is
-  built from A LAYER'S OWN visible tiles - while the surfaces actually drawn come from the drape
-  cover (normalised leaves, drawn by `drapeLayers.front()`) and, for a paint, from the terrain
-  cover. A paint has no tiles, so its map is empty and its surfaces stitch nothing; if the paint is
-  the front drape layer, the shared surface loses stitching too. The symptom would be cracks along
-  LOD-ring edges. Fix: build the map from the cover that is drawn, not per layer - natural to do
-  while removing the drape, where that cover becomes a single explicit set.
+- ~~**Tile edge stitching is probably not applied at all.**~~ **Fixed.** `buildTerrainEdgeCoarsening`
+  ran only from `setVisibleTiles`, so the coarsening map was built from A LAYER'S OWN visible tiles
+  while the surfaces actually drawn come from the drape cover (normalised leaves, drawn by
+  `drapeLayers.front()`), from the shared ground cover (§10) or, for a paint, from the terrain
+  cover. A paint has no tiles at all, so its map was empty and its surfaces stitched nothing. The
+  renderer now keeps the cover it is handed (`GLTileRenderer::terrainSurfaceTileIds`: drape cover,
+  else ground cover, else paint cover, else its own tiles) and rebuilds the map whenever that
+  changes, so stitching follows the geometry that is drawn in every mode.
 
 **Open: a hillshade-only stack draws nothing under the paint.** With no vector layer there is no
 drape cover, so the paint is given the terrain's own cover (`TerrainRenderer::collectVisibleTiles`
@@ -467,3 +477,80 @@ Left to do: that gap (it blocks benching the hillshade alone), the elevation tex
 CONTOUR and HYPSO paint kinds (same quad, same prelude), contour labels as tangram generates them
 (short seed-walk stubs from `ContourTileDataSource`, styled by the existing `#contour` text rules),
 and a paint path for the no-drape configuration, where the layer still keeps its tiles.
+
+---
+
+## 10. The shared terrain ground: no drape, no per-layer pre-pass, no stencil masks
+
+This is the change §0 called for, and it is one change because the three costs are one arrangement.
+Nothing is baked any more: the layer stack shares ONE cover of terrain tiles, the ground is drawn
+once for that cover, and every layer then composites straight onto it in layer order - which is
+what tangram does (`core/src/style/rasterStyle.cpp`: one shared grid mesh, one draw per tile, no
+pre-pass, no masks anywhere in `core/src`).
+
+Active whenever 3D terrain is on and draped fills are off. **The demo now defaults to it**
+(`DemoConfig.TERRAIN_DRAPE_FILLS = false`); `--es drape true` brings the drape back for an A/B.
+The SDK option `TerrainOptions.DrapeFillsEnabled` still defaults to on, so no app changes behaviour
+until it opts in — that default flips, and the drape code goes, once §10.2 lands and the device
+numbers are in. **The drape is being dropped, not kept as an option.**
+
+### 10.1 What each piece becomes
+
+| | with the drape | shared ground |
+|---|---|---|
+| ground geometry | one grid surface per tile, textured with the tile's baked 1024² RTT texture | one grid surface per tile, in the ground colour, lit and shadowed |
+| fills | baked flat into that texture (cached) | drawn as displaced 3D geometry, every frame |
+| tile backgrounds / rasters | baked | drawn on the COVER tiles, with the source uv sub-rect the overzoom path already computes |
+| depth | the drape surface is the only depth writer | the ground pass is the only depth writer |
+| per-layer depth pre-pass | already skipped | skipped |
+| stencil tile masks | one grid draw per tile per layer | none |
+
+Two rules hold the depth model together, both inherited from rounds 45-56 and unchanged:
+
+1. **The ground is drawn at its TRUE depth and is never pushed back.** Everything after it is
+   `GL_LEQUAL`, no bias in either direction: coincident content passes, content behind a ridge
+   fails. A forward pull is what leaks far-slope content over a crest.
+2. **Ground-shaped content is drawn on the cover tiles, not on the layer's own.** Two tesselations
+   of one height field do not agree, so a hillshade at z12 drawn on its own tiles would z-fight the
+   z14 ground. On the cover it is coincident to the bit. That is why the cover computation
+   (`MapRenderer::collectTerrainCover`, extracted from the drape path) is shared by both modes.
+
+Without the masks, a retained blend-out (proxy) tile could paint over the live tile that replaced
+it during an LOD change, so the near-to-far sort inside a style layer now puts proxies first — the
+same intent the mask stamping order had.
+
+### 10.2 Measured (emulator, structural)
+
+Ridge camera 45.244172/5.760595 z13.5 t20, hillshade + contours + elements, scripted pan, per
+one-second interval. Emulator fps means nothing; these are counts.
+
+| | drape | shared ground |
+|---|---|---|
+| stencil mask draws | 4209 | **0** |
+| mask time | 24.7 ms | **0** |
+| surface draws | 5612 | **3450** (−39%) |
+| surface indices | 138 M | **85 M** (−38%) |
+| geometry draws | 2806 | 9100 |
+| geometry indices | **25 M** | **339 M** |
+
+So the ground side is 39% cheaper and the mask pass is gone — and the fills that used to be baked
+once now cost 13× more index throughput, every frame. That is the whole trade, and it is why the
+next step is not optional:
+
+**§10.3 The fills must stop being subdivided.** `TileLayer.cpp` decodes every fill subdivided to
+`tileMeters / meshResolution` (`terrainSourceDensity = false`, always) because an un-subdivided fill
+that is NOT draped sags below the surface. With no drape at all that reason is gone and tangram's
+answer applies instead: source-density content plus the constant-clip `depth_shift`
+(`debug.carto.linesourcedensity 1`, `debug.carto.depthshift 0.02`, §3.1), measured at 2.7× fewer
+content indices. It was rejected as a default because contour lines showed through ridges — which
+§4 (contours as a shader block on the terrain draw) is what actually fixes.
+
+### 10.3 What this path still does not do
+
+- **Shadows are not cast from it.** The caster pass and the shadow map still live in the drape
+  block, so the shared ground explicitly clears the shadow map (a stale one is worse than none) and
+  the ground is lit but unshadowed. Porting the caster pass onto the shared cover is the follow-up
+  Martin already flagged, together with edge stitching in the tangram arrangement.
+- **A cover leaf coarser than a render tile** (only when the split hits its 256-tile cap) makes that
+  tile draw on its own surface, one tesselation finer than the ground it stands on.
+- Device numbers, and the verdict on the two drape bugs in §9.6, are still to be taken.

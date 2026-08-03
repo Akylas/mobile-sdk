@@ -407,6 +407,10 @@ namespace carto {
         bool prepareTerrainDrapeFrame(float deltaSeconds, const ViewState& viewState);
         void setExternalDrapeTarget(bool enabled);
         void setExternalDrapeTiles(const std::vector<vt::TileId>& tileIds);
+        // The shared terrain ground: the cover every layer of the stack composites onto, drawn
+        // once per frame by the front layer (see vt::GLTileRenderer::setTerrainGroundTiles).
+        void setTerrainGroundTiles(const std::vector<vt::TileId>& tileIds);
+        int renderTerrainGround(const Color& color);
         void collectDrapeTiles(std::map<vt::TileId, std::size_t>& drapeTiles) const;
         int bakeDrapeTile(const vt::TileId& tileId);
         int renderDrapedSurface(const vt::TileId& tileId, unsigned int drapeTexture, float uvOffsetX, float uvOffsetY, float uvScale);

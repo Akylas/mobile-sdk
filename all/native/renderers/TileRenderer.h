@@ -93,6 +93,8 @@ namespace carto {
          */
         void setExternalDrapeTarget(bool enabled);
         void setExternalDrapeTiles(const std::vector<vt::TileId>& tileIds);
+        void setTerrainGroundTiles(const std::vector<vt::TileId>& tileIds);
+        int renderTerrainGround(const Color& color);
         bool isDrapeEnabled() const;
         void collectDrapeTiles(std::map<vt::TileId, std::size_t>& drapeTiles) const;
         int bakeDrapeTile(const vt::TileId& tileId);

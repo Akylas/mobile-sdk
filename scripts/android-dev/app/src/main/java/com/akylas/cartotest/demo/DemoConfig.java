@@ -162,8 +162,11 @@ public final class DemoConfig {
     public static int TERRAIN_MESH_RESOLUTION = 64;
     /** Painter-order depth model (per-tile-layer depth domain). Keep on unless debugging depth. */
     public static boolean TERRAIN_PAINTER_ORDER_DEPTH = true;
-    /** Render fills through an offscreen drape pass instead of displacing their geometry. */
-    public static boolean TERRAIN_DRAPE_FILLS = true;
+    /** Render fills through an offscreen drape pass instead of displacing their geometry.
+     *  OFF: the drape is being dropped for the tangram arrangement - one shared ground pass for the
+     *  whole layer stack, no bake, no per-layer depth pre-pass, no stencil masks (render-performance
+     *  doc, section 10). '--es drape true' still brings the old path back for an A/B. */
+    public static boolean TERRAIN_DRAPE_FILLS = false;
     public static boolean TERRAIN_DRAPE_LINES = false;
     public static int TERRAIN_DRAPE_RESOLUTION = 1024;
     /** Stitch neighbouring DEM tiles so ridges do not appear at tile borders. */

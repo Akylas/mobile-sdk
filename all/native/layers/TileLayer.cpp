@@ -895,6 +895,14 @@ namespace carto {
         _tileRenderer->setExternalDrapeTiles(tileIds);
     }
 
+    void TileLayer::setTerrainGroundTiles(const std::vector<vt::TileId>& tileIds) {
+        _tileRenderer->setTerrainGroundTiles(tileIds);
+    }
+
+    int TileLayer::renderTerrainGround(const Color& color) {
+        return _tileRenderer->renderTerrainGround(color);
+    }
+
     void TileLayer::collectDrapeTiles(std::map<vt::TileId, std::size_t>& drapeTiles) const {
         _tileRenderer->collectDrapeTiles(drapeTiles);
     }

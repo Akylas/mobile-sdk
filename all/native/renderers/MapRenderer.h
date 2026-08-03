@@ -46,6 +46,8 @@ namespace carto {
     class Options;
     class PostProcessEffect;
     class TerrainRenderer;
+    class TerrainOptions;
+    class TileLayer;
     class TerrainDrapeCache;
     class TerrainShadowMap;
     class ThreadWorker;
@@ -198,6 +200,17 @@ namespace carto {
         static void logRedrawSources();
 
         void drawLayers(float deltaSeconds, const ViewState& viewState);
+
+        // Is tileId a STRICT ancestor of other, i.e. does it cover its ground at a coarser level?
+        static bool coversTile(const vt::TileId& tileId, const vt::TileId& other);
+
+        // The terrain cover the whole tile layer stack shares this frame: the union of what the
+        // layers report (layerTiles / collectedTiles, kept for the drape's staleness bookkeeping)
+        // normalised into ONE non-overlapping quadtree partition, the leaves. Both terrain paths
+        // build on it - the drape bakes one texture per leaf, the shared ground draws one surface
+        // per leaf - because the surfaces of two different tesselations of the same height field
+        // do not agree and fight wherever they overlap.
+        void collectTerrainCover(const std::vector<std::shared_ptr<TileLayer> >& tileLayers, const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, std::vector<std::map<vt::TileId, std::size_t> >& layerTiles, std::map<vt::TileId, std::size_t>& collectedTiles, std::vector<vt::TileId>& leaves, int& coverZoom, int& maxCollectedZoom);
 
         void applyPostProcessEffect(const std::shared_ptr<PostProcessEffect>& effect, const ViewState& viewState);
 
