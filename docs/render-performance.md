@@ -37,6 +37,10 @@ the drape, so no app changes behaviour until it opts in.
 **Next, in order** (rewritten after the render-thread profile of §12 — several older entries are
 now measured to be dead ends, see §11.4 and §12.1):
 
+0. **Build with `-PnativeOpt` and re-take the numbers that matter** (§12.6). The bench APK was
+   compiled at `-O0` all along; `-O2` is +49% on the north pan, and it moves the frame from
+   CPU-bound to waiting on the GPU. The tangram head-to-head (§11.2) has to be re-run before it
+   means anything.
 1. ~~**Stop rebuilding tile surfaces on the render thread**~~ — **measured not to happen at all**
    in the shipped configuration, see §12.1. What the render thread actually spends is in §12.
 2. **Take the next two items off the render thread** (§12.4): `HillshadeRasterTileLayer::onDrawFrame`
@@ -61,8 +65,12 @@ Do **not** re-run the dead ends in §6 and §10.6 — they are measured.
 Build the demo with the profilers on and read `PROF` / `PROF GPU` / `RenderStats` from logcat:
 
 ```sh
-cd scripts/android-dev && ./gradlew :app:assembleDebug -x lint -PprofileRender
+cd scripts/android-dev && ./gradlew :app:assembleDebug -x lint -PprofileRender -PnativeOpt
 ```
+
+**`-PnativeOpt` is not optional for a perf number.** The debug variant builds the native SDK with
+`CMAKE_BUILD_TYPE=Debug`, which passes no `-O` at all — every number in this document that predates
+§12.6 was taken on an `-O0` SDK, and the same code with `-O2` is 49% faster.
 
 - `PROF` — CPU ms per frame section: `sky prelude prepare cover drape layers layers3D billboards`.
   `sky` is mostly the swap-buffer wait, not work.
@@ -887,3 +895,41 @@ z13.2 t20): 0.71% of pixels differ at all, 0.49% by more than 12, mean absolute 
 - `HillshadeRasterTileLayer::onDrawFrame` at 10.5% of the render thread has not been broken down.
 - `TerrainRenderer::updateDepthBuffer` spends 7.7% of the render thread destroying the previous
   depth buffer's CPU meshes; that free belongs on the worker that builds them.
+
+### 12.6 Everything above was measured on an UNOPTIMIZED build
+
+The demo's `debug` variant builds the native SDK with `CMAKE_BUILD_TYPE=Debug`. Nothing sets an
+optimization level there, so clang defaults to `-O0`:
+
+```
+carto_mobile_sdk/.cxx/Debug/*/arm64-v8a/CMakeCache.txt:  CMAKE_BUILD_TYPE:STRING=Debug
+compile flags for GLTileRenderer.cpp:                    ['-g']          # no -O
+```
+
+`-DCMAKE_BUILD_TYPE=Release` is set only on the `release` buildType, which this bench never builds.
+`./gradlew :app:assembleDebug -PnativeOpt` now adds `RelWithDebInfo` (so `-g` stays and simpleperf
+still symbolizes). Interleaved A/B, same commit, north pan, 3 repeats each, 62 vs 61 windows:
+
+| native build | fps median | frame | prelude | layers | fps p25 |
+|---|---|---|---|---|---|
+| `-O0` (every number in this document before this section) | 8.6 | 97.3 ms | 17.5 | 26.2 | 7.6 |
+| **`-O2` (`-PnativeOpt`)** | **12.8** | **41.6 ms** | **1.7** | **8.8** | **11.5** |
+
+**+49% for a build flag**, and the shape of the frame changes with it: `prelude` collapses (17.5 →
+1.7 ms) and `sky` — the swap wait — doubles, i.e. the CPU now hands off to the GPU and waits.
+
+Two consequences, both of which invalidate earlier reasoning rather than earlier arithmetic:
+
+- **§11.2's head-to-head compared their release APK to our `-O0` one.** "18.1 vs 8.3, ours draws
+  less and loses 2.2×" is not a like-for-like number. Re-run it with `-PnativeOpt` before drawing
+  any conclusion about how far behind tangram we are.
+- **The `-O0` profile over-weights whatever the optimizer would have inlined** — `std::vector`
+  helpers, cglib's `transform_point`, per-texel lambdas. The two fixes in §12.4 are algorithmic
+  (a sort key computed once instead of per comparison; a copy moved to another thread) so they hold
+  either way, but a hot list taken at `-O0` is not a list of things to optimize.
+
+Re-profiled at `-O2`, the render thread has no dominant leaf left: it is draw submission
+(`renderTileGeometry` 28% inclusive, ~156 draws a frame), `renderGeometry2D` 33%, `prepareFrame`
+10%, `startFrame` 9%, and ~9% of JNI (`CheckJNI` is on in a debuggable APK, so that part is an
+artifact of the demo, not of the SDK). Which puts the next win back where §4 left it: **fewer
+draws and fewer layers**, not micro-optimization.
