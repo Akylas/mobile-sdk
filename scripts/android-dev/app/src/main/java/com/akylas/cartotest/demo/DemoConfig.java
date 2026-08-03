@@ -188,6 +188,10 @@ public final class DemoConfig {
     public static int FOG_COLOR_ARGB = 0xffb8c6d8;
     public static float FOG_START_DISTANCE = 1500f;
     public static float FOG_DISTANCE = 0f;          // 0 = off
+    /** Far plane = factor * cameraHeight / cos(pitch + fovy/2), tangram's rule (their factor is 2).
+     *  0 derives the far plane from the visible ground instead, which is deeper and costs the depth
+     *  precision the per-layer separation needs. '--es farFactor 0' for the old behaviour. */
+    public static float TERRAIN_FAR_PLANE_FACTOR = 2f;
     public static float MAX_VISIBLE_DISTANCE = 0f;  // 0 = unlimited
 
     // =============================================================================================
@@ -401,6 +405,7 @@ public final class DemoConfig {
         }
         FOG_START_DISTANCE = DemoCfg.cfgFloat("fogStart", FOG_START_DISTANCE);
         FOG_DISTANCE = DemoCfg.cfgFloat("fogDistance", FOG_DISTANCE);
+        TERRAIN_FAR_PLANE_FACTOR = DemoCfg.cfgFloat("farFactor", TERRAIN_FAR_PLANE_FACTOR);
         MAX_VISIBLE_DISTANCE = DemoCfg.cfgFloat("maxDistance", MAX_VISIBLE_DISTANCE);
 
         // sun / shadows

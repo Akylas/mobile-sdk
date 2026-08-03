@@ -36,6 +36,7 @@ namespace carto {
         _fogColorARGB(Color(0, 0, 0, 0).getARGB()),
         _fogStartDistance(0.0f),
         _fogDistance(0.0f),
+        _farPlaneFactor(2.0f),
         _maxVisibleDistance(0.0f),
         _onChangeListeners(),
         _onChangeListenersMutex()
@@ -222,6 +223,17 @@ namespace carto {
         float clamped = std::max(0.0f, distance);
         if (_fogDistance.exchange(clamped) != clamped) {
             notifyOptionChanged("FogDistance");
+        }
+    }
+
+    float TerrainOptions::getFarPlaneFactor() const {
+        return _farPlaneFactor.load();
+    }
+
+    void TerrainOptions::setFarPlaneFactor(float factor) {
+        float clamped = std::max(0.0f, factor);
+        if (_farPlaneFactor.exchange(clamped) != clamped) {
+            notifyOptionChanged("FarPlaneFactor");
         }
     }
 

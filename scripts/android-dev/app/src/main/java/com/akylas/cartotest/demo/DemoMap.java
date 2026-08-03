@@ -586,6 +586,7 @@ public class DemoMap {
         terrainOptions.setFogColor(new Color(DemoConfig.FOG_ENABLED ? DemoConfig.FOG_COLOR_ARGB : 0));
         terrainOptions.setFogStartDistance(DemoConfig.FOG_START_DISTANCE);
         terrainOptions.setFogDistance(DemoConfig.FOG_DISTANCE);
+        terrainOptions.setFarPlaneFactor(DemoConfig.TERRAIN_FAR_PLANE_FACTOR);
         terrainOptions.setMaxVisibleDistance(DemoConfig.MAX_VISIBLE_DISTANCE);
         mapView.requestRender();
     }

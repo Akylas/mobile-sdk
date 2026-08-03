@@ -718,11 +718,30 @@ namespace carto {
         // mechanism behind every see-through round on this branch, and it is why tangram can
         // separate style layers by ordinals of up to ~1200 and write depth from all of them:
         // their ratio is a few hundred, fixed.
-        // Only the floor is taken. Their far (2*height/cos(pitch+fov/2)) would also end the view
-        // much closer than TerrainOptions::MaxVisibleDistance does, which is the app's call.
+        // Their FAR is taken too, through TerrainOptions::FarPlaneFactor (their factor is 2):
+        //     far = 2. * m_pos.z / std::max(0.f, std::cos(m_pitch + 0.5f * fovy));
+        // Deriving it from the visible ground instead makes it much deeper, and the depth model is
+        // calibrated on the far/near RATIO, not on either plane - so a deeper far spends the NDC
+        // precision that the per-layer separation needs, and the stack has to make do with a
+        // smaller depth budget than tangram's. The factor is an option because it ends the view
+        // closer, which is the app's trade; 0 keeps the ground-derived far.
         if (_terrainHeightMax > _terrainHeightMin) {
             double cameraHeight = cglib::dot_product(_cameraPos - options.getProjectionSurface()->calculateNearestPoint(_cameraPos, heightMax), zProjVector);
             float terrainNear = static_cast<float>(std::abs(cameraHeight) / 50.0);
+            float farPlaneFactor = 0.0f;
+            if (std::shared_ptr<TerrainOptions> terrainOptions = options.getTerrainOptions()) {
+                farPlaneFactor = terrainOptions->getFarPlaneFactor();
+            }
+            if (farPlaneFactor > 0.0f) {
+                // Tilt is measured from the horizontal here and pitch from the vertical there, so
+                // the angle from the view axis to the horizon is (90 - tilt) + fovy/2.
+                double pitchRadians = (90.0 - _tilt) * Const::DEG_TO_RAD + _halfFOVY * Const::DEG_TO_RAD;
+                double cosPitch = std::cos(pitchRadians);
+                if (cosPitch > 0.0) {
+                    float terrainFar = static_cast<float>(farPlaneFactor * std::abs(cameraHeight) / cosPitch);
+                    far = std::min(far, std::max(terrainFar, terrainNear * 2.0f));
+                }
+            }
             near = std::max(near, std::min(terrainNear, far * 0.5f));
         }
     }

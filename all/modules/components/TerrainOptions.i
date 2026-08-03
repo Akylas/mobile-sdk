@@ -40,6 +40,7 @@
 %attributeval(carto::TerrainOptions, carto::Color, FogColor, getFogColor, setFogColor)
 %attribute(carto::TerrainOptions, float, FogStartDistance, getFogStartDistance, setFogStartDistance)
 %attribute(carto::TerrainOptions, float, FogDistance, getFogDistance, setFogDistance)
+%attribute(carto::TerrainOptions, float, FarPlaneFactor, getFarPlaneFactor, setFarPlaneFactor)
 %attribute(carto::TerrainOptions, float, MaxVisibleDistance, getMaxVisibleDistance, setMaxVisibleDistance)
 %attribute(carto::TerrainOptions, float, DepthBias, getDepthBias, setDepthBias)
 %attribute(carto::TerrainOptions, bool, BillboardOcclusionEnabled, isBillboardOcclusionEnabled, setBillboardOcclusionEnabled)

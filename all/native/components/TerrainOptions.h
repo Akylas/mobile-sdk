@@ -307,6 +307,24 @@ namespace carto {
         void setFogDistance(float distance);
 
         /**
+         * Returns the factor used to derive the far plane from the camera height.
+         * @return The far plane factor. The default is 2, as tangram uses.
+         */
+        float getFarPlaneFactor() const;
+        /**
+         * Sets the far plane to factor * cameraHeight / cos(pitch + fovy/2), tangram's rule
+         * (core/src/view/view.cpp uses a factor of 2). Their whole depth model is calibrated on a
+         * far/near ratio of a few hundred; ours takes the far plane from the visible ground extent,
+         * which is deeper and costs NDC precision, so the per-layer depth separation has to stay
+         * smaller than theirs to avoid seeing through ridges.
+         * The factor is exposed rather than fixed because it ends the view closer, which is the
+         * app's trade to make: a smaller factor buys depth precision and a shorter view, a larger
+         * one the opposite. 0 falls back to deriving the far plane from the visible ground.
+         * @param factor The new far plane factor. The default is 2, as tangram uses.
+         */
+        void setFarPlaneFactor(float factor);
+
+        /**
          * Returns the maximum distance the terrain is drawn to.
          * @return The maximum visible distance in meters. The default is 0 (unlimited).
          */
@@ -506,6 +524,7 @@ namespace carto {
         std::atomic<int> _fogColorARGB;
         std::atomic<float> _fogStartDistance;
         std::atomic<float> _fogDistance;
+        std::atomic<float> _farPlaneFactor;
         std::atomic<float> _maxVisibleDistance;
 
         std::vector<std::shared_ptr<OnChangeListener> > _onChangeListeners;
