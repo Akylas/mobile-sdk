@@ -274,6 +274,7 @@ namespace carto {
     void TileRenderer::setTerrainGroundTiles(const std::vector<vt::TileId>& tileIds) {
         std::lock_guard<std::mutex> lock(_mutex);
 
+        _terrainGroundActive = !tileIds.empty();
         if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
             tileRenderer->setTerrainGroundTiles(tileIds);
         }
@@ -626,7 +627,13 @@ namespace carto {
             _sunIntensity = lighting.sunIntensity;
             _sunAmbient = lighting.ambientIntensity;
             _resolvedSunDir = lighting.sunDir;
-            if (drapeFills && lighting.terrainLightingEnabled) {
+            // The terrain surface is what this lights, and it exists whenever the stack draws one:
+            // baked under a drape, or the shared ground pass when the drape is off. Gating on the
+            // drape alone left the ground AND the hillshade paint over it unlit - and with them the
+            // shadow map, since the shadow multiplies the lit colour (the paint is drawn from this
+            // layer's own pass, which runs after the owner has set the stack's sun, so it saw the
+            // value this line computes).
+            if ((drapeFills || _terrainGroundActive) && lighting.terrainLightingEnabled) {
                 terrainLighting.enabled = true;
                 terrainLighting.sunDir = lighting.sunDir;
                 terrainLighting.sunColor = cglib::vec3<float>(lighting.sunColor.getR() / 255.0f, lighting.sunColor.getG() / 255.0f, lighting.sunColor.getB() / 255.0f);

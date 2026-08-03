@@ -205,6 +205,7 @@ namespace carto {
         bool _framePrepared = false;   // startFrame already ran this frame (cross-layer drape ordering)
         bool _framePrepareResult = false;
         bool _externalDrapeTarget = false;
+        bool _terrainGroundActive = false; // a shared ground cover is set: this stack draws a terrain surface without a drape
         int _terrainRenderOrder = 0;
         int _maxVertexTextureUnits = -1; // lazily queried GL capability (-1 = not queried yet)
         std::shared_ptr<ElevationTextureCache> _elevationTextureCache;

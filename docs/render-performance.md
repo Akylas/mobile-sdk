@@ -587,10 +587,20 @@ content indices. It was rejected as a default because contour lines showed throu
 
 ### 10.5 What this path still does not do
 
-- **Shadows are not cast from it.** The caster pass and the shadow map still live in the drape
-  block, so the shared ground explicitly clears the shadow map (a stale one is worse than none) and
-  the ground is lit but unshadowed. Porting the caster pass onto the shared cover is the follow-up
-  Martin already flagged, together with edge stitching in the tangram arrangement.
+- **The sun works; cast shadows are wired but switched OFF.** The light and shadow block came out
+  of the drape path into `MapRenderer::applyTerrainShadows`, which both paths now call with their
+  own cover - so the light boxes, the caster pass and the map cache are shared code, and the shared
+  ground gets the resolved stack lighting before it draws. Two real bugs were in the way and are
+  fixed: `TileRenderer` only enabled terrain lighting `if (drapeFills)`, so with the drape off the
+  ground AND the hillshade paint over it were unlit (and a shadow multiplies the LIT colour, so
+  nothing could show); and the paint, which covers the ground it is drawn on, had no lighting of
+  its own - it now takes the same sun and shadow the surface takes, from the geometric normal, not
+  from the hillshade's own exaggerated slope.
+  What is still wrong: with the caster pass enabled the map reads as scattered **shadow acne**
+  instead of the drape's cast shadows - same scene, same map, same emulator, the drape path clean
+  and this one not. So `applyTerrainShadows(..., castShadows = false, ...)` for the shared ground:
+  half-working shadows are worse than none. Flip it to true to work on it, and diff against the
+  drape path, which is the reference.
 - **A cover leaf coarser than a render tile** (only when the split hits its 256-tile cap) makes that
   tile draw on its own surface, one tesselation finer than the ground it stands on.
 - Device numbers, and the verdict on the two drape bugs in §9.6, are still to be taken.
