@@ -174,6 +174,8 @@ namespace carto {
         // Measurement switch for tangram's arrangement: the paint drawn AS the ground rather than
         // as its layer's own surface over it. debug.carto.groundpaint 1. Read once (Android only).
         static bool isTerrainPaintOnGroundForced();
+        // Texture fetches per terrain vertex, debug.carto.demtaps. Read once (Android only).
+        static int terrainDemTaps();
         void updateLabelOcclusionTest(const std::shared_ptr<vt::GLTileRenderer>& tileRenderer, const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions);
 
         static constexpr int SURFACE_RESET_DELAY = 500; // minimum interval (ms) between elevation-driven tile surface rebuilds

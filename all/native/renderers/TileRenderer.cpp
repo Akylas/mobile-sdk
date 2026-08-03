@@ -435,6 +435,7 @@ namespace carto {
             paint.fingerprint = fingerprint;
             tileRenderer->setTerrainPaint(paint);
             tileRenderer->setTerrainPaintOnGround(isTerrainPaintOnGroundForced());
+            tileRenderer->setTerrainDemTaps(terrainDemTaps());
         }
     }
 
@@ -444,6 +445,31 @@ namespace carto {
     // fill - which only looks right when those fills are translucent (tangram's earth style) or
     // when nothing ground-shaped is drawn below the paint's layer.
     //   adb shell setprop debug.carto.groundpaint 1
+    // Texture fetches per terrain vertex: 16 (lattice clamp) / 4 (manual bilinear) / 1 (one
+    // hardware-filtered fetch, tangram's terrain vertex). Vertex texture fetch is expensive on
+    // mobile GPUs and this is 16x what the reference does, so it is the first suspect whenever the
+    // frame sits in the swap wait.
+    //   adb shell setprop debug.carto.demtaps 4
+#ifdef __ANDROID__
+    int TileRenderer::terrainDemTaps() {
+        static const int taps = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            if (__system_property_get("debug.carto.demtaps", property) > 0) {
+                int value = std::atoi(property);
+                if (value > 0) {
+                    return value;
+                }
+            }
+            return 16;
+        }();
+        return taps;
+    }
+#else
+    int TileRenderer::terrainDemTaps() {
+        return 16;
+    }
+#endif
+
 #ifdef __ANDROID__
     bool TileRenderer::isTerrainPaintOnGroundForced() {
         static const bool forced = [] {
