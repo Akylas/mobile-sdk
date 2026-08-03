@@ -35,7 +35,21 @@ namespace carto {
             gridTile = frameIt->second;
             resolved = gridTile.getZoom() >= 0;
         } else {
-            resolved = resolveEntry(tileId, gridTile);
+            // Nothing cached for this tile: fall back to the nearest ANCESTOR that does resolve.
+            // Zooming out asks for coarse DEM tiles that were never fetched (the finer ones cannot
+            // stand in - the walk only ever goes up), so a tile is routinely left with no elevation
+            // for a moment. Rendering it FLAT there is what makes its roads snap to straight lines
+            // over ground that IS displaced, until its own grid arrives and they jump onto it. An
+            // ancestor is coarser but geometrically correct, and it is the same height field the
+            // shared ground stands on meanwhile, so the two agree.
+            vt::TileId resolveTileId = tileId;
+            for (;;) {
+                resolved = resolveEntry(resolveTileId, gridTile);
+                if (resolved || resolveTileId.zoom <= 0) {
+                    break;
+                }
+                resolveTileId = resolveTileId.getParent();
+            }
             _frameResolved[mapTileId] = (resolved ? gridTile : MapTile(0, 0, -1, 0));
         }
         if (!resolved) {
