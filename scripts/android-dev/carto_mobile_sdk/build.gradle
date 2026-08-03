@@ -97,6 +97,14 @@ android {
                 if (project.hasProperty('profileRender')) {
                     arguments "-DCMAKE_CXX_FLAGS=-DCARTO_FRAME_PROFILER=1 -DCARTO_VT_RENDER_STATS=1"
                 }
+                // The DEBUG variant builds the native SDK with CMAKE_BUILD_TYPE=Debug, i.e. no -O
+                // at all - clang defaults to -O0. Every perf number taken from this demo is
+                // therefore an unoptimized SDK unless this is passed:
+                //   './gradlew :app:assembleDebug -PnativeOpt'
+                // RelWithDebInfo, so -g stays and simpleperf still symbolizes the result.
+                if (project.hasProperty('nativeOpt')) {
+                    arguments "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
+                }
             }
         }
     }
