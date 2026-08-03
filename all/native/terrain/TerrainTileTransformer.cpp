@@ -7,7 +7,46 @@
 #include <cmath>
 #include <limits>
 
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
+
 namespace carto {
+
+    // Measurement switch for what AREA subdivision has to cost. Fills subdivide to exactly one
+    // surface grid cell so every sub-vertex lands on the grid; this multiplies that cell size, so
+    // indices fall as 1/N^2 while the chord error grows as N^2. Tangram has no constant to copy
+    // here - they do not subdivide at all - so the usable value is whatever the depth budget can
+    // still clear, and that is a measurement, not a derivation.
+    // Measured on device, north pan into the terrain, 45.244172/5.760595 z13.2:
+    //   1 cell = 16.6 fps and 158k geometry indices per render tile
+    //   2 cells = 20.6 fps and 48k      <- shipped
+    //   4 cells = 21.2 fps and 19k
+    // Two cells takes most of the frame rate back for half the chord error of four, and at
+    // 45.244172/5.760595 z13.2 t26 neither shows the floating-fill patches that source density
+    // does - the depth budget clears what is left. Four was clean too at that camera and is one
+    // setprop away if the frame ever needs it.
+    //   adb shell setprop debug.carto.areathreshold 4
+    static constexpr float AREA_THRESHOLD_CELLS = 2.0f;
+#ifdef __ANDROID__
+    static float areaThresholdScale() {
+        static const float scale = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            if (__system_property_get("debug.carto.areathreshold", property) > 0) {
+                float value = static_cast<float>(std::atof(property));
+                if (value > 0.0f) {
+                    return value;
+                }
+            }
+            return AREA_THRESHOLD_CELLS;
+        }();
+        return scale;
+    }
+#else
+    static float areaThresholdScale() {
+        return AREA_THRESHOLD_CELLS;
+    }
+#endif
 
     TerrainTileTransformer::TerrainVertexTransformer::TerrainVertexTransformer(const vt::TileId& tileId, double scale, std::shared_ptr<ElevationTileGrid> grid, float exaggeration, float divideThreshold, float lineDivideThreshold, float latticeCell) :
         _tileId(tileId),
@@ -337,7 +376,7 @@ namespace carto {
                 // closely (contours lie exactly on the surface - un-subdivided they need a huge
                 // lift slack that shines everything through). So only the fill threshold goes to
                 // infinity here; the line threshold is unchanged.
-                divideThreshold = _sourceDensity ? std::numeric_limits<float>::infinity() : static_cast<float>(threshold);
+                divideThreshold = _sourceDensity ? std::numeric_limits<float>::infinity() : static_cast<float>(threshold * areaThresholdScale());
                 // Draped lines are baked flat too, so skip their subdivision as well.
                 // Otherwise the lattice split below cuts lines exactly at the surface triangle
                 // boundaries, which removes the chord sag entirely - so the threshold only has to
