@@ -436,6 +436,7 @@ namespace carto {
             tileRenderer->setTerrainPaint(paint);
             tileRenderer->setTerrainPaintOnGround(isTerrainPaintOnGroundForced());
             tileRenderer->setTerrainDemTaps(terrainDemTaps());
+            tileRenderer->setTerrainTileBackgrounds(isTerrainTileBackgroundsForced());
         }
     }
 
@@ -450,6 +451,21 @@ namespace carto {
     // mobile GPUs and this is 16x what the reference does, so it is the first suspect whenever the
     // frame sits in the swap wait.
     //   adb shell setprop debug.carto.demtaps 4
+    // debug.carto.tilebg 1 restores the per-layer per-tile background meshes tangram does not have.
+#ifdef __ANDROID__
+    bool TileRenderer::isTerrainTileBackgroundsForced() {
+        static const bool forced = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            return __system_property_get("debug.carto.tilebg", property) > 0 && property[0] == '1';
+        }();
+        return forced;
+    }
+#else
+    bool TileRenderer::isTerrainTileBackgroundsForced() {
+        return false;
+    }
+#endif
+
 #ifdef __ANDROID__
     int TileRenderer::terrainDemTaps() {
         static const int taps = [] {

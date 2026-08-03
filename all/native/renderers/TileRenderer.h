@@ -176,6 +176,8 @@ namespace carto {
         static bool isTerrainPaintOnGroundForced();
         // Texture fetches per terrain vertex, debug.carto.demtaps. Read once (Android only).
         static int terrainDemTaps();
+        // debug.carto.tilebg 1 keeps the per-tile per-layer background meshes. Read once (Android).
+        static bool isTerrainTileBackgroundsForced();
         void updateLabelOcclusionTest(const std::shared_ptr<vt::GLTileRenderer>& tileRenderer, const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions);
 
         static constexpr int SURFACE_RESET_DELAY = 500; // minimum interval (ms) between elevation-driven tile surface rebuilds
