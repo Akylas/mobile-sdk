@@ -2092,7 +2092,19 @@ namespace carto {
                         FRAME_PROF_ADD(coverMs, profCoverStart);
                         FRAME_PROF_NOW(profGroundStart);
                         FRAME_PROF_GPU_BEGIN(SECTION_DRAPE);
-                        int groundDraws = groundLayers.front()->renderTerrainGround(groundColor);
+                        // The ground is drawn by the layer that PAINTS it when there is one: the
+                        // paint and its lighting shader live on that layer's renderer, and in
+                        // tangram's arrangement the shading is part of the ground draw rather than
+                        // a surface over it. Any layer can draw a plain ground, so the first one
+                        // does when nothing paints.
+                        std::shared_ptr<TileLayer> groundDrawer = groundLayers.front();
+                        for (const std::shared_ptr<TileLayer>& tileLayer : groundLayers) {
+                            if (tileLayer->paintsEveryDrapeTile()) {
+                                groundDrawer = tileLayer;
+                                break;
+                            }
+                        }
+                        int groundDraws = groundDrawer->renderTerrainGround(groundColor);
                         FRAME_PROF_ADD(drapeMs, profGroundStart);
                         FRAME_PROF_GPU_END();
 

@@ -430,8 +430,29 @@ namespace carto {
             paint.opacity = opacity;
             paint.fingerprint = fingerprint;
             tileRenderer->setTerrainPaint(paint);
+            tileRenderer->setTerrainPaintOnGround(isTerrainPaintOnGroundForced());
         }
     }
+
+    // Measurement switch for tangram's arrangement: the paint drawn AS the ground, one draw per
+    // tile at the bottom of the order, instead of as its layer's own surface over the ground fill.
+    // Cheaper by one full-surface draw per tile, but it puts the shading under every ground-shaped
+    // fill - which only looks right when those fills are translucent (tangram's earth style) or
+    // when nothing ground-shaped is drawn below the paint's layer.
+    //   adb shell setprop debug.carto.groundpaint 1
+#ifdef __ANDROID__
+    bool TileRenderer::isTerrainPaintOnGroundForced() {
+        static const bool forced = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            return __system_property_get("debug.carto.groundpaint", property) > 0 && property[0] == '1';
+        }();
+        return forced;
+    }
+#else
+    bool TileRenderer::isTerrainPaintOnGroundForced() {
+        return false;
+    }
+#endif
 
     bool TileRenderer::onDrawFrame(float deltaSeconds, const ViewState& viewState) {
         std::lock_guard<std::mutex> lock(_mutex);

@@ -151,6 +151,9 @@ namespace carto {
         // Measurement override for the paint's DEM level: debug.carto.paintdetail 0 forces the
         // mesh level, whatever the layer asks for. Read once (Android only).
         static bool isTerrainPaintFullDetailAllowed();
+        // Measurement switch for tangram's arrangement: the paint drawn AS the ground rather than
+        // as its layer's own surface over it. debug.carto.groundpaint 1. Read once (Android only).
+        static bool isTerrainPaintOnGroundForced();
         void updateLabelOcclusionTest(const std::shared_ptr<vt::GLTileRenderer>& tileRenderer, const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions);
 
         static constexpr int SURFACE_RESET_DELAY = 500; // minimum interval (ms) between elevation-driven tile surface rebuilds
