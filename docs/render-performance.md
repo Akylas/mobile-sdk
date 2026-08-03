@@ -37,7 +37,7 @@ the drape, so no app changes behaviour until it opts in.
 **Next, in order** (rewritten after the render-thread profile of §12 — several older entries are
 now measured to be dead ends, see §11.4 and §12.1):
 
-0. **Build with `-PnativeOpt` and re-take the numbers that matter** (§12.6). The bench APK was
+0. **Re-take the numbers that matter now the build is optimized** (§12.6). The bench APK was
    compiled at `-O0` all along; `-O2` is +49% on the north pan, and it moves the frame from
    CPU-bound to waiting on the GPU. The tangram head-to-head (§11.2) has to be re-run before it
    means anything.
@@ -65,12 +65,13 @@ Do **not** re-run the dead ends in §6 and §10.6 — they are measured.
 Build the demo with the profilers on and read `PROF` / `PROF GPU` / `RenderStats` from logcat:
 
 ```sh
-cd scripts/android-dev && ./gradlew :app:assembleDebug -x lint -PprofileRender -PnativeOpt
+cd scripts/android-dev && ./gradlew :app:assembleDebug -x lint -PprofileRender
 ```
 
-**`-PnativeOpt` is not optional for a perf number.** The debug variant builds the native SDK with
-`CMAKE_BUILD_TYPE=Debug`, which passes no `-O` at all — every number in this document that predates
-§12.6 was taken on an `-O0` SDK, and the same code with `-O2` is 49% faster.
+The native SDK is built **optimized by default** now, from the command line and from Android Studio
+alike (`-PnativeOpt=false` goes back to `-O0` for stepping through native code). It was not: the
+debug variant sets no `CMAKE_BUILD_TYPE` for the native side, so every number in this document that
+predates §12.6 was taken at `-O0`, and the same code at `-O2` is 49% faster.
 
 - `PROF` — CPU ms per frame section: `sky prelude prepare cover drape layers layers3D billboards`.
   `sky` is mostly the swap-buffer wait, not work.
@@ -907,8 +908,10 @@ compile flags for GLTileRenderer.cpp:                    ['-g']          # no -O
 ```
 
 `-DCMAKE_BUILD_TYPE=Release` is set only on the `release` buildType, which this bench never builds.
-`./gradlew :app:assembleDebug -PnativeOpt` now adds `RelWithDebInfo` (so `-g` stays and simpleperf
-still symbolizes). Interleaved A/B, same commit, north pan, 3 repeats each, 62 vs 61 windows:
+The debug variant now passes `RelWithDebInfo` **by default** — Android Studio passes no gradle
+properties, so an opt-in flag would have left every run from the IDE unoptimized; `-g` stays, so
+simpleperf still symbolizes, and `-PnativeOpt=false` restores `-O0` for native debugging.
+Interleaved A/B, same commit, north pan, 3 repeats each, 62 vs 61 windows:
 
 | native build | fps median | frame | prelude | layers | fps p25 |
 |---|---|---|---|---|---|

@@ -97,12 +97,14 @@ android {
                 if (project.hasProperty('profileRender')) {
                     arguments "-DCMAKE_CXX_FLAGS=-DCARTO_FRAME_PROFILER=1 -DCARTO_VT_RENDER_STATS=1"
                 }
-                // The DEBUG variant builds the native SDK with CMAKE_BUILD_TYPE=Debug, i.e. no -O
-                // at all - clang defaults to -O0. Every perf number taken from this demo is
-                // therefore an unoptimized SDK unless this is passed:
-                //   './gradlew :app:assembleDebug -PnativeOpt'
-                // RelWithDebInfo, so -g stays and simpleperf still symbolizes the result.
-                if (project.hasProperty('nativeOpt')) {
+                // Native optimization, ON by default - including from Android Studio, which
+                // passes no properties. AGP sets no CMAKE_BUILD_TYPE for the debug variant, so
+                // without this clang builds the whole SDK at -O0 and every number measured from
+                // this demo is an unoptimized one (device, north pan: 8.6 fps against 12.8).
+                // RelWithDebInfo keeps -g, so simpleperf still symbolizes the result.
+                // Turn it off to step through native code in a debugger:
+                //   './gradlew :app:assembleDebug -PnativeOpt=false'
+                if (project.findProperty('nativeOpt') != 'false') {
                     arguments "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
                 }
             }
