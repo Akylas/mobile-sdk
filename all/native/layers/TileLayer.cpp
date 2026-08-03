@@ -297,17 +297,23 @@ namespace carto {
             // subdivision is not what costs.
             // This value MUST match what resetTileTransformer() passes, or a change to it silently
             // keeps tiles decoded for the other mode.
-            // WITHOUT a drape this is the tangram content model: no terrain subdivision at all,
-            // every vertex displaced in the vertex shader, and the depth model (per-style-layer
-            // ordinal, content writing depth) doing the rest. Subdividing exists to make content
-            // match a SEPARATE surface exactly; under the shared ground there is no separate
-            // surface to match, and the cost is real - measured at 13x the index throughput, and a
-            // coarse or proxy tile's roads chord straight across the terrain until the tile for the
-            // new zoom arrives, which is the "roads go straight when zooming out" report.
-            // WITH a drape the fills are baked flat and must still follow the drape surface, so
-            // that path keeps its subdivision.
+            // Tangram's content model for LINES: no terrain subdivision, every vertex displaced in
+            // the vertex shader, and the depth model (per-style-layer ordinal, content writing
+            // depth) doing the rest. The cost is real - measured at 13x the index throughput - and
+            // a coarse or proxy tile's roads chord straight across the terrain until the tile for
+            // the new zoom arrives, which is the "roads go straight when zooming out" report.
+            // AREA fills do NOT follow it, and this is the one place the reference cannot be
+            // copied: tangram has no un-subdivided fill above a ground-hugging draw, because in a
+            // terrain scene their base map is a RASTER sampled inside the ground draw
+            // (res/scenes/hillshade.yaml, `base_color = sampleRaster(0)`), not vector polygons.
+            // An un-subdivided fill floats above the surface by its chord error - tens to hundreds
+            // of metres across a tile - and every ground-shaped draw stacked after it (the
+            // hillshade raster, contours, imagery, all of which draw on the ground's own mesh) is
+            // depth-rejected under it. One ordinal step buys 0.02 clip units, metres at a low
+            // camera, so no ordering recovers it. Subdividing the fill to the ground lattice is
+            // what makes it coincident, and coincident is what lets a raster sit at ANY level.
             bool terrainTangramContent = terrainEnabled && terrainOptions && !terrainOptions->isDrapeFillsEnabled();
-            bool terrainSourceDensity = terrainTangramContent;
+            bool terrainSourceDensity = false;
             bool terrainSourceDensityLines = terrainTangramContent || (terrainOptions && terrainOptions->isDrapeLinesEnabled()) || isLineSourceDensityForced();
             if (_terrainOptions.lock() != terrainOptions || _terrainEnabled != terrainEnabled || _terrainExaggeration != terrainExaggeration || _terrainMeshResolution != terrainMeshResolution || _terrainMinZoom != terrainMinZoom || _terrainRegularGrid != terrainRegularGrid || _terrainSourceDensity != terrainSourceDensity || _terrainSourceDensityLines != terrainSourceDensityLines) {
                 clearTileCaches(true);
@@ -977,7 +983,7 @@ namespace carto {
                     // MUST match what calculateDrawData compares against, or tiles decoded for the
                     // other mode stay in the cache forever.
                     bool tangramContent = !terrainOptions->isDrapeFillsEnabled();
-                    tileTransformer = std::make_shared<TerrainTileTransformer>(static_cast<float>(Const::WORLD_SIZE), terrainOptions->getElevationManager(), terrainOptions->getMeshResolution(), terrainOptions->getMinZoom(), terrainOptions->isRegularGridEnabled() || terrainOptions->isPainterOrderDepthEnabled(), tangramContent, tangramContent || terrainOptions->isDrapeLinesEnabled() || isLineSourceDensityForced());
+                    tileTransformer = std::make_shared<TerrainTileTransformer>(static_cast<float>(Const::WORLD_SIZE), terrainOptions->getElevationManager(), terrainOptions->getMeshResolution(), terrainOptions->getMinZoom(), terrainOptions->isRegularGridEnabled() || terrainOptions->isPainterOrderDepthEnabled(), false, tangramContent || terrainOptions->isDrapeLinesEnabled() || isLineSourceDensityForced());
                 }
             }
         }
