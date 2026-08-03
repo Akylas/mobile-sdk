@@ -26,6 +26,8 @@
 %attribute(carto::ContourTileDataSource, int, Resolution, getResolution, setResolution)
 %attribute(carto::ContourTileDataSource, int, MinVisibleZoom, getMinVisibleZoom, setMinVisibleZoom)
 %attribute(carto::ContourTileDataSource, bool, SeamlessEdgesEnabled, isSeamlessEdgesEnabled, setSeamlessEdgesEnabled)
+%attribute(carto::ContourTileDataSource, bool, LabelStubsEnabled, isLabelStubsEnabled, setLabelStubsEnabled)
+%attribute(carto::ContourTileDataSource, float, LabelInterval, getLabelInterval, setLabelInterval)
 %attribute(carto::ContourTileDataSource, float, SimplifyTolerance, getSimplifyTolerance, setSimplifyTolerance)
 
 %std_exceptions(carto::ContourTileDataSource::ContourTileDataSource)

@@ -120,6 +120,43 @@ namespace carto {
         void setSeamlessEdgesEnabled(bool enabled);
 
         /**
+         * Returns whether only short label stubs are generated instead of full contour lines.
+         * @return True if label stubs are generated. The default is false.
+         */
+        bool isLabelStubsEnabled() const;
+        /**
+         * Sets whether to generate short label stubs instead of full contour lines. A stub is a
+         * ~20 point polyline lying ON a contour, long enough to lay the elevation text along and
+         * nothing more: a grid of 4x4 seeds per tile is walked down the elevation gradient onto the
+         * nearest contour level and then along it. The tile then carries a handful of tiny features
+         * instead of the full traced geometry, which is what makes the labels affordable when the
+         * contour LINES are drawn by the terrain shader
+         * (HillshadeRasterTileLayer.setContourEnabled) rather than from this geometry.
+         *
+         * The features keep the same layer name and the same 'ele'/'div' attributes, so the existing
+         * text rules style them unchanged; they additionally carry 'stub' = 1, so a style that also
+         * draws contour LINES from this layer can exclude them with a [stub=0] filter.
+         *
+         * The stub levels must match the levels the shader draws, or the labels sit between the
+         * lines: set LabelInterval to the layer's ContourInterval (or leave both at their zoom
+         * defaults).
+         * @param enabled True to generate label stubs only.
+         */
+        void setLabelStubsEnabled(bool enabled);
+
+        /**
+         * Returns the contour interval used for label stubs.
+         * @return The label interval in meters, or 0 to follow the zoom-dependent interval. The default is 0.
+         */
+        float getLabelInterval() const;
+        /**
+         * Sets the contour interval used for label stubs, in meters. Use 0 to follow the same
+         * zoom-dependent interval the traced geometry uses.
+         * @param interval The label interval in meters.
+         */
+        void setLabelInterval(float interval);
+
+        /**
          * Returns the simplification tolerance in tile pixels.
          * @return The simplification tolerance in tile pixels. The default is 1.0.
          */
@@ -167,6 +204,8 @@ namespace carto {
         std::atomic<int> _resolution;
         std::atomic<int> _minVisibleZoom;
         std::atomic<bool> _seamlessEdges;
+        std::atomic<bool> _labelStubs;
+        std::atomic<float> _labelInterval;
         std::string _layerName;
         mutable std::mutex _mutex;
 
