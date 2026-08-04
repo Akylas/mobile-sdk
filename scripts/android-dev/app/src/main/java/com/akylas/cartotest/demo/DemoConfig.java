@@ -176,10 +176,14 @@ public final class DemoConfig {
     /** Painter-order depth model (per-tile-layer depth domain). Keep on unless debugging depth. */
     public static boolean TERRAIN_PAINTER_ORDER_DEPTH = true;
     /** Render fills through an offscreen drape pass instead of displacing their geometry.
-     *  OFF: the drape is being dropped for the tangram arrangement - one shared ground pass for the
-     *  whole layer stack, no bake, no per-layer depth pre-pass, no stencil masks (render-performance
-     *  doc, section 10). '--es drape true' still brings the old path back for an A/B. */
-    public static boolean TERRAIN_DRAPE_FILLS = false;
+     *  ON, and it is both the correct and the fast choice - this is tangram's arrangement, where the
+     *  ground draw samples a texture (`base_color = sampleRaster(0)`, res/scenes/hillshade.yaml)
+     *  instead of stacking vector fills over the terrain. A displaced fill chords over the ground
+     *  between its vertices and z-fights it (pale slivers on slopes), and it cannot be given room
+     *  without the forward pull that leaks content through ridges. Measured on the Crosscall, north
+     *  pan with contours and hillshade: 12.9 fps against 10.5 with fills as geometry (bake +1.7 ms,
+     *  geometry submission -3.8 ms). '--es drape false' goes back for an A/B. */
+    public static boolean TERRAIN_DRAPE_FILLS = true;
     public static boolean TERRAIN_DRAPE_LINES = false;
     public static int TERRAIN_DRAPE_RESOLUTION = 0;
     /** Stitch neighbouring DEM tiles so ridges do not appear at tile borders. */
