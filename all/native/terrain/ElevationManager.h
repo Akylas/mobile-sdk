@@ -41,6 +41,11 @@ namespace carto {
      */
     class ElevationManager : public ElevationProvider {
     public:
+        // Texels of elevation data per unit of tile size, i.e. the density tangram's zoom bias
+        // normalises every raster source to: 256 texels over a 256-point tile is one texel per
+        // point, so a 512-texel source is used one zoom level coarser.
+        static constexpr int DEM_TEXELS_PER_TILE_UNIT = 256;
+
         enum class LoadMode {
             /**
              * Only already decoded grids (or their cached ancestors) may be used. Never blocks.

@@ -78,16 +78,6 @@ namespace carto {
          */
         void setDetailLevels(int extraLevels);
 
-        /**
-         * The tile zoom the camera itself is at. A tile COARSER than that (the LOD keeps distant
-         * tiles coarse) shades from a DEM that is coarser again, so the far hillshade goes blocky;
-         * such a tile is given as much extra detail as the difference, which its own zoom caps
-         * anyway - one elevation texture can never be finer than the tile it covers. It costs
-         * nothing like full detail everywhere does: the tiles that take it are the big ones, and
-         * the LOD keeps them few.
-         */
-        void setCameraTileZoom(int zoom);
-
         void clear();
 
     private:
@@ -190,7 +180,6 @@ namespace carto {
         std::map<long long, CacheEntry> _cache; // keyed by the grid tile id
         std::map<long long, MapTile> _frameResolved; // render tile id -> its elevation grid tile (zoom -1: no data), reset every frame
         int _detailLevels = 0; // elevation levels resolved BEYOND what the mesh can express
-        int _cameraTileZoom = 0; // the tile zoom the camera is at; coarser tiles get the difference back
         std::uint64_t _accessCounter = 0; // monotonic LRU clock
         std::uint64_t _frameStartCounter = 0; // LRU clock at the start of the current frame
 

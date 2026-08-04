@@ -330,15 +330,14 @@ namespace carto {
     }
 
     MapTile ElevationManager::getDetailDataTile(const MapTile& mapTile, int extraLevels) const {
+        // Kept for callers that ask for MORE than the standard rule gives; the rule itself no
+        // longer holds anything back (see clampTileZoom), so extraLevels only ever removes the
+        // source zoom bias, and never goes below the tile's own zoom.
         if (extraLevels <= 0) {
             return clampTileZoom(mapTile);
         }
-        // The same walk as clampTileZoom, stopping 'extraLevels' levels earlier: each level kept is
-        // 4x the elevation texels over the same ground, so this is the dial between blurred shading
-        // and the texture working set.
         MapTile tile = mapTile;
-        int surfaceResolution = _surfaceResolution.load();
-        int limit = (2 << extraLevels) * surfaceResolution;
+        int limit = DEM_TEXELS_PER_TILE_UNIT << extraLevels;
         for (int size = _gridSizeHint.load(); size > limit && tile.getZoom() > 0; size /= 2) {
             tile = tile.getParent();
         }
@@ -620,17 +619,21 @@ namespace carto {
     }
 
     MapTile ElevationManager::clampTileZoom(const MapTile& mapTile) const {
-        MapTile tile = mapTile;
-        // Cap by the resolution the terrain mesh can express: an elevation tile is 256-512 texels
-        // while the surface has _surfaceResolution cells, so taking the tile zoom literally would
-        // give every tile its own elevation tile - and its own decoded grid and GL texture - for
-        // detail that cannot be rendered. One texel per half surface cell is the useful limit.
+        // Tangram's rule, verbatim (RasterSource::addRasterTask):
+        //     subTileID = tileId.zoomBiasAdjusted(zoomDiff).withMaxSourceZoom(maxZoom);
+        // the elevation tile is the render tile's OWN z/x/y, adjusted by the elevation source's
+        // ZOOM BIAS - one level per doubling of its tile size, because a 512-texel tile at z-1
+        // has the same texel density as a 256-texel tile at z - and capped by the source's own
+        // maximum zoom. Nothing else: no cap against what the surface mesh can express, and no
+        // detail dial on top of it. Those were this fork's, and they are what made the hillshade
+        // blurry - the mesh resolution decides how finely the GROUND is tesselated, not how much
+        // relief the per-fragment shading may resolve.
         // NOTE: this maps a RENDER tile to its elevation tile and is deliberately NOT idempotent -
-        // it drops a fixed number of levels on every call. Applying it to an elevation tile again
-        // (getTileGrid on a getDataTile result, or on a neighbour of one) costs another level each
-        // hop, which is why the elevation-tile entry points use clampDataTileZoom instead.
-        int surfaceResolution = _surfaceResolution.load();
-        for (int size = _gridSizeHint.load(); size > 2 * surfaceResolution && tile.getZoom() > 0; size /= 2) {
+        // it drops the bias on every call. Applying it to an elevation tile again (getTileGrid on a
+        // getDataTile result, or on a neighbour of one) costs another level each hop, which is why
+        // the elevation-tile entry points use clampDataTileZoom instead.
+        MapTile tile = mapTile;
+        for (int size = _gridSizeHint.load(); size > DEM_TEXELS_PER_TILE_UNIT && tile.getZoom() > 0; size /= 2) {
             tile = tile.getParent();
         }
         return clampDataTileZoom(tile);

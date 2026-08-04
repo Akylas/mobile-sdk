@@ -629,9 +629,6 @@ namespace carto {
                     // extrapolates edges in the shader; ours is CPU re-encoded per DEM tile with a
                     // border ring taken from 8 neighbours.
                     _elevationTextureCache->setDetailLevels(_terrainPaintEnabled && _terrainPaintFullDetail ? terrainPaintDetailLevels() : 0);
-                    // The zoom the camera is at, so a tile the LOD left coarser than that can be
-                    // shaded from its own zoom's DEM instead of from one coarser again.
-                    _elevationTextureCache->setCameraTileZoom(static_cast<int>(viewState.getZoom()));
                     _elevationTextureCache->beginFrame();
                     std::shared_ptr<ElevationTextureCache> elevationTextureCache = _elevationTextureCache;
                     terrainTextureProvider = [elevationTextureCache](const vt::TileId& tileId, vt::GLTileRenderer::TerrainTexture& terrainTexture) {

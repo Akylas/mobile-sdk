@@ -141,11 +141,7 @@ namespace carto {
         // source maximum zoom and by the resolution the surface mesh can express (see
         // ElevationManager::setSurfaceResolution). The cap lives in the manager so that the
         // displaced surface and every CPU-side elevation query use the same height field.
-        // A tile the LOD left coarser than the camera shades from a DEM coarser again; give it
-        // that difference back (getDetailDataTile stops at the tile's own zoom, which is the
-        // finest a single elevation texture covering it can be).
-        int extraLevels = _detailLevels + std::max(0, _cameraTileZoom - mapTile.getZoom());
-        MapTile dataTile = _elevationManager->getDetailDataTile(mapTile, extraLevels);
+        MapTile dataTile = _elevationManager->getDetailDataTile(mapTile, _detailLevels);
 
         std::shared_ptr<ElevationTileGrid> grid = _elevationManager->getDataTileGrid(dataTile, ElevationManager::LoadMode::CACHED_ONLY);
         if (!grid || !(grid->getTile() == dataTile)) {
@@ -202,6 +198,9 @@ namespace carto {
             neighbourGrid(-1, 1), neighbourGrid(1, 1), neighbourGrid(-1, -1), neighbourGrid(1, -1)
         } };
 
+#if CARTO_VT_RENDER_STATS
+        vt::RenderStats::demTileZoomGap.store(mapTile.getZoom() - gridTile.getZoom());
+#endif
         gridTileOut = gridTile;
         auto it = _cache.find(gridTile.getTileId());
         GridKey key = gridKey(grid);
@@ -487,13 +486,6 @@ namespace carto {
         _encodeCondition.notify_all();
         if (thread && thread->joinable()) {
             thread->join();
-        }
-    }
-
-    void ElevationTextureCache::setCameraTileZoom(int zoom) {
-        if (_cameraTileZoom != zoom) {
-            _cameraTileZoom = zoom;
-            _frameResolved.clear(); // every tile's elevation level is measured against it
         }
     }
 

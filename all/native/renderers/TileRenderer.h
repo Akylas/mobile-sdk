@@ -171,13 +171,12 @@ namespace carto {
         // Measurement override for the paint's DEM level: debug.carto.paintdetail 0 forces the
         // mesh level, whatever the layer asks for. Read once (Android only).
         static bool isTerrainPaintFullDetailAllowed();
-        // Elevation levels the shading texture resolves BEYOND the terrain mesh cap. The mesh cap
-        // (one texel per half surface cell) is right for geometry and blurs per-fragment shading by
-        // two zoom levels; each level back costs 4x the elevation textures. Measured on the
-        // Crosscall, north pan, once the texture became 2 bytes a texel: +1 level is 13.1 fps
-        // against 13.8 at the cap (-5%), +2 is 10.1 (-27%, its cost is in the elevation texture
-        // working set - at the source's own level every render tile needs its own texture).
-        static constexpr int DEFAULT_PAINT_DETAIL_LEVELS = 1;
+        // Elevation levels the shading texture resolves BEYOND the standard rule
+        // (ElevationManager::clampTileZoom, which is tangram's: the tile's own zoom, adjusted by
+        // the elevation source's zoom bias). 0 means the shading and the geometry read the SAME
+        // elevation tile, which is tangram's arrangement - one raster per tile serves both - and
+        // is also why it costs nothing: there is no second set of grids and textures.
+        static constexpr int DEFAULT_PAINT_DETAIL_LEVELS = 0;
         static int terrainPaintDetailLevels();
         // Measurement switch for tangram's arrangement: the paint drawn AS the ground rather than
         // as its layer's own surface over it. debug.carto.groundpaint 1. Read once (Android only).

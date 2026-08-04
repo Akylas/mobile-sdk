@@ -215,10 +215,10 @@ namespace carto {
                 RenderStats::demEncodeNs.load(), RenderStats::demUploads.load(),
                 RenderStats::demUploadNs.load(), RenderStats::demPatchNs.load()
             };
-            Log::Infof("RenderStats: dem encodes=%lld patches=%lld encodeMs=%.1f | uploads=%lld uploadMs=%.1f patchMs=%.1f | live=%lld resolved=%lld (per interval)",
+            Log::Infof("RenderStats: dem encodes=%lld patches=%lld encodeMs=%.1f | uploads=%lld uploadMs=%.1f patchMs=%.1f | live=%lld resolved=%lld zoomGap=%lld (per interval)",
                        dem[0] - lastDem[0], dem[1] - lastDem[1], (dem[2] - lastDem[2]) / 1.0e6,
                        dem[3] - lastDem[3], (dem[4] - lastDem[4]) / 1.0e6, (dem[5] - lastDem[5]) / 1.0e6,
-                       RenderStats::demTexturesLive.load(), RenderStats::demTexturesResolved.load());
+                       RenderStats::demTexturesLive.load(), RenderStats::demTexturesResolved.load(), RenderStats::demTileZoomGap.load());
             for (int i = 0; i < 6; i++) { lastDem[i] = dem[i]; }
 
             Log::Infof("RenderStats: endFrame ms=%.1f swept=%lld labelLockWaitMs=%.1f (per interval)",
