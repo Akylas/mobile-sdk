@@ -21,8 +21,9 @@ namespace carto {
 
     /**
      * A single decoded DEM tile: a grid of elevation samples.
-     * Heights are stored quantized to 16 bits (0.25m resolution, well below typical DEM
-     * accuracy) to halve the memory footprint of the decoded elevation cache.
+     * Heights are stored quantized to 16 bits over the TILE's own height range (see
+     * QUANT_MARGIN_REL), which halves the memory footprint of the decoded elevation cache and
+     * still resolves about a centimetre.
      * Grid rows are stored south-to-north (row 0 corresponds to the minimum internal y).
      * Internal class, not exposed in the public API.
      */
@@ -94,8 +95,8 @@ namespace carto {
          * Decodes a DEM bitmap (mapbox/terrarium RGB encoded) into an elevation grid using
          * the given color component coefficients. Returns null if the bitmap has an unsupported format.
          */
-        /** The constant term of the decode: meters = dot(sample, decode) + DecodeOffset(). */
-        static float DecodeOffset() { return QUANT_OFFSET; }
+        /** The constant term of this grid's decode: meters = dot(sample, decode) + getDecodeOffset(). */
+        float getDecodeOffset() const { return _quantOffset; }
 
         static std::shared_ptr<ElevationTileGrid> DecodeBitmap(const MapTile& tile, const MapBounds& internalBounds, const std::shared_ptr<Bitmap>& bitmap, const std::array<double, 4>& coeffs);
 
@@ -118,17 +119,26 @@ namespace carto {
             dst[1] = static_cast<std::uint8_t>(value & 255);
         }
 
-        // Fixed-point encoding: covers -1100m (Dead Sea + margin) to +15283m at 0.25m steps
-        static constexpr float QUANT_OFFSET = -1100.0f;
-        static constexpr float QUANT_SCALE = 0.25f;
+        // Fixed-point encoding, with the 16 bits spent on THIS TILE's own height range instead of
+        // on the whole planet's. A global -1100..15283m mapping quantises to 0.25m, and 0.25m is
+        // coarse enough to SHOW: at a fine DEM level the horizontal texel spacing is a few metres,
+        // so a quarter-metre step is a slope error of several percent and the hillshade breaks into
+        // a per-texel quilt (very visible close up - it is what "pixelated hillshade" was). A tile
+        // spans a few hundred metres of relief, so the same 16 bits give ~1cm there. The decode is
+        // already a per-texture uniform pair, so this costs nothing at all to carry.
+        // The range is padded because the texture's border ring is filled from the NEIGHBOUR grids
+        // and those can reach past this tile's own extremes; what still falls outside clamps.
+        static constexpr float QUANT_MARGIN_REL = 0.25f;
+        static constexpr float QUANT_MARGIN_ABS = 25.0f;  // metres
+        static constexpr float QUANT_MIN_SCALE = 1.0e-4f; // metres, guards a perfectly flat tile
 
-        static std::uint16_t EncodeHeight(float height) {
-            float value = (height - QUANT_OFFSET) / QUANT_SCALE;
+        std::uint16_t encodeHeight(float height) const {
+            float value = (height - _quantOffset) / _quantScale;
             return static_cast<std::uint16_t>(value < 0 ? 0 : (value > 65535.0f ? 65535.0f : value + 0.5f));
         }
 
         float getHeight(int gx, int gy) const {
-            return _heights[gy * _width + gx] * QUANT_SCALE + QUANT_OFFSET;
+            return _heights[gy * _width + gx] * _quantScale + _quantOffset;
         }
 
         const MapTile _tile;
@@ -138,6 +148,8 @@ namespace carto {
         std::vector<std::uint16_t> _heights;
         float _minHeight;
         float _maxHeight;
+        float _quantScale;  // metres per stored unit, this tile's own
+        float _quantOffset; // metres at stored 0
     };
 }
 

@@ -9,6 +9,8 @@
 #include "utils/Const.h"
 #include "utils/Log.h"
 
+#include <vt/RenderStats.h>
+
 #include <algorithm>
 #include <chrono>
 #include <vector>
@@ -65,14 +67,6 @@ namespace carto {
 
     ElevationTextureCache::GridKey ElevationTextureCache::gridKey(const std::shared_ptr<ElevationTileGrid>& grid) {
         return grid ? grid->getTile().getTileId() : -1;
-    }
-
-    std::array<ElevationTextureCache::GridKey, 8> ElevationTextureCache::gridKeys(const std::array<std::shared_ptr<ElevationTileGrid>, 8>& grids) {
-        std::array<GridKey, 8> keys = { { -1, -1, -1, -1, -1, -1, -1, -1 } };
-        for (std::size_t i = 0; i < grids.size(); i++) {
-            keys[i] = gridKey(grids[i]);
-        }
-        return keys;
     }
 
     ElevationTextureCache::ElevationTextureCache(const std::shared_ptr<ElevationManager>& elevationManager, const std::shared_ptr<GLResourceManager>& glResourceManager) :
@@ -172,7 +166,10 @@ namespace carto {
         bool seamless = _elevationManager->isSeamlessTileEdgesEnabled();
         const MapTile& gridTile = grid->getTile();
         int gridMask = (1 << gridTile.getZoom()) - 1;
+        BorderQuality qualities = NO_BORDERS;
+        int slot = 0;
         auto neighbourGrid = [&, this](int dx, int dy) -> std::shared_ptr<ElevationTileGrid> {
+            int index = slot++;
             int ny = gridTile.getY() + dy; // XYZ convention: y grows south, grid rows grow north
             if (ny < 0 || ny > gridMask) {
                 return std::shared_ptr<ElevationTileGrid>();
@@ -192,6 +189,7 @@ namespace carto {
             if (neighbour && neighbour->getTile() == gridTile) {
                 neighbour.reset(); // our own grid covers the neighbour: the texture is already continuous there
             }
+            qualities[index] = (!neighbour ? 0 : (neighbour->getTile() == neighbourTile ? 2 : 1));
             return neighbour;
         };
         // order: W, E, S, N, SW, SE, NW, NE ('south' = smaller internal y = larger XYZ tile y)
@@ -203,16 +201,35 @@ namespace carto {
         gridTileOut = gridTile;
         auto it = _cache.find(gridTile.getTileId());
         GridKey key = gridKey(grid);
-        std::array<GridKey, 8> neighbourKeys = gridKeys(neighbours);
-        if (it == _cache.end() || it->second.gridKeyValue != key || it->second.neighbourKeys != neighbourKeys) {
+        bool gridChanged = (it == _cache.end() || it->second.gridKeyValue != key);
+        if (!gridChanged) {
+            // Keep every side that is already at least as good as what is cached right now, from
+            // the grid the entry took it from - see CacheEntry::neighbours.
+            for (std::size_t i = 0; i < qualities.size(); i++) {
+                if (qualities[i] <= it->second.borderQuality[i]) {
+                    qualities[i] = it->second.borderQuality[i];
+                    neighbours[i] = it->second.neighbours[i];
+                }
+            }
+        }
+        // A border is only redone when a side can now be filled BETTER (see BorderQuality): the
+        // DEM behind it does not change, so a neighbour that was merely evicted is no reason to
+        // touch a texture that is already correct.
+        bool bordersImproved = false;
+        if (!gridChanged) {
+            for (std::size_t i = 0; i < qualities.size(); i++) {
+                bordersImproved = bordersImproved || qualities[i] > it->second.borderQuality[i];
+            }
+        }
+        if (gridChanged || bordersImproved) {
             // Not encoded yet, or encoded from data that has since changed (the tile's own grid
             // arrived, or a neighbour did and the border can be filled properly now). Either way
             // the work goes to the worker; what is already on the GPU keeps being used until the
             // new texture is uploaded, so a border refinement never blanks the tile.
             // Only the ring depends on the neighbours, so when this grid's own texture is already
             // on the GPU a neighbour landing is a patch, not a rebuild.
-            bool bordersOnly = isBorderPatchEnabled() && (it != _cache.end() && it->second.gridKeyValue == key && it->second.bitmap && it->second.texture);
-            requestEncode(gridTile.getTileId(), grid, neighbours, bordersOnly);
+            bool bordersOnly = isBorderPatchEnabled() && !gridChanged && it->second.bitmap && it->second.texture;
+            requestEncode(gridTile.getTileId(), grid, neighbours, qualities, bordersOnly);
             if (it == _cache.end()) {
                 return false;
             }
@@ -226,7 +243,7 @@ namespace carto {
         return it->second.texture && it->second.texture->getTexId() != 0;
     }
 
-    void ElevationTextureCache::requestEncode(long long gridTileId, const std::shared_ptr<ElevationTileGrid>& grid, const std::array<std::shared_ptr<ElevationTileGrid>, 8>& neighbours, bool bordersOnly) {
+    void ElevationTextureCache::requestEncode(long long gridTileId, const std::shared_ptr<ElevationTileGrid>& grid, const std::array<std::shared_ptr<ElevationTileGrid>, 8>& neighbours, const BorderQuality& borderQuality, bool bordersOnly) {
         std::lock_guard<std::mutex> lock(_encodeMutex);
         if (_encodeStopped) {
             return;
@@ -236,7 +253,7 @@ namespace carto {
         }
         // Newest first (the queue is drained from the back): the newest request belongs to the
         // current viewport, while the oldest may already have scrolled away.
-        _encodeQueue.push_back(EncodeJob { gridTileId, grid, neighbours, bordersOnly });
+        _encodeQueue.push_back(EncodeJob { gridTileId, grid, neighbours, borderQuality, bordersOnly });
         while (_encodeQueue.size() > MAX_ENCODE_QUEUE) {
             _encodePending.erase(_encodeQueue.front().gridTileId);
             _encodeQueue.pop_front();
@@ -266,10 +283,13 @@ namespace carto {
                 BorderPatch patch;
                 patch.gridTileId = job.gridTileId;
                 patch.gridKeyValue = gridKey(job.grid);
-                patch.neighbourKeys = gridKeys(job.neighbours);
-                patch.grid = job.grid;
+                patch.borderQuality = job.borderQuality;
                 patch.neighbours = job.neighbours;
+                patch.grid = job.grid;
+                VT_STAT_CLOCK(patchClock);
                 job.grid->encodeTextureBorders(job.neighbours, patch.strips, patch.decode);
+                VT_STAT_SPLIT(demEncodeNs, patchClock);
+                VT_STAT_INC(demBorderPatches);
 
                 std::lock_guard<std::mutex> lock(_encodeMutex);
                 _encodePending.erase(job.gridTileId);
@@ -289,13 +309,14 @@ namespace carto {
             EncodedTexture encoded;
             encoded.gridTileId = job.gridTileId;
             encoded.gridKeyValue = gridKey(job.grid);
-            encoded.neighbourKeys = gridKeys(job.neighbours);
-            encoded.grid = job.grid;
+            encoded.borderQuality = job.borderQuality;
             encoded.neighbours = job.neighbours;
+            encoded.grid = job.grid;
             int width = job.grid->getWidth() + 2;
             int height = job.grid->getHeight() + 2;
             // The scratch buffer belongs to this thread alone and is reused by every job, so the
             // megabyte behind it is allocated once instead of per encode.
+            VT_STAT_CLOCK(encodeClock);
             job.grid->encodeTextureWithBorders(job.neighbours, _encodeScratch, encoded.decode);
             // The encoded rows are south-to-north, i.e. already bottom-up in the Bitmap
             // convention. Bitmap treats a POSITIVE stride as top-down input and flips the
@@ -305,6 +326,8 @@ namespace carto {
             // RGBA encoding it replaces, at the same 16-bit height precision (see
             // ElevationTileGrid::WriteTexel). The negative stride keeps the rows as encoded.
             encoded.bitmap = std::make_shared<BorderBitmap>(_encodeScratch.data(), width, height, ColorFormat::COLOR_FORMAT_GRAYSCALE_ALPHA, -2 * width);
+            VT_STAT_SPLIT(demEncodeNs, encodeClock);
+            VT_STAT_INC(demEncodes);
 
             {
                 std::lock_guard<std::mutex> lock(_encodeMutex);
@@ -348,12 +371,15 @@ namespace carto {
             CacheEntry entry;
             entry.grid = encoded.grid;
             entry.gridKeyValue = encoded.gridKeyValue;
-            entry.neighbourKeys = encoded.neighbourKeys;
+            entry.borderQuality = encoded.borderQuality;
             entry.neighbours = encoded.neighbours;
             entry.decode = encoded.decode;
             entry.lastUsed = (it != _cache.end() ? it->second.lastUsed : _accessCounter);
             entry.bitmap = encoded.bitmap;
+            VT_STAT_CLOCK(uploadClock);
             entry.texture = _glResourceManager->create<Texture>(encoded.bitmap, false, false); // no mipmaps, clamp to edge
+            VT_STAT_SPLIT(demUploadNs, uploadClock);
+            VT_STAT_INC(demUploads);
             _cache.insert_or_assign(encoded.gridTileId, std::move(entry));
         }
     }
@@ -375,6 +401,7 @@ namespace carto {
             int height = patch.grid->getHeight() + 2;
             const std::shared_ptr<BorderBitmap>& bitmap = it->second.bitmap;
             const std::shared_ptr<Texture>& texture = it->second.texture;
+            VT_STAT_CLOCK(patchUploadClock);
             // Both the CPU copy and the GPU texture: the bitmap is what the texture is rebuilt
             // from after a context loss.
             bitmap->writeRect(0, 0, width, 2, patch.strips.south);
@@ -385,8 +412,10 @@ namespace carto {
             texture->updateSubImage(0, 0, 2, height, patch.strips.west.data());
             bitmap->writeRect(width - 2, 0, 2, height, patch.strips.east);
             texture->updateSubImage(width - 2, 0, 2, height, patch.strips.east.data());
+            VT_STAT_SPLIT(demPatchNs, patchUploadClock);
+            VT_STAT_INC(demPatchUploads);
+            it->second.borderQuality = patch.borderQuality;
             it->second.neighbours = patch.neighbours;
-            it->second.neighbourKeys = patch.neighbourKeys;
             it->second.decode = patch.decode;
         }
     }
@@ -427,7 +456,7 @@ namespace carto {
         terrainTexture.internalOrigin = cglib::vec2<double>(bounds.getMin().getX() - texelX, bounds.getMin().getY() - texelY);
         terrainTexture.internalSize = cglib::vec2<double>(bounds.getMax().getX() - bounds.getMin().getX() + 2 * texelX, bounds.getMax().getY() - bounds.getMin().getY() + 2 * texelY);
         terrainTexture.decode = cglib::vec4<float>(entry.decode[0], entry.decode[1], entry.decode[2], entry.decode[3]);
-        terrainTexture.decodeOffset = ElevationTileGrid::DecodeOffset();
+        terrainTexture.decodeOffset = entry.grid->getDecodeOffset();
         terrainTexture.metersToInternal = metersToInternal;
         terrainTexture.mercatorYScale = static_cast<float>(2.0 * Const::PI / Const::WORLD_SIZE);
         // What the DEM itself resolves, for consumers that shade from it (the terrain paint):
@@ -468,6 +497,10 @@ namespace carto {
         // and border refinements are patched into the ones already there.
         uploadReadyTextures();
         applyBorderPatches();
+#if CARTO_VT_RENDER_STATS
+        vt::RenderStats::demTexturesLive.store(static_cast<long long>(_cache.size()));
+        vt::RenderStats::demTexturesResolved.store(static_cast<long long>(_frameResolved.size()));
+#endif
         _frameResolved.clear();
         _frameStartCounter = _accessCounter;
     }

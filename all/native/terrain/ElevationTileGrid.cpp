@@ -14,16 +14,23 @@ namespace carto {
         _height(height),
         _heights(),
         _minHeight(0),
-        _maxHeight(0)
+        _maxHeight(0),
+        _quantScale(QUANT_MIN_SCALE),
+        _quantOffset(0)
     {
         if (!heights.empty()) {
             auto minmax = std::minmax_element(heights.begin(), heights.end());
             _minHeight = *minmax.first;
             _maxHeight = *minmax.second;
 
+            // The 16 bits cover this tile's own range plus a margin for the border ring.
+            float margin = QUANT_MARGIN_REL * (_maxHeight - _minHeight) + QUANT_MARGIN_ABS;
+            _quantOffset = _minHeight - margin;
+            _quantScale = std::max((_maxHeight - _minHeight + 2 * margin) / 65535.0f, QUANT_MIN_SCALE);
+
             _heights.resize(heights.size());
             for (std::size_t i = 0; i < heights.size(); i++) {
-                _heights[i] = EncodeHeight(heights[i]);
+                _heights[i] = encodeHeight(heights[i]);
             }
         }
     }
@@ -75,7 +82,7 @@ namespace carto {
         for (std::size_t i = 0; i < _heights.size(); i++) {
             WriteTexel(&rgbaData[i * TEXEL_BYTES], _heights[i]);
         }
-        decode = { { 255.0f * 256.0f * QUANT_SCALE, 0.0f, 0.0f, 255.0f * QUANT_SCALE } };
+        decode = { { 255.0f * 256.0f * _quantScale, 0.0f, 0.0f, 255.0f * _quantScale } };
     }
 
     std::function<std::uint16_t(int, int)> ElevationTileGrid::makeTexelSampler(const std::array<std::shared_ptr<ElevationTileGrid>, 8>& neighbours) const {
@@ -95,7 +102,7 @@ namespace carto {
         auto sampleValue = [&, this](const ElevationTileGrid* grid, int gx, int gy) -> std::uint16_t {
             double px = _internalBounds.getMin().getX() + (gx + 0.5) * texelX;
             double py = _internalBounds.getMin().getY() + (gy + 0.5) * texelY;
-            return EncodeHeight(grid->sampleHeight(px, py));
+            return encodeHeight(grid->sampleHeight(px, py));
         };
         // EDGE BOX FILTER. A coarser neighbour's height field is the 2^k x 2^k average of this
         // level's (mapterhorn and every other overview pyramid downsamples that way), so along a
@@ -173,7 +180,7 @@ namespace carto {
             auto sampleValue = [&, this](const ElevationTileGrid* grid, int sx, int sy) -> std::uint16_t {
                 double px = _internalBounds.getMin().getX() + (sx + 0.5) * texelX;
                 double py = _internalBounds.getMin().getY() + (sy + 0.5) * texelY;
-                return EncodeHeight(grid->sampleHeight(px, py));
+                return encodeHeight(grid->sampleHeight(px, py));
             };
             static const std::array<std::pair<int, int>, 8> DIRS = { {
                 { -1, 0 }, { 1, 0 }, { 0, -1 }, { 0, 1 }, { -1, -1 }, { 1, -1 }, { -1, 1 }, { 1, 1 }
@@ -189,7 +196,9 @@ namespace carto {
                     if (sameLevel(neighbour)) {
                         int nx = gx - dx * _width;
                         int ny = gy - dy * _height;
-                        return neighbour->_heights[static_cast<std::size_t>(ny) * neighbour->_width + nx];
+                        // Re-encoded: every grid quantises over its OWN height range, so a raw
+                        // index copy would carry the neighbour's scale into this texture.
+                        return encodeHeight(neighbour->getHeight(nx, ny));
                     }
                     if (neighbour) {
                         return sampleValue(neighbour.get(), gx, gy);
@@ -257,7 +266,7 @@ namespace carto {
                 i += TEXEL_BYTES;
             }
         }
-        decode = { { 255.0f * 256.0f * QUANT_SCALE, 0.0f, 0.0f, 255.0f * QUANT_SCALE } };
+        decode = { { 255.0f * 256.0f * _quantScale, 0.0f, 0.0f, 255.0f * _quantScale } };
     }
 
     void ElevationTileGrid::encodeTextureBorders(const std::array<std::shared_ptr<ElevationTileGrid>, 8>& neighbours, BorderStrips& strips, std::array<float, 4>& decode) const {
@@ -286,7 +295,7 @@ namespace carto {
                 WriteTexel(&strips.east[s + col * TEXEL_BYTES], texelValue(_width - 1 + col, gy));
             }
         }
-        decode = { { 255.0f * 256.0f * QUANT_SCALE, 0.0f, 0.0f, 255.0f * QUANT_SCALE } };
+        decode = { { 255.0f * 256.0f * _quantScale, 0.0f, 0.0f, 255.0f * _quantScale } };
     }
 
     std::shared_ptr<ElevationTileGrid> ElevationTileGrid::DecodeBitmap(const MapTile& tile, const MapBounds& internalBounds, const std::shared_ptr<Bitmap>& bitmap, const std::array<double, 4>& coeffs) {
