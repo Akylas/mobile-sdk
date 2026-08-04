@@ -96,10 +96,10 @@ namespace carto {
         void setExternalDrapeTiles(const std::vector<vt::TileId>& tileIds);
         void setTerrainGroundTiles(const std::vector<vt::TileId>& tileIds, const std::vector<int>& proxyDepths);
         void setTerrainLayerOrdinalBase(int base);
-        // Total ordinal span of the whole ground stack. The per-step depth shift is scaled to
-        // tangram's depth BUDGET across it - see TERRAIN_TANGRAM_DEPTH_BUDGET.
-        void setTerrainStackOrdinalSpan(int span);
         int getStyleLayerCount() const;
+        // Metres a draped line is drawn in front of the ground (see GLTileRenderer::setTerrainLineClearance).
+        static float terrainLineClearanceMeters();
+        static constexpr float DEFAULT_LINE_CLEARANCE_METERS = 25.0f;
         int renderTerrainGround(const Color& color);
         bool isDrapeEnabled() const;
         void collectDrapeTiles(std::map<vt::TileId, std::size_t>& drapeTiles) const;
@@ -152,22 +152,9 @@ namespace carto {
         static float getTerrainContentDepthShift();
         // tangram res/scenes/terrain-3d.yaml: depth_shift = -0.02*u_proj[2][3], and [2][3] is -1.
         static constexpr float TERRAIN_TANGRAM_DEPTH_SHIFT = 0.02f;
-        // ...times the order span their scenes use (res/osm-bright.yaml numbers style layers
-        // 1..93) = the clip-space depth budget the whole stack gets, ~1.86. The per-step constant
-        // is meaningless on its own: it only says what a step is worth once you know how many steps
-        // there are, and our ordinals are a dense rank of however many style layers the stack has.
-        // OURS IS SMALLER THAN THEIRS AND IT IS NOT KNOWN WHY. Measured at 45.244172/5.760595
-        // z13.2 t26 with a 7-ordinal stack: 0.2 per step is clean, 0.26 - their full budget - opens
-        // a faint pale wedge through a ridge, 0.3 a clear one, 2.0 wedges everywhere. 1.4 is the
-        // largest budget measured with no leak, so it is what ships.
-        // The far plane was the obvious suspect and it is NOT the cause: porting their
-        // far = 2*height/cos(pitch + fovy/2) (TerrainOptions::FarPlaneFactor) changed neither the
-        // tile count nor the frame rate at that camera, because the ground-derived far is already
-        // inside the bound their formula gives there - it never binds. Whatever spends the missing
-        // 0.46 is still open; do not re-attribute it without a measurement.
-        static constexpr float TERRAIN_TANGRAM_DEPTH_BUDGET = 1.4f;
-        // Total ordinal span of the whole ground stack, set by the owner (MapRenderer numbers it).
-        std::atomic<int> _terrainStackOrdinalSpan = { 1 };
+        // It is a per-step separation between coplanar style layers, not a budget to spread over
+        // the stack: scaling it by the ordinal span was this fork's, and ten times their pull is
+        // what let far content over a near ridge (see the shift's use in onDrawFrame).
         // Measurement override for the paint's DEM level: debug.carto.paintdetail 0 forces the
         // mesh level, whatever the layer asks for. Read once (Android only).
         static bool isTerrainPaintFullDetailAllowed();

@@ -2083,14 +2083,6 @@ namespace carto {
                             tileLayer->setTerrainLayerOrdinalBase(ordinalBase);
                             ordinalBase += std::max(1, tileLayer->getStyleLayerCount());
                         }
-                        // The span the stack ended up with decides what ONE ordinal step is worth:
-                        // tangram spends a fixed depth budget across its whole scene order (1..93 at
-                        // 0.02 in res/osm-bright.yaml), so a shorter stack has to take bigger steps
-                        // to spend the same. Pushed to every layer, not just the ones with content.
-                        for (const std::shared_ptr<TileLayer>& tileLayer : groundLayers) {
-                            tileLayer->setTerrainStackOrdinalSpan(ordinalBase);
-                        }
-
                         // The caster pass and the sun, over the same cover. Both have to be set
                         // BEFORE the ground is drawn: each layer normally sets the sun from its own
                         // onDrawFrame, which runs later in the frame, so the ground would light

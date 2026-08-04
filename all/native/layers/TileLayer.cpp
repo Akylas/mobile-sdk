@@ -1016,10 +1016,6 @@ namespace carto {
         _tileRenderer->setTerrainLayerOrdinalBase(base);
     }
 
-    void TileLayer::setTerrainStackOrdinalSpan(int span) {
-        _tileRenderer->setTerrainStackOrdinalSpan(span);
-    }
-
     int TileLayer::getStyleLayerCount() const {
         return _tileRenderer->getStyleLayerCount();
     }

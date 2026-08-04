@@ -271,10 +271,6 @@ namespace carto {
         }
     }
 
-    void TileRenderer::setTerrainStackOrdinalSpan(int span) {
-        _terrainStackOrdinalSpan.store(span);
-    }
-
     int TileRenderer::getStyleLayerCount() const {
         std::lock_guard<std::mutex> lock(_mutex);
 
@@ -686,21 +682,33 @@ namespace carto {
         // not an experiment, and it is what keeps un-subdivided content from sinking into the
         // ground it chords over. Overridable for measurement:
         //   adb shell setprop debug.carto.depthshift <value>
-        // Their CONSTANT is 0.02, but the quantity that matters is the constant times the ORDER
-        // SPAN of the stack - that product is the depth budget the whole stack gets, and it is what
-        // has to be reproduced. res/osm-bright.yaml numbers its style layers 1..93, so tangram
-        // spends ~1.86 clip units across the scene. Our ordinals are a dense rank, so a style with
-        // nine style layers spends 0.18 at their constant - a tenth of the budget, and far too
-        // little for a fill's tesselation to clear the surface. Scale to their budget instead: a
-        // 93-layer style gets 0.02 back, exactly their number.
-        // Measured on device (45.244172/5.760595 z13.2 t26, 9 ordinals): 0.2 is the largest value
-        // with no see-through, 0.3 opens pale wedges through the ridges and 0.5 more - and 0.2 is
-        // what the budget gives. Their budget IS the leak threshold; do not raise it.
+        // Their constant, verbatim and unscaled. It was scaled up here for a while, to spend across
+        // our dense ordinal rank the same total (~1.86 clip units) that their 1..93 scene order
+        // spends at 0.02 - which put ~0.2 on every style layer, ten times their pull, and that is
+        // what let far content over a near ridge: the pull's eye tolerance grows as distance^2 over
+        // the near plane, so at a high zoom over close terrain it was worth tens of metres
+        // (measured at 45.198902/5.722113 z16.78 t26: paths and contours of the lower slope drawn
+        // across the face in front of them; at 0.02 they stop at the crest).
+        // The scaling confused two jobs. This shift separates COPLANAR STYLE LAYERS, and one step
+        // is all that needs - it is not a budget to spend. Giving an un-subdivided AREA FILL room
+        // to clear the surface it chords over is the other job, and it belongs to the geometry, not
+        // to the layer count: GLTileRenderer gives fills their own tesselation-sized slack under a
+        // shared ground. Tangram never needs that second part - their terrain base map is a raster
+        // inside the ground draw, so no vector fill ever chords over their terrain.
+        //   adb shell setprop debug.carto.depthshift <value>   (measurement override)
         float contentDepthShift = getTerrainContentDepthShift();
         if (_terrainGroundActive && contentDepthShift == 0.0f) {
-            contentDepthShift = TERRAIN_TANGRAM_DEPTH_BUDGET / std::max(1, _terrainStackOrdinalSpan.load());
+            contentDepthShift = TERRAIN_TANGRAM_DEPTH_SHIFT;
         }
         tileRenderer->setTerrainContentDepthShift(contentDepthShift);
+        // Metre-constant clearance for draped LINES over the shared ground (see applyDepthBias in
+        // vt). A line chords over the relief between its own vertices; under a ground that writes
+        // depth that sag is what cuts roads and contours into fragments. The quantity is metres of
+        // sag, so the clearance is expressed in metres and converted at the equator scale - the
+        // remaining 1/cos(latitude) is under a factor of 1.5 at the latitudes terrain is used at,
+        // which is inside the tolerance this is tuned to anyway.
+        //   adb shell setprop debug.carto.lineclearance <metres>
+        tileRenderer->setTerrainLineClearance(static_cast<float>(terrainLineClearanceMeters() * Const::WORLD_SIZE / Const::EARTH_CIRCUMFERENCE));
         tileRenderer->setTerrainEdgeStitching(regularGrid && activeTerrainOptions && activeTerrainOptions->isTileEdgeStitchingEnabled());
         // Draped content is baked FLAT (orthographic, no displacement), so lines need no terrain
         // subdivision either - draping them is strictly cheaper as well as artifact-free. It is
@@ -1045,6 +1053,23 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
         return 0.0f;
 #endif
     }
+
+#ifdef __ANDROID__
+    float TileRenderer::terrainLineClearanceMeters() {
+        static const float meters = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            if (__system_property_get("debug.carto.lineclearance", property) > 0) {
+                return static_cast<float>(std::atof(property));
+            }
+            return DEFAULT_LINE_CLEARANCE_METERS;
+        }();
+        return meters;
+    }
+#else
+    float TileRenderer::terrainLineClearanceMeters() {
+        return DEFAULT_LINE_CLEARANCE_METERS;
+    }
+#endif
 
     int TileRenderer::terrainPaintDetailLevels() {
 #ifdef __ANDROID__
