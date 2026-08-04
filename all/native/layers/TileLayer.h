@@ -456,6 +456,10 @@ namespace carto {
         int findChildTiles(const MapTile& visTile, const MapTile& tile, int depth, bool preloadingCache, bool preloadingTile);
 
         static const float DISCRETE_ZOOM_LEVEL_BIAS;
+        // Levels below the camera zoom a tile may coarsen to in terrain mode - see
+        // calculateVisibleTilesRecursive. The terrain surface is the depth occluder, so an
+        // unbounded coarsening blunts ridge crests and content behind them shows through.
+        static constexpr int TERRAIN_MAX_TILE_ZOOM_COARSENING = 3;
 
         static const int MAX_PARENT_SEARCH_DEPTH;
         static const int MAX_CHILD_SEARCH_DEPTH;
@@ -486,7 +490,8 @@ namespace carto {
         int _maxOverzoomLevel;
         int _maxUnderzoomLevel;
 
-        int _terrainMaxTileZoom = 1000; // terrain-mode tile zoom cap (effectively none), recomputed per cull
+        int _terrainMaxTileZoom = 1000;
+        int _terrainMinTileZoom = 0; // terrain mode: the coarsest tile zoom the LOD rule may pick
         double _maxVisibleDistance = 0; // internal units; 0 = as far as the camera can see
         double _lodMaxTileArea = 0; // screen pixels squared; the tangram LOD threshold, 0 = no area test
         bool _terrainOverzoomTargets = false; // terrain mode: target tiles may exceed the data source max zoom (overzoom-fed)

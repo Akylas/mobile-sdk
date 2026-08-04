@@ -612,6 +612,7 @@ namespace carto {
         // TerrainOptions::setMaxTileZoomOffset caps the tile detail relative to what flat
         // rendering would use.
         _terrainMaxTileZoom = 1000;
+        _terrainMinTileZoom = 0;
         _terrainOverzoomTargets = false;
         if (auto options = getOptions()) {
             if (auto terrainOptions = options->getTerrainOptions()) {
@@ -625,10 +626,12 @@ namespace carto {
                     // and the resulting blunted ridges are leaky occluders that content
                     // and vector elements show through near crests.
                     _terrainOverzoomTargets = true;
+                    const ViewState& viewState = cullState->getViewState();
+                    int cameraTileZoom = static_cast<int>(viewState.getZoom() + getZoomLevelBias() + DISCRETE_ZOOM_LEVEL_BIAS);
                     if (terrainOptions->getMaxTileZoomOffset() < 100) {
-                        const ViewState& viewState = cullState->getViewState();
-                        _terrainMaxTileZoom = static_cast<int>(viewState.getZoom() + getZoomLevelBias() + DISCRETE_ZOOM_LEVEL_BIAS) + terrainOptions->getMaxTileZoomOffset();
+                        _terrainMaxTileZoom = cameraTileZoom + terrainOptions->getMaxTileZoomOffset();
                     }
+                    _terrainMinTileZoom = cameraTileZoom - TERRAIN_MAX_TILE_ZOOM_COARSENING;
                 }
             }
         }
@@ -763,6 +766,17 @@ namespace carto {
             }
         }
         bool subDivide = !(_lodMaxTileArea > 0) || screenArea >= _lodMaxTileArea;
+        // TERRAIN: the tile surface is the depth OCCLUDER, and its tesselation is proportional to
+        // the tile size. Let a tile coarsen freely and its ridge crests are chopped flat, so
+        // content drawn over a finer tile of another layer - a road, a contour - shows through the
+        // ridge in front of it. Layers also coarsen independently (each runs the area test with its
+        // own tile size and zoom bias), so the occluder can end up coarser than the content it is
+        // meant to hide. Bounding how far BELOW the camera zoom a tile may sit bounds that
+        // mismatch, and costs only the horizon band, where the area rule would otherwise drop 5 or
+        // 6 levels at once.
+        if (_terrainMinTileZoom > 0 && tile.getZoom() < _terrainMinTileZoom) {
+            subDivide = true;
+        }
         int maxTargetZoom = getMaxZoom() + (_terrainOverzoomTargets ? getMaxOverzoomLevel() : 0);
         int targetTileZoom = std::min(maxTargetZoom, static_cast<int>(viewState.getZoom() + getZoomLevelBias() + DISCRETE_ZOOM_LEVEL_BIAS));
         targetTileZoom = std::min(targetTileZoom, _terrainMaxTileZoom);
