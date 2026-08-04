@@ -1005,3 +1005,64 @@ traced arm.
   labels come out too sparse or too dense, `gridSize` is the knob to expose, not the interval.
 - The stubs do not follow the DEM's own zoom ladder: `LabelInterval` is one value for all zooms
   (0 falls back to the traced-geometry ladder). Tangram switches 100/200/500 m by zoom.
+
+---
+
+## 14. The contour stubs on device, and what the DEM path actually costs (2026-08-04)
+
+### 14.1 Contour label stubs: +14% on device
+
+Interleaved, one APK (both arms are intent extras), north pan, hillshade + contours,
+3 repeats, 63 one-second windows each:
+
+| | fps median | frame | `layers` | p25 |
+|---|---|---|---|---|
+| traced contour geometry | 14.5 | 42.4 ms | 8.7 ms | 12.6 |
+| **label stubs + shader lines** | **16.6** | **38.8 ms** | **7.0 ms** | **14.0** |
+
+This is §13 measured where it counts. Run it with
+`--es contourStubs true --es contourStubInterval 100 --es hsContours true --es hsContourInterval 100`.
+
+### 14.2 The elevation texture pipeline is IDLE in steady state
+
+The re-encode churn §9.4 worried about does not exist in a warm pan. Counters over 12 s at the
+north pan, warm cache of 22 textures:
+
+```
+PROBE demtex: fullEncodes=0 borderPatches=0 cache=22      (every second, for the whole run)
+```
+
+So `ElevationTextureCache::getTexture` + `resolveEntry` at ~9% of the render thread (§12) is
+**lookup** cost - the per-frame resolution and the 9 locked cache lookups a new tile needs - not
+encode cost. Optimising the encode cannot move a warm frame, because it does not run.
+
+Where it DOES run is a cold load and a zoom sequence, and there the border patch (§14.3) removes
+most of it.
+
+### 14.3 Border patching: 93% less work, 0% more fps
+
+`ElevationTileGrid::encodeTextureBorders` + `ElevationTextureCache::applyBorderPatches`: when a
+neighbour lands, only the 2-texel ring is re-encoded and patched into the existing texture.
+
+| cold load + zoom sequence | full re-encodes | border patches | fps median |
+|---|---|---|---|
+| re-encode whole (`debug.carto.demborderpatch 0`) | **353** | 0 | 10.6 |
+| **patch the ring** | **24** | 118 | 10.5 |
+
+And at every camera tried the frame rate is unchanged: north pan 14.6 vs 15.0, cold 10.5 vs 10.6,
+full DEM detail 10.1 vs 10.7 - all inside the noise. The encode was already on a worker and the
+upload already budgeted, so the render thread never saw it. Kept as a work/battery/bandwidth
+reduction, recorded here as **not** an fps change so nobody re-measures it expecting one.
+
+### 14.4 Full DEM detail is no longer catastrophic - but still not free
+
+§9.4 measured full-detail elevation at **2.5 fps against 6.7**. With `-O2`, the stubs and the paint,
+the same switch now measures:
+
+| | fps median | frame | `layers` |
+|---|---|---|---|
+| mesh-capped DEM (default) | 13.9 | 38.1 ms | 7.1 ms |
+| `debug.carto.paintdetail 1` | 10.4 | 67.0 ms | 21.1 ms |
+
+−25%, not −63%. Sharp high-zoom relief is now a plausible option for a stack that wants it, but not
+a default. The old numbers in §9.4 should be read as historical.
