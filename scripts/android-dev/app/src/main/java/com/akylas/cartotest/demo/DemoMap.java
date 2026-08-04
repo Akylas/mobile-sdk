@@ -572,6 +572,7 @@ public class DemoMap {
         terrainOptions.setEnabled(DemoConfig.TERRAIN_ENABLED);
         terrainOptions.setExaggeration(DemoConfig.TERRAIN_EXAGGERATION);
         terrainOptions.setMeshResolution(DemoConfig.TERRAIN_MESH_RESOLUTION);
+        terrainOptions.setCameraClearance(DemoConfig.TERRAIN_CAMERA_CLEARANCE);
         terrainOptions.setPainterOrderDepthEnabled(DemoConfig.TERRAIN_PAINTER_ORDER_DEPTH);
         terrainOptions.setDrapeFillsEnabled(DemoConfig.TERRAIN_DRAPE_FILLS);
         terrainOptions.setDrapeLinesEnabled(DemoConfig.TERRAIN_DRAPE_LINES);

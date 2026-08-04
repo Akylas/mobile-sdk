@@ -160,6 +160,10 @@ public final class DemoConfig {
      *  64 is what tangram-ng uses (RasterStyle::build, hardcoded); 128 measured 8.5 fps against
      *  15.2 at 64 on the Crosscall (mesh 64, plain base, no labels/hillshade/contours). */
     public static int TERRAIN_MESH_RESOLUTION = 64;
+    /** Metres the camera is held above the ground. The SDK default is 200, which stops you well
+     *  short of the surface; 30 lets you get close enough to judge mesh and hillshade detail.
+     *  '--es clearance N' (0 disables the clamp entirely - you can then fly through the ground). */
+    public static float TERRAIN_CAMERA_CLEARANCE = 30.0f;
     /** Painter-order depth model (per-tile-layer depth domain). Keep on unless debugging depth. */
     public static boolean TERRAIN_PAINTER_ORDER_DEPTH = true;
     /** Render fills through an offscreen drape pass instead of displacing their geometry.
@@ -388,6 +392,7 @@ public final class DemoConfig {
         // terrain
         TILE_THREAD_POOL_SIZE = DemoCfg.cfgInt("tilePool", TILE_THREAD_POOL_SIZE);
         TERRAIN_ENABLED = DemoCfg.cfgBool("terrain", TERRAIN_ENABLED);
+        TERRAIN_CAMERA_CLEARANCE = DemoCfg.cfgFloat("clearance", TERRAIN_CAMERA_CLEARANCE);
         TERRAIN_EXAGGERATION = DemoCfg.cfgFloat("exaggeration", TERRAIN_EXAGGERATION);
         TERRAIN_MESH_RESOLUTION = DemoCfg.cfgInt("meshResolution", TERRAIN_MESH_RESOLUTION);
         TERRAIN_PAINTER_ORDER_DEPTH = DemoCfg.cfgBool("painterDepth", TERRAIN_PAINTER_ORDER_DEPTH);
