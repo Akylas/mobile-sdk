@@ -97,9 +97,19 @@ namespace carto {
         void setTerrainGroundTiles(const std::vector<vt::TileId>& tileIds, const std::vector<int>& proxyDepths);
         void setTerrainLayerOrdinalBase(int base);
         int getStyleLayerCount() const;
+        /**
+         * The per-tile drape texture resolution to bake at: the option's value when it sets one,
+         * otherwise taken from the screen (see the implementation). Static so the drape CACHE,
+         * which is owned by MapRenderer and must agree with every layer's renderer, resolves it
+         * the same way.
+         */
+        static int resolveDrapeResolution(int setting, const ViewState& viewState, const std::shared_ptr<Options>& options);
         // Metres a draped line is drawn in front of the ground (see GLTileRenderer::setTerrainLineClearance).
         static float terrainLineClearanceMeters();
         static constexpr float DEFAULT_LINE_CLEARANCE_METERS = 25.0f;
+        // The drape cache clamps to the same range (TerrainDrapeCache::setResolution).
+        static constexpr int MIN_DRAPE_RESOLUTION = 128;
+        static constexpr int MAX_DRAPE_RESOLUTION = 2048;
         int renderTerrainGround(const Color& color);
         bool isDrapeEnabled() const;
         void collectDrapeTiles(std::map<vt::TileId, std::size_t>& drapeTiles) const;

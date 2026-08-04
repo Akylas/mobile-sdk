@@ -244,8 +244,8 @@ namespace carto {
          * @return The minimum zoom level. The default is 5.
          */
         /**
-         * Returns the per-tile drape texture resolution.
-         * @return The drape texture resolution in pixels.
+         * Returns the per-tile drape texture resolution, 0 when it follows the screen.
+         * @return The drape texture resolution in pixels, 0 for automatic.
          */
         int getDrapeResolution() const;
         /**
@@ -253,7 +253,11 @@ namespace carto {
          * of this size and resampled onto the terrain surface, so this trades sharpness of thin
          * content (lines, outlines) against video memory: cost is resolution^2 * 4 bytes per
          * visible tile. maplibre uses twice the tile size (1024 for 512px tiles) for this reason.
-         * @param resolution The new drape texture resolution, clamped to [128, 2048]. Default 1024.
+         * 0 (the default) takes it from the SCREEN instead: the tile LOD refines a tile until it
+         * covers at most a 2x2 block of nominal tiles, so 2 * tileDrawSize * pixelScale texels is
+         * one texel per screen pixel at that bound - a fixed resolution is either coarser than the
+         * screen (draped fill edges stair-step as you zoom in) or finer than it can show.
+         * @param resolution The new drape texture resolution, clamped to [128, 2048], or 0 to follow the screen.
          */
         void setDrapeResolution(int resolution);
 

@@ -15,6 +15,7 @@
 #include "renderers/MapRendererListener.h"
 #include "renderers/RendererCaptureListener.h"
 #include "renderers/RedrawRequestListener.h"
+#include "renderers/TileRenderer.h"
 #include "renderers/components/BillboardSorter.h"
 #include "renderers/components/RayIntersectedElement.h"
 #include "renderers/cameraevents/CameraPanEvent.h"
@@ -2143,7 +2144,7 @@ namespace carto {
                     if (!_terrainDrapeCache) {
                         _terrainDrapeCache = std::make_unique<TerrainDrapeCache>();
                     }
-                    _terrainDrapeCache->setResolution(terrainOptions->getDrapeResolution());
+                    _terrainDrapeCache->setResolution(TileRenderer::resolveDrapeResolution(terrainOptions->getDrapeResolution(), viewState, _options));
                     // WHICH layers bake, not what is in them. Switching the base map's style
                     // builds a new layer object, so the cached textures - including the ones held
                     // off screen for panning - are pictures of the previous style. They are only

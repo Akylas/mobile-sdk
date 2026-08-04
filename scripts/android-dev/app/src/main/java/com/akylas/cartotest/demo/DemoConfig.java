@@ -181,7 +181,7 @@ public final class DemoConfig {
      *  doc, section 10). '--es drape true' still brings the old path back for an A/B. */
     public static boolean TERRAIN_DRAPE_FILLS = false;
     public static boolean TERRAIN_DRAPE_LINES = false;
-    public static int TERRAIN_DRAPE_RESOLUTION = 1024;
+    public static int TERRAIN_DRAPE_RESOLUTION = 0;
     /** Stitch neighbouring DEM tiles so ridges do not appear at tile borders. */
     public static boolean TERRAIN_TILE_EDGE_STITCHING = false;
     public static boolean TERRAIN_SEAMLESS_TILE_EDGES = true;

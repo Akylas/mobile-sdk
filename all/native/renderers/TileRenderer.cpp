@@ -271,6 +271,26 @@ namespace carto {
         }
     }
 
+    int TileRenderer::resolveDrapeResolution(int setting, const ViewState& viewState, const std::shared_ptr<Options>& options) {
+        if (setting > 0) {
+            return setting;
+        }
+        // From the SCREEN, not from a constant. The tile LOD refines a tile until it covers at most
+        // a 2x2 block of nominal tiles (TileLayer::calculateVisibleTiles, tangram's rule), so
+        // 2 * tileDrawSize * pixelScale is the widest any tile ever gets on screen. Baking that
+        // many texels is one texel per screen pixel at the LOD's own bound: below it the fill edges
+        // stair-step as the camera zooms past the tile's own zoom (the magnified drape texel), and
+        // above it the extra texels can never be resolved. Rounded UP to a power of two, since the
+        // cache holds one texture size and pools them.
+        double tileDrawSize = (options ? options->getTileDrawSize() : 256);
+        double edge = 2.0 * tileDrawSize * (viewState.getDPI() / Const::UNSCALED_DPI);
+        int size = MIN_DRAPE_RESOLUTION;
+        while (size < edge && size < MAX_DRAPE_RESOLUTION) {
+            size *= 2;
+        }
+        return size;
+    }
+
     int TileRenderer::getStyleLayerCount() const {
         std::lock_guard<std::mutex> lock(_mutex);
 
@@ -718,7 +738,7 @@ namespace carto {
         // source density / subdivided to match it.
         bool drapeLines = drapeFills && activeTerrainOptions && activeTerrainOptions->isDrapeLinesEnabled();
         tileRenderer->setTerrainDrapeFills(drapeFills, drapeLines);
-        tileRenderer->setTerrainDrapeResolution(activeTerrainOptions ? activeTerrainOptions->getDrapeResolution() : 512);
+        tileRenderer->setTerrainDrapeResolution(resolveDrapeResolution(activeTerrainOptions ? activeTerrainOptions->getDrapeResolution() : 0, viewState, _options.lock()));
         // Sun lighting of the draped surface. Once every 2D layer is baked into the drape
         // texture the surface is the only lit ground geometry in the scene, so the whole map
         // is shaded by one directional light that follows the time of day - and the pre-baked

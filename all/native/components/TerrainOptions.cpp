@@ -22,7 +22,7 @@ namespace carto {
         _painterOrderDepthEnabled(true),
         _drapeFillsEnabled(true),
         _drapeLinesEnabled(false),
-        _drapeResolution(512),
+        _drapeResolution(0),
         _elementTerrainSlack(2.0f),
         _minZoom(5),
         _maxTileZoomOffset(100),
@@ -177,7 +177,7 @@ namespace carto {
     }
 
     void TerrainOptions::setDrapeResolution(int resolution) {
-        int value = std::min(2048, std::max(128, resolution));
+        int value = (resolution > 0 ? std::min(2048, std::max(128, resolution)) : 0);
         if (_drapeResolution.exchange(value) != value) {
             notifyOptionChanged("DrapeResolution");
         }
