@@ -83,8 +83,18 @@ namespace carto {
     private:
         class BorderBitmap; // a Bitmap whose border strips can be rewritten in place
 
+        // Grids are identified by their TILE, not by the pointer they happen to live behind: the
+        // elevation cache is an LRU, so the same DEM tile can be decoded into a new object at any
+        // time. Comparing pointers made that re-decode look like new data and re-encoded (or, since
+        // border patching, re-patched) a texture whose content had not changed at all.
+        using GridKey = long long; // grid tile id, or -1 for a missing neighbour
+        static GridKey gridKey(const std::shared_ptr<ElevationTileGrid>& grid);
+        static std::array<GridKey, 8> gridKeys(const std::array<std::shared_ptr<ElevationTileGrid>, 8>& grids);
+
         struct CacheEntry {
             std::shared_ptr<ElevationTileGrid> grid;
+            GridKey gridKeyValue = -1;
+            std::array<GridKey, 8> neighbourKeys = { { -1, -1, -1, -1, -1, -1, -1, -1 } };
             std::array<std::shared_ptr<ElevationTileGrid>, 8> neighbours; // border sources; the border is patched when one loads
             std::shared_ptr<BorderBitmap> bitmap; // what the texture is rebuilt from after a context loss
             std::shared_ptr<Texture> texture;
@@ -105,6 +115,8 @@ namespace carto {
         // it was 20% of it, with another 11% freeing the encode buffer there.
         struct EncodedTexture {
             long long gridTileId = -1;
+            GridKey gridKeyValue = -1;
+            std::array<GridKey, 8> neighbourKeys = { { -1, -1, -1, -1, -1, -1, -1, -1 } };
             std::shared_ptr<ElevationTileGrid> grid;
             std::array<std::shared_ptr<ElevationTileGrid>, 8> neighbours;
             std::shared_ptr<BorderBitmap> bitmap;
@@ -118,7 +130,9 @@ namespace carto {
         // texture and its bitmap - same result, ~1.5% of the texels.
         struct BorderPatch {
             long long gridTileId = -1;
-            std::shared_ptr<ElevationTileGrid> grid; // the patch is void if the entry's grid changed meanwhile
+            GridKey gridKeyValue = -1;      // the patch is void if the entry's grid changed meanwhile
+            std::array<GridKey, 8> neighbourKeys = { { -1, -1, -1, -1, -1, -1, -1, -1 } };
+            std::shared_ptr<ElevationTileGrid> grid;
             std::array<std::shared_ptr<ElevationTileGrid>, 8> neighbours;
             ElevationTileGrid::BorderStrips strips;
             std::array<float, 4> decode = { { 0, 0, 0, 0 } };

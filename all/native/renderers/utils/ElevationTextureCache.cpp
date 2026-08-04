@@ -63,6 +63,18 @@ namespace carto {
     }
 #endif
 
+    ElevationTextureCache::GridKey ElevationTextureCache::gridKey(const std::shared_ptr<ElevationTileGrid>& grid) {
+        return grid ? grid->getTile().getTileId() : -1;
+    }
+
+    std::array<ElevationTextureCache::GridKey, 8> ElevationTextureCache::gridKeys(const std::array<std::shared_ptr<ElevationTileGrid>, 8>& grids) {
+        std::array<GridKey, 8> keys = { { -1, -1, -1, -1, -1, -1, -1, -1 } };
+        for (std::size_t i = 0; i < grids.size(); i++) {
+            keys[i] = gridKey(grids[i]);
+        }
+        return keys;
+    }
+
     ElevationTextureCache::ElevationTextureCache(const std::shared_ptr<ElevationManager>& elevationManager, const std::shared_ptr<GLResourceManager>& glResourceManager) :
         _elevationManager(elevationManager),
         _glResourceManager(glResourceManager),
@@ -190,14 +202,16 @@ namespace carto {
 
         gridTileOut = gridTile;
         auto it = _cache.find(gridTile.getTileId());
-        if (it == _cache.end() || it->second.grid != grid || it->second.neighbours != neighbours) {
+        GridKey key = gridKey(grid);
+        std::array<GridKey, 8> neighbourKeys = gridKeys(neighbours);
+        if (it == _cache.end() || it->second.gridKeyValue != key || it->second.neighbourKeys != neighbourKeys) {
             // Not encoded yet, or encoded from data that has since changed (the tile's own grid
             // arrived, or a neighbour did and the border can be filled properly now). Either way
             // the work goes to the worker; what is already on the GPU keeps being used until the
             // new texture is uploaded, so a border refinement never blanks the tile.
             // Only the ring depends on the neighbours, so when this grid's own texture is already
             // on the GPU a neighbour landing is a patch, not a rebuild.
-            bool bordersOnly = isBorderPatchEnabled() && (it != _cache.end() && it->second.grid == grid && it->second.bitmap && it->second.texture);
+            bool bordersOnly = isBorderPatchEnabled() && (it != _cache.end() && it->second.gridKeyValue == key && it->second.bitmap && it->second.texture);
             requestEncode(gridTile.getTileId(), grid, neighbours, bordersOnly);
             if (it == _cache.end()) {
                 return false;
@@ -251,6 +265,8 @@ namespace carto {
                 // into a Bitmap afterwards.
                 BorderPatch patch;
                 patch.gridTileId = job.gridTileId;
+                patch.gridKeyValue = gridKey(job.grid);
+                patch.neighbourKeys = gridKeys(job.neighbours);
                 patch.grid = job.grid;
                 patch.neighbours = job.neighbours;
                 job.grid->encodeTextureBorders(job.neighbours, patch.strips, patch.decode);
@@ -272,6 +288,8 @@ namespace carto {
 
             EncodedTexture encoded;
             encoded.gridTileId = job.gridTileId;
+            encoded.gridKeyValue = gridKey(job.grid);
+            encoded.neighbourKeys = gridKeys(job.neighbours);
             encoded.grid = job.grid;
             encoded.neighbours = job.neighbours;
             int width = job.grid->getWidth() + 2;
@@ -326,6 +344,8 @@ namespace carto {
             }
             CacheEntry entry;
             entry.grid = encoded.grid;
+            entry.gridKeyValue = encoded.gridKeyValue;
+            entry.neighbourKeys = encoded.neighbourKeys;
             entry.neighbours = encoded.neighbours;
             entry.decode = encoded.decode;
             entry.lastUsed = (it != _cache.end() ? it->second.lastUsed : _accessCounter);
@@ -345,7 +365,7 @@ namespace carto {
         }
         for (BorderPatch& patch : patches) {
             auto it = _cache.find(patch.gridTileId);
-            if (it == _cache.end() || it->second.grid != patch.grid || !it->second.bitmap || !it->second.texture) {
+            if (it == _cache.end() || it->second.gridKeyValue != patch.gridKeyValue || !it->second.bitmap || !it->second.texture) {
                 continue; // the entry was rebuilt or evicted meanwhile; the patch is void
             }
             int width = patch.grid->getWidth() + 2;
@@ -363,6 +383,7 @@ namespace carto {
             bitmap->writeRect(width - 2, 0, 2, height, patch.strips.east);
             texture->updateSubImage(width - 2, 0, 2, height, patch.strips.east.data());
             it->second.neighbours = patch.neighbours;
+            it->second.neighbourKeys = patch.neighbourKeys;
             it->second.decode = patch.decode;
         }
     }
