@@ -329,6 +329,22 @@ namespace carto {
         return clampTileZoom(mapTile);
     }
 
+    MapTile ElevationManager::getDetailDataTile(const MapTile& mapTile, int extraLevels) const {
+        if (extraLevels <= 0) {
+            return clampTileZoom(mapTile);
+        }
+        // The same walk as clampTileZoom, stopping 'extraLevels' levels earlier: each level kept is
+        // 4x the elevation texels over the same ground, so this is the dial between blurred shading
+        // and the texture working set.
+        MapTile tile = mapTile;
+        int surfaceResolution = _surfaceResolution.load();
+        int limit = (2 << extraLevels) * surfaceResolution;
+        for (int size = _gridSizeHint.load(); size > limit && tile.getZoom() > 0; size /= 2) {
+            tile = tile.getParent();
+        }
+        return clampDataTileZoom(tile);
+    }
+
     MapTile ElevationManager::getFullDetailDataTile(const MapTile& mapTile) const {
         // No mesh-resolution cap: a per-fragment consumer (hillshade shading) resolves relief the
         // surface geometry cannot, so capping it there leaves it blurred by two zoom levels.

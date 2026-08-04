@@ -147,7 +147,7 @@ namespace carto {
         // source maximum zoom and by the resolution the surface mesh can express (see
         // ElevationManager::setSurfaceResolution). The cap lives in the manager so that the
         // displaced surface and every CPU-side elevation query use the same height field.
-        MapTile dataTile = (_fullDetail ? _elevationManager->getFullDetailDataTile(mapTile) : _elevationManager->getDataTile(mapTile));
+        MapTile dataTile = _elevationManager->getDetailDataTile(mapTile, _detailLevels);
 
         std::shared_ptr<ElevationTileGrid> grid = _elevationManager->getDataTileGrid(dataTile, ElevationManager::LoadMode::CACHED_ONLY);
         if (!grid || !(grid->getTile() == dataTile)) {
@@ -452,9 +452,9 @@ namespace carto {
         }
     }
 
-    void ElevationTextureCache::setFullDetail(bool enabled) {
-        if (_fullDetail != enabled) {
-            _fullDetail = enabled;
+    void ElevationTextureCache::setDetailLevels(int extraLevels) {
+        if (_detailLevels != extraLevels) {
+            _detailLevels = extraLevels;
             clear(); // every entry was resolved at the other level
         }
     }

@@ -628,7 +628,11 @@ namespace carto {
                     // (measured on the Crosscall: drape 7.9 -> 200 ms per frame). Tangram can do
                     // this because it binds the source raster as-is and extrapolates edges in the
                     // shader. Measure with: adb shell setprop debug.carto.paintdetail 1
-                    _elevationTextureCache->setFullDetail(_terrainPaintEnabled && _terrainPaintFullDetail && isTerrainPaintFullDetailAllowed());
+                    // How many elevation levels beyond the MESH cap the texture resolves. The mesh cap is
+                    // right for geometry and blurs per-fragment shading by two zoom levels; each level
+                    // back is 4x the texture working set, so it is a dial, not a flag:
+                    //   adb shell setprop debug.carto.paintdetail 0|1|2   (2 = the source's own level)
+                    _elevationTextureCache->setDetailLevels(_terrainPaintEnabled && _terrainPaintFullDetail ? terrainPaintDetailLevels() : 0);
                     _elevationTextureCache->beginFrame();
                     std::shared_ptr<ElevationTextureCache> elevationTextureCache = _elevationTextureCache;
                     terrainTextureProvider = [elevationTextureCache](const vt::TileId& tileId, vt::GLTileRenderer::TerrainTexture& terrainTexture) {
@@ -1046,9 +1050,27 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
 #endif
     }
 
+    int TileRenderer::terrainPaintDetailLevels() {
+#ifdef __ANDROID__
+        // adb shell setprop debug.carto.paintdetail 0|1|2 - elevation levels beyond the mesh cap.
+        static const int levels = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            if (__system_property_get("debug.carto.paintdetail", property) > 0) {
+                int value = std::atoi(property);
+                if (value >= 0 && value <= 4) {
+                    return value;
+                }
+            }
+            return 2;
+        }();
+        return levels;
+#else
+        return 2;
+#endif
+    }
+
     bool TileRenderer::isTerrainPaintFullDetailAllowed() {
 #ifdef __ANDROID__
-        // Measurement switch: adb shell setprop debug.carto.paintdetail 0 forces the mesh level.
         static const bool allowed = [] {
             char property[PROP_VALUE_MAX] = { 0 };
             return !(__system_property_get("debug.carto.paintdetail", property) > 0 && property[0] == '0');

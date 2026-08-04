@@ -171,6 +171,8 @@ namespace carto {
         // Measurement override for the paint's DEM level: debug.carto.paintdetail 0 forces the
         // mesh level, whatever the layer asks for. Read once (Android only).
         static bool isTerrainPaintFullDetailAllowed();
+        /** Elevation levels the shading texture resolves BEYOND the terrain mesh cap (default 2). */
+        static int terrainPaintDetailLevels();
         // Measurement switch for tangram's arrangement: the paint drawn AS the ground rather than
         // as its layer's own surface over it. debug.carto.groundpaint 1. Read once (Android only).
         static bool isTerrainPaintOnGroundForced();

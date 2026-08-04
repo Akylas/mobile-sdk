@@ -140,6 +140,13 @@ namespace carto {
          * so it shows relief the surface geometry could never carry.
          */
         MapTile getFullDetailDataTile(const MapTile& mapTile) const;
+        /**
+         * The elevation tile for a consumer that resolves 'extraLevels' more detail than the
+         * terrain MESH can express. The mesh cap (one texel per half surface cell) is right for
+         * geometry and wrong for per-fragment shading, which resolves far more - see
+         * getFullDetailDataTile for the extreme. extraLevels 0 is the mesh cap itself.
+         */
+        MapTile getDetailDataTile(const MapTile& mapTile, int extraLevels) const;
 
         /**
          * Requests an asynchronous load of the given ELEVATION tile (as returned by getDataTile,
