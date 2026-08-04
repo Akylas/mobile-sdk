@@ -151,6 +151,12 @@ containment); `frustum3::inside(bbox)` = *intersects frustum*.
 
 ## Rendering architecture (vector tiles + labels)
 
+**Full technical documentation lives in [`docs/rendering/`](docs/rendering/README.md)**, split by
+subsystem so one page can be read without the rest: the frame and threads, tiles and LOD, the GL
+draw path, 3D terrain, the depth model, labels, hillshade/contours, lighting/sky/fog, the composite
+layer, performance method, and the tangram comparison. The summary below is the orientation; that
+set is the detail.
+
 Threads: GL render thread (MapRenderer/onDrawFrame), tile-loading threads, plus
 background workers in `all/native/renderers/workers/` (`CullWorker` computes visible
 tiles per layer, `VTLabelPlacementWorker` runs label placement).

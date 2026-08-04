@@ -6,9 +6,13 @@ method, so the numbers can be reproduced or refuted), how our renderer differs f
 against, because it renders the same data sharply, smoothly and with no see-through — and what is
 worth doing next.
 
-It is also meant to grow into the "how it is implemented and why" documentation: every section
-states the *choice* behind the code, not only the number. When a design decision is made or
-reversed, record it here with the evidence.
+This file is the **lab notebook**: dated rounds, dead ends, and the numbers with the method that
+produced them. The **current design**, split by subsystem so a reader can open one page and stop, is
+in [`docs/rendering/`](rendering/README.md) — start there to understand how the renderer works, come
+here to find out what was already tried and measured.
+
+When a design decision is made or reversed, record the evidence here and update the matching page
+under `rendering/`.
 
 ---
 
