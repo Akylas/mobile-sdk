@@ -726,19 +726,28 @@ namespace carto {
         // The FAR plane is theirs too - see calculateViewDistance, which is also what the tile
         // walk stops at, so the view and the tiles fetched for it always agree.
         double viewDistance = calculateViewDistance(options);
-        // Their m_pos.z is the camera's height above the ZERO plane ("using non-zero elevation
-        // for camera reference creates all kinds of problems", view.cpp) - not above the
-        // highest terrain. Measuring it against heightMax, as this did, makes the floor grow
-        // with the tallest peak in view: a camera 30m over a 1000m slope under a 2900m summit
-        // got a near plane of 37m and the ground right under it was clipped away.
-        double cameraHeight = std::abs(cglib::dot_product(_cameraPos - options.getProjectionSurface()->calculateNearestPoint(_cameraPos, 0.0), zProjVector));
-        float terrainNear = static_cast<float>(cameraHeight / 50.0);
+        float terrainNear = static_cast<float>(calculateCameraDistance() / 50.0);
         if (viewDistance > 0) {
             far = std::min(far, std::max(static_cast<float>(viewDistance), terrainNear * 2.0f));
         }
         if (_terrainHeightMax > _terrainHeightMin) {
             near = std::max(near, std::min(terrainNear, far * 0.5f));
         }
+    }
+
+    double ViewState::calculateCameraDistance() const {
+        // Tangram's m_pos.z, which both their near and their far plane are built on:
+        //     m_pos.z = exp2(-m_baseZoom) * worldToCameraHeight;   // a function of ZOOM alone
+        //     m_eye   = rotate(vec3(0, 0, m_pos.z));  at = (0,0,0);
+        // so it is the distance from the camera to the FOCUS, and their comment right above it is
+        // "using non-zero elevation for camera reference creates all kinds of problems". Taking
+        // the camera's height above sea level instead - which is what this did - makes the whole
+        // depth budget a function of the terrain: over a valley the near plane collapses and the
+        // far/near ratio explodes, which is what content seen through a ridge is made of; over a
+        // high plateau it does the opposite and clips the ground away.
+        // ViewState keeps dist(camera, focus) == zoom0Distance / 2^zoom, so this IS their
+        // zoom-derived quantity, terrain or no terrain.
+        return cglib::length(_cameraPos - _focusPos);
     }
 
     double ViewState::calculateViewDistance(const Options& options) const {
@@ -762,12 +771,7 @@ namespace carto {
         if (!(factor > 0.0f)) {
             return 0;
         }
-        std::shared_ptr<ProjectionSurface> projectionSurface = options.getProjectionSurface();
-        if (!projectionSurface) {
-            return 0;
-        }
-        cglib::vec3<double> zProjVector = cglib::unit(_focusPos - _cameraPos);
-        double cameraHeight = std::abs(cglib::dot_product(_cameraPos - projectionSurface->calculateNearestPoint(_cameraPos, 0.0), zProjVector));
+        double cameraDistance = calculateCameraDistance();
 
         // Tilt is measured from the horizontal here and pitch from the vertical there, so the
         // angle from the view axis to the horizon is (90 - tilt) + fovy/2.
@@ -775,7 +779,7 @@ namespace carto {
         double cosPitch = std::cos(pitchRadians);
         double distance = std::numeric_limits<double>::infinity();
         if (cosPitch > 0.0) {
-            distance = TANGRAM_FAR_PLANE_FACTOR * cameraHeight / cosPitch;
+            distance = TANGRAM_FAR_PLANE_FACTOR * cameraDistance / cosPitch;
         }
         // 127 tile widths at this zoom, in internal units.
         double worldTileSize = Const::WORLD_SIZE * std::pow(2.0, -_zoom);

@@ -402,6 +402,14 @@ namespace carto {
          */
         double calculateViewDistance(const Options& options) const;
 
+        /**
+         * The distance from the camera to the focus point - tangram's m_pos.z, which is what their
+         * near and far planes are built on. It is a function of the zoom alone, so the depth budget
+         * does not change with the terrain under the camera.
+         * @return The camera to focus distance in internal units.
+         */
+        double calculateCameraDistance() const;
+
     private:
         void calculateViewDistances(const Options& options, float& near, float& far, bool& skyVisible) const;
         float calculateMinZoom(const Options& options) const;
