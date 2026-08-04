@@ -287,7 +287,7 @@ namespace carto {
                 patch.neighbours = job.neighbours;
                 patch.grid = job.grid;
                 VT_STAT_CLOCK(patchClock);
-                job.grid->encodeTextureBorders(job.neighbours, patch.strips, patch.decode);
+                job.grid->encodeTextureBorders(job.neighbours, patch.strips);
                 VT_STAT_SPLIT(demEncodeNs, patchClock);
                 VT_STAT_INC(demBorderPatches);
 
@@ -317,15 +317,17 @@ namespace carto {
             // The scratch buffer belongs to this thread alone and is reused by every job, so the
             // megabyte behind it is allocated once instead of per encode.
             VT_STAT_CLOCK(encodeClock);
-            job.grid->encodeTextureWithBorders(job.neighbours, _encodeScratch, encoded.decode);
+            job.grid->encodeTextureWithBorders(job.neighbours, _encodeScratch);
             // The encoded rows are south-to-north, i.e. already bottom-up in the Bitmap
             // convention. Bitmap treats a POSITIVE stride as top-down input and flips the
             // rows - pass a negative stride so the data is taken as-is (a flipped texture
             // mirrors every tile's terrain north-south).
-            // LUMINANCE_ALPHA, two bytes a texel: half the upload and half the working set of the
-            // RGBA encoding it replaces, at the same 16-bit height precision (see
-            // ElevationTileGrid::WriteTexel). The negative stride keeps the rows as encoded.
-            encoded.bitmap = std::make_shared<BorderBitmap>(_encodeScratch.data(), width, height, ColorFormat::COLOR_FORMAT_GRAYSCALE_ALPHA, -2 * width);
+            // The texture is the SOURCE raster's own format and texels - tangram's model, where
+            // the elevation raster is bound as it arrived and decoded in the shader. Nothing is
+            // requantised, so the height field keeps the data source's own precision (1/256m for
+            // terrarium, 0.1m for mapbox). The negative stride keeps the rows as copied.
+            int texelBytes = job.grid->getBytesPerTexel();
+            encoded.bitmap = std::make_shared<BorderBitmap>(_encodeScratch.data(), width, height, job.grid->getColorFormat(), -texelBytes * width);
             VT_STAT_SPLIT(demEncodeNs, encodeClock);
             VT_STAT_INC(demEncodes);
 
@@ -373,7 +375,6 @@ namespace carto {
             entry.gridKeyValue = encoded.gridKeyValue;
             entry.borderQuality = encoded.borderQuality;
             entry.neighbours = encoded.neighbours;
-            entry.decode = encoded.decode;
             entry.lastUsed = (it != _cache.end() ? it->second.lastUsed : _accessCounter);
             entry.bitmap = encoded.bitmap;
             VT_STAT_CLOCK(uploadClock);
@@ -416,7 +417,6 @@ namespace carto {
             VT_STAT_INC(demPatchUploads);
             it->second.borderQuality = patch.borderQuality;
             it->second.neighbours = patch.neighbours;
-            it->second.decode = patch.decode;
         }
     }
 
@@ -455,7 +455,8 @@ namespace carto {
         terrainTexture.textureSize = cglib::vec2<int>(entry.grid->getWidth() + 2, entry.grid->getHeight() + 2);
         terrainTexture.internalOrigin = cglib::vec2<double>(bounds.getMin().getX() - texelX, bounds.getMin().getY() - texelY);
         terrainTexture.internalSize = cglib::vec2<double>(bounds.getMax().getX() - bounds.getMin().getX() + 2 * texelX, bounds.getMax().getY() - bounds.getMin().getY() + 2 * texelY);
-        terrainTexture.decode = cglib::vec4<float>(entry.decode[0], entry.decode[1], entry.decode[2], entry.decode[3]);
+        std::array<float, 4> decode = entry.grid->getDecode();
+        terrainTexture.decode = cglib::vec4<float>(decode[0], decode[1], decode[2], decode[3]);
         terrainTexture.decodeOffset = entry.grid->getDecodeOffset();
         terrainTexture.metersToInternal = metersToInternal;
         terrainTexture.mercatorYScale = static_cast<float>(2.0 * Const::PI / Const::WORLD_SIZE);

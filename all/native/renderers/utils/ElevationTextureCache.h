@@ -113,7 +113,6 @@ namespace carto {
             std::array<std::shared_ptr<ElevationTileGrid>, 8> neighbours;
             std::shared_ptr<BorderBitmap> bitmap; // what the texture is rebuilt from after a context loss
             std::shared_ptr<Texture> texture;
-            std::array<float, 4> decode = { { 0, 0, 0, 0 } };
             std::uint64_t lastUsed = 0; // LRU stamp
         };
 
@@ -136,7 +135,6 @@ namespace carto {
             std::shared_ptr<ElevationTileGrid> grid;
             std::array<std::shared_ptr<ElevationTileGrid>, 8> neighbours;
             std::shared_ptr<BorderBitmap> bitmap;
-            std::array<float, 4> decode = { { 0, 0, 0, 0 } };
         };
 
         // A neighbour arriving changes ONLY the 2-texel ring of the texture (the border itself,
@@ -151,13 +149,12 @@ namespace carto {
             std::shared_ptr<ElevationTileGrid> grid;
             std::array<std::shared_ptr<ElevationTileGrid>, 8> neighbours;
             ElevationTileGrid::BorderStrips strips;
-            std::array<float, 4> decode = { { 0, 0, 0, 0 } };
         };
 
-        // Two bytes a texel (LUMINANCE_ALPHA) instead of four, so twice as many textures fit in the
-        // memory the old cap used - and the working set is what decides whether extra DEM detail is
-        // affordable (each level beyond the mesh cap is 4x the textures).
-        static constexpr std::size_t MAX_CACHED_TEXTURES = 192;
+        // The texture carries the source raster's texels (3 bytes for an RGB DEM), so the cap is
+        // what decides whether extra DEM detail is affordable - each level beyond the mesh cap
+        // needs four times the textures.
+        static constexpr std::size_t MAX_CACHED_TEXTURES = 128;
         // Uploads per frame, and the time they may take. A tile with no texture yet renders FLAT,
         // so a budget that is too tight is visible as terrain that stays flat while it catches up;
         // one that is too loose brings back the stall this pipeline exists to remove. Time-bounded

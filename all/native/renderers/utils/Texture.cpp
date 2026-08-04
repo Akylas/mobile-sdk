@@ -64,7 +64,12 @@ namespace carto {
         GLint oldTexId = 0;
         glGetIntegerv(GL_TEXTURE_BINDING_2D, &oldTexId);
         glBindTexture(GL_TEXTURE_2D, _texId);
+        // Rows are tightly packed. With the default 4-byte unpack alignment a 3-byte-per-texel
+        // row of an odd width (a 514-wide RGB elevation texture) is read with a stride the data
+        // does not have, and the sub-image comes out sheared.
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
         glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, width, height, _bitmap->getColorFormat(), GL_UNSIGNED_BYTE, data);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
         glBindTexture(GL_TEXTURE_2D, oldTexId);
 
         GLContext::CheckGLError("Texture::updateSubImage");
@@ -101,8 +106,11 @@ namespace carto {
         glBindTexture(GL_TEXTURE_2D, texId);
     
         const std::vector<unsigned char>& pixelData = bitmap.getPixelData();
+        // Bitmap rows are tightly packed, whatever the width - see updateSubImage.
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
         glTexImage2D(GL_TEXTURE_2D, 0, bitmap.getColorFormat(), bitmap.getWidth(), bitmap.getHeight(),
                 0, bitmap.getColorFormat(), GL_UNSIGNED_BYTE, pixelData.data());
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
         
         if (repeat) {
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
