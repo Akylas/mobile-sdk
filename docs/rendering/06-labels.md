@@ -56,6 +56,31 @@ Fork-specific rules, all comparing the **placement's** `localId` (hence the stab
 above): `allowOverlapSameFeatureId`, `sameFeatureIdDependent`, and group ids with
 `minimumGroupDistance`.
 
+### Max distance (fork-specific)
+
+A label glyph is screen-space: a street name 5 km away is drawn at the same size as one 50 m away,
+so a tilted view fills its horizon band with labels nobody can read. Which labels a tile carries is
+already decided by the style at the **tile's** zoom (`TileReader` sets `adjustedZoom = tileId.zoom +
+bias`), and coarser far tiles — see [02-tiles.md](02-tiles.md) — thin them out a lot. The second
+half of it is how far the labels that do exist may be seen:
+
+```css
+#transportation_name { text-max-distance: 2000; }   /* meters; 0 (default) = no limit */
+#poi                 { marker-max-distance: 800; }
+#shield              { shield-max-distance: 1500; }
+```
+
+It lives on the label **style** (`TileLabel::Style::maxDistance`), so it costs one comparison per
+label per placement pass: `LabelCuller::process` measures the label's world anchor against
+`ViewState::origin` and calls `setVisible(false)` beyond the limit. Hiding rather than skipping is
+deliberate — the GL thread already animates opacity toward `isVisible()`, so the label **fades**
+out when it passes the limit and fades back in when it returns, with no per-frame work.
+
+Metres are converted with the mercator stretch at the view's own latitude
+(`VTLabelPlacementWorker`), because 1/cos(45°) is a factor of 1.4 — too much to ignore in a number
+a style author writes in metres. Tangram has no equivalent: their only control is the same per-tile
+zoom filter.
+
 ## On the GL thread
 
 - **Fades.** `updateLabel` moves opacity toward `visible ? 1 : 0`; invisible-but-fading labels stay
