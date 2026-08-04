@@ -71,15 +71,11 @@ namespace carto {
     }
 
     void ElevationTileGrid::encodeTexture(std::vector<std::uint8_t>& rgbaData, std::array<float, 4>& decode) const {
-        rgbaData.resize(_heights.size() * 4);
+        rgbaData.resize(_heights.size() * TEXEL_BYTES);
         for (std::size_t i = 0; i < _heights.size(); i++) {
-            std::uint16_t value = _heights[i];
-            rgbaData[i * 4 + 0] = static_cast<std::uint8_t>(value >> 8);
-            rgbaData[i * 4 + 1] = static_cast<std::uint8_t>(value & 255);
-            rgbaData[i * 4 + 2] = 0;
-            rgbaData[i * 4 + 3] = 255;
+            WriteTexel(&rgbaData[i * TEXEL_BYTES], _heights[i]);
         }
-        decode = { { 255.0f * 256.0f * QUANT_SCALE, 255.0f * QUANT_SCALE, 0.0f, QUANT_OFFSET } };
+        decode = { { 255.0f * 256.0f * QUANT_SCALE, 0.0f, 0.0f, 255.0f * QUANT_SCALE } };
     }
 
     std::function<std::uint16_t(int, int)> ElevationTileGrid::makeTexelSampler(const std::array<std::shared_ptr<ElevationTileGrid>, 8>& neighbours) const {
@@ -235,7 +231,7 @@ namespace carto {
     void ElevationTileGrid::encodeTextureWithBorders(const std::array<std::shared_ptr<ElevationTileGrid>, 8>& neighbours, std::vector<std::uint8_t>& rgbaData, std::array<float, 4>& decode) const {
         int paddedWidth = _width + 2;
         int paddedHeight = _height + 2;
-        rgbaData.resize(static_cast<std::size_t>(paddedWidth) * paddedHeight * 4);
+        rgbaData.resize(static_cast<std::size_t>(paddedWidth) * paddedHeight * TEXEL_BYTES);
 
         std::function<std::uint16_t(int, int)> texelValue = makeTexelSampler(neighbours);
 
@@ -254,14 +250,14 @@ namespace carto {
                     const std::uint16_t* row = &_heights[static_cast<std::size_t>(gy) * _width];
                     for (; gx < _width - 1; gx++) {
                         WriteTexel(&rgbaData[i], row[gx]);
-                        i += 4;
+                        i += TEXEL_BYTES;
                     }
                 }
                 WriteTexel(&rgbaData[i], texelValue(gx, gy));
-                i += 4;
+                i += TEXEL_BYTES;
             }
         }
-        decode = { { 255.0f * 256.0f * QUANT_SCALE, 255.0f * QUANT_SCALE, 0.0f, QUANT_OFFSET } };
+        decode = { { 255.0f * 256.0f * QUANT_SCALE, 0.0f, 0.0f, 255.0f * QUANT_SCALE } };
     }
 
     void ElevationTileGrid::encodeTextureBorders(const std::array<std::shared_ptr<ElevationTileGrid>, 8>& neighbours, BorderStrips& strips, std::array<float, 4>& decode) const {
@@ -271,26 +267,26 @@ namespace carto {
         std::function<std::uint16_t(int, int)> texelValue = makeTexelSampler(neighbours);
 
         // South and north: two full-width rows each (gy = -1, 0 and height-1, height).
-        strips.south.resize(static_cast<std::size_t>(paddedWidth) * 2 * 4);
-        strips.north.resize(static_cast<std::size_t>(paddedWidth) * 2 * 4);
+        strips.south.resize(static_cast<std::size_t>(paddedWidth) * 2 * TEXEL_BYTES);
+        strips.north.resize(static_cast<std::size_t>(paddedWidth) * 2 * TEXEL_BYTES);
         for (int row = 0; row < 2; row++) {
-            std::size_t s = static_cast<std::size_t>(row) * paddedWidth * 4;
-            for (int gx = -1; gx <= _width; gx++, s += 4) {
+            std::size_t s = static_cast<std::size_t>(row) * paddedWidth * TEXEL_BYTES;
+            for (int gx = -1; gx <= _width; gx++, s += TEXEL_BYTES) {
                 WriteTexel(&strips.south[s], texelValue(gx, -1 + row));
                 WriteTexel(&strips.north[s], texelValue(gx, _height - 1 + row));
             }
         }
         // West and east: two full-height columns each (gx = -1, 0 and width-1, width).
-        strips.west.resize(static_cast<std::size_t>(paddedHeight) * 2 * 4);
-        strips.east.resize(static_cast<std::size_t>(paddedHeight) * 2 * 4);
+        strips.west.resize(static_cast<std::size_t>(paddedHeight) * 2 * TEXEL_BYTES);
+        strips.east.resize(static_cast<std::size_t>(paddedHeight) * 2 * TEXEL_BYTES);
         for (int gy = -1; gy <= _height; gy++) {
-            std::size_t s = static_cast<std::size_t>(gy + 1) * 2 * 4;
+            std::size_t s = static_cast<std::size_t>(gy + 1) * 2 * TEXEL_BYTES;
             for (int col = 0; col < 2; col++) {
-                WriteTexel(&strips.west[s + col * 4], texelValue(-1 + col, gy));
-                WriteTexel(&strips.east[s + col * 4], texelValue(_width - 1 + col, gy));
+                WriteTexel(&strips.west[s + col * TEXEL_BYTES], texelValue(-1 + col, gy));
+                WriteTexel(&strips.east[s + col * TEXEL_BYTES], texelValue(_width - 1 + col, gy));
             }
         }
-        decode = { { 255.0f * 256.0f * QUANT_SCALE, 255.0f * QUANT_SCALE, 0.0f, QUANT_OFFSET } };
+        decode = { { 255.0f * 256.0f * QUANT_SCALE, 0.0f, 0.0f, 255.0f * QUANT_SCALE } };
     }
 
     std::shared_ptr<ElevationTileGrid> ElevationTileGrid::DecodeBitmap(const MapTile& tile, const MapBounds& internalBounds, const std::shared_ptr<Bitmap>& bitmap, const std::array<double, 4>& coeffs) {

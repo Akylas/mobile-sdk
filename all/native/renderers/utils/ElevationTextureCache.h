@@ -138,7 +138,10 @@ namespace carto {
             std::array<float, 4> decode = { { 0, 0, 0, 0 } };
         };
 
-        static constexpr std::size_t MAX_CACHED_TEXTURES = 96; // ~24MB of RGBA 256x256 textures
+        // Two bytes a texel (LUMINANCE_ALPHA) instead of four, so twice as many textures fit in the
+        // memory the old cap used - and the working set is what decides whether extra DEM detail is
+        // affordable (each level beyond the mesh cap is 4x the textures).
+        static constexpr std::size_t MAX_CACHED_TEXTURES = 192;
         // Uploads per frame, and the time they may take. A tile with no texture yet renders FLAT,
         // so a budget that is too tight is visible as terrain that stays flat while it catches up;
         // one that is too loose brings back the stall this pipeline exists to remove. Time-bounded

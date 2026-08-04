@@ -301,7 +301,10 @@ namespace carto {
             // convention. Bitmap treats a POSITIVE stride as top-down input and flips the
             // rows - pass a negative stride so the data is taken as-is (a flipped texture
             // mirrors every tile's terrain north-south).
-            encoded.bitmap = std::make_shared<BorderBitmap>(_encodeScratch.data(), width, height, ColorFormat::COLOR_FORMAT_RGBA, -4 * width);
+            // LUMINANCE_ALPHA, two bytes a texel: half the upload and half the working set of the
+            // RGBA encoding it replaces, at the same 16-bit height precision (see
+            // ElevationTileGrid::WriteTexel). The negative stride keeps the rows as encoded.
+            encoded.bitmap = std::make_shared<BorderBitmap>(_encodeScratch.data(), width, height, ColorFormat::COLOR_FORMAT_GRAYSCALE_ALPHA, -2 * width);
 
             {
                 std::lock_guard<std::mutex> lock(_encodeMutex);
@@ -424,6 +427,7 @@ namespace carto {
         terrainTexture.internalOrigin = cglib::vec2<double>(bounds.getMin().getX() - texelX, bounds.getMin().getY() - texelY);
         terrainTexture.internalSize = cglib::vec2<double>(bounds.getMax().getX() - bounds.getMin().getX() + 2 * texelX, bounds.getMax().getY() - bounds.getMin().getY() + 2 * texelY);
         terrainTexture.decode = cglib::vec4<float>(entry.decode[0], entry.decode[1], entry.decode[2], entry.decode[3]);
+        terrainTexture.decodeOffset = ElevationTileGrid::DecodeOffset();
         terrainTexture.metersToInternal = metersToInternal;
         terrainTexture.mercatorYScale = static_cast<float>(2.0 * Const::PI / Const::WORLD_SIZE);
         // What the DEM itself resolves, for consumers that shade from it (the terrain paint):

@@ -94,6 +94,9 @@ namespace carto {
          * Decodes a DEM bitmap (mapbox/terrarium RGB encoded) into an elevation grid using
          * the given color component coefficients. Returns null if the bitmap has an unsupported format.
          */
+        /** The constant term of the decode: meters = dot(sample, decode) + DecodeOffset(). */
+        static float DecodeOffset() { return QUANT_OFFSET; }
+
         static std::shared_ptr<ElevationTileGrid> DecodeBitmap(const MapTile& tile, const MapBounds& internalBounds, const std::shared_ptr<Bitmap>& bitmap, const std::array<double, 4>& coeffs);
 
     private:
@@ -103,11 +106,16 @@ namespace carto {
         // encode and the border patch go through it, so they cannot disagree.
         std::function<std::uint16_t(int, int)> makeTexelSampler(const std::array<std::shared_ptr<ElevationTileGrid>, 8>& neighbours) const;
 
+        // LUMINANCE_ALPHA: the quantized height's high byte in L, its low byte in A. Two bytes a
+        // texel instead of four - the elevation texture working set is what makes extra DEM detail
+        // expensive, and it is halved here at no cost in precision (the height was 16 bits either
+        // way). The decode stays linear in both channels, so the shader's per-tap decode and the
+        // manual bilinear are unchanged; only the constant term moved to a uniform of its own.
+        static constexpr int TEXEL_BYTES = 2;
+
         static void WriteTexel(std::uint8_t* dst, std::uint16_t value) {
             dst[0] = static_cast<std::uint8_t>(value >> 8);
             dst[1] = static_cast<std::uint8_t>(value & 255);
-            dst[2] = 0;
-            dst[3] = 255;
         }
 
         // Fixed-point encoding: covers -1100m (Dead Sea + margin) to +15283m at 0.25m steps
