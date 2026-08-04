@@ -89,6 +89,8 @@ and [09-composite-layer.md](09-composite-layer.md), not micro-optimisation.
 | half display resolution (¼ the pixels) | +13% — not fill-bound |
 | lattice clamp on surfaces (16 taps → 4) | correct but unmeasurable |
 | the per-tile CPU surface rebuild ("the pan hang") | **does not happen at all** in grid mode: `surfBuilt=0 surfInval=0`, the block costs 0.04 ms |
+| DEM border patching instead of full re-encode | 93% fewer re-encodes, **no fps change** at any camera — the encode was never on the render thread |
+| the DEM encode path in a warm pan | **zero encodes** — there is nothing there to optimise |
 
 ## Things that did pay
 
@@ -102,6 +104,7 @@ and [09-composite-layer.md](09-composite-layer.md), not micro-optimisation.
 | mesh resolution 128 → 64 (tangram's value) | 8.5 → 15.2 fps |
 | occlusion depth read-back on its own thread | 13.7 → 14.9 fps |
 | contour lines as a shader block | render tiles 494 → 216 |
+| contour label stubs + shader lines (device) | 14.5 → 16.6 fps, `layers` 8.7 → 7.0 ms |
 
 ## Runtime switches (no rebuild)
 
