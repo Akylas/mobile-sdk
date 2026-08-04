@@ -267,8 +267,11 @@ public final class DemoConfig {
     // =============================================================================================
 
     public static float CONTOUR_BASE_INTERVAL = 10f;
-    /** DEM samples per tile side before tracing: lower = far fewer vertices to trace and drape. */
-    public static int CONTOUR_RESOLUTION = 96;
+    /** DEM samples per tile side before tracing: lower = far fewer vertices to trace and drape.
+     *  0 = the DEM's own resolution, which is what matching 3D terrain needs - the ground is
+     *  displaced by every texel of the same tile, so a line traced on a coarser grid cuts through
+     *  the spurs and gullies between its samples. */
+    public static int CONTOUR_RESOLUTION = 0;
     public static float CONTOUR_SIMPLIFY_TOLERANCE = 1.5f;
     /** Contours are generated only at or above this TILE zoom. */
     public static int CONTOUR_MIN_VISIBLE_ZOOM = 5;

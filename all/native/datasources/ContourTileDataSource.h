@@ -81,14 +81,17 @@ namespace carto {
 
         /**
          * Returns the target grid resolution used for contour tracing.
-         * @return The target grid resolution. The default is 128.
+         * @return The target grid resolution, 0 for the DEM's own. The default is 128.
          */
         int getResolution() const;
         /**
          * Sets the target grid resolution used for contour tracing. The DEM is subsampled so that
          * the traced grid is at most this many samples per side. Lower values produce coarser but
          * much cheaper geometry (fewer vertices to trace, simplify, upload and drape over terrain).
-         * @param resolution The target grid resolution (clamped to at least 8).
+         * Over 3D TERRAIN use 0 (the DEM's own resolution): the surface is displaced by every texel
+         * of the same tile, so a line traced on a subsampled grid follows a height field the ground
+         * does not have and cuts through everything between its samples.
+         * @param resolution The target grid resolution (clamped to at least 8), or 0 for the DEM's own.
          */
         void setResolution(int resolution);
 

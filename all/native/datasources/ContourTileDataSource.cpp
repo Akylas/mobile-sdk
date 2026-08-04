@@ -405,7 +405,7 @@ namespace carto {
     }
 
     void ContourTileDataSource::setResolution(int resolution) {
-        _resolution = std::max(8, resolution);
+        _resolution = (resolution > 0 ? std::max(8, resolution) : 0);
         notifyTilesChanged(false);
     }
 
@@ -632,7 +632,13 @@ namespace carto {
         // The nodes are spread evenly INCLUDING both endpoints (pixel 0 and fullW-1), so grid node 0
         // maps to the tile's west/south edge and node W-1/H-1 to the east/north edge. That makes
         // adjacent contour tiles share their boundary samples and meet without holes.
-        int resolution = std::max(8, _resolution.load());
+        // 0 = the DEM's own resolution, which is what a contour drawn OVER 3D TERRAIN needs: the
+        // surface is displaced by every texel of this same tile, so a line traced on a subsampled
+        // grid follows a height field the ground does not have and cuts through the spurs and
+        // gullies between its samples (at 96 over a 512-texel tile that is an 18 m grid against a
+        // 6.7 m one at zoom 14 - metres of mismatch on a slope).
+        int resolutionSetting = _resolution.load();
+        int resolution = (resolutionSetting > 0 ? std::max(8, resolutionSetting) : std::max(fullW, fullH));
         int W = std::min(fullW, resolution);
         int H = std::min(fullH, resolution);
         if (W < 2 || H < 2) {
