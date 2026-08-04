@@ -21,6 +21,7 @@ loading the rest. Every page states its scope at the top and links out rather th
 | hillshade, contour lines, contour labels, hypsometric tint | [07-hillshade-contours.md](07-hillshade-contours.md) |
 | sun, shadows, sky, fog | [08-lighting-sky-fog.md](08-lighting-sky-fog.md) |
 | CompositeVectorTileLayer, style-driven slots | [09-composite-layer.md](09-composite-layer.md) |
+| markers, popups, app-drawn lines/polygons, picking | [12-vector-elements.md](12-vector-elements.md) |
 | making it faster, or measuring anything | [10-performance.md](10-performance.md) |
 | "why don't we just do what tangram does?" | [11-tangram-diff.md](11-tangram-diff.md) |
 
