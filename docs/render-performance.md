@@ -530,7 +530,7 @@ few hundred, fixed. Ours took `near` from the nearest visible ground point, floo
 That is the mechanism behind rounds 45-56 and every see-through since, and it is why tangram can
 afford ordinals up to ~1200 while this branch could not afford 128. Terrain mode now floors `near`
 the same way (their `far` is not taken — it would end the view closer than
-`TerrainOptions.MaxVisibleDistance`).
+`TerrainOptions.ViewDistanceFactor`).
 
 #### 10.1.2 Four ways to get this wrong, all of them tried
 
@@ -704,9 +704,10 @@ their builder would delete that layer and keep labelled contours.
   +11% in §7.2, which was measured with `PROF` on a different config.
 - **Paint-as-ground** (`debug.carto.groundpaint 1`): 13.80/15.02 against a 13.96/15.66 baseline —
   nothing, twice. So the hillshade keeps its place in the layer order at no cost.
-- **The far plane.** Porting `far = 2*height/cos(pitch+fovy/2)` (`TerrainOptions.FarPlaneFactor`,
-  default 2) changed neither tile count nor fps: the ground-derived far is already inside the bound
-  their formula gives at that camera, so it never binds.
+- **The far plane.** Porting `far = 2*height/cos(pitch+fovy/2)` changed neither tile count nor fps
+  at that camera: the ground-derived far is already inside the bound their formula gives there, so
+  it never binds. It binds at a LOW tilt, where the cosine goes negative and the 127-tile-width cap
+  takes over - see `TerrainOptions.ViewDistanceFactor`, which now carries both terms.
 
 ### 11.5 What the layer pass actually spends, and the pan hang
 

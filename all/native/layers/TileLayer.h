@@ -463,7 +463,6 @@ namespace carto {
         static const int PARENT_PRIORITY_OFFSET;
         static const int PRELOADING_PRIORITY_OFFSET;
         static const double PRELOADING_TILE_SCALE;
-        static const float SUBDIVISION_THRESHOLD;
         
         std::atomic<bool> _calculatingTiles;
         std::atomic<bool> _refreshedTiles;
@@ -489,6 +488,7 @@ namespace carto {
 
         int _terrainMaxTileZoom = 1000; // terrain-mode tile zoom cap (effectively none), recomputed per cull
         double _maxVisibleDistance = 0; // internal units; 0 = as far as the camera can see
+        double _lodMaxTileArea = 0; // screen pixels squared; the tangram LOD threshold, 0 = no area test
         bool _terrainOverzoomTargets = false; // terrain mode: target tiles may exceed the data source max zoom (overzoom-fed)
 
         std::vector<MapTile> _visibleTiles;
@@ -507,7 +507,7 @@ namespace carto {
         bool _terrainRegularGrid = false;
         bool _terrainSourceDensity = false;
         bool _terrainSourceDensityLines = false;
-        float _terrainMaxVisibleDistanceOption = 0.0f; // last TerrainOptions view distance a cull ran with
+        float _terrainViewDistanceFactor = 0.0f; // last TerrainOptions view distance factor a cull ran with
     };
     
 }

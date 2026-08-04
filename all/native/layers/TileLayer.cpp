@@ -376,14 +376,14 @@ namespace carto {
         // matrix: changing it on a still map would otherwise only take effect the next time the
         // camera moves (the option looks dead, then the ground suddenly ends mid-pan).
         {
-            float maxVisibleDistanceOption = 0.0f;
+            float viewDistanceFactor = 0.0f;
             if (auto options = getOptions()) {
                 if (auto terrainOptions = options->getTerrainOptions()) {
-                    maxVisibleDistanceOption = terrainOptions->getMaxVisibleDistance();
+                    viewDistanceFactor = terrainOptions->getViewDistanceFactor();
                 }
             }
-            if (_terrainMaxVisibleDistanceOption != maxVisibleDistanceOption) {
-                _terrainMaxVisibleDistanceOption = maxVisibleDistanceOption;
+            if (_terrainViewDistanceFactor != viewDistanceFactor) {
+                _terrainViewDistanceFactor = viewDistanceFactor;
                 _tileCullState.reset(); // re-cull with the new distance, tiles themselves stay valid
             }
         }
@@ -630,24 +630,36 @@ namespace carto {
             }
         }
 
-        // How far the map is drawn. The style may say (and may make it depend on the zoom),
-        // otherwise TerrainOptions does. Looking along the ground the camera sees to the horizon,
-        // which is hundreds of tiles, almost all of them a few pixels tall; this is what keeps
-        // that view affordable. Pair it with fog, or the ground simply ends.
+        // How far the map is drawn: tangram's view distance (ViewState::calculateViewDistance),
+        // unless the style pins an absolute one (and it may make it depend on the zoom). Looking
+        // along the ground the camera sees to the horizon, which is hundreds of tiles, almost all
+        // of them a few pixels tall and each carrying its own labels; this is what keeps that view
+        // affordable. Pair a short one with fog, or the ground simply ends.
         _maxVisibleDistance = 0;
         {
             StyleEnvironment env;
-            float distance = 0;
-            if (getStyleEnvironment(cullState->getViewState(), env) && env.terrainMaxVisibleDistance) {
-                distance = *env.terrainMaxVisibleDistance;
+            if (getStyleEnvironment(cullState->getViewState(), env) && env.terrainMaxVisibleDistance && *env.terrainMaxVisibleDistance > 0) {
+                _maxVisibleDistance = *env.terrainMaxVisibleDistance * static_cast<double>(Const::WORLD_SIZE) / Const::EARTH_CIRCUMFERENCE;
             } else if (auto options = getOptions()) {
-                if (auto terrainOptions = options->getTerrainOptions()) {
-                    distance = terrainOptions->getMaxVisibleDistance();
-                }
+                _maxVisibleDistance = cullState->getViewState().calculateViewDistance(*options);
             }
-            if (distance > 0) {
-                _maxVisibleDistance = distance * static_cast<double>(Const::WORLD_SIZE) / Const::EARTH_CIRCUMFERENCE;
-            }
+        }
+
+        // Tangram's LOD threshold (TileManager::updateTileSets): a tile is refined while its
+        // projected SCREEN AREA is at least that of a 2x2 block of nominal tiles - so refinement
+        // stops when a tile covers between one and two tile sizes on screen, which is the same
+        // density in the near field as the distance rule it replaces, and far coarser at a grazing
+        // angle where a tile's screen area collapses but its DISTANCE barely grows. That grazing
+        // band is where a near-horizontal view used to spend hundreds of tiles, each carrying a
+        // full set of labels for a few pixels of screen.
+        _lodMaxTileArea = 0;
+        if (auto options = getOptions()) {
+            const ViewState& viewState = cullState->getViewState();
+            double tileSizePixels = options->getTileDrawSize() * viewState.getDPI() / Const::UNSCALED_DPI;
+            double maxEdge = 2.0 * tileSizePixels;
+            // A source whose tiles are bigger than the nominal size carries a zoom bias; the same
+            // bias applies to the area it is allowed to cover (tangram: maxArea * exp2(2*zoomBias)).
+            _lodMaxTileArea = maxEdge * maxEdge * std::pow(4.0, -getZoomLevelBias());
         }
 
         // Recursively calculate visible tiles
@@ -710,14 +722,42 @@ namespace carto {
         // the elevation-expanded bounding box) so that subdivision decisions do not change
         // as elevation tiles get loaded - otherwise the visible tile set (and tile/elevation
         // fetching) would keep churning while elevation data streams in.
-        cglib::vec3<double> lodCenter = tileCenter;
-        if (std::dynamic_pointer_cast<TerrainTileTransformer>(tileTransformer)) {
-            lodCenter = cglib::transform_point(cglib::vec3<double>(0.5, 0.5, 0), tileTransformer->calculateTileMatrix(vtTileId, 1.0f));
-        }
+        // Tangram's rule (View::getTileScreenArea): project the tile's four corners and compare
+        // the SCREEN AREA they enclose against the threshold. Taken at surface level, not from the
+        // elevation-expanded bounding box, so subdivision decisions do not change as elevation
+        // tiles get loaded - otherwise the visible tile set (and tile/elevation fetching) would
+        // keep churning while elevation data streams in. A tile that crosses the camera plane has
+        // no meaningful projected area and is always subdivided, as it is there.
         const cglib::mat4x4<double>& mvpMat = viewState.getModelviewProjectionMat();
-        double tileW = lodCenter(0) * mvpMat(3, 0) + lodCenter(1) * mvpMat(3, 1) + lodCenter(2) * mvpMat(3, 2) + mvpMat(3, 3);
-        double zoomDistance = tileW * std::pow(2.0f, tile.getZoom() - getZoomLevelBias());
-        bool subDivide = zoomDistance < SUBDIVISION_THRESHOLD * Const::SQRT_2;
+        cglib::mat4x4<double> tileMat = tileTransformer->calculateTileMatrix(vtTileId, 1.0f);
+        double screenArea = std::numeric_limits<double>::infinity();
+        {
+            static const cglib::vec3<double> CORNERS[4] = {
+                cglib::vec3<double>(0, 0, 0), cglib::vec3<double>(1, 0, 0),
+                cglib::vec3<double>(1, 1, 0), cglib::vec3<double>(0, 1, 0)
+            };
+            cglib::vec2<double> screenPos[4];
+            bool projected = true;
+            for (int i = 0; i < 4; i++) {
+                cglib::vec3<double> worldPos = cglib::transform_point(CORNERS[i], tileMat);
+                cglib::vec4<double> clipPos = cglib::transform(cglib::vec4<double>(worldPos(0), worldPos(1), worldPos(2), 1.0), mvpMat);
+                if (!(clipPos(3) > 0)) {
+                    projected = false;
+                    break;
+                }
+                screenPos[i] = cglib::vec2<double>(clipPos(0) / clipPos(3) * viewState.getHalfWidth(), clipPos(1) / clipPos(3) * viewState.getHalfHeight());
+            }
+            if (projected) {
+                double area = 0;
+                for (int i = 0; i < 4; i++) {
+                    const cglib::vec2<double>& p = screenPos[i];
+                    const cglib::vec2<double>& q = screenPos[(i + 1) % 4];
+                    area += p(0) * q(1) - q(0) * p(1);
+                }
+                screenArea = std::abs(area) * 0.5;
+            }
+        }
+        bool subDivide = !(_lodMaxTileArea > 0) || screenArea >= _lodMaxTileArea;
         int maxTargetZoom = getMaxZoom() + (_terrainOverzoomTargets ? getMaxOverzoomLevel() : 0);
         int targetTileZoom = std::min(maxTargetZoom, static_cast<int>(viewState.getZoom() + getZoomLevelBias() + DISCRETE_ZOOM_LEVEL_BIAS));
         targetTileZoom = std::min(targetTileZoom, _terrainMaxTileZoom);
@@ -1174,6 +1214,5 @@ namespace carto {
     const int TileLayer::PARENT_PRIORITY_OFFSET = 1;
     const int TileLayer::PRELOADING_PRIORITY_OFFSET = -2;
     const double TileLayer::PRELOADING_TILE_SCALE = 1.5;
-    const float TileLayer::SUBDIVISION_THRESHOLD = Const::WORLD_SIZE;
     
 }

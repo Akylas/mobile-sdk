@@ -113,7 +113,7 @@ of 10⁴–10⁶, and NDC depth so non-linear that a constant-NDC bias was worth
 range. That is the mechanism behind every see-through this project has had.
 
 Their far plane (`2·height/cos(pitch + fovy/2)`) is available as
-`TerrainOptions::FarPlaneFactor` but changes nothing at the cameras tested: the ground-derived far is
+`TerrainOptions::ViewDistanceFactor` but changes nothing at the cameras tested: the ground-derived far is
 already inside the bound it gives.
 
 ## Occlusion depth

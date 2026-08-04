@@ -21,40 +21,42 @@ CullWorker (per layer, background)
 
 ## Which tiles are visible (the LOD rule)
 
-`TileLayer::calculateVisibleTilesRecursive` (TileLayer.cpp:669) walks the quadtree from the root and
-subdivides while
+`TileLayer::calculateVisibleTilesRecursive` walks the quadtree from the root and subdivides while
+the tile's **projected screen area** is at least that of a 2x2 block of nominal tiles - tangram's
+rule (`TileManager::updateTileSets` + `View::getTileScreenArea`), ported whole:
 
 ```cpp
-double tileW = <lodCenter transformed by the MVP w-row>;
-double zoomDistance = tileW * pow(2, tile.zoom - zoomLevelBias);
-bool subDivide = zoomDistance < SUBDIVISION_THRESHOLD * sqrt(2);
+// four tile corners at surface level -> clip space -> screen space, shoelace area
+bool subDivide = screenArea >= _lodMaxTileArea;   // (2 * tileSizePixels)^2, x 4^-zoomLevelBias
 ```
 
 with three bounds applied: the data source's `getMaxZoom()`, the camera's discrete zoom
 (`viewState.getZoom() + bias + DISCRETE_ZOOM_LEVEL_BIAS`), and, in terrain mode,
 `TerrainOptions::MaxTileZoomOffset`.
 
+In the near field this is the same density as the distance rule it replaced (refinement stops when a
+tile covers between one and two tile sizes on screen, which is what the discrete zoom bound gives
+anyway). The difference is at a **grazing angle**, where a tile's screen area collapses with the
+foreshortening while its distance barely grows: at tilt 10 the old rule kept refining the whole
+horizon band, and measured at 45.187/5.719 z16.2 t10 the visible set went from ~66 tiles a frame to
+~24, with the submitted index count down 4x. That band is also where every one of those tiles
+contributed a full set of labels for a few pixels of screen.
+
 Three terrain-specific details, each of which was a bug once:
 
-- **The LOD centre is taken at surface level, not from the elevation-expanded bbox.** Otherwise
+- **The LOD area is taken at surface level, not from the elevation-expanded bbox.** Otherwise
   subdivision decisions change as elevation streams in, and the visible tile set (and with it tile
   and DEM fetching) churns forever.
 - **Target tiles may exceed the data source's max zoom** in terrain mode
   (`_terrainOverzoomTargets`, fed by the existing overzoom machinery). A z12 DEM-derived hillshade
   under a z15 camera otherwise renders surfaces many times coarser than the base map's, and those
-  blunted ridges are leaky depth occluders — content and vector elements show through near crests.
-- **`MaxVisibleDistance` stops the recursion**, tested against the nearest point of the tile. Looking
-  along the ground the camera sees hundreds of tiles, almost all a few pixels tall. Pair it with fog
+  blunted ridges are leaky depth occluders - content and vector elements show through near crests.
+- **The view distance stops the recursion**, tested against the nearest point of the tile. It is
+  tangram's too (`ViewState::calculateViewDistance`): `2 * cameraHeight / cos(pitch + fovy/2)`,
+  capped at 127 tile widths (their `MAX_LOD` 6), scaled by `TerrainOptions::ViewDistanceFactor`
+  (1 = their rule verbatim, 0 = as far as the visible ground goes). A style may pin an absolute
+  distance in metres with `terrain-max-visible-distance`. Pair a short one with fog
   ([08-lighting-sky-fog.md](08-lighting-sky-fog.md)) or the ground simply ends.
-
-### How tangram chooses instead
-
-`core/src/tile/tileManager.cpp` subdivides while the tile's **screen area** exceeds
-`(2 · pixelScale · 256)²` — about a 920 px edge on a modern phone. Ours is a distance rule that
-works out at roughly 256 px tiles, i.e. **one zoom level finer**. Emulating theirs
-(`--es maxTileZoomOffset -1`) measured 11.46 → 11.16 fps on device: **no win**, so the difference is
-not currently worth closing. It is a behavioural change for every layer, so if it is ever adopted it
-should be an option, not a silent default.
 
 ## Substitution, preloading, caching
 

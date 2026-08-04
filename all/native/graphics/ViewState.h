@@ -391,7 +391,17 @@ namespace carto {
          * @param horizontalLayerOffsetDir The horizontal offset direction, -1 for left, 0 for none, 1 for right.
          */
         void setHorizontalLayerOffsetDir(int horizontalLayerOffsetDir);
-    
+
+        /**
+         * How far from the camera the map is drawn, in internal units - tangram's rule, scaled by
+         * TerrainOptions::ViewDistanceFactor. Both the far plane and the tile walk stop here, so
+         * the tiles fetched are exactly the tiles the frustum can show. 0 means "as far as the
+         * visible ground goes" (factor 0).
+         * @param options The options object.
+         * @return The view distance in internal units, or 0 if it is unbounded.
+         */
+        double calculateViewDistance(const Options& options) const;
+
     private:
         void calculateViewDistances(const Options& options, float& near, float& far, bool& skyVisible) const;
         float calculateMinZoom(const Options& options) const;

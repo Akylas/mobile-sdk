@@ -87,8 +87,8 @@ distance)` in internal units, and by the sky through `fogAmount`. Because both c
 `resolveFog`, the horizon matches.
 
 `BackgroundRenderer` draws the flat z=0 plane that fills the view past the terrain and past
-`TerrainOptions::MaxVisibleDistance`. It uses `Options::getBackgroundBitmap()` — **not** the CartoCSS
+`TerrainOptions::ViewDistanceFactor`. It uses `Options::getBackgroundBitmap()` — **not** the CartoCSS
 `Map { background-color }`, which is why changing the style background does not tint it.
 
-`MaxVisibleDistance` ends the ground; pair it with fog or it ends on a hard edge.
+`ViewDistanceFactor` ends the ground; pair it with fog or it ends on a hard edge.
 </content>

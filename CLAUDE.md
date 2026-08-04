@@ -81,7 +81,7 @@ adb shell am start -n com.akylas.cartotest/.MainActivity --es ui false --es drap
 - `--es demo terrain|nuti|composite` picks the configuration (default `composite`).
   Every knob in `applyTerrainConfig`/`applyCameraConfig`/`applySkyAndLightConfig` is an intent
   extra, so most experiments need no rebuild: `lon lat zoom tilt rotation`, `drape drapeLines
-  drapeResolution meshResolution exaggeration`, `fog fogStart fogDistance maxDistance`,
+  drapeResolution meshResolution exaggeration`, `fog fogStart fogDistance viewDistance`,
   `hs sat satZoom contour bld3d stitch`, `daycycle sunHour sunAzimuth sunAltitude shadow`,
   `ui false` (hide the panel), `anim zoom|zoomseq`.
 - Runtime UI: the gear at the bottom-left opens a settings panel (checkboxes + sliders for
@@ -126,9 +126,11 @@ adb shell am start -n com.akylas.cartotest/.MainActivity --es ui false --es drap
   helper; redeclaring any of them is a compile error and the renderer silently falls back to the
   built-in sky (watch for that when a custom sky "does nothing").
 - `BackgroundRenderer` draws the flat z=0 plane that fills the view past the terrain (and past
-  `TerrainOptions.MaxVisibleDistance`). It uses `Options.getBackgroundBitmap()` — **not** the
+  `TerrainOptions.ViewDistanceFactor`). It uses `Options.getBackgroundBitmap()` — **not** the
   CartoCSS `Map { background-color }`, which is why changing the style background does not tint it.
-- `TerrainOptions.MaxVisibleDistance` ends the ground; pair it with fog or it ends on a hard edge.
+- `TerrainOptions.ViewDistanceFactor` ends the ground (tangram's rule: 2 x camera height / cos(pitch
+  + fovy/2), capped at 127 tile widths; 1 = their rule verbatim). Pair a short one with fog or the
+  ground ends on a hard edge.
 
 ## Building / checking
 

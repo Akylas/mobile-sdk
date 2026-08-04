@@ -307,37 +307,28 @@ namespace carto {
         void setFogDistance(float distance);
 
         /**
-         * Returns the factor used to derive the far plane from the camera height.
-         * @return The far plane factor. The default is 2, as tangram uses.
+         * Returns the factor applied to the view distance.
+         * @return The view distance factor. The default is 1, which is exactly tangram's rule.
          */
-        float getFarPlaneFactor() const;
+        float getViewDistanceFactor() const;
         /**
-         * Sets the far plane to factor * cameraHeight / cos(pitch + fovy/2), tangram's rule
-         * (core/src/view/view.cpp uses a factor of 2). Their whole depth model is calibrated on a
-         * far/near ratio of a few hundred; ours takes the far plane from the visible ground extent,
-         * which is deeper and costs NDC precision, so the per-layer depth separation has to stay
-         * smaller than theirs to avoid seeing through ridges.
-         * The factor is exposed rather than fixed because it ends the view closer, which is the
-         * app's trade to make: a smaller factor buys depth precision and a shorter view, a larger
-         * one the opposite. 0 falls back to deriving the far plane from the visible ground.
-         * @param factor The new far plane factor. The default is 2, as tangram uses.
+         * Sets how far from the camera the map is drawn and where the far plane sits, as a factor
+         * on tangram's own rule (core/src/view/view.cpp):
+         *     far = 2 * cameraHeight / cos(pitch + fovy/2), capped by
+         *     maxTileDistance = worldTileSize(zoom) * (2^(MAX_LOD+1) - 1), with MAX_LOD 6.
+         * A factor of 1 is that rule verbatim; smaller ends the view closer, larger extends it.
+         * This is what makes a near-horizontal view affordable: taken from the visible ground
+         * instead, the view reaches the horizon - hundreds of tiles, most of them a few pixels
+         * tall, each carrying its own labels. Pair a small factor with fog so the ground fades
+         * out instead of ending.
+         * It also decides the depth budget: tangram's model is calibrated on a far/near ratio of a
+         * few hundred, and a deeper far spends the NDC precision the per-layer depth separation
+         * needs.
+         * A style may pin an absolute distance instead, in meters, with
+         * "terrain-max-visible-distance".
+         * @param factor The new view distance factor. The default is 1.
          */
-        void setFarPlaneFactor(float factor);
-
-        /**
-         * Returns the maximum distance the terrain is drawn to.
-         * @return The maximum visible distance in meters. The default is 0 (unlimited).
-         */
-        float getMaxVisibleDistance() const;
-        /**
-         * Sets how far from the camera the map is drawn, in meters. 0 (the default) draws
-         * everything the camera can see, which at a low tilt is the ground all the way to the
-         * horizon - hundreds of tiles, most of them a few pixels tall. Limiting it is what makes
-         * a near-horizontal view affordable; pair it with fog so the ground fades out instead of
-         * ending. Style property: "terrain-max-visible-distance".
-         * @param distance The new maximum visible distance in meters.
-         */
-        void setMaxVisibleDistance(float distance);
+        void setViewDistanceFactor(float factor);
 
         /**
          * Returns the terrain background color.
@@ -524,8 +515,7 @@ namespace carto {
         std::atomic<int> _fogColorARGB;
         std::atomic<float> _fogStartDistance;
         std::atomic<float> _fogDistance;
-        std::atomic<float> _farPlaneFactor;
-        std::atomic<float> _maxVisibleDistance;
+        std::atomic<float> _viewDistanceFactor;
 
         std::vector<std::shared_ptr<OnChangeListener> > _onChangeListeners;
         mutable std::mutex _onChangeListenersMutex;

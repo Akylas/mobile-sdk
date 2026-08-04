@@ -13,6 +13,11 @@
 
 namespace carto {
 
+    // Tangram's constants (core/src/view/view.cpp): the far-plane factor on the camera height,
+    // and the LOD depth whose 2^(d+1)-1 = 127 tile widths cap how far tiles are ever walked.
+    static const double TANGRAM_FAR_PLANE_FACTOR = 2.0;
+    static const int MAX_TILE_LOD = 6;
+
     ViewState::ViewState() :
         _cameraPos(0, 0, 1),
         _focusPos(0, 0, 0),
@@ -718,37 +723,64 @@ namespace carto {
         // mechanism behind every see-through round on this branch, and it is why tangram can
         // separate style layers by ordinals of up to ~1200 and write depth from all of them:
         // their ratio is a few hundred, fixed.
-        // Their FAR is taken too, through TerrainOptions::FarPlaneFactor (their factor is 2):
-        //     far = 2. * m_pos.z / std::max(0.f, std::cos(m_pitch + 0.5f * fovy));
-        // Deriving it from the visible ground instead makes it much deeper, and the depth model is
-        // calibrated on the far/near RATIO, not on either plane - so a deeper far spends the NDC
-        // precision that the per-layer separation needs, and the stack has to make do with a
-        // smaller depth budget than tangram's. The factor is an option because it ends the view
-        // closer, which is the app's trade; 0 keeps the ground-derived far.
+        // The FAR plane is theirs too - see calculateViewDistance, which is also what the tile
+        // walk stops at, so the view and the tiles fetched for it always agree.
+        double viewDistance = calculateViewDistance(options);
+        // Their m_pos.z is the camera's height above the ZERO plane ("using non-zero elevation
+        // for camera reference creates all kinds of problems", view.cpp) - not above the
+        // highest terrain. Measuring it against heightMax, as this did, makes the floor grow
+        // with the tallest peak in view: a camera 30m over a 1000m slope under a 2900m summit
+        // got a near plane of 37m and the ground right under it was clipped away.
+        double cameraHeight = std::abs(cglib::dot_product(_cameraPos - options.getProjectionSurface()->calculateNearestPoint(_cameraPos, 0.0), zProjVector));
+        float terrainNear = static_cast<float>(cameraHeight / 50.0);
+        if (viewDistance > 0) {
+            far = std::min(far, std::max(static_cast<float>(viewDistance), terrainNear * 2.0f));
+        }
         if (_terrainHeightMax > _terrainHeightMin) {
-            // Their m_pos.z is the camera's height above the ZERO plane ("using non-zero elevation
-            // for camera reference creates all kinds of problems", view.cpp) - not above the
-            // highest terrain. Measuring it against heightMax, as this did, makes the floor grow
-            // with the tallest peak in view: a camera 30m over a 1000m slope under a 2900m summit
-            // got a near plane of 37m and the ground right under it was clipped away.
-            double cameraHeight = cglib::dot_product(_cameraPos - options.getProjectionSurface()->calculateNearestPoint(_cameraPos, 0.0), zProjVector);
-            float terrainNear = static_cast<float>(std::abs(cameraHeight) / 50.0);
-            float farPlaneFactor = 0.0f;
-            if (std::shared_ptr<TerrainOptions> terrainOptions = options.getTerrainOptions()) {
-                farPlaneFactor = terrainOptions->getFarPlaneFactor();
-            }
-            if (farPlaneFactor > 0.0f) {
-                // Tilt is measured from the horizontal here and pitch from the vertical there, so
-                // the angle from the view axis to the horizon is (90 - tilt) + fovy/2.
-                double pitchRadians = (90.0 - _tilt) * Const::DEG_TO_RAD + _halfFOVY * Const::DEG_TO_RAD;
-                double cosPitch = std::cos(pitchRadians);
-                if (cosPitch > 0.0) {
-                    float terrainFar = static_cast<float>(farPlaneFactor * std::abs(cameraHeight) / cosPitch);
-                    far = std::min(far, std::max(terrainFar, terrainNear * 2.0f));
-                }
-            }
             near = std::max(near, std::min(terrainNear, far * 0.5f));
         }
+    }
+
+    double ViewState::calculateViewDistance(const Options& options) const {
+        // Tangram's rule, verbatim (core/src/view/view.cpp):
+        //     far = 2. * m_pos.z / std::max(0.f, std::cos(m_pitch + 0.5f * fovy));
+        //     far = std::min(far, maxTileDistance);
+        // with maxTileDistance = worldTileSize * invLodFunc(MAX_LOD + 1), invLodFunc(d) = 2^d - 1
+        // and MAX_LOD 6, i.e. 127 tile widths at the current zoom. The cosine term alone goes to
+        // infinity as the view approaches the horizon, so the tile-count cap is what actually
+        // bounds a near-horizontal view - and it is what keeps a whole horizon of coarse tiles,
+        // each with its own labels, out of the frame.
+        // Deriving the far plane from the visible ground instead makes it much deeper, and the
+        // depth model is calibrated on the far/near RATIO, not on either plane - so a deeper far
+        // spends the NDC precision that the per-layer separation needs.
+        // The factor scales the result: 1 is their rule exactly, and 0 falls back to the
+        // ground-derived view distance (no cap at all).
+        float factor = 1.0f;
+        if (std::shared_ptr<TerrainOptions> terrainOptions = options.getTerrainOptions()) {
+            factor = terrainOptions->getViewDistanceFactor();
+        }
+        if (!(factor > 0.0f)) {
+            return 0;
+        }
+        std::shared_ptr<ProjectionSurface> projectionSurface = options.getProjectionSurface();
+        if (!projectionSurface) {
+            return 0;
+        }
+        cglib::vec3<double> zProjVector = cglib::unit(_focusPos - _cameraPos);
+        double cameraHeight = std::abs(cglib::dot_product(_cameraPos - projectionSurface->calculateNearestPoint(_cameraPos, 0.0), zProjVector));
+
+        // Tilt is measured from the horizontal here and pitch from the vertical there, so the
+        // angle from the view axis to the horizon is (90 - tilt) + fovy/2.
+        double pitchRadians = (90.0 - _tilt) * Const::DEG_TO_RAD + _halfFOVY * Const::DEG_TO_RAD;
+        double cosPitch = std::cos(pitchRadians);
+        double distance = std::numeric_limits<double>::infinity();
+        if (cosPitch > 0.0) {
+            distance = TANGRAM_FAR_PLANE_FACTOR * cameraHeight / cosPitch;
+        }
+        // 127 tile widths at this zoom, in internal units.
+        double worldTileSize = Const::WORLD_SIZE * std::pow(2.0, -_zoom);
+        distance = std::min(distance, worldTileSize * (std::pow(2.0, MAX_TILE_LOD + 1) - 1.0));
+        return distance * factor;
     }
     
     float ViewState::calculateMinZoom(const Options& options) const {
