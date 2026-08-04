@@ -7,12 +7,61 @@
 #include "terrain/ElevationManager.h"
 #include "terrain/ElevationTileGrid.h"
 #include "utils/Const.h"
+#include "utils/Log.h"
 
 #include <algorithm>
 #include <chrono>
 #include <vector>
 
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
+
 namespace carto {
+
+    // A Bitmap whose border strips can be rewritten after construction. The bitmap is what the
+    // texture is rebuilt from when the GL context is lost, so a border patch that only reached the
+    // GPU would be silently undone; patching both keeps them in step. Bitmap owns the pixel data
+    // and Texture holds the bitmap alive anyway, so this costs no extra memory.
+    class ElevationTextureCache::BorderBitmap : public Bitmap {
+    public:
+        BorderBitmap(const unsigned char* pixelData, unsigned int width, unsigned int height, ColorFormat::ColorFormat colorFormat, int bytesPerRow) :
+            Bitmap(pixelData, width, height, colorFormat, bytesPerRow)
+        {
+        }
+
+        // Writes a sub-rectangle in the bitmap's own (bottom-up) row order.
+        void writeRect(int x, int y, int width, int height, const std::vector<std::uint8_t>& data) {
+            std::size_t bpp = _bytesPerPixel;
+            if (x < 0 || y < 0 || x + width > static_cast<int>(_width) || y + height > static_cast<int>(_height)) {
+                return;
+            }
+            if (data.size() < static_cast<std::size_t>(width) * height * bpp) {
+                return;
+            }
+            for (int row = 0; row < height; row++) {
+                std::size_t dst = ((static_cast<std::size_t>(y) + row) * _width + x) * bpp;
+                std::size_t src = static_cast<std::size_t>(row) * width * bpp;
+                std::copy(data.begin() + src, data.begin() + src + static_cast<std::size_t>(width) * bpp, _pixelData.begin() + dst);
+            }
+        }
+    };
+
+#ifdef __ANDROID__
+    // Patch a texture's border ring instead of re-encoding it whole when a neighbour lands.
+    // Off with: adb shell setprop debug.carto.demborderpatch 0
+    static bool isBorderPatchEnabled() {
+        static const bool enabled = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            return !(__system_property_get("debug.carto.demborderpatch", property) > 0 && property[0] == '0');
+        }();
+        return enabled;
+    }
+#else
+    static bool isBorderPatchEnabled() {
+        return true;
+    }
+#endif
 
     ElevationTextureCache::ElevationTextureCache(const std::shared_ptr<ElevationManager>& elevationManager, const std::shared_ptr<GLResourceManager>& glResourceManager) :
         _elevationManager(elevationManager),
@@ -146,16 +195,24 @@ namespace carto {
             // arrived, or a neighbour did and the border can be filled properly now). Either way
             // the work goes to the worker; what is already on the GPU keeps being used until the
             // new texture is uploaded, so a border refinement never blanks the tile.
-            requestEncode(gridTile.getTileId(), grid, neighbours);
+            // Only the ring depends on the neighbours, so when this grid's own texture is already
+            // on the GPU a neighbour landing is a patch, not a rebuild.
+            bool bordersOnly = isBorderPatchEnabled() && (it != _cache.end() && it->second.grid == grid && it->second.bitmap && it->second.texture);
+            requestEncode(gridTile.getTileId(), grid, neighbours, bordersOnly);
             if (it == _cache.end()) {
                 return false;
             }
+            // The entry keeps serving its current texture meanwhile. Its neighbours are recorded
+            // only once the patch is actually applied: the encode queue drops its oldest jobs when
+            // it overflows, and an entry that already claimed the new neighbours would never ask
+            // again - a dropped patch would silently leave a stale border. Re-requesting every
+            // frame until it lands is a failed insert into _encodePending, which is the cheap side.
         }
         it->second.lastUsed = ++_accessCounter;
         return it->second.texture && it->second.texture->getTexId() != 0;
     }
 
-    void ElevationTextureCache::requestEncode(long long gridTileId, const std::shared_ptr<ElevationTileGrid>& grid, const std::array<std::shared_ptr<ElevationTileGrid>, 8>& neighbours) {
+    void ElevationTextureCache::requestEncode(long long gridTileId, const std::shared_ptr<ElevationTileGrid>& grid, const std::array<std::shared_ptr<ElevationTileGrid>, 8>& neighbours, bool bordersOnly) {
         std::lock_guard<std::mutex> lock(_encodeMutex);
         if (_encodeStopped) {
             return;
@@ -165,7 +222,7 @@ namespace carto {
         }
         // Newest first (the queue is drained from the back): the newest request belongs to the
         // current viewport, while the oldest may already have scrolled away.
-        _encodeQueue.push_back(EncodeJob { gridTileId, grid, neighbours });
+        _encodeQueue.push_back(EncodeJob { gridTileId, grid, neighbours, bordersOnly });
         while (_encodeQueue.size() > MAX_ENCODE_QUEUE) {
             _encodePending.erase(_encodeQueue.front().gridTileId);
             _encodeQueue.pop_front();
@@ -189,6 +246,30 @@ namespace carto {
                 _encodeQueue.pop_back();
             }
 
+            if (job.bordersOnly) {
+                // Only the ring: ~1.5% of the texels of a full encode, and no megabyte to copy
+                // into a Bitmap afterwards.
+                BorderPatch patch;
+                patch.gridTileId = job.gridTileId;
+                patch.grid = job.grid;
+                patch.neighbours = job.neighbours;
+                job.grid->encodeTextureBorders(job.neighbours, patch.strips, patch.decode);
+
+                std::lock_guard<std::mutex> lock(_encodeMutex);
+                _encodePending.erase(job.gridTileId);
+                if (_encodeStopped) {
+                    return;
+                }
+                for (auto it = _patchQueue.begin(); it != _patchQueue.end(); it++) {
+                    if (it->gridTileId == patch.gridTileId) {
+                        _patchQueue.erase(it); // an older ring for the same tile is superseded
+                        break;
+                    }
+                }
+                _patchQueue.push_back(std::move(patch));
+                continue;
+            }
+
             EncodedTexture encoded;
             encoded.gridTileId = job.gridTileId;
             encoded.grid = job.grid;
@@ -202,7 +283,7 @@ namespace carto {
             // convention. Bitmap treats a POSITIVE stride as top-down input and flips the
             // rows - pass a negative stride so the data is taken as-is (a flipped texture
             // mirrors every tile's terrain north-south).
-            encoded.bitmap = std::make_shared<Bitmap>(_encodeScratch.data(), width, height, ColorFormat::COLOR_FORMAT_RGBA, -4 * width);
+            encoded.bitmap = std::make_shared<BorderBitmap>(_encodeScratch.data(), width, height, ColorFormat::COLOR_FORMAT_RGBA, -4 * width);
 
             {
                 std::lock_guard<std::mutex> lock(_encodeMutex);
@@ -248,8 +329,41 @@ namespace carto {
             entry.neighbours = encoded.neighbours;
             entry.decode = encoded.decode;
             entry.lastUsed = (it != _cache.end() ? it->second.lastUsed : _accessCounter);
+            entry.bitmap = encoded.bitmap;
             entry.texture = _glResourceManager->create<Texture>(encoded.bitmap, false, false); // no mipmaps, clamp to edge
             _cache.insert_or_assign(encoded.gridTileId, std::move(entry));
+        }
+    }
+
+    void ElevationTextureCache::applyBorderPatches() {
+        // Cheap enough not to need the upload budget: four glTexSubImage2D calls over a 2-texel
+        // ring, against a full 514x514 upload for the same visual result.
+        std::deque<BorderPatch> patches;
+        {
+            std::lock_guard<std::mutex> lock(_encodeMutex);
+            patches.swap(_patchQueue);
+        }
+        for (BorderPatch& patch : patches) {
+            auto it = _cache.find(patch.gridTileId);
+            if (it == _cache.end() || it->second.grid != patch.grid || !it->second.bitmap || !it->second.texture) {
+                continue; // the entry was rebuilt or evicted meanwhile; the patch is void
+            }
+            int width = patch.grid->getWidth() + 2;
+            int height = patch.grid->getHeight() + 2;
+            const std::shared_ptr<BorderBitmap>& bitmap = it->second.bitmap;
+            const std::shared_ptr<Texture>& texture = it->second.texture;
+            // Both the CPU copy and the GPU texture: the bitmap is what the texture is rebuilt
+            // from after a context loss.
+            bitmap->writeRect(0, 0, width, 2, patch.strips.south);
+            texture->updateSubImage(0, 0, width, 2, patch.strips.south.data());
+            bitmap->writeRect(0, height - 2, width, 2, patch.strips.north);
+            texture->updateSubImage(0, height - 2, width, 2, patch.strips.north.data());
+            bitmap->writeRect(0, 0, 2, height, patch.strips.west);
+            texture->updateSubImage(0, 0, 2, height, patch.strips.west.data());
+            bitmap->writeRect(width - 2, 0, 2, height, patch.strips.east);
+            texture->updateSubImage(width - 2, 0, 2, height, patch.strips.east.data());
+            it->second.neighbours = patch.neighbours;
+            it->second.decode = patch.decode;
         }
     }
 
@@ -308,6 +422,7 @@ namespace carto {
             _encodeQueue.clear();
             _encodePending.clear();
             _encodedQueue.clear();
+            _patchQueue.clear();
             thread = std::move(_encodeThread);
         }
         _encodeCondition.notify_all();
@@ -324,8 +439,10 @@ namespace carto {
     }
 
     void ElevationTextureCache::beginFrame() {
-        // Textures encoded since the last frame go up now, ahead of the draws that sample them.
+        // Textures encoded since the last frame go up now, ahead of the draws that sample them,
+        // and border refinements are patched into the ones already there.
         uploadReadyTextures();
+        applyBorderPatches();
         _frameResolved.clear();
         _frameStartCounter = _accessCounter;
     }
@@ -338,6 +455,7 @@ namespace carto {
             _encodeQueue.clear();
             _encodePending.clear();
             _encodedQueue.clear(); // encoded from grids this cache no longer stands behind
+            _patchQueue.clear();
         }
     }
 }

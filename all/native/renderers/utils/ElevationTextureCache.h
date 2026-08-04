@@ -8,6 +8,7 @@
 #define _CARTO_ELEVATIONTEXTURECACHE_H_
 
 #include <array>
+#include <atomic>
 #include <condition_variable>
 #include <cstdint>
 #include <deque>
@@ -19,6 +20,7 @@
 #include <vector>
 
 #include "core/MapTile.h"
+#include "terrain/ElevationTileGrid.h" // BorderStrips is a member of a queued patch
 
 #include <vt/GLTileRenderer.h>
 
@@ -79,9 +81,12 @@ namespace carto {
         void clear();
 
     private:
+        class BorderBitmap; // a Bitmap whose border strips can be rewritten in place
+
         struct CacheEntry {
             std::shared_ptr<ElevationTileGrid> grid;
-            std::array<std::shared_ptr<ElevationTileGrid>, 8> neighbours; // border sources; entry rebuilds when a neighbour grid loads
+            std::array<std::shared_ptr<ElevationTileGrid>, 8> neighbours; // border sources; the border is patched when one loads
+            std::shared_ptr<BorderBitmap> bitmap; // what the texture is rebuilt from after a context loss
             std::shared_ptr<Texture> texture;
             std::array<float, 4> decode = { { 0, 0, 0, 0 } };
             std::uint64_t lastUsed = 0; // LRU stamp
@@ -92,6 +97,7 @@ namespace carto {
             long long gridTileId = -1;
             std::shared_ptr<ElevationTileGrid> grid;
             std::array<std::shared_ptr<ElevationTileGrid>, 8> neighbours;
+            bool bordersOnly = false; // the entry already has this grid's texture; only its ring changed
         };
         // The BITMAP, not the encoded bytes: building it copies the whole padded texture
         // (514x514 RGBA, a megabyte, byte by byte in Bitmap::loadFromUncompressedBytes) and that
@@ -101,7 +107,20 @@ namespace carto {
             long long gridTileId = -1;
             std::shared_ptr<ElevationTileGrid> grid;
             std::array<std::shared_ptr<ElevationTileGrid>, 8> neighbours;
-            std::shared_ptr<Bitmap> bitmap;
+            std::shared_ptr<BorderBitmap> bitmap;
+            std::array<float, 4> decode = { { 0, 0, 0, 0 } };
+        };
+
+        // A neighbour arriving changes ONLY the 2-texel ring of the texture (the border itself,
+        // and this grid's outermost row/column where a coarser neighbour box-filters it). During a
+        // pan that is the common case by far, and re-encoding a megabyte for it is most of what
+        // this pipeline costs. The ring is encoded on the worker and patched into the existing
+        // texture and its bitmap - same result, ~1.5% of the texels.
+        struct BorderPatch {
+            long long gridTileId = -1;
+            std::shared_ptr<ElevationTileGrid> grid; // the patch is void if the entry's grid changed meanwhile
+            std::array<std::shared_ptr<ElevationTileGrid>, 8> neighbours;
+            ElevationTileGrid::BorderStrips strips;
             std::array<float, 4> decode = { { 0, 0, 0, 0 } };
         };
 
@@ -117,8 +136,11 @@ namespace carto {
         bool resolveEntry(const vt::TileId& tileId, MapTile& gridTileOut);
         static void fillTexture(const CacheEntry& entry, float metersToInternal, vt::GLTileRenderer::TerrainTexture& terrainTexture);
         // Queues an encode unless the same grid+neighbours is already queued, encoding or ready.
-        void requestEncode(long long gridTileId, const std::shared_ptr<ElevationTileGrid>& grid, const std::array<std::shared_ptr<ElevationTileGrid>, 8>& neighbours);
+        // 'bordersOnly' when the entry already holds a texture built from this exact grid and only
+        // the neighbours changed.
+        void requestEncode(long long gridTileId, const std::shared_ptr<ElevationTileGrid>& grid, const std::array<std::shared_ptr<ElevationTileGrid>, 8>& neighbours, bool bordersOnly);
         void uploadReadyTextures();
+        void applyBorderPatches();
         void runEncodeWorker();
         void stopEncodeWorker();
         void evictLeastRecentlyUsed();
@@ -137,6 +159,7 @@ namespace carto {
         std::deque<EncodeJob> _encodeQueue;      // drained newest first: the newest request is the visible one
         std::set<long long> _encodePending;      // queued or being encoded
         std::deque<EncodedTexture> _encodedQueue; // waiting for the GL thread to upload
+        std::deque<BorderPatch> _patchQueue;      // waiting for the GL thread to patch
         std::vector<std::uint8_t> _encodeScratch; // worker-thread only: the encode buffer, reused
         std::unique_ptr<std::thread> _encodeThread;
         bool _encodeStopped = false;

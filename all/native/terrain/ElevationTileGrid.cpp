@@ -82,11 +82,7 @@ namespace carto {
         decode = { { 255.0f * 256.0f * QUANT_SCALE, 255.0f * QUANT_SCALE, 0.0f, QUANT_OFFSET } };
     }
 
-    void ElevationTileGrid::encodeTextureWithBorders(const std::array<std::shared_ptr<ElevationTileGrid>, 8>& neighbours, std::vector<std::uint8_t>& rgbaData, std::array<float, 4>& decode) const {
-        int paddedWidth = _width + 2;
-        int paddedHeight = _height + 2;
-        rgbaData.resize(static_cast<std::size_t>(paddedWidth) * paddedHeight * 4);
-
+    std::function<std::uint16_t(int, int)> ElevationTileGrid::makeTexelSampler(const std::array<std::shared_ptr<ElevationTileGrid>, 8>& neighbours) const {
         // Same DEM level and grid size: the border texel is one of the neighbour's own
         // texels, so it can be copied bit-exactly by index.
         auto sameLevel = [this](const std::shared_ptr<ElevationTileGrid>& grid) {
@@ -171,8 +167,18 @@ namespace carto {
         std::vector<std::uint16_t> northEdge = edgeFilter(neighbours[3], false, _height - 1);
 
         // texel value at padded coordinates (gx, gy in [-1, width/height]); border texels
-        // come from the neighbour that actually covers them, falling back to edge clamping
-        auto rawValue = [&, this](int gx, int gy) -> std::uint16_t {
+        // come from the neighbour that actually covers them, falling back to edge clamping.
+        // Captured BY VALUE: the sampler outlives this call, and the edge filters are the
+        // expensive part of it.
+        return [this, neighbours, texelX, texelY, westEdge, eastEdge, southEdge, northEdge](int gx, int gy) -> std::uint16_t {
+            auto sameLevel = [this](const std::shared_ptr<ElevationTileGrid>& grid) {
+                return grid && grid->_width == _width && grid->_height == _height && grid->_tile.getZoom() == _tile.getZoom() && !(grid->_tile == _tile);
+            };
+            auto sampleValue = [&, this](const ElevationTileGrid* grid, int sx, int sy) -> std::uint16_t {
+                double px = _internalBounds.getMin().getX() + (sx + 0.5) * texelX;
+                double py = _internalBounds.getMin().getY() + (sy + 0.5) * texelY;
+                return EncodeHeight(grid->sampleHeight(px, py));
+            };
             static const std::array<std::pair<int, int>, 8> DIRS = { {
                 { -1, 0 }, { 1, 0 }, { 0, -1 }, { 0, 1 }, { -1, -1 }, { 1, -1 }, { -1, 1 }, { 1, 1 }
             } };
@@ -224,19 +230,21 @@ namespace carto {
             }
             return _heights[static_cast<std::size_t>(cy) * _width + cx];
         };
+    }
+
+    void ElevationTileGrid::encodeTextureWithBorders(const std::array<std::shared_ptr<ElevationTileGrid>, 8>& neighbours, std::vector<std::uint8_t>& rgbaData, std::array<float, 4>& decode) const {
+        int paddedWidth = _width + 2;
+        int paddedHeight = _height + 2;
+        rgbaData.resize(static_cast<std::size_t>(paddedWidth) * paddedHeight * 4);
+
+        std::function<std::uint16_t(int, int)> texelValue = makeTexelSampler(neighbours);
 
         // Only the border ring and the two outermost own rows/columns can come from anywhere but
         // this grid: the border ring by definition, the outermost own texels because a coarser
         // neighbour box-filters them (edgeFilter above). Everything else is this grid's own texel
-        // at its own index. Running the general rawValue() lambda over the whole tile instead -
-        // with its neighbour dispatch and four edge-filter tests PER TEXEL - is what made encoding
-        // one texture cost 79 ms on the device (measured, 514x514), which is most of a frame.
-        auto writeTexel = [&rgbaData](std::size_t index, std::uint16_t value) {
-            rgbaData[index + 0] = static_cast<std::uint8_t>(value >> 8);
-            rgbaData[index + 1] = static_cast<std::uint8_t>(value & 255);
-            rgbaData[index + 2] = 0;
-            rgbaData[index + 3] = 255;
-        };
+        // at its own index. Running the general sampler over the whole tile instead - with its
+        // neighbour dispatch and four edge-filter tests PER TEXEL - is what made encoding one
+        // texture cost 79 ms on the device (measured, 514x514), which is most of a frame.
         std::size_t i = 0;
         for (int gy = -1; gy <= _height; gy++) {
             bool ownRow = (gy > 0 && gy < _height - 1);
@@ -245,12 +253,41 @@ namespace carto {
                     // The row's own span, straight from the height field.
                     const std::uint16_t* row = &_heights[static_cast<std::size_t>(gy) * _width];
                     for (; gx < _width - 1; gx++) {
-                        writeTexel(i, row[gx]);
+                        WriteTexel(&rgbaData[i], row[gx]);
                         i += 4;
                     }
                 }
-                writeTexel(i, rawValue(gx, gy));
+                WriteTexel(&rgbaData[i], texelValue(gx, gy));
                 i += 4;
+            }
+        }
+        decode = { { 255.0f * 256.0f * QUANT_SCALE, 255.0f * QUANT_SCALE, 0.0f, QUANT_OFFSET } };
+    }
+
+    void ElevationTileGrid::encodeTextureBorders(const std::array<std::shared_ptr<ElevationTileGrid>, 8>& neighbours, BorderStrips& strips, std::array<float, 4>& decode) const {
+        int paddedWidth = _width + 2;
+        int paddedHeight = _height + 2;
+
+        std::function<std::uint16_t(int, int)> texelValue = makeTexelSampler(neighbours);
+
+        // South and north: two full-width rows each (gy = -1, 0 and height-1, height).
+        strips.south.resize(static_cast<std::size_t>(paddedWidth) * 2 * 4);
+        strips.north.resize(static_cast<std::size_t>(paddedWidth) * 2 * 4);
+        for (int row = 0; row < 2; row++) {
+            std::size_t s = static_cast<std::size_t>(row) * paddedWidth * 4;
+            for (int gx = -1; gx <= _width; gx++, s += 4) {
+                WriteTexel(&strips.south[s], texelValue(gx, -1 + row));
+                WriteTexel(&strips.north[s], texelValue(gx, _height - 1 + row));
+            }
+        }
+        // West and east: two full-height columns each (gx = -1, 0 and width-1, width).
+        strips.west.resize(static_cast<std::size_t>(paddedHeight) * 2 * 4);
+        strips.east.resize(static_cast<std::size_t>(paddedHeight) * 2 * 4);
+        for (int gy = -1; gy <= _height; gy++) {
+            std::size_t s = static_cast<std::size_t>(gy + 1) * 2 * 4;
+            for (int col = 0; col < 2; col++) {
+                WriteTexel(&strips.west[s + col * 4], texelValue(-1 + col, gy));
+                WriteTexel(&strips.east[s + col * 4], texelValue(_width - 1 + col, gy));
             }
         }
         decode = { { 255.0f * 256.0f * QUANT_SCALE, 255.0f * QUANT_SCALE, 0.0f, QUANT_OFFSET } };

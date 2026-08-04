@@ -30,6 +30,15 @@ namespace carto {
 
         GLuint getTexId() const;
 
+        /**
+         * Uploads a sub-rectangle of the texture from raw pixel data in the texture's own color
+         * format. The CALLER is responsible for keeping the bitmap this texture was created from in
+         * sync: the bitmap is what the texture is rebuilt from after a GL context loss, so a
+         * sub-upload that only reaches the GPU is silently undone by the next context recreation.
+         * Does nothing before the texture is created. Internal, no mipmap regeneration.
+         */
+        void updateSubImage(int x, int y, int width, int height, const unsigned char* data);
+
     protected:
         friend GLResourceManager;
 

@@ -12,6 +12,7 @@
 
 #include <array>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -70,12 +71,45 @@ namespace carto {
         void encodeTextureWithBorders(const std::array<std::shared_ptr<ElevationTileGrid>, 8>& neighbours, std::vector<std::uint8_t>& rgbaData, std::array<float, 4>& decode) const;
 
         /**
+         * The four 2-texel-thick strips of the padded texture that depend on the NEIGHBOURS:
+         * the border ring itself, plus this grid's own outermost row/column, which a coarser
+         * neighbour box-filters (see encodeTextureWithBorders). Everything else in the texture
+         * comes from this grid alone and cannot change when a neighbour arrives.
+         *
+         * A neighbour landing is by far the most common reason to re-encode - during a pan it is
+         * continuous - and rebuilding a megabyte of texture for a 2-texel ring is most of what the
+         * elevation texture pipeline costs. Patching these strips into the existing texture is the
+         * same result for ~1.5% of the texels.
+         *
+         * Strip layout, rows south-to-north and columns west-to-east, as in the padded texture:
+         * south/north are (width + 2) x 2, west/east are 2 x (height + 2). Corners are covered by
+         * south and north, so the strips overlap there and agree.
+         */
+        struct BorderStrips {
+            std::vector<std::uint8_t> south, north, west, east;
+        };
+        void encodeTextureBorders(const std::array<std::shared_ptr<ElevationTileGrid>, 8>& neighbours, BorderStrips& strips, std::array<float, 4>& decode) const;
+
+        /**
          * Decodes a DEM bitmap (mapbox/terrarium RGB encoded) into an elevation grid using
          * the given color component coefficients. Returns null if the bitmap has an unsupported format.
          */
         static std::shared_ptr<ElevationTileGrid> DecodeBitmap(const MapTile& tile, const MapBounds& internalBounds, const std::shared_ptr<Bitmap>& bitmap, const std::array<double, 4>& coeffs);
 
     private:
+        // The padded texture's texel value at (gx, gy), gx in [-1, width] and gy in [-1, height]:
+        // this grid's own texel, a neighbour's, or a box-filtered edge value. Built once per
+        // encode because the edge filters it needs are O(width + height) to compute; both the full
+        // encode and the border patch go through it, so they cannot disagree.
+        std::function<std::uint16_t(int, int)> makeTexelSampler(const std::array<std::shared_ptr<ElevationTileGrid>, 8>& neighbours) const;
+
+        static void WriteTexel(std::uint8_t* dst, std::uint16_t value) {
+            dst[0] = static_cast<std::uint8_t>(value >> 8);
+            dst[1] = static_cast<std::uint8_t>(value & 255);
+            dst[2] = 0;
+            dst[3] = 255;
+        }
+
         // Fixed-point encoding: covers -1100m (Dead Sea + margin) to +15283m at 0.25m steps
         static constexpr float QUANT_OFFSET = -1100.0f;
         static constexpr float QUANT_SCALE = 0.25f;
