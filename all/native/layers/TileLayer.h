@@ -490,6 +490,7 @@ namespace carto {
         int _terrainMinTileZoom = 0; // terrain mode: the coarsest tile zoom the LOD rule may pick
         double _maxVisibleDistance = 0; // internal units; 0 = as far as the camera can see
         double _lodMaxTileArea = 0; // screen pixels squared; the tangram LOD threshold, 0 = no area test
+        double _lodElevation = 0; // world z the LOD projects tile corners at (the terrain under the focus)
         bool _terrainOverzoomTargets = false; // terrain mode: target tiles may exceed the data source max zoom (overzoom-fed)
 
         std::vector<MapTile> _visibleTiles;

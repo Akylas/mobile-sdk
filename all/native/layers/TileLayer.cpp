@@ -661,6 +661,26 @@ namespace carto {
         // angle where a tile's screen area collapses but its DISTANCE barely grows. That grazing
         // band is where a near-horizontal view used to spend hundreds of tiles, each carrying a
         // full set of labels for a few pixels of screen.
+        // Tangram projects the tile corners at the terrain elevation AT THE SCREEN CENTRE, not at
+        // sea level ("use elevation at center of screen (used to calc m_zoom) for tile bottom",
+        // View::getTileScreenArea). Measuring a mountain tile as if it lay at sea level puts it
+        // further from the camera and makes it smaller, so it stays coarse exactly where the
+        // terrain is high and steep - which is where a coarse tile hurts most: blurred hillshade,
+        // a blunt depth occluder that steep ridges leak through, and a wide LOD spread that tears
+        // at tile borders. One value for the whole cull, so it moves with the camera and not with
+        // the tile, and the visible set does not churn as elevation streams in.
+        _lodElevation = 0;
+        if (auto options = getOptions()) {
+            if (auto terrainOptions = options->getTerrainOptions()) {
+                if (terrainOptions->isEnabled()) {
+                    if (auto elevationManager = terrainOptions->getElevationManager()) {
+                        const cglib::vec3<double>& focusPos = cullState->getViewState().getFocusPos();
+                        _lodElevation = elevationManager->getDisplayHeight(focusPos(0), focusPos(1), ElevationManager::LoadMode::CACHED_ONLY);
+                    }
+                }
+            }
+        }
+
         _lodMaxTileArea = 0;
         if (auto options = getOptions()) {
             const ViewState& viewState = cullState->getViewState();
@@ -751,6 +771,7 @@ namespace carto {
             bool projected = true;
             for (int i = 0; i < 4; i++) {
                 cglib::vec3<double> worldPos = cglib::transform_point(CORNERS[i], tileMat);
+                worldPos(2) += _lodElevation; // see calculateVisibleTiles
                 cglib::vec4<double> clipPos = cglib::transform(cglib::vec4<double>(worldPos(0), worldPos(1), worldPos(2), 1.0), mvpMat);
                 if (!(clipPos(3) > 0)) {
                     projected = false;
