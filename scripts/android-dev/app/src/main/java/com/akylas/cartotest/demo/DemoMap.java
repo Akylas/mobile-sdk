@@ -126,6 +126,7 @@ public class DemoMap {
     public void build() {
         // Options first: layers created afterwards pick up the terrain/light state immediately.
         mapView.getOptions().setTileThreadPoolSize(DemoConfig.TILE_THREAD_POOL_SIZE);
+        mapView.getOptions().setTileLODFactor(DemoConfig.TILE_LOD_FACTOR);
         applyTerrainOptions();
         applyLightOptions();
         applySkyOptions();

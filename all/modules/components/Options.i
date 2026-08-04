@@ -65,6 +65,7 @@
 %attribute(carto::Options, int, EnvelopeThreadPoolSize, getEnvelopeThreadPoolSize, setEnvelopeThreadPoolSize)
 %attribute(carto::Options, int, TileThreadPoolSize, getTileThreadPoolSize, setTileThreadPoolSize)
 %attribute(carto::Options, int, TileDrawSize, getTileDrawSize, setTileDrawSize)
+%attribute(carto::Options, float, TileLODFactor, getTileLODFactor, setTileLODFactor)
 %attribute(carto::Options, float, DPI, getDPI, setDPI)
 %attribute(carto::Options, float, DrawDistance, getDrawDistance, setDrawDistance)
 %std_exceptions(carto::Options::setBaseProjection)

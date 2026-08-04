@@ -364,6 +364,9 @@ public final class DemoPanel {
             public void set(float value) { DemoConfig.FOG_DISTANCE = value < 500 ? 0 : value; demo.terrainOptions.setFogDistance(DemoConfig.FOG_DISTANCE); }
         });
         // Changes the visible tile set, so apply on release only.
+        slider(context, panel, "tile LOD (x tangram, 0=finest)", 0, 4, DemoConfig.TILE_LOD_FACTOR, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.TILE_LOD_FACTOR = value; demo.mapView.getOptions().setTileLODFactor(value); }
+        });
         slider(context, panel, "view distance (x tangram, 0=all)", 0, 4, DemoConfig.VIEW_DISTANCE_FACTOR, true, new FloatSetting() {
             public void set(float value) { DemoConfig.VIEW_DISTANCE_FACTOR = value < 0.05f ? 0 : value; demo.terrainOptions.setViewDistanceFactor(DemoConfig.VIEW_DISTANCE_FACTOR); }
         });

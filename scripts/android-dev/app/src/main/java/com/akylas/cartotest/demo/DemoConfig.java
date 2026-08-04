@@ -153,6 +153,15 @@ public final class DemoConfig {
     /** Tile decode threads (Options.setTileThreadPoolSize). The SDK default is 1; tangram-ng
      *  runs 2 (SceneOptions::numTileWorkers). Raise it to get tiles on screen sooner. */
     public static int TILE_THREAD_POOL_SIZE = 1;
+    /** Screen size a tile may cover before the next zoom level is used, as a factor on tangram's
+     *  rule (a 2x2 block of nominal tiles). 1 = their rule; larger keeps tiles coarser at a tilt
+     *  (fewer tiles, fewer far labels); 0 refines everything to the camera zoom.
+     *  '--es lodFactor 2'. */
+    public static float TILE_LOD_FACTOR = 1f;
+    /** Metres beyond which the inline style's street labels are not placed (0 = no limit). Only
+     *  the inline style uses it; it is the 'text-max-distance' CartoCSS property.
+     *  '--es labelMaxDistance 2000'. */
+    public static float LABEL_MAX_DISTANCE = 0f;
 
     public static boolean TERRAIN_ENABLED = true;
     public static float TERRAIN_EXAGGERATION = 1.0f;
@@ -391,6 +400,8 @@ public final class DemoConfig {
 
         // terrain
         TILE_THREAD_POOL_SIZE = DemoCfg.cfgInt("tilePool", TILE_THREAD_POOL_SIZE);
+        TILE_LOD_FACTOR = DemoCfg.cfgFloat("lodFactor", TILE_LOD_FACTOR);
+        LABEL_MAX_DISTANCE = DemoCfg.cfgFloat("labelMaxDistance", LABEL_MAX_DISTANCE);
         TERRAIN_ENABLED = DemoCfg.cfgBool("terrain", TERRAIN_ENABLED);
         TERRAIN_CAMERA_CLEARANCE = DemoCfg.cfgFloat("clearance", TERRAIN_CAMERA_CLEARANCE);
         TERRAIN_EXAGGERATION = DemoCfg.cfgFloat("exaggeration", TERRAIN_EXAGGERATION);

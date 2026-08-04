@@ -508,6 +508,7 @@ namespace carto {
         bool _terrainSourceDensity = false;
         bool _terrainSourceDensityLines = false;
         float _terrainViewDistanceFactor = 0.0f; // last TerrainOptions view distance factor a cull ran with
+        float _tileLODFactor = 0.0f; // last Options tile LOD factor a cull ran with
     };
     
 }

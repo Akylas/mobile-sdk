@@ -372,19 +372,22 @@ namespace carto {
             return;
         }
 
-        // The view distance decides which tiles are visible, but it is not part of the view
-        // matrix: changing it on a still map would otherwise only take effect the next time the
-        // camera moves (the option looks dead, then the ground suddenly ends mid-pan).
+        // The view distance and the LOD threshold decide which tiles are visible, but neither is
+        // part of the view matrix: changing one on a still map would otherwise only take effect the
+        // next time the camera moves (the option looks dead, then the ground suddenly ends mid-pan).
         {
             float viewDistanceFactor = 0.0f;
+            float lodFactor = 0.0f;
             if (auto options = getOptions()) {
+                lodFactor = options->getTileLODFactor();
                 if (auto terrainOptions = options->getTerrainOptions()) {
                     viewDistanceFactor = terrainOptions->getViewDistanceFactor();
                 }
             }
-            if (_terrainViewDistanceFactor != viewDistanceFactor) {
+            if (_terrainViewDistanceFactor != viewDistanceFactor || _tileLODFactor != lodFactor) {
                 _terrainViewDistanceFactor = viewDistanceFactor;
-                _tileCullState.reset(); // re-cull with the new distance, tiles themselves stay valid
+                _tileLODFactor = lodFactor;
+                _tileCullState.reset(); // re-cull with the new rule, tiles themselves stay valid
             }
         }
 
@@ -656,7 +659,9 @@ namespace carto {
         if (auto options = getOptions()) {
             const ViewState& viewState = cullState->getViewState();
             double tileSizePixels = options->getTileDrawSize() * viewState.getDPI() / Const::UNSCALED_DPI;
-            double maxEdge = 2.0 * tileSizePixels;
+            // Options::TileLODFactor scales it: 1 is their rule verbatim, larger keeps tiles
+            // coarser (fewer tiles, fewer labels, less detail), smaller refines further.
+            double maxEdge = 2.0 * tileSizePixels * std::max(0.0f, options->getTileLODFactor());
             // A source whose tiles are bigger than the nominal size carries a zoom bias; the same
             // bias applies to the area it is allowed to cover (tangram: maxArea * exp2(2*zoomBias)).
             _lodMaxTileArea = maxEdge * maxEdge * std::pow(4.0, -getZoomLevelBias());

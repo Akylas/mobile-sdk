@@ -26,6 +26,7 @@ namespace carto {
         _longClickDuration(DEFAULT_LONG_CLICK_DURATION),
         _doubleClickMaxDuration(DEFAULT_DOUBLE_CLICK_MAX_DURATION),
         _tileDrawSize(256),
+        _tileLODFactor(1.0f),
         _dpi(160.0f),
         _drawDistance(16),
         _fovY(70),
@@ -226,6 +227,23 @@ namespace carto {
             _tileDrawSize = tileDrawSize;
         }
         notifyOptionChanged("TileDrawSize");
+    }
+
+    float Options::getTileLODFactor() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        return _tileLODFactor;
+    }
+
+    void Options::setTileLODFactor(float factor) {
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            float clamped = std::max(0.0f, factor);
+            if (_tileLODFactor == clamped) {
+                return;
+            }
+            _tileLODFactor = clamped;
+        }
+        notifyOptionChanged("TileLODFactor");
     }
     
     float Options::getDPI() const {

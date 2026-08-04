@@ -242,6 +242,9 @@ public final class DemoStyles {
                         " text-spacing: 10;",
                         "text-placement: line;",
                         "text-size: 10;",
+                        DemoConfig.LABEL_MAX_DISTANCE > 0
+                            ? "text-max-distance: " + DemoConfig.LABEL_MAX_DISTANCE + ";"
+                            : "",
                         " }")
                 : "",
             "#transportation['class'='motorway'] { line-color: #e27d60; line-width: 3; }",

@@ -217,6 +217,24 @@ namespace carto {
          * @param tileDrawSize The new tile size in density-independent pixels (dp).
          */
         void setTileDrawSize(int tileDrawSize);
+
+        /**
+         * Returns the factor on the screen size a tile may cover before it is refined.
+         * @return The tile LOD factor. The default is 1, which is exactly tangram's rule.
+         */
+        float getTileLODFactor() const;
+        /**
+         * Sets how big a tile may get on screen before the next zoom level is used, as a factor on
+         * tangram's rule (core/src/tile/tileManager.cpp): refine while the tile's projected screen
+         * area is at least that of a 2x2 block of nominal tiles. A factor of 1 is that rule
+         * verbatim, larger keeps tiles coarser (fewer tiles, fewer labels, less detail), smaller
+         * refines further.
+         * Where it matters is a tilted view: a tile near the horizon collapses to a few pixels of
+         * screen while its distance barely grows, so this - not the view distance - is what decides
+         * how much of the horizon band is drawn at full detail.
+         * @param factor The new tile LOD factor. The default is 1.
+         */
+        void setTileLODFactor(float factor);
     
         /**
          * Returns the dots per inch value.
@@ -637,6 +655,7 @@ namespace carto {
         float _doubleClickMaxDuration;
     
         int _tileDrawSize;
+        float _tileLODFactor;
     
         float _dpi;
     

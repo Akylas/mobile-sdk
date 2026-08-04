@@ -27,8 +27,12 @@ rule (`TileManager::updateTileSets` + `View::getTileScreenArea`), ported whole:
 
 ```cpp
 // four tile corners at surface level -> clip space -> screen space, shoelace area
-bool subDivide = screenArea >= _lodMaxTileArea;   // (2 * tileSizePixels)^2, x 4^-zoomLevelBias
+bool subDivide = screenArea >= _lodMaxTileArea;   // (2 * tileSizePixels * lodFactor)^2, x 4^-zoomLevelBias
 ```
+
+`Options::TileLODFactor` scales it: 1 (the default) is their rule verbatim, larger keeps tiles
+coarser everywhere at a tilt - fewer tiles, fewer far labels, less far detail - and 0 turns the area
+test off, refining everything to the camera zoom (the behaviour before this rule).
 
 with three bounds applied: the data source's `getMaxZoom()`, the camera's discrete zoom
 (`viewState.getZoom() + bias + DISCRETE_ZOOM_LEVEL_BIAS`), and, in terrain mode,
