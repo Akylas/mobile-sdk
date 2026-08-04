@@ -726,7 +726,12 @@ namespace carto {
         // smaller depth budget than tangram's. The factor is an option because it ends the view
         // closer, which is the app's trade; 0 keeps the ground-derived far.
         if (_terrainHeightMax > _terrainHeightMin) {
-            double cameraHeight = cglib::dot_product(_cameraPos - options.getProjectionSurface()->calculateNearestPoint(_cameraPos, heightMax), zProjVector);
+            // Their m_pos.z is the camera's height above the ZERO plane ("using non-zero elevation
+            // for camera reference creates all kinds of problems", view.cpp) - not above the
+            // highest terrain. Measuring it against heightMax, as this did, makes the floor grow
+            // with the tallest peak in view: a camera 30m over a 1000m slope under a 2900m summit
+            // got a near plane of 37m and the ground right under it was clipped away.
+            double cameraHeight = cglib::dot_product(_cameraPos - options.getProjectionSurface()->calculateNearestPoint(_cameraPos, 0.0), zProjVector);
             float terrainNear = static_cast<float>(std::abs(cameraHeight) / 50.0);
             float farPlaneFactor = 0.0f;
             if (std::shared_ptr<TerrainOptions> terrainOptions = options.getTerrainOptions()) {
