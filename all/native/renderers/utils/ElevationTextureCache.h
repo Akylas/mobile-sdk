@@ -89,13 +89,28 @@ namespace carto {
         // border patching, re-patched) a texture whose content had not changed at all.
         using GridKey = long long; // grid tile id, or -1 for a missing neighbour
         static GridKey gridKey(const std::shared_ptr<ElevationTileGrid>& grid);
-        static std::array<GridKey, 8> gridKeys(const std::array<std::shared_ptr<ElevationTileGrid>, 8>& grids);
+
+        // How good the border on one side is, and the ONLY reason to touch a texture that is
+        // already up: 0 = this grid's own duplicated edge texels, 1 = a coarser ancestor sampled
+        // geographically, 2 = the exact same-level neighbour. DEM data never changes, so a border
+        // is only ever worth redoing when a side can be filled BETTER than it was. Comparing the
+        // neighbour set instead re-patched whenever a neighbour was merely evicted from the grid
+        // LRU - during a pan that was ~70 patches a second, and a patch is four glTexSubImage2D
+        // calls into a live texture, measured at ~1 ms each on the render thread.
+        using BorderQuality = std::array<int, 8>;
+        static constexpr BorderQuality NO_BORDERS = { { 0, 0, 0, 0, 0, 0, 0, 0 } };
 
         struct CacheEntry {
             std::shared_ptr<ElevationTileGrid> grid;
             GridKey gridKeyValue = -1;
-            std::array<GridKey, 8> neighbourKeys = { { -1, -1, -1, -1, -1, -1, -1, -1 } };
-            std::array<std::shared_ptr<ElevationTileGrid>, 8> neighbours; // border sources; the border is patched when one loads
+            BorderQuality borderQuality = NO_BORDERS;
+            // The grids each side's border was taken from, kept so that a later patch can REUSE
+            // them: the elevation grid LRU drops and re-decodes tiles all the time, and rebuilding
+            // the ring from whatever happens to be cached right now would let a side that already
+            // had its exact neighbour fall back to an ancestor - and then improve again, which is
+            // an endless patch loop. Holding them makes the quality per side monotone, so the ring
+            // converges and stops.
+            std::array<std::shared_ptr<ElevationTileGrid>, 8> neighbours;
             std::shared_ptr<BorderBitmap> bitmap; // what the texture is rebuilt from after a context loss
             std::shared_ptr<Texture> texture;
             std::array<float, 4> decode = { { 0, 0, 0, 0 } };
@@ -107,6 +122,7 @@ namespace carto {
             long long gridTileId = -1;
             std::shared_ptr<ElevationTileGrid> grid;
             std::array<std::shared_ptr<ElevationTileGrid>, 8> neighbours;
+            BorderQuality borderQuality = NO_BORDERS;
             bool bordersOnly = false; // the entry already has this grid's texture; only its ring changed
         };
         // The BITMAP, not the encoded bytes: building it copies the whole padded texture
@@ -116,7 +132,7 @@ namespace carto {
         struct EncodedTexture {
             long long gridTileId = -1;
             GridKey gridKeyValue = -1;
-            std::array<GridKey, 8> neighbourKeys = { { -1, -1, -1, -1, -1, -1, -1, -1 } };
+            BorderQuality borderQuality = NO_BORDERS;
             std::shared_ptr<ElevationTileGrid> grid;
             std::array<std::shared_ptr<ElevationTileGrid>, 8> neighbours;
             std::shared_ptr<BorderBitmap> bitmap;
@@ -131,7 +147,7 @@ namespace carto {
         struct BorderPatch {
             long long gridTileId = -1;
             GridKey gridKeyValue = -1;      // the patch is void if the entry's grid changed meanwhile
-            std::array<GridKey, 8> neighbourKeys = { { -1, -1, -1, -1, -1, -1, -1, -1 } };
+            BorderQuality borderQuality = NO_BORDERS;
             std::shared_ptr<ElevationTileGrid> grid;
             std::array<std::shared_ptr<ElevationTileGrid>, 8> neighbours;
             ElevationTileGrid::BorderStrips strips;
@@ -155,7 +171,7 @@ namespace carto {
         // Queues an encode unless the same grid+neighbours is already queued, encoding or ready.
         // 'bordersOnly' when the entry already holds a texture built from this exact grid and only
         // the neighbours changed.
-        void requestEncode(long long gridTileId, const std::shared_ptr<ElevationTileGrid>& grid, const std::array<std::shared_ptr<ElevationTileGrid>, 8>& neighbours, bool bordersOnly);
+        void requestEncode(long long gridTileId, const std::shared_ptr<ElevationTileGrid>& grid, const std::array<std::shared_ptr<ElevationTileGrid>, 8>& neighbours, const BorderQuality& borderQuality, bool bordersOnly);
         void uploadReadyTextures();
         void applyBorderPatches();
         void runEncodeWorker();
