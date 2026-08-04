@@ -61,4 +61,17 @@ Do not build on it, and do not extend these docs to cover it.
 
 A change under `libs-carto/` is a commit in that submodule plus a pointer bump here — see the
 working agreement in `.claude/CLAUDE.md`.
+
+## What this set does not cover yet
+
+Stated so a reader does not mistake silence for "there is nothing there":
+
+- **Startup / first frame** — ~3.8 s to first content with a warm cache, of which ~1.3 s is before
+  the first tile is even requested (JVM attach, GL init, ~0.6 s enumerating system fonts). Measured,
+  not yet attributed; the numbers are in [../render-performance.md](../render-performance.md).
+- **Spherical projection mode** (`RenderProjectionMode::SPHERICAL`) — exercises the non-trivial
+  `TileTransformer` paths; none of the terrain work above applies to it.
+- **Post-process effects** (`PostProcessEffect`, the offscreen path in `onDrawFrame`).
+- **Platform specifics** — iOS/UWP GL context setup, and the `angle-metal` backend.
+- **The RTT drape**, on purpose (see above).
 </content>
