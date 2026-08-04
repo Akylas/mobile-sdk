@@ -367,6 +367,9 @@ public final class DemoPanel {
         slider(context, panel, "tile LOD (x tangram, 0=finest)", 0, 4, DemoConfig.TILE_LOD_FACTOR, true, new FloatSetting() {
             public void set(float value) { DemoConfig.TILE_LOD_FACTOR = value; demo.mapView.getOptions().setTileLODFactor(value); }
         });
+        slider(context, panel, "tile coarsening (levels)", 0, 6, DemoConfig.TERRAIN_MAX_TILE_ZOOM_COARSENING, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.TERRAIN_MAX_TILE_ZOOM_COARSENING = (int) value; demo.terrainOptions.setMaxTileZoomCoarsening((int) value); }
+        });
         slider(context, panel, "view distance (x tangram, 0=all)", 0, 4, DemoConfig.VIEW_DISTANCE_FACTOR, true, new FloatSetting() {
             public void set(float value) { DemoConfig.VIEW_DISTANCE_FACTOR = value < 0.05f ? 0 : value; demo.terrainOptions.setViewDistanceFactor(DemoConfig.VIEW_DISTANCE_FACTOR); }
         });

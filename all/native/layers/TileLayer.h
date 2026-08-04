@@ -456,10 +456,6 @@ namespace carto {
         int findChildTiles(const MapTile& visTile, const MapTile& tile, int depth, bool preloadingCache, bool preloadingTile);
 
         static const float DISCRETE_ZOOM_LEVEL_BIAS;
-        // Levels below the camera zoom a tile may coarsen to in terrain mode - see
-        // calculateVisibleTilesRecursive. The terrain surface is the depth occluder, so an
-        // unbounded coarsening blunts ridge crests and content behind them shows through.
-        static constexpr int TERRAIN_MAX_TILE_ZOOM_COARSENING = 3;
 
         static const int MAX_PARENT_SEARCH_DEPTH;
         static const int MAX_CHILD_SEARCH_DEPTH;
@@ -514,6 +510,7 @@ namespace carto {
         bool _terrainSourceDensityLines = false;
         float _terrainViewDistanceFactor = 0.0f; // last TerrainOptions view distance factor a cull ran with
         float _tileLODFactor = 0.0f; // last Options tile LOD factor a cull ran with
+        int _terrainCoarsening = -1; // last TerrainOptions coarsening bound a cull ran with
     };
     
 }

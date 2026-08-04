@@ -378,15 +378,18 @@ namespace carto {
         {
             float viewDistanceFactor = 0.0f;
             float lodFactor = 0.0f;
+            int coarsening = 0;
             if (auto options = getOptions()) {
                 lodFactor = options->getTileLODFactor();
                 if (auto terrainOptions = options->getTerrainOptions()) {
                     viewDistanceFactor = terrainOptions->getViewDistanceFactor();
+                    coarsening = terrainOptions->getMaxTileZoomCoarsening();
                 }
             }
-            if (_terrainViewDistanceFactor != viewDistanceFactor || _tileLODFactor != lodFactor) {
+            if (_terrainViewDistanceFactor != viewDistanceFactor || _tileLODFactor != lodFactor || _terrainCoarsening != coarsening) {
                 _terrainViewDistanceFactor = viewDistanceFactor;
                 _tileLODFactor = lodFactor;
+                _terrainCoarsening = coarsening;
                 _tileCullState.reset(); // re-cull with the new rule, tiles themselves stay valid
             }
         }
@@ -631,7 +634,7 @@ namespace carto {
                     if (terrainOptions->getMaxTileZoomOffset() < 100) {
                         _terrainMaxTileZoom = cameraTileZoom + terrainOptions->getMaxTileZoomOffset();
                     }
-                    _terrainMinTileZoom = cameraTileZoom - TERRAIN_MAX_TILE_ZOOM_COARSENING;
+                    _terrainMinTileZoom = cameraTileZoom - terrainOptions->getMaxTileZoomCoarsening();
                 }
             }
         }

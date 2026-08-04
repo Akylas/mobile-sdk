@@ -331,6 +331,25 @@ namespace carto {
         void setViewDistanceFactor(float factor);
 
         /**
+         * Returns how many zoom levels below the camera a tile may coarsen to.
+         * @return The maximum tile zoom coarsening. The default is 3.
+         */
+        int getMaxTileZoomCoarsening() const;
+        /**
+         * Sets how far BELOW the camera's zoom the tile LOD may take a tile in terrain mode
+         * (Options::TileLODFactor decides the rest). The tile surface is the depth OCCLUDER and its
+         * tesselation is proportional to the tile size, so a tile that coarsens freely has its
+         * ridge crests chopped flat and content drawn over a finer tile of another layer - a road,
+         * a contour - shows through the ridge in front of it. The DEM level follows the tile zoom
+         * as well (one elevation texture per tile), so the same tiles also shade as blocky
+         * hillshade.
+         * Larger values give the LOD more room - fewer tiles at a tilt, at the price of both;
+         * 0 pins every tile to the camera's own zoom.
+         * @param levels The new maximum tile zoom coarsening. The default is 3.
+         */
+        void setMaxTileZoomCoarsening(int levels);
+
+        /**
          * Returns the terrain background color.
          * @return The terrain background color. The default is transparent (no background).
          */
@@ -516,6 +535,7 @@ namespace carto {
         std::atomic<float> _fogStartDistance;
         std::atomic<float> _fogDistance;
         std::atomic<float> _viewDistanceFactor;
+        std::atomic<int> _maxTileZoomCoarsening;
 
         std::vector<std::shared_ptr<OnChangeListener> > _onChangeListeners;
         mutable std::mutex _onChangeListenersMutex;

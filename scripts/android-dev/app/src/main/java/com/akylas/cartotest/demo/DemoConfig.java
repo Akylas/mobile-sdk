@@ -206,6 +206,10 @@ public final class DemoConfig {
      *  verbatim; 0 falls back to the visible ground, which reaches the horizon.
      *  '--es viewDistance 0.5' halves it. */
     public static float VIEW_DISTANCE_FACTOR = 1f;
+    /** Zoom levels below the camera a tile may coarsen to in terrain mode. The tile surface is the
+     *  depth occluder and the DEM level follows the tile zoom, so unbounded coarsening means leaky
+     *  ridges and blocky hillshade. '--es coarsening 2'. */
+    public static int TERRAIN_MAX_TILE_ZOOM_COARSENING = 3;
 
     // =============================================================================================
     // SUN / LIGHT / SHADOWS (com.carto.components.LightOptions)
@@ -429,6 +433,7 @@ public final class DemoConfig {
         FOG_START_DISTANCE = DemoCfg.cfgFloat("fogStart", FOG_START_DISTANCE);
         FOG_DISTANCE = DemoCfg.cfgFloat("fogDistance", FOG_DISTANCE);
         VIEW_DISTANCE_FACTOR = DemoCfg.cfgFloat("viewDistance", VIEW_DISTANCE_FACTOR);
+        TERRAIN_MAX_TILE_ZOOM_COARSENING = DemoCfg.cfgInt("coarsening", TERRAIN_MAX_TILE_ZOOM_COARSENING);
 
         // sun / shadows
         TERRAIN_LIGHTING = DemoCfg.cfgBool("terrainLight", TERRAIN_LIGHTING);

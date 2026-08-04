@@ -37,6 +37,7 @@ namespace carto {
         _fogStartDistance(0.0f),
         _fogDistance(0.0f),
         _viewDistanceFactor(1.0f),
+        _maxTileZoomCoarsening(3),
         _onChangeListeners(),
         _onChangeListenersMutex()
     {
@@ -222,6 +223,17 @@ namespace carto {
         float clamped = std::max(0.0f, distance);
         if (_fogDistance.exchange(clamped) != clamped) {
             notifyOptionChanged("FogDistance");
+        }
+    }
+
+    int TerrainOptions::getMaxTileZoomCoarsening() const {
+        return _maxTileZoomCoarsening.load();
+    }
+
+    void TerrainOptions::setMaxTileZoomCoarsening(int levels) {
+        int clamped = std::max(0, levels);
+        if (_maxTileZoomCoarsening.exchange(clamped) != clamped) {
+            notifyOptionChanged("MaxTileZoomCoarsening");
         }
     }
 
