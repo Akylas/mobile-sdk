@@ -622,16 +622,12 @@ namespace carto {
                     // A paint renderer's only consumer of the elevation texture is the shading,
                     // which is per fragment: it resolves relief the mesh cannot, so its cache can
                     // ignore the mesh's level cap (which costs two zoom levels - at high zoom, all
-                    // the relief there is). It is OFF by default because our elevation textures are
-                    // CPU re-encoded per tile with borders from 8 neighbours: one texture per
-                    // render tile thrashes that cache and costs far more than the relief is worth
-                    // (measured on the Crosscall: drape 7.9 -> 200 ms per frame). Tangram can do
-                    // this because it binds the source raster as-is and extrapolates edges in the
-                    // shader. Measure with: adb shell setprop debug.carto.paintdetail 1
-                    // How many elevation levels beyond the MESH cap the texture resolves. The mesh cap is
-                    // right for geometry and blurs per-fragment shading by two zoom levels; each level
-                    // back is 4x the texture working set, so it is a dial, not a flag:
+                    // the relief there is). Each level back is 4x the elevation texture working set,
+                    // so it is a dial, not a flag (DEFAULT_PAINT_DETAIL_LEVELS, and on Android:
                     //   adb shell setprop debug.carto.paintdetail 0|1|2   (2 = the source's own level)
+                    // Tangram pays nothing here because it binds the source raster as-is and
+                    // extrapolates edges in the shader; ours is CPU re-encoded per DEM tile with a
+                    // border ring taken from 8 neighbours.
                     _elevationTextureCache->setDetailLevels(_terrainPaintEnabled && _terrainPaintFullDetail ? terrainPaintDetailLevels() : 0);
                     _elevationTextureCache->beginFrame();
                     std::shared_ptr<ElevationTextureCache> elevationTextureCache = _elevationTextureCache;
@@ -1061,11 +1057,11 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
                     return value;
                 }
             }
-            return 2;
+            return DEFAULT_PAINT_DETAIL_LEVELS;
         }();
         return levels;
 #else
-        return 2;
+        return DEFAULT_PAINT_DETAIL_LEVELS;
 #endif
     }
 
