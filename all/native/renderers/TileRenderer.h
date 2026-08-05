@@ -182,9 +182,9 @@ namespace carto {
         static int terrainDemTaps();
         // debug.carto.tilebg 1 keeps the per-tile per-layer background meshes. Read once (Android).
         static bool isTerrainTileBackgroundsForced();
-        // debug.carto.tilemasks 0 drops the stencil tile masks, as tangram has none. Read once
-        // (Android only).
-        static bool areTileMasksEnabled();
+        // debug.carto.tilemasks forces the stencil tile masks on (1) or off (0) instead of the
+        // renderer's own rule. Read once (Android only).
+        static int tileMasksMode();
         void updateLabelOcclusionTest(const std::shared_ptr<vt::GLTileRenderer>& tileRenderer, const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions);
 
         static constexpr int SURFACE_RESET_DELAY = 500; // minimum interval (ms) between elevation-driven tile surface rebuilds
