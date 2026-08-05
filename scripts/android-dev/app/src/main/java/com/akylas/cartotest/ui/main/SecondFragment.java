@@ -93,6 +93,13 @@ public class SecondFragment extends Fragment {
 
         // Intent extras override the DemoConfig defaults; read them before anything is built.
         DemoCfg.attach(getActivity() != null ? getActivity().getIntent() : null);
+
+        // MapView sets RENDERMODE_WHEN_DIRTY: every frame is a request from the native side, which
+        // costs a wakeup handshake per frame. '--es continuousRender true' drives the GL thread
+        // continuously instead, which is what tells whether that handshake is what paces the map.
+        if (DemoConfig.CONTINUOUS_RENDER) {
+            mapView.setRenderMode(android.opengl.GLSurfaceView.RENDERMODE_CONTINUOUSLY);
+        }
         DemoConfig.applyIntentOverrides();
 
         checkStoragePermission(view);

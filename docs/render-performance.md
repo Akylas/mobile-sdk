@@ -1067,3 +1067,98 @@ the same switch now measures:
 
 −25%, not −63%. Sharp high-zoom relief is now a plausible option for a stack that wants it, but not
 a default. The old numbers in §9.4 should be read as historical.
+
+---
+
+## 15. The session that halved the terrain frame (2026-08-05)
+
+Four changes landed, all measured interleaved on the Crosscall (Adreno 610), north pan into
+the mountains with hillshade + contour stubs unless stated. Together: **14.8 -> 23.0 fps.**
+
+### 15.1 The lattice clamp does not belong on the surface (+34%)
+
+`applyTerrain` snaps draped geometry to the regular grid by sampling the four surrounding grid
+nodes, each a 4-tap manual bilinear: **16 texture fetches per vertex**. The surface's own
+vertices ARE those nodes, so the clamp returns the node's own height for four times the cost -
+and the surface is the bulk of the vertex work in a terrain frame. It now takes the plain
+sample; tiles stitched to a coarser neighbour keep the clamp, because there it is what bends
+the outermost cell onto the neighbour's chords.
+
+| | fps | GPU frame |
+|---|---|---|
+| before | 14.8 | 31.5 ms |
+| after | **19.9** | **24.9 ms** |
+
+0.06% of pixels differ at the ridge camera. (libs-carto `ad51cb0`)
+
+### 15.2 The elevation sampler was lowp - the device-only hillshade bug
+
+`uniform sampler2D uElevationTexture` carried no precision qualifier, and GLSL ES 1.00 defaults
+sampler2D to **lowp**. `texture2D()` therefore returned ~8 bits and threw away the low byte of
+the 16-bit height. Geometry survived it; the hillshade takes a GRADIENT of that height field,
+which amplifies the quantisation into flat texel-sized facets - the corduroy Martin saw on the
+device and never on the emulator, where desktop GL computes lowp as fp32.
+
+Costs ~2% (19.7 -> 19.3 fps). The vertex stage sampled at lowp too, so terrain displacement was
+quantised on device as well - worth remembering for the device-only see-through this branch
+chased for weeks. (libs-carto `fdbefcb`)
+
+### 15.3 No stencil tile masks in a terrain frame (+21%)
+
+Tangram has no stencil anywhere in `core/src`. What decides it here is what a mask COSTS, and
+that differs by an order of magnitude between the paths: in a terrain frame a mask is a full
+displaced grid per tile per stencil reset, in 2D it is a two-triangle quad.
+
+| | fps | GPU layers | surface draws / interval |
+|---|---|---|---|
+| 3D, masks on | 19.5 | 5.5 ms | 1600 |
+| 3D, masks off | **23.5** | **2.6 ms** | **650** |
+| 2D, masks on | 40.2 | 2.1 | 1893 |
+| 2D, masks off | 40.7 | 1.9 | 690 |
+
+`setTileMasks` now takes three states and defaults to automatic: off in a terrain frame, kept
+in 2D, and kept in both when any layer composites through a `comp-op` (the overlay buffer has
+its own stencil and no depth, so nothing else clips that layer to its tile).
+`debug.carto.tilemasks 1|0` forces either way. (libs-carto `be51df2`, mobile-sdk `cb702b0dc`)
+
+### 15.4 Contour label stubs read the terrain's elevation (CPU only)
+
+`ContourTileDataSource.setTerrainOptions` hands the source the terrain's elevation manager, and
+the stubs are walked over the grid the terrain has already fetched and decoded - tangram's
+arrangement (`core/src/style/contourTextStyle.cpp` reads the tile's own elevation raster). Ours
+was loading and WebP-decoding a second copy of the same tile, plus up to three neighbours, to
+build a full height grid for something that needs a few hundred samples.
+
+Whole process, 14 s of the north pan: `ContourTileDataSource::loadTile` **10.3% -> 0.1%**,
+`Bitmap::loadWEBP` 15.2% -> 11.8%, `FetchTaskBase::run` 27.2% -> 18.6%. **No UX gain measured**:
+warm and cold-cache pans both show the same fps, p25 and hitch count, because the tile threads
+are not the constraint at this camera. Keep it for battery and for heavier stacks, not for
+smoothness. Traced contour geometry keeps its own decode - it needs the DEM at the source's
+resolution, which the terrain's mesh-capped level cannot supply. (mobile-sdk `855f3a566`)
+
+### 15.5 Where the frame is NOT, measured this session
+
+- **The sky and the map background.** The GPU profiler's first section reads ~7 ms in every
+  configuration, which is mostly the idle it absorbs (the caveat in `FrameProfiler.h`). Timed
+  apart: the sky quad is ~1.5-1.8 ms and the background plane 2.8-4.7 ms, and **removing either
+  changes fps by nothing** - 2D holds 41.3 fps with a 10.4 ms GPU frame or a 5.7 ms one.
+  `debug.carto.background 0` drops the plane. Tangram has no background geometry at all and
+  draws its sky only above the horizon (`core/src/util/skyManager.cpp`, mesh y in [0,1]
+  translated by `u_horizon_y`); both are worth copying as simplicity, not as frame rate.
+- **Labels.** `buildMs 0.0 batchMs 0.0`, pass3D labels2D 0.2 ms/interval; `--es labels false` is
+  +3% in 3D and +3.4% in 2D. The culler runs on its own worker.
+- **Tile stitching, fog, the GPU timer itself.** Stitching is the shader's edge coarsening (and
+  now only on edge tiles); fog costs 4.5% and is off by default; `debug.carto.gputimer 0` is
+  worth nothing, so the instrumentation is not paying for itself in frames.
+
+### 15.6 The device presents at 43 Hz, not 60 - and so does tangram
+
+A nearly-empty 2D frame (no terrain, sky, background, labels, minimal style) still runs at
+**42.5 fps, with 1.5 ms of work and 17.8 ms of swap wait**. SurfaceFlinger's present-to-present
+histogram for our layer is a steady **23 ms on 942 of 1000 frames**, zero dropped, zero janky -
+not a multiple of the 16.7 ms the panel reports.
+
+**Tangram's demo on the same device presents at 23 ms too** (61 of 74 frames). So ~43 Hz is the
+Crosscall's ceiling for a fullscreen GL surface, not our pacing, and 2D at 41 fps is already
+against it. Two consequences: cutting 2D work on this device cannot show up as frame rate, and
+any future fps comparison has 43, not 60, as its ceiling.

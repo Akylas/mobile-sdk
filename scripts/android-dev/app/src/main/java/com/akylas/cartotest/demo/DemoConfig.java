@@ -348,6 +348,9 @@ public final class DemoConfig {
      *  with the tile parity, half opacity for a tile standing in with another tile's data. */
     public static boolean DEBUG_TILE_BORDERS = false;
 
+    /** Drive the GL thread continuously instead of MapView's RENDERMODE_WHEN_DIRTY. */
+    public static boolean CONTINUOUS_RENDER = false;
+
     public static boolean UI_ENABLED = true;
     /** PeakFinder-style relief outline post-process effect. */
     public static boolean RELIEF_OUTLINE = false;
@@ -519,6 +522,7 @@ public final class DemoConfig {
 
         // harness
         DEBUG_TILE_BORDERS = DemoCfg.cfgBool("tileBorders", DEBUG_TILE_BORDERS);
+        CONTINUOUS_RENDER = DemoCfg.cfgBool("continuousRender", CONTINUOUS_RENDER);
         UI_ENABLED = DemoCfg.cfgBool("ui", UI_ENABLED);
         RELIEF_OUTLINE = DemoCfg.cfgBool("peakfinder", RELIEF_OUTLINE);
         RELIEF_OUTLINE_DELAY_MS = DemoCfg.cfgFloat("peakfinderDelay", RELIEF_OUTLINE_DELAY_MS);
