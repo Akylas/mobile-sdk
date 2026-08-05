@@ -191,7 +191,7 @@ namespace carto {
 
         /**
          * Returns the shadow caster margin in tiles.
-         * @return The caster margin. The default is 1.
+         * @return The caster margin. The default is 3.
          */
         int getShadowCasterMargin() const;
         /**

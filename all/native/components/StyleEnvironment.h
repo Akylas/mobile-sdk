@@ -72,7 +72,7 @@ namespace carto {
         float shadowDistance = 0.0f;
         int shadowMapSize = 1024;
         int shadowCascades = 3;
-        int shadowCasterMargin = 1;
+        int shadowCasterMargin = 3;
     };
 
     ResolvedLighting resolveLighting(const std::shared_ptr<LightOptions>& lightOptions, const StyleEnvironment& env);

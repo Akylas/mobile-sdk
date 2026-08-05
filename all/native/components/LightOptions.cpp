@@ -19,7 +19,7 @@ namespace carto {
         _shadowBias(0.25f),
         _shadowSoftness(1.0f),
         _shadowDistance(0.0f),
-        _shadowCasterMargin(1),
+        _shadowCasterMargin(3),
         _onChangeListeners(),
         _onChangeListenersMutex()
     {
