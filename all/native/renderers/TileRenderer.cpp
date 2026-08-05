@@ -13,6 +13,7 @@
 #include "renderers/TerrainRenderer.h"
 #include "renderers/utils/ElevationTextureCache.h"
 #include "renderers/utils/GLResourceManager.h"
+#include "renderers/utils/TerrainDrapeCache.h"
 #include "renderers/utils/VTRenderer.h"
 #include "layers/HillshadeRasterTileLayer.h"
 #include "terrain/ElevationManager.h"
@@ -287,6 +288,17 @@ namespace carto {
         int size = MIN_DRAPE_RESOLUTION;
         while (size < edge && size < MAX_DRAPE_RESOLUTION) {
             size *= 2;
+        }
+        // ... and then what MEMORY allows, which is the binding constraint: the rule above asks for
+        // 1024 on the Crosscall, and a drape texture at 1024 x 1024 x RGBA is 4 MB PER TILE, so the
+        // cache's 160 entries would be 640 MB. What the device does with that is thrash - measured
+        // on the north pan, the drape section is 13.4 ms at 1024 and 5.2 ms at 512, for a
+        // difference the screen cannot show once the texture is mipmapped.
+        // So: the largest power of two at which a working cover still fits the cache's budget.
+        std::size_t bytesPerTile = static_cast<std::size_t>(size) * size * 4;
+        while (TerrainDrapeCache::isBudgetEnabled() && size > MIN_DRAPE_RESOLUTION && bytesPerTile * DRAPE_WORKING_SET > TerrainDrapeCache::MAX_BYTES) {
+            size /= 2;
+            bytesPerTile = static_cast<std::size_t>(size) * size * 4;
         }
         return size;
     }

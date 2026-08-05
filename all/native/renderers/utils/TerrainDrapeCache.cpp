@@ -1,6 +1,10 @@
 #include "TerrainDrapeCache.h"
 #include "renderers/utils/GLContext.h"
 
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
+
 #include <algorithm>
 
 namespace carto {
@@ -10,7 +14,14 @@ namespace carto {
     // cover back and forth over the same tiles, and re-acquiring means re-baking every layer of
     // every tile - the cost that made zooming stall. Keeping a generation of tiles alive turns
     // that into a cache hit.
-    const std::size_t TerrainDrapeCache::MAX_ENTRIES = 160;
+    // A BYTE budget, not a tile count: a drape texture is resolution^2 x RGBA, so the same 160 entries
+// are 10 MB at 128 and 640 MB at 1024 - and the count was the only cap, which is how the cache came
+// to ask for hundreds of megabytes on a high-DPI screen. The count is derived from the budget per
+// resolution, with a floor so a large resolution still caches a usable cover instead of re-baking
+// every frame.
+const std::size_t TerrainDrapeCache::MAX_BYTES = 96 * 1024 * 1024;
+const std::size_t TerrainDrapeCache::MIN_ENTRIES = 24;
+const std::size_t TerrainDrapeCache::MAX_ENTRIES = 160;
 
     bool TerrainDrapeCache::Key::operator < (const Key& other) const {
         if (stack != other.stack) {
@@ -92,6 +103,22 @@ namespace carto {
         }
     }
 
+    // Measurement switch for the mipmapped drape textures: debug.carto.drapemip 0 goes back to
+    // GL_LINEAR with no mipmap chain. Read once (Android only).
+#ifdef __ANDROID__
+    bool TerrainDrapeCache::isMipmapEnabled() {
+        static const bool enabled = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            return !(__system_property_get("debug.carto.drapemip", property) > 0 && property[0] == '0');
+        }();
+        return enabled;
+    }
+#else
+    bool TerrainDrapeCache::isMipmapEnabled() {
+        return true;
+    }
+#endif
+
     unsigned int TerrainDrapeCache::createTexture() {
         if (!_texturePool.empty()) {
             unsigned int texture = _texturePool.back();
@@ -103,7 +130,12 @@ namespace carto {
         glBindTexture(GL_TEXTURE_2D, texture);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, _resolution, _resolution, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        // Mipmapped, because a drape texture is almost always MINIFIED: the bake resolution is
+        // sized for the widest a tile can ever get on screen (see TileRenderer::
+        // resolveDrapeResolution), so an ordinary tile samples a texture several times larger than
+        // its footprint. With GL_LINEAR that is four texels from an incoherent footprint per
+        // fragment - a texture cache miss per fragment, and minification aliasing on top.
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, isMipmapEnabled() ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glBindTexture(GL_TEXTURE_2D, 0);
@@ -131,6 +163,17 @@ namespace carto {
         // right, and it is the difference between a stand-in and a flat fill.
         hasContent = entry.baked || entry.seeded;
         return entry.texture;
+    }
+
+    void TerrainDrapeCache::generateMipmaps(unsigned int texture) {
+        // After every write to level 0 - a bake, or a blit that seeds a tile from another one -
+        // or the smaller levels still hold the previous picture.
+        if (texture == 0 || !isMipmapEnabled()) {
+            return;
+        }
+        glBindTexture(GL_TEXTURE_2D, texture);
+        glGenerateMipmap(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, 0);
     }
 
     void TerrainDrapeCache::markBaked(const vt::TileId& tileId, int stack, std::size_t fingerprint, std::size_t layerMask) {
@@ -188,8 +231,37 @@ namespace carto {
         return _frameBuffer;
     }
 
+    // Measurement switch: debug.carto.drapebudget 0 caps the cache by tile COUNT again, as it did
+    // before the budget existed. Read once (Android only).
+#ifdef __ANDROID__
+    bool TerrainDrapeCache::isBudgetEnabled() {
+        static const bool enabled = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            return !(__system_property_get("debug.carto.drapebudget", property) > 0 && property[0] == '0');
+        }();
+        return enabled;
+    }
+#else
+    bool TerrainDrapeCache::isBudgetEnabled() {
+        return true;
+    }
+#endif
+
+    std::size_t TerrainDrapeCache::maxEntries() const {
+        if (!isBudgetEnabled()) {
+            return MAX_ENTRIES;
+        }
+        std::size_t bytesPerEntry = static_cast<std::size_t>(_resolution) * _resolution * 4;
+        if (bytesPerEntry == 0) {
+            return MAX_ENTRIES;
+        }
+        std::size_t entries = MAX_BYTES / bytesPerEntry;
+        return std::min(MAX_ENTRIES, std::max(MIN_ENTRIES, entries));
+    }
+
     void TerrainDrapeCache::endFrame() {
-        if (_entries.size() <= MAX_ENTRIES) {
+        std::size_t maxCount = maxEntries();
+        if (_entries.size() <= maxCount) {
             return; // keep unused tiles cached; they come back constantly while panning/zooming
         }
         // Over budget: evict the least recently used entries, never one used this frame.
@@ -203,7 +275,7 @@ namespace carto {
         std::sort(candidates.begin(), candidates.end(), [](const std::pair<unsigned int, Key>& a, const std::pair<unsigned int, Key>& b) {
             return a.first < b.first;
         });
-        std::size_t evictCount = _entries.size() - MAX_ENTRIES;
+        std::size_t evictCount = _entries.size() - maxCount;
         for (std::size_t i = 0; i < candidates.size() && i < evictCount; i++) {
             auto it = _entries.find(candidates[i].second);
             if (it == _entries.end()) {

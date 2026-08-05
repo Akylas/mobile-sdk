@@ -110,6 +110,9 @@ namespace carto {
         // The drape cache clamps to the same range (TerrainDrapeCache::setResolution).
         static constexpr int MIN_DRAPE_RESOLUTION = 128;
         static constexpr int MAX_DRAPE_RESOLUTION = 2048;
+        // Tiles the automatic resolution assumes are cached at once: the live cover plus what a pan
+        // is about to need back. The resolution is lowered until that many fit the cache budget.
+        static constexpr std::size_t DRAPE_WORKING_SET = 64;
         int renderTerrainGround(const Color& color);
         bool isDrapeEnabled() const;
         void collectDrapeTiles(std::map<vt::TileId, std::size_t>& drapeTiles) const;

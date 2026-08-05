@@ -2503,6 +2503,7 @@ namespace carto {
                         }
                         seedBudget--;
                         seededTiles++;
+                        TerrainDrapeCache::generateMipmaps(texture);
                         return true;
                     };
 
@@ -2659,6 +2660,7 @@ namespace carto {
                             }
                         }
                         _terrainDrapeCache->markBaked(request.tileId, 0, bakedFingerprint, bakedMask);
+                        TerrainDrapeCache::generateMipmaps(texture);
                         bakedTiles++;
                         bakedThisFrame++;
                         VT_STAT_INC(drapeBakes);

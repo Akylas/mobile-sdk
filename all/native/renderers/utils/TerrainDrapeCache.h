@@ -75,6 +75,21 @@ namespace carto {
          * poison the entry for good on any path that acquires and then does not bake.
          * layerMask is the set of drape layers that actually put something in the texture.
          */
+        // What the cached drape textures may cost in total. Public because the automatic bake
+        // resolution is chosen against it (TileRenderer::resolveDrapeResolution): the two have to
+        // agree, or the cache evicts what the resolution assumed would stay.
+        static const std::size_t MAX_BYTES;
+        // debug.carto.drapebudget 0 restores the pre-budget behaviour - a tile COUNT cap and an
+        // uncapped bake resolution - so the two can be measured against each other in one build.
+        static bool isBudgetEnabled();
+
+        /**
+         * Rebuilds the mipmap chain of a drape texture. Must follow every write to its level 0,
+         * which is what the tile surfaces then sample minified.
+         */
+        static void generateMipmaps(unsigned int texture);
+        static bool isMipmapEnabled();
+
         void markBaked(const vt::TileId& tileId, int stack, std::size_t fingerprint, std::size_t layerMask);
         /**
          * The layers the cached texture was baked from, or 0 if it has never been baked. A tile
@@ -140,7 +155,9 @@ namespace carto {
         unsigned int createTexture();
 
         static const std::size_t MAX_POOLED_TEXTURES; // recycled textures kept between frames
-        static const std::size_t MAX_ENTRIES;         // cached tiles kept alive across frames
+        static const std::size_t MAX_ENTRIES;         // cached tiles kept alive across frames (upper bound)
+        static const std::size_t MIN_ENTRIES;         // ... but never fewer than this, whatever the resolution costs
+        std::size_t maxEntries() const;
 
         int _resolution;
         std::size_t _stackSignature;
