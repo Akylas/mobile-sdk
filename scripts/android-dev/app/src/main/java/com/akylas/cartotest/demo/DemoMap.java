@@ -632,6 +632,10 @@ public class DemoMap {
             mapView.getOptions().setSkyOptions(skyOptions);
         }
         skyOptions.setEnabled(DemoConfig.SKY_ENABLED);
+        // How much of the sky the terrain haze takes: FogBlend is the fade width, FogHorizon the
+        // angle it is still at full strength at (negative = from the terrain, 0 = from the horizon).
+        skyOptions.setFogBlend(DemoConfig.SKY_FOG_BLEND);
+        skyOptions.setFogHorizon(DemoConfig.SKY_FOG_HORIZON);
         mapView.requestRender();
     }
 

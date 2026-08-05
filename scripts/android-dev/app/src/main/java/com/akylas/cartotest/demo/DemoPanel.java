@@ -347,6 +347,13 @@ public final class DemoPanel {
             public void set(boolean value) { DemoConfig.SKY_ENABLED = value; demo.skyOptions.setEnabled(value); }
         });
 
+        // Buildings come from the STYLE, so the switch rebuilds the base layer. Only the inline
+        // style is generated here, so it is the one this can turn on and off; a dir/zip/nuti style
+        // draws whatever it was authored with.
+        check(context, panel, "3D buildings (inline style)", DemoConfig.INLINE_BUILDINGS_3D, new BoolSetting() {
+            public void set(boolean value) { DemoConfig.INLINE_BUILDINGS_3D = value; demo.rebuildBaseLayer(); }
+        });
+
         header(context, panel, "FOG / DISTANCE");
         check(context, panel, "fog", DemoConfig.FOG_ENABLED, new BoolSetting() {
             public void set(boolean value) {
@@ -362,6 +369,14 @@ public final class DemoPanel {
         });
         slider(context, panel, "fog distance (m, 0=off)", 0, 120000, DemoConfig.FOG_DISTANCE, false, new FloatSetting() {
             public void set(float value) { DemoConfig.FOG_DISTANCE = value < 500 ? 0 : value; demo.terrainOptions.setFogDistance(DemoConfig.FOG_DISTANCE); }
+        });
+        // How much of the SKY the same haze takes: the blend is the fade width, the horizon is the
+        // angle it is still full at (below 0 on the slider = follow the terrain skyline).
+        slider(context, panel, "sky fog blend (deg)", 0, 45, DemoConfig.SKY_FOG_BLEND, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.SKY_FOG_BLEND = value; demo.skyOptions.setFogBlend(value); }
+        });
+        slider(context, panel, "sky fog horizon (deg, <0=auto)", -1, 30, DemoConfig.SKY_FOG_HORIZON, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.SKY_FOG_HORIZON = value; demo.skyOptions.setFogHorizon(value); }
         });
         // Changes the visible tile set, so apply on release only.
         slider(context, panel, "tile LOD (x tangram, 0=finest)", 0, 4, DemoConfig.TILE_LOD_FACTOR, true, new FloatSetting() {

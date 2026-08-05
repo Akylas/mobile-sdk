@@ -157,11 +157,11 @@ public final class DemoConfig {
      *  rule (a 2x2 block of nominal tiles). 1 = their rule; larger keeps tiles coarser at a tilt
      *  (fewer tiles, fewer far labels); 0 refines everything to the camera zoom.
      *  '--es lodFactor 2'. */
-    public static float TILE_LOD_FACTOR = 1f;
+    public static float TILE_LOD_FACTOR = 0.5f;
     /** Metres beyond which the inline style's street labels are not placed (0 = no limit). Only
      *  the inline style uses it; it is the 'text-max-distance' CartoCSS property.
      *  '--es labelMaxDistance 2000'. */
-    public static float LABEL_MAX_DISTANCE = 0f;
+    public static float LABEL_MAX_DISTANCE = 2000f;
 
     public static boolean TERRAIN_ENABLED = true;
     public static float TERRAIN_EXAGGERATION = 1.0f;
@@ -209,6 +209,11 @@ public final class DemoConfig {
      *  (far = 2 * cameraHeight / cos(pitch + fovy/2), capped at 127 tile widths). 1 is their rule
      *  verbatim; 0 falls back to the visible ground, which reaches the horizon.
      *  '--es viewDistance 0.5' halves it. */
+    /** Degrees above the fog horizon the sky haze fades out over ('--es fogBlend 12'). */
+    public static float SKY_FOG_BLEND = 12f;
+    /** Elevation angle the sky haze is still full at: -1 = from the terrain skyline (capped at half
+     *  the blend), 0 = from the mathematical horizon, >0 = pinned. '--es fogHorizon 0'. */
+    public static float SKY_FOG_HORIZON = -1f;
     public static float VIEW_DISTANCE_FACTOR = 1f;
     /** Zoom levels below the camera a tile may coarsen to in terrain mode. The tile surface is the
      *  depth occluder and the DEM level follows the tile zoom, so unbounded coarsening means leaky
@@ -439,6 +444,8 @@ public final class DemoConfig {
         }
         FOG_START_DISTANCE = DemoCfg.cfgFloat("fogStart", FOG_START_DISTANCE);
         FOG_DISTANCE = DemoCfg.cfgFloat("fogDistance", FOG_DISTANCE);
+        SKY_FOG_BLEND = DemoCfg.cfgFloat("fogBlend", SKY_FOG_BLEND);
+        SKY_FOG_HORIZON = DemoCfg.cfgFloat("fogHorizon", SKY_FOG_HORIZON);
         VIEW_DISTANCE_FACTOR = DemoCfg.cfgFloat("viewDistance", VIEW_DISTANCE_FACTOR);
         TERRAIN_MAX_TILE_ZOOM_COARSENING = DemoCfg.cfgInt("coarsening", TERRAIN_MAX_TILE_ZOOM_COARSENING);
 
