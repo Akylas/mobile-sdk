@@ -216,9 +216,9 @@ namespace carto {
             totalMs += avgMs[i];
             totalDrops += SectionDrops[i];
         }
-        Log::Infof("PROF GPU: %d frames, %d dropped (disjoint), %d sections untimed | sky %.1f prelude %.1f prepare %.1f cover %.1f drape %.1f layers %.1f layers3D %.1f billboards %.1f total %.1f",
+        Log::Infof("PROF GPU: %d frames, %d dropped (disjoint), %d sections untimed | sky %.1f background %.1f prelude %.1f prepare %.1f cover %.1f drape %.1f layers %.1f layers3D %.1f billboards %.1f total %.1f",
             MeasuredFrames, DisjointFrames, totalDrops,
-            avgMs[SECTION_SKY], avgMs[SECTION_PRELUDE], avgMs[SECTION_PREPARE], avgMs[SECTION_COVER],
+            avgMs[SECTION_SKY], avgMs[SECTION_BACKGROUND], avgMs[SECTION_PRELUDE], avgMs[SECTION_PREPARE], avgMs[SECTION_COVER],
             avgMs[SECTION_DRAPE], avgMs[SECTION_LAYERS], avgMs[SECTION_LAYERS3D], avgMs[SECTION_BILLBOARDS],
             totalMs);
 

@@ -43,6 +43,10 @@
 #include "utils/Const.h"
 #include "utils/FrameProfiler.h"
 #include "utils/Log.h"
+
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
 #include "utils/ThreadUtils.h"
 
 #include <vt/RenderStats.h>
@@ -942,7 +946,16 @@ namespace carto {
         initializeRenderState();
         // The shader sky replaces the legacy sky band when it draws.
         bool skyDrawn = _skyRenderer.onDrawFrame(viewState);
-        _backgroundRenderer.onDrawFrame(viewState, !skyDrawn);
+        // Timed apart from the sky: both are full-screen-ish draws at the START of the frame, and
+        // the first section of a frame also absorbs whatever the GPU idled waiting for the CPU
+        // (see GpuFrameProfiler), so one number for the two says nothing about either.
+        FRAME_PROF_GPU_BEGIN(SECTION_BACKGROUND);
+        // Measurement switch: tangram draws no background geometry at all - their map background
+        // is the framebuffer clear colour (core/src/map.cpp) - so this is what that would save.
+        //   adb shell setprop debug.carto.background 0
+        if (isBackgroundEnabled()) {
+            _backgroundRenderer.onDrawFrame(viewState, !skyDrawn);
+        }
         FRAME_PROF_ADD(skyMs, profFrameStart);
         drawLayers(deltaSeconds, viewState);
         FRAME_PROF_GPU_END();
@@ -978,6 +991,20 @@ namespace carto {
 
         GLContext::CheckGLError("MapRenderer::onDrawFrame");
     }
+
+#ifdef __ANDROID__
+    bool MapRenderer::isBackgroundEnabled() {
+        static const bool enabled = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            return !(__system_property_get("debug.carto.background", property) > 0 && property[0] == '0');
+        }();
+        return enabled;
+    }
+#else
+    bool MapRenderer::isBackgroundEnabled() {
+        return true;
+    }
+#endif
 
     void MapRenderer::onSurfaceDestroyed() {
         // This method may never be called (e.x Android)

@@ -183,6 +183,8 @@ namespace carto {
         void unregisterOnChangeListener(const std::shared_ptr<OnChangeListener>& listener);
         
     private:
+        // debug.carto.background 0 drops the map background plane. Read once (Android only).
+        static bool isBackgroundEnabled();
         class OptionsListener : public Options::OnChangeListener {
         public:
             explicit OptionsListener(const std::shared_ptr<MapRenderer>& mapRenderer);

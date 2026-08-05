@@ -55,6 +55,7 @@ namespace carto {
     struct GpuFrameProfiler {
         enum Section {
             SECTION_SKY = 0,
+            SECTION_BACKGROUND,
             SECTION_PRELUDE,
             SECTION_PREPARE,
             SECTION_COVER,
