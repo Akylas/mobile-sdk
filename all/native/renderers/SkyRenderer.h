@@ -71,6 +71,7 @@ namespace carto {
         GLint _u_resolution;
         GLint _u_fogColor;
         GLint _u_fogBlend;
+        GLint _u_fogHorizon;
 
         std::chrono::steady_clock::time_point _startTime;
 

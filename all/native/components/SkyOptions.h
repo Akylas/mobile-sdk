@@ -138,6 +138,25 @@ namespace carto {
         void setFogBlend(float degrees);
 
         /**
+         * Returns the elevation angle the terrain fog is still at full strength at.
+         * @return The angle in degrees, or a negative value when it follows the terrain. The default is -1.
+         */
+        float getFogHorizon() const;
+        /**
+         * Sets the elevation angle, in degrees, that the terrain fog is still at FULL strength at,
+         * with FogBlend measured from there. Zero is the mathematical horizon, which is right on a
+         * flat map, where the skyline IS the horizon. In the mountains the skyline is a ridge and a
+         * ridge stands well above the horizon once the camera is near it, so the haze is spent by
+         * the time the ray clears the silhouette and the hazy ground meets clean sky along it.
+         * A negative value (the default) takes the angle from the terrain instead - the highest
+         * ground the view can hold, seen at the distance the fog saturates at - capped at half the
+         * blend so the full-strength band can never swamp the sky. Set 0 to fade from the horizon,
+         * or a positive angle to pin it.
+         * @param degrees The new angle in degrees (clamped to 90), or negative to follow the terrain.
+         */
+        void setFogHorizon(float degrees);
+
+        /**
          * Returns whether the built-in shader draws a sun disc.
          * @return True if the sun disc is drawn. The default is true.
          */
@@ -183,6 +202,7 @@ namespace carto {
         std::atomic<int> _groundColorARGB;
         std::atomic<float> _horizonBlend;
         std::atomic<float> _fogBlend;
+        std::atomic<float> _fogHorizon;
         std::atomic<bool> _sunDiscEnabled;
 
         std::string _shaderSource;
