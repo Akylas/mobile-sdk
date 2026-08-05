@@ -547,6 +547,10 @@ public class DemoMap {
         // stubs to lay the text along instead of the traced geometry.
         contourSource.setLabelStubsEnabled(DemoConfig.CONTOUR_LABEL_STUBS);
         contourSource.setLabelInterval(DemoConfig.CONTOUR_LABEL_INTERVAL);
+        // Stubs off the terrain's own elevation: no DEM tile of the contour source's own to fetch
+        // and decode, which is tangram's arrangement. Same DEM source on both sides, so the labels
+        // state the heights the terrain draws.
+        contourSource.setTerrainOptions(DemoConfig.CONTOUR_STUBS_FROM_TERRAIN ? terrainOptions : null);
         mapView.requestRender();
     }
 

@@ -294,6 +294,9 @@ public final class DemoConfig {
     /** Contour interval of the label stubs in meters; 0 follows the zoom ladder of the traced
      *  geometry. Must match the interval the shader draws or the labels sit between the lines. */
     public static float CONTOUR_LABEL_INTERVAL = 0f;
+    /** Generate the label stubs from the TERRAIN's elevation grid (tangram's model) instead of
+     *  loading and decoding a DEM tile of the contour source's own. Stubs only. */
+    public static boolean CONTOUR_STUBS_FROM_TERRAIN = true;
 
     /** Font of the pre-baked contour tile labels. An inline CartoCSS string carries no font asset
      *  package, so this goes through the system-font fallback ("Arial" -> Roboto on Android). */
@@ -501,6 +504,7 @@ public final class DemoConfig {
         CONTOUR_SEAMLESS_EDGES = DemoCfg.cfgBool("contourSeamless", CONTOUR_SEAMLESS_EDGES);
         CONTOUR_LABEL_STUBS = DemoCfg.cfgBool("contourStubs", CONTOUR_LABEL_STUBS);
         CONTOUR_LABEL_INTERVAL = DemoCfg.cfgFloat("contourStubInterval", CONTOUR_LABEL_INTERVAL);
+        CONTOUR_STUBS_FROM_TERRAIN = DemoCfg.cfgBool("stubsFromTerrain", CONTOUR_STUBS_FROM_TERRAIN);
 
         // inline style
         INLINE_BACKGROUND_COLOR = DemoCfg.cfgColor("bg", INLINE_BACKGROUND_COLOR);
