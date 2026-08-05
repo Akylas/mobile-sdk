@@ -323,6 +323,12 @@ public final class DemoConfig {
      *  instead of being painted over. An un-subdivided fill also floats above the ground by its
      *  chord error, and a translucent one hides far less of what it floats over.
      *  '--es landcoverOpacity 0.25' */
+    /** LAYER-level comp-op on the '#landcover' block of the inline style ("multiply", "screen",
+     *  "darken", ...). Empty = none. A layer comp-op is what routes a layer through the renderer's
+     *  overlay buffer, which is also where the stencil tile masks are re-stamped - so this is the
+     *  knob that exercises that path. */
+    public static String INLINE_COMP_OP = "";
+
     public static float INLINE_LANDCOVER_OPACITY = 1.0f;
     public static int INLINE_SATELLITE_MIN_ZOOM = 11;
     public static String INLINE_HILLSHADE_SHADOW_COLOR = "#473B24";
@@ -335,6 +341,10 @@ public final class DemoConfig {
     // =============================================================================================
 
     /** false = no panel and no overlay text: clean screenshots for automated rendering checks. */
+    /** Outline every tile each layer draws, on the ground: colour per zoom, brightness alternating
+     *  with the tile parity, half opacity for a tile standing in with another tile's data. */
+    public static boolean DEBUG_TILE_BORDERS = false;
+
     public static boolean UI_ENABLED = true;
     /** PeakFinder-style relief outline post-process effect. */
     public static boolean RELIEF_OUTLINE = false;
@@ -499,10 +509,12 @@ public final class DemoConfig {
         INLINE_LABELS = DemoCfg.cfgBool("labels", INLINE_LABELS);
         INLINE_STYLE_MINIMAL = DemoCfg.cfgBool("minimal", INLINE_STYLE_MINIMAL);
         INLINE_LANDCOVER_OPACITY = DemoCfg.cfgFloat("landcoverOpacity", INLINE_LANDCOVER_OPACITY);
+        INLINE_COMP_OP = DemoCfg.cfgStr("compOp", INLINE_COMP_OP);
         INLINE_SATELLITE_MIN_ZOOM = DemoCfg.cfgInt("satZoom", INLINE_SATELLITE_MIN_ZOOM);
         NUTI_TOGGLE_INTERVAL_MS = DemoCfg.cfgInt("nutiInterval", NUTI_TOGGLE_INTERVAL_MS);
 
         // harness
+        DEBUG_TILE_BORDERS = DemoCfg.cfgBool("tileBorders", DEBUG_TILE_BORDERS);
         UI_ENABLED = DemoCfg.cfgBool("ui", UI_ENABLED);
         RELIEF_OUTLINE = DemoCfg.cfgBool("peakfinder", RELIEF_OUTLINE);
         RELIEF_OUTLINE_DELAY_MS = DemoCfg.cfgFloat("peakfinderDelay", RELIEF_OUTLINE_DELAY_MS);

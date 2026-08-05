@@ -127,6 +127,7 @@ public class DemoMap {
         // Options first: layers created afterwards pick up the terrain/light state immediately.
         mapView.getOptions().setTileThreadPoolSize(DemoConfig.TILE_THREAD_POOL_SIZE);
         mapView.getOptions().setTileLODFactor(DemoConfig.TILE_LOD_FACTOR);
+        applyDebugConfig();
         applyTerrainOptions();
         applyLightOptions();
         applySkyOptions();
@@ -346,6 +347,11 @@ public class DemoMap {
     }
 
     /** Pushes every HILLSHADE_* config value onto the stand-alone hillshade layer. */
+    /** Debug overlays (DEBUG section of the panel). */
+    public void applyDebugConfig() {
+        mapView.getOptions().setDebugTileBorders(DemoConfig.DEBUG_TILE_BORDERS);
+    }
+
     public void applyHillshadeConfig() {
         HillshadeRasterTileLayer layer = hillshadeLayer;
         if (layer == null) {

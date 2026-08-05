@@ -70,6 +70,7 @@ public final class DemoPanel {
         buildContourSection(context, panel, demo);
         buildSunSection(context, panel, demo);
         buildSkyFogSection(context, panel, demo);
+        buildDebugSection(context, panel, demo);
         buildActionsSection(context, panel, demo);
 
         // The panel is taller than the screen: scroll it, and keep it behind a small toggle.
@@ -391,6 +392,13 @@ public final class DemoPanel {
     }
 
     /** One-shot actions: post-process effects and the routing / search / geometry test cases. */
+    private static void buildDebugSection(Context context, LinearLayout panel, final DemoMap demo) {
+        header(context, panel, "DEBUG");
+        check(context, panel, "tile borders", DemoConfig.DEBUG_TILE_BORDERS, new BoolSetting() {
+            public void set(boolean value) { DemoConfig.DEBUG_TILE_BORDERS = value; demo.applyDebugConfig(); }
+        });
+    }
+
     private static void buildActionsSection(final Context context, LinearLayout panel, final DemoMap demo) {
         header(context, panel, "ACTIONS");
         check(context, panel, "relief outline effect", DemoConfig.RELIEF_OUTLINE, new BoolSetting() {

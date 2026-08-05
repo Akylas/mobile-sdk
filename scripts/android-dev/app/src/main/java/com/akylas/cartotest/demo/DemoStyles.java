@@ -173,6 +173,17 @@ public final class DemoStyles {
         return " polygon-opacity: " + DemoConfig.INLINE_LANDCOVER_OPACITY + ";";
     }
 
+    /** A LAYER-level 'comp-op', which is the one that makes the renderer composite the layer
+     *  through its overlay buffer (and re-stamp the stencil tile masks into it) instead of
+     *  drawing it straight into the frame. Symbolizer-level properties such as
+     *  'polygon-comp-op' do NOT take that path, so this is what exercises it. */
+    private static String compOp() {
+        if (DemoConfig.INLINE_COMP_OP == null || DemoConfig.INLINE_COMP_OP.isEmpty()) {
+            return "";
+        }
+        return " comp-op: " + DemoConfig.INLINE_COMP_OP + ";";
+    }
+
     /** An ARGB int as the '#rrggbb' CartoCSS literal (the alpha goes in a *-opacity property). */
     private static String hex(int argb) {
         return String.format("#%06X", argb & 0xFFFFFF);
@@ -217,7 +228,7 @@ public final class DemoStyles {
             // the hillshade and the contours underneath have to read through them (tangram's
             // 'translucent-polygons', alpha 0.25).
             "#landuse { polygon-fill: #dddddd;" + landcoverOpacity() + " }",
-            "#landcover { polygon-fill: #dbe8cc;" + landcoverOpacity() + " }",
+            "#landcover { polygon-fill: #dbe8cc;" + landcoverOpacity() + compOp() + " }",
             // --- composite slots, in draw order ---
             "#satellite[zoom>=" + DemoConfig.INLINE_SATELLITE_MIN_ZOOM + "] { raster-opacity: 1; raster-comp-op: src-over; }",
             "#hillshade[zoom>=4][zoom<=19] {",
