@@ -482,6 +482,26 @@ namespace carto {
     }
 #endif
 
+    // The stencil tile masks that clip each tile's content to its own screen footprint. Tangram
+    // has no stencil anywhere, and under a shared ground they are already gone; this switches
+    // them off in the drape path too, where they are two thirds of the surface geometry a frame
+    // submits. What they protect against is a retained (proxy) tile painting through the gaps of
+    // the tile that replaced it, so measure the zoom transitions, not only the frame rate.
+    //   adb shell setprop debug.carto.tilemasks 0
+#ifdef __ANDROID__
+    bool TileRenderer::areTileMasksEnabled() {
+        static const bool enabled = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            return !(__system_property_get("debug.carto.tilemasks", property) > 0 && property[0] == '0');
+        }();
+        return enabled;
+    }
+#else
+    bool TileRenderer::areTileMasksEnabled() {
+        return true;
+    }
+#endif
+
 #ifdef __ANDROID__
     int TileRenderer::terrainDemTaps() {
         static const int taps = [] {
@@ -673,6 +693,7 @@ namespace carto {
             tileRenderer->setLabelElevationProvider(std::function<double(const cglib::vec3<double>&)>());
         }
         tileRenderer->setTerrainMode(terrainMode, terrainDepthBias);
+        tileRenderer->setTileMasks(areTileMasksEnabled());
         // The geometry-vs-surface chord error shrinks quadratically with the mesh
         // resolution (both the tile surfaces and the draped geometry tesselate to
         // tileMeters/meshResolution cells), so the depth slack can shrink with it.
