@@ -781,6 +781,9 @@ namespace carto {
         }
         tileRenderer->setTerrainLighting(terrainLighting);
         tileRenderer->setTerrainDepthWrite(terrainMode && _terrainDepthWriteMode);
+        if (auto options = _options.lock()) {
+            tileRenderer->setDebugTileBorders(options->isDebugTileBorders());
+        }
         tileRenderer->setDebugWireframe(false); // debug: terrain mesh wireframe + stencil overlay
         tileRenderer->setDebugSurfacePrefill(false); // debug: facing-coded terrain pre-fill (magenta front / cyan back)
         // The terrain base fill (color or the map background bitmap) is rendered

@@ -21,6 +21,7 @@ namespace carto {
         _mainLightColor(DEFAULT_MAIN_LIGHT_COLOR),
         _mainLightDir(DEFAULT_MAIN_LIGHT_DIR),
         _renderProjectionMode(RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR),
+        _debugTileBorders(false),
         _clickTypeDetection(true),
         _doubleClickDetection(true),
         _longClickDuration(DEFAULT_LONG_CLICK_DURATION),
@@ -149,6 +150,22 @@ namespace carto {
         notifyOptionChanged("RenderProjectionMode");
     }
     
+    bool Options::isDebugTileBorders() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        return _debugTileBorders;
+    }
+
+    void Options::setDebugTileBorders(bool enabled) {
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            if (_debugTileBorders == enabled) {
+                return;
+            }
+            _debugTileBorders = enabled;
+        }
+        notifyOptionChanged("DebugTileBorders");
+    }
+
     bool Options::isClickTypeDetection() const {
         std::lock_guard<std::mutex> lock(_mutex);
         return _clickTypeDetection;

@@ -160,6 +160,21 @@ namespace carto {
         void setRenderProjectionMode(RenderProjectionMode::RenderProjectionMode renderProjectionMode);
     
         /**
+         * Returns the state of the tile border debug overlay.
+         * @return True if every tile layer outlines the tiles it draws.
+         */
+        bool isDebugTileBorders() const;
+        /**
+         * Sets the state of the tile border debug overlay. Every tile layer then outlines the
+         * tiles it actually draws, in 3D following the terrain, with a colour per zoom level and
+         * alternating brightness between neighbours - so a layer using a coarser tile set than
+         * the one under it, an overzoomed stand-in, or a tile that owns pixels it should not, is
+         * visible on screen. The default is false.
+         * @param enabled The new state of the tile border debug overlay.
+         */
+        void setDebugTileBorders(bool enabled);
+
+        /**
          * Returns the click type detection state.
          * @return True if click type detection is enabled.
          */
@@ -649,6 +664,7 @@ namespace carto {
     
         RenderProjectionMode::RenderProjectionMode _renderProjectionMode;
     
+        bool _debugTileBorders;
         bool _clickTypeDetection;
         bool _doubleClickDetection;
         float _longClickDuration;
