@@ -11,6 +11,10 @@
 #include "utils/Const.h"
 #include "utils/Log.h"
 
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
+
 #include <cglib/mat.h>
 
 namespace carto {
@@ -107,6 +111,22 @@ namespace carto {
         _u_fogHorizon = glGetUniformLocation(progId, "u_fogHorizon");
         return true;
     }
+
+    // Measurement switch: debug.carto.skyclip 0 draws the sky over the whole screen again, which
+    // is what it did before the quad was clipped to the horizon. Read once (Android only).
+#ifdef __ANDROID__
+    bool SkyRenderer::isHorizonClipEnabled() {
+        static const bool enabled = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            return !(__system_property_get("debug.carto.skyclip", property) > 0 && property[0] == '0');
+        }();
+        return enabled;
+    }
+#else
+    bool SkyRenderer::isHorizonClipEnabled() {
+        return true;
+    }
+#endif
 
     bool SkyRenderer::onDrawFrame(const ViewState& viewState) {
         std::shared_ptr<SkyOptions> skyOptions = _options.getSkyOptions();
@@ -229,9 +249,25 @@ namespace carto {
             glUniform1f(_u_fogHorizon, fogHorizon);
         }
 
+        // The quad starts AT THE HORIZON, not at the bottom of the screen: everything below it is
+        // ground, background plane or terrain, all drawn over the sky anyway, so shading it is pure
+        // overdraw - at a tilted camera that is half the screen. Tangram's sky mesh spans the top
+        // half and is translated onto the horizon the same way (core/src/util/skyManager.cpp).
+        // The margin below the horizon is for what the sky shader deliberately paints there: the
+        // fog band fades from the skyline downwards, and its extent is not a straight function of
+        // the horizon, so this keeps a generous strip rather than computing it.
+        // The clip is only applied when the horizon is what bounds the ground; when the terrain
+        // path draws the sky although the flat horizon says it is not visible (a peak exposing it),
+        // the estimate does not apply and the quad stays full screen.
+        float quadBottom = -1.0f;
+        if (viewState.isSkyVisible() && isHorizonClipEnabled()) {
+            quadBottom = std::max(-1.0f, viewState.getSkyHorizonNDC() - SKY_HORIZON_MARGIN);
+        }
+        const float quadCoords[8] = { -1, quadBottom, 1, quadBottom, -1, 1, 1, 1 };
+
         glDisable(GL_CULL_FACE);
         glEnableVertexAttribArray(_a_coord);
-        glVertexAttribPointer(_a_coord, 2, GL_FLOAT, GL_FALSE, 0, QUAD_COORDS);
+        glVertexAttribPointer(_a_coord, 2, GL_FLOAT, GL_FALSE, 0, quadCoords);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
         glDisableVertexAttribArray(_a_coord);
         glEnable(GL_CULL_FACE);
@@ -241,6 +277,7 @@ namespace carto {
     }
 
     const float SkyRenderer::QUAD_COORDS[8] = { -1, -1, 1, -1, -1, 1, 1, 1 };
+    const float SkyRenderer::SKY_HORIZON_MARGIN = 0.35f;
 
     const std::string SkyRenderer::SKY_VERTEX_SHADER = R"GLSL(
         #version 100

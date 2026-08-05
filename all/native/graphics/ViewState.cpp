@@ -42,6 +42,7 @@ namespace carto {
         _near(0.0f),
         _far(0.0f),
         _skyVisible(false),
+        _skyHorizonNDC(1.0f),
         _fovY(0),
         _halfFOVY(0.0f),
         _tanHalfFOVY(0.0f),
@@ -465,6 +466,10 @@ namespace carto {
     bool ViewState::isSkyVisible() const {
         return _skyVisible;
     }
+
+    float ViewState::getSkyHorizonNDC() const {
+        return _skyHorizonNDC;
+    }
     
     void ViewState::calculateViewState(const Options& options) {
         // If FOV or tile draw size changed, recalculate zoom0Distance
@@ -540,7 +545,7 @@ namespace carto {
             _unitToPXCoef = static_cast<float>(_zoom0Distance / (_height * _tanHalfFOVY) / _2PowZoom);
             _unitToDPCoef = _unitToPXCoef * _dpi / Const::UNSCALED_DPI;
 
-            calculateViewDistances(options, _near, _far, _skyVisible);
+            calculateViewDistances(options, _near, _far, _skyVisible, _skyHorizonNDC);
 
             // Matrices
             _projectionMat = calculatePerspMat(_halfFOVY, _near, _far, options);
@@ -661,6 +666,11 @@ namespace carto {
     }
 
     void ViewState::calculateViewDistances(const Options& options, float& near, float& far, bool& skyVisible) const {
+        float horizonNDC = 1.0f;
+        calculateViewDistances(options, near, far, skyVisible, horizonNDC);
+    }
+
+    void ViewState::calculateViewDistances(const Options& options, float& near, float& far, bool& skyVisible, float& skyHorizonNDC) const {
         float halfFOVY = options.getFieldOfViewY() * 0.5f;
         float tanHalfFOVY = std::tan(static_cast<float>(halfFOVY * Const::DEG_TO_RAD));
         float zoom0Distance = _height * 0.5 * Const::WORLD_SIZE / (_tileDrawSize * tanHalfFOVY * (_dpi / Const::UNSCALED_DPI));
@@ -677,6 +687,12 @@ namespace carto {
         near = static_cast<float>(cglib::dot_product(options.getProjectionSurface()->calculateNearestPoint(_cameraPos, heightMax) - _cameraPos, zProjVector));
         far  = near;
         skyVisible = false;
+        // ... and where the sky starts on screen. The bisection below already walks each column
+        // from the ground up to the first ray that reaches no ground at all, which IS the horizon;
+        // the lowest such sample over the columns is where the sky can first appear. The sky quad
+        // is clipped to it instead of covering the screen (SkyRenderer), the way tangram's sky
+        // mesh is (core/src/util/skyManager.cpp).
+        skyHorizonNDC = 1.0f;
         for (double xx : { -1, 0, 1 }) {
             for (double yy : { -1, 0, 1 }) {
                 double x0 = 0, y0 = 0, x1 = xx, y1 = yy;
@@ -699,7 +715,8 @@ namespace carto {
                         x0 = x; y0 = y;
                     } else {
                         skyVisible = true;
-                        
+                        skyHorizonNDC = std::min(skyHorizonNDC, static_cast<float>(y));
+
                         x1 = x; y1 = y;
                     }
                 }
@@ -710,6 +727,9 @@ namespace carto {
         if (far > maxDist) {
             far = maxDist;
             skyVisible = true;
+            // The ground was cut off by the draw distance rather than by the horizon, so the sky
+            // can reach anywhere the ground no longer does: no clip.
+            skyHorizonNDC = -1.0f;
         }
 
         near = std::max(Const::MIN_NEAR, near) * 0.8f;

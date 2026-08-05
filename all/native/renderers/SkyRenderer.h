@@ -46,6 +46,10 @@ namespace carto {
         static const std::string SKY_FRAGMENT_SHADER_BUILTIN;
 
         static const float QUAD_COORDS[8];
+        // How far below the horizon the sky quad still reaches, in normalized device units: the sky
+        // shader carries its fog band below the skyline.
+        static const float SKY_HORIZON_MARGIN;
+        static bool isHorizonClipEnabled();
 
         std::shared_ptr<Shader> _shader;
         std::string _shaderSource;      // the SkyOptions source the current shader was built from
