@@ -11,6 +11,7 @@
 #include "components/DirectorPtr.h"
 
 #include <atomic>
+#include <functional>
 #include <mutex>
 #include <string>
 #include <utility>
@@ -18,6 +19,7 @@
 
 namespace carto {
     class Bitmap;
+    class TerrainOptions;
     class ElevationDecoder;
 
     /**
@@ -123,6 +125,27 @@ namespace carto {
         void setSeamlessEdgesEnabled(bool enabled);
 
         /**
+         * Returns the terrain options whose elevation manager the label stubs read.
+         * @return The terrain options, or null.
+         */
+        std::shared_ptr<TerrainOptions> getTerrainOptions() const;
+        /**
+         * Sets the terrain options whose ELEVATION MANAGER the label stubs are generated from.
+         * With it, a stub tile costs no tile of its own: the seeds are walked over the elevation
+         * grid the 3D terrain has already fetched and decoded for that tile, which is how tangram
+         * generates contour labels (core/src/style/contourTextStyle.cpp reads the tile's own
+         * elevation raster). Without it, the source loads and decodes the DEM tile a second time -
+         * measured at 44% of a tile decode thread, half of it in the image decode alone.
+         *
+         * The terrain options must be driven by the SAME elevation data source this tile source
+         * wraps, or the labels state heights the map does not show. Only the stubs use it; traced
+         * contour geometry keeps reading the DEM at its own resolution, which the terrain's
+         * mesh-capped elevation level cannot supply.
+         * @param terrainOptions The terrain options, or null to decode a DEM tile of our own.
+         */
+        void setTerrainOptions(const std::shared_ptr<TerrainOptions>& terrainOptions);
+
+        /**
          * Returns whether only short label stubs are generated instead of full contour lines.
          * @return True if label stubs are generated. The default is false.
          */
@@ -196,6 +219,16 @@ namespace carto {
          * that is decoded for itself as well - the cache turns those 3 extra image decodes per
          * tile back into (mostly) one.
          */
+        /**
+         * The contour label stubs for a tile, walked over a height field given as tile-local uv:
+         * height plus its gradient, in elevation units per unit of uv. Two things provide it - the
+         * grid resampled from a DEM bitmap this source decoded itself, and the elevation grid the
+         * 3D terrain already holds (see setTerrainOptions) - and the walk is the same either way.
+         */
+        std::shared_ptr<TileData> buildLabelStubTile(const MapTile& mapTile,
+                                                     const std::function<double(double, double, double&, double&)>& sampler,
+                                                     double interval);
+
         std::shared_ptr<Bitmap> loadCachedBitmap(const MapTile& tile);
         void cacheBitmap(const MapTile& tile, const std::shared_ptr<Bitmap>& bitmap);
 
@@ -210,6 +243,7 @@ namespace carto {
         std::atomic<bool> _labelStubs;
         std::atomic<float> _labelInterval;
         std::string _layerName;
+        std::shared_ptr<TerrainOptions> _terrainOptions;
         mutable std::mutex _mutex;
 
         static const std::size_t MAX_CACHED_BITMAPS;

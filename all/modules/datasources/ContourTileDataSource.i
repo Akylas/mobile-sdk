@@ -3,10 +3,11 @@
 
 %module(directors="1") ContourTileDataSource
 
-!proxy_imports(carto::ContourTileDataSource, core.MapTile, core.MapBounds, datasources.TileDataSource, datasources.components.TileData, rastertiles.ElevationDecoder)
+!proxy_imports(carto::ContourTileDataSource, core.MapTile, core.MapBounds, datasources.TileDataSource, datasources.components.TileData, rastertiles.ElevationDecoder, components.TerrainOptions)
 
 %{
 #include "datasources/ContourTileDataSource.h"
+#include "components/TerrainOptions.h"
 #include "components/Exceptions.h"
 #include <memory>
 %}
@@ -18,6 +19,7 @@
 %import "datasources/TileDataSource.i"
 %import "datasources/components/TileData.i"
 %import "rastertiles/ElevationDecoder.i"
+%import "components/TerrainOptions.i"
 
 !polymorphic_shared_ptr(carto::ContourTileDataSource, datasources.ContourTileDataSource)
 
@@ -26,6 +28,7 @@
 %attribute(carto::ContourTileDataSource, int, Resolution, getResolution, setResolution)
 %attribute(carto::ContourTileDataSource, int, MinVisibleZoom, getMinVisibleZoom, setMinVisibleZoom)
 %attribute(carto::ContourTileDataSource, bool, SeamlessEdgesEnabled, isSeamlessEdgesEnabled, setSeamlessEdgesEnabled)
+%attributestring(carto::ContourTileDataSource, std::shared_ptr<carto::TerrainOptions>, TerrainOptions, getTerrainOptions, setTerrainOptions)
 %attribute(carto::ContourTileDataSource, bool, LabelStubsEnabled, isLabelStubsEnabled, setLabelStubsEnabled)
 %attribute(carto::ContourTileDataSource, float, LabelInterval, getLabelInterval, setLabelInterval)
 %attribute(carto::ContourTileDataSource, float, SimplifyTolerance, getSimplifyTolerance, setSimplifyTolerance)

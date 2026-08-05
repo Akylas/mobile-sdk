@@ -7,7 +7,10 @@
 #include "components/Exceptions.h"
 #include "graphics/Bitmap.h"
 #include "projections/Projection.h"
+#include "components/TerrainOptions.h"
 #include "rastertiles/ElevationDecoder.h"
+#include "terrain/ElevationManager.h"
+#include "terrain/ElevationTileGrid.h"
 #include "rastertiles/TerrariumElevationDataDecoder.h"
 #include "rastertiles/MapBoxElevationDataDecoder.h"
 #include "utils/TileUtils.h"
@@ -60,7 +63,11 @@ namespace {
     // Walks from the seed (u, v) down the gradient onto the nearest contour level, then along the
     // contour (the tangent of the gradient) for as long as a label needs. Returns the level, or 0
     // when the seed does not reach one - a flat tile, a zero gradient, or a walk that left the tile.
-    double traceLabelStub(const std::vector<float>& heights, int W, int H, double interval,
+    // Height and gradient at tile-local (u, v), whatever the heights come from: the resampled
+    // grid decoded from a DEM bitmap, or the elevation grid the terrain already holds.
+    using HeightSampler = std::function<double(double u, double v, double& gu, double& gv)>;
+
+    double traceLabelStub(const HeightSampler& sampler, double interval,
                           double u, double v, Polyline& line) {
         const std::size_t numLinePts = static_cast<std::size_t>(1.25 * LABEL_LEN / LABEL_STEP_SIZE);
         double level = std::numeric_limits<double>::quiet_NaN();
@@ -70,7 +77,7 @@ namespace {
             bool hasLower = false, hasUpper = false;
             int niter = 0;
             do {
-                double elev = sampleHeightGrad(heights, W, H, u, v, gu, gv);
+                double elev = sampler(u, v, gu, gv);
                 if (std::isnan(level)) {
                     level = std::round(elev / interval) * interval;
                     if (level <= 0.0) {
@@ -120,7 +127,7 @@ namespace {
                 }
             } while (step > LABEL_MAX_POS_ERR);
 
-            line.emplace_back(u * (W - 1), v * (H - 1));
+            line.emplace_back(u, v); // tile-local uv; the caller maps it to the tile's bounds
             if (line.size() >= numLinePts) {
                 return level;
             }
@@ -427,6 +434,22 @@ namespace carto {
         notifyTilesChanged(false);
     }
 
+    std::shared_ptr<TerrainOptions> ContourTileDataSource::getTerrainOptions() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        return _terrainOptions;
+    }
+
+    void ContourTileDataSource::setTerrainOptions(const std::shared_ptr<TerrainOptions>& terrainOptions) {
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            if (_terrainOptions == terrainOptions) {
+                return;
+            }
+            _terrainOptions = terrainOptions;
+        }
+        notifyTilesChanged(false);
+    }
+
     bool ContourTileDataSource::isLabelStubsEnabled() const {
         return _labelStubs;
     }
@@ -536,6 +559,84 @@ namespace carto {
         }
     }
 
+    std::shared_ptr<TileData> ContourTileDataSource::buildLabelStubTile(const MapTile& mapTile, const HeightSampler& sampler, double interval) {
+        int zoom = mapTile.getZoom();
+        std::string layerName;
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            layerName = _layerName;
+        }
+        double labelInterval = _labelInterval.load();
+        if (!(labelInterval > 0.0)) {
+            labelInterval = interval;
+        }
+
+        // The tile's footprint. Note the getFlipped(): grid v = 0 is the tile's SOUTH edge, as in
+        // the DEM bitmap and in ElevationManager; the builder takes the raw tile x/y, so the same
+        // footprint comes back without a double flip.
+        std::shared_ptr<Projection> projection = getProjection();
+        MapBounds bounds = TileUtils::CalculateMapTileBounds(mapTile.getFlipped(), projection);
+        double minX = bounds.getMin().getX(), minY = bounds.getMin().getY();
+        double sizeX = bounds.getMax().getX() - minX;
+        double sizeY = bounds.getMax().getY() - minY;
+        auto uvToWgs84 = [&](const GridPoint& p) -> mbvtbuilder::MBVTTileBuilder::Point {
+            MapPos pos(minX + std::min(std::max(p.first, 0.0), 1.0) * sizeX,
+                       minY + std::min(std::max(p.second, 0.0), 1.0) * sizeY);
+            MapPos wgs84 = projection->toWgs84(pos);
+            return mbvtbuilder::MBVTTileBuilder::Point(wgs84.getX(), wgs84.getY());
+        };
+
+        mbvtbuilder::MBVTTileBuilder tileBuilder(zoom, zoom);
+        tileBuilder.setSimplifyTolerance(_simplifyTolerance);
+        int layerIndex = tileBuilder.createLayer(layerName);
+
+        // Their grid alignment: seeds sit at the same geographic positions across zoom levels, so a
+        // label does not jump when the tile it comes from is replaced by a finer one.
+        const int ngrid = LABEL_GRID_SIZE;
+        double gridStart = 0.5 / (1 << std::max(0, 15 - zoom));
+        Polyline stub;
+        for (int col = 0; col < ngrid; col++) {
+            double v = (col + gridStart) / ngrid;
+            for (int row = 0; row < ngrid; row++) {
+                double u = (row + gridStart) / ngrid;
+                stub.clear();
+                double level = traceLabelStub(sampler, labelInterval, u, v, stub);
+                if (!(level > 0.0) || stub.size() < 2) {
+                    continue;
+                }
+                long long ele = static_cast<long long>(std::llround(level));
+                std::vector<mbvtbuilder::MBVTTileBuilder::Point> line;
+                line.reserve(stub.size());
+                for (const GridPoint& gp : stub) {
+                    line.push_back(uvToWgs84(gp));
+                }
+                mbvtbuilder::MBVTTileBuilder::MultiLineString lines;
+                lines.push_back(std::move(line));
+
+                picojson::object props;
+                props["ele"] = picojson::value(static_cast<std::int64_t>(ele));
+                props["div"] = picojson::value(static_cast<std::int64_t>(computeDiv(ele)));
+                // So a style that draws contour LINES from this layer can exclude the stubs, which
+                // are only long enough to carry text: '#contour[stub=0] { line-width: .. }'.
+                props["stub"] = picojson::value(static_cast<std::int64_t>(1));
+                tileBuilder.addMultiLineString(layerIndex, std::move(lines), picojson::value(static_cast<std::int64_t>(ele)), picojson::value(props), false);
+            }
+        }
+
+        try {
+            protobuf::encoded_message encodedTile;
+            tileBuilder.buildTile(zoom, mapTile.getX(), mapTile.getY(), encodedTile);
+            auto data = std::make_shared<BinaryData>(reinterpret_cast<const unsigned char*>(encodedTile.data().data()), encodedTile.data().size());
+            auto tileData = std::make_shared<TileData>(data);
+            applyTileMetadata(tileData, mapTile);
+            return tileData;
+        }
+        catch (const std::exception& ex) {
+            Log::Errorf("ContourTileDataSource::loadTile: Failed to build contour label tile %s: %s", mapTile.toString().c_str(), ex.what());
+            return std::shared_ptr<TileData>();
+        }
+    }
+
     double ContourTileDataSource::getIntervalForZoom(int zoom) const {
         double base = _baseInterval;
         if (zoom <= 9)  return base * 50.0; // very coarse (e.g. 500m) - only relevant if MinVisibleZoom lowered
@@ -584,6 +685,46 @@ namespace carto {
             }
             catch (const std::exception& ex) {
                 return std::shared_ptr<TileData>();
+            }
+        }
+
+        // Label stubs off the terrain's own elevation, which is how tangram generates them: their
+        // ContourTextStyleBuilder marches over the tile's elevation raster, the one the terrain has
+        // already fetched and decoded, and carries no DEM tile of its own. A stub needs a few
+        // hundred samples, not a decoded image, so with the terrain wired up this path costs
+        // neither the tile load nor the image decode - measured at 44% of a tile decode thread,
+        // 23% of it in the WebP decode alone.
+        // Traced contour GEOMETRY does not take this path: it needs the DEM at its own resolution,
+        // and the terrain's elevation level is capped to what its mesh can express.
+        if (_labelStubs.load()) {
+            std::shared_ptr<TerrainOptions> terrainOptions;
+            {
+                std::lock_guard<std::mutex> lock(_mutex);
+                terrainOptions = _terrainOptions;
+            }
+            if (terrainOptions) {
+                if (std::shared_ptr<ElevationManager> elevationManager = terrainOptions->getElevationManager()) {
+                    if (std::shared_ptr<ElevationTileGrid> grid = elevationManager->getTileGrid(mapTile, ElevationManager::LoadMode::ALLOW_LOAD)) {
+                        std::shared_ptr<Projection> projection = getProjection();
+                        MapBounds bounds = TileUtils::CalculateMapTileBounds(mapTile.getFlipped(), projection);
+                        MapPos minInternal = projection->toInternal(bounds.getMin());
+                        MapPos maxInternal = projection->toInternal(bounds.getMax());
+                        double minIX = minInternal.getX(), minIY = minInternal.getY();
+                        double sizeIX = maxInternal.getX() - minIX, sizeIY = maxInternal.getY() - minIY;
+                        auto sampler = [grid, minIX, minIY, sizeIX, sizeIY](double u, double v, double& gu, double& gv) {
+                            double x = minIX + std::min(std::max(u, 0.0), 1.0) * sizeIX;
+                            double y = minIY + std::min(std::max(v, 0.0), 1.0) * sizeIY;
+                            float dhdx = 0.0f, dhdy = 0.0f;
+                            grid->sampleGradient(x, y, dhdx, dhdy);
+                            // The walk works in uv, so the gradient is per unit of uv, not per
+                            // internal unit.
+                            gu = dhdx * sizeIX;
+                            gv = dhdy * sizeIY;
+                            return static_cast<double>(grid->sampleHeight(x, y));
+                        };
+                        return buildLabelStubTile(mapTile, sampler, getIntervalForZoom(zoom));
+                    }
+                }
             }
         }
 
@@ -749,54 +890,10 @@ namespace carto {
         // are a fragment block on the terrain draw, as they are here when the hillshade layer draws
         // them. Their algorithm, their constants.
         if (_labelStubs.load()) {
-            double labelInterval = _labelInterval.load();
-            if (!(labelInterval > 0.0)) {
-                labelInterval = interval;
-            }
-            // Their grid alignment: seeds sit at the same geographic positions across zoom levels,
-            // so a label does not jump when the tile it comes from is replaced by a finer one.
-            const int ngrid = LABEL_GRID_SIZE;
-            double gridStart = 0.5 / (1 << std::max(0, 15 - zoom));
-            Polyline stub;
-            for (int col = 0; col < ngrid; col++) {
-                double v = (col + gridStart) / ngrid;
-                for (int row = 0; row < ngrid; row++) {
-                    double u = (row + gridStart) / ngrid;
-                    stub.clear();
-                    double level = traceLabelStub(heights, W, H, labelInterval, u, v, stub);
-                    if (!(level > 0.0) || stub.size() < 2) {
-                        continue;
-                    }
-                    long long ele = static_cast<long long>(std::llround(level));
-                    std::vector<mbvtbuilder::MBVTTileBuilder::Point> line;
-                    line.reserve(stub.size());
-                    for (const GridPoint& gp : stub) {
-                        line.push_back(gridToWgs84(gp));
-                    }
-                    mbvtbuilder::MBVTTileBuilder::MultiLineString lines;
-                    lines.push_back(std::move(line));
-
-                    picojson::object props;
-                    props["ele"] = picojson::value(static_cast<std::int64_t>(ele));
-                    props["div"] = picojson::value(static_cast<std::int64_t>(computeDiv(ele)));
-                    // So a style that draws contour LINES from this layer can exclude the stubs,
-                    // which are only long enough to carry text: '#contour[stub=0] { line-width: .. }'.
-                    props["stub"] = picojson::value(static_cast<std::int64_t>(1));
-                    tileBuilder.addMultiLineString(layerIndex, std::move(lines), picojson::value(static_cast<std::int64_t>(ele)), picojson::value(props), false);
-                }
-            }
-            try {
-                protobuf::encoded_message encodedTile;
-                tileBuilder.buildTile(zoom, mapTile.getX(), mapTile.getY(), encodedTile);
-                auto data = std::make_shared<BinaryData>(reinterpret_cast<const unsigned char*>(encodedTile.data().data()), encodedTile.data().size());
-                auto tileData = std::make_shared<TileData>(data);
-                applyTileMetadata(tileData, mapTile);
-                return tileData;
-            }
-            catch (const std::exception& ex) {
-                Log::Errorf("ContourTileDataSource::loadTile: Failed to build contour label tile %s: %s", mapTile.toString().c_str(), ex.what());
-                return std::shared_ptr<TileData>();
-            }
+            HeightSampler sampler = [&heights, W, H](double u, double v, double& gu, double& gv) {
+                return sampleHeightGrad(heights, W, H, u, v, gu, gv);
+            };
+            return buildLabelStubTile(mapTile, sampler, interval);
         }
 
         // Generate one feature (a MultiLineString) per contour level.
