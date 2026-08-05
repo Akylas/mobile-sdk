@@ -162,14 +162,17 @@ namespace carto {
                        (maskNs - lastMaskNs) / 1.0e6, (drapeNs - lastDrapeNs) / 1.0e6);
             lastMaskNs = maskNs; lastDrapeNs = drapeNs;
 
-            static long long lastLabelBuild = 0, lastLabelBatch = 0, lastLabelVerts = 0;
+            static long long lastLabelBuild = 0, lastLabelBatch = 0, lastLabelVerts = 0, lastLineLayouts = 0;
             long long labelBuild = RenderStats::labelVertexBuildNs.load();
             long long labelBatch = RenderStats::labelBatchNs.load();
             long long labelVerts = RenderStats::labelsDrawnVertices.load();
-            Log::Infof("RenderStats: labels built=%lld buildMs=%.1f batchMs=%.1f (per interval)",
-                       labelVerts - lastLabelVerts, (labelBuild - lastLabelBuild) / 1.0e6,
+            long long lineLayouts = RenderStats::lineLayoutBuilds.load();
+            Log::Infof("RenderStats: labels built=%lld lineLayouts=%lld buildMs=%.1f batchMs=%.1f (per interval)",
+                       labelVerts - lastLabelVerts, lineLayouts - lastLineLayouts,
+                       (labelBuild - lastLabelBuild) / 1.0e6,
                        (labelBatch - lastLabelBatch) / 1.0e6);
             lastLabelBuild = labelBuild; lastLabelBatch = labelBatch; lastLabelVerts = labelVerts;
+            lastLineLayouts = lineLayouts;
 
             static long long lastPrep[4] = { 0 }, lastLabelSplit[2] = { 0 }, lastLabelXf = 0, lastLabelAttr = 0;
             const long long prep[4] = {
