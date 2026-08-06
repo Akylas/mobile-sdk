@@ -260,7 +260,7 @@ public final class DemoStyles {
                 : "",
             "#transportation['class'='motorway'] { line-color: #e27d60; line-width: 3; }",
             DemoConfig.INLINE_BUILDINGS_3D
-                ? "#building[zoom>=14] { building-fill: #d9cfc4; building-height: 14; }"
+                ? "#building[zoom>=14] { building-fill: #d9cfc4; building-height: " + DemoConfig.INLINE_BUILDING_HEIGHT + "; }"
                 : "#building[zoom>=14] { polygon-fill: #d9cfc4; }",
             "#contour[zoom>=" + DemoConfig.CONTOUR_MIN_VISIBLE_ZOOM + "] {",
                 // Lines only for the traced geometry: a label stub is a ~20 point fragment of a
@@ -414,7 +414,7 @@ public final class DemoStyles {
             "#transportation { line-color: #ffffff; line-width: 1.2; }",
             "#transportation['class'='motorway'] { line-color: #e27d60; line-width: 3; }",
             DemoConfig.INLINE_BUILDINGS_3D
-                ? "#building[zoom>=14] { building-fill: #d9cfc4; building-height: 14; }"
+                ? "#building[zoom>=14] { building-fill: #d9cfc4; building-height: " + DemoConfig.INLINE_BUILDING_HEIGHT + "; }"
                 : "#building[zoom>=14] { polygon-fill: #d9cfc4; }",
             "#contour[zoom>=12] { line-color: #9a5a12; line-width: 0.8; line-opacity: 0.7; }");
 

@@ -309,6 +309,9 @@ public final class DemoConfig {
     public static String INLINE_BACKGROUND_COLOR = "#eef2f0";
     /** Extrude buildings: this is what gives the shadow pass real 3D casters. */
     public static boolean INLINE_BUILDINGS_3D = false;
+    /** Extrusion height in meters. Same vertex count at any value: the knob that separates the
+     *  extrusion pass's fill cost from its vertex cost. */
+    public static float INLINE_BUILDING_HEIGHT = 14f;
     /** Move sun/shadow/fog INTO the style (Map block properties) instead of setting them in code. */
     public static boolean INLINE_STYLE_LIGHTING = false;
     /** Text rules of the inline style ('--es labels false' isolates the label pipeline's cost). */
@@ -512,6 +515,7 @@ public final class DemoConfig {
         // inline style
         INLINE_BACKGROUND_COLOR = DemoCfg.cfgColor("bg", INLINE_BACKGROUND_COLOR);
         INLINE_BUILDINGS_3D = DemoCfg.cfgBool("bld3d", INLINE_BUILDINGS_3D);
+        INLINE_BUILDING_HEIGHT = DemoCfg.cfgFloat("bldHeight", INLINE_BUILDING_HEIGHT);
         INLINE_STYLE_LIGHTING = DemoCfg.cfgBool("styleLight", INLINE_STYLE_LIGHTING);
         INLINE_LABELS = DemoCfg.cfgBool("labels", INLINE_LABELS);
         INLINE_STYLE_MINIMAL = DemoCfg.cfgBool("minimal", INLINE_STYLE_MINIMAL);
