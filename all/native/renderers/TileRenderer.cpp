@@ -517,9 +517,20 @@ namespace carto {
         }();
         return mode;
     }
+    bool TileRenderer::isInline3DEnabled() {
+        static const bool enabled = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            return !(__system_property_get("debug.carto.inline3d", property) > 0 && property[0] == '0');
+        }();
+        return enabled;
+    }
 #else
     int TileRenderer::tileMasksMode() {
         return -1;
+    }
+
+    bool TileRenderer::isInline3DEnabled() {
+        return true;
     }
 #endif
 
@@ -926,7 +937,7 @@ namespace carto {
                 // Inline: the extrusions are the last tile content of the frame, so they can be
                 // drawn straight into the main framebuffer (tangram's way) instead of through the
                 // per-layer 3D overlay - nothing after them depth-tests against what they write.
-                tileRenderer->renderGeometry(false, true, true);
+                tileRenderer->renderGeometry(false, true, isInline3DEnabled());
             }
             VT_STAT_SPLIT(pass3DGeometryNs, passClock);
             if (_labelOrder == 1) {

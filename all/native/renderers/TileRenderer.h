@@ -188,6 +188,9 @@ namespace carto {
         // debug.carto.tilemasks forces the stencil tile masks on (1) or off (0) instead of the
         // renderer's own rule. Read once (Android only).
         static int tileMasksMode();
+        // debug.carto.inline3d 0 sends the 3D extrusions back through the per-layer 3D overlay
+        // instead of drawing them inline in the main framebuffer. Read once (Android only).
+        static bool isInline3DEnabled();
         void updateLabelOcclusionTest(const std::shared_ptr<vt::GLTileRenderer>& tileRenderer, const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions);
 
         static constexpr int SURFACE_RESET_DELAY = 500; // minimum interval (ms) between elevation-driven tile surface rebuilds
