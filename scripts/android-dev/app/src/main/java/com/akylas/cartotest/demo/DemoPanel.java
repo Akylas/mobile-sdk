@@ -167,7 +167,7 @@ public final class DemoPanel {
     private static void buildTerrainSection(Context context, LinearLayout panel, final DemoMap demo) {
         header(context, panel, "TERRAIN");
         check(context, panel, "3D terrain", DemoConfig.TERRAIN_ENABLED, new BoolSetting() {
-            public void set(boolean value) { DemoConfig.TERRAIN_ENABLED = value; demo.terrainOptions.setEnabled(value); }
+            public void set(boolean value) { DemoConfig.TERRAIN_ENABLED = value; demo.animateTerrain(value); }
         });
         check(context, panel, "billboard occlusion", DemoConfig.TERRAIN_BILLBOARD_OCCLUSION, new BoolSetting() {
             public void set(boolean value) { DemoConfig.TERRAIN_BILLBOARD_OCCLUSION = value; demo.terrainOptions.setBillboardOcclusionEnabled(value); }

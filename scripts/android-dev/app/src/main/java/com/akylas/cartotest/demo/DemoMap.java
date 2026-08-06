@@ -757,4 +757,42 @@ public class DemoMap {
     private static Color color(int argb) {
         return new Color(argb);
     }
+    /**
+     * Terrain on/off as an EXPAND animation instead of a pop. Enabling flips the flag first and
+     * ramps the exaggeration 0 -> target, disabling ramps it to 0 and only then flips the flag, so
+     * the tile re-decode that a flag change forces happens while the map is already flat and is not
+     * seen. Only the exaggeration moves per frame, and that no longer invalidates the tile cache.
+     */
+    public void animateTerrain(final boolean enabled) {
+        final float target = DemoConfig.TERRAIN_EXAGGERATION;
+        final long durationMs = DemoConfig.TERRAIN_ANIM_MS;
+        if (durationMs <= 0) {
+            terrainOptions.setEnabled(enabled);
+            terrainOptions.setExaggeration(target);
+            return;
+        }
+        if (enabled) {
+            terrainOptions.setExaggeration(0f);
+            terrainOptions.setEnabled(true);
+        }
+        final android.animation.ValueAnimator animator =
+            android.animation.ValueAnimator.ofFloat(enabled ? 0f : target, enabled ? target : 0f);
+        animator.setDuration(durationMs);
+        animator.setInterpolator(new android.view.animation.DecelerateInterpolator());
+        animator.addUpdateListener(new android.animation.ValueAnimator.AnimatorUpdateListener() {
+            public void onAnimationUpdate(android.animation.ValueAnimator a) {
+                terrainOptions.setExaggeration(((Float) a.getAnimatedValue()).floatValue());
+            }
+        });
+        if (!enabled) {
+            animator.addListener(new android.animation.AnimatorListenerAdapter() {
+                public void onAnimationEnd(android.animation.Animator a) {
+                    terrainOptions.setEnabled(false);
+                    terrainOptions.setExaggeration(target);
+                }
+            });
+        }
+        animator.start();
+    }
+
 }

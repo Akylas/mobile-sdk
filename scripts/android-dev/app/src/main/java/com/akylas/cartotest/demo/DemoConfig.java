@@ -165,6 +165,8 @@ public final class DemoConfig {
 
     public static boolean TERRAIN_ENABLED = true;
     public static float TERRAIN_EXAGGERATION = 1.0f;
+    /** Terrain toggle 'expand' animation, ms (0 = pop, the old behaviour). */
+    public static long TERRAIN_ANIM_MS = 700;
     /** Triangles per tile side. Slack against the draped content scales as (32/res)^2.
      *  64 is what tangram-ng uses (RasterStyle::build, hardcoded); 128 measured 8.5 fps against
      *  15.2 at 64 on the Crosscall (mesh 64, plain base, no labels/hillshade/contours). */
@@ -444,6 +446,7 @@ public final class DemoConfig {
         TERRAIN_ENABLED = DemoCfg.cfgBool("terrain", TERRAIN_ENABLED);
         TERRAIN_CAMERA_CLEARANCE = DemoCfg.cfgFloat("clearance", TERRAIN_CAMERA_CLEARANCE);
         TERRAIN_EXAGGERATION = DemoCfg.cfgFloat("exaggeration", TERRAIN_EXAGGERATION);
+        TERRAIN_ANIM_MS = (long) DemoCfg.cfgFloat("terrainAnimMs", TERRAIN_ANIM_MS);
         TERRAIN_MESH_RESOLUTION = DemoCfg.cfgInt("meshResolution", TERRAIN_MESH_RESOLUTION);
         TERRAIN_PAINTER_ORDER_DEPTH = DemoCfg.cfgBool("painterDepth", TERRAIN_PAINTER_ORDER_DEPTH);
         TERRAIN_DRAPE_FILLS = DemoCfg.cfgBool("drape", TERRAIN_DRAPE_FILLS);
