@@ -191,7 +191,7 @@ public final class DemoConfig {
     public static boolean TERRAIN_DRAPE_LINES = false;
     public static int TERRAIN_DRAPE_RESOLUTION = 0;
     /** Stitch neighbouring DEM tiles so ridges do not appear at tile borders. */
-    public static boolean TERRAIN_TILE_EDGE_STITCHING = false;
+    public static boolean TERRAIN_TILE_EDGE_STITCHING = true;
     public static boolean TERRAIN_SEAMLESS_TILE_EDGES = true;
     public static boolean TERRAIN_ELEVATION_PREFETCH = true;
     /** Hide billboards behind relief; tolerance > 0 keeps summits partly behind a ridge visible. */
@@ -228,7 +228,7 @@ public final class DemoConfig {
     // SUN / LIGHT / SHADOWS (com.carto.components.LightOptions)
     // =============================================================================================
 
-    public static boolean TERRAIN_LIGHTING = true;
+    public static boolean TERRAIN_LIGHTING = false;
     /** When >= 0 the sun is placed from the date+hour below instead of azimuth/altitude. */
     public static float SUN_HOUR_UTC = -1f;
     public static int SUN_YEAR = 2026, SUN_MONTH = 7, SUN_DAY = 26;
@@ -312,7 +312,13 @@ public final class DemoConfig {
 
     public static String INLINE_BACKGROUND_COLOR = "#eef2f0";
     /** Extrude buildings: this is what gives the shadow pass real 3D casters. */
-    public static boolean INLINE_BUILDINGS_3D = true;
+    public static boolean INLINE_BUILDINGS_3D = false;
+    /** Line widths of the inline style, as CartoCSS expressions - so they can be made
+     *  zoom-dependent for testing how a line behaves as you zoom and tilt. The defaults widen
+     *  with zoom the way a real style does; pass a plain number to pin a width instead. */
+    public static String INLINE_ROAD_WIDTH = "linear([view::zoom], (12, 0.6), (18, 4.0))";
+    public static String INLINE_MOTORWAY_WIDTH = "linear([view::zoom], (12, 1.5), (18, 9.0))";
+    public static String INLINE_CONTOUR_WIDTH = "linear([view::zoom], (12, 0.4), (18, 1))";
     /** Extrusion lighting declared BY THE STYLE (needs --es styleLight true): intensity 0 keeps
      *  the legacy view-direction shading, above 0 is the soft normalised Lambert the terrain uses. */
     public static float INLINE_BUILDING_LIGHT = 1f;
@@ -525,6 +531,9 @@ public final class DemoConfig {
         INLINE_BACKGROUND_COLOR = DemoCfg.cfgColor("bg", INLINE_BACKGROUND_COLOR);
         INLINE_BUILDINGS_3D = DemoCfg.cfgBool("bld3d", INLINE_BUILDINGS_3D);
         INLINE_BUILDING_HEIGHT = DemoCfg.cfgFloat("bldHeight", INLINE_BUILDING_HEIGHT);
+        INLINE_ROAD_WIDTH = DemoCfg.cfgStr("roadWidth", INLINE_ROAD_WIDTH);
+        INLINE_MOTORWAY_WIDTH = DemoCfg.cfgStr("motorwayWidth", INLINE_MOTORWAY_WIDTH);
+        INLINE_CONTOUR_WIDTH = DemoCfg.cfgStr("contourWidth", INLINE_CONTOUR_WIDTH);
         INLINE_BUILDING_LIGHT = DemoCfg.cfgFloat("bldLight", INLINE_BUILDING_LIGHT);
         INLINE_BUILDING_AMBIENT = DemoCfg.cfgFloat("bldAmbient", INLINE_BUILDING_AMBIENT);
         INLINE_STYLE_LIGHTING = DemoCfg.cfgBool("styleLight", INLINE_STYLE_LIGHTING);

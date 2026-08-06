@@ -248,7 +248,7 @@ public final class DemoStyles {
                     "  hillshade-contour-color: " + DemoStyles.hex(DemoConfig.HILLSHADE_CONTOUR_COLOR_ARGB) + ";")
                 : "",
             "}",
-            "#transportation { line-color: #ffffff; line-width: 1.2;}",
+            "#transportation { line-color: #ffffff; line-width: " + DemoConfig.INLINE_ROAD_WIDTH + "; }",
             DemoConfig.INLINE_LABELS
                 ? String.join("\n",
                     "#transportation_name {",
@@ -262,7 +262,7 @@ public final class DemoStyles {
                             : "",
                         " }")
                 : "",
-            "#transportation['class'='motorway'] { line-color: #e27d60; line-width: 3; }",
+            "#transportation['class'='motorway'] { line-color: #e27d60; line-width: " + DemoConfig.INLINE_MOTORWAY_WIDTH + "; }",
             DemoConfig.INLINE_BUILDINGS_3D
                 ? "#building[zoom>=14] { building-fill: #d9cfc4; building-height: " + DemoConfig.INLINE_BUILDING_HEIGHT + "; }"
                 : "#building[zoom>=14] { polygon-fill: #d9cfc4; }",
@@ -273,11 +273,11 @@ public final class DemoStyles {
                 // either. In stub mode the LINES come from the hillshade shader instead.
                 "  [stub=0] {",
                 "    line-color: #C56008;",
-                "    line-width: 0.8;",
+                "    line-width: " + DemoConfig.INLINE_CONTOUR_WIDTH + ";",
                 "    line-opacity: 0.4;",
-                "    [div>=50]  { line-opacity: 0.7; line-width: 1.0; }",
-                "    [div>=100] { line-opacity: 0.9; line-width: 1.4; }",
-                "    [div>=500] { line-width: 2.0; }",
+                "    [div>=50]  { line-opacity: 0.7; }",
+                "    [div>=100] { line-opacity: 0.9; line-width: 2; }",
+                "    [div>=500] { line-width: 4; }",
                 "  }",
                 DemoConfig.INLINE_LABELS
                 ? String.join("\n",
@@ -317,7 +317,7 @@ public final class DemoStyles {
         return String.join("\n",
             "#contour {",
             "  line-color: #C56008;",
-            "  line-width: 0.8;",
+            "  line-width: " + DemoConfig.INLINE_CONTOUR_WIDTH + ";",
             "  line-opacity: 0.4;",
             "  [div>=50]  { line-opacity: 0.7; line-width: 1.0; }",
             "  [div>=100] { line-opacity: 0.9; line-width: 1.4; }",
@@ -416,7 +416,7 @@ public final class DemoStyles {
             "}",
             "#satellite[zoom>=" + DemoConfig.INLINE_SATELLITE_MIN_ZOOM + "] { raster-opacity: 0.45; }",
             "#transportation { line-color: #ffffff; line-width: 1.2; }",
-            "#transportation['class'='motorway'] { line-color: #e27d60; line-width: 3; }",
+            "#transportation['class'='motorway'] { line-color: #e27d60; line-width: " + DemoConfig.INLINE_MOTORWAY_WIDTH + "; }",
             DemoConfig.INLINE_BUILDINGS_3D
                 ? "#building[zoom>=14] { building-fill: #d9cfc4; building-height: " + DemoConfig.INLINE_BUILDING_HEIGHT + "; }"
                 : "#building[zoom>=14] { polygon-fill: #d9cfc4; }",
