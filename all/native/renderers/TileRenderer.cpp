@@ -923,7 +923,10 @@ namespace carto {
             }
             VT_STAT_SPLIT(pass3DLabels2DNs, passClock);
             if (_buildingOrder == 1) {
-                tileRenderer->renderGeometry(false, true);
+                // Inline: the extrusions are the last tile content of the frame, so they can be
+                // drawn straight into the main framebuffer (tangram's way) instead of through the
+                // per-layer 3D overlay - nothing after them depth-tests against what they write.
+                tileRenderer->renderGeometry(false, true, true);
             }
             VT_STAT_SPLIT(pass3DGeometryNs, passClock);
             if (_labelOrder == 1) {
