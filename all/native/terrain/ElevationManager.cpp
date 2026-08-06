@@ -56,6 +56,7 @@ namespace carto {
         _gridSizeHint(256),
         _neighbourPrefetch(true),
         _version(1),
+        _dataVersion(1),
         _maxSeenElevation(0.0f),
         _gridCache(DEFAULT_CACHE_CAPACITY),
         _mutex(),
@@ -96,6 +97,9 @@ namespace carto {
 
     void ElevationManager::setExaggeration(float exaggeration) {
         _exaggeration.store(std::max(0.0f, exaggeration));
+        // The DATA version deliberately stands still: heights are scaled on the GPU and the tile
+        // surfaces are built flat, so nothing geometric is stale. Only what reads heights on the
+        // CPU - label anchors, the raycast - has to catch up, and that watches the global version.
         bumpGlobalVersion();
     }
 
@@ -105,14 +109,14 @@ namespace carto {
 
     void ElevationManager::setSeamlessTileEdgesEnabled(bool enabled) {
         if (_seamlessTileEdges.exchange(enabled) != enabled) {
-            _version++; // elevation texture borders change, force a rebuild
+            _version++; _dataVersion++; // elevation texture borders change, force a rebuild
         }
     }
 
     void ElevationManager::setSurfaceResolution(int resolution) {
         int value = std::max(1, resolution);
         if (_surfaceResolution.exchange(value) != value) {
-            _version++; // the elevation level cap changes with it
+            _version++; _dataVersion++; // the elevation level cap changes with it
         }
     }
 
@@ -568,6 +572,10 @@ namespace carto {
         maxZ = std::max(0.0, maxMeters * exaggeration * scale);
     }
 
+    unsigned int ElevationManager::getDataVersion() const {
+        return _dataVersion.load();
+    }
+
     unsigned int ElevationManager::getVersion() const {
         return _version.load();
     }
@@ -608,6 +616,7 @@ namespace carto {
             std::lock_guard<std::mutex> lock(_mutex);
             _gridCache.clear();
         }
+        _dataVersion++;
         bumpGlobalVersion();
     }
 

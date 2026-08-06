@@ -620,8 +620,21 @@ namespace carto {
                             // and drop only those; the global reset stays as the fallback for
                             // whole-data-set changes (data source change, exaggeration) and for
                             // change-log overflow.
+                            // A scale-only change (the exaggeration, e.g. a terrain 'expand'
+                            // animation) leaves the DATA version alone. The surfaces are built
+                            // flat and displaced on the GPU, so none of them is stale - only the
+                            // CPU-side label anchors are. Rebuilding every visible surface for it
+                            // re-tesselated and re-uploaded the whole screen twice a second while
+                            // the ramp ran, which is what made the labels stutter through it.
+                            unsigned int elevationDataVersion = elevationManager->getDataVersion();
+                            bool scaleOnly = (_elevationDataVersion != 0 && elevationDataVersion == _elevationDataVersion);
+                            _elevationDataVersion = elevationDataVersion;
+
                             std::vector<MapTile> changedTiles;
-                            if (_elevationVersion != 0 && elevationManager->getChangedTiles(_elevationVersion, changedTiles)) {
+                            if (scaleOnly) {
+                                _elevationVersion = elevationVersion;
+                                tileRenderer->invalidateLabelElevation();
+                            } else if (_elevationVersion != 0 && elevationManager->getChangedTiles(_elevationVersion, changedTiles)) {
                                 _elevationVersion = elevationVersion;
                                 std::vector<vt::TileId> changedTileIds;
                                 changedTileIds.reserve(changedTiles.size());

@@ -209,6 +209,16 @@ namespace carto {
 
         static unsigned long long NextInstanceId();
 
+        /**
+         * The version of the elevation DATA alone - every change except a scale-only one. The
+         * exaggeration scales heights on the GPU and does not touch the tile surfaces, which are
+         * built flat, so a consumer that only rebuilds geometry watches this instead of the global
+         * version and is not woken by an exaggeration ramp.
+         */
+    public:
+        unsigned int getDataVersion() const;
+    private:
+
         void tilesChanged();
         void bumpGlobalVersion();
         double wrapInternalX(double internalX) const;
@@ -229,6 +239,8 @@ namespace carto {
         // managers apart without comparing addresses (a destroyed manager's address can be
         // handed straight back to the next one).
         const unsigned long long _instanceId;
+
+        std::atomic<unsigned int> _dataVersion;
 
         std::atomic<float> _exaggeration;
         std::atomic<bool> _seamlessTileEdges;
