@@ -46,6 +46,7 @@ namespace carto {
 
     MBVectorTileDecoder::MBVectorTileDecoder(const std::shared_ptr<CompiledStyleSet>& compiledStyleSet) :
         _logger(std::make_shared<MVTLogger>("MBVectorTileDecoder")),
+        _pixelScale(1.0f),
         _featureIdOverride(false),
         _cartoCSSLayerNamesIgnored(false),
         _layerNameOverride(),
@@ -67,6 +68,7 @@ namespace carto {
     
     MBVectorTileDecoder::MBVectorTileDecoder(const std::shared_ptr<CartoCSSStyleSet>& cartoCSSStyleSet) :
         _logger(std::make_shared<MVTLogger>("MBVectorTileDecoder")),
+        _pixelScale(1.0f),
         _featureIdOverride(false),
         _cartoCSSLayerNamesIgnored(false),
         _layerNameOverride(),
@@ -217,7 +219,7 @@ namespace carto {
         for (auto it2 = _parameterValueMap.begin(); it2 != _parameterValueMap.end(); it2++) {
             (*parameterValueMap)[it2->first] = it2->second;
         }
-        _symbolizerContextSettings = std::make_shared<mvt::SymbolizerContext::Settings>(_symbolizerContextSettings->getTileSize(), parameterValueMap, _symbolizerContextSettings->getFallbackFont());
+        _symbolizerContextSettings = std::make_shared<mvt::SymbolizerContext::Settings>(_symbolizerContextSettings->getTileSize(), parameterValueMap, _symbolizerContextSettings->getFallbackFont(), _pixelScale);
         _symbolizerContext = std::make_shared<mvt::SymbolizerContext>(_symbolizerContext->getBitmapManager(), _symbolizerContext->getFontManager(), _symbolizerContext->getStrokeMap(), _symbolizerContext->getGlyphMap(), *_symbolizerContextSettings);
     }
 
@@ -373,7 +375,22 @@ namespace carto {
         }
         notifyDecoderChanged();
     }
-    
+
+    void MBVectorTileDecoder::setPixelScale(float pixelScale) {
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            if (!(pixelScale > 0.0f) || _pixelScale == pixelScale) {
+                return;
+            }
+            _pixelScale = pixelScale;
+            // The glyph render size is picked from it when a tile is decoded, so the decoded tiles
+            // have to go. In practice this fires once, when the layer joins a map.
+            _assetPackageSymbolizerContexts.clear();
+            updateCurrentStyleSet(_styleSet);
+        }
+        notifyDecoderChanged();
+    }
+
     int MBVectorTileDecoder::getMinZoom() const {
         return 0;
     }
@@ -637,7 +654,7 @@ namespace carto {
                 // Styles without any font (inline CartoCSS, for example) still need a font for their labels
                 fallbackFont = fontManager->getFont(DEFAULT_FALLBACK_FONT_NAME, fallbackFont);
             }
-            mvt::SymbolizerContext::Settings settings(DEFAULT_TILE_SIZE, std::make_shared<std::map<std::string, mvt::Value>>(), fallbackFont);
+            mvt::SymbolizerContext::Settings settings(DEFAULT_TILE_SIZE, std::make_shared<std::map<std::string, mvt::Value>>(), fallbackFont, _pixelScale);
             symbolizerContext = std::make_shared<mvt::SymbolizerContext>(bitmapManager, fontManager, strokeMap, glyphMap, settings);
         }
 
@@ -672,7 +689,7 @@ namespace carto {
             it++;
         }
 
-        _symbolizerContextSettings = std::make_shared<mvt::SymbolizerContext::Settings>(symbolizerContext->getSettings().getTileSize(), parameterValueMap, symbolizerContext->getSettings().getFallbackFont());
+        _symbolizerContextSettings = std::make_shared<mvt::SymbolizerContext::Settings>(symbolizerContext->getSettings().getTileSize(), parameterValueMap, symbolizerContext->getSettings().getFallbackFont(), _pixelScale);
         _symbolizerContext = std::make_shared<mvt::SymbolizerContext>(symbolizerContext->getBitmapManager(), symbolizerContext->getFontManager(), symbolizerContext->getStrokeMap(), symbolizerContext->getGlyphMap(), *_symbolizerContextSettings);
         _map = map;
         _mapSettings = std::make_shared<mvt::Map::Settings>(_map->getSettings());

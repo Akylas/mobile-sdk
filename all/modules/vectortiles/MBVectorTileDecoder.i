@@ -45,6 +45,7 @@
 %ignore carto::MBVectorTileDecoder::decodeTile;
 %ignore carto::MBVectorTileDecoder::getMapSettings;
 %ignore carto::MBVectorTileDecoder::getSymbolizerContextSettings;
+%ignore carto::MBVectorTileDecoder::setPixelScale;
 %ignore carto::MBVectorTileDecoder::loadMapnikMap;
 %ignore carto::MBVectorTileDecoder::loadCartoCSSMap;
 %ignore carto::MBVectorTileDecoder::resolveLayerConfig;

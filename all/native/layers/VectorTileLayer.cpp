@@ -2,6 +2,7 @@
 #include "core/BinaryData.h"
 #include "components/Exceptions.h"
 #include "components/CancelableThreadPool.h"
+#include "components/Options.h"
 #include "geometry/VectorTileFeature.h"
 #include "graphics/utils/BackgroundBitmapGenerator.h"
 #include "graphics/utils/SkyBitmapGenerator.h"
@@ -471,6 +472,21 @@ namespace carto {
         }
 
         return TileLayer::processClick(clickInfo, intersectedElement, viewState);
+    }
+
+    void VectorTileLayer::setComponents(const std::shared_ptr<CancelableThreadPool>& envelopeThreadPool,
+                                        const std::shared_ptr<CancelableThreadPool>& tileThreadPool,
+                                        const std::weak_ptr<Options>& options,
+                                        const std::weak_ptr<MapRenderer>& mapRenderer,
+                                        const std::weak_ptr<TouchHandler>& touchHandler)
+    {
+        TileLayer::setComponents(envelopeThreadPool, tileThreadPool, options, mapRenderer, touchHandler);
+
+        // The decoder rasterizes the glyphs of a label, and it can only pick a raster size that
+        // suits the label if it knows what a style pixel is worth on this display.
+        if (std::shared_ptr<Options> opts = options.lock()) {
+            _tileDecoder->setPixelScale(static_cast<float>(opts->getDPI() / Const::UNSCALED_DPI));
+        }
     }
 
     void VectorTileLayer::offsetLayerHorizontally(double offset) {

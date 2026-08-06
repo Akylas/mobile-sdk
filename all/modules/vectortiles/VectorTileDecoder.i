@@ -29,6 +29,7 @@
 %ignore carto::VectorTileDecoder::decodeTile;
 %ignore carto::VectorTileDecoder::getMapSettings;
 %ignore carto::VectorTileDecoder::getSymbolizerContextSettings;
+%ignore carto::VectorTileDecoder::setPixelScale;
 %ignore carto::VectorTileDecoder::OnChangeListener;
 %ignore carto::VectorTileDecoder::registerOnChangeListener;
 %ignore carto::VectorTileDecoder::unregisterOnChangeListener;
