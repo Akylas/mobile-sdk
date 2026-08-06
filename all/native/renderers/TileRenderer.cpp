@@ -244,7 +244,7 @@ namespace carto {
         // one frame during a pan and snaps into place when the motion stops.
         cglib::mat4x4<double> prepareModelViewMat = viewState.getModelviewMat() * cglib::translate4_matrix(cglib::vec3<double>(_horizontalLayerOffset, 0, 0));
         vt::ViewState prepareViewState(viewState.getProjectionMat(), prepareModelViewMat, viewState.getZoom(), viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewState.getNormalizedResolution());
-        prepareViewState.planarTerrain = isPlanarTerrainMode();
+        prepareViewState.planarProjection = isPlanarProjectionMode();
         tileRenderer->setViewState(prepareViewState);
         try {
             _framePrepareResult = tileRenderer->startFrame(deltaSeconds * 3);
@@ -581,8 +581,11 @@ namespace carto {
 
         cglib::mat4x4<double> modelViewMat = viewState.getModelviewMat() * cglib::translate4_matrix(cglib::vec3<double>(_horizontalLayerOffset, 0, 0));
         vt::ViewState vtViewState(viewState.getProjectionMat(), modelViewMat, viewState.getZoom(), viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewState.getNormalizedResolution());
-        vtViewState.planarTerrain = isPlanarTerrainMode(); // labels rescale by view depth so terrain elevation does not blow up their screen size
+        vtViewState.planarProjection = isPlanarProjectionMode(); // labels rescale by view depth, so neither terrain elevation nor a tilt blows up their screen size
         tileRenderer->setViewState(vtViewState);
+        // A line width is given in unscaled-DPI units; this is what one of them is worth in device
+        // pixels, so the antialias ramp can be one pixel wide instead of one unit (see lineFsh).
+        tileRenderer->setLineAntialiasScale(viewState.getNormalizedResolution() > 0 ? viewState.getHeight() / viewState.getNormalizedResolution() : 1.0f);
         tileRenderer->setInteractionMode(_interactionMode);
         tileRenderer->setRasterFilterMode(_rasterFilterMode);
         tileRenderer->setLayerBlendingSpeed(_layerBlendingSpeed);
@@ -996,7 +999,7 @@ namespace carto {
         }
         vt::ViewState cullViewState(viewState.getProjectionMat(), modelViewMat, viewState.getZoom(),
 viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewState.getNormalizedResolution());
-        cullViewState.planarTerrain = isPlanarTerrainMode(); // keep culling envelopes consistent with the rendered label sizes
+        cullViewState.planarProjection = isPlanarProjectionMode(); // keep culling envelopes consistent with the rendered label sizes
         culler.setViewState(cullViewState);
 
         try {
@@ -1206,6 +1209,16 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
                     return terrainOptions->isEnabled();
                 }
             }
+        }
+        return false;
+    }
+
+    bool TileRenderer::isPlanarProjectionMode() const {
+        // The label size correction and the pixel-grid snapping belong to the PROJECTION, not to
+        // the terrain: a tilted flat map divides by w exactly the same way, which is what made
+        // labels near the camera far larger than the ones behind them.
+        if (auto options = _options.lock()) {
+            return options->getRenderProjectionMode() == RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR;
         }
         return false;
     }
