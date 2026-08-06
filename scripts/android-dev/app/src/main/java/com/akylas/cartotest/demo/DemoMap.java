@@ -772,8 +772,15 @@ public class DemoMap {
             return;
         }
         if (enabled) {
+            // Flat first, and hold the ramp until the terrain-decoded tiles are in. Flipping the
+            // flag re-decodes every tile, and the old FLAT ones are tesselated without terrain
+            // subdivision: displacing those chords a road straight between its endpoints, which
+            // over a valley rides well above the ground - roads in the sky. At exaggeration 0
+            // nothing of that is visible, so waiting costs nothing to look at.
             terrainOptions.setExaggeration(0f);
             terrainOptions.setEnabled(true);
+            startRampWhenTilesLoaded();
+            return;
         }
         final android.animation.ValueAnimator animator =
             android.animation.ValueAnimator.ofFloat(enabled ? 0f : target, enabled ? target : 0f);
@@ -793,6 +800,44 @@ public class DemoMap {
             });
         }
         animator.start();
+    }
+
+    /** Ramps the terrain in once the visible tiles have been re-decoded for it (see animateTerrain). */
+    private void startRampWhenTilesLoaded() {
+        final float target = DemoConfig.TERRAIN_EXAGGERATION;
+        final long durationMs = DemoConfig.TERRAIN_ANIM_MS;
+        final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
+        final Runnable ramp = new Runnable() {
+            private boolean done = false;
+            public void run() {
+                if (done) {
+                    return;
+                }
+                done = true;
+                if (baseLayer != null) {
+                    baseLayer.setTileLoadListener(null);
+                }
+                android.animation.ValueAnimator a = android.animation.ValueAnimator.ofFloat(0f, target);
+                a.setDuration(durationMs);
+                a.setInterpolator(new android.view.animation.DecelerateInterpolator());
+                a.addUpdateListener(new android.animation.ValueAnimator.AnimatorUpdateListener() {
+                    public void onAnimationUpdate(android.animation.ValueAnimator anim) {
+                        terrainOptions.setExaggeration(((Float) anim.getAnimatedValue()).floatValue());
+                    }
+                });
+                a.start();
+            }
+        };
+        if (baseLayer != null) {
+            baseLayer.setTileLoadListener(new com.carto.layers.TileLoadListener() {
+                public void onVisibleTilesLoaded() {
+                    handler.post(ramp);
+                }
+            });
+        }
+        // The listener can not fire when every visible tile is already decoded for the terrain
+        // (toggling back and forth), so a timeout is what actually starts it in that case.
+        handler.postDelayed(ramp, DemoConfig.TERRAIN_ANIM_TILE_TIMEOUT_MS);
     }
 
 }
