@@ -73,6 +73,15 @@ the surface shader collapses the edge accordingly. Two things this got wrong onc
   tiles (`GLTileRenderer::terrainSurfaceTileIds`: ground cover, else paint cover, else own tiles);
 - the lattices only line up when the resolution is a multiple of the level difference, which caps k.
 
+Draped **content** takes the same coarsening, not just the surface: a road or a contour crossing the
+seam has to land on the same stitched edge as the ground it lies on, or its two halves meet at
+different heights — invisible from straight down, a step as soon as the camera tilts. The edge test
+is `pos.x < 0.00001`, which is only meaningful for surface vertices (they *are* the unit square), so
+content converts first with `uTileUnitScale`. Only the outermost cell is affected. Note the feature
+is off by default (`TerrainOptions::TileEdgeStitching`), and on its own it does not fix content
+mismatches at junctions — see the tile clipping in
+[03-vt-renderer.md](03-vt-renderer.md#lines-over-terrain), which is the dominant cause.
+
 ### Skirts: deliberately absent
 
 Tile border skirts (walls dropped at tile edges to hide cracks) are **disabled**. Their walls,

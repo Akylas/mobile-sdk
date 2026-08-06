@@ -65,6 +65,47 @@ paint surface, …). Consequences worth knowing:
   `Shader::getUniformLoc` returns **0** — a valid location that then clobbers uniform 0. Always use
   `glGetUniformLocation` with a `>= 0` guard (`SkyRenderer` is the pattern to copy).
 
+## Lines over terrain
+
+A line is a chain of quads whose width is an offset along a per-vertex binormal, and three things
+about that offset are easy to get wrong. All three were, and the symptoms all looked like terrain or
+depth bugs rather than line bugs.
+
+**Clip every line fragment to its own tile.** Lines are built with a clip buffer of **an eighth of a
+tile** (`TileLayerBuilder.h`, `_clipBox` = −0.125…1.125; polygons only 0.002), so every tile carries
+a long stretch of its neighbours' roads and draws it — displaced with *its own* target tile's
+elevation texture and lattice, which is a different DEM level than the tile that overflow actually
+lies on. The same road is then painted twice at two different heights: from straight down the copies
+coincide and it looks perfect, and the moment the camera tilts they separate. That tilt-only
+signature is the tell. The stencil tile masks were what used to clip this, but they need a stencil
+buffer and the shared-ground target has none (`GL_STENCIL_BITS` reads **0**), so they never run.
+`lineFsh` therefore discards outside the tile, using `uTileUnitScale` (vertex-frame units → TARGET
+tile units, set in `setupTerrainUniforms`; **0 means no elevation**, which disables the test) and a
+`vTileUnit` varying. No attachment, no extra draw.
+
+**Width: tangram's model, capped at nominal.** The offset is extruded in model space and displaced
+onto the terrain, exactly as tangram does (`polyline.vs` + `res/scenes/terrain-3d.yaml`), so a line
+is a world quad through the projection and tapers with distance. Left unbounded it also *grows*
+towards the camera until a near contour is a blob, so the projected offset is measured and **shrunk**
+back to the nominal width when it exceeds it. The factor is ≤ 1 by construction — it can never
+manufacture an oversized quad, which is what an unbounded screen-space fit does.
+
+**Antialias in device pixels, from a per-frame constant.** The ramp is one unit of the quad, and a
+unit is not a pixel: widths are unscaled-DPI units, so at 2.6× density one unit is ~1.8 device px and
+a 1 px contour is almost entirely ramp — that is what "blurry contours" was. `uAntialiasScale`
+(screen height ÷ normalized resolution, set by `TileRenderer`) makes the ramp one device pixel;
+measured on a contour at z17, the edge transition went 5 px → 2 px and the solid core 4 px → 8 px.
+`GL_OES_standard_derivatives` is **not** exposed on this context, so an `fwidth`-based ramp is dead
+code — check by forcing `a = 0` in that branch and seeing whether the line still draws.
+
+> **Never measure a line's screen width per vertex against `roundedWidth`.** A `screenHalfWidth /
+> roundedWidth` varying is in the *tile's* units, and the terrain LOD picks tiles up to
+> `MaxTileZoomCoarsening` (default 3) levels below the camera zoom on a grazing slope. There the
+> ratio is wrong by the zoom difference, the antialias ramp becomes a hard cut, and lines break into
+> fat wedges and detached triangles. For the same reason, never divide the offset by
+> `centerClip.w + deltaClip.w`: that is a second perspective divide by something that is not a
+> position's w, and it explodes when the offset is large in world units.
+
 ## Style evaluation
 
 CartoCSS values may be functions of view state (zoom, nuti parameters), so colours, widths and

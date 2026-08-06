@@ -19,6 +19,8 @@ and *still different*, the latter with the reason it is not simply copied.
 | map background | the framebuffer clear colour (`core/src/map.cpp`) | global terrain base fill before all layers; no per-tile background meshes | **ported** |
 | contour labels | generated from the elevation texture, no contour geometry (`core/src/style/contourTextStyle.cpp`) | label stubs in `ContourTileDataSource`, same algorithm | **ported** ([07](07-hillshade-contours.md)) |
 | hillshade / contours / hypsometric | fragment blocks on the terrain raster draw (`res/scenes/hillshade.yaml`) | hillshade and contours are a paint/shader block; hypsometric is still its own layer | **partly** |
+| line width | extrude in model space, displace per vertex, no ceiling (`core/shaders/polyline.vs`) | same, capped at the nominal width so a near line cannot grow into a blob | **ported with a bound** ([03](03-vt-renderer.md#lines-over-terrain)) |
+| line antialias | none — hard-edged quads (`core/shaders/polyline.fs`) | ramp over one device pixel (`uAntialiasScale`) | **different — we antialias** |
 | content subdivision | none at all | area fills to two surface cells; lines cut at the lattice | **different — see below** |
 | elevation texture | source raster bound directly, ancestors via uv sub-rects, edges extrapolated in-shader (`res/scenes/elevation.yaml`) | per-tile CPU re-encode with a 1-texel border from up to 8 neighbours | **different — see below** |
 | tile LOD | subdivide while screen area > `(2·pixelScale·256)²` (`core/src/tile/tileManager.cpp:214`) | distance rule, ~one zoom level finer | **different — measured not to matter** |
