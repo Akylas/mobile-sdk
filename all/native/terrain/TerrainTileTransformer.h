@@ -29,7 +29,7 @@ namespace carto {
     public:
         class TerrainVertexTransformer final : public VertexTransformer {
         public:
-            TerrainVertexTransformer(const vt::TileId& tileId, double scale, std::shared_ptr<ElevationTileGrid> grid, float exaggeration, float divideThreshold, float lineDivideThreshold);
+            TerrainVertexTransformer(const vt::TileId& tileId, double scale, std::shared_ptr<ElevationTileGrid> grid, float exaggeration, float divideThreshold, float lineDivideThreshold, float latticeCell);
             virtual ~TerrainVertexTransformer() = default;
 
             virtual cglib::vec3<float> calculatePoint(const cglib::vec2<float>& pos) const override;
@@ -46,6 +46,11 @@ namespace carto {
             double calculateMercatorCosine(double internalY) const;
 
             void tesselateSegment(const cglib::vec2<float>& pos0, const cglib::vec2<float>& pos1, float dist, vt::VertexArray<cglib::vec2<float>>& points) const;
+            // Splits a segment where it crosses the surface grid's cell edges and the diagonal
+            // each cell is split along, so that every resulting sub-segment lies inside ONE
+            // surface triangle. Returns false when the segment spans too many cells to be worth
+            // it (the caller then falls back to halving by threshold).
+            bool tesselateSegmentOnLattice(const cglib::vec2<float>& pos0, const cglib::vec2<float>& pos1, vt::VertexArray<cglib::vec2<float>>& points) const;
             void tesselateTriangle(std::size_t i0, std::size_t i1, std::size_t i2, float dist01, float dist02, float dist12, vt::VertexArray<cglib::vec2<float>>& coords, vt::VertexArray<cglib::vec2<float>>& texCoords, vt::VertexArray<std::size_t>& indices) const;
 
             const vt::TileId _tileId;
@@ -54,6 +59,7 @@ namespace carto {
             const float _exaggeration;
             const float _divideThreshold; // triangle subdivision, EPSG3857 meters; infinity disables subdivision
             const float _lineDivideThreshold; // line subdivision, EPSG3857 meters; finer than the triangle threshold in regular-grid mode
+            const float _latticeCell; // surface grid cell size in tile-local units; 0 outside regular-grid mode
             cglib::vec2<double> _tileOffsetInternal; // internal coordinates of the tile origin (min x, min y)
             double _tileScaleInternal;
             double _tileScaleMeters;
@@ -82,6 +88,9 @@ namespace carto {
         // vertices (lines are 1D, cheap). Triangles stay at one cell (their sag is bounded and
         // subdividing area content 1/factor^2 is expensive). Decoupled from the surface grid.
         static constexpr double REGULAR_GRID_LINE_SUBDIVISION = 0.35;
+        // A segment crossing more cells than this is split by halving instead of by lattice
+        // crossings - the crossing list would cost more than it saves.
+        static constexpr int MAX_LATTICE_SPLITS_PER_SEGMENT = 64;
 
         const double _scale;
         const std::shared_ptr<ElevationManager> _elevationManager;

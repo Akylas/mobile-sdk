@@ -150,18 +150,48 @@ public final class DemoConfig {
     // 3D TERRAIN (com.carto.components.TerrainOptions)
     // =============================================================================================
 
-    public static boolean TERRAIN_ENABLED = false;
+    /** Tile decode threads (Options.setTileThreadPoolSize). The SDK default is 1; tangram-ng
+     *  runs 2 (SceneOptions::numTileWorkers). Raise it to get tiles on screen sooner. */
+    public static int TILE_THREAD_POOL_SIZE = 1;
+    /** Screen size a tile may cover before the next zoom level is used, as a factor on tangram's
+     *  rule (a 2x2 block of nominal tiles). 1 = their rule; larger keeps tiles coarser at a tilt
+     *  (fewer tiles, fewer far labels); 0 refines everything to the camera zoom.
+     *  '--es lodFactor 2'. */
+    public static float TILE_LOD_FACTOR = 0.5f;
+    /** Metres beyond which the inline style's street labels are not placed (0 = no limit). Only
+     *  the inline style uses it; it is the 'text-max-distance' CartoCSS property.
+     *  '--es labelMaxDistance 2000'. */
+    public static float LABEL_MAX_DISTANCE = 2000f;
+
+    public static boolean TERRAIN_ENABLED = true;
     public static float TERRAIN_EXAGGERATION = 1.0f;
-    /** Triangles per tile side. Slack against the draped content scales as (32/res)^2. */
-    public static int TERRAIN_MESH_RESOLUTION = 128;
+    /** Terrain toggle 'expand' animation, ms (0 = pop, the old behaviour). */
+    public static long TERRAIN_ANIM_MS = 700;
+    /** How long the expand animation waits for terrain-decoded tiles before ramping anyway, ms. */
+    public static long TERRAIN_ANIM_TILE_TIMEOUT_MS = 2500;
+    /** Triangles per tile side. Slack against the draped content scales as (32/res)^2.
+     *  64 is what tangram-ng uses (RasterStyle::build, hardcoded); 128 measured 8.5 fps against
+     *  15.2 at 64 on the Crosscall (mesh 64, plain base, no labels/hillshade/contours). */
+    public static int TERRAIN_MESH_RESOLUTION = 64;
+    /** Metres the camera is held above the ground. The SDK default is 200, which stops you well
+     *  short of the surface; 30 lets you get close enough to judge mesh and hillshade detail.
+     *  '--es clearance N' (0 disables the clamp entirely - you can then fly through the ground). */
+    public static float TERRAIN_CAMERA_CLEARANCE = 30.0f;
     /** Painter-order depth model (per-tile-layer depth domain). Keep on unless debugging depth. */
     public static boolean TERRAIN_PAINTER_ORDER_DEPTH = true;
-    /** Render fills through an offscreen drape pass instead of displacing their geometry. */
+    /** Render fills through an offscreen drape pass instead of displacing their geometry.
+     *  ON, and it is both the correct and the fast choice - this is tangram's arrangement, where the
+     *  ground draw samples a texture (`base_color = sampleRaster(0)`, res/scenes/hillshade.yaml)
+     *  instead of stacking vector fills over the terrain. A displaced fill chords over the ground
+     *  between its vertices and z-fights it (pale slivers on slopes), and it cannot be given room
+     *  without the forward pull that leaks content through ridges. Measured on the Crosscall, north
+     *  pan with contours and hillshade: 12.9 fps against 10.5 with fills as geometry (bake +1.7 ms,
+     *  geometry submission -3.8 ms). '--es drape false' goes back for an A/B. */
     public static boolean TERRAIN_DRAPE_FILLS = true;
     public static boolean TERRAIN_DRAPE_LINES = false;
-    public static int TERRAIN_DRAPE_RESOLUTION = 1024;
+    public static int TERRAIN_DRAPE_RESOLUTION = 0;
     /** Stitch neighbouring DEM tiles so ridges do not appear at tile borders. */
-    public static boolean TERRAIN_TILE_EDGE_STITCHING = false;
+    public static boolean TERRAIN_TILE_EDGE_STITCHING = true;
     public static boolean TERRAIN_SEAMLESS_TILE_EDGES = true;
     public static boolean TERRAIN_ELEVATION_PREFETCH = true;
     /** Hide billboards behind relief; tolerance > 0 keeps summits partly behind a ridge visible. */
@@ -179,7 +209,20 @@ public final class DemoConfig {
     public static int FOG_COLOR_ARGB = 0xffb8c6d8;
     public static float FOG_START_DISTANCE = 1500f;
     public static float FOG_DISTANCE = 0f;          // 0 = off
-    public static float MAX_VISIBLE_DISTANCE = 0f;  // 0 = unlimited
+    /** How far the map is drawn AND where the far plane sits, as a factor on tangram's own rule
+     *  (far = 2 * cameraHeight / cos(pitch + fovy/2), capped at 127 tile widths). 1 is their rule
+     *  verbatim; 0 falls back to the visible ground, which reaches the horizon.
+     *  '--es viewDistance 0.5' halves it. */
+    /** Degrees above the fog horizon the sky haze fades out over ('--es fogBlend 12'). */
+    public static float SKY_FOG_BLEND = 12f;
+    /** Elevation angle the sky haze is still full at: -1 = from the terrain skyline (capped at half
+     *  the blend), 0 = from the mathematical horizon, >0 = pinned. '--es fogHorizon 0'. */
+    public static float SKY_FOG_HORIZON = -1f;
+    public static float VIEW_DISTANCE_FACTOR = 1f;
+    /** Zoom levels below the camera a tile may coarsen to in terrain mode. The tile surface is the
+     *  depth occluder and the DEM level follows the tile zoom, so unbounded coarsening means leaky
+     *  ridges and blocky hillshade. '--es coarsening 2'. */
+    public static int TERRAIN_MAX_TILE_ZOOM_COARSENING = 3;
 
     // =============================================================================================
     // SUN / LIGHT / SHADOWS (com.carto.components.LightOptions)
@@ -199,7 +242,7 @@ public final class DemoConfig {
     public static int SHADOW_CASCADES = 3;
     public static float SHADOW_BIAS = 1.0f;
     public static float SHADOW_DISTANCE = 0f;   // 0 = whole view
-    public static int SHADOW_CASTER_MARGIN = 1;
+    public static int SHADOW_CASTER_MARGIN = 3;
 
     // =============================================================================================
     // SKY (com.carto.components.SkyOptions) + the generated day-cycle shader
@@ -237,14 +280,27 @@ public final class DemoConfig {
     // =============================================================================================
 
     public static float CONTOUR_BASE_INTERVAL = 10f;
-    /** DEM samples per tile side before tracing: lower = far fewer vertices to trace and drape. */
-    public static int CONTOUR_RESOLUTION = 96;
+    /** DEM samples per tile side before tracing: lower = far fewer vertices to trace and drape.
+     *  0 = the DEM's own resolution, which is what matching 3D terrain needs - the ground is
+     *  displaced by every texel of the same tile, so a line traced on a coarser grid cuts through
+     *  the spurs and gullies between its samples. */
+    public static int CONTOUR_RESOLUTION = 0;
     public static float CONTOUR_SIMPLIFY_TOLERANCE = 1.5f;
     /** Contours are generated only at or above this TILE zoom. */
     public static int CONTOUR_MIN_VISIBLE_ZOOM = 5;
     /** Fetch neighbour DEM tiles so lines meet across tile borders (up to 3 extra fetches/tile). */
     public static boolean CONTOUR_SEAMLESS_EDGES = true;
     public static int CONTOUR_MAX_OVERZOOM = 15;
+    /** Emit only short label stubs (tangram's contour label generator) instead of traced contour
+     *  geometry. Pair it with HILLSHADE_CONTOUR_LINES, which draws the lines in the shader for
+     *  free, and with CONTOUR_LABEL_INTERVAL matching HILLSHADE_CONTOUR_INTERVAL. */
+    public static boolean CONTOUR_LABEL_STUBS = false;
+    /** Contour interval of the label stubs in meters; 0 follows the zoom ladder of the traced
+     *  geometry. Must match the interval the shader draws or the labels sit between the lines. */
+    public static float CONTOUR_LABEL_INTERVAL = 0f;
+    /** Generate the label stubs from the TERRAIN's elevation grid (tangram's model) instead of
+     *  loading and decoding a DEM tile of the contour source's own. Stubs only. */
+    public static boolean CONTOUR_STUBS_FROM_TERRAIN = true;
 
     /** Font of the pre-baked contour tile labels. An inline CartoCSS string carries no font asset
      *  package, so this goes through the system-font fallback ("Arial" -> Roboto on Android). */
@@ -256,9 +312,44 @@ public final class DemoConfig {
 
     public static String INLINE_BACKGROUND_COLOR = "#eef2f0";
     /** Extrude buildings: this is what gives the shadow pass real 3D casters. */
-    public static boolean INLINE_BUILDINGS_3D = true;
+    public static boolean INLINE_BUILDINGS_3D = false;
+    /** Line widths of the inline style, as CartoCSS expressions - so they can be made
+     *  zoom-dependent for testing how a line behaves as you zoom and tilt. The defaults widen
+     *  with zoom the way a real style does; pass a plain number to pin a width instead. */
+    public static String INLINE_ROAD_WIDTH = "linear([view::zoom], (12, 0.6), (18, 4.0))";
+    public static String INLINE_MOTORWAY_WIDTH = "linear([view::zoom], (12, 1.5), (18, 9.0))";
+    public static String INLINE_CONTOUR_WIDTH = "linear([view::zoom], (12, 0.4), (18, 1))";
+    /** Extrusion lighting declared BY THE STYLE (needs --es styleLight true): intensity 0 keeps
+     *  the legacy view-direction shading, above 0 is the soft normalised Lambert the terrain uses. */
+    public static float INLINE_BUILDING_LIGHT = 1f;
+    public static float INLINE_BUILDING_AMBIENT = 0.35f;
+    /** Extrusion height in meters. Same vertex count at any value: the knob that separates the
+     *  extrusion pass's fill cost from its vertex cost. */
+    public static float INLINE_BUILDING_HEIGHT = 14f;
     /** Move sun/shadow/fog INTO the style (Map block properties) instead of setting them in code. */
     public static boolean INLINE_STYLE_LIGHTING = false;
+    /** Text rules of the inline style ('--es labels false' isolates the label pipeline's cost). */
+    public static boolean INLINE_LABELS = true;
+    /** Strip the inline style down to the Map background plus the composite slot blocks
+     *  ('--es minimal true'). Nothing of the vector data is drawn, so what is left on screen is the
+     *  terrain and whatever the slots put on it - which is how the hillshade's own cost is measured
+     *  without the base map's geometry dominating the frame. The base layer stays, because it is
+     *  what gives the drape its tile cover. */
+    public static boolean INLINE_STYLE_MINIMAL = false;
+    /** Opacity of the ground-shaped fills (#landcover, #landuse). 1 = opaque, today's behaviour.
+     *  Tangram draws these translucent whenever something under them has to show: their
+     *  'translucent-polygons' style is alpha 0.25 (res/scenes/hillshade.yaml), selected through
+     *  global.earth_style, and it is how the hillshade and the contours read through the map
+     *  instead of being painted over. An un-subdivided fill also floats above the ground by its
+     *  chord error, and a translucent one hides far less of what it floats over.
+     *  '--es landcoverOpacity 0.25' */
+    /** LAYER-level comp-op on the '#landcover' block of the inline style ("multiply", "screen",
+     *  "darken", ...). Empty = none. A layer comp-op is what routes a layer through the renderer's
+     *  overlay buffer, which is also where the stencil tile masks are re-stamped - so this is the
+     *  knob that exercises that path. */
+    public static String INLINE_COMP_OP = "";
+
+    public static float INLINE_LANDCOVER_OPACITY = 1.0f;
     public static int INLINE_SATELLITE_MIN_ZOOM = 11;
     public static String INLINE_HILLSHADE_SHADOW_COLOR = "#473B24";
     public static float INLINE_HILLSHADE_ILLUMINATION = 365f;
@@ -270,6 +361,13 @@ public final class DemoConfig {
     // =============================================================================================
 
     /** false = no panel and no overlay text: clean screenshots for automated rendering checks. */
+    /** Outline every tile each layer draws, on the ground: colour per zoom, brightness alternating
+     *  with the tile parity, half opacity for a tile standing in with another tile's data. */
+    public static boolean DEBUG_TILE_BORDERS = false;
+
+    /** Drive the GL thread continuously instead of MapView's RENDERMODE_WHEN_DIRTY. */
+    public static boolean CONTINUOUS_RENDER = false;
+
     public static boolean UI_ENABLED = true;
     /** PeakFinder-style relief outline post-process effect. */
     public static boolean RELIEF_OUTLINE = false;
@@ -283,6 +381,9 @@ public final class DemoConfig {
     public static float ANIM_DURATION_S = 8;
     public static float ANIM_ZOOM_DELTA = 3;
     public static float ANIM_LON_DELTA = 0.05f;
+    /** North/south component of the scripted pan. Panning north into the mountains is the case
+     *  that gets slow, and it exercises quite different work from panning over the valley. */
+    public static float ANIM_LAT_DELTA = 0f;
     public static float ANIM_ROTATION = 180;
     public static float ANIM_ZOOM_OUT = 10.2f;
     public static float ANIM_SETTLE_MS = 8000;
@@ -347,8 +448,13 @@ public final class DemoConfig {
         START_ROTATION = DemoCfg.cfgFloat("rotation", START_ROTATION);
 
         // terrain
+        TILE_THREAD_POOL_SIZE = DemoCfg.cfgInt("tilePool", TILE_THREAD_POOL_SIZE);
+        TILE_LOD_FACTOR = DemoCfg.cfgFloat("lodFactor", TILE_LOD_FACTOR);
+        LABEL_MAX_DISTANCE = DemoCfg.cfgFloat("labelMaxDistance", LABEL_MAX_DISTANCE);
         TERRAIN_ENABLED = DemoCfg.cfgBool("terrain", TERRAIN_ENABLED);
+        TERRAIN_CAMERA_CLEARANCE = DemoCfg.cfgFloat("clearance", TERRAIN_CAMERA_CLEARANCE);
         TERRAIN_EXAGGERATION = DemoCfg.cfgFloat("exaggeration", TERRAIN_EXAGGERATION);
+        TERRAIN_ANIM_MS = (long) DemoCfg.cfgFloat("terrainAnimMs", TERRAIN_ANIM_MS);
         TERRAIN_MESH_RESOLUTION = DemoCfg.cfgInt("meshResolution", TERRAIN_MESH_RESOLUTION);
         TERRAIN_PAINTER_ORDER_DEPTH = DemoCfg.cfgBool("painterDepth", TERRAIN_PAINTER_ORDER_DEPTH);
         TERRAIN_DRAPE_FILLS = DemoCfg.cfgBool("drape", TERRAIN_DRAPE_FILLS);
@@ -372,7 +478,10 @@ public final class DemoConfig {
         }
         FOG_START_DISTANCE = DemoCfg.cfgFloat("fogStart", FOG_START_DISTANCE);
         FOG_DISTANCE = DemoCfg.cfgFloat("fogDistance", FOG_DISTANCE);
-        MAX_VISIBLE_DISTANCE = DemoCfg.cfgFloat("maxDistance", MAX_VISIBLE_DISTANCE);
+        SKY_FOG_BLEND = DemoCfg.cfgFloat("fogBlend", SKY_FOG_BLEND);
+        SKY_FOG_HORIZON = DemoCfg.cfgFloat("fogHorizon", SKY_FOG_HORIZON);
+        VIEW_DISTANCE_FACTOR = DemoCfg.cfgFloat("viewDistance", VIEW_DISTANCE_FACTOR);
+        TERRAIN_MAX_TILE_ZOOM_COARSENING = DemoCfg.cfgInt("coarsening", TERRAIN_MAX_TILE_ZOOM_COARSENING);
 
         // sun / shadows
         TERRAIN_LIGHTING = DemoCfg.cfgBool("terrainLight", TERRAIN_LIGHTING);
@@ -414,15 +523,30 @@ public final class DemoConfig {
         CONTOUR_SIMPLIFY_TOLERANCE = DemoCfg.cfgFloat("contourSimplify", CONTOUR_SIMPLIFY_TOLERANCE);
         CONTOUR_MIN_VISIBLE_ZOOM = DemoCfg.cfgInt("contourMinZoom", CONTOUR_MIN_VISIBLE_ZOOM);
         CONTOUR_SEAMLESS_EDGES = DemoCfg.cfgBool("contourSeamless", CONTOUR_SEAMLESS_EDGES);
+        CONTOUR_LABEL_STUBS = DemoCfg.cfgBool("contourStubs", CONTOUR_LABEL_STUBS);
+        CONTOUR_LABEL_INTERVAL = DemoCfg.cfgFloat("contourStubInterval", CONTOUR_LABEL_INTERVAL);
+        CONTOUR_STUBS_FROM_TERRAIN = DemoCfg.cfgBool("stubsFromTerrain", CONTOUR_STUBS_FROM_TERRAIN);
 
         // inline style
         INLINE_BACKGROUND_COLOR = DemoCfg.cfgColor("bg", INLINE_BACKGROUND_COLOR);
         INLINE_BUILDINGS_3D = DemoCfg.cfgBool("bld3d", INLINE_BUILDINGS_3D);
+        INLINE_BUILDING_HEIGHT = DemoCfg.cfgFloat("bldHeight", INLINE_BUILDING_HEIGHT);
+        INLINE_ROAD_WIDTH = DemoCfg.cfgStr("roadWidth", INLINE_ROAD_WIDTH);
+        INLINE_MOTORWAY_WIDTH = DemoCfg.cfgStr("motorwayWidth", INLINE_MOTORWAY_WIDTH);
+        INLINE_CONTOUR_WIDTH = DemoCfg.cfgStr("contourWidth", INLINE_CONTOUR_WIDTH);
+        INLINE_BUILDING_LIGHT = DemoCfg.cfgFloat("bldLight", INLINE_BUILDING_LIGHT);
+        INLINE_BUILDING_AMBIENT = DemoCfg.cfgFloat("bldAmbient", INLINE_BUILDING_AMBIENT);
         INLINE_STYLE_LIGHTING = DemoCfg.cfgBool("styleLight", INLINE_STYLE_LIGHTING);
+        INLINE_LABELS = DemoCfg.cfgBool("labels", INLINE_LABELS);
+        INLINE_STYLE_MINIMAL = DemoCfg.cfgBool("minimal", INLINE_STYLE_MINIMAL);
+        INLINE_LANDCOVER_OPACITY = DemoCfg.cfgFloat("landcoverOpacity", INLINE_LANDCOVER_OPACITY);
+        INLINE_COMP_OP = DemoCfg.cfgStr("compOp", INLINE_COMP_OP);
         INLINE_SATELLITE_MIN_ZOOM = DemoCfg.cfgInt("satZoom", INLINE_SATELLITE_MIN_ZOOM);
         NUTI_TOGGLE_INTERVAL_MS = DemoCfg.cfgInt("nutiInterval", NUTI_TOGGLE_INTERVAL_MS);
 
         // harness
+        DEBUG_TILE_BORDERS = DemoCfg.cfgBool("tileBorders", DEBUG_TILE_BORDERS);
+        CONTINUOUS_RENDER = DemoCfg.cfgBool("continuousRender", CONTINUOUS_RENDER);
         UI_ENABLED = DemoCfg.cfgBool("ui", UI_ENABLED);
         RELIEF_OUTLINE = DemoCfg.cfgBool("peakfinder", RELIEF_OUTLINE);
         RELIEF_OUTLINE_DELAY_MS = DemoCfg.cfgFloat("peakfinderDelay", RELIEF_OUTLINE_DELAY_MS);
@@ -431,6 +555,7 @@ public final class DemoConfig {
         ANIM_DURATION_S = DemoCfg.cfgFloat("animDuration", ANIM_DURATION_S);
         ANIM_ZOOM_DELTA = DemoCfg.cfgFloat("animZoomDelta", ANIM_ZOOM_DELTA);
         ANIM_LON_DELTA = DemoCfg.cfgFloat("animLonDelta", ANIM_LON_DELTA);
+        ANIM_LAT_DELTA = DemoCfg.cfgFloat("animLatDelta", ANIM_LAT_DELTA);
         ANIM_ROTATION = DemoCfg.cfgFloat("animRotation", ANIM_ROTATION);
         ANIM_ZOOM_OUT = DemoCfg.cfgFloat("animZoomOut", ANIM_ZOOM_OUT);
         ANIM_SETTLE_MS = DemoCfg.cfgFloat("animSettle", ANIM_SETTLE_MS);

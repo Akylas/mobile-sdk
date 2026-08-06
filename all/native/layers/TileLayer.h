@@ -390,10 +390,33 @@ namespace carto {
          * layer order, and then draws the terrain surface once. Internal methods.
          */
         virtual void collectDrapeLayers(std::vector<std::shared_ptr<TileLayer> >& drapeLayers, const ViewState& viewState);
+        // What this layer contributes to the drape stack's identity. The layer's own address by
+        // default - a new layer object means new content - plus, for layers whose bake does not
+        // come from their tiles (a terrain paint), whatever their appearance depends on: they
+        // have no per-tile fingerprint through which a change could be noticed.
+        virtual std::size_t drapeStackSignature() const;
+        // Whether this layer's drape contribution is not made of tiles: a terrain paint bakes into
+        // EVERY tile of the shared drape and reports none of them. The owner needs both facts - a
+        // stack of nothing but such layers has to be given the terrain's own cover, and every tile
+        // of that cover must expect this layer's content or a tile baked without it looks finished.
+        virtual bool paintsEveryDrapeTile() const { return false; }
+        // The terrain cover a paint layer draws itself on when nothing bakes it. Ignored by
+        // layers that are not paints.
+        virtual void setTerrainPaintTiles(const std::vector<vt::TileId>& tileIds);
 
         bool prepareTerrainDrapeFrame(float deltaSeconds, const ViewState& viewState);
         void setExternalDrapeTarget(bool enabled);
         void setExternalDrapeTiles(const std::vector<vt::TileId>& tileIds);
+        // The shared terrain ground: the cover every layer of the stack composites onto, drawn
+        // once per frame by the front layer (see vt::GLTileRenderer::setTerrainGroundTiles).
+        void setTerrainGroundTiles(const std::vector<vt::TileId>& tileIds, const std::vector<int>& proxyDepths);
+        // Where this layer's style layers start in the stack's depth ordering. Tangram has ONE
+        // ordered style list; our stack is several renderers, so the owner numbers them in draw
+        // order - without it a composite's children all claim ordinal 0 and the base map's fills
+        // are pulled in front of the hillshade above them.
+        void setTerrainLayerOrdinalBase(int base);
+        int getStyleLayerCount() const;
+        int renderTerrainGround(const Color& color);
         void collectDrapeTiles(std::map<vt::TileId, std::size_t>& drapeTiles) const;
         int bakeDrapeTile(const vt::TileId& tileId);
         int renderDrapedSurface(const vt::TileId& tileId, unsigned int drapeTexture, float uvOffsetX, float uvOffsetY, float uvScale);
@@ -438,7 +461,6 @@ namespace carto {
         static const int PARENT_PRIORITY_OFFSET;
         static const int PRELOADING_PRIORITY_OFFSET;
         static const double PRELOADING_TILE_SCALE;
-        static const float SUBDIVISION_THRESHOLD;
         
         std::atomic<bool> _calculatingTiles;
         std::atomic<bool> _refreshedTiles;
@@ -462,8 +484,11 @@ namespace carto {
         int _maxOverzoomLevel;
         int _maxUnderzoomLevel;
 
-        int _terrainMaxTileZoom = 1000; // terrain-mode tile zoom cap (effectively none), recomputed per cull
+        int _terrainMaxTileZoom = 1000;
+        int _terrainMinTileZoom = 0; // terrain mode: the coarsest tile zoom the LOD rule may pick
         double _maxVisibleDistance = 0; // internal units; 0 = as far as the camera can see
+        double _lodMaxTileArea = 0; // screen pixels squared; the tangram LOD threshold, 0 = no area test
+        double _lodElevation = 0; // world z the LOD projects tile corners at (the terrain under the focus)
         bool _terrainOverzoomTargets = false; // terrain mode: target tiles may exceed the data source max zoom (overzoom-fed)
 
         std::vector<MapTile> _visibleTiles;
@@ -476,13 +501,14 @@ namespace carto {
 
         std::weak_ptr<TerrainOptions> _terrainOptions;
         bool _terrainEnabled = false;
-        float _terrainExaggeration = 1.0f;
         int _terrainMeshResolution = 0;
         int _terrainMinZoom = 0;
         bool _terrainRegularGrid = false;
         bool _terrainSourceDensity = false;
         bool _terrainSourceDensityLines = false;
-        float _terrainMaxVisibleDistanceOption = 0.0f; // last TerrainOptions view distance a cull ran with
+        float _terrainViewDistanceFactor = 0.0f; // last TerrainOptions view distance factor a cull ran with
+        float _tileLODFactor = 0.0f; // last Options tile LOD factor a cull ran with
+        int _terrainCoarsening = -1; // last TerrainOptions coarsening bound a cull ran with
     };
     
 }

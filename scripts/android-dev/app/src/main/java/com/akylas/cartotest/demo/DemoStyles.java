@@ -164,6 +164,31 @@ public final class DemoStyles {
     // the per-source settings live (they accept zoom-dependent expressions).
     // =============================================================================================
 
+    /** 'polygon-opacity' for the ground-shaped fills, or nothing at all while they are opaque -
+     *  so the default style string is byte-identical to what it was before the knob existed. */
+    private static String landcoverOpacity() {
+        if (DemoConfig.INLINE_LANDCOVER_OPACITY >= 1.0f) {
+            return "";
+        }
+        return " polygon-opacity: " + DemoConfig.INLINE_LANDCOVER_OPACITY + ";";
+    }
+
+    /** A LAYER-level 'comp-op', which is the one that makes the renderer composite the layer
+     *  through its overlay buffer (and re-stamp the stencil tile masks into it) instead of
+     *  drawing it straight into the frame. Symbolizer-level properties such as
+     *  'polygon-comp-op' do NOT take that path, so this is what exercises it. */
+    private static String compOp() {
+        if (DemoConfig.INLINE_COMP_OP == null || DemoConfig.INLINE_COMP_OP.isEmpty()) {
+            return "";
+        }
+        return " comp-op: " + DemoConfig.INLINE_COMP_OP + ";";
+    }
+
+    /** An ARGB int as the '#rrggbb' CartoCSS literal (the alpha goes in a *-opacity property). */
+    private static String hex(int argb) {
+        return String.format("#%06X", argb & 0xFFFFFF);
+    }
+
     public static String inlineStyle() {
         StringBuilder map = new StringBuilder("Map { background-color: ").append(DemoConfig.INLINE_BACKGROUND_COLOR).append(";");
         if (DemoConfig.INLINE_STYLE_LIGHTING) {
@@ -174,6 +199,10 @@ public final class DemoStyles {
                .append(" sun-altitude: linear([view::zoom], (11, 55), (15, 12));")
                .append(" sun-intensity: 1;")
                .append(" ambient-intensity: 0.4;")
+               // Extrusion lighting, declared by the STYLE: keeps the soft normalised-Lambert
+               // walls whatever terrain lighting does, instead of the harder legacy shading.
+               .append(" building-light-intensity: " + DemoConfig.INLINE_BUILDING_LIGHT + ";")
+               .append(" building-ambient: " + DemoConfig.INLINE_BUILDING_AMBIENT + ";")
                .append(" shadow-strength: 0.8;")
                .append(" shadow-softness: 1;")
                .append(" fog-color: #b8c6d8;")
@@ -183,51 +212,98 @@ public final class DemoStyles {
         }
         map.append(" }");
 
+        if (DemoConfig.INLINE_STYLE_MINIMAL) {
+            // Background plus the composite slots only: no vector geometry, so a frame costs the
+            // terrain and the slots and nothing else. The slot blocks have to stay - a source's
+            // position in the draw order IS the position of the first rule naming it.
+            return String.join("\n",
+                map.toString(),
+                "#hillshade[zoom>=4][zoom<=19] {",
+                "  hillshade-illumination-direction: " + (int) DemoConfig.INLINE_HILLSHADE_ILLUMINATION + ";",
+                "  hillshade-shadow-color: " + DemoConfig.INLINE_HILLSHADE_SHADOW_COLOR + ";",
+                "}",
+                "#satellite[zoom>=" + DemoConfig.INLINE_SATELLITE_MIN_ZOOM + "] { raster-opacity: 1; raster-comp-op: src-over; }");
+        }
+
         return String.join("\n",
             map.toString(),
             "#water { polygon-fill: #9cc3e0; }",
-            "#landuse { polygon-fill: #dddddd; }",
-            "#landcover { polygon-fill: #dbe8cc; }",
+            // Ground-shaped fills carry the landcover opacity: opaque by default, translucent when
+            // the hillshade and the contours underneath have to read through them (tangram's
+            // 'translucent-polygons', alpha 0.25).
+            "#landuse { polygon-fill: #dddddd;" + landcoverOpacity() + " }",
+            "#landcover { polygon-fill: #dbe8cc;" + landcoverOpacity() + compOp() + " }",
             // --- composite slots, in draw order ---
             "#satellite[zoom>=" + DemoConfig.INLINE_SATELLITE_MIN_ZOOM + "] { raster-opacity: 1; raster-comp-op: src-over; }",
             "#hillshade[zoom>=4][zoom<=19] {",
             "  hillshade-illumination-direction: " + (int) DemoConfig.INLINE_HILLSHADE_ILLUMINATION + ";",
             "  hillshade-shadow-color: " + DemoConfig.INLINE_HILLSHADE_SHADOW_COLOR + ";",
+            // The composite slot takes its contour settings from the STYLE, not from the
+            // HillshadeRasterTileLayer setters (those only reach the stand-alone layer) - so this
+            // is what turns the shader-drawn contour lines on in the composite base.
+            DemoConfig.HILLSHADE_CONTOUR_LINES
+                ? String.join("\n",
+                    "  hillshade-contour-interval: " + (int) DemoConfig.HILLSHADE_CONTOUR_INTERVAL + ";",
+                    "  hillshade-contour-width: " + DemoConfig.HILLSHADE_CONTOUR_WIDTH + ";",
+                    "  hillshade-contour-color: " + DemoStyles.hex(DemoConfig.HILLSHADE_CONTOUR_COLOR_ARGB) + ";")
+                : "",
             "}",
-            "#transportation { line-color: #ffffff; line-width: 1.2;}",
-            "#transportation_name {" ,
+            "#transportation { line-color: #ffffff; line-width: " + DemoConfig.INLINE_ROAD_WIDTH + "; }",
+            DemoConfig.INLINE_LABELS
+                ? String.join("\n",
+                    "#transportation_name {",
                         "text-name: [name];",
-                "text-fill: #000000;",
-                " text-spacing: 10;",
-                "text-placement: line;",
-                "text-size: 10;",
-                " }",
-            "#transportation['class'='motorway'] { line-color: #e27d60; line-width: 3; }",
+                        "text-fill: #000000;",
+                        " text-spacing: 10;",
+                        "text-placement: line;",
+                        "text-size: 10;",
+                        DemoConfig.LABEL_MAX_DISTANCE > 0
+                            ? "text-max-distance: " + DemoConfig.LABEL_MAX_DISTANCE + ";"
+                            : "",
+                        " }")
+                : "",
+            "#transportation['class'='motorway'] { line-color: #e27d60; line-width: " + DemoConfig.INLINE_MOTORWAY_WIDTH + "; }",
             DemoConfig.INLINE_BUILDINGS_3D
-                ? "#building[zoom>=14] { building-fill: #d9cfc4; building-height: 14; }"
+                ? "#building[zoom>=14] { building-fill: #d9cfc4; building-height: " + DemoConfig.INLINE_BUILDING_HEIGHT + "; }"
                 : "#building[zoom>=14] { polygon-fill: #d9cfc4; }",
             "#contour[zoom>=" + DemoConfig.CONTOUR_MIN_VISIBLE_ZOOM + "] {",
-                "  line-color: #C56008;",
-                "  line-width: 0.8;",
-                "  line-opacity: 0.4;",
-                "  [div>=50]  { line-opacity: 0.7; line-width: 1.0; }",
-                "  [div>=100] { line-opacity: 0.9; line-width: 1.4; }",
-                "  [div>=500] { line-width: 2.0; }",
-                "[div=1000][zoom>=12],",
-	"[div=500][zoom>=12],",
-	"[div=200][zoom>=14],",
-	"[div=250][zoom>=13][zoom<14],",
-	"[div=100][zoom>=14],",
-	"[div=50][zoom>=15] {",
-            "text-name: [ele]+' m';",
-            "text-fill: #000000;",
-           " text-spacing: 10;",
-            "text-placement: line;",
-            // [zoom] here is the CONTOUR TILE zoom, which never drops below the DEM zoom - it does
-            // not gate on the camera. [view::zoom] is evaluated per frame, and size 0 hides the label.
-            "text-size: linear([view::zoom], (11.99, 0), (12, 14));",
-        "}",
+                // Lines only for the traced geometry: a label stub is a ~20 point fragment of a
+                // contour, long enough to lay text along and nothing more, so drawing it as a line
+                // paints dashes over the map. Both modes carry 'stub', so the filter is safe in
+                // either. In stub mode the LINES come from the hillshade shader instead.
+                "  [stub=0] {",
+                "    line-color: #C56008;",
+                "    line-width: " + DemoConfig.INLINE_CONTOUR_WIDTH + ";",
+                "    line-opacity: 0.4;",
+                "    [div>=50]  { line-opacity: 0.7; }",
+                "    [div>=100] { line-opacity: 0.9; line-width: 2; }",
+                "    [div>=500] { line-width: 4; }",
+                "  }",
+                DemoConfig.INLINE_LABELS
+                ? String.join("\n",
+                    "[div=1000][zoom>=12],",
+                    "[div=500][zoom>=12],",
+                    "[div=200][zoom>=14],",
+                    "[div=250][zoom>=13][zoom<14],",
+                    "[div=100][zoom>=14],",
+                    "[div=50][zoom>=15] {",
+                    "text-name: [ele]+' m';",
+                    "text-fill: #000000;",
+                    " text-spacing: 10;",
+                    "text-placement: line;",
+                    // [zoom] here is the CONTOUR TILE zoom, which never drops below the DEM zoom - it
+                    // does not gate on the camera. [view::zoom] is evaluated per frame, and size 0
+                    // hides the label.
+                    "text-size: linear([view::zoom], (11.99, 0), (12, 14));",
+                    "}")
+                : "",
             "  contour-base-interval: " + (int) DemoConfig.CONTOUR_BASE_INTERVAL + ";",
+            // The composite slot reads the source's generation parameters from the style too.
+            DemoConfig.CONTOUR_LABEL_STUBS
+                ? String.join("\n",
+                    "  contour-label-stubs: 1;",
+                    "  contour-label-interval: " + (int) DemoConfig.CONTOUR_LABEL_INTERVAL + ";")
+                : "",
             "}");
     }
 
@@ -241,7 +317,7 @@ public final class DemoStyles {
         return String.join("\n",
             "#contour {",
             "  line-color: #C56008;",
-            "  line-width: 0.8;",
+            "  line-width: " + DemoConfig.INLINE_CONTOUR_WIDTH + ";",
             "  line-opacity: 0.4;",
             "  [div>=50]  { line-opacity: 0.7; line-width: 1.0; }",
             "  [div>=100] { line-opacity: 0.9; line-width: 1.4; }",
@@ -330,7 +406,7 @@ public final class DemoStyles {
         String mss = String.join("\n",
             "Map { background-color: " + DemoConfig.INLINE_BACKGROUND_COLOR + "; }",
             "#water { polygon-fill: #9cc3e0; }",
-            "#landcover { polygon-fill: #dbe8cc; }",
+            "#landcover { polygon-fill: #dbe8cc;" + landcoverOpacity() + " }",
             // the hillshade slot exists only while the user setting is on
             "#hillshade['nuti::" + NUTI_PARAMETER + "'=true][zoom>=4] {",
             "  hillshade-opacity: linear([view::zoom], (4, 0.5), (12, 0.9));",
@@ -340,9 +416,9 @@ public final class DemoStyles {
             "}",
             "#satellite[zoom>=" + DemoConfig.INLINE_SATELLITE_MIN_ZOOM + "] { raster-opacity: 0.45; }",
             "#transportation { line-color: #ffffff; line-width: 1.2; }",
-            "#transportation['class'='motorway'] { line-color: #e27d60; line-width: 3; }",
+            "#transportation['class'='motorway'] { line-color: #e27d60; line-width: " + DemoConfig.INLINE_MOTORWAY_WIDTH + "; }",
             DemoConfig.INLINE_BUILDINGS_3D
-                ? "#building[zoom>=14] { building-fill: #d9cfc4; building-height: 14; }"
+                ? "#building[zoom>=14] { building-fill: #d9cfc4; building-height: " + DemoConfig.INLINE_BUILDING_HEIGHT + "; }"
                 : "#building[zoom>=14] { polygon-fill: #d9cfc4; }",
             "#contour[zoom>=12] { line-color: #9a5a12; line-width: 0.8; line-opacity: 0.7; }");
 

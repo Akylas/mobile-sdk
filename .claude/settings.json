@@ -27,7 +27,6 @@
       "Bash(node:*)",
       "Bash(node -e:*)",
       "Bash(python:*)",
-      "Bash(python3:*)",
       "Bash(perl:*)",
       "Bash(ruby:*)",
       "Bash(osascript:*)",

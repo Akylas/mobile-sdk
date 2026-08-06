@@ -112,10 +112,10 @@ namespace carto {
                     continue;
                 }
                 
-                // How far the map is drawn. The style may set it (and may make it depend on the
-                // zoom), otherwise the application's TerrainOptions does; either way it enters the
-                // cull, because the point of it is to not ASK for the tiles in the first place.
-                double maxVisibleDistance = 0;
+                // How far the map is drawn: tangram's view distance (ViewState), unless the
+                // style pins an absolute one. Either way it enters the cull, because the point of
+                // it is to not ASK for the tiles in the first place.
+                double maxVisibleDistance = viewState.calculateViewDistance(*mapRenderer->getOptions());
                 {
                     std::optional<float> styleDistance;
                     for (const std::shared_ptr<Layer>& layer : layers) {
@@ -125,17 +125,11 @@ namespace carto {
                             break;
                         }
                     }
-                    float distance = 0;
-                    if (styleDistance) {
-                        distance = *styleDistance;
-                    } else if (std::shared_ptr<Options> options = mapRenderer->getOptions()) {
-                        if (std::shared_ptr<TerrainOptions> terrainOptions = options->getTerrainOptions()) {
-                            distance = terrainOptions->getMaxVisibleDistance();
-                        }
+                    if (styleDistance && *styleDistance > 0) {
+                        // Metric in the style, internal units here: the equator conversion, the
+                        // same one the shadow distance uses.
+                        maxVisibleDistance = *styleDistance * static_cast<double>(Const::WORLD_SIZE) / Const::EARTH_CIRCUMFERENCE;
                     }
-                    // Metric in the API, internal units here: the equator conversion, the same one
-                    // the shadow distance uses.
-                    maxVisibleDistance = distance > 0 ? distance * static_cast<double>(Const::WORLD_SIZE) / Const::EARTH_CIRCUMFERENCE : 0;
                 }
 
                 // Check if view state has changed

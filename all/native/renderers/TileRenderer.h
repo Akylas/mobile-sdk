@@ -12,6 +12,7 @@
 #include "graphics/ViewState.h"
 #include "renderers/utils/GLResource.h"
 
+#include <atomic>
 #include <chrono>
 #include <memory>
 #include <mutex>
@@ -93,6 +94,26 @@ namespace carto {
          */
         void setExternalDrapeTarget(bool enabled);
         void setExternalDrapeTiles(const std::vector<vt::TileId>& tileIds);
+        void setTerrainGroundTiles(const std::vector<vt::TileId>& tileIds, const std::vector<int>& proxyDepths);
+        void setTerrainLayerOrdinalBase(int base);
+        int getStyleLayerCount() const;
+        /**
+         * The per-tile drape texture resolution to bake at: the option's value when it sets one,
+         * otherwise taken from the screen (see the implementation). Static so the drape CACHE,
+         * which is owned by MapRenderer and must agree with every layer's renderer, resolves it
+         * the same way.
+         */
+        static int resolveDrapeResolution(int setting, const ViewState& viewState, const std::shared_ptr<Options>& options);
+        // Metres a draped line is drawn in front of the ground (see GLTileRenderer::setTerrainLineClearance).
+        static float terrainLineClearanceMeters();
+        static constexpr float DEFAULT_LINE_CLEARANCE_METERS = 25.0f;
+        // The drape cache clamps to the same range (TerrainDrapeCache::setResolution).
+        static constexpr int MIN_DRAPE_RESOLUTION = 128;
+        static constexpr int MAX_DRAPE_RESOLUTION = 2048;
+        // Tiles the automatic resolution assumes are cached at once: the live cover plus what a pan
+        // is about to need back. The resolution is lowered until that many fit the cache budget.
+        static constexpr std::size_t DRAPE_WORKING_SET = 64;
+        int renderTerrainGround(const Color& color);
         bool isDrapeEnabled() const;
         void collectDrapeTiles(std::map<vt::TileId, std::size_t>& drapeTiles) const;
         int bakeDrapeTile(const vt::TileId& tileId);
@@ -108,6 +129,14 @@ namespace carto {
         // frame's sun - invisible while the map redrew continuously, and a change that appears not
         // to apply at all once it goes idle.
         void setTerrainSunLighting(bool enabled, const cglib::vec3<float>& sunDir, const Color& sunColor, float sunIntensity, float ambientIntensity);
+        // Turns this renderer into a terrain paint baker: it shades the shared terrain elevation
+        // texture into the drape texture, at its own place in the layer order, instead of holding
+        // a tile set of its own. The fingerprint must cover every value the paint's appearance
+        // depends on, including the lighting shader's own uniforms, or already-baked drape
+        // textures survive a parameter change.
+        // The terrain tiles a paint draws itself on when there is no drape to bake into.
+        void setTerrainPaintTiles(const std::vector<vt::TileId>& tileIds);
+        void setTerrainPaint(bool enabled, bool fullDetail, float heightScale, bool exaggerateHeightScale, bool legacyHeightScale, float contrast, float opacity, std::size_t fingerprint);
 
         bool onDrawFrame(float deltaSeconds, const ViewState& viewState);
         bool onDrawFrame3D(float deltaSeconds, const ViewState& viewState);
@@ -132,6 +161,37 @@ namespace carto {
 
         bool initializeRenderer();
         bool isPlanarTerrainMode() const;
+        bool isPlanarProjectionMode() const;
+        // Tangram-model measurement switch, read once from debug.carto.depthshift (Android only).
+        static float getTerrainContentDepthShift();
+        // tangram res/scenes/terrain-3d.yaml: depth_shift = -0.02*u_proj[2][3], and [2][3] is -1.
+        static constexpr float TERRAIN_TANGRAM_DEPTH_SHIFT = 0.02f;
+        // It is a per-step separation between coplanar style layers, not a budget to spread over
+        // the stack: scaling it by the ordinal span was this fork's, and ten times their pull is
+        // what let far content over a near ridge (see the shift's use in onDrawFrame).
+        // Measurement override for the paint's DEM level: debug.carto.paintdetail 0 forces the
+        // mesh level, whatever the layer asks for. Read once (Android only).
+        static bool isTerrainPaintFullDetailAllowed();
+        // Elevation levels the shading texture resolves BEYOND the standard rule
+        // (ElevationManager::clampTileZoom, which is tangram's: the tile's own zoom, adjusted by
+        // the elevation source's zoom bias). 0 means the shading and the geometry read the SAME
+        // elevation tile, which is tangram's arrangement - one raster per tile serves both - and
+        // is also why it costs nothing: there is no second set of grids and textures.
+        static constexpr int DEFAULT_PAINT_DETAIL_LEVELS = 0;
+        static int terrainPaintDetailLevels();
+        // Measurement switch for tangram's arrangement: the paint drawn AS the ground rather than
+        // as its layer's own surface over it. debug.carto.groundpaint 1. Read once (Android only).
+        static bool isTerrainPaintOnGroundForced();
+        // Texture fetches per terrain vertex, debug.carto.demtaps. Read once (Android only).
+        static int terrainDemTaps();
+        // debug.carto.tilebg 1 keeps the per-tile per-layer background meshes. Read once (Android).
+        static bool isTerrainTileBackgroundsForced();
+        // debug.carto.tilemasks forces the stencil tile masks on (1) or off (0) instead of the
+        // renderer's own rule. Read once (Android only).
+        static int tileMasksMode();
+        // debug.carto.inline3d 0 sends the 3D extrusions back through the per-layer 3D overlay
+        // instead of drawing them inline in the main framebuffer. Read once (Android only).
+        static bool isInline3DEnabled();
         void updateLabelOcclusionTest(const std::shared_ptr<vt::GLTileRenderer>& tileRenderer, const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions);
 
         static constexpr int SURFACE_RESET_DELAY = 500; // minimum interval (ms) between elevation-driven tile surface rebuilds
@@ -172,8 +232,15 @@ namespace carto {
         // The sun as RESOLVED (style over LightOptions), captured each frame for the 3D lighting
         // shader callback, which runs at draw time and cannot resolve it itself.
         cglib::vec3<float> _resolvedSunDir = cglib::vec3<float>(0, 0, 1);
+        // The elevation DATA version last acted on, apart from the global one: a change to only
+        // the exaggeration moves the global version without making any surface stale.
+        unsigned int _elevationDataVersion = 0;
         bool _sunLightingEnabled = false;
         float _sunIntensity = 0.0f;
+        // What the extrusions light with, resolved from the style over the options
+        // (StyleEnvironment::resolveLighting). Intensity 0 = the legacy view-direction model.
+        float _buildingLightIntensity = 0.0f;
+        float _buildingAmbient = 0.35f;
         float _sunAmbient = 0.35f;
         cglib::vec3<float> _normalLightDir;
         MapVec _normalIlluminationDirection;
@@ -183,11 +250,14 @@ namespace carto {
         float _hillshadeExaggeration;
         float _hillshadeIntensity;
         bool _terrainDepthWriteMode = false;
+        bool _terrainPaintEnabled = false; // this renderer shades the DEM instead of drawing tiles
+        bool _terrainPaintFullDetail = true; // shade from the DEM's own max zoom, not the mesh's level
         bool prepareFrameUnsafe(float deltaSeconds, const ViewState& viewState); // caller holds _mutex
 
         bool _framePrepared = false;   // startFrame already ran this frame (cross-layer drape ordering)
         bool _framePrepareResult = false;
         bool _externalDrapeTarget = false;
+        bool _terrainGroundActive = false; // a shared ground cover is set: this stack draws a terrain surface without a drape
         int _terrainRenderOrder = 0;
         int _maxVertexTextureUnits = -1; // lazily queried GL capability (-1 = not queried yet)
         std::shared_ptr<ElevationTextureCache> _elevationTextureCache;

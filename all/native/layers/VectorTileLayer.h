@@ -206,8 +206,14 @@ namespace carto {
         virtual void calculateRayIntersectedElements(const cglib::ray3<double>& ray, const ViewState& viewState, std::vector<RayIntersectedElement>& results) const;
         virtual bool processClick(const ClickInfo& clickInfo, const RayIntersectedElement& intersectedElement, const ViewState& viewState) const;
 
+        virtual void setComponents(const std::shared_ptr<CancelableThreadPool>& envelopeThreadPool,
+                                   const std::shared_ptr<CancelableThreadPool>& tileThreadPool,
+                                   const std::weak_ptr<Options>& options,
+                                   const std::weak_ptr<MapRenderer>& mapRenderer,
+                                   const std::weak_ptr<TouchHandler>& touchHandler);
+
         virtual void offsetLayerHorizontally(double offset);
-        
+
         virtual bool onDrawFrame(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState);
         virtual bool onDrawFrame3D(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState);
         

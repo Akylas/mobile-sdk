@@ -70,6 +70,13 @@ namespace carto {
          * @param fontData The font binary.
          */
         virtual void addFallbackFont(const std::shared_ptr<BinaryData>& fontData) = 0;
+
+        /**
+         * Sets the screen pixels per style pixel of the view the decoded tiles are drawn in.
+         * The layer pushes it when it joins a map; a decoder that does not care may ignore it.
+         * @param pixelScale The display scale factor (DPI / 160).
+         */
+        virtual void setPixelScale(float pixelScale) { }
     
         /**
          * Returns minimum zoom level supported for by the decoder (or style).

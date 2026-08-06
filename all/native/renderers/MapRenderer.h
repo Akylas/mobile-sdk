@@ -17,6 +17,7 @@
 #include "renderers/SkyRenderer.h"
 #include "renderers/components/AnimationHandler.h"
 #include "renderers/components/KineticEventHandler.h"
+#include "components/StyleEnvironment.h"
 
 #include <cglib/mat.h>
 #include <vt/TileId.h>
@@ -46,6 +47,8 @@ namespace carto {
     class Options;
     class PostProcessEffect;
     class TerrainRenderer;
+    class TerrainOptions;
+    class TileLayer;
     class TerrainDrapeCache;
     class TerrainShadowMap;
     class ThreadWorker;
@@ -180,6 +183,8 @@ namespace carto {
         void unregisterOnChangeListener(const std::shared_ptr<OnChangeListener>& listener);
         
     private:
+        // debug.carto.background 0 drops the map background plane. Read once (Android only).
+        static bool isBackgroundEnabled();
         class OptionsListener : public Options::OnChangeListener {
         public:
             explicit OptionsListener(const std::shared_ptr<MapRenderer>& mapRenderer);
@@ -198,6 +203,25 @@ namespace carto {
         static void logRedrawSources();
 
         void drawLayers(float deltaSeconds, const ViewState& viewState);
+
+        // Is tileId a STRICT ancestor of other, i.e. does it cover its ground at a coarser level?
+        static bool coversTile(const vt::TileId& tileId, const vt::TileId& other);
+
+        // The terrain cover the whole tile layer stack shares this frame: the union of what the
+        // layers report (layerTiles / collectedTiles, kept for the drape's staleness bookkeeping)
+        // normalised into ONE non-overlapping quadtree partition, the leaves. Both terrain paths
+        // build on it - the drape bakes one texture per leaf, the shared ground draws one surface
+        // per leaf - because the surfaces of two different tesselations of the same height field
+        // do not agree and fight wherever they overlap.
+        void collectTerrainCover(const std::vector<std::shared_ptr<TileLayer> >& tileLayers, const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::vector<vt::TileId>& seedTileIds, std::vector<std::map<vt::TileId, std::size_t> >& layerTiles, std::map<vt::TileId, std::size_t>& collectedTiles, std::vector<vt::TileId>& leaves, int& coverZoom, int& maxCollectedZoom);
+
+        // Directional shadows for one terrain stack: resolves the light from the styles, fits a
+        // light box per cascade to the cover, re-renders the caster pass only when it has actually
+        // changed, and hands the map (or none) and the sun to every layer. The cover is the only
+        // difference between the drape path and the shared-ground one, so both call this.
+        // contentChanged says whether the tile content moved this frame - it rations the
+        // content-driven refreshes, which camera-driven ones are not subject to.
+        void applyTerrainShadows(const std::vector<std::shared_ptr<TileLayer> >& tileLayers, const std::vector<vt::TileId>& coverTileIds, const std::shared_ptr<TerrainOptions>& terrainOptions, const ViewState& viewState, int prevFBO, bool contentChanged, bool castShadows, ResolvedLighting& lighting, std::array<double, 4>& shadowTexelMeters);
 
         void applyPostProcessEffect(const std::shared_ptr<PostProcessEffect>& effect, const ViewState& viewState);
 
@@ -235,12 +259,16 @@ namespace carto {
         std::string _postProcessShaderName;
         std::optional<std::chrono::steady_clock::time_point> _postProcessStartTime;
         std::unique_ptr<TerrainRenderer> _terrainRenderer;
+        std::vector<vt::TileId> _groundCoverTileIds; // last frame's shared ground cover (shadow refresh trigger)
         std::unique_ptr<TerrainDrapeCache> _terrainDrapeCache;
         std::unique_ptr<TerrainShadowMap> _terrainShadowMap; // shared cross-layer drape target
         // What the shadow map currently holds. The caster pass is a second full draw of the
         // terrain, and the light box is snapped to a world lattice so its matrix repeats exactly
         // while the camera moves inside one texel step: while these match, the existing map is
         // still the right one and the pass is skipped.
+        // Camera pose the last drape-bake pass ran against, to tell a moving frame from a
+        // still one (see the bake time budget in onDrawFrame).
+        cglib::mat4x4<double> _drapeBakeLastMVPMatrix = cglib::mat4x4<double>::identity();
         bool _shadowMapValid = false;
         int _shadowMapSize = 0;
         int _shadowMapCascades = 0;

@@ -11,6 +11,7 @@
 #include "components/DirectorPtr.h"
 
 #include <atomic>
+#include <functional>
 #include <mutex>
 #include <string>
 #include <utility>
@@ -18,6 +19,7 @@
 
 namespace carto {
     class Bitmap;
+    class TerrainOptions;
     class ElevationDecoder;
 
     /**
@@ -81,14 +83,17 @@ namespace carto {
 
         /**
          * Returns the target grid resolution used for contour tracing.
-         * @return The target grid resolution. The default is 128.
+         * @return The target grid resolution, 0 for the DEM's own. The default is 128.
          */
         int getResolution() const;
         /**
          * Sets the target grid resolution used for contour tracing. The DEM is subsampled so that
          * the traced grid is at most this many samples per side. Lower values produce coarser but
          * much cheaper geometry (fewer vertices to trace, simplify, upload and drape over terrain).
-         * @param resolution The target grid resolution (clamped to at least 8).
+         * Over 3D TERRAIN use 0 (the DEM's own resolution): the surface is displaced by every texel
+         * of the same tile, so a line traced on a subsampled grid follows a height field the ground
+         * does not have and cuts through everything between its samples.
+         * @param resolution The target grid resolution (clamped to at least 8), or 0 for the DEM's own.
          */
         void setResolution(int resolution);
 
@@ -118,6 +123,64 @@ namespace carto {
          * @param enabled True to enable seamless edges.
          */
         void setSeamlessEdgesEnabled(bool enabled);
+
+        /**
+         * Returns the terrain options whose elevation manager the label stubs read.
+         * @return The terrain options, or null.
+         */
+        std::shared_ptr<TerrainOptions> getTerrainOptions() const;
+        /**
+         * Sets the terrain options whose ELEVATION MANAGER the label stubs are generated from.
+         * With it, a stub tile costs no tile of its own: the seeds are walked over the elevation
+         * grid the 3D terrain has already fetched and decoded for that tile, which is how tangram
+         * generates contour labels (core/src/style/contourTextStyle.cpp reads the tile's own
+         * elevation raster). Without it, the source loads and decodes the DEM tile a second time -
+         * measured at 44% of a tile decode thread, half of it in the image decode alone.
+         *
+         * The terrain options must be driven by the SAME elevation data source this tile source
+         * wraps, or the labels state heights the map does not show. Only the stubs use it; traced
+         * contour geometry keeps reading the DEM at its own resolution, which the terrain's
+         * mesh-capped elevation level cannot supply.
+         * @param terrainOptions The terrain options, or null to decode a DEM tile of our own.
+         */
+        void setTerrainOptions(const std::shared_ptr<TerrainOptions>& terrainOptions);
+
+        /**
+         * Returns whether only short label stubs are generated instead of full contour lines.
+         * @return True if label stubs are generated. The default is false.
+         */
+        bool isLabelStubsEnabled() const;
+        /**
+         * Sets whether to generate short label stubs instead of full contour lines. A stub is a
+         * ~20 point polyline lying ON a contour, long enough to lay the elevation text along and
+         * nothing more: a grid of 4x4 seeds per tile is walked down the elevation gradient onto the
+         * nearest contour level and then along it. The tile then carries a handful of tiny features
+         * instead of the full traced geometry, which is what makes the labels affordable when the
+         * contour LINES are drawn by the terrain shader
+         * (HillshadeRasterTileLayer.setContourEnabled) rather than from this geometry.
+         *
+         * The features keep the same layer name and the same 'ele'/'div' attributes, so the existing
+         * text rules style them unchanged; they additionally carry 'stub' = 1, so a style that also
+         * draws contour LINES from this layer can exclude them with a [stub=0] filter.
+         *
+         * The stub levels must match the levels the shader draws, or the labels sit between the
+         * lines: set LabelInterval to the layer's ContourInterval (or leave both at their zoom
+         * defaults).
+         * @param enabled True to generate label stubs only.
+         */
+        void setLabelStubsEnabled(bool enabled);
+
+        /**
+         * Returns the contour interval used for label stubs.
+         * @return The label interval in meters, or 0 to follow the zoom-dependent interval. The default is 0.
+         */
+        float getLabelInterval() const;
+        /**
+         * Sets the contour interval used for label stubs, in meters. Use 0 to follow the same
+         * zoom-dependent interval the traced geometry uses.
+         * @param interval The label interval in meters.
+         */
+        void setLabelInterval(float interval);
 
         /**
          * Returns the simplification tolerance in tile pixels.
@@ -156,6 +219,16 @@ namespace carto {
          * that is decoded for itself as well - the cache turns those 3 extra image decodes per
          * tile back into (mostly) one.
          */
+        /**
+         * The contour label stubs for a tile, walked over a height field given as tile-local uv:
+         * height plus its gradient, in elevation units per unit of uv. Two things provide it - the
+         * grid resampled from a DEM bitmap this source decoded itself, and the elevation grid the
+         * 3D terrain already holds (see setTerrainOptions) - and the walk is the same either way.
+         */
+        std::shared_ptr<TileData> buildLabelStubTile(const MapTile& mapTile,
+                                                     const std::function<double(double, double, double&, double&)>& sampler,
+                                                     double interval);
+
         std::shared_ptr<Bitmap> loadCachedBitmap(const MapTile& tile);
         void cacheBitmap(const MapTile& tile, const std::shared_ptr<Bitmap>& bitmap);
 
@@ -167,7 +240,10 @@ namespace carto {
         std::atomic<int> _resolution;
         std::atomic<int> _minVisibleZoom;
         std::atomic<bool> _seamlessEdges;
+        std::atomic<bool> _labelStubs;
+        std::atomic<float> _labelInterval;
         std::string _layerName;
+        std::shared_ptr<TerrainOptions> _terrainOptions;
         mutable std::mutex _mutex;
 
         static const std::size_t MAX_CACHED_BITMAPS;

@@ -125,6 +125,9 @@ public class DemoMap {
     /** Applies the whole {@link DemoConfig} to a fresh map. */
     public void build() {
         // Options first: layers created afterwards pick up the terrain/light state immediately.
+        mapView.getOptions().setTileThreadPoolSize(DemoConfig.TILE_THREAD_POOL_SIZE);
+        mapView.getOptions().setTileLODFactor(DemoConfig.TILE_LOD_FACTOR);
+        applyDebugConfig();
         applyTerrainOptions();
         applyLightOptions();
         applySkyOptions();
@@ -344,6 +347,11 @@ public class DemoMap {
     }
 
     /** Pushes every HILLSHADE_* config value onto the stand-alone hillshade layer. */
+    /** Debug overlays (DEBUG section of the panel). */
+    public void applyDebugConfig() {
+        mapView.getOptions().setDebugTileBorders(DemoConfig.DEBUG_TILE_BORDERS);
+    }
+
     public void applyHillshadeConfig() {
         HillshadeRasterTileLayer layer = hillshadeLayer;
         if (layer == null) {
@@ -535,6 +543,14 @@ public class DemoMap {
         // so per-zoom style rules only fire if the DEM source max zoom is high enough.
         contourSource.setMinVisibleZoom(DemoConfig.CONTOUR_MIN_VISIBLE_ZOOM);
         contourSource.setMaxOverzoomLevel(DemoConfig.CONTOUR_MAX_OVERZOOM);
+        // Labels only: the lines come from the hillshade shader, so the tile carries a handful of
+        // stubs to lay the text along instead of the traced geometry.
+        contourSource.setLabelStubsEnabled(DemoConfig.CONTOUR_LABEL_STUBS);
+        contourSource.setLabelInterval(DemoConfig.CONTOUR_LABEL_INTERVAL);
+        // Stubs off the terrain's own elevation: no DEM tile of the contour source's own to fetch
+        // and decode, which is tangram's arrangement. Same DEM source on both sides, so the labels
+        // state the heights the terrain draws.
+        contourSource.setTerrainOptions(DemoConfig.CONTOUR_STUBS_FROM_TERRAIN ? terrainOptions : null);
         mapView.requestRender();
     }
 
@@ -567,6 +583,7 @@ public class DemoMap {
         terrainOptions.setEnabled(DemoConfig.TERRAIN_ENABLED);
         terrainOptions.setExaggeration(DemoConfig.TERRAIN_EXAGGERATION);
         terrainOptions.setMeshResolution(DemoConfig.TERRAIN_MESH_RESOLUTION);
+        terrainOptions.setCameraClearance(DemoConfig.TERRAIN_CAMERA_CLEARANCE);
         terrainOptions.setPainterOrderDepthEnabled(DemoConfig.TERRAIN_PAINTER_ORDER_DEPTH);
         terrainOptions.setDrapeFillsEnabled(DemoConfig.TERRAIN_DRAPE_FILLS);
         terrainOptions.setDrapeLinesEnabled(DemoConfig.TERRAIN_DRAPE_LINES);
@@ -585,7 +602,8 @@ public class DemoMap {
         terrainOptions.setFogColor(new Color(DemoConfig.FOG_ENABLED ? DemoConfig.FOG_COLOR_ARGB : 0));
         terrainOptions.setFogStartDistance(DemoConfig.FOG_START_DISTANCE);
         terrainOptions.setFogDistance(DemoConfig.FOG_DISTANCE);
-        terrainOptions.setMaxVisibleDistance(DemoConfig.MAX_VISIBLE_DISTANCE);
+        terrainOptions.setViewDistanceFactor(DemoConfig.VIEW_DISTANCE_FACTOR);
+        terrainOptions.setMaxTileZoomCoarsening(DemoConfig.TERRAIN_MAX_TILE_ZOOM_COARSENING);
         mapView.requestRender();
     }
 
@@ -624,6 +642,10 @@ public class DemoMap {
             mapView.getOptions().setSkyOptions(skyOptions);
         }
         skyOptions.setEnabled(DemoConfig.SKY_ENABLED);
+        // How much of the sky the terrain haze takes: FogBlend is the fade width, FogHorizon the
+        // angle it is still at full strength at (negative = from the terrain, 0 = from the horizon).
+        skyOptions.setFogBlend(DemoConfig.SKY_FOG_BLEND);
+        skyOptions.setFogHorizon(DemoConfig.SKY_FOG_HORIZON);
         mapView.requestRender();
     }
 
@@ -678,7 +700,7 @@ public class DemoMap {
                 if ("zoom".equals(anim)) {
                     mapView.setZoom(DemoConfig.START_ZOOM + DemoConfig.ANIM_ZOOM_DELTA, duration);
                 } else if ("pan".equals(anim)) {
-                    mapView.setFocusPos(proj.fromWgs84(new MapPos(DemoConfig.START_LON + DemoConfig.ANIM_LON_DELTA, DemoConfig.START_LAT)), duration);
+                    mapView.setFocusPos(proj.fromWgs84(new MapPos(DemoConfig.START_LON + DemoConfig.ANIM_LON_DELTA, DemoConfig.START_LAT + DemoConfig.ANIM_LAT_DELTA)), duration);
                 } else if ("rotate".equals(anim)) {
                     mapView.setMapRotation(DemoConfig.ANIM_ROTATION, duration);
                 } else if ("zoomseq".equals(anim)) {
@@ -735,4 +757,87 @@ public class DemoMap {
     private static Color color(int argb) {
         return new Color(argb);
     }
+    /**
+     * Terrain on/off as an EXPAND animation instead of a pop. Enabling flips the flag first and
+     * ramps the exaggeration 0 -> target, disabling ramps it to 0 and only then flips the flag, so
+     * the tile re-decode that a flag change forces happens while the map is already flat and is not
+     * seen. Only the exaggeration moves per frame, and that no longer invalidates the tile cache.
+     */
+    public void animateTerrain(final boolean enabled) {
+        final float target = DemoConfig.TERRAIN_EXAGGERATION;
+        final long durationMs = DemoConfig.TERRAIN_ANIM_MS;
+        if (durationMs <= 0) {
+            terrainOptions.setEnabled(enabled);
+            terrainOptions.setExaggeration(target);
+            return;
+        }
+        if (enabled) {
+            // Flat first, and hold the ramp until the terrain-decoded tiles are in. Flipping the
+            // flag re-decodes every tile, and the old FLAT ones are tesselated without terrain
+            // subdivision: displacing those chords a road straight between its endpoints, which
+            // over a valley rides well above the ground - roads in the sky. At exaggeration 0
+            // nothing of that is visible, so waiting costs nothing to look at.
+            terrainOptions.setExaggeration(0f);
+            terrainOptions.setEnabled(true);
+            startRampWhenTilesLoaded();
+            return;
+        }
+        final android.animation.ValueAnimator animator =
+            android.animation.ValueAnimator.ofFloat(enabled ? 0f : target, enabled ? target : 0f);
+        animator.setDuration(durationMs);
+        animator.setInterpolator(new android.view.animation.DecelerateInterpolator());
+        animator.addUpdateListener(new android.animation.ValueAnimator.AnimatorUpdateListener() {
+            public void onAnimationUpdate(android.animation.ValueAnimator a) {
+                terrainOptions.setExaggeration(((Float) a.getAnimatedValue()).floatValue());
+            }
+        });
+        if (!enabled) {
+            animator.addListener(new android.animation.AnimatorListenerAdapter() {
+                public void onAnimationEnd(android.animation.Animator a) {
+                    terrainOptions.setEnabled(false);
+                    terrainOptions.setExaggeration(target);
+                }
+            });
+        }
+        animator.start();
+    }
+
+    /** Ramps the terrain in once the visible tiles have been re-decoded for it (see animateTerrain). */
+    private void startRampWhenTilesLoaded() {
+        final float target = DemoConfig.TERRAIN_EXAGGERATION;
+        final long durationMs = DemoConfig.TERRAIN_ANIM_MS;
+        final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
+        final Runnable ramp = new Runnable() {
+            private boolean done = false;
+            public void run() {
+                if (done) {
+                    return;
+                }
+                done = true;
+                if (baseLayer != null) {
+                    baseLayer.setTileLoadListener(null);
+                }
+                android.animation.ValueAnimator a = android.animation.ValueAnimator.ofFloat(0f, target);
+                a.setDuration(durationMs);
+                a.setInterpolator(new android.view.animation.DecelerateInterpolator());
+                a.addUpdateListener(new android.animation.ValueAnimator.AnimatorUpdateListener() {
+                    public void onAnimationUpdate(android.animation.ValueAnimator anim) {
+                        terrainOptions.setExaggeration(((Float) anim.getAnimatedValue()).floatValue());
+                    }
+                });
+                a.start();
+            }
+        };
+        if (baseLayer != null) {
+            baseLayer.setTileLoadListener(new com.carto.layers.TileLoadListener() {
+                public void onVisibleTilesLoaded() {
+                    handler.post(ramp);
+                }
+            });
+        }
+        // The listener can not fire when every visible tile is already decoded for the terrain
+        // (toggling back and forth), so a timeout is what actually starts it in that case.
+        handler.postDelayed(ramp, DemoConfig.TERRAIN_ANIM_TILE_TIMEOUT_MS);
+    }
+
 }

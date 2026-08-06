@@ -39,17 +39,24 @@ namespace carto {
         ElevationManager& _manager;
     };
 
+    unsigned long long ElevationManager::NextInstanceId() {
+        static std::atomic<unsigned long long> counter { 0 };
+        return counter.fetch_add(1) + 1;
+    }
+
     ElevationManager::ElevationManager(const std::shared_ptr<TileDataSource>& dataSource, const std::shared_ptr<ElevationDecoder>& elevationDecoder) :
         _dataSource(dataSource),
         _elevationDecoder(ResolveDecoder(dataSource, elevationDecoder)),
         _projection(dataSource->getProjection()),
         _dataSourceListener(),
+        _instanceId(NextInstanceId()),
         _exaggeration(1.0f),
         _seamlessTileEdges(true),
         _surfaceResolution(32),
         _gridSizeHint(256),
         _neighbourPrefetch(true),
         _version(1),
+        _dataVersion(1),
         _maxSeenElevation(0.0f),
         _gridCache(DEFAULT_CACHE_CAPACITY),
         _mutex(),
@@ -90,6 +97,9 @@ namespace carto {
 
     void ElevationManager::setExaggeration(float exaggeration) {
         _exaggeration.store(std::max(0.0f, exaggeration));
+        // The DATA version deliberately stands still: heights are scaled on the GPU and the tile
+        // surfaces are built flat, so nothing geometric is stale. Only what reads heights on the
+        // CPU - label anchors, the raycast - has to catch up, and that watches the global version.
         bumpGlobalVersion();
     }
 
@@ -99,14 +109,14 @@ namespace carto {
 
     void ElevationManager::setSeamlessTileEdgesEnabled(bool enabled) {
         if (_seamlessTileEdges.exchange(enabled) != enabled) {
-            _version++; // elevation texture borders change, force a rebuild
+            _version++; _dataVersion++; // elevation texture borders change, force a rebuild
         }
     }
 
     void ElevationManager::setSurfaceResolution(int resolution) {
         int value = std::max(1, resolution);
         if (_surfaceResolution.exchange(value) != value) {
-            _version++; // the elevation level cap changes with it
+            _version++; _dataVersion++; // the elevation level cap changes with it
         }
     }
 
@@ -200,6 +210,35 @@ namespace carto {
             return std::shared_ptr<ElevationTileGrid>();
         }
 
+        // Dense point queries - label re-anchoring walks every vertex of every label, the
+        // terrain raycast marches a ray - ask for the same tile thousands of times in a row,
+        // and every one of them takes the cache mutex and walks the ancestor chain. Remember
+        // the last resolved (tile -> grid) per thread: grids are immutable and every
+        // elevation change bumps the version, so a memo of the same version is the same
+        // answer the walk below would produce. LOAD_EXACT is excluded on purpose - it must
+        // not be satisfied by a grid resolved through the ancestor search.
+        // The MODE is part of the key. CACHED_ONLY accepts a cached ANCESTOR as a stand-in while
+        // ALLOW_LOAD loads the tile itself, so the two resolve the same tile to different grids
+        // while a level is still streaming in. Without the mode here, whichever query ran first on
+        // this thread answered the other one: a CACHED_ONLY lookup would memoise a coarse ancestor
+        // and hand it to the next ALLOW_LOAD caller. Two consumers of the same ground then disagree
+        // about its height by the LOD chord error - metres on flat ground, tens of metres on
+        // relief - which is what made the terrain shadow map and the surface that reads it drift
+        // apart after a zoom change, shadowing the ground and the buildings with their own depth.
+        struct GridMemo {
+            unsigned long long instanceId = 0;
+            unsigned int version = 0;
+            long long tileId = -1;
+            LoadMode mode = LoadMode::CACHED_ONLY;
+            std::shared_ptr<ElevationTileGrid> grid;
+        };
+        static thread_local GridMemo memo;
+        unsigned int memoVersion = _version.load();
+        bool memoizable = (mode != LoadMode::LOAD_EXACT);
+        if (memoizable && memo.instanceId == _instanceId && memo.version == memoVersion && memo.tileId == tile.getTileId() && memo.mode == mode && memo.grid) {
+            return memo.grid;
+        }
+
         // Look for the tile or any of its cached ancestors
         bool tileFailed = false;
         if (mode == LoadMode::LOAD_EXACT) {
@@ -223,6 +262,7 @@ namespace carto {
                 std::shared_ptr<ElevationTileGrid> grid;
                 if (_gridCache.read(searchTile.getTileId(), grid)) {
                     if (grid) {
+                        memo = GridMemo { _instanceId, memoVersion, tile.getTileId(), mode, grid };
                         return grid;
                     }
                     if (searchTile == tile) {
@@ -300,6 +340,27 @@ namespace carto {
 
     MapTile ElevationManager::getDataTile(const MapTile& mapTile) const {
         return clampTileZoom(mapTile);
+    }
+
+    MapTile ElevationManager::getDetailDataTile(const MapTile& mapTile, int extraLevels) const {
+        // Kept for callers that ask for MORE than the standard rule gives; the rule itself no
+        // longer holds anything back (see clampTileZoom), so extraLevels only ever removes the
+        // source zoom bias, and never goes below the tile's own zoom.
+        if (extraLevels <= 0) {
+            return clampTileZoom(mapTile);
+        }
+        MapTile tile = mapTile;
+        int limit = DEM_TEXELS_PER_TILE_UNIT << extraLevels;
+        for (int size = _gridSizeHint.load(); size > limit && tile.getZoom() > 0; size /= 2) {
+            tile = tile.getParent();
+        }
+        return clampDataTileZoom(tile);
+    }
+
+    MapTile ElevationManager::getFullDetailDataTile(const MapTile& mapTile) const {
+        // No mesh-resolution cap: a per-fragment consumer (hillshade shading) resolves relief the
+        // surface geometry cannot, so capping it there leaves it blurred by two zoom levels.
+        return clampDataTileZoom(mapTile);
     }
 
     void ElevationManager::prefetchTileGrid(const MapTile& dataTile, int priority) const {
@@ -511,6 +572,10 @@ namespace carto {
         maxZ = std::max(0.0, maxMeters * exaggeration * scale);
     }
 
+    unsigned int ElevationManager::getDataVersion() const {
+        return _dataVersion.load();
+    }
+
     unsigned int ElevationManager::getVersion() const {
         return _version.load();
     }
@@ -551,6 +616,7 @@ namespace carto {
             std::lock_guard<std::mutex> lock(_mutex);
             _gridCache.clear();
         }
+        _dataVersion++;
         bumpGlobalVersion();
     }
 
@@ -571,17 +637,21 @@ namespace carto {
     }
 
     MapTile ElevationManager::clampTileZoom(const MapTile& mapTile) const {
-        MapTile tile = mapTile;
-        // Cap by the resolution the terrain mesh can express: an elevation tile is 256-512 texels
-        // while the surface has _surfaceResolution cells, so taking the tile zoom literally would
-        // give every tile its own elevation tile - and its own decoded grid and GL texture - for
-        // detail that cannot be rendered. One texel per half surface cell is the useful limit.
+        // Tangram's rule, verbatim (RasterSource::addRasterTask):
+        //     subTileID = tileId.zoomBiasAdjusted(zoomDiff).withMaxSourceZoom(maxZoom);
+        // the elevation tile is the render tile's OWN z/x/y, adjusted by the elevation source's
+        // ZOOM BIAS - one level per doubling of its tile size, because a 512-texel tile at z-1
+        // has the same texel density as a 256-texel tile at z - and capped by the source's own
+        // maximum zoom. Nothing else: no cap against what the surface mesh can express, and no
+        // detail dial on top of it. Those were this fork's, and they are what made the hillshade
+        // blurry - the mesh resolution decides how finely the GROUND is tesselated, not how much
+        // relief the per-fragment shading may resolve.
         // NOTE: this maps a RENDER tile to its elevation tile and is deliberately NOT idempotent -
-        // it drops a fixed number of levels on every call. Applying it to an elevation tile again
-        // (getTileGrid on a getDataTile result, or on a neighbour of one) costs another level each
-        // hop, which is why the elevation-tile entry points use clampDataTileZoom instead.
-        int surfaceResolution = _surfaceResolution.load();
-        for (int size = _gridSizeHint.load(); size > 2 * surfaceResolution && tile.getZoom() > 0; size /= 2) {
+        // it drops the bias on every call. Applying it to an elevation tile again (getTileGrid on a
+        // getDataTile result, or on a neighbour of one) costs another level each hop, which is why
+        // the elevation-tile entry points use clampDataTileZoom instead.
+        MapTile tile = mapTile;
+        for (int size = _gridSizeHint.load(); size > DEM_TEXELS_PER_TILE_UNIT && tile.getZoom() > 0; size /= 2) {
             tile = tile.getParent();
         }
         return clampDataTileZoom(tile);

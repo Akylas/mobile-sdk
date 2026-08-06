@@ -37,6 +37,16 @@
 !attributestring_polymorphic(carto::TileLayer, layers.UTFGridEventListener, UTFGridEventListener, getUTFGridEventListener, setUTFGridEventListener)
 %std_exceptions(carto::TileLayer::TileLayer)
 %ignore carto::TileLayer::setTerrainDepthWriteMode;
+%ignore carto::TileLayer::drapeStackSignature;
+%ignore carto::TileLayer::paintsEveryDrapeTile;
+%ignore carto::TileLayer::setTerrainPaintTiles;
+%ignore carto::TileLayer::setTerrainGroundTiles;
+%ignore carto::TileLayer::setTerrainLayerOrdinalBase;
+%ignore carto::TileLayer::setTerrainStackOrdinalSpan;
+%ignore carto::TileLayer::getStyleLayerCount;
+%ignore carto::TileLayer::renderTerrainGround;
+%ignore carto::TileLayer::blitDrapeTexture;
+%ignore carto::TileLayer::shadowCasterFadeSignature;
 %ignore carto::TileLayer::prepareTerrainDrapeFrame;
 // Internal cross-layer terrain drape / shadow plumbing, driven by MapRenderer.
 %ignore carto::TileLayer::collectDrapeLayers;
