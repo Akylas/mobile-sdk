@@ -808,6 +808,11 @@ namespace carto {
             _sunLightingEnabled = lighting.terrainLightingEnabled;
             _sunIntensity = lighting.sunIntensity;
             _sunAmbient = lighting.ambientIntensity;
+            // Extrusions light by their OWN resolved pair, so a style can keep the soft
+            // normalised-Lambert walls with the terrain sun off - and so toggling terrain
+            // lighting no longer changes how dark a wall is unless the style wants it to.
+            _buildingLightIntensity = lighting.buildingLightIntensity;
+            _buildingAmbient = lighting.buildingAmbient;
             _resolvedSunDir = lighting.sunDir;
             // The terrain surface is what this lights, and it exists whenever the stack draws one:
             // baked under a drape, or the shared ground pass when the drape is off. Gating on the
@@ -1335,9 +1340,11 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
                     // The RESOLVED sun (style over options), captured by onDrawFrame. Reading
                     // LightOptions here ignored every sun property a style had set, so buildings
                     // and the ground they stand on disagreed about the hour.
-                    float sunIntensity = (_sunLightingEnabled ? std::max(0.001f, _sunIntensity) : 0.0f);
-                    float sunAmbient = (_sunLightingEnabled ? _sunAmbient : 0.35f);
-                    glUniform2f(glGetUniformLocation(shaderProgram, "u_sunParams"), sunIntensity, sunAmbient);
+                    // 0 keeps the legacy model; anything above it is the normalised Lambert the
+                    // terrain surface uses. resolveLighting decides which, so the style has the
+                    // final word (see ResolvedLighting::buildingLightIntensity).
+                    float buildingIntensity = (_buildingLightIntensity > 0.0f ? _buildingLightIntensity : 0.0f);
+                    glUniform2f(glGetUniformLocation(shaderProgram, "u_sunParams"), buildingIntensity, _buildingAmbient);
                 }
             });
             tileRenderer->setLightingShader3D(lightingShader3D);

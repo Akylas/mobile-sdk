@@ -578,6 +578,8 @@ namespace carto {
         readColor(mapSettings->sunColor, env.sunColor);
         readFloat(mapSettings->sunIntensity, env.sunIntensity);
         readFloat(mapSettings->ambientIntensity, env.ambientIntensity);
+        readFloat(mapSettings->buildingLightIntensity, env.buildingLightIntensity);
+        readFloat(mapSettings->buildingAmbient, env.buildingAmbient);
         readFloat(mapSettings->shadowStrength, env.shadowStrength);
         readFloat(mapSettings->shadowBias, env.shadowBias);
         readFloat(mapSettings->shadowSoftness, env.shadowSoftness);

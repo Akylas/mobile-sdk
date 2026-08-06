@@ -18,6 +18,8 @@ namespace carto {
         take(sunColor, other.sunColor);
         take(sunIntensity, other.sunIntensity);
         take(ambientIntensity, other.ambientIntensity);
+        take(buildingLightIntensity, other.buildingLightIntensity);
+        take(buildingAmbient, other.buildingAmbient);
         take(terrainLightingEnabled, other.terrainLightingEnabled);
         take(shadowStrength, other.shadowStrength);
         take(shadowBias, other.shadowBias);
@@ -33,7 +35,7 @@ namespace carto {
     }
 
     bool StyleEnvironment::empty() const {
-        return !(sunAzimuth || sunAltitude || sunColor || sunIntensity || ambientIntensity || terrainLightingEnabled ||
+        return !(sunAzimuth || sunAltitude || sunColor || sunIntensity || ambientIntensity || buildingLightIntensity || buildingAmbient || terrainLightingEnabled ||
                  shadowStrength || shadowBias || shadowSoftness || shadowDistance || shadowMapSize || shadowCascades ||
                  shadowCasterMargin || fogColor || fogStartDistance || fogDistance || terrainMaxVisibleDistance);
     }
@@ -75,6 +77,22 @@ namespace carto {
         }
         if (env.terrainLightingEnabled) {
             lighting.terrainLightingEnabled = *env.terrainLightingEnabled;
+        }
+        // Buildings: the style wins when it says anything about them, whatever the terrain does.
+        // Otherwise they follow the terrain sun, and with no sun at all they keep the legacy
+        // model (intensity 0) - so a style that says nothing renders exactly as before.
+        if (lighting.terrainLightingEnabled) {
+            lighting.buildingLightIntensity = lighting.sunIntensity;
+            lighting.buildingAmbient = lighting.ambientIntensity;
+        }
+        if (env.buildingLightIntensity) {
+            lighting.buildingLightIntensity = *env.buildingLightIntensity;
+        }
+        if (env.buildingAmbient) {
+            lighting.buildingAmbient = *env.buildingAmbient;
+            if (!env.buildingLightIntensity && lighting.buildingLightIntensity <= 0.0f) {
+                lighting.buildingLightIntensity = lighting.sunIntensity; // ambient alone still means "light them"
+            }
         }
         if (env.shadowStrength) {
             lighting.shadowStrength = *env.shadowStrength;

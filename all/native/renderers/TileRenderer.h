@@ -233,6 +233,10 @@ namespace carto {
         cglib::vec3<float> _resolvedSunDir = cglib::vec3<float>(0, 0, 1);
         bool _sunLightingEnabled = false;
         float _sunIntensity = 0.0f;
+        // What the extrusions light with, resolved from the style over the options
+        // (StyleEnvironment::resolveLighting). Intensity 0 = the legacy view-direction model.
+        float _buildingLightIntensity = 0.0f;
+        float _buildingAmbient = 0.35f;
         float _sunAmbient = 0.35f;
         cglib::vec3<float> _normalLightDir;
         MapVec _normalIlluminationDirection;
