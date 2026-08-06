@@ -199,6 +199,10 @@ public final class DemoStyles {
                .append(" sun-altitude: linear([view::zoom], (11, 55), (15, 12));")
                .append(" sun-intensity: 1;")
                .append(" ambient-intensity: 0.4;")
+               // Extrusion lighting, declared by the STYLE: keeps the soft normalised-Lambert
+               // walls whatever terrain lighting does, instead of the harder legacy shading.
+               .append(" building-light-intensity: " + DemoConfig.INLINE_BUILDING_LIGHT + ";")
+               .append(" building-ambient: " + DemoConfig.INLINE_BUILDING_AMBIENT + ";")
                .append(" shadow-strength: 0.8;")
                .append(" shadow-softness: 1;")
                .append(" fog-color: #b8c6d8;")

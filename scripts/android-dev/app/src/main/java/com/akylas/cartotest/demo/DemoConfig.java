@@ -309,6 +309,10 @@ public final class DemoConfig {
     public static String INLINE_BACKGROUND_COLOR = "#eef2f0";
     /** Extrude buildings: this is what gives the shadow pass real 3D casters. */
     public static boolean INLINE_BUILDINGS_3D = true;
+    /** Extrusion lighting declared BY THE STYLE (needs --es styleLight true): intensity 0 keeps
+     *  the legacy view-direction shading, above 0 is the soft normalised Lambert the terrain uses. */
+    public static float INLINE_BUILDING_LIGHT = 1f;
+    public static float INLINE_BUILDING_AMBIENT = 0.35f;
     /** Extrusion height in meters. Same vertex count at any value: the knob that separates the
      *  extrusion pass's fill cost from its vertex cost. */
     public static float INLINE_BUILDING_HEIGHT = 14f;
@@ -516,6 +520,8 @@ public final class DemoConfig {
         INLINE_BACKGROUND_COLOR = DemoCfg.cfgColor("bg", INLINE_BACKGROUND_COLOR);
         INLINE_BUILDINGS_3D = DemoCfg.cfgBool("bld3d", INLINE_BUILDINGS_3D);
         INLINE_BUILDING_HEIGHT = DemoCfg.cfgFloat("bldHeight", INLINE_BUILDING_HEIGHT);
+        INLINE_BUILDING_LIGHT = DemoCfg.cfgFloat("bldLight", INLINE_BUILDING_LIGHT);
+        INLINE_BUILDING_AMBIENT = DemoCfg.cfgFloat("bldAmbient", INLINE_BUILDING_AMBIENT);
         INLINE_STYLE_LIGHTING = DemoCfg.cfgBool("styleLight", INLINE_STYLE_LIGHTING);
         INLINE_LABELS = DemoCfg.cfgBool("labels", INLINE_LABELS);
         INLINE_STYLE_MINIMAL = DemoCfg.cfgBool("minimal", INLINE_STYLE_MINIMAL);
