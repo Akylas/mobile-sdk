@@ -224,7 +224,7 @@ public final class DemoConfig {
     // SUN / LIGHT / SHADOWS (com.carto.components.LightOptions)
     // =============================================================================================
 
-    public static boolean TERRAIN_LIGHTING = false;
+    public static boolean TERRAIN_LIGHTING = true;
     /** When >= 0 the sun is placed from the date+hour below instead of azimuth/altitude. */
     public static float SUN_HOUR_UTC = -1f;
     public static int SUN_YEAR = 2026, SUN_MONTH = 7, SUN_DAY = 26;
@@ -238,7 +238,7 @@ public final class DemoConfig {
     public static int SHADOW_CASCADES = 3;
     public static float SHADOW_BIAS = 1.0f;
     public static float SHADOW_DISTANCE = 0f;   // 0 = whole view
-    public static int SHADOW_CASTER_MARGIN = 1;
+    public static int SHADOW_CASTER_MARGIN = 3;
 
     // =============================================================================================
     // SKY (com.carto.components.SkyOptions) + the generated day-cycle shader
@@ -308,7 +308,7 @@ public final class DemoConfig {
 
     public static String INLINE_BACKGROUND_COLOR = "#eef2f0";
     /** Extrude buildings: this is what gives the shadow pass real 3D casters. */
-    public static boolean INLINE_BUILDINGS_3D = false;
+    public static boolean INLINE_BUILDINGS_3D = true;
     /** Extrusion height in meters. Same vertex count at any value: the knob that separates the
      *  extrusion pass's fill cost from its vertex cost. */
     public static float INLINE_BUILDING_HEIGHT = 14f;
