@@ -213,16 +213,25 @@ namespace carto {
         // elevation change bumps the version, so a memo of the same version is the same
         // answer the walk below would produce. LOAD_EXACT is excluded on purpose - it must
         // not be satisfied by a grid resolved through the ancestor search.
+        // The MODE is part of the key. CACHED_ONLY accepts a cached ANCESTOR as a stand-in while
+        // ALLOW_LOAD loads the tile itself, so the two resolve the same tile to different grids
+        // while a level is still streaming in. Without the mode here, whichever query ran first on
+        // this thread answered the other one: a CACHED_ONLY lookup would memoise a coarse ancestor
+        // and hand it to the next ALLOW_LOAD caller. Two consumers of the same ground then disagree
+        // about its height by the LOD chord error - metres on flat ground, tens of metres on
+        // relief - which is what made the terrain shadow map and the surface that reads it drift
+        // apart after a zoom change, shadowing the ground and the buildings with their own depth.
         struct GridMemo {
             unsigned long long instanceId = 0;
             unsigned int version = 0;
             long long tileId = -1;
+            LoadMode mode = LoadMode::CACHED_ONLY;
             std::shared_ptr<ElevationTileGrid> grid;
         };
         static thread_local GridMemo memo;
         unsigned int memoVersion = _version.load();
         bool memoizable = (mode != LoadMode::LOAD_EXACT);
-        if (memoizable && memo.instanceId == _instanceId && memo.version == memoVersion && memo.tileId == tile.getTileId() && memo.grid) {
+        if (memoizable && memo.instanceId == _instanceId && memo.version == memoVersion && memo.tileId == tile.getTileId() && memo.mode == mode && memo.grid) {
             return memo.grid;
         }
 
@@ -249,7 +258,7 @@ namespace carto {
                 std::shared_ptr<ElevationTileGrid> grid;
                 if (_gridCache.read(searchTile.getTileId(), grid)) {
                     if (grid) {
-                        memo = GridMemo { _instanceId, memoVersion, tile.getTileId(), grid };
+                        memo = GridMemo { _instanceId, memoVersion, tile.getTileId(), mode, grid };
                         return grid;
                     }
                     if (searchTile == tile) {
