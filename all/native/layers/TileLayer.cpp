@@ -293,7 +293,6 @@ namespace carto {
                 terrainOptions = options->getTerrainOptions();
             }
             bool terrainEnabled = terrainOptions && terrainOptions->isEnabled();
-            float terrainExaggeration = terrainOptions ? terrainOptions->getExaggeration() : 1.0f;
             int terrainMeshResolution = terrainOptions ? terrainOptions->getMeshResolution() : 0;
             int terrainMinZoom = terrainOptions ? terrainOptions->getMinZoom() : 0;
             bool terrainRegularGrid = terrainOptions && (terrainOptions->isRegularGridEnabled() || terrainOptions->isPainterOrderDepthEnabled());
@@ -332,12 +331,17 @@ namespace carto {
             bool terrainTangramContent = terrainEnabled && terrainOptions && !terrainOptions->isDrapeFillsEnabled();
             bool terrainSourceDensity = isAreaSourceDensityForced();
             bool terrainSourceDensityLines = terrainTangramContent || (terrainOptions && terrainOptions->isDrapeLinesEnabled()) || isLineSourceDensityForced();
-            if (_terrainOptions.lock() != terrainOptions || _terrainEnabled != terrainEnabled || _terrainExaggeration != terrainExaggeration || _terrainMeshResolution != terrainMeshResolution || _terrainMinZoom != terrainMinZoom || _terrainRegularGrid != terrainRegularGrid || _terrainSourceDensity != terrainSourceDensity || _terrainSourceDensityLines != terrainSourceDensityLines) {
+            // NOT the exaggeration: it never reaches the decode. Heights are replaced in the vertex
+            // shader from the elevation texture, whose metersToInternal already carries it
+            // (TerrainVertexTransformer stores an exaggeration it does not use, and
+            // calculateLocalHeight returns 0). Comparing it here dropped every tile in the cache
+            // for a value only the GPU reads, so ramping it - the terrain 'expand' animation -
+            // re-decoded the whole map every frame.
+            if (_terrainOptions.lock() != terrainOptions || _terrainEnabled != terrainEnabled || _terrainMeshResolution != terrainMeshResolution || _terrainMinZoom != terrainMinZoom || _terrainRegularGrid != terrainRegularGrid || _terrainSourceDensity != terrainSourceDensity || _terrainSourceDensityLines != terrainSourceDensityLines) {
                 clearTileCaches(true);
                 resetTileTransformer();
                 _terrainOptions = terrainOptions;
                 _terrainEnabled = terrainEnabled;
-                _terrainExaggeration = terrainExaggeration;
                 _terrainMeshResolution = terrainMeshResolution;
                 _terrainMinZoom = terrainMinZoom;
                 _terrainRegularGrid = terrainRegularGrid;

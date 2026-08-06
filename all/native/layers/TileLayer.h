@@ -501,7 +501,6 @@ namespace carto {
 
         std::weak_ptr<TerrainOptions> _terrainOptions;
         bool _terrainEnabled = false;
-        float _terrainExaggeration = 1.0f;
         int _terrainMeshResolution = 0;
         int _terrainMinZoom = 0;
         bool _terrainRegularGrid = false;
