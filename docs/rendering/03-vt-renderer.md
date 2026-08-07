@@ -80,6 +80,11 @@ from the dot product of consecutive binormals. Three things about it:
   inner join) so the quads only touch; one triangle closes the outer gap. Offset lines keep the old
   overlapping split: their offset is `binormal × offset × side` in the shader, so a zero binormal would
   drop the offset entirely.
+- **A sharp join is still a round join.** Turns sharper than a right angle leave the bevel/fan
+  branch for the split branch above, and closing that corner with the single triangle cuts it flat —
+  the join reads as *square*. It only shows on geometry sparse enough for a turn to pass 90°, which
+  is why simplifying a route surfaced it, and it comes and goes with zoom because which vertices
+  survive simplification is decided per tile zoom. The same fan runs in both branches.
 - **`line-join: round` builds tangram's 5-triangle fan** (`ROUND_JOIN_TRIANGLES`, their
   `JoinTypes::round`). Getting it right took three device rounds, all invisible in a syntax check:
   the fan vertices must sit **between** the two cross-sections (appended after them, the next segment
@@ -90,6 +95,38 @@ from the dot product of consecutive binormals. Three things about it:
   culling on, and a fan wound one way loses every join that turns the other way. Below ~10° the fan is
   skipped for a plain miter: tangram fans at every angle, but their line shader has no AA ramp and five
   near-degenerate slivers each carrying one is a visible seam.
+
+## Translucent layers: paint every pixel once
+
+A style layer that is translucent must not blend a pixel twice, and no tesselation can guarantee
+that: a line whose vertices sit closer together than it is wide folds at every join, a route doubles
+back inside its own width, and a retained tile cross-fades over the tile that replaced it. Every
+overlap blends again, which reads as darker knots along the line.
+
+`renderGeometry2D` therefore runs a translucent layer as a **single-blend** pass: the top stencil
+bit (`SINGLE_BLEND_STENCIL_BIT`) is cleared for the layer, `glStencilOp(KEEP, KEEP, GL_INVERT)`
+marks each pixel as it is painted, and the `GL_EQUAL` test rejects the second fragment. One bit, one
+masked clear per layer, no extra geometry and no extra pass.
+
+- It engages **only where the artifact can exist**: layer opacity below 1, or any evaluated
+  `colorFuncs[i]` alpha below 1. An opaque layer cannot show it, and there a later fragment
+  legitimately covers an earlier one.
+- A `comp-op` layer is excluded — it already composites once through its own buffer.
+- The masks and the paint bit are **separate questions**. The tile masks are dropped in terrain mode
+  and under a shared ground; single blend needs no masks, only a spare bit, so it reads the real
+  stencil size (`maskStencilBits` vs `stencilBits`). Tying it to the masks is how it silently did
+  nothing in exactly the configuration — 3D terrain — where it was wanted.
+- The masks occupy the low bits, so it stands down past 128 target tiles in a frame.
+
+**The trade-off is antialias seams.** The first fragment to reach a pixel owns it, and if that
+fragment was a partial-coverage edge pixel the neighbour can no longer fill it in — faint lighter
+hairlines along internal join boundaries. Where that is unacceptable the alternative is the layer's
+own `opacity` + `comp-op`, which draws the layer opaque into the overlay buffer and composites it
+once: no seams, but a full-screen pass per layer, and that buffer carries no depth, so in 3D terrain
+the layer stops being occluded by ridges. Measured on an Adreno 610, the demo route (casing + fill,
+translucent, scripted pan, two reps of 25 one-second samples): **37.7 fps single-blend against 26.5
+fps through the overlay buffer**, `layers` 2.43 vs 3.62 ms. Single blend is the default for that
+reason.
 
 ## Lines over terrain
 
