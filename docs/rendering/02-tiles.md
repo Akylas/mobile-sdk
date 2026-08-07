@@ -117,3 +117,80 @@ Standard sources (HTTP, MBTiles, PMTiles, assets) plus two of interest here:
 - **elevation sources** — decoded by `MapBoxElevationDataDecoder` / `TerrariumElevationDataDecoder`
   into `ElevationTileGrid`s held by `ElevationManager` ([04-terrain.md](04-terrain.md)).
 </content>
+
+## GeoJSON tiles: the on-demand pyramid
+
+`GeoJSONVectorTileDataSource` cuts MVT out of an in-memory GeoJSON layer through
+`mbvtbuilder::MBVTTileBuilder`. It used to do this the direct way, and both halves scaled badly:
+
+- `encodeLayer` walked **every feature of the layer for every tile**, keeping only a bounding-box
+  test — so a request cost O(features) no matter how little of the layer the tile held;
+- geometry was **re-simplified and deep-copied per zoom level** into `_cachedZoomLayers`, leaving one
+  full copy of the dataset (geometry *and* every feature's `picojson` properties) resident per zoom
+  the camera had visited.
+
+It now uses mapbox's **geojson-vt** (three submodules under `libs-external/geojsonvt`), the same
+library tangram-es uses for its `ClientDataSource`. Two of its ideas do the work:
+
+- **Simplification importance is computed once at import.** `detail::convert` runs Douglas-Peucker
+  against the tolerance of the deepest zoom and stores each vertex's importance on the point; a tile
+  then only filters `p.z > sq_tolerance`. The per-zoom copy is gone entirely.
+- **Tiles are cut from the slice their parent already made**, axis-separated (one x pass feeds both
+  children), so a feature is walked once per *level* instead of once per tile.
+
+Properties never enter the index: features carry a slot index and the `picojson` values stay in
+`MBVTLayerData::infos`, so slicing never touches one.
+
+### What is ours and not geojson-vt's
+
+The pyramid is driven by our own drill rather than `geojsonvt::GeoJSONVT`, because four things about
+that class cost measurable time in an on-demand SDK (it is written for a batch tiler):
+
+| | geojson-vt | here | why |
+|---|---|---|---|
+| root | always z0 | deepest tile containing the layer | a city-sized layer paid ~9 levels of whole-dataset copies before the first real cut (209 ms, device) |
+| int16 tile | built for every node walked | only for the requested tile | internal nodes are never drawn |
+| built tiles | cached forever | not cached | the SDK caches the encoded MVT above us |
+| stop condition | `indexMaxPoints` (100k) | nothing in the node is bigger than the **target** tile | see below |
+
+**The stop condition is the load-bearing one.** Splitting costs a pass over the whole node per level
+and only helps features that must be *cut*; a feature smaller than the tile is thrown out by the
+clipper's per-feature bbox test for two comparisons either way. Splitting a layer of small scattered
+features therefore just copies them down the tree: 5000 short routes cost **583 ms** over 256 tiles
+at z14 where the old scan-every-feature builder took **209 ms**. The test is against the **target**
+zoom, not the next level down — a piece that fits one child can still span dozens of tiles at the
+zoom actually wanted, and stopping on that cost the long-route set 575 ms instead of 274 ms.
+
+One more trap, because it inverted a result twice: `detail::clip` does
+`clipped.reserve(features.size())`. Running it straight over a coarse node allocates for the entire
+layer on **every** tile, which made serving from a coarse node cost more than the full scan it
+replaced. Features touching the tile are picked by bbox first, and only those go to the clipper.
+
+A builder pinned to one zoom (`minZoom == maxZoom`, which is how `ContourTileDataSource` uses it)
+skips the index and cuts its single tile directly — geojson-vt's own `geoJSONToTile`, minus the
+variant round-trip. There is nothing for an index to amortise over one tile.
+
+### Measured (Crosscall HLTE556N, Adreno 610, `--es geojsonBench`)
+
+640 tiles over z8–z17, four per side per zoom:
+
+| dataset | before | after |
+|---|---|---|
+| 5000 short routes, 165k points | 1319 ms | **1176 ms** |
+| 8 routes of 100–250 km, 303k points | 1709 ms | **513 ms** |
+
+256 tiles at z14 alone (what panning at one zoom does):
+
+| dataset | before | after |
+|---|---|---|
+| 5000 short routes | **209 ms** | 328 ms |
+| 8 long routes | 362 ms | **272 ms** |
+
+So: long lines win everywhere (up to 3.3x), and the many-small-features case is better across zooms
+(where the old builder re-simplified per zoom) but **still 1.6x slower at a single zoom**, because
+the old path clipped geometry already simplified for that zoom while this one clips at full
+resolution and filters by importance afterwards. That gap is open.
+
+The bench is `DemoTests.runGeoJSONBench` — it times `loadTile` directly, no renderer in the way, over
+a tile set derived from the data extent so two builds are comparable. `--es geojsonLayer many|long`
+adds the same datasets as a real styled layer instead, for render-side comparison.

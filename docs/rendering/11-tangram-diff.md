@@ -79,3 +79,13 @@ does not survive a restart. 1.0 rad ≈ **tilt 33** in our convention.
 **The last published head-to-head is not valid.** It compared their release APK against ours built at
 `-O0` ([10-performance.md](10-performance.md#build)). Re-run it before quoting any gap.
 </content>
+
+## GeoJSON tiling
+
+Tangram's `ClientDataSource` is a thin wrapper over mapbox **geojson-vt**, and we now use the same
+library — but not its `GeoJSONVT` class, whose root, per-node tile materialisation and stop
+condition are tuned for batch tiling rather than for tiles cut on demand. What we kept, what we
+changed and the device numbers are in [02-tiles.md](02-tiles.md#geojson-tiles-the-on-demand-pyramid).
+
+One thing they do that we also do now: properties live outside the tiler (`m_store->properties[id]`
+there, `MBVTLayerData::infos` here), so clipping never copies one.

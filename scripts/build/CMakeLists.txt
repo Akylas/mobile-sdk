@@ -247,7 +247,7 @@ source_group("Wrapper Headers" REGULAR_EXPRESSION ".*_wrap.h")
 # Include directories for main SDK project
 include_directories("${SDK_SRC_DIR}")
 
-foreach(SDK_HEADER_LIB IN ITEMS "cglib" "stdext" "picojson" "pbf" "rapidjson/include" "tinyformat" "nanosvg/src" "utf8/source")
+foreach(SDK_HEADER_LIB IN ITEMS "cglib" "stdext" "picojson" "pbf" "rapidjson/include" "tinyformat" "nanosvg/src" "utf8/source" "geojsonvt/geojson-vt-cpp/include" "geojsonvt/geometry.hpp/include" "geojsonvt/variant/include")
   include_directories("${SDK_EXTERNAL_LIBS_DIR}/${SDK_HEADER_LIB}")
 endforeach()
 
