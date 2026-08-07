@@ -461,10 +461,17 @@ public final class DemoStyles {
      * test: overlapping triangles of ONE line blend twice where they overlap.
      */
     public static String routeTestStyle() {
+        // "layer" opacity is a layer-level property, so the renderer draws the whole layer opaque
+        // into the overlay buffer and composites it once - overlaps can not blend twice, at the
+        // cost of a full-screen pass per layer. "geom" bakes it into the colour, which is the path
+        // the single-blend stencil pass covers.
+        boolean layerOpacity = "layer".equalsIgnoreCase(DemoConfig.ROUTE_TEST_OPACITY_MODE);
         String common = " line-join: " + DemoConfig.ROUTE_TEST_JOIN
                 + "; line-cap: " + DemoConfig.ROUTE_TEST_CAP
                 + "; line-miterlimit: " + DemoConfig.ROUTE_TEST_MITER_LIMIT
-                + "; line-opacity: " + DemoConfig.ROUTE_TEST_OPACITY + ";";
+                + (layerOpacity
+                    ? "; opacity: " + DemoConfig.ROUTE_TEST_OPACITY + "; comp-op: src-over;"
+                    : "; line-opacity: " + DemoConfig.ROUTE_TEST_OPACITY + ";");
         StringBuilder mss = new StringBuilder();
         if (DemoConfig.ROUTE_TEST_CASE_WIDTH > 0) {
             mss.append("#route::case { line-color: ").append(DemoConfig.ROUTE_TEST_CASE_COLOR)

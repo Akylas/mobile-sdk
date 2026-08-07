@@ -305,6 +305,13 @@ public final class DemoPanel {
         slider(context, panel, "opacity", 0.1f, 1, DemoConfig.ROUTE_TEST_OPACITY, true, new FloatSetting() {
             public void set(float value) { DemoConfig.ROUTE_TEST_OPACITY = value; reloadRouteTest(demo); }
         });
+        final String[] opacityModes = { "geom", "layer" };
+        choice(context, panel, "opacity mode", opacityModes, indexOf(opacityModes, DemoConfig.ROUTE_TEST_OPACITY_MODE), new IntSetting() {
+            public void set(int index) { DemoConfig.ROUTE_TEST_OPACITY_MODE = opacityModes[index]; reloadRouteTest(demo); }
+        });
+        slider(context, panel, "simplify", 0, 16, DemoConfig.ROUTE_TEST_SIMPLIFY, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.ROUTE_TEST_SIMPLIFY = value; reloadRouteTest(demo); }
+        });
     }
 
     /** The style is baked into the decoder, so the layer is rebuilt from scratch. */

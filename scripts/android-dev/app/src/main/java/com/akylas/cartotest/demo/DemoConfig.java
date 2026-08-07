@@ -407,6 +407,12 @@ public final class DemoConfig {
     public static float ROUTE_TEST_SIMPLIFY = 8f;
     /** < 1 exposes the join over-blending: every overlapping triangle blends its alpha again. */
     public static float ROUTE_TEST_OPACITY = 1f;
+    /** How the opacity is applied, which picks the renderer path that removes the join doubling:
+     *  geom  = line-opacity, baked into the geometry colour -> the vt single-blend stencil pass;
+     *  layer = layer opacity + comp-op -> the layer is drawn opaque into the overlay FBO and
+     *          composited once (no seams, but a full-screen pass, and that buffer has no depth,
+     *          so in 3D terrain the route stops being occluded by ridges). */
+    public static String ROUTE_TEST_OPACITY_MODE = "geom";
 
     // =============================================================================================
     // DEBUG / HARNESS
@@ -597,6 +603,7 @@ public final class DemoConfig {
         ROUTE_TEST_MITER_LIMIT = DemoCfg.cfgFloat("routeMiterLimit", ROUTE_TEST_MITER_LIMIT);
         ROUTE_TEST_OPACITY = DemoCfg.cfgFloat("routeOpacity", ROUTE_TEST_OPACITY);
         ROUTE_TEST_SIMPLIFY = DemoCfg.cfgFloat("routeSimplify", ROUTE_TEST_SIMPLIFY);
+        ROUTE_TEST_OPACITY_MODE = DemoCfg.cfgStr("routeOpacityMode", ROUTE_TEST_OPACITY_MODE);
 
         // inline style
         INLINE_BACKGROUND_COLOR = DemoCfg.cfgColor("bg", INLINE_BACKGROUND_COLOR);
