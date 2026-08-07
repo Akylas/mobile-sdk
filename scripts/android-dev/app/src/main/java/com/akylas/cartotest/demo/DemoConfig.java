@@ -254,6 +254,9 @@ public final class DemoConfig {
     /** Celestial objects: sun, moon and the sun's daily path, drawn by a CelestialLayer and
      *  placed by direction, so they stay in the sky while the map pans under them. The demo
      *  builds them in DemoCelestial - the SDK API knows nothing about suns or moons. */
+    /** Free roam: one finger looks around (sideways turns, up/down tilts), two fingers pan, pinch
+     *  zooms. Needed to actually look at the sky; the camera still cannot tilt above the horizon. */
+    public static boolean FREE_ROAM = false;
     public static boolean CELESTIAL = true;
     public static boolean CELESTIAL_SUN = true;
     public static boolean CELESTIAL_MOON = true;
@@ -558,6 +561,7 @@ public final class DemoConfig {
         // sun / shadows
         TERRAIN_LIGHTING = DemoCfg.cfgBool("terrainLight", TERRAIN_LIGHTING);
         SUN_HOUR_UTC = DemoCfg.cfgFloat("sunHour", SUN_HOUR_UTC);
+        FREE_ROAM = DemoCfg.cfgBool("freeRoam", FREE_ROAM);
         CELESTIAL = DemoCfg.cfgBool("celestial", CELESTIAL);
         CELESTIAL_SUN = DemoCfg.cfgBool("celestialSun", CELESTIAL_SUN);
         CELESTIAL_MOON = DemoCfg.cfgBool("celestialMoon", CELESTIAL_MOON);

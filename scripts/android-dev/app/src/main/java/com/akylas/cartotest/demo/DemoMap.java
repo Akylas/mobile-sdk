@@ -807,6 +807,7 @@ public class DemoMap {
         Projection proj = mapView.getOptions().getBaseProjection();
         mapView.setFocusPos(proj.fromWgs84(new MapPos(DemoConfig.START_LON, DemoConfig.START_LAT)), 0);
         mapView.setZoom(DemoConfig.START_ZOOM, 0);
+        mapView.getOptions().setFreeRoam(DemoConfig.FREE_ROAM);
         mapView.setTilt(DemoConfig.START_TILT, 0);
         mapView.setMapRotation(DemoConfig.START_ROTATION, 0);
     }
