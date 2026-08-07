@@ -251,6 +251,19 @@ public final class DemoConfig {
     // =============================================================================================
 
     public static boolean SKY_ENABLED = true;
+    /** Celestial objects: sun, moon and the sun's daily path, drawn by a CelestialLayer and
+     *  placed by direction, so they stay in the sky while the map pans under them. The demo
+     *  builds them in DemoCelestial - the SDK API knows nothing about suns or moons. */
+    public static boolean CELESTIAL = true;
+    public static boolean CELESTIAL_SUN = true;
+    public static boolean CELESTIAL_MOON = true;
+    public static boolean CELESTIAL_ARC = true;
+    /** Angular diameters in degrees. The real sun and moon are both about 0.5; larger is easier
+     *  to see and to hit on a phone. */
+    public static float CELESTIAL_SUN_SIZE = 2.5f;
+    public static float CELESTIAL_MOON_SIZE = 2.0f;
+    public static float CELESTIAL_ARC_WIDTH = 2.0f;
+
     /** Day cycle: sun/moon/stars/clouds shader driven by SUN_HOUR_UTC, updated live by the panel. */
     public static boolean DAY_CYCLE = false;
     public static float DAY_CYCLE_HOUR = 12f;
@@ -545,6 +558,13 @@ public final class DemoConfig {
         // sun / shadows
         TERRAIN_LIGHTING = DemoCfg.cfgBool("terrainLight", TERRAIN_LIGHTING);
         SUN_HOUR_UTC = DemoCfg.cfgFloat("sunHour", SUN_HOUR_UTC);
+        CELESTIAL = DemoCfg.cfgBool("celestial", CELESTIAL);
+        CELESTIAL_SUN = DemoCfg.cfgBool("celestialSun", CELESTIAL_SUN);
+        CELESTIAL_MOON = DemoCfg.cfgBool("celestialMoon", CELESTIAL_MOON);
+        CELESTIAL_ARC = DemoCfg.cfgBool("celestialArc", CELESTIAL_ARC);
+        CELESTIAL_SUN_SIZE = DemoCfg.cfgFloat("celestialSunSize", CELESTIAL_SUN_SIZE);
+        CELESTIAL_MOON_SIZE = DemoCfg.cfgFloat("celestialMoonSize", CELESTIAL_MOON_SIZE);
+        CELESTIAL_ARC_WIDTH = DemoCfg.cfgFloat("celestialArcWidth", CELESTIAL_ARC_WIDTH);
         SUN_YEAR = DemoCfg.cfgInt("sunYear", SUN_YEAR);
         SUN_MONTH = DemoCfg.cfgInt("sunMonth", SUN_MONTH);
         SUN_DAY = DemoCfg.cfgInt("sunDay", SUN_DAY);

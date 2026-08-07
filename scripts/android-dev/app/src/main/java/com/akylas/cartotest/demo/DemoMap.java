@@ -82,14 +82,20 @@ public class DemoMap {
 
     /** One switchable layer of the demo. */
     public enum Feature {
-        BASE, SATELLITE, HILLSHADE, HYPSO, CONTOUR, CONTOUR_TILES, ROUTES, ROUTE_TEST, ELEMENTS
+        CELESTIAL, BASE, SATELLITE, HILLSHADE, HYPSO, CONTOUR, CONTOUR_TILES, ROUTES, ROUTE_TEST, ELEMENTS
     }
 
     /** Bottom -> top draw order. Toggling a layer never reorders the others. */
     private static final Feature[] LAYER_ORDER = {
+        // The sky goes FIRST, so the map and the terrain draw over it and a ridge hides what is
+        // behind it - which is what a body in the sky should do.
+        Feature.CELESTIAL,
         Feature.BASE, Feature.SATELLITE, Feature.HILLSHADE, Feature.HYPSO,
         Feature.CONTOUR, Feature.CONTOUR_TILES, Feature.ROUTES, Feature.ROUTE_TEST, Feature.ELEMENTS
     };
+
+    /** Sun, moon and the sun's daily path - demo content built on the generic celestial API. */
+    public final DemoCelestial celestial = new DemoCelestial();
 
     private final Context context;
     public final MapView mapView;
@@ -163,6 +169,7 @@ public class DemoMap {
     /** True if the feature is currently switched on in the config. */
     public boolean isEnabled(Feature feature) {
         switch (feature) {
+            case CELESTIAL: return DemoConfig.CELESTIAL;
             case BASE: return DemoConfig.LAYER_BASE;
             case SATELLITE: return DemoConfig.LAYER_SATELLITE;
             case HILLSHADE: return DemoConfig.LAYER_HILLSHADE;
@@ -218,11 +225,15 @@ public class DemoMap {
             vector.add(layer);
         }
         mapView.getLayers().setAll(vector);
+        // The celestial objects are built with the layer, which happens here - after
+        // applyLightOptions has run - so place them now that they exist.
+        celestial.update(this);
         mapView.requestRender();
     }
 
     private Layer createLayer(Feature feature) {
         switch (feature) {
+            case CELESTIAL: return celestial.createLayer(mapView);
             case BASE: return createBaseLayer();
             case SATELLITE: return new RasterTileLayer(rasterSource());
             case HILLSHADE: return createHillshadeLayer();
@@ -747,6 +758,7 @@ public class DemoMap {
         lightOptions.setShadowBias(DemoConfig.SHADOW_BIAS);
         lightOptions.setShadowDistance(DemoConfig.SHADOW_DISTANCE);
         lightOptions.setShadowCasterMargin(DemoConfig.SHADOW_CASTER_MARGIN);
+        celestial.update(this);
         mapView.requestRender();
     }
 
