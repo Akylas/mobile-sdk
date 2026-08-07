@@ -82,6 +82,13 @@ is off by default (`TerrainOptions::TileEdgeStitching`), and on its own it does 
 mismatches at junctions — see the tile clipping in
 [03-vt-renderer.md](03-vt-renderer.md#lines-over-terrain), which is the dominant cause.
 
+**Open:** this conversion uses the scale alone, so for a **stand-in** (an ancestor tile serving a
+finer target while it loads) it measures from the ancestor's origin rather than the drawn tile's,
+and picks the wrong edge. The tile clip had the same bug and was fixed with a `uTileUnitOffset`; the
+same offset applies here by the same argument, but adding it moves settled contour positions by
+changing the elevation interpolation (2.8 % of the frame at the camera above), so it is left for a
+deliberate on-device comparison rather than folded into the clipping fix.
+
 ### Skirts: deliberately absent
 
 Tile border skirts (walls dropped at tile edges to hide cracks) are **disabled**. Their walls,
