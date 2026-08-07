@@ -385,11 +385,20 @@ namespace carto {
                 lineDivideThreshold = _sourceDensityLines ? std::numeric_limits<float>::infinity() : static_cast<float>(threshold);
                 latticeCell = _sourceDensityLines ? 0.0f : static_cast<float>(1.0 / _meshResolution);
             } else {
-                // No point in subdividing finer than the elevation grid resolution
+                // No point in subdividing FILLS finer than the elevation grid resolution
                 double gridInternalWidth = grid->getInternalBounds().getMax().getX() - grid->getInternalBounds().getMin().getX();
                 double demTexelMeters = gridInternalWidth / grid->getWidth() * EARTH_CIRCUMFERENCE / _scale;
                 divideThreshold = static_cast<float>(std::max(threshold, demTexelMeters));
-                lineDivideThreshold = divideThreshold;
+                // Lines are cut finer, and the DEM-texel floor deliberately does NOT apply to them.
+                // Without the regular grid there is no lattice to cut against, so a sub-segment one
+                // mesh cell long still chords across the cell's diagonal fold and sags below the
+                // surface - the same sag the regular-grid branch above describes, and the reason a
+                // route reads as sunk into a ridge at low zoom and straightens as you zoom in (the
+                // threshold is proportional to the tile). The floor is about how much elevation
+                // DETAIL exists; the sag is against the surface MESH, so it is the wrong bound.
+                // Lines are 1D, so cutting them finer costs a fraction of what the same factor
+                // would cost on a fill.
+                lineDivideThreshold = static_cast<float>(threshold / LINE_SUBDIVISION_FACTOR);
             }
         }
 
