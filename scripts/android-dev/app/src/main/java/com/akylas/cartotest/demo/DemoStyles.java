@@ -273,11 +273,7 @@ public final class DemoStyles {
                 // either. In stub mode the LINES come from the hillshade shader instead.
                 "  [stub=0] {",
                 "    line-color: #C56008;",
-                "    line-width: " + DemoConfig.INLINE_CONTOUR_WIDTH + ";",
-                "    line-opacity: 0.4;",
-                "    [div>=50]  { line-opacity: 0.7; }",
-                "    [div>=100] { line-opacity: 0.9; line-width: 2; }",
-                "    [div>=500] { line-width: 4; }",
+                contourWidthByDiv(),
                 "  }",
                 DemoConfig.INLINE_LABELS
                 ? String.join("\n",
@@ -317,14 +313,29 @@ public final class DemoStyles {
         return String.join("\n",
             "#contour {",
             "  line-color: #C56008;",
-            "  line-width: " + DemoConfig.INLINE_CONTOUR_WIDTH + ";",
-            "  line-opacity: 0.4;",
-            "  [div>=50]  { line-opacity: 0.7; line-width: 1.0; }",
-            "  [div>=100] { line-opacity: 0.9; line-width: 1.4; }",
-            "  [div>=500] { line-width: 2.0; }",
+            contourWidthByDiv(),
             // Labels need a font asset package (text-face-name -> a bundled font), so they are
             // only available with a DIR/ZIP style, not with this raw CartoCSS string.
             "}");
+    }
+
+    /**
+     * Which contours are VISIBLE, per camera zoom. The tile carries every line its zoom can place
+     * (see ContourTileDataSource::getIntervalForZoom), and 'div' - the largest nice divisor of the
+     * elevation - ranks them; the style fades a rank in when the camera is close enough for it.
+     *
+     * This has to be a WIDTH ramp, not a filter: a CartoCSS filter is evaluated per tile at decode
+     * time, so it cannot see the camera. [view::zoom] is evaluated per frame, and a width of 0
+     * draws nothing (the quad is degenerate).
+     */
+    private static String contourWidthByDiv() {
+        return String.join("\n",
+            "  line-opacity: 0.75;",
+            "  line-width: 0;",
+            "  [div>=10]  { line-width: linear([view::zoom], (14, 0), (14.5, 0.5));  line-opacity: linear([view::zoom], (14, 0), (14.5, 1)); }",
+            "  [div>=50]  { line-width: linear([view::zoom], (13, 0), (13.5, 0.7)); line-opacity: linear([view::zoom], (13, 0), (13.5, 1));}",
+            "  [div>=100] { line-width: linear([view::zoom], (11.5, 0), (12, 1)); line-opacity: 0.9; }",
+            "  [div>=500] { line-width: 1.3; line-opacity: 0.9; }");
     }
 
     /**
@@ -438,6 +449,39 @@ public final class DemoStyles {
             Log.e(TAG, "could not build the nuti project style", e);
             return null;
         }
+    }
+
+    /**
+     * Style of the ROUTE TEST layer (DemoConfig.LAYER_ROUTE_TEST): a navigation route drawn the way
+     * a turn-by-turn app draws it - a dark casing attachment first (CartoCSS renders attachments in
+     * declaration order, so it lands UNDER) and the coloured fill over it.
+     *
+     * Both attachments carry the same join/cap/miterlimit, so one screenshot says what a setting
+     * does to the whole route, casing included. line-opacity below 1 is the join over-blending
+     * test: overlapping triangles of ONE line blend twice where they overlap.
+     */
+    public static String routeTestStyle() {
+        // "layer" opacity is a layer-level property, so the renderer draws the whole layer opaque
+        // into the overlay buffer and composites it once - overlaps can not blend twice, at the
+        // cost of a full-screen pass per layer. "geom" bakes it into the colour, which is the path
+        // the single-blend stencil pass covers.
+        boolean layerOpacity = "layer".equalsIgnoreCase(DemoConfig.ROUTE_TEST_OPACITY_MODE);
+        String common = " line-join: " + DemoConfig.ROUTE_TEST_JOIN
+                + "; line-cap: " + DemoConfig.ROUTE_TEST_CAP
+                + "; line-miterlimit: " + DemoConfig.ROUTE_TEST_MITER_LIMIT
+                + (layerOpacity
+                    ? "; opacity: " + DemoConfig.ROUTE_TEST_OPACITY + "; comp-op: src-over;"
+                    : "; line-opacity: " + DemoConfig.ROUTE_TEST_OPACITY + ";");
+        StringBuilder mss = new StringBuilder();
+        if (DemoConfig.ROUTE_TEST_CASE_WIDTH > 0) {
+            mss.append("#route::case { line-color: ").append(DemoConfig.ROUTE_TEST_CASE_COLOR)
+               .append("; line-width: ").append(DemoConfig.ROUTE_TEST_CASE_WIDTH).append(";")
+               .append(common).append(" }\n");
+        }
+        mss.append("#route { line-color: ").append(DemoConfig.ROUTE_TEST_COLOR)
+           .append("; line-width: ").append(DemoConfig.ROUTE_TEST_WIDTH).append(";")
+           .append(common).append(" }");
+        return mss.toString();
     }
 
     // =============================================================================================

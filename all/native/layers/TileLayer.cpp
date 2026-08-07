@@ -147,6 +147,19 @@ namespace carto {
         }
         refresh();
     }
+
+    int TileLayer::getMaxStandInLevel() const {
+        std::lock_guard<std::recursive_mutex> lock(_mutex);
+        return _maxStandInLevel;
+    }
+
+    void TileLayer::setMaxStandInLevel(int standInLevel) {
+        {
+            std::lock_guard<std::recursive_mutex> lock(_mutex);
+            _maxStandInLevel = standInLevel;
+        }
+        refresh();
+    }
     
     int TileLayer::getMaxUnderzoomLevel() const {
         std::lock_guard<std::recursive_mutex> lock(_mutex);
@@ -231,6 +244,7 @@ namespace carto {
         _substitutionPolicy(TileSubstitutionPolicy::TILE_SUBSTITUTION_POLICY_ALL),
         _zoomLevelBias(0.0f),
         _maxOverzoomLevel(MAX_PARENT_SEARCH_DEPTH),
+        _maxStandInLevel(MAX_STAND_IN_DEPTH),
         _maxUnderzoomLevel(MAX_CHILD_SEARCH_DEPTH),
         _visibleTiles(),
         _preloadingTiles(),
@@ -911,7 +925,7 @@ namespace carto {
                 } else {
                     // Check cache for parent tile
                     if (tile.getZoom() > 0) {
-                        foundSubstitute = findParentTile(visTile, tile, getMaxOverzoomLevel(), preloadingCache, preloadingTiles);
+                        foundSubstitute = findParentTile(visTile, tile, getMaxStandInLevel(), preloadingCache, preloadingTiles);
                     }
                     if (!foundSubstitute) {
                         // Didn't find parent tile, check cache for children tiles
@@ -1252,9 +1266,18 @@ namespace carto {
     const float TileLayer::DISCRETE_ZOOM_LEVEL_BIAS = 0.001f;
 
     const int TileLayer::MAX_PARENT_SEARCH_DEPTH = 6;
+    // As deep as the parent search: a stand-in must be able to cover a zoom-in of several levels,
+    // or the map goes EMPTY exactly when the user asked to see more. A deep stand-in only looked bad
+    // while coarse parents were also being fetched AHEAD of the wanted tiles (PARENT_PRIORITY_OFFSET
+    // was positive); with that order fixed, what is shown meanwhile is whatever was already there.
+    const int TileLayer::MAX_STAND_IN_DEPTH = MAX_PARENT_SEARCH_DEPTH;
     const int TileLayer::MAX_CHILD_SEARCH_DEPTH = 3;
 
-    const int TileLayer::PARENT_PRIORITY_OFFSET = 1;
+    // NEGATIVE on purpose: the parent fetched as a preview is dispatched AFTER the tiles that are
+    // actually wanted. It used to be +1, so a coarse stand-in was requested first and the map showed
+    // it even when the real tile would have arrived just as fast - and for a source that generates
+    // its tiles (traced contours) that preview is a full pass whose result is thrown away.
+    const int TileLayer::PARENT_PRIORITY_OFFSET = -1;
     const int TileLayer::PRELOADING_PRIORITY_OFFSET = -2;
     const double TileLayer::PRELOADING_TILE_SCALE = 1.5;
     

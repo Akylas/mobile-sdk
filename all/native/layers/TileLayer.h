@@ -160,6 +160,29 @@ namespace carto {
         void setMaxOverzoomLevel(int overzoomLevel);
 
         /**
+         * Gets how many zoom levels up a cached tile may stand in for a missing one.
+         * @return The current maximum stand-in level for this layer.
+         */
+        int getMaxStandInLevel() const;
+        /**
+         * Sets how many zoom levels up a cached tile may stand in for a missing one while it loads.
+         *
+         * This used to be MaxOverzoomLevel, which is a different thing: that one says how far the
+         * SDK may go for the DATA of a tile the source does not have, and it has to stay deep. The
+         * stand-in is only what is shown meanwhile, and a deep one is visible as a ladder - the same
+         * area redrawn from a z7 tile, then z8, then z9, each magnified 2^N and so 2^N coarser than
+         * it was meant to look. That is glaring for a source whose detail changes with zoom, like
+         * generated contours, and merely wasteful for a raster.
+         *
+         * The default is 6, the same as MaxOverzoomLevel: a zoom-in of several levels must still
+         * find something to show, or the map goes empty exactly when the user asked for more detail.
+         * Lower it (1 = immediate parent only) for a source whose look changes so much with zoom that
+         * a coarse stand-in is worse than nothing.
+         * @param standInLevel The new maximum stand-in level.
+         */
+        void setMaxStandInLevel(int standInLevel);
+
+        /**
          * Gets the current maximum underzoom level for this layer.
          * @return The current maximum underzoom level for this layer.
          */
@@ -456,6 +479,7 @@ namespace carto {
         static const float DISCRETE_ZOOM_LEVEL_BIAS;
 
         static const int MAX_PARENT_SEARCH_DEPTH;
+        static const int MAX_STAND_IN_DEPTH;
         static const int MAX_CHILD_SEARCH_DEPTH;
 
         static const int PARENT_PRIORITY_OFFSET;
@@ -482,6 +506,7 @@ namespace carto {
     
         float _zoomLevelBias;
         int _maxOverzoomLevel;
+        int _maxStandInLevel;
         int _maxUnderzoomLevel;
 
         int _terrainMaxTileZoom = 1000;

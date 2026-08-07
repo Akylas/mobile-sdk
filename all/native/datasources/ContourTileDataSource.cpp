@@ -368,6 +368,18 @@ namespace carto {
         if (!dataSource) {
             throw NullArgumentException("Null dataSource");
         }
+        // Starting point only - see setIntervalMultiplier. Nested (10 | 50 | 100 | 500 for a 10m
+        // base) so lines meet across tiles of different zoom, and no finer than a style is likely to
+        // draw at the camera zoom where tiles of that zoom are used. Measured on a mid-range phone
+        // (contours + hillshade + 3D terrain, z10.5, tilt 45): this table against a uniform 100/50/10
+        // one costs 10.7 CPU-seconds of tile generation in the first 30 seconds instead of 16.2.
+        _intervalMultipliers = { { 9, 50.0f }, { 11, 10.0f }, { 13, 5.0f }, { -1, 1.0f } };
+        // NO per-zoom grid by default, deliberately. A tile is drawn at roughly the same SCREEN size
+        // whatever its zoom, so the tracing grid is what fixes the shape on screen and must not
+        // shrink with zoom: at z9 a 48-sample grid puts contour vertices 1.6 km apart, and the far
+        // half of any tilted view - which is made of exactly those tiles - turns into long straight
+        // chords. Cost at low zoom belongs to the INTERVAL (fewer levels), which does not distort
+        // the lines it keeps. The table is here for apps that measure otherwise.
         _dataSourceListener = std::make_shared<DataSourceListener>(*this);
         _dataSource->registerOnChangeListener(_dataSourceListener);
     }
@@ -637,13 +649,97 @@ namespace carto {
         }
     }
 
+    namespace {
+        // (maxZoom, value) rungs in ascending order; maxZoom -1 means "everything above the rest".
+        template <typename T>
+        void setZoomTableEntry(std::vector<std::pair<int, T> >& table, int maxZoom, T value) {
+            auto it = std::find_if(table.begin(), table.end(), [maxZoom](const std::pair<int, T>& entry) { return entry.first == maxZoom; });
+            if (it != table.end()) {
+                it->second = value;
+                return;
+            }
+            it = std::find_if(table.begin(), table.end(), [maxZoom](const std::pair<int, T>& entry) { return entry.first < 0 || entry.first > maxZoom; });
+            table.insert(maxZoom < 0 ? table.end() : it, std::make_pair(maxZoom, value));
+        }
+
+        template <typename T>
+        T getZoomTableEntry(const std::vector<std::pair<int, T> >& table, int zoom, T defaultValue) {
+            for (const std::pair<int, T>& entry : table) {
+                if (entry.first < 0 || zoom <= entry.first) {
+                    return entry.second;
+                }
+            }
+            return defaultValue;
+        }
+    }
+
+    void ContourTileDataSource::setIntervalMultiplier(int maxZoom, float multiplier) {
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            setZoomTableEntry(_intervalMultipliers, maxZoom, std::max(1.0f, multiplier));
+        }
+        notifyTilesChanged(false);
+    }
+
+    float ContourTileDataSource::getIntervalMultiplier(int zoom) const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        return getZoomTableEntry(_intervalMultipliers, zoom, 1.0f);
+    }
+
+    void ContourTileDataSource::clearIntervalMultipliers() {
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            _intervalMultipliers.clear();
+        }
+        notifyTilesChanged(false);
+    }
+
+    void ContourTileDataSource::setResolutionForZoom(int maxZoom, int resolution) {
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            setZoomTableEntry(_zoomResolutions, maxZoom, resolution > 0 ? std::max(8, resolution) : 0);
+        }
+        notifyTilesChanged(false);
+    }
+
+    int ContourTileDataSource::getResolutionForZoom(int zoom) const {
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            for (const std::pair<int, int>& entry : _zoomResolutions) {
+                if (entry.first < 0 || zoom <= entry.first) {
+                    return entry.second;
+                }
+            }
+        }
+        return _resolution.load();
+    }
+
+    void ContourTileDataSource::clearResolutionsForZoom() {
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            _zoomResolutions.clear();
+        }
+        notifyTilesChanged(false);
+    }
+
     double ContourTileDataSource::getIntervalForZoom(int zoom) const {
-        double base = _baseInterval;
-        if (zoom <= 9)  return base * 50.0; // very coarse (e.g. 500m) - only relevant if MinVisibleZoom lowered
-        if (zoom <= 11) return base * 20.0; // coarse (e.g. 200m)
-        if (zoom <= 12) return base * 10.0; // e.g. 100m
-        if (zoom == 13) return base * 5.0;  // e.g. 50m
-        return base;                        // full detail (e.g. 10m)
+        // The interval is what the tile CARRIES, not what is drawn: every contour also carries
+        // 'div' (its largest nice divisor), so the style decides per camera zoom which ones show -
+        // the way the pre-baked tileset is filtered. That split matters twice:
+        //
+        //  - COVERAGE. Keying the drawn set on the tile zoom emptied the map as soon as it was
+        //    zoomed out, and emptied the far half of any tilted frame, since those tiles are z6-z9:
+        //    at 50x the base a mountain carries two or three lines while the hillshade drawn from
+        //    the same DEM stays fully detailed.
+        //  - CONTINUITY. The rungs must NEST - each interval a multiple of the finer one - or a
+        //    line stops dead at the tile border: 200m and 500m share no elevation, so a z10 tile's
+        //    600m line had nothing to meet in the z9 tile beside it. 10 | 50 | 100 does nest.
+        //
+        // The remaining zoom dependency is cost, not style: a low-zoom tile covers a huge area, and
+        // its DEM is sampled too coarsely to place a 10m line meaningfully anyway. Which rungs are
+        // worth their cost depends on the style that draws them, so they are the app's to set
+        // (setIntervalMultiplier); the defaults below are only a starting point.
+        return _baseInterval * getIntervalMultiplier(zoom);
     }
 
     long long ContourTileDataSource::computeDiv(long long ele) {
@@ -778,7 +874,7 @@ namespace carto {
         // grid follows a height field the ground does not have and cuts through the spurs and
         // gullies between its samples (at 96 over a 512-texel tile that is an 18 m grid against a
         // 6.7 m one at zoom 14 - metres of mismatch on a slope).
-        int resolutionSetting = _resolution.load();
+        int resolutionSetting = getResolutionForZoom(zoom); // per-zoom override, else Resolution
         int resolution = (resolutionSetting > 0 ? std::max(8, resolutionSetting) : std::max(fullW, fullH));
         int W = std::min(fullW, resolution);
         int H = std::min(fullH, resolution);
@@ -896,9 +992,15 @@ namespace carto {
             return buildLabelStubTile(mapTile, sampler, interval);
         }
 
-        // Generate one feature (a MultiLineString) per contour level.
-        long long firstLevel = static_cast<long long>(std::ceil(minH / interval));
-        long long lastLevel = static_cast<long long>(std::floor(maxH / interval));
+        // Generate one feature (a MultiLineString) per contour level. The bounds are STRICT: a level
+        // sitting exactly on the tile's minimum or maximum crosses nothing, and marching squares run
+        // on it walks cell edges instead of crossings - long straight lines with no relation to the
+        // terrain. A tile of constant height hits this every time, and there is one in most frames:
+        // before the camera settles the culler asks for tiles far outside the view, whose DEM is
+        // ocean or no-data and decodes to a flat 0 m. Those were the straight lines flashing across
+        // the map at startup, different ones each run depending on which arrived first.
+        long long firstLevel = static_cast<long long>(std::floor(minH / interval)) + 1;
+        long long lastLevel = static_cast<long long>(std::ceil(maxH / interval)) - 1;
         // Safety cap: a very low-zoom tile can span kilometres of relief. Beyond this many levels the
         // tile is unreadable anyway, so bound the tracing cost. (Raise base interval to see more range.)
         const long long MAX_LEVELS = 200;

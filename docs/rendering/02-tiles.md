@@ -65,6 +65,19 @@ Three terrain-specific details, each of which was a bug once:
 ## Substitution, preloading, caching
 
 - `TileSubstitutionPolicy` decides whether a missing tile is stood in for by a parent/child.
+- **Stand-in depth is not overzoom depth.** `MaxOverzoomLevel` (6) says how far up the SDK may go for
+  the *data* of a tile the source does not have. `MaxStandInLevel` says how far up it may reach for
+  something to *show meanwhile*, and they were one number until it became clear they pull in opposite
+  directions: a stand-in must cover a zoom-in of several levels or the map goes empty exactly when the
+  user asked for detail (a depth of 1 blanks every layer on a two-level zoom), while a deep stand-in
+  redraws the same area from ever coarser tiles. Default 6; lower it per layer for a source whose look
+  changes with zoom.
+- **The preview parent is fetched last, not first.** When several visible tiles share a missing parent,
+  `TileLayer` fetches that parent too "to provide quick rendering". Its `PARENT_PRIORITY_OFFSET` used to
+  be **+1** and the fetch list sorts by priority descending, so the coarse preview went out *before* the
+  tiles actually wanted — the map showed a ladder of coarser redraws even when the real tile would have
+  arrived just as fast, and for a source that generates tiles (traced contours) each preview was a full
+  pass thrown away seconds later. It is **−1** now: wanted tiles first, preview after.
 - Preloading tiles are those inside an enlarged frustum (`PRELOADING_TILE_SCALE`) but not visible;
   they are fetched at lower priority so panning does not start from nothing.
 - Tiles live in the layer's memory cache plus an optional persistent cache

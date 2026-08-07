@@ -88,6 +88,8 @@ public final class DemoConfig {
     public static boolean LAYER_ELEMENTS = true;
     /** Offline routes layer (needs ROUTES_MBTILES_NAME + ROUTES_STYLE_ZIP_NAME on the device). */
     public static boolean LAYER_ROUTES = false;
+    /** Synthetic mountain-road route (GeoJSON tiles + CartoCSS): the line join / cap / opacity bench. */
+    public static boolean LAYER_ROUTE_TEST = false;
 
     // =============================================================================================
     // COMPOSITE SLOTS (BaseMode.COMPOSITE only)
@@ -284,8 +286,31 @@ public final class DemoConfig {
      *  0 = the DEM's own resolution, which is what matching 3D terrain needs - the ground is
      *  displaced by every texel of the same tile, so a line traced on a coarser grid cuts through
      *  the spurs and gullies between its samples. */
-    public static int CONTOUR_RESOLUTION = 0;
+    public static int CONTOUR_RESOLUTION = 128;
     public static float CONTOUR_SIMPLIFY_TOLERANCE = 1.5f;
+    /** Interval multiplier per tile zoom, as "maxZoom:multiplier" rungs ("-1" = every zoom above the
+     *  others). The rungs must NEST (each a multiple of the finer ones) or lines stop at a tile
+     *  border between zooms; cost tracks how fine they are. "" = leave the SDK defaults. */
+    public static String CONTOUR_INTERVAL_LADDER = "";
+    /** Tracing grid resolution per tile zoom, same syntax. Tracing is ~quadratic in it, so this is
+     *  the cheapest knob for zoomed-out frames. "" = CONTOUR_RESOLUTION at every zoom. */
+    public static String CONTOUR_RESOLUTION_LADDER = "";
+    /** Tile substitution for the contour layer: "all" | "visible" | "none". A missing tile is stood
+     *  in for by a cached one of another zoom - for contours that means a 48-sample z9 grid stretched
+     *  over the view, which reads as long straight chords until the real tile lands. */
+    public static String CONTOUR_TILE_SUBSTITUTION = "all";
+    /** How many zoom levels the contour layer may walk UP for a stand-in tile while the right one
+     *  loads. Every level is a different interval and grid, so a deep walk shows the same area as a
+     *  ladder of coarser and coarser lines. 1 = only the immediate parent. */
+    public static int CONTOUR_MAX_OVERZOOM_STANDIN = 6;
+    /** Decoded-tile cache of the BASE map layer, in MB. Same story as the contour one: tiles that
+     *  leave the visible set are moved into this cache, and whatever does not fit is evicted - so
+     *  when it is too small a zoom step throws away the very tiles that should have stood in. */
+    public static int BASE_TILE_CACHE_MB = 10;   // SDK default; raise to A/B the eviction theory
+    /** Decoded-tile cache of the contour layer, in MB. The SDK default is 10, which a traced
+     *  contour tile fills fast - and a tile evicted from it is a tile that DISAPPEARS when it should
+     *  have stood in for the one still loading. */
+    public static int CONTOUR_TILE_CACHE_MB = 10; // SDK default; raise to A/B the eviction theory
     /** Contours are generated only at or above this TILE zoom. */
     public static int CONTOUR_MIN_VISIBLE_ZOOM = 5;
     /** Fetch neighbour DEM tiles so lines meet across tile borders (up to 3 extra fetches/tile). */
@@ -357,6 +382,39 @@ public final class DemoConfig {
     public static int NUTI_TOGGLE_INTERVAL_MS = 3000;
 
     // =============================================================================================
+    // ROUTE TEST LAYER (LAYER_ROUTE_TEST)
+    // A navigation-style route over GeoJSON vector tiles, so it goes through the SAME line
+    // tesselator and shaders as the base map's roads (a Line vector element does NOT - it has its
+    // own tesselator in LineDrawData). Zoom out: that is where a miter turns into a needle.
+    // =============================================================================================
+
+    /** Route geometry: <data dir>/<name> if present, else the APK asset of the same name. */
+    public static String ROUTE_TEST_GEOJSON_NAME = "route-test.geojson";
+    /** Casing drawn under the route (Google-Maps look). 0 = no casing. */
+    public static float ROUTE_TEST_CASE_WIDTH = 16f;
+    public static float ROUTE_TEST_WIDTH = 10f;
+    public static String ROUTE_TEST_COLOR = "#4285F4";      // Google-navigation blue
+    public static String ROUTE_TEST_CASE_COLOR = "#FFFFFF"; // white casing: the outline of the route
+    /** miter | bevel | round. NOTE: the vt tesselator draws 'round' as a miter today. */
+    public static String ROUTE_TEST_JOIN = "round";
+    /** butt | square | round */
+    public static String ROUTE_TEST_CAP = "round";
+    /** CartoCSS line-miterlimit: miter length / line width above which the join falls back to a bevel. */
+    public static float ROUTE_TEST_MITER_LIMIT = 4f;
+    /** Simplify tolerance of the route source, in tile subpixels. Vertices closer together than the
+     *  line is wide make every join fold over itself - the artifact reads as darker blobs on a
+     *  translucent line, and it is why a route needs LESS geometry as it zooms out, not the same. */
+    public static float ROUTE_TEST_SIMPLIFY = 8f;
+    /** < 1 exposes the join over-blending: every overlapping triangle blends its alpha again. */
+    public static float ROUTE_TEST_OPACITY = 1f;
+    /** How the opacity is applied, which picks the renderer path that removes the join doubling:
+     *  geom  = line-opacity, baked into the geometry colour -> the vt single-blend stencil pass;
+     *  layer = layer opacity + comp-op -> the layer is drawn opaque into the overlay FBO and
+     *          composited once (no seams, but a full-screen pass, and that buffer has no depth,
+     *          so in 3D terrain the route stops being occluded by ridges). */
+    public static String ROUTE_TEST_OPACITY_MODE = "geom";
+
+    // =============================================================================================
     // DEBUG / HARNESS
     // =============================================================================================
 
@@ -420,6 +478,7 @@ public final class DemoConfig {
         LAYER_HYPSO = DemoCfg.cfgBool("hypso", LAYER_HYPSO);
         LAYER_ELEMENTS = DemoCfg.cfgBool("elements", LAYER_ELEMENTS);
         LAYER_ROUTES = DemoCfg.cfgBool("routes", LAYER_ROUTES);
+        LAYER_ROUTE_TEST = DemoCfg.cfgBool("routeTest", LAYER_ROUTE_TEST);
 
         // composite slots ('hs', 'sat', 'contour' are the historical keys)
         COMPOSITE_HILLSHADE = DemoCfg.cfgBool("hs", COMPOSITE_HILLSHADE);
@@ -522,10 +581,29 @@ public final class DemoConfig {
         CONTOUR_RESOLUTION = DemoCfg.cfgInt("contourResolution", CONTOUR_RESOLUTION);
         CONTOUR_SIMPLIFY_TOLERANCE = DemoCfg.cfgFloat("contourSimplify", CONTOUR_SIMPLIFY_TOLERANCE);
         CONTOUR_MIN_VISIBLE_ZOOM = DemoCfg.cfgInt("contourMinZoom", CONTOUR_MIN_VISIBLE_ZOOM);
+        CONTOUR_INTERVAL_LADDER = DemoCfg.cfgStr("contourLadder", CONTOUR_INTERVAL_LADDER);
+        CONTOUR_TILE_SUBSTITUTION = DemoCfg.cfgStr("contourSubst", CONTOUR_TILE_SUBSTITUTION);
+        CONTOUR_MAX_OVERZOOM_STANDIN = DemoCfg.cfgInt("contourStandIn", CONTOUR_MAX_OVERZOOM_STANDIN);
+        CONTOUR_TILE_CACHE_MB = DemoCfg.cfgInt("contourCacheMB", CONTOUR_TILE_CACHE_MB);
+        BASE_TILE_CACHE_MB = DemoCfg.cfgInt("baseCacheMB", BASE_TILE_CACHE_MB);
+        CONTOUR_RESOLUTION_LADDER = DemoCfg.cfgStr("contourResLadder", CONTOUR_RESOLUTION_LADDER);
         CONTOUR_SEAMLESS_EDGES = DemoCfg.cfgBool("contourSeamless", CONTOUR_SEAMLESS_EDGES);
         CONTOUR_LABEL_STUBS = DemoCfg.cfgBool("contourStubs", CONTOUR_LABEL_STUBS);
         CONTOUR_LABEL_INTERVAL = DemoCfg.cfgFloat("contourStubInterval", CONTOUR_LABEL_INTERVAL);
         CONTOUR_STUBS_FROM_TERRAIN = DemoCfg.cfgBool("stubsFromTerrain", CONTOUR_STUBS_FROM_TERRAIN);
+
+        // route test layer
+        ROUTE_TEST_GEOJSON_NAME = DemoCfg.cfgStr("routeGeojson", ROUTE_TEST_GEOJSON_NAME);
+        ROUTE_TEST_WIDTH = DemoCfg.cfgFloat("routeWidth", ROUTE_TEST_WIDTH);
+        ROUTE_TEST_CASE_WIDTH = DemoCfg.cfgFloat("routeCaseWidth", ROUTE_TEST_CASE_WIDTH);
+        ROUTE_TEST_COLOR = DemoCfg.cfgColor("routeColor", ROUTE_TEST_COLOR);
+        ROUTE_TEST_CASE_COLOR = DemoCfg.cfgColor("routeCaseColor", ROUTE_TEST_CASE_COLOR);
+        ROUTE_TEST_JOIN = DemoCfg.cfgStr("routeJoin", ROUTE_TEST_JOIN);
+        ROUTE_TEST_CAP = DemoCfg.cfgStr("routeCap", ROUTE_TEST_CAP);
+        ROUTE_TEST_MITER_LIMIT = DemoCfg.cfgFloat("routeMiterLimit", ROUTE_TEST_MITER_LIMIT);
+        ROUTE_TEST_OPACITY = DemoCfg.cfgFloat("routeOpacity", ROUTE_TEST_OPACITY);
+        ROUTE_TEST_SIMPLIFY = DemoCfg.cfgFloat("routeSimplify", ROUTE_TEST_SIMPLIFY);
+        ROUTE_TEST_OPACITY_MODE = DemoCfg.cfgStr("routeOpacityMode", ROUTE_TEST_OPACITY_MODE);
 
         // inline style
         INLINE_BACKGROUND_COLOR = DemoCfg.cfgColor("bg", INLINE_BACKGROUND_COLOR);
