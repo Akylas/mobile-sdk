@@ -1258,7 +1258,10 @@ namespace carto {
         cglib::vec3<double> origin = viewState.getCameraPos();
         cglib::vec3<double> target = viewState.getProjectionSurface()->calculatePosition(targetPos);
         cglib::ray3<double> ray(origin, target - origin);
-    
+        calculateRayIntersectedElements(ray, viewState, results);
+    }
+
+    void MapRenderer::calculateRayIntersectedElements(const cglib::ray3<double>& ray, ViewState& viewState, std::vector<RayIntersectedElement>& results) {
         // Normal layer click detection is done in the layer order
         for (const std::shared_ptr<Layer>& layer : _layers->getAll()) {
             layer->calculateRayIntersectedElements(ray, viewState, results);

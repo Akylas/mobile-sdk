@@ -114,6 +114,7 @@ namespace carto {
         void doubleTapZoom(const ScreenPos& screenPos, const ViewState& viewState);
 
         bool isValidScreenPosition(const ScreenPos& screenPos, const ViewState& viewState) const;
+        cglib::ray3<double> calculateScreenRay(const ScreenPos& screenPos, const ViewState& viewState) const;
         MapPos mapScreenPosition(const ScreenPos& screenPos, const ViewState& viewState) const;
         double calculateTerrainHeight(const ScreenPos& screenPos, const ViewState& viewState) const;
         void updateGestureAnchorHeight(const ScreenPos& screenPos, const ViewState& viewState);

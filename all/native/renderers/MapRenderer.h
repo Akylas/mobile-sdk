@@ -20,6 +20,7 @@
 #include "components/StyleEnvironment.h"
 
 #include <cglib/mat.h>
+#include <cglib/ray.h>
 #include <vt/TileId.h>
 
 #include <array>
@@ -173,6 +174,9 @@ namespace carto {
         void setZBuffering(bool enable);
     
         void calculateRayIntersectedElements(const MapPos& targetPos, ViewState& viewState, std::vector<RayIntersectedElement>& results);
+        // Same, for a ray that never meets the ground - a touch aimed at the sky. Layers whose
+        // content is anchored in the sky (CelestialLayer) are only reachable this way.
+        void calculateRayIntersectedElements(const cglib::ray3<double>& ray, ViewState& viewState, std::vector<RayIntersectedElement>& results);
     
         void billboardsChanged();
         void vtLabelsChanged(const std::shared_ptr<Layer>& layer, bool delay);

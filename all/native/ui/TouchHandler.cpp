@@ -680,6 +680,21 @@ namespace carto {
         return dist > 0 && dist < viewState.getFar();
     }
 
+    cglib::ray3<double> TouchHandler::calculateScreenRay(const ScreenPos& screenPos, const ViewState& viewState) const {
+        // The same unprojection ViewState::screenToWorld does, stopping at the ray: two points at
+        // the near and far planes, which is a direction whether or not it ever meets the ground.
+        if (viewState.getWidth() <= 0 || viewState.getHeight() <= 0) {
+            double nan = std::numeric_limits<double>::quiet_NaN();
+            return cglib::ray3<double>(viewState.getCameraPos(), cglib::vec3<double>(nan, nan, nan));
+        }
+        cglib::mat4x4<double> invMVP = cglib::inverse(viewState.getModelviewProjectionMat());
+        double x = screenPos.getX() / viewState.getWidth() * 2 - 1;
+        double y = 1 - screenPos.getY() / viewState.getHeight() * 2;
+        cglib::vec3<double> near = cglib::transform_point(cglib::vec3<double>(x, y, -1), invMVP);
+        cglib::vec3<double> far = cglib::transform_point(cglib::vec3<double>(x, y, 1), invMVP);
+        return cglib::ray3<double>(near, far - near);
+    }
+
     MapPos TouchHandler::mapScreenPosition(const ScreenPos& screenPos, const ViewState& viewState) const {
         cglib::vec3<double> pos = viewState.screenToWorld(cglib::vec2<float>(screenPos.getX(), screenPos.getY()), _gestureAnchorHeight.load());
         return viewState.getProjectionSurface()->calculateMapPos(pos);
@@ -712,15 +727,23 @@ namespace carto {
 
     void TouchHandler::handleClick(const ClickInfo& clickInfo, const ScreenPos& screenPos) {
         ViewState viewState = _mapRenderer->getViewState();
-        if (!isValidScreenPosition(screenPos, viewState)) {
-            return;
-        }
-        updateGestureAnchorHeight(screenPos, viewState);
-        MapPos mapPos = mapScreenPosition(screenPos, viewState);
-
-        // Find all intersected elements
+        // A touch aimed at the SKY has no ground position - the ray never meets the plane - but it
+        // is still a ray, and layers anchored in the sky (CelestialLayer) live along it. Ask the
+        // layers with the ray alone in that case; there is no map position to report afterwards.
+        bool groundHit = isValidScreenPosition(screenPos, viewState);
         std::vector<RayIntersectedElement> results;
-        _mapRenderer->calculateRayIntersectedElements(mapPos, viewState, results);
+        MapPos mapPos;
+        if (groundHit) {
+            updateGestureAnchorHeight(screenPos, viewState);
+            mapPos = mapScreenPosition(screenPos, viewState);
+            _mapRenderer->calculateRayIntersectedElements(mapPos, viewState, results);
+        } else {
+            cglib::ray3<double> ray = calculateScreenRay(screenPos, viewState);
+            if (std::isnan(cglib::norm(ray.direction))) {
+                return;
+            }
+            _mapRenderer->calculateRayIntersectedElements(ray, viewState, results);
+        }
     
         // Sort the results but do 'reverse stable sort' to be consistent with the rendering order
         std::stable_sort(results.begin(), results.end(), RayIntersectedElementComparator(viewState));
@@ -733,7 +756,11 @@ namespace carto {
             }
         }
 
-        // Click was ignored by layers, call map event listener
+        // Click was ignored by layers, call map event listener. Nothing to report for a touch
+        // that never reached the ground.
+        if (!groundHit) {
+            return;
+        }
         DirectorPtr<MapEventListener> mapEventListener = _mapEventListener;
 
         if (mapEventListener) {
