@@ -1,0 +1,107 @@
+/*
+ * Copyright (c) 2016 CartoDB. All rights reserved.
+ * Copying and using this code is allowed only according
+ * to license terms, as given in https://cartodb.com/terms/
+ */
+
+#ifndef _CARTO_CELESTIALLAYER_H_
+#define _CARTO_CELESTIALLAYER_H_
+
+#include "components/DirectorPtr.h"
+#include "layers/Layer.h"
+
+#include <memory>
+#include <vector>
+
+namespace carto {
+    class CelestialObject;
+    class CelestialRenderer;
+    class CelestialEventListener;
+
+    /**
+     * A layer of objects that live in the sky rather than on the map: the sun, the moon, stars,
+     * an aircraft overhead, the path a body traces across the day.
+     *
+     * Nothing here is tied to the map's coordinates unless an object asks for it (see
+     * CelestialObject::setPosition), so panning the map does not drag the sky along. The layer
+     * is drawn in its place in the layer order, so adding it FIRST puts every object behind the
+     * map and lets terrain hide what is behind a ridge, which is what a sky body wants.
+     *
+     * Objects are batched by bitmap, so a whole star catalogue that shares one bitmap - or none -
+     * costs a single draw call.
+     */
+    class CelestialLayer : public Layer {
+    public:
+        CelestialLayer();
+        virtual ~CelestialLayer();
+
+        /**
+         * Adds an object to the layer.
+         * @param object The object to add.
+         */
+        void add(const std::shared_ptr<CelestialObject>& object);
+        /**
+         * Adds a list of objects to the layer. Cheaper than adding them one at a time, which
+         * rebuilds the batches per object.
+         * @param objects The objects to add.
+         */
+        void addAll(const std::vector<std::shared_ptr<CelestialObject> >& objects);
+        /**
+         * Removes an object from the layer.
+         * @param object The object to remove.
+         * @return True if the object was found and removed.
+         */
+        bool remove(const std::shared_ptr<CelestialObject>& object);
+        /**
+         * Removes every object from the layer.
+         */
+        void clear();
+        /**
+         * Returns all objects of the layer.
+         * @return The objects of the layer.
+         */
+        std::vector<std::shared_ptr<CelestialObject> > getAll() const;
+
+        /**
+         * Returns the object event listener.
+         * @return The object event listener.
+         */
+        std::shared_ptr<CelestialEventListener> getCelestialEventListener() const;
+        /**
+         * Sets the object event listener, which reports clicks on objects of this layer.
+         * @param listener The new object event listener.
+         */
+        void setCelestialEventListener(const std::shared_ptr<CelestialEventListener>& listener);
+
+        virtual bool isUpdateInProgress() const;
+
+    protected:
+        virtual void setComponents(const std::shared_ptr<CancelableThreadPool>& envelopeThreadPool,
+                                   const std::shared_ptr<CancelableThreadPool>& tileThreadPool,
+                                   const std::weak_ptr<Options>& options,
+                                   const std::weak_ptr<MapRenderer>& mapRenderer,
+                                   const std::weak_ptr<TouchHandler>& touchHandler);
+
+        virtual void loadData(const std::shared_ptr<CullState>& cullState);
+
+        virtual void offsetLayerHorizontally(double offset);
+
+        virtual bool onDrawFrame(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState);
+
+        virtual void calculateRayIntersectedElements(const cglib::ray3<double>& ray, const ViewState& viewState, std::vector<RayIntersectedElement>& results) const;
+        virtual bool processClick(const ClickInfo& clickInfo, const RayIntersectedElement& intersectedElement, const ViewState& viewState) const;
+
+        virtual void registerDataSourceListener();
+        virtual void unregisterDataSourceListener();
+
+    private:
+        void refreshRenderer();
+
+        std::vector<std::shared_ptr<CelestialObject> > _objects;
+        std::shared_ptr<CelestialRenderer> _celestialRenderer;
+        ThreadSafeDirectorPtr<CelestialEventListener> _celestialEventListener;
+    };
+
+}
+
+#endif
