@@ -129,7 +129,13 @@ namespace carto {
                 {
                     auto deltaTime = std::chrono::steady_clock::now() - _dualPointerReleaseTime;
                     if (deltaTime >= DUAL_STOP_HOLD_DURATION) {
-                        singlePointerPan(screenPos1, viewState);
+                        // Free roam turns the one-finger drag into a look: panning moves to two
+                        // fingers, which dualPointerPan already does.
+                        if (_options->isFreeRoam()) {
+                            singlePointerLook(screenPos1, viewState);
+                        } else {
+                            singlePointerPan(screenPos1, viewState);
+                        }
                     }
                 }
                 break;
@@ -358,6 +364,40 @@ namespace carto {
         _prevScreenPos1 = screenPos;
     }
     
+    void TouchHandler::singlePointerLook(const ScreenPos& screenPos, const ViewState& viewState) {
+        if (_options->isUserInput()) {
+            _mapRenderer->getAnimationHandler().stopPan();
+            _mapRenderer->getAnimationHandler().stopRotation();
+            _mapRenderer->getAnimationHandler().stopTilt();
+            _mapRenderer->getAnimationHandler().stopZoom();
+
+            float dpi = _options->getDPI();
+            float dx = screenPos.getX() - _prevScreenPos1.getX();
+            float dy = screenPos.getY() - _prevScreenPos1.getY();
+
+            // Sideways turns the heading. Dragging left turns the view right, the way dragging the
+            // world does, so the gesture reads the same as panning does outside free roam.
+            if (dx != 0) {
+                CameraRotationEvent cameraEvent;
+                cameraEvent.setRotationDelta(dx * INCHES_TO_LOOK_ROTATION_DELTA / dpi);
+                _cameraEvents |= CAMERA_ROTATE;
+                _mapRenderer->calculateCameraEvent(cameraEvent, 0, false);
+            }
+            // Up and down changes the tilt, in the same direction the two-finger tilt uses.
+            if (dy != 0) {
+                float scale = INCHES_TO_TILT_DELTA / dpi;
+                if (_options->isTiltGestureReversed()) {
+                    scale = -scale;
+                }
+                CameraTiltEvent cameraEvent;
+                cameraEvent.setTiltDelta(dy * scale);
+                _cameraEvents |= CAMERA_TILT;
+                _mapRenderer->calculateCameraEvent(cameraEvent, 0, false);
+            }
+        }
+        _prevScreenPos1 = screenPos;
+    }
+
     void TouchHandler::singlePointerZoom(const ScreenPos& screenPos, const ViewState& viewState) {
         if (_options->isUserInput()) {
             _mapRenderer->getAnimationHandler().stopPan();
@@ -852,6 +892,8 @@ namespace carto {
     const float TouchHandler::WHEEL_TICK_TO_ZOOM_DELTA = 0.25f;
     
     const float TouchHandler::INCHES_TO_TILT_DELTA = 32.0f;
+    // A full turn takes about two swipes across a phone, which is what a look control wants.
+    const float TouchHandler::INCHES_TO_LOOK_ROTATION_DELTA = 90.0f;
 
     const float TouchHandler::INCHES_TO_ZOOM_DELTA = 1.0f;
         

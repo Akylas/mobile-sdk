@@ -106,6 +106,7 @@ namespace carto {
         float calculateRotatingScalingFactor(const ScreenPos& screenPos1, const ScreenPos& screenPos2) const;
 
         void singlePointerPan(const ScreenPos& screenPos, const ViewState& viewState);
+        void singlePointerLook(const ScreenPos& screenPos, const ViewState& viewState);
         void singlePointerZoom(const ScreenPos& screenPos, const ViewState& viewState);
         bool singlePointerZoomStop(const ScreenPos& screenPos, const ViewState& viewState);
         void dualPointerGuess(const ScreenPos& screenPos1, const ScreenPos& screenPos2, const ViewState& viewState);
@@ -142,6 +143,7 @@ namespace carto {
 
         // Determines how the finger sliding distance will be converted to tilt angle
         static const float INCHES_TO_TILT_DELTA;
+        static const float INCHES_TO_LOOK_ROTATION_DELTA;
 
         // Determines how finger sliding distance will be converted to zoom delta
         static const float INCHES_TO_ZOOM_DELTA;

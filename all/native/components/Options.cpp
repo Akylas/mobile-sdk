@@ -44,6 +44,7 @@ namespace carto {
         _skyBitmap(),
         _backgroundBitmap(GetDefaultBackgroundBitmap()),
         _userInput(true),
+        _freeRoam(false),
         _kineticPan(true),
         _kineticRotation(true),
         _kineticZoom(true),
@@ -532,6 +533,22 @@ namespace carto {
         notifyOptionChanged("UserInput");
     }
     
+    bool Options::isFreeRoam() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        return _freeRoam;
+    }
+
+    void Options::setFreeRoam(bool enabled) {
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            if (_freeRoam == enabled) {
+                return;
+            }
+            _freeRoam = enabled;
+        }
+        notifyOptionChanged("FreeRoam");
+    }
+
     bool Options::isKineticPan() {
         std::lock_guard<std::mutex> lock(_mutex);
         return _kineticPan;

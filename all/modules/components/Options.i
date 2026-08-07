@@ -37,6 +37,7 @@
 %attribute(carto::Options, bool, KineticZoom, isKineticZoom, setKineticZoom)
 %attribute(carto::Options, bool, Rotatable, isRotatable, setRotatable)
 %attribute(carto::Options, bool, UserInput, isUserInput, setUserInput)
+%attribute(carto::Options, bool, FreeRoam, isFreeRoam, setFreeRoam)
 %attribute(carto::Options, bool, DebugTileBorders, isDebugTileBorders, setDebugTileBorders)
 %attribute(carto::Options, bool, ClickTypeDetection, isClickTypeDetection, setClickTypeDetection)
 %attribute(carto::Options, bool, DoubleClickDetection, isDoubleClickDetection, setDoubleClickDetection)
