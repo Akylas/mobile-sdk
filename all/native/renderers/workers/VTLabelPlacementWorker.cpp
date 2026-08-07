@@ -9,6 +9,8 @@
 
 #include <vt/LabelCuller.h>
 
+#include <cmath>
+
 namespace carto {
 
     VTLabelPlacementWorker::VTLabelPlacementWorker() :
@@ -109,6 +111,15 @@ namespace carto {
         }
 
         vt::LabelCuller culler(Const::WORLD_SIZE);
+        // Internal units per metre at the view's own latitude, so that a label style's
+        // max-distance (metres) can be compared against world-space distances. Mercator stretches
+        // by 1/cos(latitude), and at 45 degrees that is a factor of 1.4 - too much to ignore in a
+        // number the style author writes in metres.
+        {
+            double latitude = viewState.getFocusPos()(1) * Const::PI * 2.0 / Const::WORLD_SIZE;
+            double coshLatitude = std::cosh(latitude);
+            culler.setMetersToInternal(Const::WORLD_SIZE / Const::EARTH_CIRCUMFERENCE * coshLatitude);
+        }
 
         bool reversedOrder = mapRenderer->getOptions()->isLayersLabelsProcessedInReverseOrder();
         bool changed = false;

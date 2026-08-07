@@ -68,8 +68,10 @@ public final class DemoPanel {
         buildTerrainSection(context, panel, demo);
         buildHillshadeSection(context, panel, demo);
         buildContourSection(context, panel, demo);
+        buildRouteTestSection(context, panel, demo);
         buildSunSection(context, panel, demo);
         buildSkyFogSection(context, panel, demo);
+        buildDebugSection(context, panel, demo);
         buildActionsSection(context, panel, demo);
 
         // The panel is taller than the screen: scroll it, and keep it behind a small toggle.
@@ -166,7 +168,7 @@ public final class DemoPanel {
     private static void buildTerrainSection(Context context, LinearLayout panel, final DemoMap demo) {
         header(context, panel, "TERRAIN");
         check(context, panel, "3D terrain", DemoConfig.TERRAIN_ENABLED, new BoolSetting() {
-            public void set(boolean value) { DemoConfig.TERRAIN_ENABLED = value; demo.terrainOptions.setEnabled(value); }
+            public void set(boolean value) { DemoConfig.TERRAIN_ENABLED = value; demo.animateTerrain(value); }
         });
         check(context, panel, "billboard occlusion", DemoConfig.TERRAIN_BILLBOARD_OCCLUSION, new BoolSetting() {
             public void set(boolean value) { DemoConfig.TERRAIN_BILLBOARD_OCCLUSION = value; demo.terrainOptions.setBillboardOcclusionEnabled(value); }
@@ -280,6 +282,53 @@ public final class DemoPanel {
         demo.contourSource().notifyTilesChanged(true);
     }
 
+    /** Join / cap / opacity of the route test layer - the line tesselation bench. */
+    private static void buildRouteTestSection(Context context, LinearLayout panel, final DemoMap demo) {
+        header(context, panel, "ROUTE TEST");
+        final String[] joins = { "miter", "bevel", "round" };
+        choice(context, panel, "join", joins, indexOf(joins, DemoConfig.ROUTE_TEST_JOIN), new IntSetting() {
+            public void set(int index) { DemoConfig.ROUTE_TEST_JOIN = joins[index]; reloadRouteTest(demo); }
+        });
+        final String[] caps = { "butt", "square", "round" };
+        choice(context, panel, "cap", caps, indexOf(caps, DemoConfig.ROUTE_TEST_CAP), new IntSetting() {
+            public void set(int index) { DemoConfig.ROUTE_TEST_CAP = caps[index]; reloadRouteTest(demo); }
+        });
+        slider(context, panel, "width", 1, 30, DemoConfig.ROUTE_TEST_WIDTH, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.ROUTE_TEST_WIDTH = value; reloadRouteTest(demo); }
+        });
+        slider(context, panel, "casing width", 0, 40, DemoConfig.ROUTE_TEST_CASE_WIDTH, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.ROUTE_TEST_CASE_WIDTH = value; reloadRouteTest(demo); }
+        });
+        slider(context, panel, "miter limit", 1, 12, DemoConfig.ROUTE_TEST_MITER_LIMIT, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.ROUTE_TEST_MITER_LIMIT = value; reloadRouteTest(demo); }
+        });
+        slider(context, panel, "opacity", 0.1f, 1, DemoConfig.ROUTE_TEST_OPACITY, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.ROUTE_TEST_OPACITY = value; reloadRouteTest(demo); }
+        });
+        final String[] opacityModes = { "geom", "layer" };
+        choice(context, panel, "opacity mode", opacityModes, indexOf(opacityModes, DemoConfig.ROUTE_TEST_OPACITY_MODE), new IntSetting() {
+            public void set(int index) { DemoConfig.ROUTE_TEST_OPACITY_MODE = opacityModes[index]; reloadRouteTest(demo); }
+        });
+        slider(context, panel, "simplify", 0, 16, DemoConfig.ROUTE_TEST_SIMPLIFY, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.ROUTE_TEST_SIMPLIFY = value; reloadRouteTest(demo); }
+        });
+    }
+
+    /** The style is baked into the decoder, so the layer is rebuilt from scratch. */
+    private static void reloadRouteTest(DemoMap demo) {
+        demo.invalidate(DemoMap.Feature.ROUTE_TEST);
+        demo.rebuildLayers();
+    }
+
+    private static int indexOf(String[] options, String value) {
+        for (int i = 0; i < options.length; i++) {
+            if (options[i].equalsIgnoreCase(value)) {
+                return i;
+            }
+        }
+        return 0;
+    }
+
     private static void buildSunSection(Context context, LinearLayout panel, final DemoMap demo) {
         header(context, panel, "SUN");
         check(context, panel, "terrain lighting", DemoConfig.TERRAIN_LIGHTING, new BoolSetting() {
@@ -347,6 +396,13 @@ public final class DemoPanel {
             public void set(boolean value) { DemoConfig.SKY_ENABLED = value; demo.skyOptions.setEnabled(value); }
         });
 
+        // Buildings come from the STYLE, so the switch rebuilds the base layer. Only the inline
+        // style is generated here, so it is the one this can turn on and off; a dir/zip/nuti style
+        // draws whatever it was authored with.
+        check(context, panel, "3D buildings (inline style)", DemoConfig.INLINE_BUILDINGS_3D, new BoolSetting() {
+            public void set(boolean value) { DemoConfig.INLINE_BUILDINGS_3D = value; demo.rebuildBaseLayer(); }
+        });
+
         header(context, panel, "FOG / DISTANCE");
         check(context, panel, "fog", DemoConfig.FOG_ENABLED, new BoolSetting() {
             public void set(boolean value) {
@@ -363,13 +419,34 @@ public final class DemoPanel {
         slider(context, panel, "fog distance (m, 0=off)", 0, 120000, DemoConfig.FOG_DISTANCE, false, new FloatSetting() {
             public void set(float value) { DemoConfig.FOG_DISTANCE = value < 500 ? 0 : value; demo.terrainOptions.setFogDistance(DemoConfig.FOG_DISTANCE); }
         });
+        // How much of the SKY the same haze takes: the blend is the fade width, the horizon is the
+        // angle it is still full at (below 0 on the slider = follow the terrain skyline).
+        slider(context, panel, "sky fog blend (deg)", 0, 45, DemoConfig.SKY_FOG_BLEND, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.SKY_FOG_BLEND = value; demo.skyOptions.setFogBlend(value); }
+        });
+        slider(context, panel, "sky fog horizon (deg, <0=auto)", -1, 30, DemoConfig.SKY_FOG_HORIZON, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.SKY_FOG_HORIZON = value; demo.skyOptions.setFogHorizon(value); }
+        });
         // Changes the visible tile set, so apply on release only.
-        slider(context, panel, "max visible distance (m, 0=all)", 0, 120000, DemoConfig.MAX_VISIBLE_DISTANCE, true, new FloatSetting() {
-            public void set(float value) { DemoConfig.MAX_VISIBLE_DISTANCE = value < 500 ? 0 : value; demo.terrainOptions.setMaxVisibleDistance(DemoConfig.MAX_VISIBLE_DISTANCE); }
+        slider(context, panel, "tile LOD (x tangram, 0=finest)", 0, 4, DemoConfig.TILE_LOD_FACTOR, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.TILE_LOD_FACTOR = value; demo.mapView.getOptions().setTileLODFactor(value); }
+        });
+        slider(context, panel, "tile coarsening (levels)", 0, 6, DemoConfig.TERRAIN_MAX_TILE_ZOOM_COARSENING, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.TERRAIN_MAX_TILE_ZOOM_COARSENING = (int) value; demo.terrainOptions.setMaxTileZoomCoarsening((int) value); }
+        });
+        slider(context, panel, "view distance (x tangram, 0=all)", 0, 4, DemoConfig.VIEW_DISTANCE_FACTOR, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.VIEW_DISTANCE_FACTOR = value < 0.05f ? 0 : value; demo.terrainOptions.setViewDistanceFactor(DemoConfig.VIEW_DISTANCE_FACTOR); }
         });
     }
 
     /** One-shot actions: post-process effects and the routing / search / geometry test cases. */
+    private static void buildDebugSection(Context context, LinearLayout panel, final DemoMap demo) {
+        header(context, panel, "DEBUG");
+        check(context, panel, "tile borders", DemoConfig.DEBUG_TILE_BORDERS, new BoolSetting() {
+            public void set(boolean value) { DemoConfig.DEBUG_TILE_BORDERS = value; demo.applyDebugConfig(); }
+        });
+    }
+
     private static void buildActionsSection(final Context context, LinearLayout panel, final DemoMap demo) {
         header(context, panel, "ACTIONS");
         check(context, panel, "relief outline effect", DemoConfig.RELIEF_OUTLINE, new BoolSetting() {

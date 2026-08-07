@@ -1,5 +1,6 @@
 #include "SkyRenderer.h"
 #include "components/Options.h"
+#include "terrain/ElevationManager.h"
 #include "components/LightOptions.h"
 #include "components/SkyOptions.h"
 #include "components/StyleEnvironment.h"
@@ -9,6 +10,10 @@
 #include "renderers/utils/Shader.h"
 #include "utils/Const.h"
 #include "utils/Log.h"
+
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
 
 #include <cglib/mat.h>
 
@@ -34,6 +39,7 @@ namespace carto {
         _u_resolution(-1),
         _u_fogColor(-1),
         _u_fogBlend(-1),
+        _u_fogHorizon(-1),
         _startTime(std::chrono::steady_clock::now()),
         _glResourceManager(),
         _options(options)
@@ -102,8 +108,25 @@ namespace carto {
         _u_resolution = glGetUniformLocation(progId, "u_resolution");
         _u_fogColor = glGetUniformLocation(progId, "u_fogColor");
         _u_fogBlend = glGetUniformLocation(progId, "u_fogBlend");
+        _u_fogHorizon = glGetUniformLocation(progId, "u_fogHorizon");
         return true;
     }
+
+    // Measurement switch: debug.carto.skyclip 0 draws the sky over the whole screen again, which
+    // is what it did before the quad was clipped to the horizon. Read once (Android only).
+#ifdef __ANDROID__
+    bool SkyRenderer::isHorizonClipEnabled() {
+        static const bool enabled = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            return !(__system_property_get("debug.carto.skyclip", property) > 0 && property[0] == '0');
+        }();
+        return enabled;
+    }
+#else
+    bool SkyRenderer::isHorizonClipEnabled() {
+        return true;
+    }
+#endif
 
     bool SkyRenderer::onDrawFrame(const ViewState& viewState) {
         std::shared_ptr<SkyOptions> skyOptions = _options.getSkyOptions();
@@ -139,6 +162,36 @@ namespace carto {
         ResolvedLighting lighting = resolveLighting(lightOptions, StyleEnvironment());
         ResolvedFog fog = resolveFog(_options.getTerrainOptions(), StyleEnvironment(), lighting);
         float fogBlend = fog.active() ? static_cast<float>(skyOptions->getFogBlend() * Const::DEG_TO_RAD) : 0.0f;
+        // Where the haze STARTS fading, as an elevation angle. Fading from zero - the mathematical
+        // horizon - is right on a flat map, where the skyline IS the horizon. In the mountains the
+        // skyline is the ridge, and a ridge stands well above the horizon once the camera is close
+        // to it: the fog then stops at an angle the sky above is already clear at, and the hazy
+        // ground meets clean sky along the silhouette. That is the "fog does not reach the sky when
+        // zoomed in" report - it appears with zoom because the angle to a ridge grows as you
+        // approach it while the horizon stays at zero.
+        // The reference angle is the highest terrain the view can hold, seen at the distance the
+        // fog saturates at: beyond that the ground is fog colour anyway, so the sky has to be too.
+        float fogHorizonSetting = skyOptions->getFogHorizon();
+        float fogHorizon = (fogHorizonSetting > 0 ? static_cast<float>(fogHorizonSetting * Const::DEG_TO_RAD) : 0.0f);
+        if (fogBlend > 0.0f && fogHorizonSetting < 0) {
+            if (std::shared_ptr<TerrainOptions> terrainOptions = _options.getTerrainOptions()) {
+                if (terrainOptions->isEnabled()) {
+                    if (std::shared_ptr<ElevationManager> elevationManager = terrainOptions->getElevationManager()) {
+                        double minZ = 0, maxZ = 0;
+                        elevationManager->getDisplayHeightRange(viewState.getFocusPos()(1), minZ, maxZ);
+                        double above = maxZ - viewState.getCameraPos()(2);
+                        double distance = fog.distance * Const::WORLD_SIZE / Const::EARTH_CIRCUMFERENCE;
+                        if (above > 0 && distance > 0) {
+                            // Capped at half the blend: the auto angle comes from the HIGHEST ground
+                            // the elevation manager has seen, which is a whole massif away from what
+                            // is on screen, and left uncapped it lifts the full-strength band over
+                            // most of the visible sky.
+                            fogHorizon = std::min(static_cast<float>(std::atan2(above, distance)), fogBlend * 0.5f);
+                        }
+                    }
+                }
+            }
+        }
 
         Color skyColor = skyOptions->getSkyColor();
         Color horizonColor = skyOptions->getHorizonColor();
@@ -192,10 +245,29 @@ namespace carto {
         if (_u_fogBlend >= 0) {
             glUniform1f(_u_fogBlend, fogBlend);
         }
+        if (_u_fogHorizon >= 0) {
+            glUniform1f(_u_fogHorizon, fogHorizon);
+        }
+
+        // The quad starts AT THE HORIZON, not at the bottom of the screen: everything below it is
+        // ground, background plane or terrain, all drawn over the sky anyway, so shading it is pure
+        // overdraw - at a tilted camera that is half the screen. Tangram's sky mesh spans the top
+        // half and is translated onto the horizon the same way (core/src/util/skyManager.cpp).
+        // The margin below the horizon is for what the sky shader deliberately paints there: the
+        // fog band fades from the skyline downwards, and its extent is not a straight function of
+        // the horizon, so this keeps a generous strip rather than computing it.
+        // The clip is only applied when the horizon is what bounds the ground; when the terrain
+        // path draws the sky although the flat horizon says it is not visible (a peak exposing it),
+        // the estimate does not apply and the quad stays full screen.
+        float quadBottom = -1.0f;
+        if (viewState.isSkyVisible() && isHorizonClipEnabled()) {
+            quadBottom = std::max(-1.0f, viewState.getSkyHorizonNDC() - SKY_HORIZON_MARGIN);
+        }
+        const float quadCoords[8] = { -1, quadBottom, 1, quadBottom, -1, 1, 1, 1 };
 
         glDisable(GL_CULL_FACE);
         glEnableVertexAttribArray(_a_coord);
-        glVertexAttribPointer(_a_coord, 2, GL_FLOAT, GL_FALSE, 0, QUAD_COORDS);
+        glVertexAttribPointer(_a_coord, 2, GL_FLOAT, GL_FALSE, 0, quadCoords);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
         glDisableVertexAttribArray(_a_coord);
         glEnable(GL_CULL_FACE);
@@ -205,6 +277,7 @@ namespace carto {
     }
 
     const float SkyRenderer::QUAD_COORDS[8] = { -1, -1, 1, -1, -1, 1, 1, 1 };
+    const float SkyRenderer::SKY_HORIZON_MARGIN = 0.35f;
 
     const std::string SkyRenderer::SKY_VERTEX_SHADER = R"GLSL(
         #version 100
@@ -241,7 +314,8 @@ namespace carto {
         uniform float u_cameraHeight;
         uniform vec2 u_resolution;
         uniform vec4 u_fogColor;  // the terrain fog, already lit by the sun; a = strength at the horizon
-        uniform float u_fogBlend; // elevation angle (radians) where the fog has faded out of the sky; 0 = no fog
+        uniform float u_fogBlend; // elevation angle (radians) the fog fades out over, measured from u_fogHorizon
+        uniform float u_fogHorizon; // elevation angle (radians) the haze is still full at - the skyline, not the horizon
 
         // The sky's share of the terrain fog for a view ray: full at the horizon, gone by
         // u_fogBlend. Cubed so the haze hugs the horizon and clears quickly with height instead
@@ -251,7 +325,7 @@ namespace carto {
                 return 0.0;
             }
             float elevation = asin(clamp(normalize(rayDir).z, -1.0, 1.0));
-            float t = clamp(1.0 - max(elevation, 0.0) / u_fogBlend, 0.0, 1.0);
+            float t = clamp(1.0 - max(elevation - u_fogHorizon, 0.0) / u_fogBlend, 0.0, 1.0);
             return t * t * t * u_fogColor.a;
         }
     )GLSL";
@@ -263,7 +337,14 @@ namespace carto {
         vec4 skyColor(vec3 rayDir) {
             float elevation = asin(clamp(rayDir.z, -1.0, 1.0));
             if (elevation < 0.0) {
-                return u_groundColor;
+                // BELOW the mathematical horizon, and that is exactly the band the drawn ground
+                // stops short of: the terrain ends at the view distance, well before the horizon,
+                // and everything between the two is this ray. Returning the ground colour alone -
+                // transparent by default - left the map's clear colour there, so the hazed ground
+                // met it along a hard line, which is the "fog does not reach the sky" edge seen far
+                // in the distance. Anything down there is beyond the last tile, so it is haze:
+                // fogAmount is at full strength below the horizon by construction.
+                return mix(u_groundColor, vec4(u_fogColor.rgb, 1.0), fogAmount(rayDir));
             }
             float t = u_horizonBlend > 0.0 ? clamp(elevation / u_horizonBlend, 0.0, 1.0) : 1.0;
             vec4 color = mix(u_horizonColor, u_skyColor, t);

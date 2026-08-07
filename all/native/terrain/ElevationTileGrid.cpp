@@ -7,24 +7,69 @@
 
 namespace carto {
 
-    ElevationTileGrid::ElevationTileGrid(const MapTile& tile, const MapBounds& internalBounds, int width, int height, std::vector<float> heights) :
+    ElevationTileGrid::ElevationTileGrid(const MapTile& tile, const MapBounds& internalBounds, const std::shared_ptr<Bitmap>& bitmap, const std::array<double, 4>& coeffs) :
         _tile(tile),
         _internalBounds(internalBounds),
-        _width(width),
-        _height(height),
-        _heights(),
+        _bitmap(bitmap),
+        _pixelData(bitmap ? bitmap->getPixelData().data() : nullptr),
+        _coeffs(coeffs),
+        _width(bitmap ? bitmap->getWidth() : 0),
+        _height(bitmap ? bitmap->getHeight() : 0),
+        _bytesPerTexel(bitmap ? bitmap->getBytesPerPixel() : 0),
         _minHeight(0),
         _maxHeight(0)
     {
-        if (!heights.empty()) {
-            auto minmax = std::minmax_element(heights.begin(), heights.end());
-            _minHeight = *minmax.first;
-            _maxHeight = *minmax.second;
-
-            _heights.resize(heights.size());
-            for (std::size_t i = 0; i < heights.size(); i++) {
-                _heights[i] = EncodeHeight(heights[i]);
+        if (_pixelData && _width > 0 && _height > 0) {
+            // One pass for the height range, which culling and the shadow box need. Everything
+            // else is decoded on demand.
+            float minHeight = getHeight(0, 0);
+            float maxHeight = minHeight;
+            std::size_t count = static_cast<std::size_t>(_width) * _height;
+            for (std::size_t i = 0; i < count; i++) {
+                float h = decodeTexel(&_pixelData[i * _bytesPerTexel]);
+                minHeight = std::min(minHeight, h);
+                maxHeight = std::max(maxHeight, h);
             }
+            _minHeight = minHeight;
+            _maxHeight = maxHeight;
+        }
+    }
+
+    std::size_t ElevationTileGrid::getDataSize() const {
+        return (_bitmap ? _bitmap->getPixelData().size() : 0) + sizeof(ElevationTileGrid);
+    }
+
+    ColorFormat::ColorFormat ElevationTileGrid::getColorFormat() const {
+        return _bitmap ? _bitmap->getColorFormat() : ColorFormat::COLOR_FORMAT_UNSUPPORTED;
+    }
+
+    std::array<float, 4> ElevationTileGrid::getDecode() const {
+        // The coefficients apply to raw 0..255 bytes; a texture sample arrives normalized. The
+        // constant term is NOT put on the alpha channel: a source raster's alpha is not part of any
+        // DEM encoding, so it is ignored and the constant travels in its own uniform.
+        return { { static_cast<float>(_coeffs[0] * 255.0), static_cast<float>(_coeffs[1] * 255.0), static_cast<float>(_coeffs[2] * 255.0), 0.0f } };
+    }
+
+    void ElevationTileGrid::encodeHeight(float height, std::uint8_t* dst) const {
+        // Both supported encodings are POSITIONAL in base 256 - terrarium (256, 1, 1/256, -32768)
+        // and mapbox (6553.6, 25.6, 0.1, -10000) - so the digits are the base-256 split of the
+        // height in the smallest unit. Splitting that way rather than dividing greedily by each
+        // coefficient in turn keeps the carry exact: a greedy split can leave a remainder that
+        // rounds the last digit to 256, and clamping it there loses a whole quantum.
+        double quantum = (_bytesPerTexel >= 3 ? _coeffs[2] : (_bytesPerTexel >= 2 ? _coeffs[1] : _coeffs[0]));
+        long long units = (quantum != 0 ? static_cast<long long>(std::floor((height - _coeffs[3]) / quantum + 0.5)) : 0);
+        int digits = std::min(_bytesPerTexel, 3);
+        long long maxUnits = 1;
+        for (int i = 0; i < digits; i++) {
+            maxUnits *= 256;
+        }
+        units = std::min(maxUnits - 1, std::max(0LL, units));
+        for (int i = digits - 1; i >= 0; i--) {
+            dst[i] = static_cast<std::uint8_t>(units & 255);
+            units >>= 8;
+        }
+        for (int i = digits; i < _bytesPerTexel; i++) {
+            dst[i] = 255; // alpha, which the decode ignores, stays opaque
         }
     }
 
@@ -70,29 +115,13 @@ namespace carto {
         dhdy = static_cast<float>((sampleHeight(internalX, internalY + texelY) - sampleHeight(internalX, internalY - texelY)) / (2 * texelY));
     }
 
-    void ElevationTileGrid::encodeTexture(std::vector<std::uint8_t>& rgbaData, std::array<float, 4>& decode) const {
-        rgbaData.resize(_heights.size() * 4);
-        for (std::size_t i = 0; i < _heights.size(); i++) {
-            std::uint16_t value = _heights[i];
-            rgbaData[i * 4 + 0] = static_cast<std::uint8_t>(value >> 8);
-            rgbaData[i * 4 + 1] = static_cast<std::uint8_t>(value & 255);
-            rgbaData[i * 4 + 2] = 0;
-            rgbaData[i * 4 + 3] = 255;
-        }
-        decode = { { 255.0f * 256.0f * QUANT_SCALE, 255.0f * QUANT_SCALE, 0.0f, QUANT_OFFSET } };
-    }
-
-    void ElevationTileGrid::encodeTextureWithBorders(const std::array<std::shared_ptr<ElevationTileGrid>, 8>& neighbours, std::vector<std::uint8_t>& rgbaData, std::array<float, 4>& decode) const {
-        int paddedWidth = _width + 2;
-        int paddedHeight = _height + 2;
-        rgbaData.resize(static_cast<std::size_t>(paddedWidth) * paddedHeight * 4);
-
-        // Same DEM level and grid size: the border texel is one of the neighbour's own
+    std::function<void(int, int, std::uint8_t*)> ElevationTileGrid::makeTexelSampler(const std::array<std::shared_ptr<ElevationTileGrid>, 8>& neighbours) const {
+        // Same DEM level, grid size and encoding: the border texel is one of the neighbour's own
         // texels, so it can be copied bit-exactly by index.
         auto sameLevel = [this](const std::shared_ptr<ElevationTileGrid>& grid) {
             // The same grid standing in for a neighbour (both tiles resolved to one ancestor)
             // must NOT be index-copied - that would wrap around to its opposite edge.
-            return grid && grid->_width == _width && grid->_height == _height && grid->_tile.getZoom() == _tile.getZoom() && !(grid->_tile == _tile);
+            return grid && grid->_width == _width && grid->_height == _height && grid->_bytesPerTexel == _bytesPerTexel && grid->_tile.getZoom() == _tile.getZoom() && !(grid->_tile == _tile);
         };
         // Different level (a coarser ancestor grid stands in for the neighbour): sample the
         // neighbour's height field at the geographic position of the border texel center.
@@ -100,11 +129,6 @@ namespace carto {
         // a full-texel height step (tens of meters on a slope) at the tile border.
         double texelX = (_internalBounds.getMax().getX() - _internalBounds.getMin().getX()) / _width;
         double texelY = (_internalBounds.getMax().getY() - _internalBounds.getMin().getY()) / _height;
-        auto sampleValue = [&, this](const ElevationTileGrid* grid, int gx, int gy) -> std::uint16_t {
-            double px = _internalBounds.getMin().getX() + (gx + 0.5) * texelX;
-            double py = _internalBounds.getMin().getY() + (gy + 0.5) * texelY;
-            return EncodeHeight(grid->sampleHeight(px, py));
-        };
         // EDGE BOX FILTER. A coarser neighbour's height field is the 2^k x 2^k average of this
         // level's (mapterhorn and every other overview pyramid downsamples that way), so along a
         // shared edge it only ever interpolates those averages while this tile interpolates its
@@ -126,8 +150,8 @@ namespace carto {
         // It does fire while tiles stream in, when a tile is still standing on an ancestor grid.
         // alongY: the edge runs north-south (west/east edge), so texel ROWS are grouped and
         // fixedIndex is the column; otherwise columns are grouped and fixedIndex is the row.
-        auto edgeFilter = [&, this](const std::shared_ptr<ElevationTileGrid>& neighbour, bool alongY, int fixedIndex) -> std::vector<std::uint16_t> {
-            std::vector<std::uint16_t> result;
+        auto edgeFilter = [&, this](const std::shared_ptr<ElevationTileGrid>& neighbour, bool alongY, int fixedIndex) -> std::vector<float> {
+            std::vector<float> result;
             if (!neighbour || sameLevel(neighbour) || neighbour->_width < 1 || neighbour->_height < 1) {
                 return result;
             }
@@ -150,14 +174,10 @@ namespace carto {
                 int last = i;
                 double sum = 0;
                 while (last < count && groupOf(last) == group) {
-                    // The stored value is a linear encoding of the height, so averaging encoded
-                    // values is averaging heights (up to half a quantum).
-                    sum += alongY
-                        ? _heights[static_cast<std::size_t>(last) * _width + fixedIndex]
-                        : _heights[static_cast<std::size_t>(fixedIndex) * _width + last];
+                    sum += alongY ? getHeight(fixedIndex, last) : getHeight(last, fixedIndex);
                     last++;
                 }
-                std::uint16_t average = static_cast<std::uint16_t>(sum / (last - i) + 0.5);
+                float average = static_cast<float>(sum / (last - i));
                 for (int j = i; j < last; j++) {
                     result[j] = average;
                 }
@@ -165,14 +185,19 @@ namespace carto {
             }
             return result;
         };
-        std::vector<std::uint16_t> westEdge = edgeFilter(neighbours[0], true, 0);
-        std::vector<std::uint16_t> eastEdge = edgeFilter(neighbours[1], true, _width - 1);
-        std::vector<std::uint16_t> southEdge = edgeFilter(neighbours[2], false, 0);
-        std::vector<std::uint16_t> northEdge = edgeFilter(neighbours[3], false, _height - 1);
+        std::vector<float> westEdge = edgeFilter(neighbours[0], true, 0);
+        std::vector<float> eastEdge = edgeFilter(neighbours[1], true, _width - 1);
+        std::vector<float> southEdge = edgeFilter(neighbours[2], false, 0);
+        std::vector<float> northEdge = edgeFilter(neighbours[3], false, _height - 1);
 
-        // texel value at padded coordinates (gx, gy in [-1, width/height]); border texels
-        // come from the neighbour that actually covers them, falling back to edge clamping
-        auto rawValue = [&, this](int gx, int gy) -> std::uint16_t {
+        // Texel at padded coordinates (gx, gy in [-1, width/height]); border texels come from the
+        // neighbour that actually covers them, falling back to edge clamping.
+        // Captured BY VALUE: the sampler outlives this call, and the edge filters are the
+        // expensive part of it.
+        return [this, neighbours, texelX, texelY, westEdge, eastEdge, southEdge, northEdge](int gx, int gy, std::uint8_t* dst) {
+            auto sameLevel = [this](const std::shared_ptr<ElevationTileGrid>& grid) {
+                return grid && grid->_width == _width && grid->_height == _height && grid->_bytesPerTexel == _bytesPerTexel && grid->_tile.getZoom() == _tile.getZoom() && !(grid->_tile == _tile);
+            };
             static const std::array<std::pair<int, int>, 8> DIRS = { {
                 { -1, 0 }, { 1, 0 }, { 0, -1 }, { 0, 1 }, { -1, -1 }, { 1, -1 }, { -1, 1 }, { 1, 1 }
             } };
@@ -187,10 +212,14 @@ namespace carto {
                     if (sameLevel(neighbour)) {
                         int nx = gx - dx * _width;
                         int ny = gy - dy * _height;
-                        return neighbour->_heights[static_cast<std::size_t>(ny) * neighbour->_width + nx];
+                        std::copy_n(neighbour->texel(nx, ny), _bytesPerTexel, dst);
+                        return;
                     }
                     if (neighbour) {
-                        return sampleValue(neighbour.get(), gx, gy);
+                        double px = _internalBounds.getMin().getX() + (gx + 0.5) * texelX;
+                        double py = _internalBounds.getMin().getY() + (gy + 0.5) * texelY;
+                        encodeHeight(neighbour->sampleHeight(px, py), dst);
+                        return;
                     }
                     break;
                 }
@@ -220,23 +249,68 @@ namespace carto {
                 filterCount++;
             }
             if (filterCount > 0) {
-                return static_cast<std::uint16_t>(filtered / filterCount + 0.5);
+                encodeHeight(static_cast<float>(filtered / filterCount), dst);
+                return;
             }
-            return _heights[static_cast<std::size_t>(cy) * _width + cx];
+            std::copy_n(texel(cx, cy), _bytesPerTexel, dst);
         };
+    }
 
+    void ElevationTileGrid::encodeTextureWithBorders(const std::array<std::shared_ptr<ElevationTileGrid>, 8>& neighbours, std::vector<std::uint8_t>& textureData) const {
+        int paddedWidth = _width + 2;
+        int paddedHeight = _height + 2;
+        textureData.resize(static_cast<std::size_t>(paddedWidth) * paddedHeight * _bytesPerTexel);
+
+        std::function<void(int, int, std::uint8_t*)> texelValue = makeTexelSampler(neighbours);
+
+        // Only the border ring and the two outermost own rows/columns can come from anywhere but
+        // this grid: the border ring by definition, the outermost own texels because a coarser
+        // neighbour box-filters them (edgeFilter above). Everything else is this grid's own texel
+        // at its own index, and a whole row of those is one memcpy - the copy is what replaced the
+        // per-texel re-encode this used to do (measured 4.3ms a tile on the encode worker).
         std::size_t i = 0;
         for (int gy = -1; gy <= _height; gy++) {
+            bool ownRow = (gy > 0 && gy < _height - 1);
             for (int gx = -1; gx <= _width; gx++) {
-                std::uint16_t value = rawValue(gx, gy);
-                rgbaData[i + 0] = static_cast<std::uint8_t>(value >> 8);
-                rgbaData[i + 1] = static_cast<std::uint8_t>(value & 255);
-                rgbaData[i + 2] = 0;
-                rgbaData[i + 3] = 255;
-                i += 4;
+                if (ownRow && gx == 1) {
+                    // The row's own span, straight out of the source raster.
+                    std::size_t span = static_cast<std::size_t>(_width - 2) * _bytesPerTexel;
+                    std::copy_n(texel(1, gy), span, &textureData[i]);
+                    i += span;
+                    gx = _width - 1;
+                }
+                texelValue(gx, gy, &textureData[i]);
+                i += _bytesPerTexel;
             }
         }
-        decode = { { 255.0f * 256.0f * QUANT_SCALE, 255.0f * QUANT_SCALE, 0.0f, QUANT_OFFSET } };
+    }
+
+    void ElevationTileGrid::encodeTextureBorders(const std::array<std::shared_ptr<ElevationTileGrid>, 8>& neighbours, BorderStrips& strips) const {
+        int paddedWidth = _width + 2;
+        int paddedHeight = _height + 2;
+
+        std::function<void(int, int, std::uint8_t*)> texelValue = makeTexelSampler(neighbours);
+
+        // South and north: two full-width rows each (gy = -1, 0 and height-1, height).
+        strips.south.resize(static_cast<std::size_t>(paddedWidth) * 2 * _bytesPerTexel);
+        strips.north.resize(static_cast<std::size_t>(paddedWidth) * 2 * _bytesPerTexel);
+        for (int row = 0; row < 2; row++) {
+            std::size_t s = static_cast<std::size_t>(row) * paddedWidth * _bytesPerTexel;
+            for (int gx = -1; gx <= _width; gx++, s += _bytesPerTexel) {
+                texelValue(gx, -1 + row, &strips.south[s]);
+                texelValue(gx, _height - 1 + row, &strips.north[s]);
+            }
+        }
+        // West and east: two full-height columns each (gx = -1, 0 and width-1, width).
+        strips.west.resize(static_cast<std::size_t>(paddedHeight) * 2 * _bytesPerTexel);
+        strips.east.resize(static_cast<std::size_t>(paddedHeight) * 2 * _bytesPerTexel);
+        for (int gy = -1; gy <= _height; gy++) {
+            std::size_t s = static_cast<std::size_t>(gy + 1) * 2 * _bytesPerTexel;
+            for (int col = 0; col < 2; col++) {
+                texelValue(-1 + col, gy, &strips.west[s + col * _bytesPerTexel]);
+                texelValue(_width - 1 + col, gy, &strips.east[s + col * _bytesPerTexel]);
+            }
+        }
     }
 
     std::shared_ptr<ElevationTileGrid> ElevationTileGrid::DecodeBitmap(const MapTile& tile, const MapBounds& internalBounds, const std::shared_ptr<Bitmap>& bitmap, const std::array<double, 4>& coeffs) {
@@ -250,16 +324,10 @@ namespace carto {
             return std::shared_ptr<ElevationTileGrid>();
         }
 
-        int bytesPerPixel = 0;
         switch (bitmap->getColorFormat()) {
         case ColorFormat::COLOR_FORMAT_GRAYSCALE:
-            bytesPerPixel = 1;
-            break;
         case ColorFormat::COLOR_FORMAT_RGB:
-            bytesPerPixel = 3;
-            break;
         case ColorFormat::COLOR_FORMAT_RGBA:
-            bytesPerPixel = 4;
             break;
         default:
             Log::Error("ElevationTileGrid::DecodeBitmap: Unsupported bitmap color format");
@@ -268,27 +336,8 @@ namespace carto {
 
         // Bitmap pixel data rows are stored bottom-up relative to the image, which means
         // row 0 of the pixel data corresponds to the southern (minimum y) edge of the tile.
-        // This matches the grid row order, so pixels can be converted sequentially.
-        const std::vector<std::uint8_t>& pixelData = bitmap->getPixelData();
-        std::vector<float> heights(static_cast<std::size_t>(width) * height);
-        for (std::size_t i = 0; i < heights.size(); i++) {
-            const std::uint8_t* ptr = &pixelData[i * bytesPerPixel];
-            double r = 0, g = 0, b = 0, a = 255;
-            switch (bytesPerPixel) {
-            case 1:
-                r = g = b = ptr[0];
-                break;
-            case 3:
-                r = ptr[0]; g = ptr[1]; b = ptr[2];
-                break;
-            case 4:
-                r = ptr[0]; g = ptr[1]; b = ptr[2]; a = ptr[3];
-                break;
-            }
-            heights[i] = static_cast<float>(coeffs[0] * r + coeffs[1] * g + coeffs[2] * b + coeffs[3] * (a / 255.0));
-        }
-
-        auto grid = std::make_shared<ElevationTileGrid>(tile, internalBounds, width, height, std::move(heights));
+        // This matches the grid row order, so the raster can be used as it is.
+        auto grid = std::make_shared<ElevationTileGrid>(tile, internalBounds, bitmap, coeffs);
         if (grid->getMinHeight() < -12000.0f || grid->getMaxHeight() > 10000.0f) {
             Log::Warnf("ElevationTileGrid::DecodeBitmap: Implausible elevation range %g..%g m for tile %d/%d/%d - check that the elevation data source encoding ('terrarium'/'mapbox') matches the data",
                        grid->getMinHeight(), grid->getMaxHeight(), tile.getZoom(), tile.getX(), tile.getY());

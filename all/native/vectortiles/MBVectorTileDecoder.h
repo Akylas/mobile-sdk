@@ -186,6 +186,8 @@ namespace carto {
 
         virtual void addFallbackFont(const std::shared_ptr<BinaryData>& fontData);
 
+        virtual void setPixelScale(float pixelScale);
+
         virtual int getMinZoom() const;
         
         virtual int getMaxZoom() const;
@@ -208,6 +210,7 @@ namespace carto {
         static const std::size_t MAX_ASSETPACKAGE_SYMBOLIZER_CONTEXTS;
         
         const std::shared_ptr<mvt::Logger> _logger;
+        float _pixelScale;
         bool _featureIdOverride;
         bool _cartoCSSLayerNamesIgnored;
         std::string _layerNameOverride;

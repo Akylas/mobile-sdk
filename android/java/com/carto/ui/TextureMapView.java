@@ -153,8 +153,11 @@ public class TextureMapView extends GLTextureView implements GLSurfaceView.Rende
         }
     }
 
+    // NOT synchronized - see MapView.onTouchEvent: sharing the instance monitor with
+    // onDrawFrame makes every touch event wait for the frame in flight, which on a heavy
+    // scene queues a gesture up until input dispatch times out ("isn't responding").
     @Override
-    public synchronized boolean onTouchEvent(MotionEvent event) {
+    public boolean onTouchEvent(MotionEvent event) {
         if (baseMapView == null) {
             return false;
         }

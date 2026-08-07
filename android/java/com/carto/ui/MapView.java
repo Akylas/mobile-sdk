@@ -162,8 +162,16 @@ public class MapView extends GLSurfaceView implements GLSurfaceView.Renderer, Ma
         }
     }
     
+    // NOT synchronized, unlike onDrawFrame: the two run on different threads (UI and GL) and
+    // sharing the instance monitor makes every touch event wait for the frame in flight. A
+    // frame takes as long as the scene makes it take - hundreds of milliseconds on a heavy
+    // 3D terrain scene on a mid-range device - so a gesture's event stream queues up behind
+    // the renderer until input dispatch times out and Android shows "isn't responding".
+    // The native side has its own locking, and every other MapView method (setFocusPos,
+    // getOptions, ...) already calls into baseMapView without this monitor - so it never
+    // guarded against delete() racing a caller in the first place.
     @Override
-    public synchronized boolean onTouchEvent(MotionEvent event) {
+    public boolean onTouchEvent(MotionEvent event) {
         if (baseMapView == null) {
             return false;
         }

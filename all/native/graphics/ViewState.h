@@ -351,6 +351,13 @@ namespace carto {
          * @return True if sky is visible.
          */
         bool isSkyVisible() const;
+        /**
+         * Returns the normalized device y below which no ray from the screen reaches the sky -
+         * the horizon, in other words, in the space the sky quad is drawn in. 1 when no sky is
+         * visible at all. Only meaningful when isSkyVisible() is true.
+         * @return The horizon's position in normalized device coordinates, -1 (bottom) to 1 (top).
+         */
+        float getSkyHorizonNDC() const;
 
         /**
          * Updates the view when the screen size, view state or some other view options have changed. This is automatically
@@ -391,9 +398,28 @@ namespace carto {
          * @param horizontalLayerOffsetDir The horizontal offset direction, -1 for left, 0 for none, 1 for right.
          */
         void setHorizontalLayerOffsetDir(int horizontalLayerOffsetDir);
-    
+
+        /**
+         * How far from the camera the map is drawn, in internal units - tangram's rule, scaled by
+         * TerrainOptions::ViewDistanceFactor. Both the far plane and the tile walk stop here, so
+         * the tiles fetched are exactly the tiles the frustum can show. 0 means "as far as the
+         * visible ground goes" (factor 0).
+         * @param options The options object.
+         * @return The view distance in internal units, or 0 if it is unbounded.
+         */
+        double calculateViewDistance(const Options& options) const;
+
+        /**
+         * The distance from the camera to the focus point - tangram's m_pos.z, which is what their
+         * near and far planes are built on. It is a function of the zoom alone, so the depth budget
+         * does not change with the terrain under the camera.
+         * @return The camera to focus distance in internal units.
+         */
+        double calculateCameraDistance() const;
+
     private:
         void calculateViewDistances(const Options& options, float& near, float& far, bool& skyVisible) const;
+        void calculateViewDistances(const Options& options, float& near, float& far, bool& skyVisible, float& skyHorizonNDC) const;
         float calculateMinZoom(const Options& options) const;
         MapPos calculateMapBoundsCenter(const Options& options, const MapBounds& mapBounds) const;
    
@@ -427,6 +453,7 @@ namespace carto {
         float _near;
         float _far;
         bool _skyVisible;
+        float _skyHorizonNDC;
 
         float _terrainHeightMin = 0.0f;
         float _terrainHeightMax = 0.0f;

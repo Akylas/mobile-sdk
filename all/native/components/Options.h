@@ -160,6 +160,21 @@ namespace carto {
         void setRenderProjectionMode(RenderProjectionMode::RenderProjectionMode renderProjectionMode);
     
         /**
+         * Returns the state of the tile border debug overlay.
+         * @return True if every tile layer outlines the tiles it draws.
+         */
+        bool isDebugTileBorders() const;
+        /**
+         * Sets the state of the tile border debug overlay. Every tile layer then outlines the
+         * tiles it actually draws, in 3D following the terrain, with a colour per zoom level and
+         * alternating brightness between neighbours - so a layer using a coarser tile set than
+         * the one under it, an overzoomed stand-in, or a tile that owns pixels it should not, is
+         * visible on screen. The default is false.
+         * @param enabled The new state of the tile border debug overlay.
+         */
+        void setDebugTileBorders(bool enabled);
+
+        /**
          * Returns the click type detection state.
          * @return True if click type detection is enabled.
          */
@@ -217,6 +232,24 @@ namespace carto {
          * @param tileDrawSize The new tile size in density-independent pixels (dp).
          */
         void setTileDrawSize(int tileDrawSize);
+
+        /**
+         * Returns the factor on the screen size a tile may cover before it is refined.
+         * @return The tile LOD factor. The default is 1, which is exactly tangram's rule.
+         */
+        float getTileLODFactor() const;
+        /**
+         * Sets how big a tile may get on screen before the next zoom level is used, as a factor on
+         * tangram's rule (core/src/tile/tileManager.cpp): refine while the tile's projected screen
+         * area is at least that of a 2x2 block of nominal tiles. A factor of 1 is that rule
+         * verbatim, larger keeps tiles coarser (fewer tiles, fewer labels, less detail), smaller
+         * refines further.
+         * Where it matters is a tilted view: a tile near the horizon collapses to a few pixels of
+         * screen while its distance barely grows, so this - not the view distance - is what decides
+         * how much of the horizon band is drawn at full detail.
+         * @param factor The new tile LOD factor. The default is 1.
+         */
+        void setTileLODFactor(float factor);
     
         /**
          * Returns the dots per inch value.
@@ -631,12 +664,14 @@ namespace carto {
     
         RenderProjectionMode::RenderProjectionMode _renderProjectionMode;
     
+        bool _debugTileBorders;
         bool _clickTypeDetection;
         bool _doubleClickDetection;
         float _longClickDuration;
         float _doubleClickMaxDuration;
     
         int _tileDrawSize;
+        float _tileLODFactor;
     
         float _dpi;
     

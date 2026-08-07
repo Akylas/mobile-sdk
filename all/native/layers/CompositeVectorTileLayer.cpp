@@ -742,6 +742,11 @@ namespace carto {
             if (changed("resolution", value))         { contour->setResolution(static_cast<int>(value)); }
             if (changed("min-visible-zoom", value))   { contour->setMinVisibleZoom(static_cast<int>(value)); }
             if (changed("simplify-tolerance", value)) { contour->setSimplifyTolerance(value); }
+            // Label stubs: the geometry becomes a few short polylines to carry the elevation text,
+            // for a stack that draws the contour LINES in the terrain shader
+            // (hillshade-contour-interval) instead of from this source.
+            if (changed("label-stubs", value))        { contour->setLabelStubsEnabled(value != 0.0f); }
+            if (changed("label-interval", value))     { contour->setLabelInterval(value); }
         }
     }
 

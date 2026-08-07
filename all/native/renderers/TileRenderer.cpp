@@ -1,4 +1,6 @@
 #include "TileRenderer.h"
+
+#include <vt/RenderStats.h>
 #include "components/Options.h"
 #include "components/LightOptions.h"
 #include "components/TerrainOptions.h"
@@ -11,11 +13,17 @@
 #include "renderers/TerrainRenderer.h"
 #include "renderers/utils/ElevationTextureCache.h"
 #include "renderers/utils/GLResourceManager.h"
+#include "renderers/utils/TerrainDrapeCache.h"
 #include "renderers/utils/VTRenderer.h"
 #include "layers/HillshadeRasterTileLayer.h"
 #include "terrain/ElevationManager.h"
 #include "utils/Const.h"
 #include "utils/Log.h"
+
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#include <cstdlib>
+#endif
 #include "utils/Const.h"
 
 #include <vt/Label.h>
@@ -236,7 +244,7 @@ namespace carto {
         // one frame during a pan and snaps into place when the motion stops.
         cglib::mat4x4<double> prepareModelViewMat = viewState.getModelviewMat() * cglib::translate4_matrix(cglib::vec3<double>(_horizontalLayerOffset, 0, 0));
         vt::ViewState prepareViewState(viewState.getProjectionMat(), prepareModelViewMat, viewState.getZoom(), viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewState.getNormalizedResolution());
-        prepareViewState.planarTerrain = isPlanarTerrainMode();
+        prepareViewState.planarProjection = isPlanarProjectionMode();
         tileRenderer->setViewState(prepareViewState);
         try {
             _framePrepareResult = tileRenderer->startFrame(deltaSeconds * 3);
@@ -262,6 +270,72 @@ namespace carto {
         if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
             tileRenderer->setExternalDrapeTiles(tileIds);
         }
+    }
+
+    int TileRenderer::resolveDrapeResolution(int setting, const ViewState& viewState, const std::shared_ptr<Options>& options) {
+        if (setting > 0) {
+            return setting;
+        }
+        // From the SCREEN, not from a constant. The tile LOD refines a tile until it covers at most
+        // a 2x2 block of nominal tiles (TileLayer::calculateVisibleTiles, tangram's rule), so
+        // 2 * tileDrawSize * pixelScale is the widest any tile ever gets on screen. Baking that
+        // many texels is one texel per screen pixel at the LOD's own bound: below it the fill edges
+        // stair-step as the camera zooms past the tile's own zoom (the magnified drape texel), and
+        // above it the extra texels can never be resolved. Rounded UP to a power of two, since the
+        // cache holds one texture size and pools them.
+        double tileDrawSize = (options ? options->getTileDrawSize() : 256);
+        double edge = 2.0 * tileDrawSize * (viewState.getDPI() / Const::UNSCALED_DPI);
+        int size = MIN_DRAPE_RESOLUTION;
+        while (size < edge && size < MAX_DRAPE_RESOLUTION) {
+            size *= 2;
+        }
+        // ... and then what MEMORY allows, which is the binding constraint: the rule above asks for
+        // 1024 on the Crosscall, and a drape texture at 1024 x 1024 x RGBA is 4 MB PER TILE, so the
+        // cache's 160 entries would be 640 MB. What the device does with that is thrash - measured
+        // on the north pan, the drape section is 13.4 ms at 1024 and 5.2 ms at 512, for a
+        // difference the screen cannot show once the texture is mipmapped.
+        // So: the largest power of two at which a working cover still fits the cache's budget.
+        std::size_t bytesPerTile = static_cast<std::size_t>(size) * size * 4;
+        while (TerrainDrapeCache::isBudgetEnabled() && size > MIN_DRAPE_RESOLUTION && bytesPerTile * DRAPE_WORKING_SET > TerrainDrapeCache::MAX_BYTES) {
+            size /= 2;
+            bytesPerTile = static_cast<std::size_t>(size) * size * 4;
+        }
+        return size;
+    }
+
+    int TileRenderer::getStyleLayerCount() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            return tileRenderer->getStyleLayerCount();
+        }
+        return 0;
+    }
+
+    void TileRenderer::setTerrainLayerOrdinalBase(int base) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            tileRenderer->setTerrainLayerOrdinalBase(base);
+        }
+    }
+
+    void TileRenderer::setTerrainGroundTiles(const std::vector<vt::TileId>& tileIds, const std::vector<int>& proxyDepths) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        _terrainGroundActive = !tileIds.empty();
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            tileRenderer->setTerrainGroundTiles(tileIds, proxyDepths);
+        }
+    }
+
+    int TileRenderer::renderTerrainGround(const Color& color) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            return tileRenderer->renderTerrainGround(vt::Color(color.getR() / 255.0f, color.getG() / 255.0f, color.getB() / 255.0f, color.getA() / 255.0f));
+        }
+        return 0;
     }
 
     bool TileRenderer::isDrapeEnabled() const {
@@ -365,6 +439,135 @@ namespace carto {
         }
     }
 
+    void TileRenderer::setTerrainPaintTiles(const std::vector<vt::TileId>& tileIds) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            tileRenderer->setTerrainPaintTiles(tileIds);
+        }
+    }
+
+    void TileRenderer::setTerrainPaint(bool enabled, bool fullDetail, float heightScale, bool exaggerateHeightScale, bool legacyHeightScale, float contrast, float opacity, std::size_t fingerprint) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        _terrainPaintEnabled = enabled;
+        _terrainPaintFullDetail = fullDetail;
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            vt::GLTileRenderer::TerrainPaint paint;
+            paint.enabled = enabled;
+            paint.heightScale = heightScale;
+            paint.exaggerateHeightScale = exaggerateHeightScale;
+            paint.legacyHeightScale = legacyHeightScale;
+            paint.contrast = contrast;
+            paint.opacity = opacity;
+            paint.fingerprint = fingerprint;
+            tileRenderer->setTerrainPaint(paint);
+            tileRenderer->setTerrainPaintOnGround(isTerrainPaintOnGroundForced());
+            tileRenderer->setTerrainDemTaps(terrainDemTaps());
+            tileRenderer->setTerrainTileBackgrounds(isTerrainTileBackgroundsForced());
+        }
+    }
+
+    // Measurement switch for tangram's arrangement: the paint drawn AS the ground, one draw per
+    // tile at the bottom of the order, instead of as its layer's own surface over the ground fill.
+    // Cheaper by one full-surface draw per tile, but it puts the shading under every ground-shaped
+    // fill - which only looks right when those fills are translucent (tangram's earth style) or
+    // when nothing ground-shaped is drawn below the paint's layer.
+    //   adb shell setprop debug.carto.groundpaint 1
+    // Texture fetches per terrain vertex: 16 (lattice clamp) / 4 (manual bilinear) / 1 (one
+    // hardware-filtered fetch, tangram's terrain vertex). Vertex texture fetch is expensive on
+    // mobile GPUs and this is 16x what the reference does, so it is the first suspect whenever the
+    // frame sits in the swap wait.
+    //   adb shell setprop debug.carto.demtaps 4
+    // debug.carto.tilebg 1 restores the per-layer per-tile background meshes tangram does not have.
+#ifdef __ANDROID__
+    bool TileRenderer::isTerrainTileBackgroundsForced() {
+        static const bool forced = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            return __system_property_get("debug.carto.tilebg", property) > 0 && property[0] == '1';
+        }();
+        return forced;
+    }
+#else
+    bool TileRenderer::isTerrainTileBackgroundsForced() {
+        return false;
+    }
+#endif
+
+    // The stencil tile masks that clip each tile's content to its own screen footprint, forced on
+    // (1) or off (0) instead of the renderer's own rule - which drops them in a terrain frame,
+    // where a mask is a full displaced grid per tile, and keeps them in 2D, where it is a
+    // two-triangle quad. Tangram has no stencil anywhere. What they protect against is a retained
+    // (proxy) tile painting through the gaps of the tile that replaced it, so the A/B to run is
+    // the zoom transitions, not only the frame rate.
+    //   adb shell setprop debug.carto.tilemasks 1
+#ifdef __ANDROID__
+    int TileRenderer::tileMasksMode() {
+        static const int mode = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            if (__system_property_get("debug.carto.tilemasks", property) > 0) {
+                if (property[0] == '0') {
+                    return 0;
+                }
+                if (property[0] == '1') {
+                    return 1;
+                }
+            }
+            return -1;
+        }();
+        return mode;
+    }
+    bool TileRenderer::isInline3DEnabled() {
+        static const bool enabled = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            return !(__system_property_get("debug.carto.inline3d", property) > 0 && property[0] == '0');
+        }();
+        return enabled;
+    }
+#else
+    int TileRenderer::tileMasksMode() {
+        return -1;
+    }
+
+    bool TileRenderer::isInline3DEnabled() {
+        return true;
+    }
+#endif
+
+#ifdef __ANDROID__
+    int TileRenderer::terrainDemTaps() {
+        static const int taps = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            if (__system_property_get("debug.carto.demtaps", property) > 0) {
+                int value = std::atoi(property);
+                if (value > 0) {
+                    return value;
+                }
+            }
+            return 16;
+        }();
+        return taps;
+    }
+#else
+    int TileRenderer::terrainDemTaps() {
+        return 16;
+    }
+#endif
+
+#ifdef __ANDROID__
+    bool TileRenderer::isTerrainPaintOnGroundForced() {
+        static const bool forced = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            return __system_property_get("debug.carto.groundpaint", property) > 0 && property[0] == '1';
+        }();
+        return forced;
+    }
+#else
+    bool TileRenderer::isTerrainPaintOnGroundForced() {
+        return false;
+    }
+#endif
+
     bool TileRenderer::onDrawFrame(float deltaSeconds, const ViewState& viewState) {
         std::lock_guard<std::mutex> lock(_mutex);
 
@@ -378,8 +581,11 @@ namespace carto {
 
         cglib::mat4x4<double> modelViewMat = viewState.getModelviewMat() * cglib::translate4_matrix(cglib::vec3<double>(_horizontalLayerOffset, 0, 0));
         vt::ViewState vtViewState(viewState.getProjectionMat(), modelViewMat, viewState.getZoom(), viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewState.getNormalizedResolution());
-        vtViewState.planarTerrain = isPlanarTerrainMode(); // labels rescale by view depth so terrain elevation does not blow up their screen size
+        vtViewState.planarProjection = isPlanarProjectionMode(); // labels rescale by view depth, so neither terrain elevation nor a tilt blows up their screen size
         tileRenderer->setViewState(vtViewState);
+        // A line width is given in unscaled-DPI units; this is what one of them is worth in device
+        // pixels, so the antialias ramp can be one pixel wide instead of one unit (see lineFsh).
+        tileRenderer->setLineAntialiasScale(viewState.getNormalizedResolution() > 0 ? viewState.getHeight() / viewState.getNormalizedResolution() : 1.0f);
         tileRenderer->setInteractionMode(_interactionMode);
         tileRenderer->setRasterFilterMode(_rasterFilterMode);
         tileRenderer->setLayerBlendingSpeed(_layerBlendingSpeed);
@@ -417,8 +623,21 @@ namespace carto {
                             // and drop only those; the global reset stays as the fallback for
                             // whole-data-set changes (data source change, exaggeration) and for
                             // change-log overflow.
+                            // A scale-only change (the exaggeration, e.g. a terrain 'expand'
+                            // animation) leaves the DATA version alone. The surfaces are built
+                            // flat and displaced on the GPU, so none of them is stale - only the
+                            // CPU-side label anchors are. Rebuilding every visible surface for it
+                            // re-tesselated and re-uploaded the whole screen twice a second while
+                            // the ramp ran, which is what made the labels stutter through it.
+                            unsigned int elevationDataVersion = elevationManager->getDataVersion();
+                            bool scaleOnly = (_elevationDataVersion != 0 && elevationDataVersion == _elevationDataVersion);
+                            _elevationDataVersion = elevationDataVersion;
+
                             std::vector<MapTile> changedTiles;
-                            if (_elevationVersion != 0 && elevationManager->getChangedTiles(_elevationVersion, changedTiles)) {
+                            if (scaleOnly) {
+                                _elevationVersion = elevationVersion;
+                                tileRenderer->invalidateLabelElevation();
+                            } else if (_elevationVersion != 0 && elevationManager->getChangedTiles(_elevationVersion, changedTiles)) {
                                 _elevationVersion = elevationVersion;
                                 std::vector<vt::TileId> changedTileIds;
                                 changedTileIds.reserve(changedTiles.size());
@@ -426,10 +645,16 @@ namespace carto {
                                     changedTileIds.emplace_back(changedTile.getZoom(), changedTile.getX(), changedTile.getY());
                                 }
                                 tileRenderer->invalidateTileSurfaces(changedTileIds);
+                                // Labels are anchored onto the terrain the same way, and at one
+                                // elevation sample per label vertex a blanket re-anchor of the
+                                // visible label set costs several hundred milliseconds - the
+                                // same targeted list keeps it to the labels actually affected.
+                                tileRenderer->invalidateLabelElevation(changedTileIds);
                             } else if (!_lastSurfaceResetTime || now - *_lastSurfaceResetTime > std::chrono::milliseconds(SURFACE_RESET_DELAY)) {
                                 _elevationVersion = elevationVersion;
                                 _lastSurfaceResetTime = now;
                                 tileRenderer->resetTileSurfaces();
+                                tileRenderer->invalidateLabelElevation();
                             } else if (auto mapRenderer = _mapRenderer.lock()) {
                                 mapRenderer->requestRedraw(); // apply the pending rebuild on a later frame
                                 // This path asks for a frame without drawing anything new. It is
@@ -478,6 +703,16 @@ namespace carto {
                     }
                 }
                 if (_elevationTextureCache) {
+                    // A paint renderer's only consumer of the elevation texture is the shading,
+                    // which is per fragment: it resolves relief the mesh cannot, so its cache can
+                    // ignore the mesh's level cap (which costs two zoom levels - at high zoom, all
+                    // the relief there is). Each level back is 4x the elevation texture working set,
+                    // so it is a dial, not a flag (DEFAULT_PAINT_DETAIL_LEVELS, and on Android:
+                    //   adb shell setprop debug.carto.paintdetail 0|1|2   (2 = the source's own level)
+                    // Tangram pays nothing here because it binds the source raster as-is and
+                    // extrapolates edges in the shader; ours is CPU re-encoded per DEM tile with a
+                    // border ring taken from 8 neighbours.
+                    _elevationTextureCache->setDetailLevels(_terrainPaintEnabled && _terrainPaintFullDetail ? terrainPaintDetailLevels() : 0);
                     _elevationTextureCache->beginFrame();
                     std::shared_ptr<ElevationTextureCache> elevationTextureCache = _elevationTextureCache;
                     terrainTextureProvider = [elevationTextureCache](const vt::TileId& tileId, vt::GLTileRenderer::TerrainTexture& terrainTexture) {
@@ -501,11 +736,12 @@ namespace carto {
             std::shared_ptr<ElevationManager> elevationManager = activeTerrainOptions->getElevationManager();
             tileRenderer->setLabelElevationProvider([elevationManager](const cglib::vec3<double>& pos) {
                 return elevationManager->getDisplayHeight(pos(0), pos(1), ElevationManager::LoadMode::CACHED_ONLY);
-            }, elevationManager->getVersion());
+            });
         } else {
-            tileRenderer->setLabelElevationProvider(std::function<double(const cglib::vec3<double>&)>(), 0);
+            tileRenderer->setLabelElevationProvider(std::function<double(const cglib::vec3<double>&)>());
         }
         tileRenderer->setTerrainMode(terrainMode, terrainDepthBias);
+        tileRenderer->setTileMasks(tileMasksMode());
         // The geometry-vs-surface chord error shrinks quadratically with the mesh
         // resolution (both the tile surfaces and the draped geometry tesselate to
         // tileMeters/meshResolution cells), so the depth slack can shrink with it.
@@ -528,6 +764,40 @@ namespace carto {
         bool regularGrid = painterOrder || drapeFills || (terrainMode && activeTerrainOptions && activeTerrainOptions->isRegularGridEnabled() && (bool) terrainTextureProvider);
         tileRenderer->setTerrainRegularGrid(regularGrid, activeTerrainOptions ? activeTerrainOptions->getMeshResolution() : 0);
         tileRenderer->setTerrainPainterOrder(painterOrder);
+        // Tangram's content depth shift. polygon.vs/polyline.vs set `depth_shift = 0.0` and leave
+        // it "to allow blocks to modify" - and their 3D TERRAIN scene is one of the blocks that
+        // does: res/scenes/terrain-3d.yaml sets `depth_shift = -0.02*u_proj[2][3]`, which with
+        // glm::perspective's [2][3] = -1 is a flat 0.02. So it is part of the terrain depth model,
+        // not an experiment, and it is what keeps un-subdivided content from sinking into the
+        // ground it chords over. Overridable for measurement:
+        //   adb shell setprop debug.carto.depthshift <value>
+        // Their constant, verbatim and unscaled. It was scaled up here for a while, to spend across
+        // our dense ordinal rank the same total (~1.86 clip units) that their 1..93 scene order
+        // spends at 0.02 - which put ~0.2 on every style layer, ten times their pull, and that is
+        // what let far content over a near ridge: the pull's eye tolerance grows as distance^2 over
+        // the near plane, so at a high zoom over close terrain it was worth tens of metres
+        // (measured at 45.198902/5.722113 z16.78 t26: paths and contours of the lower slope drawn
+        // across the face in front of them; at 0.02 they stop at the crest).
+        // The scaling confused two jobs. This shift separates COPLANAR STYLE LAYERS, and one step
+        // is all that needs - it is not a budget to spend. Giving an un-subdivided AREA FILL room
+        // to clear the surface it chords over is the other job, and it belongs to the geometry, not
+        // to the layer count: GLTileRenderer gives fills their own tesselation-sized slack under a
+        // shared ground. Tangram never needs that second part - their terrain base map is a raster
+        // inside the ground draw, so no vector fill ever chords over their terrain.
+        //   adb shell setprop debug.carto.depthshift <value>   (measurement override)
+        float contentDepthShift = getTerrainContentDepthShift();
+        if (_terrainGroundActive && contentDepthShift == 0.0f) {
+            contentDepthShift = TERRAIN_TANGRAM_DEPTH_SHIFT;
+        }
+        tileRenderer->setTerrainContentDepthShift(contentDepthShift);
+        // Metre-constant clearance for draped LINES over the shared ground (see applyDepthBias in
+        // vt). A line chords over the relief between its own vertices; under a ground that writes
+        // depth that sag is what cuts roads and contours into fragments. The quantity is metres of
+        // sag, so the clearance is expressed in metres and converted at the equator scale - the
+        // remaining 1/cos(latitude) is under a factor of 1.5 at the latitudes terrain is used at,
+        // which is inside the tolerance this is tuned to anyway.
+        //   adb shell setprop debug.carto.lineclearance <metres>
+        tileRenderer->setTerrainLineClearance(static_cast<float>(terrainLineClearanceMeters() * Const::WORLD_SIZE / Const::EARTH_CIRCUMFERENCE));
         tileRenderer->setTerrainEdgeStitching(regularGrid && activeTerrainOptions && activeTerrainOptions->isTileEdgeStitchingEnabled());
         // Draped content is baked FLAT (orthographic, no displacement), so lines need no terrain
         // subdivision either - draping them is strictly cheaper as well as artifact-free. It is
@@ -537,7 +807,7 @@ namespace carto {
         // source density / subdivided to match it.
         bool drapeLines = drapeFills && activeTerrainOptions && activeTerrainOptions->isDrapeLinesEnabled();
         tileRenderer->setTerrainDrapeFills(drapeFills, drapeLines);
-        tileRenderer->setTerrainDrapeResolution(activeTerrainOptions ? activeTerrainOptions->getDrapeResolution() : 512);
+        tileRenderer->setTerrainDrapeResolution(resolveDrapeResolution(activeTerrainOptions ? activeTerrainOptions->getDrapeResolution() : 0, viewState, _options.lock()));
         // Sun lighting of the draped surface. Once every 2D layer is baked into the drape
         // texture the surface is the only lit ground geometry in the scene, so the whole map
         // is shaded by one directional light that follows the time of day - and the pre-baked
@@ -554,8 +824,19 @@ namespace carto {
             _sunLightingEnabled = lighting.terrainLightingEnabled;
             _sunIntensity = lighting.sunIntensity;
             _sunAmbient = lighting.ambientIntensity;
+            // Extrusions light by their OWN resolved pair, so a style can keep the soft
+            // normalised-Lambert walls with the terrain sun off - and so toggling terrain
+            // lighting no longer changes how dark a wall is unless the style wants it to.
+            _buildingLightIntensity = lighting.buildingLightIntensity;
+            _buildingAmbient = lighting.buildingAmbient;
             _resolvedSunDir = lighting.sunDir;
-            if (drapeFills && lighting.terrainLightingEnabled) {
+            // The terrain surface is what this lights, and it exists whenever the stack draws one:
+            // baked under a drape, or the shared ground pass when the drape is off. Gating on the
+            // drape alone left the ground AND the hillshade paint over it unlit - and with them the
+            // shadow map, since the shadow multiplies the lit colour (the paint is drawn from this
+            // layer's own pass, which runs after the owner has set the stack's sun, so it saw the
+            // value this line computes).
+            if ((drapeFills || _terrainGroundActive) && lighting.terrainLightingEnabled) {
                 terrainLighting.enabled = true;
                 terrainLighting.sunDir = lighting.sunDir;
                 terrainLighting.sunColor = cglib::vec3<float>(lighting.sunColor.getR() / 255.0f, lighting.sunColor.getG() / 255.0f, lighting.sunColor.getB() / 255.0f);
@@ -574,6 +855,9 @@ namespace carto {
         }
         tileRenderer->setTerrainLighting(terrainLighting);
         tileRenderer->setTerrainDepthWrite(terrainMode && _terrainDepthWriteMode);
+        if (auto options = _options.lock()) {
+            tileRenderer->setDebugTileBorders(options->isDebugTileBorders());
+        }
         tileRenderer->setDebugWireframe(false); // debug: terrain mesh wireframe + stencil overlay
         tileRenderer->setDebugSurfacePrefill(false); // debug: facing-coded terrain pre-fill (magenta front / cyan back)
         // The terrain base fill (color or the map background bitmap) is rendered
@@ -665,15 +949,22 @@ namespace carto {
 
         bool refresh = false;
         try {
+            VT_STAT_CLOCK(passClock);
             if (_labelOrder == 1) {
                 tileRenderer->renderLabels(true, false);
             }
+            VT_STAT_SPLIT(pass3DLabels2DNs, passClock);
             if (_buildingOrder == 1) {
-                tileRenderer->renderGeometry(false, true);
+                // Inline: the extrusions are the last tile content of the frame, so they can be
+                // drawn straight into the main framebuffer (tangram's way) instead of through the
+                // per-layer 3D overlay - nothing after them depth-tests against what they write.
+                tileRenderer->renderGeometry(false, true, isInline3DEnabled());
             }
+            VT_STAT_SPLIT(pass3DGeometryNs, passClock);
             if (_labelOrder == 1) {
                 tileRenderer->renderLabels(false, true);
             }
+            VT_STAT_SPLIT(pass3DLabels3DNs, passClock);
 
             refresh = tileRenderer->endFrame();
         }
@@ -708,7 +999,7 @@ namespace carto {
         }
         vt::ViewState cullViewState(viewState.getProjectionMat(), modelViewMat, viewState.getZoom(),
 viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewState.getNormalizedResolution());
-        cullViewState.planarTerrain = isPlanarTerrainMode(); // keep culling envelopes consistent with the rendered label sizes
+        cullViewState.planarProjection = isPlanarProjectionMode(); // keep culling envelopes consistent with the rendered label sizes
         culler.setViewState(cullViewState);
 
         try {
@@ -848,6 +1139,69 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
         return floatFunc(vtViewState);
     }
 
+    float TileRenderer::getTerrainContentDepthShift() {
+#ifdef __ANDROID__
+        static const float depthShift = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            if (__system_property_get("debug.carto.depthshift", property) > 0) {
+                return static_cast<float>(std::atof(property));
+            }
+            return 0.0f;
+        }();
+        return depthShift;
+#else
+        return 0.0f;
+#endif
+    }
+
+#ifdef __ANDROID__
+    float TileRenderer::terrainLineClearanceMeters() {
+        static const float meters = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            if (__system_property_get("debug.carto.lineclearance", property) > 0) {
+                return static_cast<float>(std::atof(property));
+            }
+            return DEFAULT_LINE_CLEARANCE_METERS;
+        }();
+        return meters;
+    }
+#else
+    float TileRenderer::terrainLineClearanceMeters() {
+        return DEFAULT_LINE_CLEARANCE_METERS;
+    }
+#endif
+
+    int TileRenderer::terrainPaintDetailLevels() {
+#ifdef __ANDROID__
+        // adb shell setprop debug.carto.paintdetail 0|1|2 - elevation levels beyond the mesh cap.
+        static const int levels = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            if (__system_property_get("debug.carto.paintdetail", property) > 0) {
+                int value = std::atoi(property);
+                if (value >= 0 && value <= 4) {
+                    return value;
+                }
+            }
+            return DEFAULT_PAINT_DETAIL_LEVELS;
+        }();
+        return levels;
+#else
+        return DEFAULT_PAINT_DETAIL_LEVELS;
+#endif
+    }
+
+    bool TileRenderer::isTerrainPaintFullDetailAllowed() {
+#ifdef __ANDROID__
+        static const bool allowed = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            return !(__system_property_get("debug.carto.paintdetail", property) > 0 && property[0] == '0');
+        }();
+        return allowed;
+#else
+        return true;
+#endif
+    }
+
     bool TileRenderer::isPlanarTerrainMode() const {
         if (auto options = _options.lock()) {
             if (options->getRenderProjectionMode() == RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
@@ -855,6 +1209,16 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
                     return terrainOptions->isEnabled();
                 }
             }
+        }
+        return false;
+    }
+
+    bool TileRenderer::isPlanarProjectionMode() const {
+        // The label size correction and the pixel-grid snapping belong to the PROJECTION, not to
+        // the terrain: a tilted flat map divides by w exactly the same way, which is what made
+        // labels near the camera far larger than the ones behind them.
+        if (auto options = _options.lock()) {
+            return options->getRenderProjectionMode() == RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR;
         }
         return false;
     }
@@ -1002,9 +1366,11 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
                     // The RESOLVED sun (style over options), captured by onDrawFrame. Reading
                     // LightOptions here ignored every sun property a style had set, so buildings
                     // and the ground they stand on disagreed about the hour.
-                    float sunIntensity = (_sunLightingEnabled ? std::max(0.001f, _sunIntensity) : 0.0f);
-                    float sunAmbient = (_sunLightingEnabled ? _sunAmbient : 0.35f);
-                    glUniform2f(glGetUniformLocation(shaderProgram, "u_sunParams"), sunIntensity, sunAmbient);
+                    // 0 keeps the legacy model; anything above it is the normalised Lambert the
+                    // terrain surface uses. resolveLighting decides which, so the style has the
+                    // final word (see ResolvedLighting::buildingLightIntensity).
+                    float buildingIntensity = (_buildingLightIntensity > 0.0f ? _buildingLightIntensity : 0.0f);
+                    glUniform2f(glGetUniformLocation(shaderProgram, "u_sunParams"), buildingIntensity, _buildingAmbient);
                 }
             });
             tileRenderer->setLightingShader3D(lightingShader3D);

@@ -41,6 +41,11 @@ namespace carto {
      */
     class ElevationManager : public ElevationProvider {
     public:
+        // Texels of elevation data per unit of tile size, i.e. the density tangram's zoom bias
+        // normalises every raster source to: 256 texels over a 256-point tile is one texel per
+        // point, so a 512-texel source is used one zoom level coarser.
+        static constexpr int DEM_TEXELS_PER_TILE_UNIT = 256;
+
         enum class LoadMode {
             /**
              * Only already decoded grids (or their cached ancestors) may be used. Never blocks.
@@ -134,6 +139,21 @@ namespace carto {
         MapTile getDataTile(const MapTile& mapTile) const;
 
         /**
+         * Returns the tile carrying the elevation data for the given render tile at FULL detail:
+         * capped by the data source maximum zoom level only, not by what the terrain mesh can
+         * express. For consumers that resolve more than the mesh does - shading is per fragment,
+         * so it shows relief the surface geometry could never carry.
+         */
+        MapTile getFullDetailDataTile(const MapTile& mapTile) const;
+        /**
+         * The elevation tile for a consumer that resolves 'extraLevels' more detail than the
+         * terrain MESH can express. The mesh cap (one texel per half surface cell) is right for
+         * geometry and wrong for per-fragment shading, which resolves far more - see
+         * getFullDetailDataTile for the extreme. extraLevels 0 is the mesh cap itself.
+         */
+        MapTile getDetailDataTile(const MapTile& mapTile, int extraLevels) const;
+
+        /**
          * Requests an asynchronous load of the given ELEVATION tile (as returned by getDataTile,
          * or one of its neighbours - it is not mapped down again). Never blocks and never
          * performs IO on the calling thread. A no-op if the grid is already cached, already
@@ -187,6 +207,18 @@ namespace carto {
     private:
         struct DataSourceListener;
 
+        static unsigned long long NextInstanceId();
+
+        /**
+         * The version of the elevation DATA alone - every change except a scale-only one. The
+         * exaggeration scales heights on the GPU and does not touch the tile surfaces, which are
+         * built flat, so a consumer that only rebuilds geometry watches this instead of the global
+         * version and is not woken by an exaggeration ramp.
+         */
+    public:
+        unsigned int getDataVersion() const;
+    private:
+
         void tilesChanged();
         void bumpGlobalVersion();
         double wrapInternalX(double internalX) const;
@@ -202,6 +234,13 @@ namespace carto {
         const std::shared_ptr<ElevationDecoder> _elevationDecoder;
         const std::shared_ptr<Projection> _projection;
         std::shared_ptr<DataSourceListener> _dataSourceListener;
+
+        // Process-unique, so that the per-thread grid memo in lookupTileGrid can tell two
+        // managers apart without comparing addresses (a destroyed manager's address can be
+        // handed straight back to the next one).
+        const unsigned long long _instanceId;
+
+        std::atomic<unsigned int> _dataVersion;
 
         std::atomic<float> _exaggeration;
         std::atomic<bool> _seamlessTileEdges;

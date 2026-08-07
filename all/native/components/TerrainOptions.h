@@ -244,8 +244,8 @@ namespace carto {
          * @return The minimum zoom level. The default is 5.
          */
         /**
-         * Returns the per-tile drape texture resolution.
-         * @return The drape texture resolution in pixels.
+         * Returns the per-tile drape texture resolution, 0 when it follows the screen.
+         * @return The drape texture resolution in pixels, 0 for automatic.
          */
         int getDrapeResolution() const;
         /**
@@ -253,7 +253,11 @@ namespace carto {
          * of this size and resampled onto the terrain surface, so this trades sharpness of thin
          * content (lines, outlines) against video memory: cost is resolution^2 * 4 bytes per
          * visible tile. maplibre uses twice the tile size (1024 for 512px tiles) for this reason.
-         * @param resolution The new drape texture resolution, clamped to [128, 2048]. Default 1024.
+         * 0 (the default) takes it from the SCREEN instead: the tile LOD refines a tile until it
+         * covers at most a 2x2 block of nominal tiles, so 2 * tileDrawSize * pixelScale texels is
+         * one texel per screen pixel at that bound - a fixed resolution is either coarser than the
+         * screen (draped fill edges stair-step as you zoom in) or finer than it can show.
+         * @param resolution The new drape texture resolution, clamped to [128, 2048], or 0 to follow the screen.
          */
         void setDrapeResolution(int resolution);
 
@@ -307,19 +311,47 @@ namespace carto {
         void setFogDistance(float distance);
 
         /**
-         * Returns the maximum distance the terrain is drawn to.
-         * @return The maximum visible distance in meters. The default is 0 (unlimited).
+         * Returns the factor applied to the view distance.
+         * @return The view distance factor. The default is 1, which is exactly tangram's rule.
          */
-        float getMaxVisibleDistance() const;
+        float getViewDistanceFactor() const;
         /**
-         * Sets how far from the camera the map is drawn, in meters. 0 (the default) draws
-         * everything the camera can see, which at a low tilt is the ground all the way to the
-         * horizon - hundreds of tiles, most of them a few pixels tall. Limiting it is what makes
-         * a near-horizontal view affordable; pair it with fog so the ground fades out instead of
-         * ending. Style property: "terrain-max-visible-distance".
-         * @param distance The new maximum visible distance in meters.
+         * Sets how far from the camera the map is drawn and where the far plane sits, as a factor
+         * on tangram's own rule (core/src/view/view.cpp):
+         *     far = 2 * cameraHeight / cos(pitch + fovy/2), capped by
+         *     maxTileDistance = worldTileSize(zoom) * (2^(MAX_LOD+1) - 1), with MAX_LOD 6.
+         * A factor of 1 is that rule verbatim; smaller ends the view closer, larger extends it.
+         * This is what makes a near-horizontal view affordable: taken from the visible ground
+         * instead, the view reaches the horizon - hundreds of tiles, most of them a few pixels
+         * tall, each carrying its own labels. Pair a small factor with fog so the ground fades
+         * out instead of ending.
+         * It also decides the depth budget: tangram's model is calibrated on a far/near ratio of a
+         * few hundred, and a deeper far spends the NDC precision the per-layer depth separation
+         * needs.
+         * A style may pin an absolute distance instead, in meters, with
+         * "terrain-max-visible-distance".
+         * @param factor The new view distance factor. The default is 1.
          */
-        void setMaxVisibleDistance(float distance);
+        void setViewDistanceFactor(float factor);
+
+        /**
+         * Returns how many zoom levels below the camera a tile may coarsen to.
+         * @return The maximum tile zoom coarsening. The default is 3.
+         */
+        int getMaxTileZoomCoarsening() const;
+        /**
+         * Sets how far BELOW the camera's zoom the tile LOD may take a tile in terrain mode
+         * (Options::TileLODFactor decides the rest). The tile surface is the depth OCCLUDER and its
+         * tesselation is proportional to the tile size, so a tile that coarsens freely has its
+         * ridge crests chopped flat and content drawn over a finer tile of another layer - a road,
+         * a contour - shows through the ridge in front of it. The DEM level follows the tile zoom
+         * as well (one elevation texture per tile), so the same tiles also shade as blocky
+         * hillshade.
+         * Larger values give the LOD more room - fewer tiles at a tilt, at the price of both;
+         * 0 pins every tile to the camera's own zoom.
+         * @param levels The new maximum tile zoom coarsening. The default is 3.
+         */
+        void setMaxTileZoomCoarsening(int levels);
 
         /**
          * Returns the terrain background color.
@@ -506,7 +538,8 @@ namespace carto {
         std::atomic<int> _fogColorARGB;
         std::atomic<float> _fogStartDistance;
         std::atomic<float> _fogDistance;
-        std::atomic<float> _maxVisibleDistance;
+        std::atomic<float> _viewDistanceFactor;
+        std::atomic<int> _maxTileZoomCoarsening;
 
         std::vector<std::shared_ptr<OnChangeListener> > _onChangeListeners;
         mutable std::mutex _onChangeListenersMutex;

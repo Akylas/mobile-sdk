@@ -15,6 +15,7 @@ import com.carto.core.MapVec;
 import com.carto.core.StringMap;
 import com.carto.core.StringVector;
 import com.carto.datasources.ContourTileDataSource;
+import com.carto.datasources.GeoJSONVectorTileDataSource;
 import com.carto.datasources.HTTPTileDataSource;
 import com.carto.datasources.LocalVectorDataSource;
 import com.carto.datasources.MBTilesTileDataSource;
@@ -49,6 +50,11 @@ import com.carto.vectorelements.Line;
 import com.carto.vectorelements.Marker;
 import com.carto.vectortiles.MBVectorTileDecoder;
 
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -76,13 +82,13 @@ public class DemoMap {
 
     /** One switchable layer of the demo. */
     public enum Feature {
-        BASE, SATELLITE, HILLSHADE, HYPSO, CONTOUR, CONTOUR_TILES, ROUTES, ELEMENTS
+        BASE, SATELLITE, HILLSHADE, HYPSO, CONTOUR, CONTOUR_TILES, ROUTES, ROUTE_TEST, ELEMENTS
     }
 
     /** Bottom -> top draw order. Toggling a layer never reorders the others. */
     private static final Feature[] LAYER_ORDER = {
         Feature.BASE, Feature.SATELLITE, Feature.HILLSHADE, Feature.HYPSO,
-        Feature.CONTOUR, Feature.CONTOUR_TILES, Feature.ROUTES, Feature.ELEMENTS
+        Feature.CONTOUR, Feature.CONTOUR_TILES, Feature.ROUTES, Feature.ROUTE_TEST, Feature.ELEMENTS
     };
 
     private final Context context;
@@ -125,6 +131,9 @@ public class DemoMap {
     /** Applies the whole {@link DemoConfig} to a fresh map. */
     public void build() {
         // Options first: layers created afterwards pick up the terrain/light state immediately.
+        mapView.getOptions().setTileThreadPoolSize(DemoConfig.TILE_THREAD_POOL_SIZE);
+        mapView.getOptions().setTileLODFactor(DemoConfig.TILE_LOD_FACTOR);
+        applyDebugConfig();
         applyTerrainOptions();
         applyLightOptions();
         applySkyOptions();
@@ -161,6 +170,7 @@ public class DemoMap {
             case CONTOUR: return DemoConfig.LAYER_CONTOUR;
             case CONTOUR_TILES: return DemoConfig.LAYER_CONTOUR_TILES;
             case ROUTES: return DemoConfig.LAYER_ROUTES;
+            case ROUTE_TEST: return DemoConfig.LAYER_ROUTE_TEST;
             case ELEMENTS: return DemoConfig.LAYER_ELEMENTS;
             default: return false;
         }
@@ -175,6 +185,7 @@ public class DemoMap {
             case CONTOUR: DemoConfig.LAYER_CONTOUR = enabled; break;
             case CONTOUR_TILES: DemoConfig.LAYER_CONTOUR_TILES = enabled; break;
             case ROUTES: DemoConfig.LAYER_ROUTES = enabled; break;
+            case ROUTE_TEST: DemoConfig.LAYER_ROUTE_TEST = enabled; break;
             case ELEMENTS: DemoConfig.LAYER_ELEMENTS = enabled; break;
         }
         rebuildLayers();
@@ -219,6 +230,7 @@ public class DemoMap {
             case CONTOUR: return createContourLayer();
             case CONTOUR_TILES: return createContourTilesLayer();
             case ROUTES: return createRoutesLayer();
+            case ROUTE_TEST: return createRouteTestLayer();
             case ELEMENTS: return createElementsLayer();
             default: return null;
         }
@@ -232,9 +244,11 @@ public class DemoMap {
      */
     private Layer createBaseLayer() {
         baseDecoder = DemoStyles.create(DemoConfig.STYLE_SOURCE, dataPath);
+        // see BASE_TILE_CACHE_MB: the SDK default (10MB) is what makes a zoom step blank the map
         if (DemoConfig.BASE_MODE == DemoConfig.BaseMode.PLAIN) {
             compositeLayer = null;
             baseLayer = new VectorTileLayer(vectorSource(), baseDecoder);
+            baseLayer.setTileCacheCapacity(DemoConfig.BASE_TILE_CACHE_MB * 1024L * 1024L);
             return baseLayer;
         }
 
@@ -243,6 +257,7 @@ public class DemoMap {
         layer.setSinglePassRenderingEnabled(DemoConfig.COMPOSITE_SINGLE_PASS);
         compositeLayer = layer;
         baseLayer = layer;
+        layer.setTileCacheCapacity(DemoConfig.BASE_TILE_CACHE_MB * 1024L * 1024L);
         syncCompositeSources();
         if (DemoConfig.STYLE_SOURCE == DemoConfig.StyleSource.NUTI && DemoConfig.NUTI_TOGGLE_INTERVAL_MS > 0) {
             startNutiToggleLoop();
@@ -344,6 +359,11 @@ public class DemoMap {
     }
 
     /** Pushes every HILLSHADE_* config value onto the stand-alone hillshade layer. */
+    /** Debug overlays (DEBUG section of the panel). */
+    public void applyDebugConfig() {
+        mapView.getOptions().setDebugTileBorders(DemoConfig.DEBUG_TILE_BORDERS);
+    }
+
     public void applyHillshadeConfig() {
         HillshadeRasterTileLayer layer = hillshadeLayer;
         if (layer == null) {
@@ -399,7 +419,18 @@ public class DemoMap {
      */
     private Layer createContourLayer() {
         MBVectorTileDecoder decoder = new MBVectorTileDecoder(new CartoCSSStyleSet(DemoStyles.contourStyle()));
-        return new VectorTileLayer(contourSource(), decoder);
+        VectorTileLayer layer = new VectorTileLayer(contourSource(), decoder);
+        // A stand-in tile of another zoom carries a coarser grid AND a coarser interval, so while the
+        // right tile loads the map shows angular chords instead of contours. "none" trades that for
+        // empty space until the tile is there.
+        layer.setMaxStandInLevel(DemoConfig.CONTOUR_MAX_OVERZOOM_STANDIN);
+        layer.setTileCacheCapacity(DemoConfig.CONTOUR_TILE_CACHE_MB * 1024L * 1024L);
+        if ("none".equalsIgnoreCase(DemoConfig.CONTOUR_TILE_SUBSTITUTION)) {
+            layer.setTileSubstitutionPolicy(TileSubstitutionPolicy.TILE_SUBSTITUTION_POLICY_NONE);
+        } else if ("visible".equalsIgnoreCase(DemoConfig.CONTOUR_TILE_SUBSTITUTION)) {
+            layer.setTileSubstitutionPolicy(TileSubstitutionPolicy.TILE_SUBSTITUTION_POLICY_VISIBLE);
+        }
+        return layer;
     }
 
     /**
@@ -426,6 +457,73 @@ public class DemoMap {
         } catch (Exception e) {
             Log.w(TAG, "routes layer unavailable: " + e.getMessage());
             return null;
+        }
+    }
+
+    /**
+     * The LINE JOIN bench: a synthetic mountain road served as GeoJSON vector tiles and styled with
+     * CartoCSS, so it takes the SAME tesselator, shaders and drape path as the base map's roads - a
+     * Line vector element would not (LineDrawData is a second, independent tesselator).
+     *
+     * Casing + fill, as a navigation app draws a route. What to look at, zooming OUT: the outside
+     * of a sharp turn (miter needles), the inside of a turn with line-opacity below 1 (the join
+     * blends twice where the triangles overlap) and the switchback ends (cap / split joins).
+     */
+    private Layer createRouteTestLayer() {
+        String geoJSON = readRouteTestGeoJSON();
+        if (geoJSON == null) {
+            return null; // already logged
+        }
+        MBVectorTileDecoder decoder = new MBVectorTileDecoder(new CartoCSSStyleSet(DemoStyles.routeTestStyle()));
+        GeoJSONVectorTileDataSource source = new GeoJSONVectorTileDataSource(0, 24);
+        source.setSimplifyTolerance(DemoConfig.ROUTE_TEST_SIMPLIFY);
+        try {
+            int layerIndex = source.createLayer("route");
+            source.addGeoJSONStringFeature(layerIndex, geoJSON);
+        } catch (IOException e) {
+            Log.w(TAG, "route test geojson rejected: " + e.getMessage());
+            return null;
+        }
+        return new VectorTileLayer(source, decoder);
+    }
+
+    /**
+     * A real Valhalla route (1200 points around Grenoble): dense source geometry, switchbacks,
+     * roundabouts and a handful of near-reversals - which is what a join has to survive, and what
+     * a synthetic test line does not reproduce.
+     *
+     * The DATA DIRECTORY wins over the APK asset, so another route can be tried without rebuilding:
+     *   adb push my-route.geojson /sdcard/alpimaps_mbtiles/route-test.geojson
+     */
+    private String readRouteTestGeoJSON() {
+        String name = DemoConfig.ROUTE_TEST_GEOJSON_NAME;
+        File file = new File(dataPath + "/" + name);
+        if (file.exists()) {
+            try {
+                return readStream(new FileInputStream(file));
+            } catch (Exception e) {
+                Log.w(TAG, "route test geojson not readable (" + file + "): " + e.getMessage());
+            }
+        }
+        try {
+            return readStream(context.getAssets().open(name));
+        } catch (Exception e) {
+            Log.w(TAG, "route test asset unavailable (" + name + "): " + e.getMessage());
+            return null;
+        }
+    }
+
+    private static String readStream(InputStream stream) throws IOException {
+        try {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            byte[] chunk = new byte[16384];
+            int read;
+            while ((read = stream.read(chunk)) > 0) {
+                out.write(chunk, 0, read);
+            }
+            return out.toString("UTF-8");
+        } finally {
+            stream.close();
         }
     }
 
@@ -534,8 +632,41 @@ public class DemoMap {
         // NOTE: in CartoCSS 'zoom' is the TILE zoom. Contour tiles are generated at the DEM zoom,
         // so per-zoom style rules only fire if the DEM source max zoom is high enough.
         contourSource.setMinVisibleZoom(DemoConfig.CONTOUR_MIN_VISIBLE_ZOOM);
+        // Per-zoom detail: how fine the traced interval is, and how big the tracing grid is. Both
+        // are cost knobs and both must match what the style actually draws - see contourWidthByDiv.
+        applyContourLadders();
         contourSource.setMaxOverzoomLevel(DemoConfig.CONTOUR_MAX_OVERZOOM);
+        // Labels only: the lines come from the hillshade shader, so the tile carries a handful of
+        // stubs to lay the text along instead of the traced geometry.
+        contourSource.setLabelStubsEnabled(DemoConfig.CONTOUR_LABEL_STUBS);
+        contourSource.setLabelInterval(DemoConfig.CONTOUR_LABEL_INTERVAL);
+        // Stubs off the terrain's own elevation: no DEM tile of the contour source's own to fetch
+        // and decode, which is tangram's arrangement. Same DEM source on both sides, so the labels
+        // state the heights the terrain draws.
+        contourSource.setTerrainOptions(DemoConfig.CONTOUR_STUBS_FROM_TERRAIN ? terrainOptions : null);
         mapView.requestRender();
+    }
+
+    /** "maxZoom:value,..." rungs onto the source. -1 as a zoom means every zoom above the others. */
+    private void applyContourLadders() {
+        if (!DemoConfig.CONTOUR_INTERVAL_LADDER.isEmpty()) {
+            contourSource.clearIntervalMultipliers();
+            for (String rung : DemoConfig.CONTOUR_INTERVAL_LADDER.split(",")) {
+                String[] parts = rung.split(":");
+                if (parts.length == 2) {
+                    contourSource.setIntervalMultiplier(Integer.parseInt(parts[0].trim()), Float.parseFloat(parts[1].trim()));
+                }
+            }
+        }
+        if (!DemoConfig.CONTOUR_RESOLUTION_LADDER.isEmpty()) {
+            contourSource.clearResolutionsForZoom();
+            for (String rung : DemoConfig.CONTOUR_RESOLUTION_LADDER.split(",")) {
+                String[] parts = rung.split(":");
+                if (parts.length == 2) {
+                    contourSource.setResolutionForZoom(Integer.parseInt(parts[0].trim()), Integer.parseInt(parts[1].trim()));
+                }
+            }
+        }
     }
 
     private ElevationDecoder elevationDecoder() {
@@ -567,6 +698,7 @@ public class DemoMap {
         terrainOptions.setEnabled(DemoConfig.TERRAIN_ENABLED);
         terrainOptions.setExaggeration(DemoConfig.TERRAIN_EXAGGERATION);
         terrainOptions.setMeshResolution(DemoConfig.TERRAIN_MESH_RESOLUTION);
+        terrainOptions.setCameraClearance(DemoConfig.TERRAIN_CAMERA_CLEARANCE);
         terrainOptions.setPainterOrderDepthEnabled(DemoConfig.TERRAIN_PAINTER_ORDER_DEPTH);
         terrainOptions.setDrapeFillsEnabled(DemoConfig.TERRAIN_DRAPE_FILLS);
         terrainOptions.setDrapeLinesEnabled(DemoConfig.TERRAIN_DRAPE_LINES);
@@ -585,7 +717,8 @@ public class DemoMap {
         terrainOptions.setFogColor(new Color(DemoConfig.FOG_ENABLED ? DemoConfig.FOG_COLOR_ARGB : 0));
         terrainOptions.setFogStartDistance(DemoConfig.FOG_START_DISTANCE);
         terrainOptions.setFogDistance(DemoConfig.FOG_DISTANCE);
-        terrainOptions.setMaxVisibleDistance(DemoConfig.MAX_VISIBLE_DISTANCE);
+        terrainOptions.setViewDistanceFactor(DemoConfig.VIEW_DISTANCE_FACTOR);
+        terrainOptions.setMaxTileZoomCoarsening(DemoConfig.TERRAIN_MAX_TILE_ZOOM_COARSENING);
         mapView.requestRender();
     }
 
@@ -624,6 +757,10 @@ public class DemoMap {
             mapView.getOptions().setSkyOptions(skyOptions);
         }
         skyOptions.setEnabled(DemoConfig.SKY_ENABLED);
+        // How much of the sky the terrain haze takes: FogBlend is the fade width, FogHorizon the
+        // angle it is still at full strength at (negative = from the terrain, 0 = from the horizon).
+        skyOptions.setFogBlend(DemoConfig.SKY_FOG_BLEND);
+        skyOptions.setFogHorizon(DemoConfig.SKY_FOG_HORIZON);
         mapView.requestRender();
     }
 
@@ -678,7 +815,7 @@ public class DemoMap {
                 if ("zoom".equals(anim)) {
                     mapView.setZoom(DemoConfig.START_ZOOM + DemoConfig.ANIM_ZOOM_DELTA, duration);
                 } else if ("pan".equals(anim)) {
-                    mapView.setFocusPos(proj.fromWgs84(new MapPos(DemoConfig.START_LON + DemoConfig.ANIM_LON_DELTA, DemoConfig.START_LAT)), duration);
+                    mapView.setFocusPos(proj.fromWgs84(new MapPos(DemoConfig.START_LON + DemoConfig.ANIM_LON_DELTA, DemoConfig.START_LAT + DemoConfig.ANIM_LAT_DELTA)), duration);
                 } else if ("rotate".equals(anim)) {
                     mapView.setMapRotation(DemoConfig.ANIM_ROTATION, duration);
                 } else if ("zoomseq".equals(anim)) {
@@ -735,4 +872,87 @@ public class DemoMap {
     private static Color color(int argb) {
         return new Color(argb);
     }
+    /**
+     * Terrain on/off as an EXPAND animation instead of a pop. Enabling flips the flag first and
+     * ramps the exaggeration 0 -> target, disabling ramps it to 0 and only then flips the flag, so
+     * the tile re-decode that a flag change forces happens while the map is already flat and is not
+     * seen. Only the exaggeration moves per frame, and that no longer invalidates the tile cache.
+     */
+    public void animateTerrain(final boolean enabled) {
+        final float target = DemoConfig.TERRAIN_EXAGGERATION;
+        final long durationMs = DemoConfig.TERRAIN_ANIM_MS;
+        if (durationMs <= 0) {
+            terrainOptions.setEnabled(enabled);
+            terrainOptions.setExaggeration(target);
+            return;
+        }
+        if (enabled) {
+            // Flat first, and hold the ramp until the terrain-decoded tiles are in. Flipping the
+            // flag re-decodes every tile, and the old FLAT ones are tesselated without terrain
+            // subdivision: displacing those chords a road straight between its endpoints, which
+            // over a valley rides well above the ground - roads in the sky. At exaggeration 0
+            // nothing of that is visible, so waiting costs nothing to look at.
+            terrainOptions.setExaggeration(0f);
+            terrainOptions.setEnabled(true);
+            startRampWhenTilesLoaded();
+            return;
+        }
+        final android.animation.ValueAnimator animator =
+            android.animation.ValueAnimator.ofFloat(enabled ? 0f : target, enabled ? target : 0f);
+        animator.setDuration(durationMs);
+        animator.setInterpolator(new android.view.animation.DecelerateInterpolator());
+        animator.addUpdateListener(new android.animation.ValueAnimator.AnimatorUpdateListener() {
+            public void onAnimationUpdate(android.animation.ValueAnimator a) {
+                terrainOptions.setExaggeration(((Float) a.getAnimatedValue()).floatValue());
+            }
+        });
+        if (!enabled) {
+            animator.addListener(new android.animation.AnimatorListenerAdapter() {
+                public void onAnimationEnd(android.animation.Animator a) {
+                    terrainOptions.setEnabled(false);
+                    terrainOptions.setExaggeration(target);
+                }
+            });
+        }
+        animator.start();
+    }
+
+    /** Ramps the terrain in once the visible tiles have been re-decoded for it (see animateTerrain). */
+    private void startRampWhenTilesLoaded() {
+        final float target = DemoConfig.TERRAIN_EXAGGERATION;
+        final long durationMs = DemoConfig.TERRAIN_ANIM_MS;
+        final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
+        final Runnable ramp = new Runnable() {
+            private boolean done = false;
+            public void run() {
+                if (done) {
+                    return;
+                }
+                done = true;
+                if (baseLayer != null) {
+                    baseLayer.setTileLoadListener(null);
+                }
+                android.animation.ValueAnimator a = android.animation.ValueAnimator.ofFloat(0f, target);
+                a.setDuration(durationMs);
+                a.setInterpolator(new android.view.animation.DecelerateInterpolator());
+                a.addUpdateListener(new android.animation.ValueAnimator.AnimatorUpdateListener() {
+                    public void onAnimationUpdate(android.animation.ValueAnimator anim) {
+                        terrainOptions.setExaggeration(((Float) anim.getAnimatedValue()).floatValue());
+                    }
+                });
+                a.start();
+            }
+        };
+        if (baseLayer != null) {
+            baseLayer.setTileLoadListener(new com.carto.layers.TileLoadListener() {
+                public void onVisibleTilesLoaded() {
+                    handler.post(ramp);
+                }
+            });
+        }
+        // The listener can not fire when every visible tile is already decoded for the terrain
+        // (toggling back and forth), so a timeout is what actually starts it in that case.
+        handler.postDelayed(ramp, DemoConfig.TERRAIN_ANIM_TILE_TIMEOUT_MS);
+    }
+
 }

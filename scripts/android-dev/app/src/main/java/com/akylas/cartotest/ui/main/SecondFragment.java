@@ -93,6 +93,13 @@ public class SecondFragment extends Fragment {
 
         // Intent extras override the DemoConfig defaults; read them before anything is built.
         DemoCfg.attach(getActivity() != null ? getActivity().getIntent() : null);
+
+        // MapView sets RENDERMODE_WHEN_DIRTY: every frame is a request from the native side, which
+        // costs a wakeup handshake per frame. '--es continuousRender true' drives the GL thread
+        // continuously instead, which is what tells whether that handshake is what paces the map.
+        if (DemoConfig.CONTINUOUS_RENDER) {
+            mapView.setRenderMode(android.opengl.GLSurfaceView.RENDERMODE_CONTINUOUSLY);
+        }
         DemoConfig.applyIntentOverrides();
 
         checkStoragePermission(view);
@@ -109,10 +116,29 @@ public class SecondFragment extends Fragment {
         Log.i(TAG, "data path: " + dataPath);
 
         demo = new DemoMap(getContext(), mapView, dataPath);
-        demo.build();
 
-        DemoPanel.build(getContext(), view.findViewById(R.id.main), demo);
-        installMapListener();
+        // Off the UI thread: build() decodes the style, and a real style project takes seconds
+        // (measured 6.5 s for the bundled assets style on a mid-range device). On the UI thread
+        // that is a frozen app and an "isn't responding" dialog before the map ever appears.
+        final View demoView = view;
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                demo.build();
+                demoView.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        DemoPanel.build(getContext(), demoView.findViewById(R.id.main), demo);
+                        installMapListener();
+                        // Re-apply the start camera once the map view has a size: build() sets it
+                        // while the view can still be 0x0, and restricted panning then clamps the
+                        // focus latitude to 0 - the map opens on the equator with only the
+                        // longitude kept.
+                        demo.applyCamera();
+                    }
+                });
+            }
+        }, "demo-build").start();
     }
 
     /**

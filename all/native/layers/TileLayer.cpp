@@ -21,10 +21,46 @@
 #include "utils/TileUtils.h"
 #include "utils/Log.h"
 
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
+
 #include <vt/TileTransformer.h>
 #include <vt/RenderStats.h>
 
 namespace carto {
+
+#ifdef __ANDROID__
+    static bool isLineSourceDensityForced() {
+        static const bool forced = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            return __system_property_get("debug.carto.linesourcedensity", property) > 0 && property[0] == '1';
+        }();
+        return forced;
+    }
+
+    // Measurement switch for what AREA subdivision costs: it is the expensive half (a triangle
+    // subdivides 1/factor^2, see TerrainTileTransformer.h) and it is on for correctness, not for
+    // speed - an un-subdivided fill floats above the ground and hides every ground-shaped draw
+    // stacked after it. Off = the shipped behaviour.
+    //   adb shell setprop debug.carto.areasourcedensity 1
+    static bool isAreaSourceDensityForced() {
+        static const bool forced = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            return __system_property_get("debug.carto.areasourcedensity", property) > 0 && property[0] == '1';
+        }();
+        return forced;
+    }
+#else
+    static bool isLineSourceDensityForced() {
+        return false;
+    }
+
+    static bool isAreaSourceDensityForced() {
+        return false;
+    }
+#endif
+
 
     TileLayer::~TileLayer() {
     }
@@ -108,6 +144,19 @@ namespace carto {
         {
             std::lock_guard<std::recursive_mutex> lock(_mutex);
             _maxOverzoomLevel = overzoomLevel;
+        }
+        refresh();
+    }
+
+    int TileLayer::getMaxStandInLevel() const {
+        std::lock_guard<std::recursive_mutex> lock(_mutex);
+        return _maxStandInLevel;
+    }
+
+    void TileLayer::setMaxStandInLevel(int standInLevel) {
+        {
+            std::lock_guard<std::recursive_mutex> lock(_mutex);
+            _maxStandInLevel = standInLevel;
         }
         refresh();
     }
@@ -195,6 +244,7 @@ namespace carto {
         _substitutionPolicy(TileSubstitutionPolicy::TILE_SUBSTITUTION_POLICY_ALL),
         _zoomLevelBias(0.0f),
         _maxOverzoomLevel(MAX_PARENT_SEARCH_DEPTH),
+        _maxStandInLevel(MAX_STAND_IN_DEPTH),
         _maxUnderzoomLevel(MAX_CHILD_SEARCH_DEPTH),
         _visibleTiles(),
         _preloadingTiles(),
@@ -257,7 +307,6 @@ namespace carto {
                 terrainOptions = options->getTerrainOptions();
             }
             bool terrainEnabled = terrainOptions && terrainOptions->isEnabled();
-            float terrainExaggeration = terrainOptions ? terrainOptions->getExaggeration() : 1.0f;
             int terrainMeshResolution = terrainOptions ? terrainOptions->getMeshResolution() : 0;
             int terrainMinZoom = terrainOptions ? terrainOptions->getMinZoom() : 0;
             bool terrainRegularGrid = terrainOptions && (terrainOptions->isRegularGridEnabled() || terrainOptions->isPainterOrderDepthEnabled());
@@ -278,14 +327,35 @@ namespace carto {
             // subdivision is not what costs.
             // This value MUST match what resetTileTransformer() passes, or a change to it silently
             // keeps tiles decoded for the other mode.
-            bool terrainSourceDensity = false;
-            bool terrainSourceDensityLines = terrainOptions && terrainOptions->isDrapeLinesEnabled();
-            if (_terrainOptions.lock() != terrainOptions || _terrainEnabled != terrainEnabled || _terrainExaggeration != terrainExaggeration || _terrainMeshResolution != terrainMeshResolution || _terrainMinZoom != terrainMinZoom || _terrainRegularGrid != terrainRegularGrid || _terrainSourceDensity != terrainSourceDensity || _terrainSourceDensityLines != terrainSourceDensityLines) {
+            // Tangram's content model for LINES: no terrain subdivision, every vertex displaced in
+            // the vertex shader, and the depth model (per-style-layer ordinal, content writing
+            // depth) doing the rest. The cost is real - measured at 13x the index throughput - and
+            // a coarse or proxy tile's roads chord straight across the terrain until the tile for
+            // the new zoom arrives, which is the "roads go straight when zooming out" report.
+            // AREA fills do NOT follow it, and this is the one place the reference cannot be
+            // copied: tangram has no un-subdivided fill above a ground-hugging draw, because in a
+            // terrain scene their base map is a RASTER sampled inside the ground draw
+            // (res/scenes/hillshade.yaml, `base_color = sampleRaster(0)`), not vector polygons.
+            // An un-subdivided fill floats above the surface by its chord error - tens to hundreds
+            // of metres across a tile - and every ground-shaped draw stacked after it (the
+            // hillshade raster, contours, imagery, all of which draw on the ground's own mesh) is
+            // depth-rejected under it. One ordinal step buys 0.02 clip units, metres at a low
+            // camera, so no ordering recovers it. Subdividing the fill to the ground lattice is
+            // what makes it coincident, and coincident is what lets a raster sit at ANY level.
+            bool terrainTangramContent = terrainEnabled && terrainOptions && !terrainOptions->isDrapeFillsEnabled();
+            bool terrainSourceDensity = isAreaSourceDensityForced();
+            bool terrainSourceDensityLines = terrainTangramContent || (terrainOptions && terrainOptions->isDrapeLinesEnabled()) || isLineSourceDensityForced();
+            // NOT the exaggeration: it never reaches the decode. Heights are replaced in the vertex
+            // shader from the elevation texture, whose metersToInternal already carries it
+            // (TerrainVertexTransformer stores an exaggeration it does not use, and
+            // calculateLocalHeight returns 0). Comparing it here dropped every tile in the cache
+            // for a value only the GPU reads, so ramping it - the terrain 'expand' animation -
+            // re-decoded the whole map every frame.
+            if (_terrainOptions.lock() != terrainOptions || _terrainEnabled != terrainEnabled || _terrainMeshResolution != terrainMeshResolution || _terrainMinZoom != terrainMinZoom || _terrainRegularGrid != terrainRegularGrid || _terrainSourceDensity != terrainSourceDensity || _terrainSourceDensityLines != terrainSourceDensityLines) {
                 clearTileCaches(true);
                 resetTileTransformer();
                 _terrainOptions = terrainOptions;
                 _terrainEnabled = terrainEnabled;
-                _terrainExaggeration = terrainExaggeration;
                 _terrainMeshResolution = terrainMeshResolution;
                 _terrainMinZoom = terrainMinZoom;
                 _terrainRegularGrid = terrainRegularGrid;
@@ -320,19 +390,25 @@ namespace carto {
             return;
         }
 
-        // The view distance decides which tiles are visible, but it is not part of the view
-        // matrix: changing it on a still map would otherwise only take effect the next time the
-        // camera moves (the option looks dead, then the ground suddenly ends mid-pan).
+        // The view distance and the LOD threshold decide which tiles are visible, but neither is
+        // part of the view matrix: changing one on a still map would otherwise only take effect the
+        // next time the camera moves (the option looks dead, then the ground suddenly ends mid-pan).
         {
-            float maxVisibleDistanceOption = 0.0f;
+            float viewDistanceFactor = 0.0f;
+            float lodFactor = 0.0f;
+            int coarsening = 0;
             if (auto options = getOptions()) {
+                lodFactor = options->getTileLODFactor();
                 if (auto terrainOptions = options->getTerrainOptions()) {
-                    maxVisibleDistanceOption = terrainOptions->getMaxVisibleDistance();
+                    viewDistanceFactor = terrainOptions->getViewDistanceFactor();
+                    coarsening = terrainOptions->getMaxTileZoomCoarsening();
                 }
             }
-            if (_terrainMaxVisibleDistanceOption != maxVisibleDistanceOption) {
-                _terrainMaxVisibleDistanceOption = maxVisibleDistanceOption;
-                _tileCullState.reset(); // re-cull with the new distance, tiles themselves stay valid
+            if (_terrainViewDistanceFactor != viewDistanceFactor || _tileLODFactor != lodFactor || _terrainCoarsening != coarsening) {
+                _terrainViewDistanceFactor = viewDistanceFactor;
+                _tileLODFactor = lodFactor;
+                _terrainCoarsening = coarsening;
+                _tileCullState.reset(); // re-cull with the new rule, tiles themselves stay valid
             }
         }
 
@@ -557,6 +633,7 @@ namespace carto {
         // TerrainOptions::setMaxTileZoomOffset caps the tile detail relative to what flat
         // rendering would use.
         _terrainMaxTileZoom = 1000;
+        _terrainMinTileZoom = 0;
         _terrainOverzoomTargets = false;
         if (auto options = getOptions()) {
             if (auto terrainOptions = options->getTerrainOptions()) {
@@ -570,32 +647,68 @@ namespace carto {
                     // and the resulting blunted ridges are leaky occluders that content
                     // and vector elements show through near crests.
                     _terrainOverzoomTargets = true;
+                    const ViewState& viewState = cullState->getViewState();
+                    int cameraTileZoom = static_cast<int>(viewState.getZoom() + getZoomLevelBias() + DISCRETE_ZOOM_LEVEL_BIAS);
                     if (terrainOptions->getMaxTileZoomOffset() < 100) {
-                        const ViewState& viewState = cullState->getViewState();
-                        _terrainMaxTileZoom = static_cast<int>(viewState.getZoom() + getZoomLevelBias() + DISCRETE_ZOOM_LEVEL_BIAS) + terrainOptions->getMaxTileZoomOffset();
+                        _terrainMaxTileZoom = cameraTileZoom + terrainOptions->getMaxTileZoomOffset();
+                    }
+                    _terrainMinTileZoom = cameraTileZoom - terrainOptions->getMaxTileZoomCoarsening();
+                }
+            }
+        }
+
+        // How far the map is drawn: tangram's view distance (ViewState::calculateViewDistance),
+        // unless the style pins an absolute one (and it may make it depend on the zoom). Looking
+        // along the ground the camera sees to the horizon, which is hundreds of tiles, almost all
+        // of them a few pixels tall and each carrying its own labels; this is what keeps that view
+        // affordable. Pair a short one with fog, or the ground simply ends.
+        _maxVisibleDistance = 0;
+        {
+            StyleEnvironment env;
+            if (getStyleEnvironment(cullState->getViewState(), env) && env.terrainMaxVisibleDistance && *env.terrainMaxVisibleDistance > 0) {
+                _maxVisibleDistance = *env.terrainMaxVisibleDistance * static_cast<double>(Const::WORLD_SIZE) / Const::EARTH_CIRCUMFERENCE;
+            } else if (auto options = getOptions()) {
+                _maxVisibleDistance = cullState->getViewState().calculateViewDistance(*options);
+            }
+        }
+
+        // Tangram's LOD threshold (TileManager::updateTileSets): a tile is refined while its
+        // projected SCREEN AREA is at least that of a 2x2 block of nominal tiles - so refinement
+        // stops when a tile covers between one and two tile sizes on screen, which is the same
+        // density in the near field as the distance rule it replaces, and far coarser at a grazing
+        // angle where a tile's screen area collapses but its DISTANCE barely grows. That grazing
+        // band is where a near-horizontal view used to spend hundreds of tiles, each carrying a
+        // full set of labels for a few pixels of screen.
+        // Tangram projects the tile corners at the terrain elevation AT THE SCREEN CENTRE, not at
+        // sea level ("use elevation at center of screen (used to calc m_zoom) for tile bottom",
+        // View::getTileScreenArea). Measuring a mountain tile as if it lay at sea level puts it
+        // further from the camera and makes it smaller, so it stays coarse exactly where the
+        // terrain is high and steep - which is where a coarse tile hurts most: blurred hillshade,
+        // a blunt depth occluder that steep ridges leak through, and a wide LOD spread that tears
+        // at tile borders. One value for the whole cull, so it moves with the camera and not with
+        // the tile, and the visible set does not churn as elevation streams in.
+        _lodElevation = 0;
+        if (auto options = getOptions()) {
+            if (auto terrainOptions = options->getTerrainOptions()) {
+                if (terrainOptions->isEnabled()) {
+                    if (auto elevationManager = terrainOptions->getElevationManager()) {
+                        const cglib::vec3<double>& focusPos = cullState->getViewState().getFocusPos();
+                        _lodElevation = elevationManager->getDisplayHeight(focusPos(0), focusPos(1), ElevationManager::LoadMode::CACHED_ONLY);
                     }
                 }
             }
         }
 
-        // How far the map is drawn. The style may say (and may make it depend on the zoom),
-        // otherwise TerrainOptions does. Looking along the ground the camera sees to the horizon,
-        // which is hundreds of tiles, almost all of them a few pixels tall; this is what keeps
-        // that view affordable. Pair it with fog, or the ground simply ends.
-        _maxVisibleDistance = 0;
-        {
-            StyleEnvironment env;
-            float distance = 0;
-            if (getStyleEnvironment(cullState->getViewState(), env) && env.terrainMaxVisibleDistance) {
-                distance = *env.terrainMaxVisibleDistance;
-            } else if (auto options = getOptions()) {
-                if (auto terrainOptions = options->getTerrainOptions()) {
-                    distance = terrainOptions->getMaxVisibleDistance();
-                }
-            }
-            if (distance > 0) {
-                _maxVisibleDistance = distance * static_cast<double>(Const::WORLD_SIZE) / Const::EARTH_CIRCUMFERENCE;
-            }
+        _lodMaxTileArea = 0;
+        if (auto options = getOptions()) {
+            const ViewState& viewState = cullState->getViewState();
+            double tileSizePixels = options->getTileDrawSize() * viewState.getDPI() / Const::UNSCALED_DPI;
+            // Options::TileLODFactor scales it: 1 is their rule verbatim, larger keeps tiles
+            // coarser (fewer tiles, fewer labels, less detail), smaller refines further.
+            double maxEdge = 2.0 * tileSizePixels * std::max(0.0f, options->getTileLODFactor());
+            // A source whose tiles are bigger than the nominal size carries a zoom bias; the same
+            // bias applies to the area it is allowed to cover (tangram: maxArea * exp2(2*zoomBias)).
+            _lodMaxTileArea = maxEdge * maxEdge * std::pow(4.0, -getZoomLevelBias());
         }
 
         // Recursively calculate visible tiles
@@ -658,14 +771,54 @@ namespace carto {
         // the elevation-expanded bounding box) so that subdivision decisions do not change
         // as elevation tiles get loaded - otherwise the visible tile set (and tile/elevation
         // fetching) would keep churning while elevation data streams in.
-        cglib::vec3<double> lodCenter = tileCenter;
-        if (std::dynamic_pointer_cast<TerrainTileTransformer>(tileTransformer)) {
-            lodCenter = cglib::transform_point(cglib::vec3<double>(0.5, 0.5, 0), tileTransformer->calculateTileMatrix(vtTileId, 1.0f));
-        }
+        // Tangram's rule (View::getTileScreenArea): project the tile's four corners and compare
+        // the SCREEN AREA they enclose against the threshold. Taken at surface level, not from the
+        // elevation-expanded bounding box, so subdivision decisions do not change as elevation
+        // tiles get loaded - otherwise the visible tile set (and tile/elevation fetching) would
+        // keep churning while elevation data streams in. A tile that crosses the camera plane has
+        // no meaningful projected area and is always subdivided, as it is there.
         const cglib::mat4x4<double>& mvpMat = viewState.getModelviewProjectionMat();
-        double tileW = lodCenter(0) * mvpMat(3, 0) + lodCenter(1) * mvpMat(3, 1) + lodCenter(2) * mvpMat(3, 2) + mvpMat(3, 3);
-        double zoomDistance = tileW * std::pow(2.0f, tile.getZoom() - getZoomLevelBias());
-        bool subDivide = zoomDistance < SUBDIVISION_THRESHOLD * Const::SQRT_2;
+        cglib::mat4x4<double> tileMat = tileTransformer->calculateTileMatrix(vtTileId, 1.0f);
+        double screenArea = std::numeric_limits<double>::infinity();
+        {
+            static const cglib::vec3<double> CORNERS[4] = {
+                cglib::vec3<double>(0, 0, 0), cglib::vec3<double>(1, 0, 0),
+                cglib::vec3<double>(1, 1, 0), cglib::vec3<double>(0, 1, 0)
+            };
+            cglib::vec2<double> screenPos[4];
+            bool projected = true;
+            for (int i = 0; i < 4; i++) {
+                cglib::vec3<double> worldPos = cglib::transform_point(CORNERS[i], tileMat);
+                worldPos(2) += _lodElevation; // see calculateVisibleTiles
+                cglib::vec4<double> clipPos = cglib::transform(cglib::vec4<double>(worldPos(0), worldPos(1), worldPos(2), 1.0), mvpMat);
+                if (!(clipPos(3) > 0)) {
+                    projected = false;
+                    break;
+                }
+                screenPos[i] = cglib::vec2<double>(clipPos(0) / clipPos(3) * viewState.getHalfWidth(), clipPos(1) / clipPos(3) * viewState.getHalfHeight());
+            }
+            if (projected) {
+                double area = 0;
+                for (int i = 0; i < 4; i++) {
+                    const cglib::vec2<double>& p = screenPos[i];
+                    const cglib::vec2<double>& q = screenPos[(i + 1) % 4];
+                    area += p(0) * q(1) - q(0) * p(1);
+                }
+                screenArea = std::abs(area) * 0.5;
+            }
+        }
+        bool subDivide = !(_lodMaxTileArea > 0) || screenArea >= _lodMaxTileArea;
+        // TERRAIN: the tile surface is the depth OCCLUDER, and its tesselation is proportional to
+        // the tile size. Let a tile coarsen freely and its ridge crests are chopped flat, so
+        // content drawn over a finer tile of another layer - a road, a contour - shows through the
+        // ridge in front of it. Layers also coarsen independently (each runs the area test with its
+        // own tile size and zoom bias), so the occluder can end up coarser than the content it is
+        // meant to hide. Bounding how far BELOW the camera zoom a tile may sit bounds that
+        // mismatch, and costs only the horizon band, where the area rule would otherwise drop 5 or
+        // 6 levels at once.
+        if (_terrainMinTileZoom > 0 && tile.getZoom() < _terrainMinTileZoom) {
+            subDivide = true;
+        }
         int maxTargetZoom = getMaxZoom() + (_terrainOverzoomTargets ? getMaxOverzoomLevel() : 0);
         int targetTileZoom = std::min(maxTargetZoom, static_cast<int>(viewState.getZoom() + getZoomLevelBias() + DISCRETE_ZOOM_LEVEL_BIAS));
         targetTileZoom = std::min(targetTileZoom, _terrainMaxTileZoom);
@@ -772,7 +925,7 @@ namespace carto {
                 } else {
                     // Check cache for parent tile
                     if (tile.getZoom() > 0) {
-                        foundSubstitute = findParentTile(visTile, tile, getMaxOverzoomLevel(), preloadingCache, preloadingTiles);
+                        foundSubstitute = findParentTile(visTile, tile, getMaxStandInLevel(), preloadingCache, preloadingTiles);
                     }
                     if (!foundSubstitute) {
                         // Didn't find parent tile, check cache for children tiles
@@ -853,6 +1006,14 @@ namespace carto {
         }
     }
 
+    void TileLayer::setTerrainPaintTiles(const std::vector<vt::TileId>& tileIds) {
+        _tileRenderer->setTerrainPaintTiles(tileIds);
+    }
+
+    std::size_t TileLayer::drapeStackSignature() const {
+        return static_cast<std::size_t>(reinterpret_cast<std::uintptr_t>(this));
+    }
+
     bool TileLayer::prepareTerrainDrapeFrame(float deltaSeconds, const ViewState& viewState) {
         return _tileRenderer->prepareFrame(deltaSeconds, viewState);
     }
@@ -863,6 +1024,22 @@ namespace carto {
 
     void TileLayer::setExternalDrapeTiles(const std::vector<vt::TileId>& tileIds) {
         _tileRenderer->setExternalDrapeTiles(tileIds);
+    }
+
+    void TileLayer::setTerrainGroundTiles(const std::vector<vt::TileId>& tileIds, const std::vector<int>& proxyDepths) {
+        _tileRenderer->setTerrainGroundTiles(tileIds, proxyDepths);
+    }
+
+    void TileLayer::setTerrainLayerOrdinalBase(int base) {
+        _tileRenderer->setTerrainLayerOrdinalBase(base);
+    }
+
+    int TileLayer::getStyleLayerCount() const {
+        return _tileRenderer->getStyleLayerCount();
+    }
+
+    int TileLayer::renderTerrainGround(const Color& color) {
+        return _tileRenderer->renderTerrainGround(color);
     }
 
     void TileLayer::collectDrapeTiles(std::map<vt::TileId, std::size_t>& drapeTiles) const {
@@ -921,7 +1098,10 @@ namespace carto {
                     // against: they decide the tesselation the tiles in the cache were built with,
                     // so a mismatch leaves tiles decoded for the other mode in place forever
                     // (un-subdivided fills sagging through the terrain once draping is switched off).
-                    tileTransformer = std::make_shared<TerrainTileTransformer>(static_cast<float>(Const::WORLD_SIZE), terrainOptions->getElevationManager(), terrainOptions->getMeshResolution(), terrainOptions->getMinZoom(), terrainOptions->isRegularGridEnabled() || terrainOptions->isPainterOrderDepthEnabled(), false, terrainOptions->isDrapeLinesEnabled());
+                    // MUST match what calculateDrawData compares against, or tiles decoded for the
+                    // other mode stay in the cache forever.
+                    bool tangramContent = !terrainOptions->isDrapeFillsEnabled();
+                    tileTransformer = std::make_shared<TerrainTileTransformer>(static_cast<float>(Const::WORLD_SIZE), terrainOptions->getElevationManager(), terrainOptions->getMeshResolution(), terrainOptions->getMinZoom(), terrainOptions->isRegularGridEnabled() || terrainOptions->isPainterOrderDepthEnabled(), isAreaSourceDensityForced(), tangramContent || terrainOptions->isDrapeLinesEnabled() || isLineSourceDensityForced());
                 }
             }
         }
@@ -1086,11 +1266,19 @@ namespace carto {
     const float TileLayer::DISCRETE_ZOOM_LEVEL_BIAS = 0.001f;
 
     const int TileLayer::MAX_PARENT_SEARCH_DEPTH = 6;
+    // As deep as the parent search: a stand-in must be able to cover a zoom-in of several levels,
+    // or the map goes EMPTY exactly when the user asked to see more. A deep stand-in only looked bad
+    // while coarse parents were also being fetched AHEAD of the wanted tiles (PARENT_PRIORITY_OFFSET
+    // was positive); with that order fixed, what is shown meanwhile is whatever was already there.
+    const int TileLayer::MAX_STAND_IN_DEPTH = MAX_PARENT_SEARCH_DEPTH;
     const int TileLayer::MAX_CHILD_SEARCH_DEPTH = 3;
 
-    const int TileLayer::PARENT_PRIORITY_OFFSET = 1;
+    // NEGATIVE on purpose: the parent fetched as a preview is dispatched AFTER the tiles that are
+    // actually wanted. It used to be +1, so a coarse stand-in was requested first and the map showed
+    // it even when the real tile would have arrived just as fast - and for a source that generates
+    // its tiles (traced contours) that preview is a full pass whose result is thrown away.
+    const int TileLayer::PARENT_PRIORITY_OFFSET = -1;
     const int TileLayer::PRELOADING_PRIORITY_OFFSET = -2;
     const double TileLayer::PRELOADING_TILE_SCALE = 1.5;
-    const float TileLayer::SUBDIVISION_THRESHOLD = Const::WORLD_SIZE;
     
 }

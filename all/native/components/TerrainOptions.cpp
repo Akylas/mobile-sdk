@@ -22,7 +22,7 @@ namespace carto {
         _painterOrderDepthEnabled(true),
         _drapeFillsEnabled(true),
         _drapeLinesEnabled(false),
-        _drapeResolution(512),
+        _drapeResolution(0),
         _elementTerrainSlack(2.0f),
         _minZoom(5),
         _maxTileZoomOffset(100),
@@ -36,7 +36,8 @@ namespace carto {
         _fogColorARGB(Color(0, 0, 0, 0).getARGB()),
         _fogStartDistance(0.0f),
         _fogDistance(0.0f),
-        _maxVisibleDistance(0.0f),
+        _viewDistanceFactor(1.0f),
+        _maxTileZoomCoarsening(3),
         _onChangeListeners(),
         _onChangeListenersMutex()
     {
@@ -176,7 +177,7 @@ namespace carto {
     }
 
     void TerrainOptions::setDrapeResolution(int resolution) {
-        int value = std::min(2048, std::max(128, resolution));
+        int value = (resolution > 0 ? std::min(2048, std::max(128, resolution)) : 0);
         if (_drapeResolution.exchange(value) != value) {
             notifyOptionChanged("DrapeResolution");
         }
@@ -225,14 +226,25 @@ namespace carto {
         }
     }
 
-    float TerrainOptions::getMaxVisibleDistance() const {
-        return _maxVisibleDistance.load();
+    int TerrainOptions::getMaxTileZoomCoarsening() const {
+        return _maxTileZoomCoarsening.load();
     }
 
-    void TerrainOptions::setMaxVisibleDistance(float distance) {
-        float clamped = std::max(0.0f, distance);
-        if (_maxVisibleDistance.exchange(clamped) != clamped) {
-            notifyOptionChanged("MaxVisibleDistance");
+    void TerrainOptions::setMaxTileZoomCoarsening(int levels) {
+        int clamped = std::max(0, levels);
+        if (_maxTileZoomCoarsening.exchange(clamped) != clamped) {
+            notifyOptionChanged("MaxTileZoomCoarsening");
+        }
+    }
+
+    float TerrainOptions::getViewDistanceFactor() const {
+        return _viewDistanceFactor.load();
+    }
+
+    void TerrainOptions::setViewDistanceFactor(float factor) {
+        float clamped = std::max(0.0f, factor);
+        if (_viewDistanceFactor.exchange(clamped) != clamped) {
+            notifyOptionChanged("ViewDistanceFactor");
         }
     }
 
