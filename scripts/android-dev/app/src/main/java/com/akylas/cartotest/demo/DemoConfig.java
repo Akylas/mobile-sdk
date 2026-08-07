@@ -178,7 +178,7 @@ public final class DemoConfig {
     /** Metres the camera is held above the ground. The SDK default is 200, which stops you well
      *  short of the surface; 30 lets you get close enough to judge mesh and hillshade detail.
      *  '--es clearance N' (0 disables the clamp entirely - you can then fly through the ground). */
-    public static float TERRAIN_CAMERA_CLEARANCE = 30.0f;
+    public static float TERRAIN_CAMERA_CLEARANCE = 60.0f;
     /** Painter-order depth model (per-tile-layer depth domain). Keep on unless debugging depth. */
     public static boolean TERRAIN_PAINTER_ORDER_DEPTH = true;
     /** Render fills through an offscreen drape pass instead of displacing their geometry.
@@ -404,7 +404,7 @@ public final class DemoConfig {
     /** Simplify tolerance of the route source, in tile subpixels. Vertices closer together than the
      *  line is wide make every join fold over itself - the artifact reads as darker blobs on a
      *  translucent line, and it is why a route needs LESS geometry as it zooms out, not the same. */
-    public static float ROUTE_TEST_SIMPLIFY = 8f;
+    public static float ROUTE_TEST_SIMPLIFY = 0f;
     /** < 1 exposes the join over-blending: every overlapping triangle blends its alpha again. */
     public static float ROUTE_TEST_OPACITY = 1f;
     /** How the opacity is applied, which picks the renderer path that removes the join doubling:
