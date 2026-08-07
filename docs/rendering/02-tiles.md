@@ -191,6 +191,23 @@ So: long lines win everywhere (up to 3.3x), and the many-small-features case is 
 the old path clipped geometry already simplified for that zoom while this one clips at full
 resolution and filters by importance afterwards. That gap is open.
 
+### Binary size
+
+geojson-vt is header-only, and the code it replaces went away, so the cost is small but not zero —
+`libcarto_mobile_sdk.so`, arm64-v8a, debug build, stripped:
+
+| | bytes |
+|---|---|
+| before | 16 281 408 |
+| after | 16 385 664 |
+| | **+104 256 (+0.64%)** |
+
+That is template instantiation: the clipper, `InternalTile` and the geometry variant are stamped out
+per geometry type. No new runtime dependency ships — nothing is linked, only included.
+
+(The demo APK also grows ~10 MB from the two bench GeoJSON assets. That is the test bench, not the
+SDK; nothing in `all/native` reads them.)
+
 The bench is `DemoTests.runGeoJSONBench` — it times `loadTile` directly, no renderer in the way, over
 a tile set derived from the data extent so two builds are comparable. `--es geojsonLayer many|long`
 adds the same datasets as a real styled layer instead, for render-side comparison.
