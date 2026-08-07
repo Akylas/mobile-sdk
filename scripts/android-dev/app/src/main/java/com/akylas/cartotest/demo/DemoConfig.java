@@ -391,16 +391,20 @@ public final class DemoConfig {
     /** Route geometry: <data dir>/<name> if present, else the APK asset of the same name. */
     public static String ROUTE_TEST_GEOJSON_NAME = "route-test.geojson";
     /** Casing drawn under the route (Google-Maps look). 0 = no casing. */
-    public static float ROUTE_TEST_CASE_WIDTH = 14f;
-    public static float ROUTE_TEST_WIDTH = 9f;
-    public static String ROUTE_TEST_COLOR = "#4D8EF7";
-    public static String ROUTE_TEST_CASE_COLOR = "#1A4B8C";
+    public static float ROUTE_TEST_CASE_WIDTH = 16f;
+    public static float ROUTE_TEST_WIDTH = 10f;
+    public static String ROUTE_TEST_COLOR = "#4285F4";      // Google-navigation blue
+    public static String ROUTE_TEST_CASE_COLOR = "#FFFFFF"; // white casing: the outline of the route
     /** miter | bevel | round. NOTE: the vt tesselator draws 'round' as a miter today. */
     public static String ROUTE_TEST_JOIN = "round";
     /** butt | square | round */
     public static String ROUTE_TEST_CAP = "round";
     /** CartoCSS line-miterlimit: miter length / line width above which the join falls back to a bevel. */
     public static float ROUTE_TEST_MITER_LIMIT = 4f;
+    /** Simplify tolerance of the route source, in tile subpixels. Vertices closer together than the
+     *  line is wide make every join fold over itself - the artifact reads as darker blobs on a
+     *  translucent line, and it is why a route needs LESS geometry as it zooms out, not the same. */
+    public static float ROUTE_TEST_SIMPLIFY = 8f;
     /** < 1 exposes the join over-blending: every overlapping triangle blends its alpha again. */
     public static float ROUTE_TEST_OPACITY = 1f;
 
@@ -592,6 +596,7 @@ public final class DemoConfig {
         ROUTE_TEST_CAP = DemoCfg.cfgStr("routeCap", ROUTE_TEST_CAP);
         ROUTE_TEST_MITER_LIMIT = DemoCfg.cfgFloat("routeMiterLimit", ROUTE_TEST_MITER_LIMIT);
         ROUTE_TEST_OPACITY = DemoCfg.cfgFloat("routeOpacity", ROUTE_TEST_OPACITY);
+        ROUTE_TEST_SIMPLIFY = DemoCfg.cfgFloat("routeSimplify", ROUTE_TEST_SIMPLIFY);
 
         // inline style
         INLINE_BACKGROUND_COLOR = DemoCfg.cfgColor("bg", INLINE_BACKGROUND_COLOR);

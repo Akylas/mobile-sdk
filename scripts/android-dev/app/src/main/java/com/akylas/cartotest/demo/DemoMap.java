@@ -476,6 +476,7 @@ public class DemoMap {
         }
         MBVectorTileDecoder decoder = new MBVectorTileDecoder(new CartoCSSStyleSet(DemoStyles.routeTestStyle()));
         GeoJSONVectorTileDataSource source = new GeoJSONVectorTileDataSource(0, 24);
+        source.setSimplifyTolerance(DemoConfig.ROUTE_TEST_SIMPLIFY);
         try {
             int layerIndex = source.createLayer("route");
             source.addGeoJSONStringFeature(layerIndex, geoJSON);
