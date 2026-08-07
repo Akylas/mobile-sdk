@@ -284,7 +284,7 @@ public final class DemoTests {
         }
         try {
             GeoJSONVectorTileDataSource source = new GeoJSONVectorTileDataSource(0, 24);
-            source.setSimplifyTolerance(DemoConfig.ROUTE_TEST_SIMPLIFY);
+            source.setSimplifyTolerance(DemoConfig.GEOJSON_BENCH_SIMPLIFY);
             int layerIndex = source.createLayer("route");
             long start = System.nanoTime();
             source.setLayerGeoJSONString(layerIndex, geoJSON);
@@ -313,7 +313,7 @@ public final class DemoTests {
 
         try {
             GeoJSONVectorTileDataSource source = new GeoJSONVectorTileDataSource(0, 24);
-            source.setSimplifyTolerance(DemoConfig.ROUTE_TEST_SIMPLIFY);
+            source.setSimplifyTolerance(DemoConfig.GEOJSON_BENCH_SIMPLIFY);
             int layerIndex = source.createLayer("route");
 
             long importStart = System.nanoTime();

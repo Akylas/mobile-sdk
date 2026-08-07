@@ -433,6 +433,11 @@ public final class DemoConfig {
     /** Adds a bench dataset as a REAL layer (route style) instead of timing tile builds, so the
      *  RENDER cost can be panned through. Empty = off. many | long | both | a file name. */
     public static String GEOJSON_BENCH_LAYER = "";
+    /** Simplify tolerance of the bench source, in tile subpixels. This is the SDK default (1.0),
+     *  NOT the route test's 0: at 0 nothing is dropped at any zoom, and 5000 routes then reach the
+     *  terrain lattice at full resolution - measured 24M indices/frame and 4 fps on the Crosscall,
+     *  against 15.7 fps at tolerance 2. Set it to 0 to reproduce that worst case on purpose. */
+    public static float GEOJSON_BENCH_SIMPLIFY = 1.0f;
 
     // =============================================================================================
     // DEBUG / HARNESS
@@ -629,6 +634,7 @@ public final class DemoConfig {
         GEOJSON_BENCH_MAX_ZOOM = DemoCfg.cfgInt("geojsonBenchMaxZoom", GEOJSON_BENCH_MAX_ZOOM);
         GEOJSON_BENCH_TILES_PER_SIDE = DemoCfg.cfgInt("geojsonBenchTiles", GEOJSON_BENCH_TILES_PER_SIDE);
         GEOJSON_BENCH_LAYER = DemoCfg.cfgStr("geojsonLayer", GEOJSON_BENCH_LAYER);
+        GEOJSON_BENCH_SIMPLIFY = DemoCfg.cfgFloat("geojsonBenchSimplify", GEOJSON_BENCH_SIMPLIFY);
 
         // inline style
         INLINE_BACKGROUND_COLOR = DemoCfg.cfgColor("bg", INLINE_BACKGROUND_COLOR);

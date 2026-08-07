@@ -208,6 +208,34 @@ per geometry type. No new runtime dependency ships — nothing is linked, only i
 (The demo APK also grows ~10 MB from the two bench GeoJSON assets. That is the test bench, not the
 SDK; nothing in `all/native` reads them.)
 
+### Render cost is a different question, and simplification owns it
+
+Loading the 5000-route set as a real layer over 3D terrain drops the device to **4 fps**. That is
+**not** the tiler: the old builder measures the same (4.1 fps, 24.8M `geomIndices` per interval,
+against the pyramid's 4.2 fps / 24.4M). It is the demo asking for `simplifyTolerance = 0`.
+
+At tolerance 0 nothing is ever dropped, at any zoom, so all 165k source points reach the line
+tesselator — twice, because the route style draws a casing under the fill with round joins — and
+then get subdivided again at every terrain-lattice crossing. Panning at z13 / tilt 35, `--es
+geojsonLayer many`, ten swipes:
+
+| | fps | geomIndices / interval |
+|---|---|---|
+| no layer | 20 | 5.1M |
+| layer, tolerance 0 | **4.2** | 24.4M |
+| layer, tolerance 1 (SDK default) | 14.9 | 8.9M |
+| layer, tolerance 2 | 15.7 | 7.7M |
+
+The GL thread is not the limit at 4 fps — frames average 42–46 ms but only five are issued per
+second, so most of the wall clock goes to the tile threads tesselating that geometry, and
+`renderTiles` collapses from 714 to 212 because tiles cannot be built fast enough to keep the set
+full.
+
+`MBVTTileBuilder` already defaults `_simplifyTolerance` to 1.0; the route test sets 0 deliberately
+(vertex-dense input is what its join cases need), and the bench layer used to inherit that. It has
+its own `--es geojsonBenchSimplify` now, defaulting to the SDK's 1.0. **An app that leaves the
+default alone does not hit this.** The tile-build table above was taken at tolerance 0.
+
 The bench is `DemoTests.runGeoJSONBench` — it times `loadTile` directly, no renderer in the way, over
 a tile set derived from the data extent so two builds are comparable. `--es geojsonLayer many|long`
 adds the same datasets as a real styled layer instead, for render-side comparison.
