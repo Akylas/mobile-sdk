@@ -179,6 +179,23 @@ towards the camera until a near contour is a blob, so the projected offset is me
 back to the nominal width when it exceeds it. The factor is ≤ 1 by construction — it can never
 manufacture an oversized quad, which is what an unbounded screen-space fit does.
 
+> **The capped vertex takes its DEPTH from the terrain, and its XY from the screen.** Both halves
+> are load-bearing. Applying the shrunk offset to `centerClip.xy` and keeping `centerClip.z` — the
+> obvious way — gives the outer edge of a wide line the *centreline's* depth; on a cross-slope that
+> is below the ground on the uphill side, so the depth test against the terrain surface eats the
+> line in a ragged, stair-stepped band. The widest layer hits the cap first, which is why a route's
+> white casing broke up while its blue fill survived, and why it only showed at a tilt. Shrinking
+> the **world** position instead fixes the depth but makes the projected width only approximately
+> nominal, and it drifts vertex to vertex — segments of visibly different width at z14.38. So:
+> screen-space xy for the width, `mix(centerPos, edgePos, shrink)` for the depth.
+>
+> Ruled out first, each by measurement, before the cap was suspected: line tesselation and joins,
+> the route source's simplify tolerance (real but separate — it is applied per TILE ZOOM in
+> `MBVTTileBuilder::simplifyAndCacheLayers`, so a coarse tile collapses hairpins into chords),
+> `TerrainOptions::MeshResolution` (32/64/128, no effect) and `Options::TileLODFactor` (no effect).
+> The two A/Bs that settled it: with the content depth test disabled the casing is complete, and
+> with the cap disabled the casing is complete but every line is visibly fatter.
+
 **Antialias in device pixels, from a per-frame constant.** The ramp is one unit of the quad, and a
 unit is not a pixel: widths are unscaled-DPI units, so at 2.6× density one unit is ~1.8 device px and
 a 1 px contour is almost entirely ramp — that is what "blurry contours" was. `uAntialiasScale`
