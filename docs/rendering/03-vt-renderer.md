@@ -65,6 +65,32 @@ paint surface, …). Consequences worth knowing:
   `Shader::getUniformLoc` returns **0** — a valid location that then clobbers uniform 0. Always use
   `glGetUniformLocation` with a `>= 0` guard (`SkyRenderer` is the pattern to copy).
 
+## Line joins
+
+`TileLayerBuilder::tesselateLine` picks per vertex between a miter, a bevel, a round fan and a split,
+from the dot product of consecutive binormals. Three things about it:
+
+- **`line-miterlimit` is a ratio**, miter length over line width, and the stroke width must not enter
+  it. It used to (`asin(min(width/limit, 1))` as the half-angle), which cut in two wrong directions at
+  once: a 0.8-wide contour kept mitering into a needle five half-widths long, while any line wider than
+  the limit never mitered at all. `dot = 2/limit² − 1` is the whole rule.
+- **A sharp join must not overlap itself.** Two full-width quads meeting at a point overlap in a lens on
+  the inside of the turn, and every pixel of that lens blends twice — which is what darkened a line with
+  `line-opacity` at each hairpin. The inner corners are collapsed onto the centre line instead (mapbox's
+  inner join) so the quads only touch; one triangle closes the outer gap. Offset lines keep the old
+  overlapping split: their offset is `binormal × offset × side` in the shader, so a zero binormal would
+  drop the offset entirely.
+- **`line-join: round` builds tangram's 5-triangle fan** (`ROUND_JOIN_TRIANGLES`, their
+  `JoinTypes::round`). Getting it right took three device rounds, all invisible in a syntax check:
+  the fan vertices must sit **between** the two cross-sections (appended after them, the next segment
+  links to fan vertices and the line comes apart); the hub must be on the **centre line**, not the miter
+  point (that point is at zero alpha in the antialias ramp); and two extra triangles must close the
+  sliver against each quad's end chord, which runs from its outer corner to the miter point and so does
+  not pass through the hub. Winding mirrors with the turn direction — 2D geometry is drawn with back-face
+  culling on, and a fan wound one way loses every join that turns the other way. Below ~10° the fan is
+  skipped for a plain miter: tangram fans at every angle, but their line shader has no AA ramp and five
+  near-degenerate slivers each carrying one is a visible seam.
+
 ## Lines over terrain
 
 A line is a chain of quads whose width is an offset along a per-vertex binormal, and three things
