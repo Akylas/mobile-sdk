@@ -75,11 +75,39 @@ namespace carto {
          */
         float getBaseInterval() const;
         /**
-         * Sets the base contour interval in meters. At low zoom levels a coarser multiple of this
-         * interval is generated to save processing (z<=12 uses 10x, z==13 uses 5x, z>=14 uses 1x).
+         * Sets the base contour interval in meters. This is the FINEST interval generated; coarser
+         * tile zooms generate a multiple of it, see setIntervalMultiplier.
          * @param interval The base contour interval in meters.
          */
         void setBaseInterval(float interval);
+
+        /**
+         * Sets the interval multiplier used at tile zooms up to (and including) maxZoom. A tile
+         * carries every elevation that is a multiple of BaseInterval x multiplier, and each contour
+         * carries 'div' so the style picks per camera zoom which of them to draw.
+         *
+         * The default table is (9, 50), (11, 10), (13, 5), (any, 1): 500m, 100m, 50m, 10m for a 10m base.
+         *
+         * TWO RULES when changing it:
+         *  - the multipliers must NEST - each one a multiple of the finer ones - or a line stops
+         *    dead at the border between tiles of different zoom (200 and 500 share no elevation);
+         *  - cost tracks the number of contours emitted, so a multiplier twice as fine is about
+         *    twice the tracing, the geometry and the draw. Make it no finer than what the style
+         *    actually draws at the camera zoom where tiles of that zoom are used.
+         * @param maxZoom The highest tile zoom this multiplier applies to, or -1 for every zoom above the other entries.
+         * @param multiplier The multiplier of BaseInterval, >= 1.
+         */
+        void setIntervalMultiplier(int maxZoom, float multiplier);
+        /**
+         * Returns the interval multiplier that applies at the given tile zoom.
+         * @param zoom The tile zoom.
+         * @return The multiplier of BaseInterval.
+         */
+        float getIntervalMultiplier(int zoom) const;
+        /**
+         * Removes every interval multiplier entry, so BaseInterval is used at every zoom.
+         */
+        void clearIntervalMultipliers();
 
         /**
          * Returns the target grid resolution used for contour tracing.
@@ -96,6 +124,29 @@ namespace carto {
          * @param resolution The target grid resolution (clamped to at least 8), or 0 for the DEM's own.
          */
         void setResolution(int resolution);
+
+        /**
+         * Sets the tracing grid resolution used at tile zooms up to (and including) maxZoom,
+         * overriding Resolution there. Tracing cost is roughly quadratic in this, and a low zoom
+         * tile covers so much ground that a fine grid buys nothing, so this is the cheapest knob to
+         * turn for zoomed-out frames - but a costly one for QUALITY: a tile is drawn at roughly the
+         * same screen size whatever its zoom, so a grid that shrinks with zoom puts contour vertices
+         * hundreds of metres apart and the lines read as straight chords. Empty by default for that
+         * reason: Resolution applies at every zoom, and low zoom saves through the interval instead.
+         * @param maxZoom The highest tile zoom this resolution applies to, or -1 for every zoom above the other entries.
+         * @param resolution The target grid resolution (clamped to at least 8), or 0 for the DEM's own.
+         */
+        void setResolutionForZoom(int maxZoom, int resolution);
+        /**
+         * Returns the tracing grid resolution that applies at the given tile zoom.
+         * @param zoom The tile zoom.
+         * @return The target grid resolution, 0 for the DEM's own.
+         */
+        int getResolutionForZoom(int zoom) const;
+        /**
+         * Removes every per-zoom resolution entry, so Resolution is used at every zoom.
+         */
+        void clearResolutionsForZoom();
 
         /**
          * Returns the minimum zoom at which contour geometry is generated.
@@ -238,6 +289,9 @@ namespace carto {
         std::atomic<float> _baseInterval;
         std::atomic<float> _simplifyTolerance;
         std::atomic<int> _resolution;
+        // (maxZoom, value) rungs, ascending; maxZoom -1 is the open-ended last rung. Guarded by _mutex.
+        std::vector<std::pair<int, float> > _intervalMultipliers;
+        std::vector<std::pair<int, int> > _zoomResolutions;
         std::atomic<int> _minVisibleZoom;
         std::atomic<bool> _seamlessEdges;
         std::atomic<bool> _labelStubs;

@@ -84,6 +84,54 @@ setters — those only reach a stand-alone layer. The style properties are
 `hillshade-contour-interval`, `hillshade-contour-width`, `hillshade-contour-color`
 ([09-composite-layer.md](09-composite-layer.md)).
 
+## Which contours a traced tile carries, and which of them are drawn
+
+Two separate decisions, and confusing them empties the map.
+
+Both are app settings now, not constants: `setIntervalMultiplier(maxZoom, multiplier)` and
+`setResolutionForZoom(maxZoom, resolution)`, each a table of `(maxZoom, value)` rungs with `-1` for
+"everything above". Defaults: interval `(9, 50) (11, 10) (13, 5) (any, 1)`, resolution table **empty**.
+
+`getIntervalForZoom` decides what the tile **carries**. It is a cost rule:
+a low-zoom tile covers a huge area and its DEM is sampled far too coarsely to place a 10 m line
+meaningfully. Two constraints on the rungs:
+
+- **They must nest** — every interval a multiple of the finer one. 200 m and 500 m share no
+  elevation, so a z10 tile's 600 m line had nothing to meet in the z9 tile beside it and stopped
+  dead at the border. `10 | 50 | 100` nests.
+- **They must stay usable when zoomed out.** The original ladder went to 50× the base (500 m) at
+  z ≤ 9, which is two or three lines on a mountain: zoomed out, and across the whole far half of any
+  tilted frame (those tiles are z6–z9), the map read as *no contours at all* while the hillshade
+  drawn from the same DEM stayed fully detailed. That was reported as a rendering bug; it was the
+  ladder. Now 50×/10×/5×/1× over z9 / z11 / z13 / above — measured on a mid-range phone at ~10% less
+  tile-generation CPU than a uniform fine ladder, for the same picture under a `div`-filtered style.
+
+The **grid** is a different matter and must NOT scale with zoom. A tile is drawn at roughly the same
+screen size whatever its zoom, so the grid is what fixes the shape on screen: at z9 a 48-sample grid
+puts contour vertices 1.6 km apart and the far half of a tilted view — which is made of exactly those
+tiles — reads as long straight chords. Uniform 128 measured both **faster and smoother** than the
+DEM's own 512 (12.0 vs 14.7 CPU-seconds over 25 s, and contours complete at t=4 s instead of blank).
+
+What is **drawn** is the style's decision, per camera zoom, keyed on `div` (the largest nice divisor
+of the elevation — 1500 → 500, 250 → 250, 130 → 10), exactly as the pre-baked tileset is filtered.
+It has to be a **width (or opacity) ramp**, not a filter: a CartoCSS filter is evaluated per tile at
+decode time and cannot see the camera, while `linear([view::zoom], …)` is evaluated per frame. A
+width of 0 draws nothing — the quad is degenerate — so the pattern is
+
+```
+#contour {
+  line-width: 0;
+  [div>=10]  { line-width: linear([view::zoom], (13, 0), (13.5, 0.8)); }
+  [div>=50]  { line-width: linear([view::zoom], (11, 0), (11.5, 1.0)); }
+  [div>=100] { line-width: linear([view::zoom], (8.5, 0), (9, 1.2)); }
+  [div>=500] { line-width: 1.6; }
+}
+```
+
+**Diagnosis trap:** two frames at different zooms that look *identical* are not proof the ramp is
+dead — below z9 only the `div>=500` rank has a width, so every frame from z6 to z8 legitimately
+shows the same lines. Take the positive control at z13.8, where the finest rank fades in.
+
 ## Contour labels without contour geometry
 
 Contour *lines* are free, but labels need something to lay text along. Tangram generates that from
