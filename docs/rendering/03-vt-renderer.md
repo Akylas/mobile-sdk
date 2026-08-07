@@ -142,9 +142,35 @@ lies on. The same road is then painted twice at two different heights: from stra
 coincide and it looks perfect, and the moment the camera tilts they separate. That tilt-only
 signature is the tell. The stencil tile masks were what used to clip this, but they need a stencil
 buffer and the shared-ground target has none (`GL_STENCIL_BITS` reads **0**), so they never run.
-`lineFsh` therefore discards outside the tile, using `uTileUnitScale` (vertex-frame units → TARGET
-tile units, set in `setupTerrainUniforms`; **0 means no elevation**, which disables the test) and a
-`vTileUnit` varying. No attachment, no extra draw.
+`lineFsh` therefore discards outside the tile, using `uTileUnitScale` / `uTileUnitOffset`
+(vertex-frame units → TARGET tile units, set in `setupTerrainUniforms`; a **0 scale means no
+elevation**, which disables the test) and a `vTileUnit` varying. No attachment, no extra draw.
+
+> **The offset is what makes this survive a STAND-IN, and it was missing.** For content,
+> `setupTerrainUniforms` is called with the *target* tile (whose elevation texture the content
+> stands on) and the *source* tile's vertex frame (the vertices are source-tile-local). Source and
+> target are the same tile normally — but not while a tile loads, when an ancestor stands in for it.
+> With a scale and no offset, `vTileUnit = pos.xy * uTileUnitScale` put the source's unit square in
+> [0, 2^dz], so the `> 1.0005` test discarded everything except the one quadrant that happened to
+> land in [0, 1]. Since **every** visible tile becomes a stand-in for a second or two after an
+> integer zoom step, all line content — contours, roads — vanished at every integer zoom in terrain
+> mode, and only in terrain mode (the test is off without elevation). Measured at
+> lat 45.210031 lon 5.730591 z14.99 tilt 26 over a scripted zoom, contour pixels per frame went
+> 26k → **30** → 23 409; with the offset they decay smoothly and never collapse. Measuring the
+> position from the target tile's own origin (`offset = (frame(i,3) − target(i,3)) / target(i,i)`,
+> signed, not `abs()`) gives each target its own share of the ancestor, so the four together still
+> paint the whole thing, each with the elevation mapping of the surface it stands on.
+>
+> The same scale also feeds the lattice edge-coarsening test in `commonVsh` ([terrain](04-terrain.md)),
+> which is wrong for a stand-in by the same argument. It is deliberately **not** changed: adding the
+> offset there moves settled contour positions (2.8 % of the frame) because it changes elevation
+> interpolation, which needs judging on device rather than bundling into a clipping fix.
+>
+> What this was *not*, each ruled out by measurement before the clip was found: missing draw data,
+> deep or empty stand-ins, the renderer not being fed, elevation-texture misses, render-tile blend
+> (`blend` was 1.0 throughout), and the terrain coarsening floor `_terrainMinTileZoom` — that one
+> does re-cull the whole far field at every integer zoom, but the blank is identical with
+> `MaxTileZoomCoarsening` raised so the far field does not churn, so it only lengthens recovery.
 
 **Width: tangram's model, capped at nominal.** The offset is extruded in model space and displaced
 onto the terrain, exactly as tangram does (`polyline.vs` + `res/scenes/terrain-3d.yaml`), so a line
