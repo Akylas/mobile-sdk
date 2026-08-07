@@ -62,6 +62,21 @@ but still has a ray, so the layers are now asked with the ray alone in that case
 gained the matching overload). Only the map-position callback is skipped — there is nothing to
 report.
 
+## Seeing them: free roam
+
+Sky content is normally off the top of the screen, because the map camera points at the ground.
+`Options::FreeRoam` changes what a one-finger drag does: sideways turns the heading, up and down
+changes the tilt, and panning moves to a two-finger drag. Pinch still zooms; the two-finger paths
+are untouched.
+
+**The camera cannot tilt above the horizon**, and that is a property of the camera model, not a
+setting: tilt is clamped to `Const::MIN_SUPPORTED_TILT_ANGLE` (0) and `Options::setTiltRange`
+clamps to it too. Lowering it was tried and the camera flips through the vertical - the view comes
+back inverted, ground below and sky at both edges - because the up vector is derived from a focus
+point on the ground. So the visible sky runs from the horizon up to roughly half the field of view.
+A body higher than that is drawn correctly and can be clicked, but cannot be brought into view
+without a first-person camera, which is a much larger change than this option.
+
 ## What lives in the app, not here
 
 The demo's `DemoCelestial` is worth reading as the worked example: the sun's direction comes from
