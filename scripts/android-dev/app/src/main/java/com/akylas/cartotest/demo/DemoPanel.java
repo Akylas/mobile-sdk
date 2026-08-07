@@ -68,6 +68,7 @@ public final class DemoPanel {
         buildTerrainSection(context, panel, demo);
         buildHillshadeSection(context, panel, demo);
         buildContourSection(context, panel, demo);
+        buildRouteTestSection(context, panel, demo);
         buildSunSection(context, panel, demo);
         buildSkyFogSection(context, panel, demo);
         buildDebugSection(context, panel, demo);
@@ -279,6 +280,46 @@ public final class DemoPanel {
         demo.applyContourConfig();
         // Generated tiles are cached by the layers, so drop them to see the new parameters.
         demo.contourSource().notifyTilesChanged(true);
+    }
+
+    /** Join / cap / opacity of the route test layer - the line tesselation bench. */
+    private static void buildRouteTestSection(Context context, LinearLayout panel, final DemoMap demo) {
+        header(context, panel, "ROUTE TEST");
+        final String[] joins = { "miter", "bevel", "round" };
+        choice(context, panel, "join", joins, indexOf(joins, DemoConfig.ROUTE_TEST_JOIN), new IntSetting() {
+            public void set(int index) { DemoConfig.ROUTE_TEST_JOIN = joins[index]; reloadRouteTest(demo); }
+        });
+        final String[] caps = { "butt", "square", "round" };
+        choice(context, panel, "cap", caps, indexOf(caps, DemoConfig.ROUTE_TEST_CAP), new IntSetting() {
+            public void set(int index) { DemoConfig.ROUTE_TEST_CAP = caps[index]; reloadRouteTest(demo); }
+        });
+        slider(context, panel, "width", 1, 30, DemoConfig.ROUTE_TEST_WIDTH, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.ROUTE_TEST_WIDTH = value; reloadRouteTest(demo); }
+        });
+        slider(context, panel, "casing width", 0, 40, DemoConfig.ROUTE_TEST_CASE_WIDTH, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.ROUTE_TEST_CASE_WIDTH = value; reloadRouteTest(demo); }
+        });
+        slider(context, panel, "miter limit", 1, 12, DemoConfig.ROUTE_TEST_MITER_LIMIT, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.ROUTE_TEST_MITER_LIMIT = value; reloadRouteTest(demo); }
+        });
+        slider(context, panel, "opacity", 0.1f, 1, DemoConfig.ROUTE_TEST_OPACITY, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.ROUTE_TEST_OPACITY = value; reloadRouteTest(demo); }
+        });
+    }
+
+    /** The style is baked into the decoder, so the layer is rebuilt from scratch. */
+    private static void reloadRouteTest(DemoMap demo) {
+        demo.invalidate(DemoMap.Feature.ROUTE_TEST);
+        demo.rebuildLayers();
+    }
+
+    private static int indexOf(String[] options, String value) {
+        for (int i = 0; i < options.length; i++) {
+            if (options[i].equalsIgnoreCase(value)) {
+                return i;
+            }
+        }
+        return 0;
     }
 
     private static void buildSunSection(Context context, LinearLayout panel, final DemoMap demo) {
