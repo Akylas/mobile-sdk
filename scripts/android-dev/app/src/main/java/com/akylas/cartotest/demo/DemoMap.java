@@ -100,6 +100,8 @@ public class DemoMap {
     public final DemoStars stars = new DemoStars();
     /** Device orientation driving the camera, for the star sky mode. */
     private DemoOrientation orientation;
+    /** Live camera preview behind the transparent map, for the star sky mode. */
+    private DemoCameraPreview cameraPreview;
 
     private final Context context;
     public final MapView mapView;
@@ -914,6 +916,7 @@ public class DemoMap {
             skyOptions.setEnabled(false);
         }
         setSurfaceTranslucent(DemoConfig.STAR_SKY_TRANSLUCENT);
+        setCameraPreviewEnabled(DemoConfig.STAR_SKY_CAMERA);
         rebuildLayers();
         Log.i(TAG, "star sky on: " + mapView.getLayers().count() + " layers, clear "
                 + options.getClearColor().getARGB() + ", background " + options.getBackgroundBitmap());
@@ -925,6 +928,7 @@ public class DemoMap {
 
     private void leaveStarSky() {
         setOrientationFollowing(false);
+        setCameraPreviewEnabled(false);
         DemoConfig.STAR_SKY = false;
         Options options = mapView.getOptions();
         if (starSkySaved) {
@@ -961,17 +965,42 @@ public class DemoMap {
     }
 
     /**
+     * The live camera behind the map: what the transparent clear colour is FOR. Only meaningful
+     * with a translucent surface, and only in star sky mode - there is nothing to see through
+     * otherwise.
+     */
+    public void setCameraPreviewEnabled(boolean enabled) {
+        DemoConfig.STAR_SKY_CAMERA = enabled;
+        if (enabled) {
+            if (!(mapView.getParent() instanceof androidx.constraintlayout.widget.ConstraintLayout)) {
+                Log.w(TAG, "the map is not in a ConstraintLayout: no place to put the preview");
+                return;
+            }
+            if (cameraPreview == null) {
+                cameraPreview = new DemoCameraPreview(context, (androidx.constraintlayout.widget.ConstraintLayout) mapView.getParent());
+            }
+            cameraPreview.start();
+        } else if (cameraPreview != null) {
+            cameraPreview.stop();
+        }
+    }
+
+    /**
      * A translucent GL surface, which is what makes a transparent clear colour visible: the map is
      * then composited over whatever is behind it (with setZOrderMediaOverlay, a camera preview).
      * Without this the transparency is real but the surface is still opaque, so it just looks black.
      */
-    private void setSurfaceTranslucent(boolean translucent) {
-        try {
-            mapView.setZOrderMediaOverlay(translucent);
-            mapView.getHolder().setFormat(translucent ? android.graphics.PixelFormat.TRANSLUCENT : android.graphics.PixelFormat.OPAQUE);
-        } catch (Exception e) {
-            Log.w(TAG, "could not change the surface format: " + e);
-        }
+    private void setSurfaceTranslucent(final boolean translucent) {
+        // Touches the view, and the demo builds on a worker thread.
+        mapView.post(new Runnable() {
+            public void run() {
+                try {
+                    mapView.setTranslucent(translucent);
+                } catch (Exception e) {
+                    Log.w(TAG, "could not change the surface format: " + e);
+                }
+            }
+        });
     }
 
     /** Opacity of every layer that is NOT the sky. */

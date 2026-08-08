@@ -447,6 +447,10 @@ public final class DemoPanel {
         check(context, panel, "follow device orientation", DemoConfig.STAR_SKY_ORIENTATION, new BoolSetting() {
             public void set(boolean value) { demo.setOrientationFollowing(value); }
         });
+        // The camera preview goes BEHIND the transparent map: the sky over what the camera sees.
+        check(context, panel, "camera behind (AR sky)", DemoConfig.STAR_SKY_CAMERA, new BoolSetting() {
+            public void set(boolean value) { demo.setCameraPreviewEnabled(value); }
+        });
     }
 
     private static void buildSkyFogSection(Context context, LinearLayout panel, final DemoMap demo) {

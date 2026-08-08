@@ -304,6 +304,9 @@ public final class DemoConfig {
     /** Follow the device's orientation in star sky mode: turning the phone turns the view, and
      *  raising it looks up. Needs LOOK_UP_LIMIT > 0 to reach the zenith. */
     public static boolean STAR_SKY_ORIENTATION = false;
+    /** Show the live camera BEHIND the transparent map in star sky mode: the sky drawn over what
+     *  the camera sees. Needs the CAMERA permission, and needs STAR_SKY_TRANSLUCENT. */
+    public static boolean STAR_SKY_CAMERA = false;
     /** Ask for a TRANSLUCENT GL surface in star sky mode, which is what lets whatever is behind the
      *  view (a camera preview) show through the transparent clear colour. On its own it looks the
      *  same - black - and it costs a surface recreation, so it can be turned off. */
@@ -626,6 +629,7 @@ public final class DemoConfig {
         STAR_SKY_FADE_MS = DemoCfg.cfgFloat("starSkyFade", STAR_SKY_FADE_MS);
         STAR_SKY_ORIENTATION = DemoCfg.cfgBool("starSkyOrientation", STAR_SKY_ORIENTATION);
         STAR_SKY_TRANSLUCENT = DemoCfg.cfgBool("starSkyTranslucent", STAR_SKY_TRANSLUCENT);
+        STAR_SKY_CAMERA = DemoCfg.cfgBool("starSkyCamera", STAR_SKY_CAMERA);
         SUN_YEAR = DemoCfg.cfgInt("sunYear", SUN_YEAR);
         SUN_MONTH = DemoCfg.cfgInt("sunMonth", SUN_MONTH);
         SUN_DAY = DemoCfg.cfgInt("sunDay", SUN_DAY);
