@@ -803,7 +803,20 @@ namespace carto {
         double viewDistance = calculateViewDistance(options);
         float terrainNear = static_cast<float>(calculateCameraDistance() / 50.0);
         if (viewDistance > 0) {
-            far = std::min(far, std::max(static_cast<float>(viewDistance), terrainNear * 2.0f));
+            float viewDistanceFactor = 1.0f;
+            if (std::shared_ptr<TerrainOptions> terrainOptions = options.getTerrainOptions()) {
+                viewDistanceFactor = terrainOptions->getViewDistanceFactor();
+            }
+            if (viewDistanceFactor > 1.0f) {
+                // The app has asked for MORE ground than tangram's rule gives. The far plane has
+                // to follow, or the extra tiles the walk fetches are drawn and then clipped - which
+                // is what "raising the view distance does nothing" was. It costs depth precision:
+                // the whole depth model is calibrated on the far/near ratio (see below), so this is
+                // an explicit trade, not the default.
+                far = std::max(far, static_cast<float>(viewDistance));
+            } else {
+                far = std::min(far, std::max(static_cast<float>(viewDistance), terrainNear * 2.0f));
+            }
         }
         if (_terrainHeightMax > _terrainHeightMin) {
             near = std::max(near, std::min(terrainNear, far * 0.5f));
@@ -864,7 +877,14 @@ namespace carto {
         if (!(factor > 0.0f)) {
             return 0;
         }
-        double cameraDistance = calculateCameraDistance();
+        // Tangram's m_pos.z is the camera's height above the ground PLANE, which for their camera
+        // is also the zoom-derived distance to the focus. With 3D terrain and a free camera the two
+        // part company: a viewpoint standing on a 2600 m summit is high above the ground while its
+        // zoom says it is close to it, and the zoom-derived quantity alone then draws the ground
+        // out to a few kilometres - the closer to the terrain, the less of the panorama. Take the
+        // larger of the two, so the rule follows whichever reason there is to see far. (The NEAR
+        // plane keeps the zoom-derived distance on purpose - see calculateCameraDistance.)
+        double cameraDistance = std::max(calculateCameraDistance(), _cameraPos(2));
 
         // Tilt is measured from the horizontal here and pitch from the vertical there, so the
         // angle from the view axis to the horizon is (90 - tilt) + fovy/2.

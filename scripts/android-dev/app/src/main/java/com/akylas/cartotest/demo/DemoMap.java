@@ -126,6 +126,7 @@ public class DemoMap {
     private boolean savedLayerBase, savedLayerHillshade, savedLayerContour, savedLayerContourTiles, savedLayerSatellite, savedLayerHypso;
     private float savedTilt;
     private float savedOcclusionTolerance;
+    private float savedViewDistance = 1;
     /** Result of the last {@link #checkCompositeSlots()}: which slots the style really has. */
     public String compositeStatus = "";
 
@@ -434,6 +435,10 @@ public class DemoMap {
             // A summit sitting ON a ridge, or a metre behind it, is exactly what the view is for,
             // so the label occlusion is deliberately generous here.
             DemoConfig.TERRAIN_OCCLUSION_TOLERANCE = DemoConfig.PEAK_FINDER_OCCLUSION_TOLERANCE;
+            // And a panorama wants the far ranges: tangram's rule stops the ground a few kilometres
+            // out, which is most of what the view is about (see TerrainOptions.ViewDistanceFactor).
+            savedViewDistance = DemoConfig.VIEW_DISTANCE_FACTOR;
+            DemoConfig.VIEW_DISTANCE_FACTOR = DemoConfig.PEAK_FINDER_VIEW_DISTANCE;
             applyTerrainOptions();
             rebuildLayers();
             applyReliefSurface();
@@ -450,6 +455,7 @@ public class DemoMap {
             DemoConfig.LAYER_PEAKS = false;
             DemoConfig.RELIEF_SURFACE = false;
             DemoConfig.TERRAIN_OCCLUSION_TOLERANCE = savedOcclusionTolerance;
+            DemoConfig.VIEW_DISTANCE_FACTOR = savedViewDistance;
             DemoConfig.PEAK_FINDER_ELEVATION = 0;
             applyTerrainOptions();
             applyViewpointElevation();

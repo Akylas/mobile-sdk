@@ -540,6 +540,9 @@ public final class DemoConfig {
      *  its distance. The peak-finder view wants this generous: a summit right ON a ridge, or a
      *  metre behind it, is exactly what the view is for. 0.02 is the SDK default. */
     public static float PEAK_FINDER_OCCLUSION_TOLERANCE = 0.15f;
+    /** View distance the mode asks for, as a multiple of tangram's rule: a panorama is the case
+     *  their rule answers badly, and above 1 the far plane follows the extra ground. */
+    public static float PEAK_FINDER_VIEW_DISTANCE = 3;
     /** All labels pinned to the top of the screen instead of a band lower down. The two looks
      *  differ by which CORNER of the label the row is aligned on: a band lower down hangs the
      *  names off their bottom left corner (they read up and to the right), a pinned row hangs
@@ -551,7 +554,7 @@ public final class DemoConfig {
     /** Summit names as callout labels (their own vector tile layer on the base source). */
     public static boolean LAYER_PEAKS = false;
     public static int PEAKS_MIN_ZOOM = 8;
-    public static float PEAKS_TEXT_SIZE = 11;
+    public static float PEAKS_TEXT_SIZE = 16;
     /** Rotation of the label text, degrees. The peak-finder look tilts them off the leader line. */
     public static float PEAKS_TEXT_ANGLE = 55;
     /** Where the label band sits, as a fraction of the screen height from the top. */
@@ -838,6 +841,7 @@ public final class DemoConfig {
         PEAK_FINDER_TILT = DemoCfg.cfgFloat("peakFinderTilt", PEAK_FINDER_TILT);
         PEAK_FINDER_ELEVATION = DemoCfg.cfgFloat("peakFinderElevation", PEAK_FINDER_ELEVATION);
         PEAK_FINDER_OCCLUSION_TOLERANCE = DemoCfg.cfgFloat("peakFinderOcclusion", PEAK_FINDER_OCCLUSION_TOLERANCE);
+        PEAK_FINDER_VIEW_DISTANCE = DemoCfg.cfgFloat("peakFinderViewDistance", PEAK_FINDER_VIEW_DISTANCE);
         PEAKS_PIN_TOP = DemoCfg.cfgBool("peaksPinTop", PEAKS_PIN_TOP);
         PEAKS_TOP_OFFSET = DemoCfg.cfgFloat("peaksTopOffset", PEAKS_TOP_OFFSET);
         LAYER_PEAKS = DemoCfg.cfgBool("peaks", LAYER_PEAKS);
