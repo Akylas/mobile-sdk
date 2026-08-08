@@ -1839,7 +1839,40 @@ namespace carto {
                         }
                         bool keepDepth = !depthWriteAssigned;
                         bool backgroundRendered = false;
-                        if (terrainOptions->isBackgroundBitmapEnabled()) {
+                        // A surface shader paints the terrain itself and takes precedence over
+                        // the bitmap/color fill. The sun and the fog it gets are the resolved
+                        // ones (style Map block over LightOptions/TerrainOptions), so a shaded
+                        // surface, the vt content and the sky agree on the light.
+                        if (!terrainOptions->getSurfaceShaderSource().empty()) {
+                            // The shaded surface is the case where there may be no tile layer at
+                            // all - and the layers are what normally drive the elevation loads, so
+                            // without this the surface has a flat height field to shade and the map
+                            // goes idle on it (same reason as the terrain paint cover below).
+                            if (std::shared_ptr<ElevationManager> elevationManager = terrainOptions->getElevationManager()) {
+                                std::vector<MapTile> terrainTiles;
+                                _terrainRenderer->collectVisibleTiles(viewState, terrainOptions, terrainTiles);
+                                for (const MapTile& terrainTile : terrainTiles) {
+                                    MapTile dataTile = elevationManager->getDataTile(terrainTile);
+                                    elevationManager->prefetchTileGrid(dataTile, 2);
+                                    if (!elevationManager->getDataTileGrid(dataTile, ElevationManager::LoadMode::CACHED_ONLY)) {
+                                        requestRedraw();
+                                    }
+                                }
+                            }
+                            StyleEnvironment surfaceEnvironment;
+                            for (const std::shared_ptr<Layer>& layer : layers) {
+                                if (auto tileLayer = std::dynamic_pointer_cast<TileLayer>(layer)) {
+                                    StyleEnvironment layerEnvironment;
+                                    if (tileLayer->getStyleEnvironment(viewState, layerEnvironment)) {
+                                        surfaceEnvironment.mergeMissing(layerEnvironment);
+                                    }
+                                }
+                            }
+                            ResolvedLighting surfaceLighting = resolveLighting(_options->getLightOptions(), surfaceEnvironment);
+                            ResolvedFog surfaceFog = resolveFog(terrainOptions, surfaceEnvironment, surfaceLighting);
+                            backgroundRendered = _terrainRenderer->renderSurface(viewState, terrainOptions, _glResourceManager, surfaceLighting, surfaceFog, keepDepth);
+                        }
+                        if (!backgroundRendered && terrainOptions->isBackgroundBitmapEnabled()) {
                             if (std::shared_ptr<Bitmap> backgroundBitmap = _options->getBackgroundBitmap()) {
                                 backgroundRendered = _terrainRenderer->renderBackground(viewState, terrainOptions, _glResourceManager, backgroundBitmap, keepDepth);
                             }

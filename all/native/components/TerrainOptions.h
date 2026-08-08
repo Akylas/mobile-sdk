@@ -11,6 +11,7 @@
 #include "graphics/Color.h"
 
 #include <atomic>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -385,6 +386,82 @@ namespace carto {
         void setBackgroundBitmapEnabled(bool enabled);
 
         /**
+         * Returns the custom terrain surface fragment shader source, or an empty string if
+         * no shaded surface is drawn.
+         * @return The custom surface shader source.
+         */
+        std::string getSurfaceShaderSource() const;
+        /**
+         * Sets a fragment shader that paints the terrain surface itself. When set, it replaces
+         * the background bitmap and the background color as the terrain base fill: the surface
+         * is drawn as an opaque pass under all layers, so a map with no tile layer at all still
+         * shows shaded relief. The source must define
+         *
+         *     vec4 surfaceColor();
+         *
+         * returning the non-premultiplied surface colour. These are available to it:
+         *
+         *     varying vec3  v_normal;      // unit surface normal, world space (x east, y north, z up)
+         *     varying vec3  v_worldPos;    // surface position in internal map units
+         *     varying float v_elevation;   // surface elevation in metres (before exaggeration)
+         *     varying float v_dist;        // distance from the camera in metres
+         *     uniform vec3  u_sunDir;      // unit vector towards the sun, world space
+         *     uniform vec4  u_sunColor;    // sun colour, rgba 0..1
+         *     uniform float u_sunIntensity;
+         *     uniform float u_ambientIntensity;
+         *     uniform vec4  u_fogColor;    // resolved (lit) fog colour, rgba 0..1
+         *     uniform vec2  u_fogRange;    // fog start and full-strength distance, metres
+         *     uniform float u_time;        // seconds since the map view was created
+         *     uniform float u_zoom;        // current fractional map zoom
+         *     uniform vec2  u_resolution;  // viewport size in pixels
+         *
+         * plus every parameter set with setSurfaceParameter (float) and setSurfaceColorParameter
+         * (vec4, rgba 0..1) as a uniform of that name. Redeclaring any of the above is a compile
+         * error, and a shader that fails to compile is dropped (the background bitmap/color is
+         * used instead) with the error logged.
+         * @param shaderSource The GLSL source, or an empty string for no shaded surface.
+         */
+        void setSurfaceShaderSource(const std::string& shaderSource);
+
+        /**
+         * Returns the value of a terrain surface shader float parameter.
+         * @param name The name of the parameter.
+         * @return The value of the parameter, or 0 if not set.
+         */
+        float getSurfaceParameter(const std::string& name) const;
+        /**
+         * Sets a terrain surface shader float parameter, exposed to the shader as a uniform.
+         * @param name The name of the parameter (must be a valid GLSL identifier).
+         * @param value The new value for the parameter.
+         */
+        void setSurfaceParameter(const std::string& name, float value);
+
+        /**
+         * Returns the value of a terrain surface shader color parameter.
+         * @param name The name of the parameter.
+         * @return The value of the parameter, or transparent black if not set.
+         */
+        Color getSurfaceColorParameter(const std::string& name) const;
+        /**
+         * Sets a terrain surface shader color parameter, exposed to the shader as a vec4
+         * uniform with components in the 0..1 range.
+         * @param name The name of the parameter (must be a valid GLSL identifier).
+         * @param color The new value for the parameter.
+         */
+        void setSurfaceColorParameter(const std::string& name, const Color& color);
+
+        /**
+         * Returns all terrain surface shader float parameters. Internal method.
+         * @return The map of all float parameters.
+         */
+        std::map<std::string, float> getSurfaceParameters() const;
+        /**
+         * Returns all terrain surface shader color parameters. Internal method.
+         * @return The map of all color parameters.
+         */
+        std::map<std::string, Color> getSurfaceColorParameters() const;
+
+        /**
          * Returns the maximum visible tile zoom offset, relative to the camera zoom level.
          * @return The maximum tile zoom offset. The default is 100 (no cap).
          */
@@ -540,6 +617,11 @@ namespace carto {
         std::atomic<float> _fogDistance;
         std::atomic<float> _viewDistanceFactor;
         std::atomic<int> _maxTileZoomCoarsening;
+
+        std::string _surfaceShaderSource;
+        std::map<std::string, float> _surfaceParameters;
+        std::map<std::string, Color> _surfaceColorParameters;
+        mutable std::mutex _surfaceMutex;
 
         std::vector<std::shared_ptr<OnChangeListener> > _onChangeListeners;
         mutable std::mutex _onChangeListenersMutex;
