@@ -122,6 +122,9 @@ public class DemoMap {
     public MBVectorTileDecoder baseDecoder;              // decoder of the base layer
     public ContourTileDataSource contourSource;          // shared by the layer and the composite slot
     public PostProcessEffect reliefEffect;               // the attached relief outline effect, if any
+    // What the peak-finder mode switched off, so leaving it puts the map back as it was.
+    private boolean savedLayerBase, savedLayerHillshade, savedLayerContour, savedLayerContourTiles, savedLayerSatellite, savedLayerHypso;
+    private float savedTilt;
     /** Result of the last {@link #checkCompositeSlots()}: which slots the style really has. */
     public String compositeStatus = "";
 
@@ -166,6 +169,13 @@ public class DemoMap {
                 public void run() {
                     setReliefOutlineEnabled(true);
                 }
+            }, (long) DemoConfig.RELIEF_OUTLINE_DELAY_MS);
+        }
+        if (DemoConfig.PEAK_FINDER) {
+            // After the same delay as the effect: attaching it before the GL surface exists
+            // leaves the offscreen colour buffer unwritten.
+            handler.postDelayed(new Runnable() {
+                public void run() { setPeakFinderMode(true); }
             }, (long) DemoConfig.RELIEF_OUTLINE_DELAY_MS);
         }
         if (DemoConfig.DAY_CYCLE) {
@@ -392,6 +402,54 @@ public class DemoMap {
     public void rebuildBaseLayer() {
         invalidate(Feature.BASE);
         rebuildLayers();
+    }
+
+    /**
+     * The peak-finder view, in one switch. The pieces are independent SDK features, but each one
+     * on its own looks like nothing happens: the shaded surface only shows where NO tile layer
+     * paints, and summit names need a view that has summits in it - which a top-down city camera
+     * has not. So the mode turns the map layers off, the relief and the names on, and tilts the
+     * camera to a panorama (in this SDK tilt 90 is straight down).
+     */
+    public void setPeakFinderMode(boolean enabled) {
+        DemoConfig.PEAK_FINDER = enabled;
+        if (enabled) {
+            savedLayerBase = DemoConfig.LAYER_BASE;
+            savedLayerHillshade = DemoConfig.LAYER_HILLSHADE;
+            savedLayerContour = DemoConfig.LAYER_CONTOUR;
+            savedLayerContourTiles = DemoConfig.LAYER_CONTOUR_TILES;
+            savedLayerSatellite = DemoConfig.LAYER_SATELLITE;
+            savedLayerHypso = DemoConfig.LAYER_HYPSO;
+            savedTilt = mapView.getTilt();
+            DemoConfig.LAYER_BASE = false;
+            DemoConfig.LAYER_HILLSHADE = false;
+            DemoConfig.LAYER_CONTOUR = false;
+            DemoConfig.LAYER_CONTOUR_TILES = false;
+            DemoConfig.LAYER_SATELLITE = false;
+            DemoConfig.LAYER_HYPSO = false;
+            DemoConfig.LAYER_PEAKS = true;
+            DemoConfig.RELIEF_SURFACE = true;
+            rebuildLayers();
+            applyReliefSurface();
+            setReliefOutlineEnabled(true);
+            mapView.setTilt(DemoConfig.PEAK_FINDER_TILT, 0.6f);
+        } else {
+            DemoConfig.LAYER_BASE = savedLayerBase;
+            DemoConfig.LAYER_HILLSHADE = savedLayerHillshade;
+            DemoConfig.LAYER_CONTOUR = savedLayerContour;
+            DemoConfig.LAYER_CONTOUR_TILES = savedLayerContourTiles;
+            DemoConfig.LAYER_SATELLITE = savedLayerSatellite;
+            DemoConfig.LAYER_HYPSO = savedLayerHypso;
+            DemoConfig.LAYER_PEAKS = false;
+            DemoConfig.RELIEF_SURFACE = false;
+            rebuildLayers();
+            applyReliefSurface();
+            setReliefOutlineEnabled(false);
+            if (savedTilt > 0) {
+                mapView.setTilt(savedTilt, 0.6f);
+            }
+        }
+        mapView.requestRender();
     }
 
     /** The peak labels are style-driven, so every callout knob needs a new decoder. */

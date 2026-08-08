@@ -692,6 +692,11 @@ public final class DemoPanel {
      */
     private static void buildReliefSection(Context context, final DemoMap demo) {
         header(context, "RELIEF");
+        // One switch for the whole view: the pieces below are independent, and each one on its own
+        // looks like nothing happens (the surface hides under the map, the names need summits).
+        check(context, "peak finder mode", DemoConfig.PEAK_FINDER, new BoolSetting() {
+            public void set(boolean value) { demo.setPeakFinderMode(value); }
+        });
         check(context, "relief surface", DemoConfig.RELIEF_SURFACE, new BoolSetting() {
             public void set(boolean value) { DemoConfig.RELIEF_SURFACE = value; demo.applyReliefSurface(); }
         });

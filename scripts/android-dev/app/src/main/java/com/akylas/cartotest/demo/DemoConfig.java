@@ -528,6 +528,12 @@ public final class DemoConfig {
     public static float RELIEF_DEPTH_THRESHOLD = 1.0f;
     public static float RELIEF_CREASE_STRENGTH = 0.6f;
 
+    /** The whole peak-finder view in one switch: relief surface + outline + peak names, and
+     *  every map layer off (the surface only shows where no tile layer paints). */
+    public static boolean PEAK_FINDER = false;
+    /** Tilt the mode sets, in SDK convention - 90 is straight down, so a panorama is a low tilt. */
+    public static float PEAK_FINDER_TILT = 25;
+
     /** Summit names as callout labels (their own vector tile layer on the base source). */
     public static boolean LAYER_PEAKS = false;
     public static int PEAKS_MIN_ZOOM = 8;
@@ -783,6 +789,8 @@ public final class DemoConfig {
         RELIEF_HORIZON_BOOST = DemoCfg.cfgFloat("reliefHorizonBoost", RELIEF_HORIZON_BOOST);
         RELIEF_DEPTH_THRESHOLD = DemoCfg.cfgFloat("reliefThreshold", RELIEF_DEPTH_THRESHOLD);
         RELIEF_CREASE_STRENGTH = DemoCfg.cfgFloat("reliefCrease", RELIEF_CREASE_STRENGTH);
+        PEAK_FINDER = DemoCfg.cfgBool("peakFinder", PEAK_FINDER);
+        PEAK_FINDER_TILT = DemoCfg.cfgFloat("peakFinderTilt", PEAK_FINDER_TILT);
         LAYER_PEAKS = DemoCfg.cfgBool("peaks", LAYER_PEAKS);
         PEAKS_MIN_ZOOM = DemoCfg.cfgInt("peaksMinZoom", PEAKS_MIN_ZOOM);
         PEAKS_TEXT_SIZE = DemoCfg.cfgFloat("peaksTextSize", PEAKS_TEXT_SIZE);
