@@ -128,6 +128,15 @@ floored at 1/16 of an internal unit — gave centimetre near planes next to a sl
 of 10⁴–10⁶, and NDC depth so non-linear that a constant-NDC bias was worth hundreds of metres at
 range. That is the mechanism behind every see-through this project has had.
 
+The floor is a floor and the ground walk is a **ceiling** too, but only when the view is pitched
+away from the camera geometry — free roam looking up, or a first person camera
+([13-celestial.md](13-celestial.md#seeing-them-free-roam)). The walk takes the near plane from
+where the sampled rays MEET THE GROUND; as the view pitches up those hits move off into the
+distance, the near plane follows them out, and everything close to the camera is clipped away —
+worse the higher the view goes. What is near the camera does not move when the view turns, so in
+that case `near` is capped by the same camera-height rule, which does not depend on the view
+direction at all.
+
 Their far plane (`2·height/cos(pitch + fovy/2)`) is available as
 `TerrainOptions::ViewDistanceFactor` but changes nothing at the cameras tested: the ground-derived far is
 already inside the bound it gives.

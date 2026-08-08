@@ -1,6 +1,7 @@
 package com.akylas.cartotest;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.view.WindowCompat;
 
 import android.os.Bundle;
 import android.util.Log;
@@ -16,6 +17,9 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
 
         Log.d(TAG, "onCreate");
+        // Draw edge to edge: the map runs under the status and navigation bars, and the overlay
+        // (DemoPanel) insets itself so nothing lands under them.
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         setContentView(R.layout.main_activity);
         if (savedInstanceState == null) {
             getSupportFragmentManager().beginTransaction()

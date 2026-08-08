@@ -44,11 +44,15 @@ namespace carto {
         _skyBitmap(),
         _backgroundBitmap(GetDefaultBackgroundBitmap()),
         _userInput(true),
+        _panningSpeedMode(PanningSpeedMode::PANNING_SPEED_MODE_ANCHORED),
+        _freeRoamMode(FreeRoamMode::FREE_ROAM_MODE_OFF),
+        _freeRoamLookSensitivity(90.0f),
+        _freeRoamMoveSpeed(0.5f),
         _kineticPan(true),
         _kineticRotation(true),
         _kineticZoom(true),
         _rotatable(true),
-        _tiltRange(Const::MIN_SUPPORTED_TILT_ANGLE, 90.0f),
+        _tiltRange(0.0f, 90.0f), // not MIN_SUPPORTED_TILT_ANGLE: looking above the horizon is opt-in
         _zoomRange(0.0, Const::MAX_SUPPORTED_ZOOM_LEVEL),
         _panBounds(MapPos(-std::numeric_limits<double>::infinity(), -std::numeric_limits<double>::infinity()), MapPos(std::numeric_limits<double>::infinity(), std::numeric_limits<double>::infinity())),
         _focusPointOffset(0, 0),
@@ -532,6 +536,70 @@ namespace carto {
         notifyOptionChanged("UserInput");
     }
     
+    PanningSpeedMode::PanningSpeedMode Options::getPanningSpeedMode() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        return _panningSpeedMode;
+    }
+
+    void Options::setPanningSpeedMode(PanningSpeedMode::PanningSpeedMode mode) {
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            if (_panningSpeedMode == mode) {
+                return;
+            }
+            _panningSpeedMode = mode;
+        }
+        notifyOptionChanged("PanningSpeedMode");
+    }
+
+    FreeRoamMode::FreeRoamMode Options::getFreeRoamMode() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        return _freeRoamMode;
+    }
+
+    void Options::setFreeRoamMode(FreeRoamMode::FreeRoamMode mode) {
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            if (_freeRoamMode == mode) {
+                return;
+            }
+            _freeRoamMode = mode;
+        }
+        notifyOptionChanged("FreeRoamMode");
+    }
+
+    float Options::getFreeRoamLookSensitivity() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        return _freeRoamLookSensitivity;
+    }
+
+    void Options::setFreeRoamLookSensitivity(float degreesPerInch) {
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            if (_freeRoamLookSensitivity == degreesPerInch) {
+                return;
+            }
+            _freeRoamLookSensitivity = degreesPerInch;
+        }
+        notifyOptionChanged("FreeRoamLookSensitivity");
+    }
+
+    float Options::getFreeRoamMoveSpeed() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        return _freeRoamMoveSpeed;
+    }
+
+    void Options::setFreeRoamMoveSpeed(float distancePerInch) {
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            if (_freeRoamMoveSpeed == distancePerInch) {
+                return;
+            }
+            _freeRoamMoveSpeed = distancePerInch;
+        }
+        notifyOptionChanged("FreeRoamMoveSpeed");
+    }
+
     bool Options::isKineticPan() {
         std::lock_guard<std::mutex> lock(_mutex);
         return _kineticPan;

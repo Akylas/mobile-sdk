@@ -79,7 +79,8 @@ namespace carto {
             DUAL_POINTER_TILT,
             DUAL_POINTER_ROTATE,
             DUAL_POINTER_SCALE,
-            DUAL_POINTER_FREE
+            DUAL_POINTER_FREE,
+            DUAL_POINTER_MOVE
         };
 
         enum {
@@ -106,14 +107,19 @@ namespace carto {
         float calculateRotatingScalingFactor(const ScreenPos& screenPos1, const ScreenPos& screenPos2) const;
 
         void singlePointerPan(const ScreenPos& screenPos, const ViewState& viewState);
+        void singlePointerLook(const ScreenPos& screenPos, const ViewState& viewState);
+        double calculatePanScale(const ScreenPos& screenPos, const ViewState& viewState) const;
+        void updatePanScale(const ScreenPos& screenPos, const ViewState& viewState);
         void singlePointerZoom(const ScreenPos& screenPos, const ViewState& viewState);
         bool singlePointerZoomStop(const ScreenPos& screenPos, const ViewState& viewState);
         void dualPointerGuess(const ScreenPos& screenPos1, const ScreenPos& screenPos2, const ViewState& viewState);
         void dualPointerTilt(const ScreenPos& screenPos, const ViewState& viewState);
+        void dualPointerMove(const ScreenPos& screenPos1, const ScreenPos& screenPos2, const ViewState& viewState);
         void dualPointerPan(const ScreenPos& screenPos1, const ScreenPos& screenPos2, bool rotate, bool scale, const ViewState& viewState);
         void doubleTapZoom(const ScreenPos& screenPos, const ViewState& viewState);
 
         bool isValidScreenPosition(const ScreenPos& screenPos, const ViewState& viewState) const;
+        cglib::ray3<double> calculateScreenRay(const ScreenPos& screenPos, const ViewState& viewState) const;
         MapPos mapScreenPosition(const ScreenPos& screenPos, const ViewState& viewState) const;
         double calculateTerrainHeight(const ScreenPos& screenPos, const ViewState& viewState) const;
         void updateGestureAnchorHeight(const ScreenPos& screenPos, const ViewState& viewState);
@@ -165,6 +171,7 @@ namespace carto {
         // Panning and picking are anchored to the plane at this height so that the touched
         // terrain point stays under the finger. 0 when terrain is not enabled.
         std::atomic<double> _gestureAnchorHeight;
+        std::atomic<double> _panScale; // internal units per screen pixel, frozen when a pan starts
 
         ScreenPos _prevScreenPos1;
         ScreenPos _prevScreenPos2;

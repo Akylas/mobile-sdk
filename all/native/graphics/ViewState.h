@@ -73,7 +73,7 @@ namespace carto {
         void setUpVec(const cglib::vec3<double>& upVec);
     
         /**
-         * Returns the camera tilt angle.
+         * Returns the camera tilt angle. A NEGATIVE tilt means the view looks above the horizon.
          * @return The camera tilt angle in degrees.
          */
         float getTilt() const;
@@ -83,6 +83,29 @@ namespace carto {
          * @param tilt The new camera tilt angle in degrees.
          */
         void setTilt(float tilt);
+
+        /**
+         * Sets the tilt of the VIEW only, leaving the camera where it is. The difference between
+         * the camera tilt and this one is applied as a rotation of the view about the camera, so
+         * the camera does not move at all - which is what a first person look is.
+         * @param tilt The new view tilt angle in degrees.
+         */
+        void setViewTilt(float tilt);
+
+        /**
+         * Returns the tilt the CAMERA POSITION is built at: the camera-to-focus vector is at this
+         * angle, never below the horizon, and the difference to the view tilt is a rotation of the
+         * view about the camera (see calculateLookatMat).
+         * @return The camera tilt angle in degrees, never negative.
+         */
+        float getCameraTilt() const;
+
+        /**
+         * Returns the unit direction the camera looks along, including the look above the horizon
+         * that a negative tilt adds.
+         * @return The view direction, or a zero vector if the camera and the focus coincide.
+         */
+        cglib::vec3<double> calculateViewDir() const;
 
         /**
          * Returns the camera zoom level.
@@ -434,6 +457,7 @@ namespace carto {
     
         float _rotation;
         float _tilt;
+        float _cameraTilt;
         float _zoom;
         float _2PowZoom;
         float _zoom0Distance;
