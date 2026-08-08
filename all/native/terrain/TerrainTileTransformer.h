@@ -92,6 +92,10 @@ namespace carto {
         // crossings - the crossing list would cost more than it saves.
         static constexpr int MAX_LATTICE_SPLITS_PER_SEGMENT = 64;
 
+        // How much finer than the surface mesh cell a LINE is cut when there is no regular grid to
+        // cut it against exactly. The residual sag falls linearly with the sub-segment length.
+        static constexpr float LINE_SUBDIVISION_FACTOR = 4.0f;
+
         const double _scale;
         const std::shared_ptr<ElevationManager> _elevationManager;
         const int _meshResolution;

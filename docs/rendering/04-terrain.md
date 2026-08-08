@@ -153,3 +153,30 @@ Two GL contexts still share one GPU, so the submit interval matters more than th
 every frame 13.2 fps, 250 ms 14.3, **500 ms 14.9** (13.7 synchronous). Tangram does the same thing
 with a shared context and never waits on it.
 </content>
+
+## Draped lines sagging into the terrain (no regular grid)
+
+Symptom: lines do not sit on the surface — a route reads as sunk into a ridge or floating over it,
+worst at low zoom, straightening as you zoom in, at any tilt.
+
+`TerrainTileTransformer` has two line-subdivision paths, and only one of them is exact:
+
+- **regular-grid mode** (`TerrainOptions::setRegularGridEnabled`, **off by default**) cuts each
+  segment exactly where it leaves a surface triangle (`tesselateSegmentOnLattice`), so every
+  sub-segment lies *in* one triangle and follows the surface exactly;
+- **without it** there is no lattice to cut against, so segments are only halved until shorter than
+  a threshold. A sub-segment one mesh cell long still chords across the cell's diagonal fold and
+  sags below it.
+
+The bug was that this second path used `lineDivideThreshold = divideThreshold`, i.e. lines shared the
+fill threshold **including its DEM-texel floor** (`max(tileMeters / meshResolution, demTexelMeters)`).
+That floor answers "how much elevation detail exists", which is the right bound for a fill but the
+wrong one for the sag: the sag is against the surface **mesh**, not the DEM. Since the threshold is
+proportional to the tile, the error scaled with tile size — hence better on every zoom in.
+
+Lines are now cut `LINE_SUBDIVISION_FACTOR` (4) times finer than the mesh cell, with no texel floor.
+Lines are 1D, so the same factor costs a fraction of what it would on a fill, and the residual sag
+falls linearly with the sub-segment length.
+
+Not fixed here: without the regular grid the sag is only *reduced*, never zero. Turning on
+regular-grid mode is what removes it, and that is a larger change ([05-depth-model.md](05-depth-model.md)).
