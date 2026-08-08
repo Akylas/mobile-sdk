@@ -1266,6 +1266,14 @@ namespace carto {
         
         glUseProgram(_screenBlendShader->getProgId());
 
+        // The blit covers the screen and must not be depth-tested: the depth buffer it would test
+        // against belongs to the SCREEN framebuffer, which nothing clears (the scene is drawn into
+        // an offscreen one). The first blit passed and wrote its own depth, every later one failed
+        // against it - the map rendered at full speed while the window kept the frame from before
+        // the effect was attached.
+        glDisable(GL_DEPTH_TEST);
+        glDepthMask(GL_FALSE);
+
         glVertexAttribPointer(_screenBlendShader->getAttribLoc("a_coord"), 2, GL_FLOAT, GL_FALSE, 0, screenVertices);
         glEnableVertexAttribArray(_screenBlendShader->getAttribLoc("a_coord"));
         
@@ -1284,6 +1292,7 @@ namespace carto {
         glBindTexture(GL_TEXTURE_2D, 0);
         
         glDisableVertexAttribArray(_screenBlendShader->getAttribLoc("a_coord"));
+        glEnable(GL_DEPTH_TEST);
 
         GLContext::CheckGLError("MapRenderer::blendAndUnbindScreenFBO");
     }
