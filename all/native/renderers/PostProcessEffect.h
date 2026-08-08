@@ -108,23 +108,6 @@ namespace carto {
          */
         std::map<std::string, Color> getColorParameters() const;
 
-        /**
-         * Creates a built-in 'relief outline' effect: the terrain drawn as ink lines on paper -
-         * silhouettes where the surface breaks away against something further behind it, finer
-         * lines along ridges and valleys, and distance fading the shading into the paper.
-         * Line width grows with distance, so the far horizon reads as the boldest line in the
-         * frame. Requires terrain to be enabled.
-         * Float parameters: uIntensity (0..1 blend with the original map, default 1),
-         * uOutlineWidth (base line width in pixels, default 1.2), uHorizonBoost (extra width at
-         * the far plane, default 2.5), uDepthThreshold (silhouette sensitivity, default 1),
-         * uCreaseStrength (ridge/valley line strength, 0 disables them, default 0.6),
-         * uDepthTexelSize (smallest usable sampling step in screen pixels, default 2 - the
-         * terrain depth buffer runs at half resolution),
-         * uHaze (how far the shading fades towards the paper colour with distance, default 0.75).
-         * Color parameters: uInkColor (the line colour), uPaperColor (what the shading fades to).
-         * @return The relief outline effect.
-         */
-        static std::shared_ptr<PostProcessEffect> CreateReliefOutlineEffect();
 
     private:
         const std::string _name;

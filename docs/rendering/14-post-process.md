@@ -57,8 +57,16 @@ triangulation, which is what the first attempt did (bright facets all over the n
 
 ## The relief outline effect
 
-`PostProcessEffect::CreateReliefOutlineEffect()` — ink lines on paper over the shaded surface.
-Three findings from making it match the reference (PeakFinder, and farfromrefug/geo-three):
+The SDK carries **no** effect of its own: `PostProcessEffect(name, fragmentShader)` takes the
+shader as a string, the way `SkyOptions::setShaderSource` and `TerrainOptions::setSurfaceShaderSource`
+do, and everything an effect can read is a documented uniform (see the header) or a named parameter
+the app sets. The relief look — ink lines on paper over the shaded surface — therefore lives in the
+app: `DemoStyles.reliefOutlineShader()` in the demo. There was a built-in
+`CreateReliefOutlineEffect()` factory; it was removed, because a peak-finder look is not something
+an SDK should have an opinion about.
+
+Three findings from making that shader match the reference (PeakFinder, and farfromrefug/geo-three)
+— they are about the depth texture, so they apply to any effect drawing from it:
 
 - **Sample at least one depth texel apart.** With a step below `BUFFER_DOWNSCALE` pixels the four
   neighbour samples land on the same texel, the tangent vectors come out zero, and

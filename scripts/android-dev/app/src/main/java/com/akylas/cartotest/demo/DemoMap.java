@@ -1390,7 +1390,11 @@ public class DemoMap {
         DemoConfig.RELIEF_OUTLINE = enabled;
         MapRenderer renderer = mapView.getMapRenderer();
         if (enabled) {
-            reliefEffect = PostProcessEffect.createReliefOutlineEffect();
+            // The SDK provides the mechanism - an offscreen frame, the packed terrain depth and
+            // named parameters - and the app provides the look, as a fragment shader string. There
+            // is no relief effect in the SDK.
+            reliefEffect = new PostProcessEffect("relief_outline", DemoStyles.reliefOutlineShader());
+            reliefEffect.setTerrainDepthRequired(true);
             applyReliefOutlineParameters();
             renderer.setPostProcessEffect(reliefEffect);
         } else {
@@ -1411,6 +1415,12 @@ public class DemoMap {
         reliefEffect.setFloatParameter("uDepthThreshold", DemoConfig.RELIEF_DEPTH_THRESHOLD);
         reliefEffect.setFloatParameter("uCreaseStrength", DemoConfig.RELIEF_CREASE_STRENGTH);
         reliefEffect.setFloatParameter("uHaze", DemoConfig.RELIEF_HAZE);
+        // The depth texture is half resolution (TerrainRenderer::BUFFER_DOWNSCALE), and the two
+        // below are what keep the horizon the boldest line: the silhouette test is relaxed by the
+        // grazing angle, and terrain-vs-terrain lines fade with distance while the sky's do not.
+        reliefEffect.setFloatParameter("uDepthTexelSize", 2.0f);
+        reliefEffect.setFloatParameter("uGrazingFloor", 0.15f);
+        reliefEffect.setFloatParameter("uDistanceFade", 0.45f);
         reliefEffect.setColorParameter("uInkColor", color(reliefInk()));
         reliefEffect.setColorParameter("uPaperColor", color(reliefPaper()));
         mapView.requestRender();
