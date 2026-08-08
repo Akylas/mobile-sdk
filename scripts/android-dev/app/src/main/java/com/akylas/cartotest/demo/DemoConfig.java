@@ -223,7 +223,7 @@ public final class DemoConfig {
     public static float VIEW_DISTANCE_FACTOR = 1f;
     /** Absolute view distance in METRES, whatever the camera's height or pitch. 0 = the factor
      *  rule above (tangram's, which shortens the view as the camera comes down to the ground). */
-    public static float VIEW_DISTANCE_METERS = 0f;
+    public static float VIEW_DISTANCE_METERS = 170000f;
     /** Zoom levels below the camera a tile may coarsen to in terrain mode. The tile surface is the
      *  depth occluder and the DEM level follows the tile zoom, so unbounded coarsening means leaky
      *  ridges and blocky hillshade. '--es coarsening 2'. */
