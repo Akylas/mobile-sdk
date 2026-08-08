@@ -26,11 +26,14 @@ In order:
 1. **View state** — animation/kinetic handlers, camera clamp against the terrain height range, then
    `ViewState::calculateViewState` (projection, frustum, near/far — see
    [04-terrain.md](04-terrain.md#near-and-far-planes)).
-2. **Optional offscreen bind** — only when a `PostProcessEffect` is set.
+2. **Optional offscreen bind** — only when a `PostProcessEffect` is set
+   ([14-post-process.md](14-post-process.md)).
 3. **Sky** — `SkyRenderer::onDrawFrame`; if it drew, the legacy sky band is skipped.
    `BackgroundRenderer` then draws the flat z=0 plane that fills the view past the terrain.
 4. **`drawLayers`** — the whole map. Detailed below.
-5. **Post-process, capture callbacks, billboard placement kick, idle notification.**
+5. **Post-process** — the effect resolves, then any layer that opted out of it
+   (`Layer::setPostProcessed(false)`) is drawn on top into the same depth buffer.
+6. **Capture callbacks, billboard placement kick, idle notification.**
 
 `PROF` timing sections (only in a `-PprofileRender` build) map onto this:
 `sky` (which is mostly the swap-buffer wait, not work) `prelude` `prepare` `cover` `drape`
@@ -86,3 +89,27 @@ Two consequences worth knowing:
   loop, and it will not look like a bug — it looks like battery drain. `TileRenderer` logs when it
   has been waiting many frames on a pending elevation rebuild for this reason.
 </content>
+
+## Camera animations
+
+`AnimationHandler` (all/native/renderers/components/) runs one animation per camera property — pan,
+rotation, tilt, zoom — each on its own clock, each moving a share of what is left every frame.
+
+`flyTo` (`BaseMapView::flyTo`, `MapView.flyTo`) is the exception: **one** animation driving pan and
+zoom (and optionally rotation and tilt) from a single clock, along Van Wijk & Nuij's optimal path
+("Smooth and efficient zooming and panning", 2003). The zoom pulls back over a long move and comes
+down at the target, so the whole path stays in view instead of the camera crossing the map at the
+final zoom. `durationSeconds` 0 derives the duration from the length of the path — their point is
+that a move twice as far should not take twice as long. It stops the per-property animations and
+the kinetic handler when it starts, and they stay out of the way until it finishes (`isFlightActive`,
+`stopFlight`). ρ is fixed at their 1.42.
+
+The **viewpoint's height travels with the move**: the target `MapPos`'s Z is where it ends, and the
+`climbHeight` overload adds a parabola on top of it — highest halfway, nothing at either end, a
+plane's flight, which is also how the camera clears whatever stands between the two ends.
+
+An app animating its own state alongside the move reads `getFlightProgress()` (0..1 while flying,
+-1 otherwise) rather than running a second clock beside it. The demo enters the peak-finder view
+this way (`DemoMap.flyToPeakFinder`): 3D terrain and the mode switch on FIRST, so the terrain, the
+relief surface and the names load and fade in during the flight, and the camera, the tilt and the
+viewpoint's climb are all one animation.

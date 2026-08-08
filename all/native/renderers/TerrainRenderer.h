@@ -7,6 +7,7 @@
 #ifndef _CARTO_TERRAINRENDERER_H_
 #define _CARTO_TERRAINRENDERER_H_
 
+#include "components/StyleEnvironment.h"
 #include "core/MapTile.h"
 #include "graphics/Color.h"
 #include "graphics/ViewState.h"
@@ -77,10 +78,24 @@ namespace carto {
         bool renderBackground(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager, const std::shared_ptr<Bitmap>& bitmap, bool keepDepth);
 
         /**
+         * Renders the terrain surface painted by the application's surface shader
+         * (TerrainOptions::setSurfaceShaderSource) - the shaded variant of the color/bitmap
+         * background, with the same keepDepth semantics. The surface normal, elevation and
+         * camera distance are supplied per vertex, the sun and fog per frame. Returns false
+         * when no shader is set or it does not compile, in which case the caller falls back
+         * to the bitmap/color background. GL state is restored on return.
+         */
+        bool renderSurface(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager, const ResolvedLighting& lighting, const ResolvedFog& fog, bool keepDepth);
+
+        /**
          * Renders the packed terrain depth texture for post-processing. Returns true on success.
          * Leaves the previously bound framebuffer bound again on return.
+         * meshResolutionCap 0 draws the terrain at its full mesh resolution: an effect that draws
+         * LINES from this depth sees every mesh edge as a fold, so a coarser mesh than the one on
+         * screen is not an approximation there, it is the pattern it draws. The occlusion
+         * read-back, which only samples points, keeps the cheap cap.
          */
-        bool renderDepthTexture(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager);
+        bool renderDepthTexture(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager, int meshResolutionCap = DEPTH_TEXTURE_MESH_RESOLUTION);
 
         /**
          * Returns the GL texture id of the packed depth buffer (0 if not rendered).
@@ -148,12 +163,21 @@ namespace carto {
         static const std::string TERRAIN_COLOR_FRAGMENT_SHADER;
         static const std::string TERRAIN_BITMAP_VERTEX_SHADER;
         static const std::string TERRAIN_BITMAP_FRAGMENT_SHADER;
+        static const std::string TERRAIN_SURFACE_VERTEX_SHADER;
+        static const std::string TERRAIN_SURFACE_FRAGMENT_SHADER_PREFIX;
+        static const std::string TERRAIN_SURFACE_FRAGMENT_SHADER_MAIN;
 
         // meshResolutionCap > 0 caps the per-tile mesh grid below what TerrainOptions asks
         // for. The occlusion depth texture is a half-resolution approximation sampled at
         // single points, so it does not need the full render mesh - and that mesh is CPU
         // built and drawn from client memory, which is the expensive part of the pass.
-        bool renderTiles(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager, const std::shared_ptr<Shader>& shader, const std::function<void(const MapTile&)>& tileUniformsFn = std::function<void(const MapTile&)>(), int meshResolutionCap = 0);
+        bool renderTiles(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager, const std::shared_ptr<Shader>& shader, const std::function<void(const MapTile&)>& tileUniformsFn = std::function<void(const MapTile&)>(), int meshResolutionCap = 0, bool surfaceAttribs = false);
+        // Compiles (and caches) the surface program for the current TerrainOptions shader source.
+        // A source that failed once is not retried until it changes.
+        std::shared_ptr<Shader> updateSurfaceShader(const std::string& shaderSource, const std::shared_ptr<GLResourceManager>& glResourceManager);
+        // Fills the mesh's per-vertex surface attributes (normal + elevation in metres) on first
+        // use. Only the surface pass needs them, so the depth passes never pay for them.
+        void ensureSurfaceAttribs(const MapTile& tile, const std::shared_ptr<ElevationManager>& elevationManager, TileMesh& mesh) const;
         // Visible tiles paired with their (cached, built here if missing) meshes. Both the
         // rendering path and the offscreen depth job start from this, so they always draw the
         // same terrain.
@@ -169,6 +193,15 @@ namespace carto {
         std::shared_ptr<Shader> _shader;
         std::shared_ptr<Shader> _colorShader;
         std::shared_ptr<Shader> _bitmapShader;
+        std::shared_ptr<Shader> _surfaceShader;
+        std::string _surfaceShaderSource;    // source _surfaceShader was built from
+        bool _surfaceShaderFailed = false;   // that source does not compile: do not retry every frame
+        std::chrono::steady_clock::time_point _startTime = std::chrono::steady_clock::now(); // u_time origin
+        // What the packed depth texture currently holds: it is reused while the camera, the
+        // elevation and the mesh cap are unchanged (see renderDepthTexture).
+        cglib::mat4x4<double> _depthTextureMVPMatrix = cglib::mat4x4<double>::zero();
+        unsigned int _depthTextureElevationVersion = 0;
+        int _depthTextureMeshResolutionCap = -1;
         std::shared_ptr<Bitmap> _backgroundBitmap; // source of _backgroundTex, for change detection
         std::shared_ptr<Texture> _backgroundTex;
         // Keyed by (tile id, mesh grid size): the occlusion depth texture draws the same

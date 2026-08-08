@@ -960,11 +960,19 @@ namespace carto {
             _backgroundRenderer.onDrawFrame(viewState, !skyDrawn);
         }
         FRAME_PROF_ADD(skyMs, profFrameStart);
-        drawLayers(deltaSeconds, viewState);
+        drawLayers(deltaSeconds, viewState, static_cast<bool>(postProcessEffect));
         FRAME_PROF_GPU_END();
         FRAME_PROF_END(profFrameStart);
         if (postProcessEffect) {
-            applyPostProcessEffect(postProcessEffect, viewState);
+            // Layers that opted out of the effect are drawn after it resolves, into the same
+            // framebuffer and the same depth buffer, and the result is then blitted to the
+            // screen. With none of them, the effect writes straight to the screen as before.
+            bool overlays = !_overlayLayers.empty();
+            applyPostProcessEffect(postProcessEffect, viewState, overlays);
+            if (overlays) {
+                drawOverlayLayers(deltaSeconds, viewState);
+                blendAndUnbindScreenFBO(1.0f);
+            }
         }
 
         // Callback for synchronized rendering
@@ -1090,7 +1098,7 @@ namespace carto {
         requestRedraw();
     }
 
-    void MapRenderer::applyPostProcessEffect(const std::shared_ptr<PostProcessEffect>& effect, const ViewState& viewState) {
+    void MapRenderer::applyPostProcessEffect(const std::shared_ptr<PostProcessEffect>& effect, const ViewState& viewState, bool keepBound) {
         static const GLfloat screenVertices[8] = { -1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, 1.0f, 1.0f };
 
         if (_screenBoundFBOs.empty()) {
@@ -1109,7 +1117,9 @@ namespace carto {
                 if (!_terrainRenderer) {
                     _terrainRenderer = std::make_unique<TerrainRenderer>();
                 }
-                if (_terrainRenderer->renderDepthTexture(viewState, terrainOptions, _glResourceManager)) {
+                // Full mesh resolution: an effect drawing lines from this depth would otherwise
+                // draw the coarse depth mesh's own triangulation.
+                if (_terrainRenderer->renderDepthTexture(viewState, terrainOptions, _glResourceManager, 0)) {
                     terrainDepthTex = _terrainRenderer->getDepthTextureId();
                 }
             }
@@ -1117,17 +1127,28 @@ namespace carto {
 
         GLuint prevBoundFBO = _screenBoundFBOs.back().first;
         GLuint bufferMask = _screenBoundFBOs.back().second;
-        _screenBoundFBOs.pop_back();
 
         std::shared_ptr<FrameBuffer>& frameBuffer = _screenFrameBuffers[bufferMask];
         if (!frameBuffer || !frameBuffer->isValid()) {
+            _screenBoundFBOs.pop_back();
             return; // should not happen, just safety
         }
-        if (bufferMask & (GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)) {
-            frameBuffer->discard(false, (bufferMask & GL_DEPTH_BUFFER_BIT) != 0, (bufferMask & GL_STENCIL_BUFFER_BIT) != 0);
-        }
 
-        glBindFramebuffer(GL_FRAMEBUFFER, prevBoundFBO);
+        GLuint sourceTexId = frameBuffer->getColorTexId();
+        if (keepBound) {
+            // Layers that opted out of post-processing still have to be drawn, and they have to
+            // be depth-tested against the terrain the effect just stylized. So the effect writes
+            // into the framebuffer's SECOND color texture instead of the screen: same FBO, same
+            // depth buffer, and the caller keeps drawing into it before blitting it out.
+            frameBuffer->attachSecondaryColorTex(true);
+            _postProcessSecondaryActive = true;
+        } else {
+            _screenBoundFBOs.pop_back();
+            if (bufferMask & (GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)) {
+                frameBuffer->discard(false, (bufferMask & GL_DEPTH_BUFFER_BIT) != 0, (bufferMask & GL_STENCIL_BUFFER_BIT) != 0);
+            }
+            glBindFramebuffer(GL_FRAMEBUFFER, prevBoundFBO);
+        }
 
         // Compile the effect shader on demand
         if (!_postProcessShader || !_postProcessShader->isValid() || _postProcessShaderName != effect->getName()) {
@@ -1139,6 +1160,10 @@ namespace carto {
         }
 
         glDisable(GL_BLEND);
+        // The pass covers the screen and must neither test nor write depth: the depth buffer is
+        // the terrain's, and the layers drawn after the effect still need it.
+        glDisable(GL_DEPTH_TEST);
+        glDepthMask(GL_FALSE);
 
         GLuint progId = _postProcessShader->getProgId();
         glUseProgram(progId);
@@ -1152,7 +1177,7 @@ namespace carto {
             glUniform1i(loc, 0);
         }
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, frameBuffer->getColorTexId());
+        glBindTexture(GL_TEXTURE_2D, sourceTexId);
         if (terrainDepthTex != 0 && (loc = glGetUniformLocation(progId, "uTerrainDepthTex")) >= 0) {
             glUniform1i(loc, 1);
             glActiveTexture(GL_TEXTURE1);
@@ -1169,6 +1194,10 @@ namespace carto {
         if ((loc = glGetUniformLocation(progId, "uFar")) >= 0) {
             glUniform1f(loc, viewState.getFar());
         }
+        if ((loc = glGetUniformLocation(progId, "uProjInvScale")) >= 0) {
+            float tanHalfFOVY = static_cast<float>(viewState.getTanHalfFOVY());
+            glUniform2f(loc, tanHalfFOVY * viewState.getAspectRatio(), tanHalfFOVY);
+        }
         if ((loc = glGetUniformLocation(progId, "uTime")) >= 0) {
             float time = 0;
             if (_postProcessStartTime) {
@@ -1182,12 +1211,18 @@ namespace carto {
                 glUniform1f(loc, param.second);
             }
         }
+        for (const auto& param : effect->getColorParameters()) {
+            if ((loc = glGetUniformLocation(progId, param.first.c_str())) >= 0) {
+                glUniform4f(loc, param.second.getR() / 255.0f, param.second.getG() / 255.0f, param.second.getB() / 255.0f, param.second.getA() / 255.0f);
+            }
+        }
 
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
         glBindTexture(GL_TEXTURE_2D, 0);
         glDisableVertexAttribArray(_postProcessShader->getAttribLoc("a_coord"));
         glEnable(GL_BLEND);
+        glEnable(GL_DEPTH_TEST);
 
         GLContext::CheckGLError("MapRenderer::applyPostProcessEffect");
     }
@@ -1211,6 +1246,17 @@ namespace carto {
         if (bufferMask & (GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)) {
             frameBuffer->discard(false, (bufferMask & GL_DEPTH_BUFFER_BIT) != 0, (bufferMask & GL_STENCIL_BUFFER_BIT) != 0);
         }
+        // Normally the framebuffer's own color texture goes out (a layer rendering itself at
+        // partial opacity). The one case where it is not is the outermost unwind of a
+        // post-process effect that resolved into the secondary texture and let overlay layers
+        // draw on top of it - then that texture is the frame, and the primary one is attached
+        // again for the next frame to be drawn into.
+        GLuint colorTexId = frameBuffer->getColorTexId();
+        if (_postProcessSecondaryActive && _screenBoundFBOs.empty()) {
+            colorTexId = frameBuffer->getAttachedColorTexId();
+            frameBuffer->attachSecondaryColorTex(false);
+            _postProcessSecondaryActive = false;
+        }
 
         glBindFramebuffer(GL_FRAMEBUFFER, prevBoundFBO);
 
@@ -1220,6 +1266,14 @@ namespace carto {
         
         glUseProgram(_screenBlendShader->getProgId());
 
+        // The blit covers the screen and must not be depth-tested: the depth buffer it would test
+        // against belongs to the SCREEN framebuffer, which nothing clears (the scene is drawn into
+        // an offscreen one). The first blit passed and wrote its own depth, every later one failed
+        // against it - the map rendered at full speed while the window kept the frame from before
+        // the effect was attached.
+        glDisable(GL_DEPTH_TEST);
+        glDepthMask(GL_FALSE);
+
         glVertexAttribPointer(_screenBlendShader->getAttribLoc("a_coord"), 2, GL_FLOAT, GL_FALSE, 0, screenVertices);
         glEnableVertexAttribArray(_screenBlendShader->getAttribLoc("a_coord"));
         
@@ -1228,7 +1282,7 @@ namespace carto {
         
         glUniform1i(_screenBlendShader->getUniformLoc("u_tex"), 0);
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, frameBuffer->getColorTexId());
+        glBindTexture(GL_TEXTURE_2D, colorTexId);
 
         glUniform4f(_screenBlendShader->getUniformLoc("u_color"), opacity, opacity, opacity, opacity);
         glUniform2f(_screenBlendShader->getUniformLoc("u_invScreenSize"), 1.0f / _viewState.getWidth(), 1.0f / _viewState.getHeight());
@@ -1238,6 +1292,7 @@ namespace carto {
         glBindTexture(GL_TEXTURE_2D, 0);
         
         glDisableVertexAttribArray(_screenBlendShader->getAttribLoc("a_coord"));
+        glEnable(GL_DEPTH_TEST);
 
         GLContext::CheckGLError("MapRenderer::blendAndUnbindScreenFBO");
     }
@@ -1793,10 +1848,22 @@ namespace carto {
         }
     }
 
-    void MapRenderer::drawLayers(float deltaSeconds, const ViewState& viewState) {
+    void MapRenderer::drawLayers(float deltaSeconds, const ViewState& viewState, bool postProcessing) {
         FRAME_PROF_NOW(profDrawStart);
         FRAME_PROF_GPU_BEGIN(SECTION_PRELUDE);
         std::vector<std::shared_ptr<Layer> > layers = _layers->getAll();
+
+        // Layers that opted out of post-processing are held back and drawn by drawOverlayLayers
+        // once the effect has resolved. They are out of the whole terrain arrangement below
+        // (depth write assignment, draping, the shared ground) on purpose - they are overlays.
+        _overlayLayers.clear();
+        if (postProcessing) {
+            auto overlay = std::stable_partition(layers.begin(), layers.end(), [](const std::shared_ptr<Layer>& layer) {
+                return layer->isPostProcessed();
+            });
+            _overlayLayers.assign(overlay, layers.end());
+            layers.erase(overlay, layers.end());
+        }
 
         // Terrain depth source: the FIRST suitable tile layer writes the depth of its
         // draped background/raster surfaces - the depth source is then bit-exact with the
@@ -1839,7 +1906,40 @@ namespace carto {
                         }
                         bool keepDepth = !depthWriteAssigned;
                         bool backgroundRendered = false;
-                        if (terrainOptions->isBackgroundBitmapEnabled()) {
+                        // A surface shader paints the terrain itself and takes precedence over
+                        // the bitmap/color fill. The sun and the fog it gets are the resolved
+                        // ones (style Map block over LightOptions/TerrainOptions), so a shaded
+                        // surface, the vt content and the sky agree on the light.
+                        if (!terrainOptions->getSurfaceShaderSource().empty()) {
+                            // The shaded surface is the case where there may be no tile layer at
+                            // all - and the layers are what normally drive the elevation loads, so
+                            // without this the surface has a flat height field to shade and the map
+                            // goes idle on it (same reason as the terrain paint cover below).
+                            if (std::shared_ptr<ElevationManager> elevationManager = terrainOptions->getElevationManager()) {
+                                std::vector<MapTile> terrainTiles;
+                                _terrainRenderer->collectVisibleTiles(viewState, terrainOptions, terrainTiles);
+                                for (const MapTile& terrainTile : terrainTiles) {
+                                    MapTile dataTile = elevationManager->getDataTile(terrainTile);
+                                    elevationManager->prefetchTileGrid(dataTile, 2);
+                                    if (!elevationManager->getDataTileGrid(dataTile, ElevationManager::LoadMode::CACHED_ONLY)) {
+                                        requestRedraw();
+                                    }
+                                }
+                            }
+                            StyleEnvironment surfaceEnvironment;
+                            for (const std::shared_ptr<Layer>& layer : layers) {
+                                if (auto tileLayer = std::dynamic_pointer_cast<TileLayer>(layer)) {
+                                    StyleEnvironment layerEnvironment;
+                                    if (tileLayer->getStyleEnvironment(viewState, layerEnvironment)) {
+                                        surfaceEnvironment.mergeMissing(layerEnvironment);
+                                    }
+                                }
+                            }
+                            ResolvedLighting surfaceLighting = resolveLighting(_options->getLightOptions(), surfaceEnvironment);
+                            ResolvedFog surfaceFog = resolveFog(terrainOptions, surfaceEnvironment, surfaceLighting);
+                            backgroundRendered = _terrainRenderer->renderSurface(viewState, terrainOptions, _glResourceManager, surfaceLighting, surfaceFog, keepDepth);
+                        }
+                        if (!backgroundRendered && terrainOptions->isBackgroundBitmapEnabled()) {
                             if (std::shared_ptr<Bitmap> backgroundBitmap = _options->getBackgroundBitmap()) {
                                 backgroundRendered = _terrainRenderer->renderBackground(viewState, terrainOptions, _glResourceManager, backgroundBitmap, keepDepth);
                             }
@@ -2966,7 +3066,62 @@ namespace carto {
             }
         }
     }
-    
+
+    void MapRenderer::drawOverlayLayers(float deltaSeconds, const ViewState& viewState) {
+        std::vector<std::shared_ptr<Layer> > layers = _overlayLayers;
+        if (layers.empty()) {
+            return;
+        }
+
+        std::vector<std::shared_ptr<BillboardDrawData> > billboardDrawDatas;
+        BillboardSorter billboardSorter(billboardDrawDatas);
+
+        bool needRedraw = false;
+        for (const std::shared_ptr<Layer>& layer : layers) {
+            if (viewState.getHorizontalLayerOffsetDir() != 0) {
+                layer->offsetLayerHorizontally(viewState.getHorizontalLayerOffsetDir() * Const::WORLD_SIZE);
+            }
+            needRedraw = layer->onDrawFrame(deltaSeconds, billboardSorter, viewState) || needRedraw;
+        }
+        for (const std::shared_ptr<Layer>& layer : layers) {
+            needRedraw = layer->onDrawFrame3D(deltaSeconds, billboardSorter, viewState) || needRedraw;
+        }
+
+        billboardSorter.sort(viewState);
+        if (!billboardDrawDatas.empty()) {
+            glDisable(GL_DEPTH_TEST);
+
+            _billboardDrawDataBuffer.clear();
+            std::shared_ptr<BillboardRenderer> prevRenderer;
+            for (const std::shared_ptr<BillboardDrawData>& drawData : billboardDrawDatas) {
+                if (std::shared_ptr<BillboardRenderer> renderer = drawData->getRenderer().lock()) {
+                    if (prevRenderer && prevRenderer != renderer) {
+                        prevRenderer->onDrawFrameSorted(deltaSeconds, _billboardDrawDataBuffer, viewState);
+                        _billboardDrawDataBuffer.clear();
+                    }
+                    _billboardDrawDataBuffer.push_back(drawData);
+                    prevRenderer = renderer;
+                }
+            }
+            if (prevRenderer) {
+                prevRenderer->onDrawFrameSorted(deltaSeconds, _billboardDrawDataBuffer, viewState);
+            }
+
+            glEnable(GL_DEPTH_TEST);
+        }
+
+        // The placement worker looks at one list, so these join the ones drawLayers collected
+        // rather than replacing them.
+        {
+            std::lock_guard<std::recursive_mutex> lock(_mutex);
+            _billboardDrawDatas.insert(_billboardDrawDatas.end(), billboardDrawDatas.begin(), billboardDrawDatas.end());
+        }
+
+        if (needRedraw) {
+            requestRedraw();
+        }
+    }
+
     void MapRenderer::handleRendererCaptureCallbacks() {
         int width, height;
         {

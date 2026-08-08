@@ -223,7 +223,7 @@ enough to absorb the mismatch between a label anchor and the terrain it sits on.
 hidden features label, so a summit just behind a nearer ridge still shows its name. Both occlusion
 paths (the depth-buffer read-back and the ray fallback) use the same value.
 
-Verified: `PostProcessEffect.CreateReliefOutlineEffect()` over the Chartreuse at low tilt renders
+Verified: the demo's relief outline effect (`DemoStyles.reliefOutlineShader()`) over the Chartreuse at low tilt renders
 clean ridge silhouettes. One trap: attaching a post-process effect *before* the GL surface exists
 leaves the offscreen colour buffer unwritten and the screen goes black — attach it after the first
 frame.

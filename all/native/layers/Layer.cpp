@@ -79,6 +79,15 @@ namespace carto {
         refresh();
     }
     
+    bool Layer::isPostProcessed() const {
+        return _postProcessed.load();
+    }
+
+    void Layer::setPostProcessed(bool postProcessed) {
+        _postProcessed.store(postProcessed);
+        refresh();
+    }
+
     MapRange Layer::getVisibleZoomRange() {
         std::lock_guard<std::recursive_mutex> lock(_mutex);
         return _visibleZoomRange;
@@ -158,6 +167,7 @@ namespace carto {
         _cullDelay(DEFAULT_CULL_DELAY),
         _opacity(1.0f),
         _visible(true),
+        _postProcessed(true),
         _visibleZoomRange(0, std::numeric_limits<float>::infinity()),
         _metaData(),
         _lastCullState(),
