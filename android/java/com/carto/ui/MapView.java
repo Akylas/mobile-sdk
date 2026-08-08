@@ -419,6 +419,29 @@ public class MapView extends GLSurfaceView implements GLSurfaceView.Renderer, Ma
     }
 
     /**
+     * Moves the camera to a position, zoom, rotation and tilt in one animation, climbing over the
+     * way there: the target position's Z is the height it ends at, and the climb is added as a
+     * parabola, highest halfway and back to nothing at both ends.
+     * @param pos The target position in base projection coordinate system; its Z is the target height.
+     * @param zoom The target zoom level.
+     * @param rotation The target rotation in degrees.
+     * @param tilt The target tilt in degrees.
+     * @param climbHeight The extra height at the middle of the path.
+     * @param durationSeconds The duration in seconds, 0 to derive it from the length of the path.
+     */
+    public void flyTo(MapPos pos, float zoom, float rotation, float tilt, float climbHeight, float durationSeconds) {
+        baseMapView.flyTo(pos, zoom, rotation, tilt, climbHeight, durationSeconds);
+    }
+
+    /**
+     * How far along a flyTo animation is, from 0 to 1, or -1 when none is running.
+     * @return The flight progress, or -1.
+     */
+    public float getFlightProgress() {
+        return baseMapView.getFlightProgress();
+    }
+
+    /**
      * Stops a flyTo animation, leaving the camera where it is.
      */
     public void stopFlight() {

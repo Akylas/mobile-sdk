@@ -144,12 +144,26 @@ namespace carto {
     
     void BaseMapView::flyTo(const MapPos& pos, float zoom, float durationSeconds) {
         stopCameraAnimations();
-        _mapRenderer->getAnimationHandler().setFlightTarget(_options->getBaseProjection()->toInternal(pos), zoom, nullptr, nullptr, durationSeconds, FLIGHT_RHO);
+        _mapRenderer->getAnimationHandler().setFlightTarget(_options->getBaseProjection()->toInternal(pos), zoom, nullptr, nullptr, 0.0f, durationSeconds, FLIGHT_RHO);
     }
 
     void BaseMapView::flyTo(const MapPos& pos, float zoom, float rotation, float tilt, float durationSeconds) {
+        flyTo(pos, zoom, rotation, tilt, 0.0f, durationSeconds);
+    }
+
+    void BaseMapView::flyTo(const MapPos& pos, float zoom, float rotation, float tilt, float climbHeight, float durationSeconds) {
         stopCameraAnimations();
-        _mapRenderer->getAnimationHandler().setFlightTarget(_options->getBaseProjection()->toInternal(pos), zoom, &rotation, &tilt, durationSeconds, FLIGHT_RHO);
+        // The climb is a height in the base projection's units, like the position's Z, so it goes
+        // through the same conversion - the internal Z scale is not the internal XY scale.
+        MapPos internalPos = _options->getBaseProjection()->toInternal(pos);
+        MapPos internalGround = _options->getBaseProjection()->toInternal(MapPos(pos.getX(), pos.getY(), 0));
+        MapPos internalClimb = _options->getBaseProjection()->toInternal(MapPos(pos.getX(), pos.getY(), climbHeight));
+        double internalClimbHeight = internalClimb.getZ() - internalGround.getZ();
+        _mapRenderer->getAnimationHandler().setFlightTarget(internalPos, zoom, &rotation, &tilt, static_cast<float>(internalClimbHeight), durationSeconds, FLIGHT_RHO);
+    }
+
+    float BaseMapView::getFlightProgress() const {
+        return _mapRenderer->getAnimationHandler().getFlightProgress();
     }
 
     void BaseMapView::stopCameraAnimations() {

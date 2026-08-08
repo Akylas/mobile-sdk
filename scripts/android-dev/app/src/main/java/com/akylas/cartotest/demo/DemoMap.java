@@ -422,29 +422,30 @@ public class DemoMap {
      */
     public void flyToPeakFinder() {
         final MapPos focus = mapView.getFocusPos();
-        // The mode itself first: the terrain, the relief surface and the names then have the whole
-        // flight to load and fade in, instead of appearing when it lands.
+        // 3D terrain first, then the mode: the terrain, the relief surface and the names all have
+        // the whole flight to load and fade in, instead of appearing when it lands.
+        if (!DemoConfig.TERRAIN_ENABLED) {
+            DemoConfig.TERRAIN_ENABLED = true;
+            applyTerrainOptions();
+        }
         setPeakFinderMode(true);
-        // ... but the tilt belongs to the flight, so undo what the mode did to it and let the one
-        // animation carry it.
+        // The tilt belongs to the flight, so undo what the mode did to it and let the one
+        // animation carry it - together with the climb to the viewpoint's elevation.
         mapView.setTilt(savedTilt > 0 ? savedTilt : mapView.getTilt(), 0);
-        mapView.flyTo(focus, DemoConfig.PEAK_FINDER_FLY_ZOOM, mapView.getRotation(),
-                DemoConfig.PEAK_FINDER_TILT, DemoConfig.PEAK_FINDER_FLY_DURATION);
-        // The viewpoint climbs over the same seconds. The elevation is app state (the widget's),
-        // so the app animates it - there is no SDK animation to hang it on.
-        final float targetElevation = DemoConfig.PEAK_FINDER_FLY_ELEVATION;
-        final long start = System.currentTimeMillis();
-        final long duration = (long) (Math.max(0.1f, DemoConfig.PEAK_FINDER_FLY_DURATION) * 1000);
+        MapPos target = new MapPos(focus.getX(), focus.getY(), DemoConfig.PEAK_FINDER_FLY_ELEVATION);
+        mapView.flyTo(target, DemoConfig.PEAK_FINDER_FLY_ZOOM, mapView.getRotation(),
+                DemoConfig.PEAK_FINDER_TILT, DemoConfig.PEAK_FINDER_FLY_CLIMB,
+                DemoConfig.PEAK_FINDER_FLY_DURATION);
+        // The viewpoint's height is the flight's now (the target's Z, plus the climb over the way),
+        // so the demo only has to follow it: read the flight's own progress rather than run a
+        // second clock beside it, and keep the widget's number and the config in step.
+        DemoConfig.PEAK_FINDER_ELEVATION = DemoConfig.PEAK_FINDER_FLY_ELEVATION;
         mapView.post(new Runnable() {
             @Override
             public void run() {
-                float t = Math.min(1f, (System.currentTimeMillis() - start) / (float) duration);
-                // Ease the same way the flight feels: slow out of the start, slow into the target.
-                float eased = t * t * (3 - 2 * t);
-                DemoConfig.PEAK_FINDER_ELEVATION = targetElevation * eased;
-                applyViewpointElevation();
-                DemoPanel.refreshElevationLabel();
-                if (t < 1f) {
+                float progress = mapView.getFlightProgress();
+                if (progress >= 0) {
+                    DemoPanel.refreshElevationLabel();
                     mapView.postDelayed(this, 16);
                 }
             }

@@ -551,6 +551,9 @@ public final class DemoConfig {
     public static float PEAK_FINDER_FLY_ELEVATION = 1000;
     public static float PEAK_FINDER_FLY_ZOOM = 13.6f;
     public static float PEAK_FINDER_FLY_DURATION = 3.5f;
+    /** Extra height at the middle of the fly-in, in metres: the viewpoint climbs over the way
+     *  there like a plane instead of rising straight to its final elevation. */
+    public static float PEAK_FINDER_FLY_CLIMB = 1500;
     /** All labels pinned to the top of the screen instead of a band lower down. The two looks
      *  differ by which CORNER of the label the row is aligned on: a band lower down hangs the
      *  names off their bottom left corner (they read up and to the right), a pinned row hangs
@@ -855,6 +858,7 @@ public final class DemoConfig {
         PEAK_FINDER_FLY_ELEVATION = DemoCfg.cfgFloat("peakFinderFlyElevation", PEAK_FINDER_FLY_ELEVATION);
         PEAK_FINDER_FLY_ZOOM = DemoCfg.cfgFloat("peakFinderFlyZoom", PEAK_FINDER_FLY_ZOOM);
         PEAK_FINDER_FLY_DURATION = DemoCfg.cfgFloat("peakFinderFlyDuration", PEAK_FINDER_FLY_DURATION);
+        PEAK_FINDER_FLY_CLIMB = DemoCfg.cfgFloat("peakFinderFlyClimb", PEAK_FINDER_FLY_CLIMB);
         PEAKS_PIN_TOP = DemoCfg.cfgBool("peaksPinTop", PEAKS_PIN_TOP);
         PEAKS_TOP_OFFSET = DemoCfg.cfgFloat("peaksTopOffset", PEAKS_TOP_OFFSET);
         LAYER_PEAKS = DemoCfg.cfgBool("peaks", LAYER_PEAKS);

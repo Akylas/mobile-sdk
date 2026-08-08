@@ -104,6 +104,12 @@ that a move twice as far should not take twice as long. It stops the per-propert
 the kinetic handler when it starts, and they stay out of the way until it finishes (`isFlightActive`,
 `stopFlight`). ρ is fixed at their 1.42.
 
-An app that wants to animate its own state alongside it (the demo lifts the viewpoint's elevation
-and switches the peak-finder view on during the flight — `DemoMap.flyToPeakFinder`) runs its own
-clock over the same duration; there is no per-frame progress callback.
+The **viewpoint's height travels with the move**: the target `MapPos`'s Z is where it ends, and the
+`climbHeight` overload adds a parabola on top of it — highest halfway, nothing at either end, a
+plane's flight, which is also how the camera clears whatever stands between the two ends.
+
+An app animating its own state alongside the move reads `getFlightProgress()` (0..1 while flying,
+-1 otherwise) rather than running a second clock beside it. The demo enters the peak-finder view
+this way (`DemoMap.flyToPeakFinder`): 3D terrain and the mode switch on FIRST, so the terrain, the
+relief surface and the names load and fade in during the flight, and the camera, the tilt and the
+viewpoint's climb are all one animation.

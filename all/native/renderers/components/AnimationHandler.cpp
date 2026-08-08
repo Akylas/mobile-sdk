@@ -39,6 +39,8 @@ namespace carto {
         _flightS(0),
         _flightStartPos(),
         _flightTargetPos(),
+        _flightClimb(0),
+        _flightProgress(-1),
         _flightStartZoom(0),
         _flightTargetZoom(0),
         _flightStartRotation(),
@@ -155,7 +157,7 @@ namespace carto {
         _zoomDurationSeconds = 0;
     }
     
-    void AnimationHandler::setFlightTarget(const MapPos& pos, float zoom, const float* rotation, const float* tilt, float durationSeconds, float rho) {
+    void AnimationHandler::setFlightTarget(const MapPos& pos, float zoom, const float* rotation, const float* tilt, float climbHeight, float durationSeconds, float rho) {
         std::lock_guard<std::mutex> lock(_mutex);
 
         // The per-property animations would keep pulling the camera their own way.
@@ -177,8 +179,10 @@ namespace carto {
         if (tilt) {
             _flightTargetTilt = *tilt;
         }
+        _flightClimb = climbHeight;
         _flightDuration = durationSeconds;
         _flightElapsed = 0;
+        _flightProgress = 0;
         _flightActive = true;
         _flightStarted = true; // the path is set up on the first frame, where the view state is known
     }
@@ -191,6 +195,11 @@ namespace carto {
     bool AnimationHandler::isFlightActive() const {
         std::lock_guard<std::mutex> lock(_mutex);
         return _flightActive;
+    }
+
+    float AnimationHandler::getFlightProgress() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        return _flightProgress;
     }
 
     void AnimationHandler::calculateFlight(const ViewState& viewState, float deltaSeconds, std::optional<CameraPanEvent>& panEvent, std::optional<CameraRotationEvent>& rotationEvent, std::optional<CameraTiltEvent>& tiltEvent, std::optional<CameraZoomEvent>& zoomEvent) {
@@ -276,6 +285,15 @@ namespace carto {
             cglib::mat4x4<double> transform = projectionSurface->calculateTranslateMatrix(pos0, pos1, ratio);
             newFocusPos = projectionSurface->calculateMapPos(cglib::transform_point(pos0, transform));
         }
+        // The viewpoint's HEIGHT travels with the move: it follows the same ground fraction, plus
+        // a parabola that lifts it above both ends and comes back down - a plane's flight, and the
+        // reason a climb is worth having is that it clears what is between the two ends.
+        double height = _flightStartPos.getZ() + (_flightTargetPos.getZ() - _flightStartPos.getZ()) * ratio;
+        if (!done && _flightClimb != 0) {
+            height += _flightClimb * 4.0 * ratio * (1.0 - ratio);
+        }
+        newFocusPos.setZ(height);
+        _flightProgress = t;
 
         CameraPanEvent panCameraEvent;
         panCameraEvent.setKeepRotation(true);
@@ -305,6 +323,7 @@ namespace carto {
 
         if (done) {
             _flightActive = false;
+            _flightProgress = -1;
         }
     }
 
