@@ -66,6 +66,8 @@ public final class DemoPanel {
 
     private static float density = 1f;
     private static TextView gearButton;
+    private static LinearLayout elevationWidget;   // viewpoint elevation, peak-finder mode only
+    private static TextView elevationText;
     private static LinearLayout sections;      // the column every section is added to
     private static LinearLayout currentContent; // the section rows are currently going into
     private static final List<Row> rows = new ArrayList<Row>();
@@ -237,6 +239,30 @@ public final class DemoPanel {
                 showSheet(sheet, sheet.getVisibility() != View.VISIBLE);
             }
         });
+        // Viewpoint elevation, the peak-finder control: a column on the right edge, up/down and a
+        // readout. Only shown in that mode - see setElevationWidgetVisible.
+        elevationWidget = new LinearLayout(context);
+        elevationWidget.setOrientation(LinearLayout.VERTICAL);
+        elevationWidget.setGravity(Gravity.CENTER_HORIZONTAL);
+        elevationWidget.setBackground(rounded(0xCC1E2731, 22));
+        elevationWidget.setPadding(dp(4), dp(6), dp(4), dp(6));
+        elevationWidget.setVisibility(DemoConfig.PEAK_FINDER ? View.VISIBLE : View.GONE);
+        elevationText = new TextView(context);
+        elevationText.setTextColor(COLOR_TEXT);
+        elevationText.setTextSize(11);
+        elevationText.setTypeface(Typeface.MONOSPACE);
+        elevationText.setGravity(Gravity.CENTER);
+        elevationText.setText(String.format("%.0fm", DemoConfig.PEAK_FINDER_ELEVATION));
+        elevationWidget.addView(elevationStep(context, demo, "\u25B2", +1));
+        elevationWidget.addView(elevationText, new LinearLayout.LayoutParams(dp(52), ViewGroup.LayoutParams.WRAP_CONTENT));
+        elevationWidget.addView(elevationStep(context, demo, "\u25BC", -1));
+        ConstraintLayout.LayoutParams elevParams = new ConstraintLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        elevParams.topToTop = ConstraintLayout.LayoutParams.PARENT_ID;
+        elevParams.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID;
+        elevParams.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID;
+        elevParams.rightMargin = dp(12);
+        parent.addView(elevationWidget, elevParams);
+
         ConstraintLayout.LayoutParams gearParams = new ConstraintLayout.LayoutParams(dp(48), dp(48));
         gearParams.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID;
         gearParams.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID;
@@ -245,6 +271,43 @@ public final class DemoPanel {
         parent.addView(gear, gearParams);
 
         applyInsets(parent, sheet, readout, gear);
+    }
+
+    /** One arrow of the elevation column. */
+    private static TextView elevationStep(Context context, final DemoMap demo, String glyph, final int direction) {
+        TextView button = new TextView(context);
+        button.setText(glyph);
+        button.setTextSize(18);
+        button.setTextColor(COLOR_TEXT);
+        button.setGravity(Gravity.CENTER);
+        button.setPadding(dp(10), dp(8), dp(10), dp(8));
+        button.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                DemoConfig.PEAK_FINDER_ELEVATION = Math.max(0, DemoConfig.PEAK_FINDER_ELEVATION
+                        + direction * DemoConfig.PEAK_FINDER_ELEVATION_STEP);
+                if (elevationText != null) {
+                    elevationText.setText(String.format("%.0fm", DemoConfig.PEAK_FINDER_ELEVATION));
+                }
+                demo.applyViewpointElevation();
+            }
+        });
+        return button;
+    }
+
+    /** Shown only in peak-finder mode; DemoMap calls this when the mode is switched. */
+    public static void setElevationWidgetVisible(final boolean visible) {
+        final LinearLayout widget = elevationWidget;
+        if (widget == null) {
+            return;
+        }
+        widget.post(new Runnable() {
+            public void run() {
+                widget.setVisibility(visible ? View.VISIBLE : View.GONE);
+                if (elevationText != null) {
+                    elevationText.setText(String.format("%.0fm", DemoConfig.PEAK_FINDER_ELEVATION));
+                }
+            }
+        });
     }
 
     /** The sheet and the button that opens it are the same control: only one shows at a time. */
@@ -755,6 +818,18 @@ public final class DemoPanel {
         });
         slider(context, "peak max distance (m)", 0, 300000, DemoConfig.PEAKS_MAX_DISTANCE, true, new FloatSetting() {
             public void set(float value) { DemoConfig.PEAKS_MAX_DISTANCE = value; demo.rebuildPeaksLayer(); }
+        });
+        check(context, "peak labels pinned to top", DemoConfig.PEAKS_PIN_TOP, new BoolSetting() {
+            public void set(boolean value) { DemoConfig.PEAKS_PIN_TOP = value; demo.rebuildPeaksLayer(); }
+        });
+        // How far behind the terrain an anchor may sit and still be labelled. A summit ON the ridge
+        // line is a hair behind it as far as the depth buffer is concerned.
+        slider(context, "label occlusion tolerance", 0, 0.5f, DemoConfig.TERRAIN_OCCLUSION_TOLERANCE, false, new FloatSetting() {
+            public void set(float value) {
+                DemoConfig.TERRAIN_OCCLUSION_TOLERANCE = value;
+                DemoConfig.PEAK_FINDER_OCCLUSION_TOLERANCE = value;
+                demo.applyTerrainOptions();
+            }
         });
     }
 

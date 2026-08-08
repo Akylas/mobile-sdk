@@ -406,7 +406,11 @@ namespace carto {
 
         mapPos.setX(GeneralUtils::Clamp(mapPos.getX(), mapBounds.getMin().getX(), mapBounds.getMax().getX()));
         mapPos.setY(GeneralUtils::Clamp(mapPos.getY(), mapBounds.getMin().getY(), mapBounds.getMax().getY()));
-        mapPos.setZ(0);
+        // The pan bounds are a GROUND rectangle: they clamp x and y. The focus keeps its height,
+        // so an application can lift the viewpoint off the map plane (setFocusPos with a z) - a
+        // panorama seen from higher up than the ground under it. Zeroing it here pulled the focus,
+        // and with it the camera, back down on every frame.
+        mapPos.setZ(oldMapPos.getZ());
 
         if (seamlessPanning && renderProjectionMode == RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
             double n = std::floor((mapPos.getX() + Const::WORLD_SIZE * 0.5) / Const::WORLD_SIZE);

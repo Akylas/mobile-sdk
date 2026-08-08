@@ -84,6 +84,8 @@ namespace carto {
             uniform float uDepthThreshold;
             uniform float uCreaseStrength;
             uniform float uDepthTexelSize;
+            uniform float uGrazingFloor;
+            uniform float uDistanceFade;
             uniform float uHaze;
             uniform vec4 uInkColor;
             uniform vec4 uPaperColor;
@@ -124,14 +126,37 @@ namespace carto {
                 float dy0 = unpackDepth(cy0);
                 float dy1 = unpackDepth(cy1);
 
+                // The local surface, from the four neighbours. Two things below need it: a
+                // surface seen edge-on legitimately changes depth fast from pixel to pixel, and a
+                // fold has to be told apart from a merely oblique slope.
+                vec3 p0 = eyePos(uv, d0);
+                vec3 tx0 = eyePos(uv - vec2(delta.x, 0.0), dx0) - p0;
+                vec3 tx1 = eyePos(uv + vec2(delta.x, 0.0), dx1) - p0;
+                vec3 ty0 = eyePos(uv - vec2(0.0, delta.y), dy0) - p0;
+                vec3 ty1 = eyePos(uv + vec2(0.0, delta.y), dy1) - p0;
+                // Two samples that landed on the same depth texel give a zero tangent, and
+                // normalizing that is undefined - it painted the whole near field grey.
+                float minLength = 1.0e-4 * d0 * uFar;
+                bool tangentsValid = length(tx1) > minLength && length(ty1) > minLength;
+                float grazing = 1.0;
+                if (tangentsValid) {
+                    vec3 surfaceNormal = normalize(cross(tx1, ty1));
+                    grazing = abs(dot(normalize(-p0), surfaceNormal));
+                }
+
                 // Silhouette: the line belongs to the NEARER side of a depth break, so only a
                 // neighbour FURTHER away counts. Testing the absolute difference draws the same
                 // ridge twice, once on each side, which at the horizon merges into a smear.
                 // The threshold is relative to the depth, or the far half of the view draws
-                // no line at all.
+                // no line at all - and it is relaxed where the surface is seen EDGE-ON, because
+                // there the depth runs away between neighbouring pixels without anything being
+                // in front of anything: flat ground at its own horizon drew a solid black band.
                 float behind = max(max(dx0 - d0, dx1 - d0), max(dy0 - d0, dy1 - d0));
-                float threshold = uDepthThreshold * (0.0008 + 0.02 * d0);
+                float threshold = uDepthThreshold * (0.0008 + 0.02 * d0) / max(grazing, uGrazingFloor);
                 float edge = smoothstep(threshold, threshold * 2.0, behind);
+                // Terrain-against-terrain lines fade with distance so that the horizon - the sky
+                // silhouette below, which does not fade - is the boldest line in the frame.
+                edge *= mix(1.0, uDistanceFade, d0);
                 // ...and terrain against the sky always is one (coverage, not depth: a sky pixel
                 // is at the far plane, which the relative threshold above would forgive). This is
                 // the horizon line, and it is the one that is drawn wide.
@@ -146,14 +171,6 @@ namespace carto {
                 // is most of a panorama - does not read as a fold.
                 float cover = min(min(cx0.a, cx1.a), min(cy0.a, cy1.a)) * c0.a;
                 if (uCreaseStrength > 0.0 && cover > 0.0) {
-                    vec3 p0 = eyePos(uv, d0);
-                    vec3 tx0 = eyePos(uv - vec2(delta.x, 0.0), dx0) - p0;
-                    vec3 tx1 = eyePos(uv + vec2(delta.x, 0.0), dx1) - p0;
-                    vec3 ty0 = eyePos(uv - vec2(0.0, delta.y), dy0) - p0;
-                    vec3 ty1 = eyePos(uv + vec2(0.0, delta.y), dy1) - p0;
-                    // Two samples that landed on the same depth texel give a zero tangent, and
-                    // normalizing that is undefined - it painted the whole near field grey.
-                    float minLength = 1.0e-4 * d0 * uFar;
                     float fold = 0.0;
                     if (length(tx0) > minLength && length(tx1) > minLength) {
                         fold = max(fold, 1.0 + dot(normalize(tx0), normalize(tx1)));
@@ -161,7 +178,9 @@ namespace carto {
                     if (length(ty0) > minLength && length(ty1) > minLength) {
                         fold = max(fold, 1.0 + dot(normalize(ty0), normalize(ty1)));
                     }
-                    edge = max(edge, smoothstep(0.05, 0.4, fold) * uCreaseStrength);
+                    // Same reasoning as the silhouette threshold: an edge-on surface folds in
+                    // projection without folding in the world.
+                    edge = max(edge, smoothstep(0.05, 0.4, fold) * uCreaseStrength * grazing * mix(1.0, uDistanceFade, d0));
                 }
 
                 // Aerial perspective: the shaded surface fades into the paper with distance, so
@@ -181,6 +200,8 @@ namespace carto {
         effect->setFloatParameter("uDepthThreshold", 1.0f);
         effect->setFloatParameter("uCreaseStrength", 0.6f);
         effect->setFloatParameter("uDepthTexelSize", 2.0f); // TerrainRenderer::BUFFER_DOWNSCALE
+        effect->setFloatParameter("uGrazingFloor", 0.15f);
+        effect->setFloatParameter("uDistanceFade", 0.45f);
         effect->setFloatParameter("uHaze", 0.75f);
         effect->setColorParameter("uInkColor", Color(20, 20, 24, 255));
         effect->setColorParameter("uPaperColor", Color(255, 255, 255, 255));

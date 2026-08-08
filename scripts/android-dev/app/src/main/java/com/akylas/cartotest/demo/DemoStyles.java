@@ -546,7 +546,7 @@ public final class DemoStyles {
             // tile order happened to offer first, and a 700 m hill hides a 2000 m one behind it.
             "  text-placement-priority: [ele];",
             "  text-orientation: " + DemoConfig.PEAKS_TEXT_ANGLE + ";",
-            "  text-callout-screen-anchor: " + DemoConfig.PEAKS_BAND + ";",
+            "  text-callout-screen-anchor: " + (DemoConfig.PEAKS_PIN_TOP ? 0.02f : DemoConfig.PEAKS_BAND) + ";",
             "  text-callout-offset: " + DemoConfig.PEAKS_MIN_OFFSET + ";",
             "  text-callout-step: " + DemoConfig.PEAKS_ROW_STEP + ";",
             "  text-callout-max-rows: " + DemoConfig.PEAKS_MAX_ROWS + ";",

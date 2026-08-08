@@ -125,6 +125,7 @@ public class DemoMap {
     // What the peak-finder mode switched off, so leaving it puts the map back as it was.
     private boolean savedLayerBase, savedLayerHillshade, savedLayerContour, savedLayerContourTiles, savedLayerSatellite, savedLayerHypso;
     private float savedTilt;
+    private float savedOcclusionTolerance;
     /** Result of the last {@link #checkCompositeSlots()}: which slots the style really has. */
     public String compositeStatus = "";
 
@@ -429,10 +430,16 @@ public class DemoMap {
             DemoConfig.LAYER_HYPSO = false;
             DemoConfig.LAYER_PEAKS = true;
             DemoConfig.RELIEF_SURFACE = true;
+            savedOcclusionTolerance = DemoConfig.TERRAIN_OCCLUSION_TOLERANCE;
+            // A summit sitting ON a ridge, or a metre behind it, is exactly what the view is for,
+            // so the label occlusion is deliberately generous here.
+            DemoConfig.TERRAIN_OCCLUSION_TOLERANCE = DemoConfig.PEAK_FINDER_OCCLUSION_TOLERANCE;
+            applyTerrainOptions();
             rebuildLayers();
             applyReliefSurface();
             setReliefOutlineEnabled(true);
             mapView.setTilt(DemoConfig.PEAK_FINDER_TILT, 0.6f);
+            DemoPanel.setElevationWidgetVisible(true);
         } else {
             DemoConfig.LAYER_BASE = savedLayerBase;
             DemoConfig.LAYER_HILLSHADE = savedLayerHillshade;
@@ -442,13 +449,43 @@ public class DemoMap {
             DemoConfig.LAYER_HYPSO = savedLayerHypso;
             DemoConfig.LAYER_PEAKS = false;
             DemoConfig.RELIEF_SURFACE = false;
+            DemoConfig.TERRAIN_OCCLUSION_TOLERANCE = savedOcclusionTolerance;
+            DemoConfig.PEAK_FINDER_ELEVATION = 0;
+            applyTerrainOptions();
+            applyViewpointElevation();
             rebuildLayers();
             applyReliefSurface();
             setReliefOutlineEnabled(false);
             if (savedTilt > 0) {
                 mapView.setTilt(savedTilt, 0.6f);
             }
+            DemoPanel.setElevationWidgetVisible(false);
         }
+        mapView.requestRender();
+    }
+
+    /**
+     * Lifts the viewpoint by {@link DemoConfig#PEAK_FINDER_ELEVATION} metres. The focus position
+     * carries a height and the camera rides on it, so raising the focus raises the eye - which is
+     * what a peak-finder view wants: see over the ridge in front of you.
+     * The z of a MapPos is in INTERNAL units, and one metre is worth more of them the further from
+     * the equator (mercator), hence the latitude term.
+     */
+    public void applyViewpointElevation() {
+        Projection proj = mapView.getOptions().getBaseProjection();
+        MapPos wgs = proj.toWgs84(mapView.getFocusPos());
+        double groundElevation = 0;
+        if (terrainOptions != null) {
+            double sample = terrainOptions.getElevation(wgs);
+            if (sample > -100000) {
+                groundElevation = sample;
+            }
+        }
+        // The projection converts metres to internal units itself (toInternal scales z with x/y),
+        // so this stays in METRES - with the mercator stretch the terrain heights also carry, or
+        // the viewpoint would sit lower than the mountains it is measured against.
+        double meters = (groundElevation + DemoConfig.PEAK_FINDER_ELEVATION) / Math.cos(Math.toRadians(wgs.getY()));
+        mapView.setFocusPos(proj.fromWgs84(new MapPos(wgs.getX(), wgs.getY(), meters)), 0.3f);
         mapView.requestRender();
     }
 

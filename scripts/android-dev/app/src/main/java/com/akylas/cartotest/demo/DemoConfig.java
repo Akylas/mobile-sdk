@@ -533,6 +533,15 @@ public final class DemoConfig {
     public static boolean PEAK_FINDER = false;
     /** Tilt the mode sets, in SDK convention - 90 is straight down, so a panorama is a low tilt. */
     public static float PEAK_FINDER_TILT = 25;
+    /** Metres the viewpoint is lifted above the ground, driven by the on-screen elevation widget. */
+    public static float PEAK_FINDER_ELEVATION = 0;
+    public static float PEAK_FINDER_ELEVATION_STEP = 200;
+    /** How far behind the terrain a label anchor may sit and still be labelled, as a fraction of
+     *  its distance. The peak-finder view wants this generous: a summit right ON a ridge, or a
+     *  metre behind it, is exactly what the view is for. 0.02 is the SDK default. */
+    public static float PEAK_FINDER_OCCLUSION_TOLERANCE = 0.15f;
+    /** All labels pinned to the top of the screen instead of a band lower down. */
+    public static boolean PEAKS_PIN_TOP = false;
 
     /** Summit names as callout labels (their own vector tile layer on the base source). */
     public static boolean LAYER_PEAKS = false;
@@ -791,6 +800,9 @@ public final class DemoConfig {
         RELIEF_CREASE_STRENGTH = DemoCfg.cfgFloat("reliefCrease", RELIEF_CREASE_STRENGTH);
         PEAK_FINDER = DemoCfg.cfgBool("peakFinder", PEAK_FINDER);
         PEAK_FINDER_TILT = DemoCfg.cfgFloat("peakFinderTilt", PEAK_FINDER_TILT);
+        PEAK_FINDER_ELEVATION = DemoCfg.cfgFloat("peakFinderElevation", PEAK_FINDER_ELEVATION);
+        PEAK_FINDER_OCCLUSION_TOLERANCE = DemoCfg.cfgFloat("peakFinderOcclusion", PEAK_FINDER_OCCLUSION_TOLERANCE);
+        PEAKS_PIN_TOP = DemoCfg.cfgBool("peaksPinTop", PEAKS_PIN_TOP);
         LAYER_PEAKS = DemoCfg.cfgBool("peaks", LAYER_PEAKS);
         PEAKS_MIN_ZOOM = DemoCfg.cfgInt("peaksMinZoom", PEAKS_MIN_ZOOM);
         PEAKS_TEXT_SIZE = DemoCfg.cfgFloat("peaksTextSize", PEAKS_TEXT_SIZE);
