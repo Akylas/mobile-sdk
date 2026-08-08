@@ -56,6 +56,21 @@ Fork-specific rules, all comparing the **placement's** `localId` (hence the stab
 above): `allowOverlapSameFeatureId`, `sameFeatureIdDependent`, and group ids with
 `minimumGroupDistance`.
 
+### Label size and the camera (fork-specific)
+
+In a planar projection a label keeps a **constant on-screen size**: its world size comes from the
+zoom alone, so the perspective divide would otherwise blow it up towards the camera on a tilted view
+(and 3D terrain, which lifts anchors by a kilometre, made that obvious). `calculateTerrainScaleFactor`
+cancels it by scaling the label with `viewDepth / focusDepth`.
+
+`focusDepth` is the distance the zoom is calibrated at — the **camera-to-focus distance**, which
+`TileRenderer` puts in `ViewState::focusDistance` for both the render and the cull pass. vt used to
+guess it as the point where the view axis meets the z=0 plane; that is the same number only while
+the focus sits ON the ground. Lift the viewpoint (free roam, a panorama from 2600 m) or aim at the
+horizon and the guess runs away, shrinking every label on screen as the camera rises or flattens —
+which is what "labels get smaller as I go up or pan" was. `focusDistance` 0 falls back to the old
+guess, so a host that does not set it behaves as before.
+
 ### Callout labels (fork-specific)
 
 `LabelOrientation::CALLOUT` — style `text-placement: nuticallout` — is a point label **lifted away
@@ -73,8 +88,15 @@ What changes, and only for this orientation:
   priority sort, the `wasVisible` hysteresis, the shared grid — is untouched, so callouts collide
   with ordinary labels and with each other in the usual way.
 - **The offset is the culler's, and both the envelope and the vertex data read it**
-  (`Label::setCalloutOffset`, in screen pixels along the camera up axis). One pixel is
-  `scale / size` world units, because the glyph quads are in units of the font size.
+  (`Label::setCalloutOffset`, a length along the camera up axis; one unit is `scale / size` world
+  units, because the glyph quads are in units of the font size). One unit is **not** one screen
+  pixel: that conversion holds only where the label's scale is exactly calibrated, and it is not —
+  it comes from the zoom, so a lifted viewpoint or a view aimed at the horizon moves the label
+  several times further than the band asked for, and a row of names stops being a row. The culler
+  therefore **measures** the gain instead of assuming it: displacing a label along the camera axes
+  is linear in screen space at a fixed depth, so it places the label once at 0, once at
+  `GAIN_PROBE_OFFSET`, and reads pixels-per-unit off the two envelopes. Everything after that —
+  the band, the row step, the screen margin — is in real screen pixels.
 - **The leader line is one more quad in the label's own vertex stream**, textured from a 4×4 white
   cell loaded into the glyph atlas (`TileLabel::Style::calloutLineGlyph`). It is built per frame
   rather than cached with the text — its length is the offset, which changes with everything else
@@ -82,10 +104,104 @@ What changes, and only for this orientation:
   Sampling the cell's interior matters: the outer texels blend into the atlas padding under linear
   filtering, which thins the line and fades its ends.
 - **A callout has to be clamped to the screen.** Every other label is evidence of its own
-  visibility; this one is drawn where it is not anchored, so the culler caps the offset at the
-  screen top and hides the label when even the first row does not fit.
+  visibility; this one is drawn where it is not anchored, so the culler caps the lift a constant
+  `SCREEN_EDGE_MARGIN` short of the top edge. The margin is a constant on purpose: it also caps a
+  label the band placed correctly, and a margin proportional to the label's own height then pushes
+  long names further down than short ones — the row stops being a row. A summit already high in the
+  frame has no room left above it, and its name is the one worth keeping, so the lift is **pulled
+  back down** to that cap rather than hidden (its leader line shortens to nothing with it).
 - Rotation (`text-orientation`) stays with the CALLOUT placement instead of downgrading to POINT —
   angled names over a horizon is the whole look.
+
+**Which point of the label is anchored.** Two style properties, both naming a point of the label's
+own box — `center`, `left`, `right`, `top`, `bottom`, `top-left`, `top-right`, `bottom-left`,
+`bottom-right` — rotated with the text, so on a name tilted 55° the `bottom-left` corner is where
+its first letter starts:
+
+```css
+#mountain_peak {
+  text-callout-line-anchor: bottom-left;  /* held over the summit; where the leader line ends */
+  text-callout-align: top-right;          /* the point put on the band line */
+}
+```
+
+`text-callout-line-anchor` **moves the label** so that point lands on the anchor's vertical
+(`Label::calculateCalloutShift`, applied to the glyph offsets, the plate and the envelope alike) —
+which is what keeps every leader line vertical while the text starts exactly above its summit.
+`text-callout-align` only decides what the band line is measured against (`LabelCuller` reads that
+point off the screen envelope by bilinear interpolation of its four corners). The pair is what the
+two panorama looks are made of: names pinned to the top of the screen hang from their `top-right`
+corner so the text stays under the edge, names in a band lower down line up on the same
+`bottom-left` corner they are anchored by. Unset (the default) keeps the old behaviour: the text
+laid out around its own anchor, the band measured against the bottom of the bounding box.
+
+### A second run of text (fork-specific)
+
+A summit name and its elevation are one label with two type sizes. `TextFormatter::Options` carries
+an optional second run, so it is laid out **with** the first one — one baseline, one bounding box,
+one background plate, one colour:
+
+```css
+#mountain_peak {
+  text-name: [name];
+  text-secondary-name: [ele]+'m';
+  text-secondary-scale: 0.62;   /* of the main font size */
+  text-secondary-dx: 3;         /* gap before it, pixels */
+  text-secondary-dy: 0;         /* baseline shift, pixels, down positive */
+}
+```
+
+`TextFormatter::appendSecondaryRun` lays the run out on its own (left aligned), scales its glyph
+geometry, and rebases its `CR` pseudo-glyphs — which carry an **absolute** pen position, see
+`Label::buildPointVertexData` — onto the end of the first run. Both runs then shift by the share of
+the extra width the alignment asks for, so `text-horizontal-alignment` still applies to the pair.
+The glyphs come from the same atlas raster as the main text, so a very small scale is a magnified
+raster: this is for a suffix, not for a second paragraph.
+
+### Ranking with the view (fork-specific)
+
+`text-placement-priority` is evaluated once, at decode time, from the feature. A panorama also wants
+to rank by something only the frame knows — how far the summit is — so a label style may carry a
+**rank function**, evaluated by the culler once per label per placement pass and **added to the
+priority**:
+
+```css
+#mountain_peak {
+  text-placement-priority: [ele];              /* the higher summit claims the row ... */
+  text-rank: 0 - [view::distance]/100;         /* ... and the nearer of two equals wins it */
+}
+```
+
+`view::distance` is metres from the camera to the label being ranked. It is defined **only** in this
+evaluation: `ViewState::labelDistance` is 0 everywhere else, because the renderer evaluates a style
+function once per batch (`GLTileRenderer::renderLabelPass` packs colour and size into a 16-slot
+parameter table) and a per-label value there would cost a batch per label. Ranking never changes how
+a label looks — only which of two colliding labels keeps its slot.
+
+Two notes for style authors:
+
+- Prefer an expression that reads **only** the view state. It has no feature dependency, so
+  `FloatFunctionProperty::getFunction` hands every feature the same function object and the label
+  style is not rebuilt per feature.
+- `0 - x`, not `-x`: CartoCSS's `literal` rule accepts `-` as a first character, so a leading minus
+  in front of a field is read as the literal string `"-"` and the declaration fails to parse.
+
+- **A callout keeps the row it holds.** The offset is carried across label rebuilds
+  (`snapPlacement` — it belongs to the label, not to the tiles it was built from; without that, a
+  rebuilt label drops onto its own anchor until the next placement pass, which is a whole screen
+  of names jumping every time tiles stream in), and a label that was visible tries its previous
+  row before any other. `text-callout-persist: <passes>` goes further: a name already on screen may
+  fail placement that many consecutive passes before it is hidden, so it does not blink out and
+  back in while the camera moves. Default 0 — hide on the first failure, as before. Keep it small:
+  a held-over name is drawn where the culler could **not** place it, so a generous grace reads as
+  overlap on a crowded ridge.
+- **The step's sign is the stacking direction.** A negative `text-callout-step` stacks the rows
+  DOWNWARDS, which is what a band pinned to the top of the screen needs: there is no room above it,
+  so stepping up piles every row that loses its slot into the top edge — and since the ranking puts
+  the nearest summits first, the effect reads as "the closer the label, the lower it sits".
+- **The group's minimum distance is tested at every row.** `text-min-distance` is what thins a
+  crowded ridge out, and testing it only after placement would put a label on a free row and then
+  hide it for being too close to a neighbour — the one outcome the stacking exists to avoid.
 
 Picking is unchanged and needs nothing new: `GLTileRenderer::findLabelIntersections` tests the
 placed geometry, so a callout is clicked where it is drawn, at the end of its leader line.

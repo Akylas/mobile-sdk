@@ -540,7 +540,10 @@ public final class DemoConfig {
      *  its distance. The peak-finder view wants this generous: a summit right ON a ridge, or a
      *  metre behind it, is exactly what the view is for. 0.02 is the SDK default. */
     public static float PEAK_FINDER_OCCLUSION_TOLERANCE = 0.15f;
-    /** All labels pinned to the top of the screen instead of a band lower down. */
+    /** All labels pinned to the top of the screen instead of a band lower down. The two looks
+     *  differ by which CORNER of the label the row is aligned on: a band lower down hangs the
+     *  names off their bottom left corner (they read up and to the right), a pinned row hangs
+     *  them off their top right corner so the text stays under the screen edge. */
     public static boolean PEAKS_PIN_TOP = false;
 
     /** Summit names as callout labels (their own vector tile layer on the base source). */
@@ -554,8 +557,30 @@ public final class DemoConfig {
     /** Shortest leader line, and the height of one stacking row, in pixels. */
     public static float PEAKS_MIN_OFFSET = 10;
     public static float PEAKS_ROW_STEP = 26;
-    public static int PEAKS_MAX_ROWS = 10;
+    public static int PEAKS_MAX_ROWS = 6;
+    /** Pixels two names must stay apart (text-min-distance). It is what thins a crowded ridge out:
+     *  a summit that cannot find a row far enough from the ones already placed loses its name to
+     *  them, and which one wins is the ranking below. 0 = only overlap counts. */
+    public static float PEAKS_MIN_DISTANCE = 14;
+    /** Placement passes a name already on screen may fail before it is hidden (text-callout-persist).
+     *  A panning map re-places its labels whenever its tile set changes, so without a grace a name
+     *  that loses its row for one pass blinks out and back in. Keep it small: a name held over is
+     *  a name drawn where the culler could not place it, so a generous grace shows as overlap. */
+    public static int PEAKS_PERSIST = 2;
     public static float PEAKS_LINE_WIDTH = 1;
+    /** Which point of the label the leader line ends at (and which is held over the summit), and
+     *  which point sits on the band line: "" | center | bottom-left | top-right | ... Empty keeps
+     *  the label around its own anchor. Left empty here - PEAKS_PIN_TOP picks the pair. */
+    public static String PEAKS_LINE_ANCHOR = "";
+    public static String PEAKS_ALIGN = "";
+    /** Elevation set after the name in a smaller font (text-secondary-*): its size relative to the
+     *  name, the gap before it and its baseline shift, all style properties. 0 scale = no suffix. */
+    public static float PEAKS_ELE_SCALE = 0.62f;
+    public static float PEAKS_ELE_GAP = 3;
+    public static float PEAKS_ELE_DY = 0;
+    /** Metres of distance worth one rank point when the culler decides which names to keep
+     *  ([ele] - [view::distance]/this). 0 = rank by elevation alone. */
+    public static float PEAKS_DISTANCE_RANK = 100;
     /** Plate behind each name: colour, opacity, corner radius and padding (style properties, so
      *  they work in any CartoCSS style, not just this one). */
     public static int PEAKS_BG_COLOR_ARGB = 0xffffffff;
@@ -818,7 +843,15 @@ public final class DemoConfig {
         PEAKS_MIN_OFFSET = DemoCfg.cfgFloat("peaksOffset", PEAKS_MIN_OFFSET);
         PEAKS_ROW_STEP = DemoCfg.cfgFloat("peaksStep", PEAKS_ROW_STEP);
         PEAKS_MAX_ROWS = DemoCfg.cfgInt("peaksRows", PEAKS_MAX_ROWS);
+        PEAKS_MIN_DISTANCE = DemoCfg.cfgFloat("peaksMinDistance", PEAKS_MIN_DISTANCE);
+        PEAKS_PERSIST = DemoCfg.cfgInt("peaksPersist", PEAKS_PERSIST);
         PEAKS_LINE_WIDTH = DemoCfg.cfgFloat("peaksLineWidth", PEAKS_LINE_WIDTH);
+        PEAKS_LINE_ANCHOR = DemoCfg.cfgStr("peaksLineAnchor", PEAKS_LINE_ANCHOR);
+        PEAKS_ALIGN = DemoCfg.cfgStr("peaksAlign", PEAKS_ALIGN);
+        PEAKS_ELE_SCALE = DemoCfg.cfgFloat("peaksEleScale", PEAKS_ELE_SCALE);
+        PEAKS_ELE_GAP = DemoCfg.cfgFloat("peaksEleGap", PEAKS_ELE_GAP);
+        PEAKS_ELE_DY = DemoCfg.cfgFloat("peaksEleDy", PEAKS_ELE_DY);
+        PEAKS_DISTANCE_RANK = DemoCfg.cfgFloat("peaksDistanceRank", PEAKS_DISTANCE_RANK);
         PEAKS_BG_COLOR_ARGB = DemoCfg.cfgColorInt("peaksBgColor", PEAKS_BG_COLOR_ARGB);
         PEAKS_BG_OPACITY = DemoCfg.cfgFloat("peaksBgOpacity", PEAKS_BG_OPACITY);
         PEAKS_BG_RADIUS = DemoCfg.cfgFloat("peaksBgRadius", PEAKS_BG_RADIUS);

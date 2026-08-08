@@ -534,9 +534,22 @@ public final class DemoStyles {
      * The layer name and fields are OpenMapTiles ('mountain_peak', name/ele/class).
      */
     public static String peaksStyle() {
+        // The leader line always meets the FIRST letter of the name, which is also the point held
+        // over the summit. What changes with the mode is the corner the row is aligned on: pinned
+        // to the top the labels hang from their top right corner so the text stays under the
+        // screen edge; in a band lower down they line up on the same bottom left corner they are
+        // anchored by, and read up and to the right.
+        String lineAnchor = DemoConfig.PEAKS_LINE_ANCHOR.isEmpty() ? "bottom-left" : DemoConfig.PEAKS_LINE_ANCHOR;
+        String align = DemoConfig.PEAKS_ALIGN.isEmpty()
+            ? (DemoConfig.PEAKS_PIN_TOP ? "top-right" : "bottom-left") : DemoConfig.PEAKS_ALIGN;
         return String.join("\n",
             "#mountain_peak['class'='peak'][zoom>=" + DemoConfig.PEAKS_MIN_ZOOM + "] {",
-            "  text-name: [name]+' '+[ele]+'m';",
+            "  text-name: [name];",
+            // The elevation as a second run of text: same label, same plate, smaller font.
+            "  text-secondary-name: [ele]+'m';",
+            "  text-secondary-scale: " + DemoConfig.PEAKS_ELE_SCALE + ";",
+            "  text-secondary-dx: " + DemoConfig.PEAKS_ELE_GAP + ";",
+            "  text-secondary-dy: " + DemoConfig.PEAKS_ELE_DY + ";",
             "  text-size: " + DemoConfig.PEAKS_TEXT_SIZE + ";",
             "  text-fill: " + hex(DemoConfig.RELIEF_DARK ? 0xffe8ecf5 : 0xff14141a) + ";",
             "  text-halo-fill: " + hex(DemoConfig.RELIEF_DARK ? 0xff10131a : 0xffffffff) + ";",
@@ -552,11 +565,23 @@ public final class DemoStyles {
             // The higher summit claims the row: without this the winner is whichever label the
             // tile order happened to offer first, and a 700 m hill hides a 2000 m one behind it.
             "  text-placement-priority: [ele];",
+            DemoConfig.PEAKS_MIN_DISTANCE > 0 ? "  text-min-distance: " + DemoConfig.PEAKS_MIN_DISTANCE + ";" : "",
+            // ... and the nearer of two summits of the same height wins the slot. text-rank is
+            // evaluated per label by the culler, which is where view::distance means something.
+            // No feature field in it on purpose: an expression that reads only the view state is
+            // built ONCE and shared by every label.
+            // '0 - x', not '-x': in CartoCSS a leading minus in front of a field is read as the
+            // literal "-" (the parser's literal rule accepts '-' as a first character).
+            DemoConfig.PEAKS_DISTANCE_RANK > 0 ? "  text-rank: 0 - [view::distance]/" + DemoConfig.PEAKS_DISTANCE_RANK + ";" : "",
             "  text-orientation: " + DemoConfig.PEAKS_TEXT_ANGLE + ";",
-            "  text-callout-screen-anchor: " + (DemoConfig.PEAKS_PIN_TOP ? 0.02f : DemoConfig.PEAKS_BAND) + ";",
+            "  text-callout-line-anchor: " + lineAnchor + ";",
+            "  text-callout-align: " + align + ";",
+            "  text-callout-screen-anchor: " + (DemoConfig.PEAKS_PIN_TOP ? 0.04f : DemoConfig.PEAKS_BAND) + ";",
             "  text-callout-offset: " + DemoConfig.PEAKS_MIN_OFFSET + ";",
-            "  text-callout-step: " + DemoConfig.PEAKS_ROW_STEP + ";",
+            // Pinned to the top there is no room above the row, so the extra rows go DOWN.
+            "  text-callout-step: " + (DemoConfig.PEAKS_PIN_TOP ? -DemoConfig.PEAKS_ROW_STEP : DemoConfig.PEAKS_ROW_STEP) + ";",
             "  text-callout-max-rows: " + DemoConfig.PEAKS_MAX_ROWS + ";",
+            "  text-callout-persist: " + DemoConfig.PEAKS_PERSIST + ";",
             "  text-callout-line-width: " + DemoConfig.PEAKS_LINE_WIDTH + ";",
             DemoConfig.PEAKS_MAX_DISTANCE > 0 ? "  text-max-distance: " + DemoConfig.PEAKS_MAX_DISTANCE + ";" : "",
             "}");
