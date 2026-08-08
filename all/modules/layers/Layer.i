@@ -32,6 +32,7 @@
 %attribute(carto::Layer, bool, Visible, isVisible, setVisible)
 %attributeval(carto::Layer, carto::MapRange, VisibleZoomRange, getVisibleZoomRange, setVisibleZoomRange)
 %attribute(carto::Layer, float, Opacity, getOpacity, setOpacity)
+%attribute(carto::Layer, bool, PostProcessed, isPostProcessed, setPostProcessed)
 %ignore carto::Layer::onDrawFrame;
 %ignore carto::Layer::onDrawFrame3D;
 %ignore carto::Layer::getBackgroundBitmap;

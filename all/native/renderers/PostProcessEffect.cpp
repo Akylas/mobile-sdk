@@ -7,6 +7,7 @@ namespace carto {
         _fragmentShader(fragmentShader),
         _terrainDepthRequired(false),
         _floatParameters(),
+        _colorParameters(),
         _mutex()
     {
     }
@@ -43,47 +44,130 @@ namespace carto {
         _floatParameters[name] = value;
     }
 
+    Color PostProcessEffect::getColorParameter(const std::string& name) const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        auto it = _colorParameters.find(name);
+        return it != _colorParameters.end() ? it->second : Color(0, 0, 0, 0);
+    }
+
+    void PostProcessEffect::setColorParameter(const std::string& name, const Color& color) {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _colorParameters[name] = color;
+    }
+
     std::map<std::string, float> PostProcessEffect::getFloatParameters() const {
         std::lock_guard<std::mutex> lock(_mutex);
         return _floatParameters;
     }
 
+    std::map<std::string, Color> PostProcessEffect::getColorParameters() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        return _colorParameters;
+    }
+
     std::shared_ptr<PostProcessEffect> PostProcessEffect::CreateReliefOutlineEffect() {
         static const std::string reliefOutlineFsh = R"GLSL(#version 100
+            #ifdef GL_FRAGMENT_PRECISION_HIGH
+            precision highp float;
+            #else
             precision mediump float;
+            #endif
 
             uniform sampler2D uColorTex;
             uniform sampler2D uTerrainDepthTex;
             uniform vec2 uInvScreenSize;
+            uniform vec2 uProjInvScale;
+            uniform float uFar;
             uniform float uIntensity;
             uniform float uOutlineWidth;
+            uniform float uHorizonBoost;
             uniform float uDepthThreshold;
+            uniform float uCreaseStrength;
+            uniform float uDepthTexelSize;
+            uniform float uHaze;
+            uniform vec4 uInkColor;
+            uniform vec4 uPaperColor;
 
             float unpackDepth(vec4 c) {
                 return dot(c.rgb, vec3(1.0, 1.0 / 255.0, 1.0 / 65025.0));
+            }
+
+            // Eye-space position of a pixel from the packed linear depth.
+            vec3 eyePos(vec2 uv, float depth) {
+                vec2 ndc = uv * 2.0 - 1.0;
+                return vec3(ndc * uProjInvScale, -1.0) * depth * uFar;
             }
 
             void main(void) {
                 vec2 uv = gl_FragCoord.xy * uInvScreenSize;
                 vec4 color = texture2D(uColorTex, uv);
 
-                vec2 delta = uInvScreenSize * uOutlineWidth;
                 vec4 c0 = texture2D(uTerrainDepthTex, uv);
                 float d0 = unpackDepth(c0);
-                float dx0 = unpackDepth(texture2D(uTerrainDepthTex, uv - vec2(delta.x, 0.0)));
-                float dx1 = unpackDepth(texture2D(uTerrainDepthTex, uv + vec2(delta.x, 0.0)));
-                float dy0 = unpackDepth(texture2D(uTerrainDepthTex, uv - vec2(0.0, delta.y)));
-                float dy1 = unpackDepth(texture2D(uTerrainDepthTex, uv + vec2(0.0, delta.y)));
 
-                // Depth discontinuities relative to the local depth produce ridge/silhouette lines.
-                // Sky pixels unpack to ~1.0, giving strong silhouettes against the sky.
-                float dd = max(max(abs(dx0 - d0), abs(dx1 - d0)), max(abs(dy0 - d0), abs(dy1 - d0)));
-                float threshold = uDepthThreshold * (0.001 + 0.02 * d0);
-                float edge = smoothstep(threshold, threshold * 2.0, dd);
+                // One width for the terrain-against-terrain lines, everywhere. Widening them with
+                // distance instead (the obvious reading of "the horizon is bolder") smears the
+                // far ranges into a solid band: up there the ridges are a pixel apart, so every
+                // pixel is inside some line. What is bold in a panorama is the SKY silhouette,
+                // and that gets its own, wider test below.
+                // Never narrower than uDepthTexelSize screen pixels: the terrain depth runs at
+                // half resolution with nearest filtering, so a narrower step samples the same
+                // texel twice and every comparison below degenerates.
+                vec2 delta = uInvScreenSize * max(uOutlineWidth, uDepthTexelSize);
+                vec2 skyDelta = uInvScreenSize * max(uOutlineWidth * (1.0 + uHorizonBoost), uDepthTexelSize);
+                vec4 cx0 = texture2D(uTerrainDepthTex, uv - vec2(delta.x, 0.0));
+                vec4 cx1 = texture2D(uTerrainDepthTex, uv + vec2(delta.x, 0.0));
+                vec4 cy0 = texture2D(uTerrainDepthTex, uv - vec2(0.0, delta.y));
+                vec4 cy1 = texture2D(uTerrainDepthTex, uv + vec2(0.0, delta.y));
+                float dx0 = unpackDepth(cx0);
+                float dx1 = unpackDepth(cx1);
+                float dy0 = unpackDepth(cy0);
+                float dy1 = unpackDepth(cy1);
 
-                // Subtle depth-based shading to separate distant ridges (lighter with distance)
-                float shade = mix(0.15, 0.75, clamp(d0 * 2.0, 0.0, 1.0));
-                vec3 stylized = mix(vec3(1.0), vec3(shade), edge);
+                // Silhouette: the line belongs to the NEARER side of a depth break, so only a
+                // neighbour FURTHER away counts. Testing the absolute difference draws the same
+                // ridge twice, once on each side, which at the horizon merges into a smear.
+                // The threshold is relative to the depth, or the far half of the view draws
+                // no line at all.
+                float behind = max(max(dx0 - d0, dx1 - d0), max(dy0 - d0, dy1 - d0));
+                float threshold = uDepthThreshold * (0.0008 + 0.02 * d0);
+                float edge = smoothstep(threshold, threshold * 2.0, behind);
+                // ...and terrain against the sky always is one (coverage, not depth: a sky pixel
+                // is at the far plane, which the relative threshold above would forgive). This is
+                // the horizon line, and it is the one that is drawn wide.
+                float skyNeighbour = 1.0 - min(
+                    min(texture2D(uTerrainDepthTex, uv - vec2(skyDelta.x, 0.0)).a, texture2D(uTerrainDepthTex, uv + vec2(skyDelta.x, 0.0)).a),
+                    min(texture2D(uTerrainDepthTex, uv - vec2(0.0, skyDelta.y)).a, texture2D(uTerrainDepthTex, uv + vec2(0.0, skyDelta.y)).a));
+                edge = max(edge, skyNeighbour * c0.a);
+
+                // Ridges and valleys: the two tangent directions away from this pixel point
+                // straight apart on a flat surface (dot -1) and fold together over a crest.
+                // Done on eye positions rather than on depth, so a merely oblique slope - which
+                // is most of a panorama - does not read as a fold.
+                float cover = min(min(cx0.a, cx1.a), min(cy0.a, cy1.a)) * c0.a;
+                if (uCreaseStrength > 0.0 && cover > 0.0) {
+                    vec3 p0 = eyePos(uv, d0);
+                    vec3 tx0 = eyePos(uv - vec2(delta.x, 0.0), dx0) - p0;
+                    vec3 tx1 = eyePos(uv + vec2(delta.x, 0.0), dx1) - p0;
+                    vec3 ty0 = eyePos(uv - vec2(0.0, delta.y), dy0) - p0;
+                    vec3 ty1 = eyePos(uv + vec2(0.0, delta.y), dy1) - p0;
+                    // Two samples that landed on the same depth texel give a zero tangent, and
+                    // normalizing that is undefined - it painted the whole near field grey.
+                    float minLength = 1.0e-4 * d0 * uFar;
+                    float fold = 0.0;
+                    if (length(tx0) > minLength && length(tx1) > minLength) {
+                        fold = max(fold, 1.0 + dot(normalize(tx0), normalize(tx1)));
+                    }
+                    if (length(ty0) > minLength && length(ty1) > minLength) {
+                        fold = max(fold, 1.0 + dot(normalize(ty0), normalize(ty1)));
+                    }
+                    edge = max(edge, smoothstep(0.05, 0.4, fold) * uCreaseStrength);
+                }
+
+                // Aerial perspective: the shaded surface fades into the paper with distance, so
+                // the far ranges read as pale outlines and the near ground keeps its shading.
+                vec3 shaded = mix(color.rgb, uPaperColor.rgb, uHaze * d0 * c0.a);
+                vec3 stylized = mix(shaded, uInkColor.rgb, edge * uInkColor.a);
 
                 gl_FragColor = vec4(mix(color.rgb, stylized, uIntensity), 1.0);
             }
@@ -92,8 +176,14 @@ namespace carto {
         auto effect = std::make_shared<PostProcessEffect>("relief_outline", reliefOutlineFsh);
         effect->setTerrainDepthRequired(true);
         effect->setFloatParameter("uIntensity", 1.0f);
-        effect->setFloatParameter("uOutlineWidth", 1.5f);
+        effect->setFloatParameter("uOutlineWidth", 1.2f);
+        effect->setFloatParameter("uHorizonBoost", 2.5f);
         effect->setFloatParameter("uDepthThreshold", 1.0f);
+        effect->setFloatParameter("uCreaseStrength", 0.6f);
+        effect->setFloatParameter("uDepthTexelSize", 2.0f); // TerrainRenderer::BUFFER_DOWNSCALE
+        effect->setFloatParameter("uHaze", 0.75f);
+        effect->setColorParameter("uInkColor", Color(20, 20, 24, 255));
+        effect->setColorParameter("uPaperColor", Color(255, 255, 255, 255));
         return effect;
     }
 }

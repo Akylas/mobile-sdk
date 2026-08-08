@@ -206,7 +206,14 @@ namespace carto {
         // arriving, or from one caller firing on every single frame.
         static void logRedrawSources();
 
-        void drawLayers(float deltaSeconds, const ViewState& viewState);
+        // postProcessing tells whether an effect is going to run this frame: only then are the
+        // layers that opted out of it held back for drawOverlayLayers.
+        void drawLayers(float deltaSeconds, const ViewState& viewState, bool postProcessing);
+
+        // The layers drawLayers held back because they opted out of post-processing, drawn once
+        // the effect has resolved into the framebuffer's secondary color texture - same depth
+        // buffer, so they are still occluded by the terrain.
+        void drawOverlayLayers(float deltaSeconds, const ViewState& viewState);
 
         // Is tileId a STRICT ancestor of other, i.e. does it cover its ground at a coarser level?
         static bool coversTile(const vt::TileId& tileId, const vt::TileId& other);
@@ -227,7 +234,9 @@ namespace carto {
         // content-driven refreshes, which camera-driven ones are not subject to.
         void applyTerrainShadows(const std::vector<std::shared_ptr<TileLayer> >& tileLayers, const std::vector<vt::TileId>& coverTileIds, const std::shared_ptr<TerrainOptions>& terrainOptions, const ViewState& viewState, int prevFBO, bool contentChanged, bool castShadows, ResolvedLighting& lighting, std::array<double, 4>& shadowTexelMeters);
 
-        void applyPostProcessEffect(const std::shared_ptr<PostProcessEffect>& effect, const ViewState& viewState);
+        // keepBound resolves the effect into the screen framebuffer's secondary color texture and
+        // leaves it bound (for overlay layers), instead of writing straight to the screen.
+        void applyPostProcessEffect(const std::shared_ptr<PostProcessEffect>& effect, const ViewState& viewState, bool keepBound = false);
 
         void handleRendererCaptureCallbacks();
 
@@ -284,6 +293,11 @@ namespace carto {
 
         unsigned int _layersElevationVersion = 0;
         std::optional<std::chrono::steady_clock::time_point> _lastElevationRefreshTime;
+
+        // Render thread only: the layers held back for drawOverlayLayers this frame, and whether
+        // the effect resolved into the screen framebuffer's secondary color texture.
+        std::vector<std::shared_ptr<Layer> > _overlayLayers;
+        bool _postProcessSecondaryActive = false;
 
         BackgroundRenderer _backgroundRenderer;
         SkyRenderer _skyRenderer;

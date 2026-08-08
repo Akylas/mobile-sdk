@@ -123,6 +123,23 @@ namespace carto {
         void setVisible(bool visible);
     
         /**
+         * Returns whether this layer goes through the post-process effect.
+         * @return True if the layer is post-processed. The default is true.
+         */
+        bool isPostProcessed() const;
+        /**
+         * Sets whether this layer goes through the post-process effect set with
+         * MapRenderer::setPostProcessEffect. A layer that opts out is drawn AFTER the effect
+         * has resolved - so it keeps its own appearance over a stylized map - but still into
+         * the same depth buffer, so it is occluded by the terrain as usual. Such a layer takes
+         * no part in the terrain depth/draping arrangement, so this is meant for overlays
+         * (annotations, sky-anchored objects), not for the tile layers that paint the ground.
+         * Has no effect while no post-process effect is set.
+         * @param postProcessed The new post-processing state of the layer.
+         */
+        void setPostProcessed(bool postProcessed);
+
+        /**
          * Returns the visible zoom range of this layer.
          * @return The visible zoom range of this layer.
          */
@@ -243,7 +260,8 @@ namespace carto {
         std::atomic<float> _opacity;
         
         std::atomic<bool> _visible;
-        
+        std::atomic<bool> _postProcessed;
+
         MapRange _visibleZoomRange;
 
         std::map<std::string, Variant> _metaData;
