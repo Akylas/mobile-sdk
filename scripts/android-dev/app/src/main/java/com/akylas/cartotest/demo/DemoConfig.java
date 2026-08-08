@@ -262,6 +262,11 @@ public final class DemoConfig {
      *  map) or "fps" (mouse look - the camera never moves - and two fingers move like the keys
      *  would, with no pinch and no rotation). '--es freeRoam fps'. */
     public static String FREE_ROAM_MODE = "off";
+    /** Pan speed on a tilted view: "map" (the point under the finger follows it exactly, so the
+     *  speed changes as the finger moves between near and far parts of the screen), "anchored"
+     *  (the speed a gesture starts with, kept for the whole gesture) or "constant" (always the
+     *  scale at the centre of the screen). '--es panSpeed map|anchored|constant'. */
+    public static String PANNING_SPEED_MODE = "anchored";
     /** Degrees of turn per inch of drag. */
     public static float FREE_ROAM_LOOK_SENSITIVITY = 90f;
     /** How far an inch of two-finger drag moves, as a fraction of the camera to focus distance. */
@@ -301,6 +306,12 @@ public final class DemoConfig {
     public static float STARS_FIGURE_WIDTH = 1.5f;
     public static float STARS_FIGURE_CLICK_RADIUS = 2.5f;
     public static float STARS_PLANET_SIZE = 1.2f;
+    /** Constellation NAMES drawn in the sky, at the middle of each figure. The demo paints them
+     *  into a bitmap, so they are styled entirely by the app. */
+    public static boolean STARS_LABELS = true;
+    public static float STARS_LABEL_TEXT_SIZE = 15f;   // dp of the text inside the bitmap
+    public static float STARS_LABEL_SCALE = 1f;        // 1 = the text at the size it was painted
+    public static float STARS_LABEL_OPACITY = 0.85f;
 
     /** Star sky: no map at all - the layers are REMOVED, the terrain is off and the background is
      *  cleared to transparent, so the only thing drawn is the sky. Fades in and out. */
@@ -617,6 +628,7 @@ public final class DemoConfig {
         } else if ("false".equals(FREE_ROAM_MODE)) {
             FREE_ROAM_MODE = "off";
         }
+        PANNING_SPEED_MODE = DemoCfg.cfgStr("panSpeed", PANNING_SPEED_MODE);
         FREE_ROAM_LOOK_SENSITIVITY = DemoCfg.cfgFloat("lookSensitivity", FREE_ROAM_LOOK_SENSITIVITY);
         FREE_ROAM_MOVE_SPEED = DemoCfg.cfgFloat("moveSpeed", FREE_ROAM_MOVE_SPEED);
         LOOK_UP_LIMIT = DemoCfg.cfgFloat("lookUp", LOOK_UP_LIMIT);
@@ -637,6 +649,8 @@ public final class DemoConfig {
         STARS_BRIGHTEST_SIZE = DemoCfg.cfgFloat("starsSize", STARS_BRIGHTEST_SIZE);
         STARS_FIGURE_WIDTH = DemoCfg.cfgFloat("starsFigureWidth", STARS_FIGURE_WIDTH);
         STARS_PLANET_SIZE = DemoCfg.cfgFloat("starsPlanetSize", STARS_PLANET_SIZE);
+        STARS_LABELS = DemoCfg.cfgBool("starsLabels", STARS_LABELS);
+        STARS_LABEL_SCALE = DemoCfg.cfgFloat("starsLabelScale", STARS_LABEL_SCALE);
         STAR_SKY = DemoCfg.cfgBool("starSky", STAR_SKY);
         STAR_SKY_FADE_MS = DemoCfg.cfgFloat("starSkyFade", STAR_SKY_FADE_MS);
         STAR_SKY_ORIENTATION = DemoCfg.cfgBool("starSkyOrientation", STAR_SKY_ORIENTATION);

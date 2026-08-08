@@ -850,9 +850,21 @@ public class DemoMap {
     public void applyLookRange() {
         Options options = mapView.getOptions();
         options.setFreeRoamMode(freeRoamMode(DemoConfig.FREE_ROAM_MODE));
+        options.setPanningSpeedMode(panningSpeedMode(DemoConfig.PANNING_SPEED_MODE));
         options.setFreeRoamLookSensitivity(DemoConfig.FREE_ROAM_LOOK_SENSITIVITY);
         options.setFreeRoamMoveSpeed(DemoConfig.FREE_ROAM_MOVE_SPEED);
         options.setTiltRange(new com.carto.core.MapRange(-Math.max(0f, DemoConfig.LOOK_UP_LIMIT), 90f));
+    }
+
+    /** "map" / "anchored" / "constant" -> the SDK enum. */
+    public static com.carto.components.PanningSpeedMode panningSpeedMode(String name) {
+        if ("map".equals(name)) {
+            return com.carto.components.PanningSpeedMode.PANNING_SPEED_MODE_MAP;
+        }
+        if ("constant".equals(name)) {
+            return com.carto.components.PanningSpeedMode.PANNING_SPEED_MODE_CONSTANT;
+        }
+        return com.carto.components.PanningSpeedMode.PANNING_SPEED_MODE_ANCHORED;
     }
 
     /** "off" / "look" / "fps" -> the SDK enum. */

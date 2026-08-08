@@ -1,8 +1,6 @@
 <resources>
 
-    <!-- No action bar: the map IS the screen, and the bar only ate 56dp of it. The system bars
-         are transparent because the app draws edge to edge and insets the overlay itself
-         (DemoPanel.applyInsets). -->
+    <!-- The map is light, so the status bar icons have to be dark to be legible over it. -->
     <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
@@ -10,6 +8,7 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:windowLightStatusBar">true</item>
     </style>
 
 </resources>

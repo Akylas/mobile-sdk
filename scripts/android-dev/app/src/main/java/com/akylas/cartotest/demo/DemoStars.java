@@ -1,5 +1,9 @@
 package com.akylas.cartotest.demo;
 
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.Rect;
+import android.graphics.Typeface;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -39,6 +43,7 @@ public final class DemoStars {
     private final List<CelestialSprite> stars = new ArrayList<CelestialSprite>();
     private final List<double[]> starEquatorial = new ArrayList<double[]>();   // { ra degrees, dec }
     private final List<CelestialArc> figures = new ArrayList<CelestialArc>();
+    private final List<CelestialSprite> figureLabels = new ArrayList<CelestialSprite>();
     private final List<double[][]> figureEquatorial = new ArrayList<double[][]>(); // per segment { ra, dec, ra, dec }
     private final List<CelestialSprite> planets = new ArrayList<CelestialSprite>();
     private CelestialArc equator;
@@ -100,6 +105,24 @@ public final class DemoStars {
             layer.add(arc);
             figures.add(arc);
             figureEquatorial.add(segments.toArray(new double[segments.size()][]));
+
+            // The name, IN THE SKY, at the middle of the figure. It is a plain sprite with a
+            // bitmap the demo paints - the SDK has no text of its own here, which is exactly what
+            // makes it themeable from the app: change the paint, change the label.
+            CelestialSprite label = new CelestialSprite();
+            com.carto.graphics.Bitmap labelBitmap = textBitmap(figure.getKey(), density);
+            label.setBitmap(labelBitmap);
+            // The bitmap is square and the text fills its width, so drawing the quad at the
+            // bitmap's own pixel size renders the text at the size it was painted - the same for
+            // every name. A fixed quad size would shrink the long ones instead.
+            label.setScreenSize(labelBitmap.getWidth() * DemoConfig.STARS_LABEL_SCALE);
+            label.setColor(new Color((short) 255, (short) 255, (short) 255,
+                    (short) Math.round(255 * DemoConfig.STARS_LABEL_OPACITY)));
+            label.setClickRadius(0f); // the figure itself is the clickable thing
+            label.setMetaDataElement(META_NAME, new Variant(figure.getKey()));
+            label.setMetaDataElement(META_INFO, new Variant(""));
+            layer.add(label);
+            figureLabels.add(label);
         }
 
         for (String name : DemoAstro.PLANET_NAMES) {
@@ -181,6 +204,26 @@ public final class DemoStars {
             }
             figures.get(i).setSegments(directions);
             figures.get(i).setVisible(DemoConfig.STARS_FIGURES);
+
+            // The label goes at the MEAN DIRECTION of the figure, averaged as vectors: averaging
+            // azimuths would put a figure straddling north somewhere near south.
+            double x = 0, y = 0, z = 0;
+            for (int k = 0; k + 1 < directions.size(); k += 2) {
+                double az = Math.toRadians(directions.get(k)), alt = Math.toRadians(directions.get(k + 1));
+                x += Math.cos(alt) * Math.sin(az);
+                y += Math.cos(alt) * Math.cos(az);
+                z += Math.sin(alt);
+            }
+            CelestialSprite label = figureLabels.get(i);
+            double length = Math.sqrt(x * x + y * y + z * z);
+            if (length > 0) {
+                double altitude = Math.toDegrees(Math.asin(z / length));
+                double azimuth = DemoAstro.normalizeDegrees(Math.toDegrees(Math.atan2(x, y)));
+                label.setDirection((float) azimuth, (float) altitude, 0);
+                label.setVisible(DemoConfig.STARS_FIGURES && DemoConfig.STARS_LABELS && altitude > 0);
+            } else {
+                label.setVisible(false);
+            }
         }
 
         for (int i = 0; i < planets.size(); i++) {
@@ -194,6 +237,33 @@ public final class DemoStars {
         // equator) at an altitude equal to the latitude.
         equator.setCircle(lat >= 0 ? 0f : 180f, (float) Math.abs(lat), 90f);
         equator.setVisible(DemoConfig.STARS_EQUATOR);
+    }
+
+    /**
+     * The name painted into a square bitmap, which is what a celestial sprite draws. Square
+     * because the sprite quad is: the text is centred in it and the transparent margin costs
+     * nothing but texture.
+     */
+    private static com.carto.graphics.Bitmap textBitmap(String text, float density) {
+        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
+        paint.setTextSize(DemoConfig.STARS_LABEL_TEXT_SIZE * density);
+        paint.setColor(0xFFFFFFFF);
+        Rect bounds = new Rect();
+        paint.getTextBounds(text, 0, text.length(), bounds);
+        int side = Math.max(16, Math.max(bounds.width(), bounds.height()) + Math.round(8 * density));
+        android.graphics.Bitmap bitmap = android.graphics.Bitmap.createBitmap(side, side, android.graphics.Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        // A dark outline, so a name stays readable over a bright sky as well as over black.
+        Paint outline = new Paint(paint);
+        outline.setStyle(Paint.Style.STROKE);
+        outline.setStrokeWidth(3 * density);
+        outline.setColor(0xC0000000);
+        float x = side * 0.5f - bounds.exactCenterX();
+        float y = side * 0.5f - bounds.exactCenterY();
+        canvas.drawText(text, x, y, outline);
+        canvas.drawText(text, x, y, paint);
+        return com.carto.utils.BitmapUtils.createBitmapFromAndroidBitmap(bitmap);
     }
 
     /** A star of this magnitude, in screen pixels. */
