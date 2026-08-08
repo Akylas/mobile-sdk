@@ -192,9 +192,10 @@ Two notes for style authors:
   of names jumping every time tiles stream in), and a label that was visible tries its previous
   row before any other. `text-callout-persist: <passes>` goes further: a name already on screen may
   fail placement that many consecutive passes before it is hidden, so it does not blink out and
-  back in while the camera moves. Default 0 — hide on the first failure, as before. Keep it small:
-  a held-over name is drawn where the culler could **not** place it, so a generous grace reads as
-  overlap on a crowded ridge.
+  back in while the camera moves. Default 0 — hide on the first failure, as before. A held-over
+  name may sit closer to its neighbours than `text-min-distance` allows, but never **on top** of
+  one: a placement pass only runs when the draw data changes, so an overlap granted here would
+  stay on screen until something else moved.
 - **The step's sign is the stacking direction.** A negative `text-callout-step` stacks the rows
   DOWNWARDS, which is what a band pinned to the top of the screen needs: there is no room above it,
   so stepping up piles every row that loses its slot into the top edge — and since the ranking puts

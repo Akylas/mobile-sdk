@@ -576,7 +576,7 @@ public final class DemoStyles {
             "  text-orientation: " + DemoConfig.PEAKS_TEXT_ANGLE + ";",
             "  text-callout-line-anchor: " + lineAnchor + ";",
             "  text-callout-align: " + align + ";",
-            "  text-callout-screen-anchor: " + (DemoConfig.PEAKS_PIN_TOP ? 0.04f : DemoConfig.PEAKS_BAND) + ";",
+            "  text-callout-screen-anchor: " + (DemoConfig.PEAKS_PIN_TOP ? DemoConfig.PEAKS_TOP_OFFSET : DemoConfig.PEAKS_BAND) + ";",
             "  text-callout-offset: " + DemoConfig.PEAKS_MIN_OFFSET + ";",
             // Pinned to the top there is no room above the row, so the extra rows go DOWN.
             "  text-callout-step: " + (DemoConfig.PEAKS_PIN_TOP ? -DemoConfig.PEAKS_ROW_STEP : DemoConfig.PEAKS_ROW_STEP) + ";",

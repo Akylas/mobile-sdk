@@ -544,7 +544,9 @@ public final class DemoConfig {
      *  differ by which CORNER of the label the row is aligned on: a band lower down hangs the
      *  names off their bottom left corner (they read up and to the right), a pinned row hangs
      *  them off their top right corner so the text stays under the screen edge. */
-    public static boolean PEAKS_PIN_TOP = false;
+    public static boolean PEAKS_PIN_TOP = true;
+    /** How far below the top of the screen that row sits, as a fraction of the screen height. */
+    public static float PEAKS_TOP_OFFSET = 0.03f;
 
     /** Summit names as callout labels (their own vector tile layer on the base source). */
     public static boolean LAYER_PEAKS = false;
@@ -557,7 +559,9 @@ public final class DemoConfig {
     /** Shortest leader line, and the height of one stacking row, in pixels. */
     public static float PEAKS_MIN_OFFSET = 10;
     public static float PEAKS_ROW_STEP = 26;
-    public static int PEAKS_MAX_ROWS = 6;
+    /** 1 = one strict row: every name on the same line, and a summit that cannot get a slot there
+     *  loses its name to a better ranked one. Above 1 the losers stack instead. */
+    public static int PEAKS_MAX_ROWS = 1;
     /** Pixels two names must stay apart (text-min-distance). It is what thins a crowded ridge out:
      *  a summit that cannot find a row far enough from the ones already placed loses its name to
      *  them, and which one wins is the ranking below. 0 = only overlap counts. */
@@ -835,6 +839,7 @@ public final class DemoConfig {
         PEAK_FINDER_ELEVATION = DemoCfg.cfgFloat("peakFinderElevation", PEAK_FINDER_ELEVATION);
         PEAK_FINDER_OCCLUSION_TOLERANCE = DemoCfg.cfgFloat("peakFinderOcclusion", PEAK_FINDER_OCCLUSION_TOLERANCE);
         PEAKS_PIN_TOP = DemoCfg.cfgBool("peaksPinTop", PEAKS_PIN_TOP);
+        PEAKS_TOP_OFFSET = DemoCfg.cfgFloat("peaksTopOffset", PEAKS_TOP_OFFSET);
         LAYER_PEAKS = DemoCfg.cfgBool("peaks", LAYER_PEAKS);
         PEAKS_MIN_ZOOM = DemoCfg.cfgInt("peaksMinZoom", PEAKS_MIN_ZOOM);
         PEAKS_TEXT_SIZE = DemoCfg.cfgFloat("peaksTextSize", PEAKS_TEXT_SIZE);
