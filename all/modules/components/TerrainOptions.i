@@ -42,6 +42,7 @@
 %attribute(carto::TerrainOptions, float, FogStartDistance, getFogStartDistance, setFogStartDistance)
 %attribute(carto::TerrainOptions, float, FogDistance, getFogDistance, setFogDistance)
 %attribute(carto::TerrainOptions, float, ViewDistanceFactor, getViewDistanceFactor, setViewDistanceFactor)
+%attribute(carto::TerrainOptions, float, ViewDistance, getViewDistance, setViewDistance)
 %attribute(carto::TerrainOptions, int, MaxTileZoomCoarsening, getMaxTileZoomCoarsening, setMaxTileZoomCoarsening)
 %attribute(carto::TerrainOptions, float, DepthBias, getDepthBias, setDepthBias)
 %attribute(carto::TerrainOptions, bool, BillboardOcclusionEnabled, isBillboardOcclusionEnabled, setBillboardOcclusionEnabled)

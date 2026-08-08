@@ -221,6 +221,9 @@ public final class DemoConfig {
      *  the blend), 0 = from the mathematical horizon, >0 = pinned. '--es fogHorizon 0'. */
     public static float SKY_FOG_HORIZON = -1f;
     public static float VIEW_DISTANCE_FACTOR = 1f;
+    /** Absolute view distance in METRES, whatever the camera's height or pitch. 0 = the factor
+     *  rule above (tangram's, which shortens the view as the camera comes down to the ground). */
+    public static float VIEW_DISTANCE_METERS = 0f;
     /** Zoom levels below the camera a tile may coarsen to in terrain mode. The tile surface is the
      *  depth occluder and the DEM level follows the tile zoom, so unbounded coarsening means leaky
      *  ridges and blocky hillshade. '--es coarsening 2'. */
@@ -582,6 +585,7 @@ public final class DemoConfig {
     public static String PEAKS_ALIGN = "";
     /** Elevation set after the name in a smaller font (text-secondary-*): its size relative to the
      *  name, the gap before it and its baseline shift, all style properties. 0 scale = no suffix. */
+    public static int PEAKS_ELE_COLOR_ARGB = 0xff6b7280; // the elevation reads as a subtitle
     public static float PEAKS_ELE_SCALE = 0.62f;
     public static float PEAKS_ELE_GAP = 3;
     public static float PEAKS_ELE_DY = 0;
@@ -705,6 +709,7 @@ public final class DemoConfig {
         SKY_FOG_BLEND = DemoCfg.cfgFloat("fogBlend", SKY_FOG_BLEND);
         SKY_FOG_HORIZON = DemoCfg.cfgFloat("fogHorizon", SKY_FOG_HORIZON);
         VIEW_DISTANCE_FACTOR = DemoCfg.cfgFloat("viewDistance", VIEW_DISTANCE_FACTOR);
+        VIEW_DISTANCE_METERS = DemoCfg.cfgFloat("viewDistanceMeters", VIEW_DISTANCE_METERS);
         TERRAIN_MAX_TILE_ZOOM_COARSENING = DemoCfg.cfgInt("coarsening", TERRAIN_MAX_TILE_ZOOM_COARSENING);
 
         // sun / shadows
@@ -858,6 +863,7 @@ public final class DemoConfig {
         PEAKS_LINE_ANCHOR = DemoCfg.cfgStr("peaksLineAnchor", PEAKS_LINE_ANCHOR);
         PEAKS_ALIGN = DemoCfg.cfgStr("peaksAlign", PEAKS_ALIGN);
         PEAKS_ELE_SCALE = DemoCfg.cfgFloat("peaksEleScale", PEAKS_ELE_SCALE);
+        PEAKS_ELE_COLOR_ARGB = DemoCfg.cfgColorInt("peaksEleColor", PEAKS_ELE_COLOR_ARGB);
         PEAKS_ELE_GAP = DemoCfg.cfgFloat("peaksEleGap", PEAKS_ELE_GAP);
         PEAKS_ELE_DY = DemoCfg.cfgFloat("peaksEleDy", PEAKS_ELE_DY);
         PEAKS_DISTANCE_RANK = DemoCfg.cfgFloat("peaksDistanceRank", PEAKS_DISTANCE_RANK);

@@ -804,10 +804,12 @@ namespace carto {
         float terrainNear = static_cast<float>(calculateCameraDistance() / 50.0);
         if (viewDistance > 0) {
             float viewDistanceFactor = 1.0f;
+            bool absoluteViewDistance = false;
             if (std::shared_ptr<TerrainOptions> terrainOptions = options.getTerrainOptions()) {
                 viewDistanceFactor = terrainOptions->getViewDistanceFactor();
+                absoluteViewDistance = terrainOptions->getViewDistance() > 0;
             }
-            if (viewDistanceFactor > 1.0f) {
+            if (absoluteViewDistance || viewDistanceFactor > 1.0f) {
                 // The app has asked for MORE ground than tangram's rule gives. The far plane has
                 // to follow, or the extra tiles the walk fetches are drawn and then clipped - which
                 // is what "raising the view distance does nothing" was. It costs depth precision:
@@ -872,6 +874,12 @@ namespace carto {
         // ground-derived view distance (no cap at all).
         float factor = 1.0f;
         if (std::shared_ptr<TerrainOptions> terrainOptions = options.getTerrainOptions()) {
+            // An absolute distance takes over completely: the point of it is that the ground
+            // reaches the same distance whatever the camera's height and pitch.
+            float absolute = terrainOptions->getViewDistance();
+            if (absolute > 0) {
+                return absolute * static_cast<double>(Const::WORLD_SIZE) / Const::EARTH_CIRCUMFERENCE;
+            }
             factor = terrainOptions->getViewDistanceFactor();
         }
         if (!(factor > 0.0f)) {

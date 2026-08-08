@@ -903,6 +903,7 @@ public class DemoMap {
         terrainOptions.setFogStartDistance(DemoConfig.FOG_START_DISTANCE);
         terrainOptions.setFogDistance(DemoConfig.FOG_DISTANCE);
         terrainOptions.setViewDistanceFactor(DemoConfig.VIEW_DISTANCE_FACTOR);
+        terrainOptions.setViewDistance(DemoConfig.VIEW_DISTANCE_METERS);
         terrainOptions.setMaxTileZoomCoarsening(DemoConfig.TERRAIN_MAX_TILE_ZOOM_COARSENING);
         applyReliefSurface();
         mapView.requestRender();

@@ -548,6 +548,7 @@ public final class DemoStyles {
             // The elevation as a second run of text: same label, same plate, smaller font.
             "  text-secondary-name: [ele]+'m';",
             "  text-secondary-scale: " + DemoConfig.PEAKS_ELE_SCALE + ";",
+            "  text-secondary-fill: " + hex(DemoConfig.PEAKS_ELE_COLOR_ARGB) + ";",
             "  text-secondary-dx: " + DemoConfig.PEAKS_ELE_GAP + ";",
             "  text-secondary-dy: " + DemoConfig.PEAKS_ELE_DY + ";",
             "  text-size: " + DemoConfig.PEAKS_TEXT_SIZE + ";",
@@ -572,7 +573,7 @@ public final class DemoStyles {
             // built ONCE and shared by every label.
             // '0 - x', not '-x': in CartoCSS a leading minus in front of a field is read as the
             // literal "-" (the parser's literal rule accepts '-' as a first character).
-            DemoConfig.PEAKS_DISTANCE_RANK > 0 ? "  text-rank: 0 - [view::distance]/" + DemoConfig.PEAKS_DISTANCE_RANK + ";" : "",
+            DemoConfig.PEAKS_DISTANCE_RANK > 0 ? "  text-rank: [ele] + [view::distance]/" + DemoConfig.PEAKS_DISTANCE_RANK + ";" : "",
             "  text-orientation: " + DemoConfig.PEAKS_TEXT_ANGLE + ";",
             "  text-callout-line-anchor: " + lineAnchor + ";",
             "  text-callout-align: " + align + ";",

@@ -336,6 +336,25 @@ namespace carto {
         void setViewDistanceFactor(float factor);
 
         /**
+         * Returns the absolute view distance, in meters.
+         * @return The view distance in meters. 0 (the default) derives it from the factor above.
+         */
+        float getViewDistance() const;
+        /**
+         * Sets how far from the camera the map is drawn, in METERS, whatever the camera's height
+         * or pitch. Tangram's rule is proportional to the camera's height above the ground, so
+         * approaching the terrain shortens the view - which is right for a map seen from above and
+         * wrong for a view along the ground, where the same landscape should stay visible as the
+         * camera descends into it. An absolute distance keeps the ground reaching the same distance
+         * at any elevation and any tilt. The far plane follows it, which spends depth precision
+         * (see setViewDistanceFactor), so this is an explicit trade - pair it with fog so the
+         * ground fades out instead of ending.
+         * 0 (the default) leaves the factor rule in charge.
+         * @param distance The new view distance in meters, or 0 for the factor rule.
+         */
+        void setViewDistance(float distance);
+
+        /**
          * Returns how many zoom levels below the camera a tile may coarsen to.
          * @return The maximum tile zoom coarsening. The default is 3.
          */
@@ -616,6 +635,7 @@ namespace carto {
         std::atomic<float> _fogStartDistance;
         std::atomic<float> _fogDistance;
         std::atomic<float> _viewDistanceFactor;
+        std::atomic<float> _viewDistance;
         std::atomic<int> _maxTileZoomCoarsening;
 
         std::string _surfaceShaderSource;

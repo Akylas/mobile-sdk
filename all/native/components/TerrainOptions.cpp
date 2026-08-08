@@ -37,6 +37,7 @@ namespace carto {
         _fogStartDistance(0.0f),
         _fogDistance(0.0f),
         _viewDistanceFactor(1.0f),
+        _viewDistance(0.0f),
         _maxTileZoomCoarsening(3),
         _surfaceShaderSource(),
         _surfaceParameters(),
@@ -311,6 +312,17 @@ namespace carto {
         float clamped = std::max(0.0f, factor);
         if (_viewDistanceFactor.exchange(clamped) != clamped) {
             notifyOptionChanged("ViewDistanceFactor");
+        }
+    }
+
+    float TerrainOptions::getViewDistance() const {
+        return _viewDistance.load();
+    }
+
+    void TerrainOptions::setViewDistance(float distance) {
+        float clamped = std::max(0.0f, distance);
+        if (_viewDistance.exchange(clamped) != clamped) {
+            notifyOptionChanged("ViewDistance");
         }
     }
 
