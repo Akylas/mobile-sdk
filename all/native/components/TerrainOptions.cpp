@@ -38,6 +38,10 @@ namespace carto {
         _fogDistance(0.0f),
         _viewDistanceFactor(1.0f),
         _maxTileZoomCoarsening(3),
+        _surfaceShaderSource(),
+        _surfaceParameters(),
+        _surfaceColorParameters(),
+        _surfaceMutex(),
         _onChangeListeners(),
         _onChangeListenersMutex()
     {
@@ -192,6 +196,68 @@ namespace carto {
         if (_minZoom.exchange(zoom) != zoom) {
             notifyOptionChanged("MinZoom");
         }
+    }
+
+    std::string TerrainOptions::getSurfaceShaderSource() const {
+        std::lock_guard<std::mutex> lock(_surfaceMutex);
+        return _surfaceShaderSource;
+    }
+
+    void TerrainOptions::setSurfaceShaderSource(const std::string& shaderSource) {
+        {
+            std::lock_guard<std::mutex> lock(_surfaceMutex);
+            if (_surfaceShaderSource == shaderSource) {
+                return;
+            }
+            _surfaceShaderSource = shaderSource;
+        }
+        notifyOptionChanged("SurfaceShaderSource");
+    }
+
+    float TerrainOptions::getSurfaceParameter(const std::string& name) const {
+        std::lock_guard<std::mutex> lock(_surfaceMutex);
+        auto it = _surfaceParameters.find(name);
+        return it != _surfaceParameters.end() ? it->second : 0.0f;
+    }
+
+    void TerrainOptions::setSurfaceParameter(const std::string& name, float value) {
+        {
+            std::lock_guard<std::mutex> lock(_surfaceMutex);
+            auto it = _surfaceParameters.find(name);
+            if (it != _surfaceParameters.end() && it->second == value) {
+                return;
+            }
+            _surfaceParameters[name] = value;
+        }
+        notifyOptionChanged("SurfaceParameter");
+    }
+
+    Color TerrainOptions::getSurfaceColorParameter(const std::string& name) const {
+        std::lock_guard<std::mutex> lock(_surfaceMutex);
+        auto it = _surfaceColorParameters.find(name);
+        return it != _surfaceColorParameters.end() ? it->second : Color(0, 0, 0, 0);
+    }
+
+    void TerrainOptions::setSurfaceColorParameter(const std::string& name, const Color& color) {
+        {
+            std::lock_guard<std::mutex> lock(_surfaceMutex);
+            auto it = _surfaceColorParameters.find(name);
+            if (it != _surfaceColorParameters.end() && it->second == color) {
+                return;
+            }
+            _surfaceColorParameters[name] = color;
+        }
+        notifyOptionChanged("SurfaceColorParameter");
+    }
+
+    std::map<std::string, float> TerrainOptions::getSurfaceParameters() const {
+        std::lock_guard<std::mutex> lock(_surfaceMutex);
+        return _surfaceParameters;
+    }
+
+    std::map<std::string, Color> TerrainOptions::getSurfaceColorParameters() const {
+        std::lock_guard<std::mutex> lock(_surfaceMutex);
+        return _surfaceColorParameters;
     }
 
     Color TerrainOptions::getFogColor() const {

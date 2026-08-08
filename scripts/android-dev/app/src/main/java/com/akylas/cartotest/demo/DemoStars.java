@@ -51,6 +51,7 @@ public final class DemoStars {
     /** Builds the layer: stars, constellation figures, planets. Positions come from {@link #update}. */
     public CelestialLayer createLayer(final MapView mapView) {
         layer = new CelestialLayer();
+        layer.setPostProcessed(false); // see DemoCelestial: the sky objects keep their own look
         // The catalogue sizes are in pixels at 160 dpi, the unit the rest of the demo uses.
         final float density = mapView.getContext().getResources().getDisplayMetrics().density;
 

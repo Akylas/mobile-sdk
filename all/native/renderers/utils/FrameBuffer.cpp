@@ -34,7 +34,47 @@ namespace carto {
     GLuint FrameBuffer::getColorTexId() const {
         return _colorTexId;
     }
-        
+
+    GLuint FrameBuffer::getAttachedColorTexId() const {
+        return _secondaryAttached ? _secondaryColorTexId : _colorTexId;
+    }
+
+    void FrameBuffer::attachSecondaryColorTex(bool secondary) {
+        if (!_color || _fboId == 0 || _secondaryAttached == secondary) {
+            return;
+        }
+
+        GLint oldFBOId = 0;
+        glGetIntegerv(GL_FRAMEBUFFER_BINDING, &oldFBOId);
+        glBindFramebuffer(GL_FRAMEBUFFER, _fboId);
+
+        if (secondary && _secondaryColorTexId == 0) {
+            GLint oldTexId = 0;
+            glGetIntegerv(GL_TEXTURE_BINDING_2D, &oldTexId);
+            glGenTextures(1, &_secondaryColorTexId);
+            glBindTexture(GL_TEXTURE_2D, _secondaryColorTexId);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, _width, _height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glBindTexture(GL_TEXTURE_2D, oldTexId);
+        }
+
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, secondary ? _secondaryColorTexId : _colorTexId, 0);
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+            Log::Error("FrameBuffer::attachSecondaryColorTex: Framebuffer not complete");
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, _colorTexId, 0);
+            secondary = false;
+        }
+        _secondaryAttached = secondary;
+
+        glBindFramebuffer(GL_FRAMEBUFFER, oldFBOId);
+
+        GLContext::CheckGLError("FrameBuffer::attachSecondaryColorTex");
+    }
+
+
     void FrameBuffer::discard(bool color, bool depth, bool stencil) {
         if (GLContext::DISCARD_FRAMEBUFFER) {
             std::vector<GLenum> attachments;
@@ -60,6 +100,8 @@ namespace carto {
         _stencil(stencil),
         _fboId(0),
         _colorTexId(0),
+        _secondaryColorTexId(0),
+        _secondaryAttached(false),
         _depthStencilRBIds()
     {
     }
@@ -144,6 +186,12 @@ namespace carto {
                 glDeleteTextures(1, &_colorTexId);
                 _colorTexId = 0;
             }
+
+            if (_secondaryColorTexId != 0) {
+                glDeleteTextures(1, &_secondaryColorTexId);
+                _secondaryColorTexId = 0;
+            }
+            _secondaryAttached = false;
 
             GLContext::CheckGLError("FrameBuffer::destroy");
         }

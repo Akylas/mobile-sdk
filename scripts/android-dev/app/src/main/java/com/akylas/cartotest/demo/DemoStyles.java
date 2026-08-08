@@ -527,6 +527,61 @@ public final class DemoStyles {
             "}");
     }
 
+    /**
+     * Summit names, drawn as callout labels: the label is lifted to a band near the top of the
+     * screen and joined back to the summit by a leader line, and a label that would collide is
+     * moved one row up instead of being dropped ('nuticallout' placement, see vt::LabelOrientation).
+     * The layer name and fields are OpenMapTiles ('mountain_peak', name/ele/class).
+     */
+    public static String peaksStyle() {
+        return String.join("\n",
+            "#mountain_peak['class'='peak'][zoom>=" + DemoConfig.PEAKS_MIN_ZOOM + "] {",
+            "  text-name: [name]+' '+[ele]+'m';",
+            "  text-size: " + DemoConfig.PEAKS_TEXT_SIZE + ";",
+            "  text-fill: " + hex(DemoConfig.RELIEF_DARK ? 0xffe8ecf5 : 0xff14141a) + ";",
+            "  text-halo-fill: " + hex(DemoConfig.RELIEF_DARK ? 0xff10131a : 0xffffffff) + ";",
+            "  text-halo-radius: 1.5;",
+            "  text-placement: nuticallout;",
+            // The higher summit claims the row: without this the winner is whichever label the
+            // tile order happened to offer first, and a 700 m hill hides a 2000 m one behind it.
+            "  text-placement-priority: [ele];",
+            "  text-orientation: " + DemoConfig.PEAKS_TEXT_ANGLE + ";",
+            "  text-callout-screen-anchor: " + DemoConfig.PEAKS_BAND + ";",
+            "  text-callout-offset: " + DemoConfig.PEAKS_MIN_OFFSET + ";",
+            "  text-callout-step: " + DemoConfig.PEAKS_ROW_STEP + ";",
+            "  text-callout-max-rows: " + DemoConfig.PEAKS_MAX_ROWS + ";",
+            "  text-callout-line-width: " + DemoConfig.PEAKS_LINE_WIDTH + ";",
+            DemoConfig.PEAKS_MAX_DISTANCE > 0 ? "  text-max-distance: " + DemoConfig.PEAKS_MAX_DISTANCE + ";" : "",
+            "}");
+    }
+
+    /**
+     * Terrain surface shader for the relief (peak-finder) look: the shaded ground the outline
+     * effect draws its ink lines over. Lambert shading between a paper and a shade colour, the
+     * distance pulling everything back towards the paper, and the resolved fog on top - so a
+     * panorama reads as a stack of ever paler ridges.
+     * Parameters (TerrainOptions.setSurfaceParameter / setSurfaceColorParameter):
+     * uPaperColor, uShadeColor, uShadeStrength, uAmbient, uHaze, uHazeDistance.
+     */
+    public static String reliefSurfaceShader() {
+        return String.join("\n",
+            "uniform vec4 uPaperColor;",
+            "uniform vec4 uShadeColor;",
+            "uniform float uShadeStrength;",
+            "uniform float uAmbient;",
+            "uniform float uHaze;",
+            "uniform float uHazeDistance;",
+            "vec4 surfaceColor() {",
+            "    vec3 n = normalize(v_normal);",
+            "    float lambert = max(dot(n, normalize(u_sunDir)), 0.0);",
+            "    float light = mix(uAmbient, 1.0, lambert);",
+            "    vec3 color = mix(uShadeColor.rgb, uPaperColor.rgb, clamp(1.0 - uShadeStrength * (1.0 - light), 0.0, 1.0));",
+            "    color = mix(color, uPaperColor.rgb, clamp(v_dist / max(uHazeDistance, 1.0), 0.0, 1.0) * uHaze);",
+            "    color = mix(color, u_fogColor.rgb, fogAmount(v_dist));",
+            "    return vec4(color, 1.0);",
+            "}");
+    }
+
     private DemoStyles() {
     }
 }

@@ -204,6 +204,7 @@ public final class DemoPanel {
         buildSunSection(context, demo);
         buildCelestialSection(context, demo);
         buildSkyFogSection(context, demo);
+        buildReliefSection(context, demo);
         buildDebugSection(context, demo);
         buildActionsSection(context, demo);
 
@@ -685,6 +686,78 @@ public final class DemoPanel {
         });
     }
 
+    /**
+     * The relief (peak-finder) look: a shaded terrain surface plus the outline effect over it.
+     * The surface only shows where no tile layer paints, so switch the base map off in LAYERS.
+     */
+    private static void buildReliefSection(Context context, final DemoMap demo) {
+        header(context, "RELIEF");
+        // One switch for the whole view: the pieces below are independent, and each one on its own
+        // looks like nothing happens (the surface hides under the map, the names need summits).
+        check(context, "peak finder mode", DemoConfig.PEAK_FINDER, new BoolSetting() {
+            public void set(boolean value) { demo.setPeakFinderMode(value); }
+        });
+        check(context, "relief surface", DemoConfig.RELIEF_SURFACE, new BoolSetting() {
+            public void set(boolean value) { DemoConfig.RELIEF_SURFACE = value; demo.applyReliefSurface(); }
+        });
+        check(context, "relief outline effect", DemoConfig.RELIEF_OUTLINE, new BoolSetting() {
+            public void set(boolean value) { demo.setReliefOutlineEnabled(value); }
+        });
+        check(context, "dark palette", DemoConfig.RELIEF_DARK, new BoolSetting() {
+            public void set(boolean value) {
+                DemoConfig.RELIEF_DARK = value;
+                demo.applyReliefSurface();
+                demo.applyReliefOutlineParameters();
+            }
+        });
+        slider(context, "outline width (px)", 0.5f, 4, DemoConfig.RELIEF_OUTLINE_WIDTH, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.RELIEF_OUTLINE_WIDTH = value; demo.applyReliefOutlineParameters(); }
+        });
+        slider(context, "horizon boost", 0, 8, DemoConfig.RELIEF_HORIZON_BOOST, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.RELIEF_HORIZON_BOOST = value; demo.applyReliefOutlineParameters(); }
+        });
+        slider(context, "silhouette threshold", 0.1f, 4, DemoConfig.RELIEF_DEPTH_THRESHOLD, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.RELIEF_DEPTH_THRESHOLD = value; demo.applyReliefOutlineParameters(); }
+        });
+        slider(context, "ridge lines", 0, 1, DemoConfig.RELIEF_CREASE_STRENGTH, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.RELIEF_CREASE_STRENGTH = value; demo.applyReliefOutlineParameters(); }
+        });
+        slider(context, "shade strength", 0, 1, DemoConfig.RELIEF_SHADE_STRENGTH, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.RELIEF_SHADE_STRENGTH = value; demo.applyReliefSurface(); }
+        });
+        slider(context, "ambient", 0, 1, DemoConfig.RELIEF_AMBIENT, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.RELIEF_AMBIENT = value; demo.applyReliefSurface(); }
+        });
+        slider(context, "haze", 0, 1, DemoConfig.RELIEF_HAZE, false, new FloatSetting() {
+            public void set(float value) {
+                DemoConfig.RELIEF_HAZE = value;
+                demo.applyReliefSurface();
+                demo.applyReliefOutlineParameters();
+            }
+        });
+        slider(context, "haze distance (m)", 5000, 200000, DemoConfig.RELIEF_HAZE_DISTANCE, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.RELIEF_HAZE_DISTANCE = value; demo.applyReliefSurface(); }
+        });
+
+        // The peak labels are style-driven, so every knob here rebuilds the layer with a new
+        // style - hence applyOnRelease on the sliders.
+        check(context, "peak names", DemoConfig.LAYER_PEAKS, new BoolSetting() {
+            public void set(boolean value) { demo.setEnabled(DemoMap.Feature.PEAKS, value); }
+        });
+        slider(context, "peak label band (screen)", 0, 0.6f, DemoConfig.PEAKS_BAND, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.PEAKS_BAND = value; demo.rebuildPeaksLayer(); }
+        });
+        slider(context, "peak label angle", 0, 90, DemoConfig.PEAKS_TEXT_ANGLE, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.PEAKS_TEXT_ANGLE = value; demo.rebuildPeaksLayer(); }
+        });
+        slider(context, "peak row step (px)", 8, 60, DemoConfig.PEAKS_ROW_STEP, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.PEAKS_ROW_STEP = value; demo.rebuildPeaksLayer(); }
+        });
+        slider(context, "peak max distance (m)", 0, 300000, DemoConfig.PEAKS_MAX_DISTANCE, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.PEAKS_MAX_DISTANCE = value; demo.rebuildPeaksLayer(); }
+        });
+    }
+
     private static void buildSkyFogSection(Context context, final DemoMap demo) {
         header(context, "SKY");
         check(context, "sky", DemoConfig.SKY_ENABLED, new BoolSetting() {
@@ -744,9 +817,6 @@ public final class DemoPanel {
 
     private static void buildActionsSection(final Context context, final DemoMap demo) {
         header(context, "ACTIONS");
-        check(context, "relief outline effect", DemoConfig.RELIEF_OUTLINE, new BoolSetting() {
-            public void set(boolean value) { demo.setReliefOutlineEnabled(value); }
-        });
         // The only way to trigger a two-finger gesture without fingers: in free roam 'fps' this
         // is the move, everywhere else the pan.
         button(context, "two-finger drag: forward", new Action() {

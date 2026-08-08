@@ -23,6 +23,9 @@ namespace carto {
     struct TerrainRenderer::TileMesh {
         std::vector<float> vertices; // x, y in tile coordinates [0..1], z in tile-local units
         std::vector<unsigned short> indices;
+        // Surface pass only, filled on first use: nx, ny, nz, elevation in metres per vertex.
+        std::vector<float> surfaceAttribs;
+        int gridSize = 0;
     };
 
     struct TerrainRenderer::MeshCacheEntry {
@@ -205,7 +208,125 @@ namespace carto {
         return result;
     }
 
-    bool TerrainRenderer::renderDepthTexture(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager) {
+    bool TerrainRenderer::renderSurface(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager, const ResolvedLighting& lighting, const ResolvedFog& fog, bool keepDepth) {
+        if (!terrainOptions || !glResourceManager || viewState.getWidth() <= 0 || viewState.getHeight() <= 0) {
+            return false;
+        }
+
+        std::string shaderSource = terrainOptions->getSurfaceShaderSource();
+        if (shaderSource.empty()) {
+            return false;
+        }
+        std::shared_ptr<Shader> shader = updateSurfaceShader(shaderSource, glResourceManager);
+        if (!shader) {
+            return false;
+        }
+
+        // The shaded variant of the terrain base fill: same opaque, depth-resolved pass as the
+        // color/bitmap background (see renderBackground for why the depth is pushed and why it
+        // is discarded again unless this pass IS the terrain depth source).
+        glDepthMask(GL_TRUE);
+        glEnable(GL_DEPTH_TEST);
+        glDisable(GL_BLEND);
+        glDisable(GL_STENCIL_TEST);
+        glDisable(GL_CULL_FACE); // displaced surfaces can face away near ridge crests
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(1.0f, 2.0f);
+
+        GLuint progId = shader->getProgId();
+        glUseProgram(progId);
+
+        GLint loc = -1;
+        if ((loc = glGetUniformLocation(progId, "u_metersPerUnit")) >= 0) {
+            glUniform1f(loc, static_cast<float>(Const::EARTH_CIRCUMFERENCE / Const::WORLD_SIZE));
+        }
+        if ((loc = glGetUniformLocation(progId, "u_sunDir")) >= 0) {
+            glUniform3f(loc, lighting.sunDir(0), lighting.sunDir(1), lighting.sunDir(2));
+        }
+        if ((loc = glGetUniformLocation(progId, "u_sunColor")) >= 0) {
+            glUniform4f(loc, lighting.sunColor.getR() / 255.0f, lighting.sunColor.getG() / 255.0f, lighting.sunColor.getB() / 255.0f, lighting.sunColor.getA() / 255.0f);
+        }
+        if ((loc = glGetUniformLocation(progId, "u_sunIntensity")) >= 0) {
+            glUniform1f(loc, lighting.sunIntensity);
+        }
+        if ((loc = glGetUniformLocation(progId, "u_ambientIntensity")) >= 0) {
+            glUniform1f(loc, lighting.ambientIntensity);
+        }
+        if ((loc = glGetUniformLocation(progId, "u_fogColor")) >= 0) {
+            glUniform4f(loc, fog.color.getR() / 255.0f, fog.color.getG() / 255.0f, fog.color.getB() / 255.0f, fog.color.getA() / 255.0f);
+        }
+        if ((loc = glGetUniformLocation(progId, "u_fogRange")) >= 0) {
+            glUniform2f(loc, fog.startDistance, fog.distance);
+        }
+        if ((loc = glGetUniformLocation(progId, "u_time")) >= 0) {
+            glUniform1f(loc, std::chrono::duration_cast<std::chrono::duration<float> >(std::chrono::steady_clock::now() - _startTime).count());
+        }
+        if ((loc = glGetUniformLocation(progId, "u_zoom")) >= 0) {
+            glUniform1f(loc, viewState.getZoom());
+        }
+        if ((loc = glGetUniformLocation(progId, "u_resolution")) >= 0) {
+            glUniform2f(loc, static_cast<float>(viewState.getWidth()), static_cast<float>(viewState.getHeight()));
+        }
+        for (const auto& param : terrainOptions->getSurfaceParameters()) {
+            if ((loc = glGetUniformLocation(progId, param.first.c_str())) >= 0) {
+                glUniform1f(loc, param.second);
+            }
+        }
+        for (const auto& param : terrainOptions->getSurfaceColorParameters()) {
+            if ((loc = glGetUniformLocation(progId, param.first.c_str())) >= 0) {
+                glUniform4f(loc, param.second.getR() / 255.0f, param.second.getG() / 255.0f, param.second.getB() / 255.0f, param.second.getA() / 255.0f);
+            }
+        }
+
+        GLint uTileMat = glGetUniformLocation(progId, "u_tileMat");
+        auto tileUniformsFn = [&](const MapTile& tile) {
+            if (uTileMat >= 0) {
+                cglib::mat4x4<float> tileMat = cglib::mat4x4<float>::convert(calculateTileMatrix(tile));
+                glUniformMatrix4fv(uTileMat, 1, GL_FALSE, tileMat.data());
+            }
+        };
+
+        bool result = renderTiles(viewState, terrainOptions, glResourceManager, shader, tileUniformsFn, 0, true);
+
+        // Color-only mode: see renderBackground - the fill depth must not survive when the tile
+        // layer pre-passes provide the terrain depth with their own tesselation.
+        if (!keepDepth) {
+            glClear(GL_DEPTH_BUFFER_BIT);
+        }
+
+        // Restore state expected by the layer renderers
+        glDisable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(0.0f, 0.0f);
+        glDepthMask(GL_FALSE);
+        glEnable(GL_BLEND);
+        glEnable(GL_CULL_FACE);
+
+        GLContext::CheckGLError("TerrainRenderer::renderSurface");
+        return result;
+    }
+
+    std::shared_ptr<Shader> TerrainRenderer::updateSurfaceShader(const std::string& shaderSource, const std::shared_ptr<GLResourceManager>& glResourceManager) {
+        if (_surfaceShader && _surfaceShader->isValid() && _surfaceShaderSource == shaderSource) {
+            return _surfaceShader;
+        }
+        if (_surfaceShaderFailed && _surfaceShaderSource == shaderSource) {
+            return std::shared_ptr<Shader>();
+        }
+
+        _surfaceShaderSource = shaderSource;
+        _surfaceShaderFailed = false;
+        std::shared_ptr<Shader> shader = glResourceManager->create<Shader>("terrainsurface", TERRAIN_SURFACE_VERTEX_SHADER, TERRAIN_SURFACE_FRAGMENT_SHADER_PREFIX + shaderSource + TERRAIN_SURFACE_FRAGMENT_SHADER_MAIN);
+        if (!shader || shader->getProgId() == 0) {
+            Log::Error("TerrainRenderer::updateSurfaceShader: Terrain surface shader failed to compile, falling back to the background bitmap/color");
+            _surfaceShaderFailed = true;
+            _surfaceShader.reset();
+            return std::shared_ptr<Shader>();
+        }
+        _surfaceShader = shader;
+        return _surfaceShader;
+    }
+
+    bool TerrainRenderer::renderDepthTexture(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager, int meshResolutionCap) {
         if (!terrainOptions || !glResourceManager || viewState.getWidth() <= 0 || viewState.getHeight() <= 0) {
             return false;
         }
@@ -238,7 +359,7 @@ namespace carto {
             _shader = glResourceManager->create<Shader>("terraindepth", TERRAIN_DEPTH_VERTEX_SHADER, TERRAIN_DEPTH_FRAGMENT_SHADER);
         }
         if (_shader) {
-            result = renderTiles(viewState, terrainOptions, glResourceManager, _shader, std::function<void(const MapTile&)>(), DEPTH_TEXTURE_MESH_RESOLUTION);
+            result = renderTiles(viewState, terrainOptions, glResourceManager, _shader, std::function<void(const MapTile&)>(), meshResolutionCap);
         }
 
         // Restore state
@@ -482,15 +603,34 @@ namespace carto {
         }
     }
 
-    bool TerrainRenderer::renderTiles(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager, const std::shared_ptr<Shader>& shader, const std::function<void(const MapTile&)>& tileUniformsFn, int meshResolutionCap) {
+    bool TerrainRenderer::renderTiles(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager, const std::shared_ptr<Shader>& shader, const std::function<void(const MapTile&)>& tileUniformsFn, int meshResolutionCap, bool surfaceAttribs) {
         std::vector<std::pair<MapTile, std::shared_ptr<TileMesh> > > tileMeshes;
         collectTileMeshes(viewState, terrainOptions, meshResolutionCap, tileMeshes);
 
-        glUseProgram(shader->getProgId());
+        GLuint progId = shader->getProgId();
+        glUseProgram(progId);
         GLuint aCoord = shader->getAttribLoc("a_coord");
         GLuint uMVPMat = shader->getUniformLoc("u_mvpMat");
         glEnableVertexAttribArray(aCoord);
-        glUniform1f(shader->getUniformLoc("u_far"), viewState.getFar());
+        // The depth passes all declare u_far; the surface shader works in metres and does not,
+        // and Shader::getUniformLoc answers 0 - a valid location - for a uniform that is not there.
+        if (!surfaceAttribs) {
+            glUniform1f(shader->getUniformLoc("u_far"), viewState.getFar());
+        }
+
+        GLint aNormal = -1, aElevation = -1;
+        std::shared_ptr<ElevationManager> elevationManager;
+        if (surfaceAttribs) {
+            aNormal = glGetAttribLocation(progId, "a_normal");
+            aElevation = glGetAttribLocation(progId, "a_elevation");
+            elevationManager = terrainOptions->getElevationManager();
+            if (aNormal >= 0) {
+                glEnableVertexAttribArray(aNormal);
+            }
+            if (aElevation >= 0) {
+                glEnableVertexAttribArray(aElevation);
+            }
+        }
 
         const cglib::mat4x4<double>& mvpMat = viewState.getModelviewProjectionMat();
         for (const auto& tileMesh : tileMeshes) {
@@ -504,12 +644,79 @@ namespace carto {
             if (tileUniformsFn) {
                 tileUniformsFn(tileMesh.first);
             }
+            if (surfaceAttribs && elevationManager) {
+                ensureSurfaceAttribs(tileMesh.first, elevationManager, *mesh);
+                if (aNormal >= 0) {
+                    glVertexAttribPointer(aNormal, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), mesh->surfaceAttribs.data());
+                }
+                if (aElevation >= 0) {
+                    glVertexAttribPointer(aElevation, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), mesh->surfaceAttribs.data() + 3);
+                }
+            }
             glVertexAttribPointer(aCoord, 3, GL_FLOAT, GL_FALSE, 0, mesh->vertices.data());
             glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(mesh->indices.size()), GL_UNSIGNED_SHORT, mesh->indices.data());
         }
 
+        if (aNormal >= 0) {
+            glDisableVertexAttribArray(aNormal);
+        }
+        if (aElevation >= 0) {
+            glDisableVertexAttribArray(aElevation);
+        }
         glDisableVertexAttribArray(aCoord);
         return true;
+    }
+
+    void TerrainRenderer::ensureSurfaceAttribs(const MapTile& tile, const std::shared_ptr<ElevationManager>& elevationManager, TileMesh& mesh) const {
+        std::size_t vertexCount = mesh.vertices.size() / 3;
+        if (!mesh.surfaceAttribs.empty() || vertexCount == 0 || mesh.gridSize < 1) {
+            return;
+        }
+
+        int gridSize = mesh.gridSize;
+        int rowSize = gridSize + 1;
+        int tileMask = (1 << tile.getZoom()) - 1;
+        double zoomScale = 1.0 / (1 << tile.getZoom());
+        double originY = ((tileMask - tile.getY()) * zoomScale - 0.5) * Const::WORLD_SIZE;
+        double size = zoomScale * Const::WORLD_SIZE;
+        float exaggeration = elevationManager->getExaggeration();
+
+        // The tile-local frame scales x, y and z by the same factor (calculateTileMatrix), so a
+        // normal built from the local height field is already a world-space direction.
+        auto localZ = [&](int gx, int gy) {
+            gx = std::min(std::max(gx, 0), gridSize);
+            gy = std::min(std::max(gy, 0), gridSize);
+            return mesh.vertices[(gy * rowSize + gx) * 3 + 2];
+        };
+
+        mesh.surfaceAttribs.resize(vertexCount * 4);
+        for (int gy = 0; gy <= gridSize; gy++) {
+            double internalY = originY + (static_cast<double>(gy) / gridSize) * size;
+            double displayScale = elevationManager->getDisplayScale(internalY);
+            double metersPerLocalZ = (exaggeration > 0 && displayScale > 0 ? size / (exaggeration * displayScale) : 0);
+            for (int gx = 0; gx <= gridSize; gx++) {
+                float dzdx = (localZ(gx + 1, gy) - localZ(gx - 1, gy)) * 0.5f * gridSize;
+                float dzdy = (localZ(gx, gy + 1) - localZ(gx, gy - 1)) * 0.5f * gridSize;
+                cglib::vec3<float> normal = cglib::unit(cglib::vec3<float>(-dzdx, -dzdy, 1.0f));
+                std::size_t offset = static_cast<std::size_t>(gy * rowSize + gx) * 4;
+                mesh.surfaceAttribs[offset + 0] = normal(0);
+                mesh.surfaceAttribs[offset + 1] = normal(1);
+                mesh.surfaceAttribs[offset + 2] = normal(2);
+                mesh.surfaceAttribs[offset + 3] = static_cast<float>(localZ(gx, gy) * metersPerLocalZ);
+            }
+        }
+
+        // Skirt vertices duplicate a grid vertex's x/y at a lower z: give them that vertex's
+        // values, so the crack-filling walls shade like the edge they hang from instead of
+        // showing up as flat-lit bands.
+        for (std::size_t i = static_cast<std::size_t>(rowSize) * rowSize; i < vertexCount; i++) {
+            int gx = static_cast<int>(mesh.vertices[i * 3 + 0] * gridSize + 0.5f);
+            int gy = static_cast<int>(mesh.vertices[i * 3 + 1] * gridSize + 0.5f);
+            gx = std::min(std::max(gx, 0), gridSize);
+            gy = std::min(std::max(gy, 0), gridSize);
+            std::size_t source = static_cast<std::size_t>(gy * rowSize + gx) * 4;
+            std::copy(mesh.surfaceAttribs.begin() + source, mesh.surfaceAttribs.begin() + source + 4, mesh.surfaceAttribs.begin() + i * 4);
+        }
     }
 
     void TerrainRenderer::calculateVisibleTiles(const ViewState& viewState, const std::shared_ptr<ElevationManager>& elevationManager, const MapTile& tile, std::vector<MapTile>& tiles) const {
@@ -597,6 +804,7 @@ namespace carto {
 
         gridSize = std::max(1, gridSize);
         int rowSize = gridSize + 1;
+        mesh->gridSize = gridSize;
 
         mesh->vertices.reserve((rowSize * rowSize + 8 * rowSize) * 3); // grid + skirt vertices
         double minLocalZ = 0;
@@ -726,6 +934,65 @@ namespace carto {
         varying vec2 v_uv;
         void main() {
             gl_FragColor = texture2D(u_tex, v_uv);
+        }
+    )GLSL";
+
+    const std::string TerrainRenderer::TERRAIN_SURFACE_VERTEX_SHADER = R"GLSL(
+        #version 100
+        attribute vec3 a_coord;
+        attribute vec3 a_normal;
+        attribute float a_elevation;
+        uniform mat4 u_mvpMat;
+        uniform mat4 u_tileMat;
+        uniform float u_metersPerUnit;
+        varying vec3 v_normal;
+        varying vec3 v_worldPos;
+        varying float v_elevation;
+        varying float v_dist;
+        void main() {
+            vec4 pos = u_mvpMat * vec4(a_coord, 1.0);
+            v_normal = a_normal;
+            v_worldPos = (u_tileMat * vec4(a_coord, 1.0)).xyz;
+            v_elevation = a_elevation;
+            v_dist = pos.w * u_metersPerUnit;
+            gl_Position = pos;
+        }
+    )GLSL";
+
+    const std::string TerrainRenderer::TERRAIN_SURFACE_FRAGMENT_SHADER_PREFIX = R"GLSL(
+        #version 100
+        #ifdef GL_FRAGMENT_PRECISION_HIGH
+        precision highp float;
+        #else
+        precision mediump float;
+        #endif
+        varying vec3 v_normal;
+        varying vec3 v_worldPos;
+        varying float v_elevation;
+        varying float v_dist;
+        uniform vec3 u_sunDir;
+        uniform vec4 u_sunColor;
+        uniform float u_sunIntensity;
+        uniform float u_ambientIntensity;
+        uniform vec4 u_fogColor;
+        uniform vec2 u_fogRange;
+        uniform float u_time;
+        uniform float u_zoom;
+        uniform vec2 u_resolution;
+
+        // How much of the fog colour a point at 'dist' metres takes, 0 when no fog is configured.
+        float fogAmount(float dist) {
+            if (u_fogColor.a <= 0.0 || u_fogRange.y <= u_fogRange.x) {
+                return 0.0;
+            }
+            return clamp((dist - u_fogRange.x) / (u_fogRange.y - u_fogRange.x), 0.0, 1.0) * u_fogColor.a;
+        }
+    )GLSL";
+
+    const std::string TerrainRenderer::TERRAIN_SURFACE_FRAGMENT_SHADER_MAIN = R"GLSL(
+        void main() {
+            vec4 color = surfaceColor();
+            gl_FragColor = vec4(color.rgb * color.a, color.a);
         }
     )GLSL";
 

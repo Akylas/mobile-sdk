@@ -56,6 +56,40 @@ Fork-specific rules, all comparing the **placement's** `localId` (hence the stab
 above): `allowOverlapSameFeatureId`, `sameFeatureIdDependent`, and group ids with
 `minimumGroupDistance`.
 
+### Callout labels (fork-specific)
+
+`LabelOrientation::CALLOUT` — style `text-placement: nuticallout` — is a point label **lifted away
+from its anchor in screen space** and joined back to it by a leader line. It exists because a
+panorama is the case the ordinary rules answer badly: hundreds of summits within a few degrees of
+the horizon, all wanting the same band of pixels, and hiding all but a handful of them loses exactly
+the information the view is for.
+
+What changes, and only for this orientation:
+
+- **`LabelCuller::placeCalloutLabel` replaces the hide.** The label is placed at its band
+  (`text-callout-screen-anchor`, a fraction of the screen height from the top; below 0 it stacks
+  from its own anchor instead), and while the grid says it is taken it moves up one
+  `text-callout-step` at a time, for at most `text-callout-max-rows` rows. Everything else — the
+  priority sort, the `wasVisible` hysteresis, the shared grid — is untouched, so callouts collide
+  with ordinary labels and with each other in the usual way.
+- **The offset is the culler's, and both the envelope and the vertex data read it**
+  (`Label::setCalloutOffset`, in screen pixels along the camera up axis). One pixel is
+  `scale / size` world units, because the glyph quads are in units of the font size.
+- **The leader line is one more quad in the label's own vertex stream**, textured from a 4×4 white
+  cell loaded into the glyph atlas (`TileLabel::Style::calloutLineGlyph`). It is built per frame
+  rather than cached with the text — its length is the offset, which changes with everything else
+  on screen — and only once, after both text passes, since a halo copy would just draw it twice.
+  Sampling the cell's interior matters: the outer texels blend into the atlas padding under linear
+  filtering, which thins the line and fades its ends.
+- **A callout has to be clamped to the screen.** Every other label is evidence of its own
+  visibility; this one is drawn where it is not anchored, so the culler caps the offset at the
+  screen top and hides the label when even the first row does not fit.
+- Rotation (`text-orientation`) stays with the CALLOUT placement instead of downgrading to POINT —
+  angled names over a horizon is the whole look.
+
+Picking is unchanged and needs nothing new: `GLTileRenderer::findLabelIntersections` tests the
+placed geometry, so a callout is clicked where it is drawn, at the end of its leader line.
+
 ### Max distance (fork-specific)
 
 A label glyph is screen-space: a street name 5 km away is drawn at the same size as one 50 m away,

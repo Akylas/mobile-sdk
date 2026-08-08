@@ -26,11 +26,14 @@ In order:
 1. **View state** — animation/kinetic handlers, camera clamp against the terrain height range, then
    `ViewState::calculateViewState` (projection, frustum, near/far — see
    [04-terrain.md](04-terrain.md#near-and-far-planes)).
-2. **Optional offscreen bind** — only when a `PostProcessEffect` is set.
+2. **Optional offscreen bind** — only when a `PostProcessEffect` is set
+   ([14-post-process.md](14-post-process.md)).
 3. **Sky** — `SkyRenderer::onDrawFrame`; if it drew, the legacy sky band is skipped.
    `BackgroundRenderer` then draws the flat z=0 plane that fills the view past the terrain.
 4. **`drawLayers`** — the whole map. Detailed below.
-5. **Post-process, capture callbacks, billboard placement kick, idle notification.**
+5. **Post-process** — the effect resolves, then any layer that opted out of it
+   (`Layer::setPostProcessed(false)`) is drawn on top into the same depth buffer.
+6. **Capture callbacks, billboard placement kick, idle notification.**
 
 `PROF` timing sections (only in a `-PprofileRender` build) map onto this:
 `sky` (which is mostly the swap-buffer wait, not work) `prelude` `prepare` `cover` `drape`
