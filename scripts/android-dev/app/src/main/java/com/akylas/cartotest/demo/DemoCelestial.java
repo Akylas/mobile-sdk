@@ -49,6 +49,9 @@ public final class DemoCelestial {
     /** Builds the layer and its objects. Added FIRST, so the map and the terrain draw over them. */
     public CelestialLayer createLayer(final MapView mapView) {
         layer = new CelestialLayer();
+        // Drawn after any post-process effect (still depth-tested, so a path still goes behind
+        // the ridges): the relief look is for the ground, not for the objects over it.
+        layer.setPostProcessed(false);
 
         sun = new CelestialSprite();
         sun.setAngularSize(DemoConfig.CELESTIAL_SUN_SIZE);

@@ -116,6 +116,7 @@ public class DemoMap {
     public CompositeVectorTileLayer compositeLayer;      // same object as baseLayer in COMPOSITE mode
     public MBVectorTileDecoder baseDecoder;              // decoder of the base layer
     public ContourTileDataSource contourSource;          // shared by the layer and the composite slot
+    public PostProcessEffect reliefEffect;               // the attached relief outline effect, if any
     /** Result of the last {@link #checkCompositeSlots()}: which slots the style really has. */
     public String compositeStatus = "";
 
@@ -758,6 +759,26 @@ public class DemoMap {
         terrainOptions.setFogDistance(DemoConfig.FOG_DISTANCE);
         terrainOptions.setViewDistanceFactor(DemoConfig.VIEW_DISTANCE_FACTOR);
         terrainOptions.setMaxTileZoomCoarsening(DemoConfig.TERRAIN_MAX_TILE_ZOOM_COARSENING);
+        applyReliefSurface();
+        mapView.requestRender();
+    }
+
+    /**
+     * The shaded terrain surface of the relief look. The surface shader replaces the terrain
+     * background fill, so it is what shows wherever no tile layer paints - switch the base map
+     * off to see it.
+     */
+    public void applyReliefSurface() {
+        if (terrainOptions == null) {
+            return;
+        }
+        terrainOptions.setSurfaceShaderSource(DemoConfig.RELIEF_SURFACE ? DemoStyles.reliefSurfaceShader() : "");
+        terrainOptions.setSurfaceColorParameter("uPaperColor", color(DemoConfig.RELIEF_DARK ? 0xff10131a : 0xfff7f7f4));
+        terrainOptions.setSurfaceColorParameter("uShadeColor", color(DemoConfig.RELIEF_DARK ? 0xff5a6070 : 0xff6c7280));
+        terrainOptions.setSurfaceParameter("uShadeStrength", DemoConfig.RELIEF_SHADE_STRENGTH);
+        terrainOptions.setSurfaceParameter("uAmbient", DemoConfig.RELIEF_AMBIENT);
+        terrainOptions.setSurfaceParameter("uHaze", DemoConfig.RELIEF_HAZE);
+        terrainOptions.setSurfaceParameter("uHazeDistance", DemoConfig.RELIEF_HAZE_DISTANCE);
         mapView.requestRender();
     }
 
@@ -1102,12 +1123,29 @@ public class DemoMap {
         DemoConfig.RELIEF_OUTLINE = enabled;
         MapRenderer renderer = mapView.getMapRenderer();
         if (enabled) {
-            PostProcessEffect effect = PostProcessEffect.createReliefOutlineEffect();
-            effect.setFloatParameter("uIntensity", 1.0f);
-            renderer.setPostProcessEffect(effect);
+            reliefEffect = PostProcessEffect.createReliefOutlineEffect();
+            applyReliefOutlineParameters();
+            renderer.setPostProcessEffect(reliefEffect);
         } else {
+            reliefEffect = null;
             renderer.setPostProcessEffect(null);
         }
+        mapView.requestRender();
+    }
+
+    /** Pushes the outline knobs (and the light/dark palette) onto the attached effect. */
+    public void applyReliefOutlineParameters() {
+        if (reliefEffect == null) {
+            return;
+        }
+        reliefEffect.setFloatParameter("uIntensity", 1.0f);
+        reliefEffect.setFloatParameter("uOutlineWidth", DemoConfig.RELIEF_OUTLINE_WIDTH);
+        reliefEffect.setFloatParameter("uHorizonBoost", DemoConfig.RELIEF_HORIZON_BOOST);
+        reliefEffect.setFloatParameter("uDepthThreshold", DemoConfig.RELIEF_DEPTH_THRESHOLD);
+        reliefEffect.setFloatParameter("uCreaseStrength", DemoConfig.RELIEF_CREASE_STRENGTH);
+        reliefEffect.setFloatParameter("uHaze", DemoConfig.RELIEF_HAZE);
+        reliefEffect.setColorParameter("uInkColor", color(DemoConfig.RELIEF_DARK ? 0xffe8ecf5 : 0xff14141a));
+        reliefEffect.setColorParameter("uPaperColor", color(DemoConfig.RELIEF_DARK ? 0xff10131a : 0xffffffff));
         mapView.requestRender();
     }
 
