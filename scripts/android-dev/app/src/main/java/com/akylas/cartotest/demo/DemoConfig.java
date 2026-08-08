@@ -565,6 +565,12 @@ public final class DemoConfig {
     /** Extra height at the middle of the fly-in, in metres: the viewpoint climbs over the way
      *  there like a plane instead of rising straight to its final elevation. */
     public static float PEAK_FINDER_FLY_CLIMB = 1500;
+    /** AR: the relief view over the camera preview. Dark palette, a transparent clear colour and a
+     *  translucent GL surface (the map is then composited over the preview), the sky off, and the
+     *  device's orientation driving the camera. */
+    public static boolean AR_MODE = false;
+    public static boolean AR_ORIENTATION = true;
+    public static boolean AR_CAMERA = true;
     /** All labels pinned to the top of the screen instead of a band lower down. The two looks
      *  differ by which CORNER of the label the row is aligned on: a band lower down hangs the
      *  names off their bottom left corner (they read up and to the right), a pinned row hangs
@@ -870,6 +876,9 @@ public final class DemoConfig {
         PEAK_FINDER_FLY_ZOOM = DemoCfg.cfgFloat("peakFinderFlyZoom", PEAK_FINDER_FLY_ZOOM);
         PEAK_FINDER_FLY_DURATION = DemoCfg.cfgFloat("peakFinderFlyDuration", PEAK_FINDER_FLY_DURATION);
         PEAK_FINDER_FLY_CLIMB = DemoCfg.cfgFloat("peakFinderFlyClimb", PEAK_FINDER_FLY_CLIMB);
+        AR_MODE = DemoCfg.cfgBool("ar", AR_MODE);
+        AR_ORIENTATION = DemoCfg.cfgBool("arOrientation", AR_ORIENTATION);
+        AR_CAMERA = DemoCfg.cfgBool("arCamera", AR_CAMERA);
         PEAKS_PIN_TOP = DemoCfg.cfgBool("peaksPinTop", PEAKS_PIN_TOP);
         PEAKS_TOP_OFFSET = DemoCfg.cfgFloat("peaksTopOffset", PEAKS_TOP_OFFSET);
         LAYER_PEAKS = DemoCfg.cfgBool("peaks", LAYER_PEAKS);

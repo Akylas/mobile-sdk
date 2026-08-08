@@ -177,7 +177,12 @@ public class DemoMap {
             // After the same delay as the effect: attaching it before the GL surface exists
             // leaves the offscreen colour buffer unwritten.
             handler.postDelayed(new Runnable() {
-                public void run() { setPeakFinderMode(true); }
+                public void run() {
+                    setPeakFinderMode(true);
+                    if (DemoConfig.AR_MODE) {
+                        setArMode(true); // over the camera, once the view it composites is there
+                    }
+                }
             }, (long) DemoConfig.RELIEF_OUTLINE_DELAY_MS);
         }
         if (DemoConfig.DAY_CYCLE) {
@@ -450,6 +455,44 @@ public class DemoMap {
                 }
             }
         });
+    }
+
+    /**
+     * AR: the relief view over the camera preview. Everything here is an SDK feature the app puts
+     * together - a transparent clear colour (the frame becomes a hole), a translucent GL surface
+     * (so the hole shows the preview behind it), the sky off, the dark palette, and the device's
+     * orientation driving the camera. The terrain, the relief surface and the names stay exactly
+     * as they are in the peak-finder view; only what is BEHIND them changes.
+     */
+    public void setArMode(boolean enabled) {
+        DemoConfig.AR_MODE = enabled;
+        Options options = mapView.getOptions();
+        if (enabled) {
+            if (!DemoConfig.PEAK_FINDER) {
+                setPeakFinderMode(true);
+            }
+            saveMapAppearance();
+            options.setClearColor(new Color((short) 0, (short) 0, (short) 0, (short) 0));
+            options.setSkyColor(new Color((short) 0, (short) 0, (short) 0, (short) 0));
+            options.setBackgroundBitmap(null);
+            if (skyOptions != null) {
+                skyOptions.setEnabled(false);
+            }
+            setReliefDark(true);
+            setSurfaceTranslucent(true);
+            setCameraPreviewEnabled(DemoConfig.AR_CAMERA);
+            setOrientationFollowing(DemoConfig.AR_ORIENTATION);
+        } else {
+            setOrientationFollowing(false);
+            setCameraPreviewEnabled(false);
+            setSurfaceTranslucent(false);
+            restoreMapAppearance();
+            if (skyOptions != null) {
+                skyOptions.setEnabled(DemoConfig.SKY_ENABLED);
+            }
+            setReliefDark(false);
+        }
+        mapView.requestRender();
     }
 
     public void setPeakFinderMode(boolean enabled) {
@@ -1025,7 +1068,13 @@ public class DemoMap {
         // In the relief view the sky is part of the palette: a light one over the paper, a night
         // one over the ink. Alpha 0 makes it see-through, which is what an AR overlay wants.
         if (DemoConfig.RELIEF_SURFACE || DemoConfig.PEAK_FINDER) {
+            // The generated day-cycle shader owns the sky's colours, so it has to go for the
+            // palette's own sky to be visible at all (SkyOptions falls back to the built-in sky).
+            if (!DemoConfig.DAY_CYCLE) {
+                skyOptions.setShaderSource("");
+            }
             skyOptions.setSkyColor(color(reliefSky()));
+            mapView.getOptions().setSkyColor(color(reliefSky()));
         }
         mapView.requestRender();
     }
@@ -1152,6 +1201,18 @@ public class DemoMap {
         savedSkyColor = options.getSkyColor();
         savedBackgroundBitmap = options.getBackgroundBitmap();
         starSkySaved = true;
+    }
+
+    /** Puts back what saveMapAppearance kept - the clear colour, the sky and the background. */
+    private void restoreMapAppearance() {
+        if (!starSkySaved) {
+            return;
+        }
+        Options options = mapView.getOptions();
+        options.setClearColor(savedClearColor);
+        options.setSkyColor(savedSkyColor);
+        options.setBackgroundBitmap(savedBackgroundBitmap);
+        starSkySaved = false;
     }
 
     private void enterStarSky() {

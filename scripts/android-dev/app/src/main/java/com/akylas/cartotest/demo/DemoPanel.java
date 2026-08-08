@@ -779,6 +779,9 @@ public final class DemoPanel {
         check(context, "dark palette", DemoConfig.RELIEF_DARK, new BoolSetting() {
             public void set(boolean value) { demo.setReliefDark(value); }
         });
+        check(context, "AR (over the camera)", DemoConfig.AR_MODE, new BoolSetting() {
+            public void set(boolean value) { demo.setArMode(value); }
+        });
         slider(context, "outline width (px)", 0.5f, 4, DemoConfig.RELIEF_OUTLINE_WIDTH, false, new FloatSetting() {
             public void set(float value) { DemoConfig.RELIEF_OUTLINE_WIDTH = value; demo.applyReliefOutlineParameters(); }
         });
