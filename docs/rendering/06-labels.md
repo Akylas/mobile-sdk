@@ -71,6 +71,11 @@ horizon and the guess runs away, shrinking every label on screen as the camera r
 which is what "labels get smaller as I go up or pan" was. `focusDistance` 0 falls back to the old
 guess, so a host that does not set it behaves as before.
 
+A **callout** is sized differently: it is a screen object, so one glyph unit is `size` pixels taken
+off the projection (`calculateLabelScale` → `calculatePixelToWorld`), not off the zoom. The
+zoom-derived scale keeps a constant screen size only while the camera distance follows the zoom,
+and free roam breaks that — lift the viewpoint or tilt and the names grow or shrink on screen.
+
 ### Callout labels (fork-specific)
 
 `LabelOrientation::CALLOUT` — style `text-placement: nuticallout` — is a point label **lifted away
