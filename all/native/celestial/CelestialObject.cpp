@@ -118,7 +118,7 @@ namespace carto {
     cglib::vec3<double> CelestialObject::calculateDirectionVector() const {
         std::lock_guard<std::mutex> lock(_mutex);
         // Same convention as LightOptions::getSunDirection - x east, y north, z up, azimuth
-        // clockwise from north - so an application can hand a sun or moon direction straight over.
+        // clockwise from north - so an application can hand a direction straight over.
         double az = _azimuth * Const::DEG_TO_RAD;
         double alt = _altitude * Const::DEG_TO_RAD;
         double cosAlt = std::cos(alt);

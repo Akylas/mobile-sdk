@@ -19,15 +19,15 @@ namespace carto {
     class CelestialEventListener;
 
     /**
-     * A layer of objects that live in the sky rather than on the map: the sun, the moon, stars,
-     * an aircraft overhead, the path a body traces across the day.
+     * A layer of objects that live in the sky rather than on the map: anything placed by a
+     * direction, an object overhead, or a curve traced across the sky.
      *
      * Nothing here is tied to the map's coordinates unless an object asks for it (see
      * CelestialObject::setPosition), so panning the map does not drag the sky along. The layer
      * is drawn in its place in the layer order, so adding it FIRST puts every object behind the
-     * map and lets terrain hide what is behind a ridge, which is what a sky body wants.
+     * map and lets terrain hide what is behind a ridge, which is what an object in the sky wants.
      *
-     * Objects are batched by bitmap, so a whole star catalogue that shares one bitmap - or none -
+     * Objects are batched by bitmap, so a catalogue of thousands sharing one bitmap - or none -
      * costs a single draw call.
      */
     class CelestialLayer : public Layer {

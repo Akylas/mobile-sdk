@@ -23,6 +23,8 @@
 %attribute(carto::CelestialArc, float, Radius, getRadius)
 %attribute(carto::CelestialArc, float, Width, getWidth, setWidth)
 %attribute(carto::CelestialArc, bool, BelowHorizonVisible, isBelowHorizonVisible, setBelowHorizonVisible)
+%attribute(carto::CelestialArc, float, ClickRadius, getClickRadius, setClickRadius)
+%attribute(carto::CelestialArc, bool, Segmented, isSegmented)
 %ignore carto::CelestialArc::buildDirections;
 %std_exceptions(carto::CelestialArc::CelestialArc)
 

@@ -11,12 +11,14 @@ namespace carto {
     CelestialArc::CelestialArc() :
         CelestialObject(),
         _circular(true),
+        _segmented(false),
         _axisAzimuth(0.0f),
         _axisAltitude(90.0f),
         _radius(45.0f),
         _directions(),
         _width(2.0f),
-        _belowHorizonVisible(false)
+        _belowHorizonVisible(false),
+        _clickRadius(2.0f)
     {
     }
 
@@ -39,9 +41,25 @@ namespace carto {
         {
             std::lock_guard<std::mutex> lock(_mutex);
             _circular = false;
+            _segmented = false;
             _directions = directions;
         }
         notifyChanged();
+    }
+
+    void CelestialArc::setSegments(const std::vector<double>& directions) {
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            _circular = false;
+            _segmented = true;
+            _directions = directions;
+        }
+        notifyChanged();
+    }
+
+    bool CelestialArc::isSegmented() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        return _segmented;
     }
 
     std::vector<double> CelestialArc::getDirections() const {
@@ -76,6 +94,19 @@ namespace carto {
         {
             std::lock_guard<std::mutex> lock(_mutex);
             _belowHorizonVisible = visible;
+        }
+        notifyChanged();
+    }
+
+    float CelestialArc::getClickRadius() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        return _clickRadius;
+    }
+
+    void CelestialArc::setClickRadius(float degrees) {
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            _clickRadius = std::max(0.0f, degrees);
         }
         notifyChanged();
     }

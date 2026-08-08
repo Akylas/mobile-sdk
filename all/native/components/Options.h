@@ -460,8 +460,9 @@ namespace carto {
          * sideways turns the heading, up and down changes the tilt - instead of panning the map,
          * and panning moves to a two-finger drag. Pinch still zooms. This is what makes content
          * placed in the sky (CelestialLayer) reachable, since it is normally off the top of the
-         * screen. The camera cannot tilt above the horizon, so the sky is visible from the horizon
-         * up to half the field of view. The default is false.
+         * screen. To look ABOVE the horizon the tilt range has to allow a negative tilt - e.g.
+         * setTiltRange(MapRange(-90, 90)) - as it stops at the horizon by default. The default is
+         * false.
          * @param enabled The new state of the free roam flag.
          */
         void setFreeRoam(bool enabled);
@@ -524,8 +525,11 @@ namespace carto {
         /**
          * Sets the tilt range constraint. This will limit the tilt angle of the camera to the specified range.
          * The current tilt angle will remain unaffected, until the next time the tilt angle changes.
-         * The minimum tilt angle is 30 degrees and the maximum is 90 degrees. Values that are out of range will be clamped.
-         * The default value is MapRange(30, 90).
+         * The minimum tilt angle is -90 degrees and the maximum is 90 degrees. Values that are out of range will be clamped.
+         * The default value is MapRange(0, 90).
+         * A NEGATIVE tilt looks above the horizon: the camera stays where it is and the view pitches
+         * up, which is what an application showing the sky needs. It is opt-in, as the default range
+         * stops at the horizon.
          * @param tiltRange The new tilt range constraint in degrees.
          */
         void setTiltRange(const MapRange& tiltRange);

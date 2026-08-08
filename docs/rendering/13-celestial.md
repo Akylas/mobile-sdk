@@ -37,10 +37,12 @@ hides it, for free, with no extra work.
   icon). Batched **per bitmap**, so any number of objects sharing one bitmap — or none — is a
   single draw call. With no bitmap the fragment shader draws a soft disc, which costs no texture
   at all and is enough for a sun, a moon or a star.
-- **Arcs** are line strips. A circle about an axis covers the useful case exactly: the sun's path
-  across a day is the circle of constant declination about the celestial pole, so an application
-  gives an axis and one angle rather than sampling positions through the day. An explicit
-  direction list covers the rest.
+- **Arcs** are line strips. A circle about an axis covers the useful case exactly: the daily path
+  of a distant body is the circle of constant declination about the rotation axis, so an
+  application gives an axis and one angle rather than sampling positions through the day. An
+  explicit direction list covers the rest, and `setSegments` reads that list as **disjoint pairs**
+  instead of a path — a figure drawn between fixed directions (the demo's constellation lines) is
+  then ONE object: one draw call, one clickable thing, one name.
 - **Depth**: depth-TESTED, never depth-WRITING. An infinitely distant object is parked just inside
   the far plane, so everything the map draws is nearer and covers it, and it never occludes
   anything itself.
@@ -53,7 +55,11 @@ Objects are hit-tested against the touch ray through the standard layer path
 (`calculateRayIntersectedElements` / `processClick`), so they sort against every other layer's
 content and a click on terrain in front of the sun does not report the sun. The test is **angular**
 — how far the ray is from the direction the object sits in — which is the natural measure here; a
-star drawn half a pixel wide would be unhittable otherwise, hence `CelestialSprite::ClickRadius`.
+sprite drawn half a pixel wide would be unhittable otherwise, hence `CelestialSprite::ClickRadius`.
+Arcs are hit the same way, against the nearest point of the curve (`CelestialArc::ClickRadius`,
+0 = not clickable). Every arc sits at the same distance, so the reported hit is pushed out by the
+angle it was missed by — otherwise two overlapping curves would be picked between by list order,
+and a sprite drawn on a curve would lose to it.
 
 This needed a fix in `TouchHandler::handleClick`, and it applies to any sky content, not just this
 layer: a touch was **dropped entirely** unless its ray met the ground (`isValidScreenPosition`),
@@ -69,18 +75,49 @@ Sky content is normally off the top of the screen, because the map camera points
 changes the tilt, and panning moves to a two-finger drag. Pinch still zooms; the two-finger paths
 are untouched.
 
-**The camera cannot tilt above the horizon**, and that is a property of the camera model, not a
-setting: tilt is clamped to `Const::MIN_SUPPORTED_TILT_ANGLE` (0) and `Options::setTiltRange`
-clamps to it too. Lowering it was tried and the camera flips through the vertical - the view comes
-back inverted, ground below and sky at both edges - because the up vector is derived from a focus
-point on the ground. So the visible sky runs from the horizon up to roughly half the field of view.
-A body higher than that is drawn correctly and can be clicked, but cannot be brought into view
-without a first-person camera, which is a much larger change than this option.
+## Looking above the horizon: a negative tilt
+
+The tilt may now go **below 0**, and that is what "look up" is. It is opt-in: `MIN_SUPPORTED_TILT_ANGLE`
+is -90 but the default tilt range is still `(0, 90)`, so a map only gets there if it asks —
+`setTiltRange(MapRange(-90, 90))`.
+
+The model matters, because the obvious version does not work. Tilting between 90 and 0 rotates the
+camera **about the focus**; carrying that on below 0 puts the camera under the ground and the view
+comes back inverted (ground below, sky at both edges), because the up vector is derived from a
+focus point on the ground. That was tried, and it is why the ceiling stood.
+
+What a negative tilt does instead: the camera **stays exactly where the tilt geometry left it** and
+only the view direction pitches up, about the camera (`ViewState::calculateLookatMat`, and
+`getGroundTilt()` — the tilt floored at 0 — is what positions the camera). `dist(camera, focus)` is
+untouched, so zoom, the visible tile set and the near/far budget all still mean what they meant.
+`CameraTiltEvent` spends only the part of the tilt at or above the horizon on moving the camera.
+
+Two consequences had to be handled:
+
+- **All-sky frames have no ground.** `calculateViewDistances` walks rays to the ground for near and
+  far; with none of them hitting, it used to leave `far == near` and collapse the depth range onto
+  the near plane — taking with it everything drawn into the sky, which parks just inside the far
+  plane. It now falls back to the view distance the ground would have been drawn to.
+- **The terrain clearance bound goes unsatisfiable.** The camera's height above the focus is
+  `dist * sin(tilt)`, so approaching the horizon it rises by almost nothing as it zooms out and
+  `ViewState::getTerrainMaxZoom` runs off to minus infinity. Clamping to that threw the map from
+  z16 to its minimum zoom in a few frames (and, with the per-frame correction in `MapRenderer`,
+  kept walking it out to z-33). Both now drop the bound when the camera is at or below the focus
+  height, or when the bound lands below the zoom range: no zoom clears the terrain at that tilt
+  anyway, and keeping the camera the user asked for beats emptying the world.
+
+At tilt ≤ 0 the camera sits at the height of its focus, i.e. on the ground — which is exactly right
+for looking at the sky, and means the terrain is seen edge-on at the horizon.
 
 ## What lives in the app, not here
 
-The demo's `DemoCelestial` is worth reading as the worked example: the sun's direction comes from
-the SDK's own solar position (`LightOptions::setSunPositionFromTime`), so the sprite sits exactly
-where the light comes from — visibly, the sun disc lands **on** its own arc — while the moon's
-position and the arc's declination are computed in the app. Astronomy is application code; the
-layer only knows about directions, sizes and colors.
+The demo is worth reading as the worked example, and it is where all the astronomy lives:
+`DemoAstro` (sun, moon and its phase, planets from JPL's Keplerian elements), `DemoStarCatalogue`
+(bright stars + constellation figures), `DemoCelestial` (sun and moon with their real paths for the
+day, sampled from the same ephemeris — visibly, each disc lands **on** its own arc, which is a free
+check on both since they are computed independently) and `DemoStars` (one sprite per star, one
+segmented arc per figure, planets). The layer only knows about directions, sizes and colors.
+
+The demo's star sky mode is also the answer to "draw nothing but the sky": the map layers leave the
+layer list entirely (not hidden — never built), the terrain is disabled and the clear colour goes
+fully transparent, so with a translucent surface whatever is behind the view shows through.

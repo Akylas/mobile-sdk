@@ -1910,10 +1910,16 @@ namespace carto {
                         // At the bottom of the zoom range there is no correction left to make, and
                         // issuing one anyway is another per-frame redraw that changes nothing.
                         bool zoomExhausted = viewState.getZoom() <= _options->getZoomRange().getMin() + 1.0e-4f;
-                        if (!zoomExhausted && cameraPos(2) > 0 && cameraPos(2) < minCameraZ - deadBand) {
-                            double scale = (cameraPos(2) > focusZ && minCameraZ > focusZ
+                        // A camera at or below the focus height - a horizontal view, or one looking
+                        // above the horizon - cannot be raised by zooming out at all: the zoom
+                        // scales the camera-to-focus vector, which is then horizontal. Correcting
+                        // anyway asks for a zoom that never arrives, every frame (see
+                        // ViewState::getTerrainMaxZoom, which drops its bound for the same reason).
+                        bool cameraAboveFocus = cameraPos(2) > focusZ + deadBand;
+                        if (!zoomExhausted && cameraAboveFocus && cameraPos(2) > 0 && cameraPos(2) < minCameraZ - deadBand) {
+                            double scale = (minCameraZ > focusZ
                                 ? (minCameraZ - focusZ) / (cameraPos(2) - focusZ)   // exact: the focus stays put
-                                : minCameraZ / cameraPos(2));                        // degenerate (focus above the camera)
+                                : minCameraZ / cameraPos(2));                        // degenerate (focus above the shell)
                             CameraZoomEvent zoomEvent;
                             zoomEvent.setZoomDelta(static_cast<float>(-std::log2(scale))); // negative: zoom out onto the clearance
                             calculateCameraEvent(zoomEvent, clampDuration, false);

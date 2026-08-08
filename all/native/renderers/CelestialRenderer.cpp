@@ -191,8 +191,8 @@ namespace carto {
         glEnableVertexAttribArray(a_texCoord);
         glEnableVertexAttribArray(a_color);
 
-        // One batch per bitmap: a whole star catalogue that shares a bitmap, or none at all, is a
-        // single draw call.
+        // One batch per bitmap: a catalogue of thousands that shares a bitmap, or none at all, is
+        // a single draw call.
         std::size_t index = 0;
         while (index < instances.size()) {
             const std::shared_ptr<Bitmap>& batchBitmap = instances[index].bitmap;
@@ -270,11 +270,13 @@ namespace carto {
                 continue;
             }
             bool belowHorizonVisible = arc->isBelowHorizonVisible();
+            // A segmented arc is a set of separate lines, a plain one is a path through its points.
+            std::size_t step = (arc->isSegmented() ? 2 : 1);
 
             _coordBuf.clear();
             _indexBuf.clear();
             unsigned short vertexCount = 0;
-            for (std::size_t i = 0; i + 1 < directions.size(); i++) {
+            for (std::size_t i = 0; i + 1 < directions.size(); i += step) {
                 if (!belowHorizonVisible && (directions[i](2) < 0 || directions[i + 1](2) < 0)) {
                     continue;
                 }
@@ -345,6 +347,7 @@ namespace carto {
         std::lock_guard<std::mutex> lock(_mutex);
 
         cglib::vec3<double> rayDir = cglib::unit(ray.direction);
+        calculateRayIntersectedArcs(layer, ray, rayDir, viewState, results);
         for (const std::shared_ptr<CelestialObject>& object : _objects) {
             auto sprite = std::dynamic_pointer_cast<CelestialSprite>(object);
             if (!sprite || !sprite->isVisible()) {
@@ -361,8 +364,8 @@ namespace carto {
                 continue;
             }
             // Angular test, which is the natural one here: how far off the touch ray is from the
-            // direction the object sits in. A star is drawn a pixel across but gets the click
-            // radius its own setting asks for, or nobody could ever hit it.
+            // direction the object sits in. A sprite a pixel across gets the click radius its own
+            // setting asks for, or nobody could ever hit it.
             double cosAngle = cglib::dot_product(cglib::unit(toObject), rayDir);
             if (cosAngle <= 0) {
                 continue;
@@ -381,6 +384,64 @@ namespace carto {
             }
             cglib::vec3<double> hitPos = ray.origin + rayDir * objectDistance;
             results.push_back(RayIntersectedElement(std::static_pointer_cast<CelestialObject>(object), layer, hitPos, worldPos, true));
+        }
+    }
+
+    void CelestialRenderer::calculateRayIntersectedArcs(const std::shared_ptr<CelestialLayer>& layer, const cglib::ray3<double>& ray, const cglib::vec3<double>& rayDir, const ViewState& viewState, std::vector<RayIntersectedElement>& results) const {
+        std::shared_ptr<ProjectionSurface> projectionSurface = viewState.getProjectionSurface();
+        if (!projectionSurface) {
+            return;
+        }
+        MapPos focusMapPos = projectionSurface->calculateMapPos(viewState.getFocusPos());
+        double distance = viewState.getFar() * INFINITE_DISTANCE_FACTOR;
+
+        for (const std::shared_ptr<CelestialObject>& object : _objects) {
+            auto arc = std::dynamic_pointer_cast<CelestialArc>(object);
+            if (!arc || !arc->isVisible() || !(arc->getClickRadius() > 0)) {
+                continue;
+            }
+            std::vector<cglib::vec3<double> > directions = arc->buildDirections();
+            if (directions.size() < 2) {
+                continue;
+            }
+            bool belowHorizonVisible = arc->isBelowHorizonVisible();
+            double radius = arc->getClickRadius() * Const::DEG_TO_RAD;
+            double bestCos = std::cos(radius);
+            bool hit = false;
+            std::size_t step = (arc->isSegmented() ? 2 : 1);
+
+            // The same angular test the sprites use, against the nearest point of the curve: for
+            // every segment, the closest point of the chord to the ray direction, brought back onto
+            // the unit sphere. A curve drawn two pixels wide is otherwise unhittable.
+            for (std::size_t i = 0; i + 1 < directions.size(); i += step) {
+                if (!belowHorizonVisible && (directions[i](2) < 0 || directions[i + 1](2) < 0)) {
+                    continue;
+                }
+                cglib::vec3<double> u = cglib::unit(projectionSurface->calculateVector(focusMapPos, MapVec(directions[i](0), directions[i](1), directions[i](2))));
+                cglib::vec3<double> v = cglib::unit(projectionSurface->calculateVector(focusMapPos, MapVec(directions[i + 1](0), directions[i + 1](1), directions[i + 1](2))));
+                cglib::vec3<double> edge = v - u;
+                double edgeNorm = cglib::norm(edge);
+                double t = (edgeNorm > 0 ? cglib::dot_product(rayDir - u, edge) / edgeNorm : 0.0);
+                t = std::max(0.0, std::min(1.0, t));
+                cglib::vec3<double> closest = u + edge * t;
+                if (cglib::norm(closest) <= 0) {
+                    continue;
+                }
+                double cosAngle = cglib::dot_product(cglib::unit(closest), rayDir);
+                if (cosAngle > bestCos) {
+                    bestCos = cosAngle;
+                    hit = true;
+                }
+            }
+            if (hit) {
+                // Curves are all parked at the same distance, so the click handler - which orders
+                // by distance from the camera - would pick between two overlapping ones by list
+                // order. Reporting the hit a hair further away the wider it was missed makes the
+                // curve the touch actually aimed at win, and leaves sprites (reported at their
+                // true distance) ahead of a curve running through them.
+                cglib::vec3<double> hitPos = ray.origin + rayDir * (distance / bestCos);
+                results.push_back(RayIntersectedElement(std::static_pointer_cast<CelestialObject>(object), layer, hitPos, hitPos, true));
+            }
         }
     }
 
@@ -415,7 +476,7 @@ namespace carto {
                 color *= texture2D(u_tex, v_texCoord);
             } else {
                 // No bitmap: a disc, soft at the edge by u_softness. Cheaper than a texture and
-                // enough for a sun, a moon or a star.
+                // enough for a disc or a point of light.
                 float d = length(v_texCoord - vec2(0.5)) * 2.0;
                 color.a *= 1.0 - smoothstep(1.0 - u_softness, 1.0, d);
             }

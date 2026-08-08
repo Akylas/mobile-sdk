@@ -15,13 +15,13 @@ namespace carto {
     class Bitmap;
 
     /**
-     * A flat, camera-facing object in the sky: the sun, the moon, a star, an aircraft icon.
+     * A flat, camera-facing object in the sky: a disc, a point of light, an icon overhead.
      *
      * Its size is given either as an ANGULAR size in degrees - which is what a real body has, so it
      * grows and shrinks with the field of view like everything else in the world - or as a fixed
      * SCREEN size in pixels, which is what an icon or a marker wants. A sprite with no bitmap is
-     * drawn as a soft disc in its own color, which is enough for a sun, a moon or a star and costs
-     * no texture at all.
+     * drawn as a soft disc in its own color, which is enough for most bodies and costs no
+     * texture at all.
      */
     class CelestialSprite : public CelestialObject {
     public:
@@ -34,8 +34,8 @@ namespace carto {
          */
         float getAngularSize() const;
         /**
-         * Sets the angular size of the sprite, the way a real body is measured. The sun and the
-         * moon are both about 0.5 degrees across.
+         * Sets the angular size of the sprite, the way a real body is measured - the disc then
+         * covers the same angle whatever the field of view.
          * @param degrees The angular diameter in degrees.
          */
         void setAngularSize(float degrees);
@@ -59,7 +59,7 @@ namespace carto {
         std::shared_ptr<Bitmap> getBitmap() const;
         /**
          * Sets the bitmap of the sprite. Sprites are batched per bitmap, so objects that share one
-         * bitmap - a whole star catalogue, for instance - cost a single draw call.
+         * bitmap - a catalogue of thousands, for instance - cost a single draw call.
          * @param bitmap The new bitmap, or null to draw a plain disc.
          */
         void setBitmap(const std::shared_ptr<Bitmap>& bitmap);
@@ -82,7 +82,7 @@ namespace carto {
         float getClickRadius() const;
         /**
          * Sets an extra angular radius that responds to a click, added to the sprite's own size. A
-         * star half a pixel across is impossible to hit otherwise.
+         * sprite half a pixel across is impossible to hit otherwise.
          * @param degrees The extra click radius in degrees.
          */
         void setClickRadius(float degrees);

@@ -35,7 +35,9 @@ namespace carto {
         // Maximum supported zoom level
         static const int MAX_SUPPORTED_ZOOM_LEVEL;
     
-        // Min and max supported tilt angles
+        // Min and max supported tilt angles. Negative tilt looks ABOVE the horizon: the camera
+        // stays where it is and only the view direction pitches up (ViewState::calculateLookatMat).
+        // The default tilt range is still 0..90, so a map only gets there if it asks for it.
         static const float MIN_SUPPORTED_TILT_ANGLE;
         // Minimum height (negative value). This is needed for globe view as the globe is tesselated and surface may be 'below'
         // zero level. Should be approximately -WORLD_SIZE * cos(PI / TESSELATION_LEVEL) + WORLD_SIZE.

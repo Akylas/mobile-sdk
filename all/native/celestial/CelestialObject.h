@@ -27,8 +27,8 @@ namespace carto {
      * An object is anchored in one of two ways:
      *  - by DIRECTION (azimuth and altitude), with an optional distance. A distance of 0 means
      *    infinitely far: the object keeps its direction whatever the camera does, which is what
-     *    the sun, the moon and the stars need. A finite distance gives real parallax and is what
-     *    an aircraft or a satellite overhead needs.
+     *    a body at an effectively infinite distance needs. A finite distance gives real parallax
+     *    and is what an aircraft or a satellite overhead needs.
      *  - by geographic POSITION plus an altitude in meters, for an object that belongs to a place
      *    on the map but is above it.
      *

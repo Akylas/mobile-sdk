@@ -8,6 +8,7 @@
 #include "utils/Log.h"
 #include "utils/GeneralUtils.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace carto {
@@ -80,7 +81,12 @@ namespace carto {
             return;
         }
         
-        cglib::mat4x4<double> tiltTransform = cglib::rotate4_matrix(axis, (tilt - viewState.getTilt()) * Const::DEG_TO_RAD);
+        // Only the part of the tilt at or above the horizon moves the camera. A negative tilt is a
+        // look UP from wherever the camera already is - ViewState::calculateLookatMat pitches the
+        // view about the camera for it - and rotating the camera on under the ground instead is
+        // what flips the view over.
+        float groundTilt = std::max(tilt, 0.0f);
+        cglib::mat4x4<double> tiltTransform = cglib::rotate4_matrix(axis, (groundTilt - viewState.getGroundTilt()) * Const::DEG_TO_RAD);
         cameraPos = focusPos + cglib::transform_vector(cameraPos - focusPos, tiltTransform);
         upVec = cglib::transform_vector(upVec, tiltTransform);
     

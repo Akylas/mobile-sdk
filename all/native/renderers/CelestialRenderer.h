@@ -70,6 +70,7 @@ namespace carto {
         void buildSprites(const ViewState& viewState, float opacity, std::vector<SpriteInstance>& instances) const;
         void drawSprites(const std::vector<SpriteInstance>& instances, const ViewState& viewState);
         void drawArcs(const ViewState& viewState, float opacity);
+        void calculateRayIntersectedArcs(const std::shared_ptr<CelestialLayer>& layer, const cglib::ray3<double>& ray, const cglib::vec3<double>& rayDir, const ViewState& viewState, std::vector<RayIntersectedElement>& results) const;
 
         static const std::string SPRITE_VERTEX_SHADER;
         static const std::string SPRITE_FRAGMENT_SHADER;
