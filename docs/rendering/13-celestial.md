@@ -75,6 +75,13 @@ Sky content is normally off the top of the screen, because the map camera points
 changes the tilt, and panning moves to a two-finger drag. Pinch still zooms; the two-finger paths
 are untouched.
 
+The heading turn pivots about the **camera**, not about the focus point on the ground — turning
+your head does not move you. A map rotation rotates camera *and* focus about the focus, which
+swings the camera around a circle of the focus distance and, at a low tilt, straight through the
+terrain. `CameraRotationEvent` already takes a pivot (`setTargetPos`), so free roam hands it the
+camera's own position and the camera comes out of the gesture exactly where it went in
+(verified: camera unchanged to the metre across a 90° drag, focus orbiting it).
+
 ## Looking above the horizon: a negative tilt
 
 The tilt may now go **below 0**, and that is what "look up" is. It is opt-in: `MIN_SUPPORTED_TILT_ANGLE`
@@ -120,4 +127,30 @@ segmented arc per figure, planets). The layer only knows about directions, sizes
 
 The demo's star sky mode is also the answer to "draw nothing but the sky": the map layers leave the
 layer list entirely (not hidden — never built), the terrain is disabled and the clear colour goes
-fully transparent, so with a translucent surface whatever is behind the view shows through.
+fully transparent.
+
+## A transparent map
+
+Two halves, and both are needed:
+
+1. **A transparent clear colour** — `Options::setClearColor(Color(0, 0, 0, 0))`. The renderer works
+   in premultiplied alpha (`glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA)`), so what is left in the
+   framebuffer composites correctly; nothing else in the render path needs to change.
+2. **A view that admits it does not cover its pixels** — `setTranslucent(true)`, added on all three
+   view classes. The EGL configs already ask for RGBA8888 first, so this is about compositing, not
+   about the drawable.
+
+What each view can reveal is NOT the same, and this is the trap:
+
+- **`MapView` (Android, SurfaceView)** — its surface is composited **below the window**, so it can
+  only reveal *another surface* under it. Other views of the same layout are drawn *above* it and
+  are not affected. `setTranslucent` therefore also calls `setZOrderMediaOverlay`, which is what
+  puts the map above a camera preview surface. Changing it after attach recreates the GL surface.
+- **`TextureMapView` (Android, TextureView)** — an ordinary view in the hierarchy
+  (`setOpaque(false)`), so it blends with whatever is behind it in the layout. This is the one for
+  a map over other UI.
+- **`NTMapView` (iOS, GLKView)** — `opaque = NO` on the view and its layer, and a clear background.
+
+The demo wires the first case end to end (`DemoCameraPreview`): a plain `SurfaceView` added at
+index 0 runs a Camera2 preview, the map sits over it as a media overlay, and the sky is drawn on
+the camera image — verified on the emulator's virtual scene.

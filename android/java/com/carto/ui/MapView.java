@@ -129,6 +129,29 @@ public class MapView extends GLSurfaceView implements GLSurfaceView.Renderer, Ma
     }
 
     /**
+     * Makes the view translucent, so that whatever is behind it shows through wherever the map
+     * does not paint. Combine it with a transparent clear color - Options.setClearColor(new
+     * Color(0, 0, 0, 0)) - which is what leaves the frame empty; the SDK renders with premultiplied
+     * alpha, so the result composites correctly.
+     *
+     * IMPORTANT, and the usual trap: a MapView is a SurfaceView. Its surface is composited BELOW
+     * the window, so it can only reveal another surface below it - typically a camera preview -
+     * and NOT other views of the same layout, which are drawn above it. This method also raises the
+     * surface above other media surfaces (setZOrderMediaOverlay) so a preview placed behind it is
+     * what shows through.
+     *
+     * To blend with ordinary views instead, use TextureMapView, which is a real view in the
+     * hierarchy.
+     *
+     * Changing this after the view is attached recreates the GL surface.
+     * @param translucent True to make the view translucent.
+     */
+    public void setTranslucent(boolean translucent) {
+        setZOrderMediaOverlay(translucent);
+        getHolder().setFormat(translucent ? android.graphics.PixelFormat.TRANSLUCENT : android.graphics.PixelFormat.OPAQUE);
+    }
+
+    /**
      * Deletes the resources associated with the MapView.
      * The method can be used to dispose native objects immediately,
      * without waiting for next GC cycle.

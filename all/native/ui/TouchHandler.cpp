@@ -377,9 +377,19 @@ namespace carto {
 
             // Sideways turns the heading. Dragging left turns the view right, the way dragging the
             // world does, so the gesture reads the same as panning does outside free roam.
+            //
+            // The turn is about the CAMERA, not about the focus point on the ground: turning your
+            // head does not move you. Rotating about the focus - what a map rotation does - swings
+            // the camera around a circle of the focus distance, and at a low tilt that walks it
+            // straight through the terrain. The rotation event already takes a pivot, so this is
+            // the camera's own position handed to it.
             if (dx != 0) {
+                std::shared_ptr<ProjectionSurface> projectionSurface = viewState.getProjectionSurface();
                 CameraRotationEvent cameraEvent;
                 cameraEvent.setRotationDelta(dx * INCHES_TO_LOOK_ROTATION_DELTA / dpi);
+                if (projectionSurface) {
+                    cameraEvent.setTargetPos(projectionSurface->calculateMapPos(viewState.getCameraPos()));
+                }
                 _cameraEvents |= CAMERA_ROTATE;
                 _mapRenderer->calculateCameraEvent(cameraEvent, 0, false);
             }

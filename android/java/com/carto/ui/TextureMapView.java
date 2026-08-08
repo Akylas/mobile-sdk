@@ -120,6 +120,22 @@ public class TextureMapView extends GLTextureView implements GLSurfaceView.Rende
     }
 
     /**
+     * Makes the view translucent, so that whatever is behind it shows through wherever the map
+     * does not paint. Combine it with a transparent clear color - Options.setClearColor(new
+     * Color(0, 0, 0, 0)) - which is what leaves the frame empty; the SDK renders with premultiplied
+     * alpha, so the result composites correctly.
+     *
+     * A TextureMapView is a TextureView, i.e. an ordinary view in the hierarchy, so unlike MapView
+     * it blends with the views BEHIND it in the layout as well as with anything the window is
+     * drawn over. That makes it the one to use for a map over other UI, and for a camera preview
+     * held in a TextureView.
+     * @param translucent True to make the view translucent.
+     */
+    public void setTranslucent(boolean translucent) {
+        setOpaque(!translucent);
+    }
+
+    /**
      * Deletes the resources associated with the MapView.
      * The method can be used to dispose native objects immediately,
      * without waiting for next GC cycle.
