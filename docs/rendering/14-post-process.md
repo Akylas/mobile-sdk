@@ -84,6 +84,22 @@ effect, into the same depth buffer, so annotations and sky-anchored objects
 Such a layer takes no part in the terrain prelude (depth-write assignment, cover, draping) — it is
 an overlay, not a layer that paints the ground.
 
+## What it costs (measured)
+
+Crosscall HLTE556N (Adreno 610), Grenoble panorama z13.2 tilt 25, 8 pan swipes, `-PprofileRender`:
+
+| Config | CPU frame | GPU total | notes |
+|---|---|---|---|
+| ordinary map | 38.7 ms | 29.8 ms | the CPU number is mostly the swap wait (`sky` 24.7) |
+| ordinary map + relief effect | 24.0 ms | 32.9 ms | the effect is **~3 ms of GPU**; the CPU drop is the swap wait moving |
+| peak-finder mode (no tile layers) | 19.3 ms | 13.0 ms | `prelude` 9.5 ms — the depth texture pass |
+| peak-finder, `meshResolution 32` | 12.7 ms | 10.1 ms | `prelude` 3.3 ms |
+
+The effect's terrain depth texture is drawn at the terrain's **own** mesh resolution (see above:
+a coarser depth mesh draws its own triangulation as fold lines), from CPU meshes, **every frame** —
+so it scales with `TerrainOptions.MeshResolution`, and that is the knob to trade line quality for
+frames. There is no per-camera caching on this path, unlike the occlusion read-back.
+
 ## Known limits
 
 - The depth texture is half resolution, so lines are quantised at 2 px and slopes show occasional
