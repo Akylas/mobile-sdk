@@ -14,6 +14,7 @@ import com.carto.core.MapPosVector;
 import com.carto.core.MapVec;
 import com.carto.core.StringMap;
 import com.carto.core.StringVector;
+import com.carto.core.Variant;
 import com.carto.datasources.ContourTileDataSource;
 import com.carto.datasources.GeoJSONVectorTileDataSource;
 import com.carto.datasources.HTTPTileDataSource;
@@ -34,6 +35,7 @@ import com.carto.layers.RasterTileFilterMode;
 import com.carto.layers.RasterTileLayer;
 import com.carto.layers.TileSubstitutionPolicy;
 import com.carto.layers.VectorLayer;
+import com.carto.layers.VectorTileEventListener;
 import com.carto.layers.VectorTileLayer;
 import com.carto.layers.VectorTileRenderOrder;
 import com.carto.projections.Projection;
@@ -46,6 +48,7 @@ import com.carto.styles.CartoCSSStyleSet;
 import com.carto.styles.LineStyleBuilder;
 import com.carto.styles.MarkerStyleBuilder;
 import com.carto.ui.MapView;
+import com.carto.ui.VectorTileClickInfo;
 import com.carto.vectorelements.Line;
 import com.carto.vectorelements.Marker;
 import com.carto.vectortiles.MBVectorTileDecoder;
@@ -82,7 +85,7 @@ public class DemoMap {
 
     /** One switchable layer of the demo. */
     public enum Feature {
-        CELESTIAL, STARS, BASE, SATELLITE, HILLSHADE, HYPSO, CONTOUR, CONTOUR_TILES, ROUTES, ROUTE_TEST, ELEMENTS
+        CELESTIAL, STARS, BASE, SATELLITE, HILLSHADE, HYPSO, CONTOUR, CONTOUR_TILES, ROUTES, ROUTE_TEST, ELEMENTS, PEAKS
     }
 
     /** Bottom -> top draw order. Toggling a layer never reorders the others. */
@@ -91,7 +94,9 @@ public class DemoMap {
         // behind it - which is what a body in the sky should do.
         Feature.CELESTIAL, Feature.STARS,
         Feature.BASE, Feature.SATELLITE, Feature.HILLSHADE, Feature.HYPSO,
-        Feature.CONTOUR, Feature.CONTOUR_TILES, Feature.ROUTES, Feature.ROUTE_TEST, Feature.ELEMENTS
+        Feature.CONTOUR, Feature.CONTOUR_TILES, Feature.ROUTES, Feature.ROUTE_TEST, Feature.ELEMENTS,
+        // Last: the summit names go over everything the map draws.
+        Feature.PEAKS
     };
 
     /** Sun, moon and their daily paths - demo content built on the generic celestial API. */
@@ -197,6 +202,7 @@ public class DemoMap {
             case ROUTES: return DemoConfig.LAYER_ROUTES;
             case ROUTE_TEST: return DemoConfig.LAYER_ROUTE_TEST;
             case ELEMENTS: return DemoConfig.LAYER_ELEMENTS;
+            case PEAKS: return DemoConfig.LAYER_PEAKS;
             default: return false;
         }
     }
@@ -214,6 +220,7 @@ public class DemoMap {
             case ROUTES: DemoConfig.LAYER_ROUTES = enabled; break;
             case ROUTE_TEST: DemoConfig.LAYER_ROUTE_TEST = enabled; break;
             case ELEMENTS: DemoConfig.LAYER_ELEMENTS = enabled; break;
+            case PEAKS: DemoConfig.LAYER_PEAKS = enabled; break;
         }
         rebuildLayers();
     }
@@ -272,6 +279,7 @@ public class DemoMap {
             case ROUTES: return createRoutesLayer();
             case ROUTE_TEST: return createRouteTestLayer();
             case ELEMENTS: return createElementsLayer();
+            case PEAKS: return createPeaksLayer();
             default: return null;
         }
     }
@@ -383,6 +391,12 @@ public class DemoMap {
     /** Rebuilds the base layer: needed after a style-source or base-mode change. */
     public void rebuildBaseLayer() {
         invalidate(Feature.BASE);
+        rebuildLayers();
+    }
+
+    /** The peak labels are style-driven, so every callout knob needs a new decoder. */
+    public void rebuildPeaksLayer() {
+        invalidate(Feature.PEAKS);
         rebuildLayers();
     }
 
@@ -565,6 +579,31 @@ public class DemoMap {
         } finally {
             stream.close();
         }
+    }
+
+    /**
+     * Summit names as callout labels: their own vector tile layer on the base source, with a
+     * peaks-only style (see DemoStyles.peaksStyle). Clicking one reports it through the standard
+     * vector tile click path - a callout label is picked where it is DRAWN, at the end of its
+     * leader line.
+     */
+    private Layer createPeaksLayer() {
+        VectorTileLayer layer = new VectorTileLayer(vectorSource(), new MBVectorTileDecoder(new CartoCSSStyleSet(DemoStyles.peaksStyle())));
+        layer.setLabelRenderOrder(VectorTileRenderOrder.VECTOR_TILE_RENDER_ORDER_LAST);
+        layer.setVectorTileEventListener(new VectorTileEventListener() {
+            @Override
+            public boolean onVectorTileClicked(VectorTileClickInfo clickInfo) {
+                Variant properties = clickInfo.getFeature().getProperties();
+                final String name = properties.getObjectElement("name").getString()
+                        + " " + properties.getObjectElement("ele").toString() + " m";
+                Log.i(TAG, "peak clicked: " + name);
+                mapView.post(new Runnable() {
+                    public void run() { android.widget.Toast.makeText(context, name, android.widget.Toast.LENGTH_SHORT).show(); }
+                });
+                return true;
+            }
+        });
+        return layer;
     }
 
     /**

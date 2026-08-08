@@ -528,6 +528,34 @@ public final class DemoStyles {
     }
 
     /**
+     * Summit names, drawn as callout labels: the label is lifted to a band near the top of the
+     * screen and joined back to the summit by a leader line, and a label that would collide is
+     * moved one row up instead of being dropped ('nuticallout' placement, see vt::LabelOrientation).
+     * The layer name and fields are OpenMapTiles ('mountain_peak', name/ele/class).
+     */
+    public static String peaksStyle() {
+        return String.join("\n",
+            "#mountain_peak['class'='peak'][zoom>=" + DemoConfig.PEAKS_MIN_ZOOM + "] {",
+            "  text-name: [name]+' '+[ele]+'m';",
+            "  text-size: " + DemoConfig.PEAKS_TEXT_SIZE + ";",
+            "  text-fill: " + hex(DemoConfig.RELIEF_DARK ? 0xffe8ecf5 : 0xff14141a) + ";",
+            "  text-halo-fill: " + hex(DemoConfig.RELIEF_DARK ? 0xff10131a : 0xffffffff) + ";",
+            "  text-halo-radius: 1.5;",
+            "  text-placement: nuticallout;",
+            // The higher summit claims the row: without this the winner is whichever label the
+            // tile order happened to offer first, and a 700 m hill hides a 2000 m one behind it.
+            "  text-placement-priority: [ele];",
+            "  text-orientation: " + DemoConfig.PEAKS_TEXT_ANGLE + ";",
+            "  text-callout-screen-anchor: " + DemoConfig.PEAKS_BAND + ";",
+            "  text-callout-offset: " + DemoConfig.PEAKS_MIN_OFFSET + ";",
+            "  text-callout-step: " + DemoConfig.PEAKS_ROW_STEP + ";",
+            "  text-callout-max-rows: " + DemoConfig.PEAKS_MAX_ROWS + ";",
+            "  text-callout-line-width: " + DemoConfig.PEAKS_LINE_WIDTH + ";",
+            DemoConfig.PEAKS_MAX_DISTANCE > 0 ? "  text-max-distance: " + DemoConfig.PEAKS_MAX_DISTANCE + ";" : "",
+            "}");
+    }
+
+    /**
      * Terrain surface shader for the relief (peak-finder) look: the shaded ground the outline
      * effect draws its ink lines over. Lambert shading between a paper and a shade colour, the
      * distance pulling everything back towards the paper, and the resolved fog on top - so a

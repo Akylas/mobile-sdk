@@ -733,6 +733,24 @@ public final class DemoPanel {
         slider(context, "haze distance (m)", 5000, 200000, DemoConfig.RELIEF_HAZE_DISTANCE, false, new FloatSetting() {
             public void set(float value) { DemoConfig.RELIEF_HAZE_DISTANCE = value; demo.applyReliefSurface(); }
         });
+
+        // The peak labels are style-driven, so every knob here rebuilds the layer with a new
+        // style - hence applyOnRelease on the sliders.
+        check(context, "peak names", DemoConfig.LAYER_PEAKS, new BoolSetting() {
+            public void set(boolean value) { demo.setEnabled(DemoMap.Feature.PEAKS, value); }
+        });
+        slider(context, "peak label band (screen)", 0, 0.6f, DemoConfig.PEAKS_BAND, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.PEAKS_BAND = value; demo.rebuildPeaksLayer(); }
+        });
+        slider(context, "peak label angle", 0, 90, DemoConfig.PEAKS_TEXT_ANGLE, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.PEAKS_TEXT_ANGLE = value; demo.rebuildPeaksLayer(); }
+        });
+        slider(context, "peak row step (px)", 8, 60, DemoConfig.PEAKS_ROW_STEP, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.PEAKS_ROW_STEP = value; demo.rebuildPeaksLayer(); }
+        });
+        slider(context, "peak max distance (m)", 0, 300000, DemoConfig.PEAKS_MAX_DISTANCE, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.PEAKS_MAX_DISTANCE = value; demo.rebuildPeaksLayer(); }
+        });
     }
 
     private static void buildSkyFogSection(Context context, final DemoMap demo) {

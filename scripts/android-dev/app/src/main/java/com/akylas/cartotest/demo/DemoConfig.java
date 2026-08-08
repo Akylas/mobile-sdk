@@ -527,6 +527,22 @@ public final class DemoConfig {
     /** Outline: silhouette sensitivity and the strength of the ridge/valley lines. */
     public static float RELIEF_DEPTH_THRESHOLD = 1.0f;
     public static float RELIEF_CREASE_STRENGTH = 0.6f;
+
+    /** Summit names as callout labels (their own vector tile layer on the base source). */
+    public static boolean LAYER_PEAKS = false;
+    public static int PEAKS_MIN_ZOOM = 8;
+    public static float PEAKS_TEXT_SIZE = 11;
+    /** Rotation of the label text, degrees. The peak-finder look tilts them off the leader line. */
+    public static float PEAKS_TEXT_ANGLE = 55;
+    /** Where the label band sits, as a fraction of the screen height from the top. */
+    public static float PEAKS_BAND = 0.25f;
+    /** Shortest leader line, and the height of one stacking row, in pixels. */
+    public static float PEAKS_MIN_OFFSET = 10;
+    public static float PEAKS_ROW_STEP = 26;
+    public static int PEAKS_MAX_ROWS = 10;
+    public static float PEAKS_LINE_WIDTH = 1;
+    /** Metres beyond which a summit is not labelled at all; 0 = no limit. */
+    public static float PEAKS_MAX_DISTANCE = 120000;
     /** Scripted camera move so animation artifacts can be captured with adb screenrecord:
      *  "" | zoom | pan | rotate | zoomseq. */
     public static String ANIM = "";
@@ -767,6 +783,16 @@ public final class DemoConfig {
         RELIEF_HORIZON_BOOST = DemoCfg.cfgFloat("reliefHorizonBoost", RELIEF_HORIZON_BOOST);
         RELIEF_DEPTH_THRESHOLD = DemoCfg.cfgFloat("reliefThreshold", RELIEF_DEPTH_THRESHOLD);
         RELIEF_CREASE_STRENGTH = DemoCfg.cfgFloat("reliefCrease", RELIEF_CREASE_STRENGTH);
+        LAYER_PEAKS = DemoCfg.cfgBool("peaks", LAYER_PEAKS);
+        PEAKS_MIN_ZOOM = DemoCfg.cfgInt("peaksMinZoom", PEAKS_MIN_ZOOM);
+        PEAKS_TEXT_SIZE = DemoCfg.cfgFloat("peaksTextSize", PEAKS_TEXT_SIZE);
+        PEAKS_TEXT_ANGLE = DemoCfg.cfgFloat("peaksAngle", PEAKS_TEXT_ANGLE);
+        PEAKS_BAND = DemoCfg.cfgFloat("peaksBand", PEAKS_BAND);
+        PEAKS_MIN_OFFSET = DemoCfg.cfgFloat("peaksOffset", PEAKS_MIN_OFFSET);
+        PEAKS_ROW_STEP = DemoCfg.cfgFloat("peaksStep", PEAKS_ROW_STEP);
+        PEAKS_MAX_ROWS = DemoCfg.cfgInt("peaksRows", PEAKS_MAX_ROWS);
+        PEAKS_LINE_WIDTH = DemoCfg.cfgFloat("peaksLineWidth", PEAKS_LINE_WIDTH);
+        PEAKS_MAX_DISTANCE = DemoCfg.cfgFloat("peaksMaxDistance", PEAKS_MAX_DISTANCE);
         ANIM = DemoCfg.cfgStr("anim", ANIM);
         ANIM_DELAY_MS = DemoCfg.cfgFloat("animDelay", ANIM_DELAY_MS);
         ANIM_DURATION_S = DemoCfg.cfgFloat("animDuration", ANIM_DURATION_S);
