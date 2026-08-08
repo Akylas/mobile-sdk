@@ -87,16 +87,19 @@ What changes, and only for this orientation:
   `text-callout-step` at a time, for at most `text-callout-max-rows` rows. Everything else — the
   priority sort, the `wasVisible` hysteresis, the shared grid — is untouched, so callouts collide
   with ordinary labels and with each other in the usual way.
-- **The offset is the culler's, and both the envelope and the vertex data read it**
-  (`Label::setCalloutOffset`, a length along the camera up axis; one unit is `scale / size` world
-  units, because the glyph quads are in units of the font size). One unit is **not** one screen
-  pixel: that conversion holds only where the label's scale is exactly calibrated, and it is not —
-  it comes from the zoom, so a lifted viewpoint or a view aimed at the horizon moves the label
-  several times further than the band asked for, and a row of names stops being a row. The culler
-  therefore **measures** the gain instead of assuming it: displacing a label along the camera axes
-  is linear in screen space at a fixed depth, so it places the label once at 0, once at
-  `GAIN_PROBE_OFFSET`, and reads pixels-per-unit off the two envelopes. Everything after that —
-  the band, the row step, the screen margin — is in real screen pixels.
+- **The lift is in SCREEN PIXELS, and it stays there.** Two things make that true, and both had to
+  be fixed before a row of names was a row:
+  - *The conversion is read off the projection, not off the label's scale.* One pixel is
+    `depth / (projection scale × half the screen height)` world units at the label's own depth
+    (`Label::calculatePixelToWorld`). Converting with the label's scale instead — which comes from
+    the zoom — makes the same stored lift mean a different number of pixels whenever the camera
+    tilts, rises or zooms, so the labels slide up and down the screen between placement passes.
+  - *The anchor moves; the label does not follow it.* Labels are re-anchored on the GL thread as
+    elevation tiles arrive (`updateElevation`), and a tilt slides the anchor up or down the screen,
+    while a placement pass only runs when the draw data changes. The culler therefore records the
+    anchor's screen position along with the lift (`setCalloutPlacement`) and the draw path corrects
+    by how far it has moved since (`calculateCalloutLift`), so the label holds its LINE rather than
+    its distance from a summit that has meanwhile moved.
 - **The leader line is one more quad in the label's own vertex stream**, textured from a 4×4 white
   cell loaded into the glyph atlas (`TileLabel::Style::calloutLineGlyph`). It is built per frame
   rather than cached with the text — its length is the offset, which changes with everything else
@@ -195,7 +198,8 @@ Two notes for style authors:
   back in while the camera moves. Default 0 — hide on the first failure, as before. A held-over
   name may sit closer to its neighbours than `text-min-distance` allows, but never **on top** of
   one: a placement pass only runs when the draw data changes, so an overlap granted here would
-  stay on screen until something else moved.
+  stay on screen until something else moved. It is held on the band's own line too, never at the
+  lift it happened to have — a name kept off the row is what the row exists to avoid.
 - **The step's sign is the stacking direction.** A negative `text-callout-step` stacks the rows
   DOWNWARDS, which is what a band pinned to the top of the screen needs: there is no room above it,
   so stepping up piles every row that loses its slot into the top edge — and since the ranking puts

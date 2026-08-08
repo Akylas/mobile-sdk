@@ -685,6 +685,11 @@ public class DemoMap {
     private Layer createPeaksLayer() {
         VectorTileLayer layer = new VectorTileLayer(vectorSource(), new MBVectorTileDecoder(new CartoCSSStyleSet(DemoStyles.peaksStyle())));
         layer.setLabelRenderOrder(VectorTileRenderOrder.VECTOR_TILE_RENDER_ORDER_LAST);
+        // Out of the post-process pass: the relief effect reads the terrain depth but paints over
+        // the whole frame, so a ridge line drawn after the names crosses them. Opting the layer out
+        // draws it AFTER the effect has resolved (Layer.setPostProcessed), which is also what keeps
+        // the glyphs crisp - they are not resampled by the effect's half-resolution buffer.
+        layer.setPostProcessed(false);
         layer.setVectorTileEventListener(new VectorTileEventListener() {
             @Override
             public boolean onVectorTileClicked(VectorTileClickInfo clickInfo) {
