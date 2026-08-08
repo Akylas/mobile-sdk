@@ -70,6 +70,7 @@ public final class DemoPanel {
         buildContourSection(context, panel, demo);
         buildRouteTestSection(context, panel, demo);
         buildSunSection(context, panel, demo);
+        buildCelestialSection(context, panel, demo);
         buildSkyFogSection(context, panel, demo);
         buildDebugSection(context, panel, demo);
         buildActionsSection(context, panel, demo);
@@ -345,7 +346,7 @@ public final class DemoPanel {
                     demo.applyDayCycle(value);
                 } else {
                     DemoConfig.SUN_HOUR_UTC = value;
-                    demo.applyLightOptions();
+                    demo.applyLightOptions(); // which also re-places the sky objects for that hour
                 }
             }
         });
@@ -387,6 +388,64 @@ public final class DemoPanel {
         });
         slider(context, panel, "depth bias (m)", 0f, 5f, DemoConfig.SHADOW_BIAS, false, new FloatSetting() {
             public void set(float value) { DemoConfig.SHADOW_BIAS = value; demo.lightOptions.setShadowBias(value); }
+        });
+    }
+
+    /**
+     * Everything placed in the SKY, and the camera control that makes it reachable.
+     *
+     * The two layers are ordinary layers (LAYERS > celestial / stars); what is here is the demo
+     * content inside them, and the look-around mode - one finger looks instead of panning, and the
+     * tilt may go NEGATIVE, which is the view pitching above the horizon.
+     */
+    private static void buildCelestialSection(Context context, LinearLayout panel, final DemoMap demo) {
+        header(context, panel, "SKY OBJECTS");
+        check(context, panel, "free roam (1 finger looks)", DemoConfig.FREE_ROAM, new BoolSetting() {
+            public void set(boolean value) { DemoConfig.FREE_ROAM = value; demo.applyLookRange(); }
+        });
+        // 0 stops at the horizon, which is what a map does; 90 reaches the zenith.
+        slider(context, panel, "look above horizon (deg)", 0, 90, DemoConfig.LOOK_UP_LIMIT, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.LOOK_UP_LIMIT = value; demo.applyLookRange(); }
+        });
+
+        check(context, panel, "sun", DemoConfig.CELESTIAL_SUN, new BoolSetting() {
+            public void set(boolean value) { DemoConfig.CELESTIAL_SUN = value; demo.updateSky(); }
+        });
+        check(context, panel, "moon", DemoConfig.CELESTIAL_MOON, new BoolSetting() {
+            public void set(boolean value) { DemoConfig.CELESTIAL_MOON = value; demo.updateSky(); }
+        });
+        check(context, panel, "moon phase", DemoConfig.CELESTIAL_MOON_PHASE, new BoolSetting() {
+            public void set(boolean value) { DemoConfig.CELESTIAL_MOON_PHASE = value; demo.updateSky(); }
+        });
+        check(context, panel, "sun path today", DemoConfig.CELESTIAL_ARC, new BoolSetting() {
+            public void set(boolean value) { DemoConfig.CELESTIAL_ARC = value; demo.updateSky(); }
+        });
+        check(context, panel, "moon path today", DemoConfig.CELESTIAL_MOON_ARC, new BoolSetting() {
+            public void set(boolean value) { DemoConfig.CELESTIAL_MOON_ARC = value; demo.updateSky(); }
+        });
+
+        header(context, panel, "STARS");
+        check(context, panel, "star layer", DemoConfig.STARS, new BoolSetting() {
+            public void set(boolean value) { demo.setEnabled(DemoMap.Feature.STARS, value); }
+        });
+        check(context, panel, "stars", DemoConfig.STARS_STARS, new BoolSetting() {
+            public void set(boolean value) { DemoConfig.STARS_STARS = value; demo.updateSky(); }
+        });
+        check(context, panel, "constellations", DemoConfig.STARS_FIGURES, new BoolSetting() {
+            public void set(boolean value) { DemoConfig.STARS_FIGURES = value; demo.updateSky(); }
+        });
+        check(context, panel, "planets", DemoConfig.STARS_PLANETS, new BoolSetting() {
+            public void set(boolean value) { DemoConfig.STARS_PLANETS = value; demo.updateSky(); }
+        });
+        check(context, panel, "celestial equator", DemoConfig.STARS_EQUATOR, new BoolSetting() {
+            public void set(boolean value) { DemoConfig.STARS_EQUATOR = value; demo.updateSky(); }
+        });
+        // No map at all: the layers leave the layer list, so this costs an empty map.
+        check(context, panel, "star sky (no map, transparent)", DemoConfig.STAR_SKY, new BoolSetting() {
+            public void set(boolean value) { demo.applyStarSky(value); }
+        });
+        check(context, panel, "follow device orientation", DemoConfig.STAR_SKY_ORIENTATION, new BoolSetting() {
+            public void set(boolean value) { demo.setOrientationFollowing(value); }
         });
     }
 

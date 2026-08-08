@@ -233,7 +233,11 @@ public final class DemoConfig {
     public static boolean TERRAIN_LIGHTING = false;
     /** When >= 0 the sun is placed from the date+hour below instead of azimuth/altitude. */
     public static float SUN_HOUR_UTC = -1f;
-    public static int SUN_YEAR = 2026, SUN_MONTH = 7, SUN_DAY = 26;
+    /** The date the sky is drawn for. TODAY by default, which is what makes the sun, the moon, the
+     *  planets and the stars the ones actually up there. '--es sunYear/sunMonth/sunDay' overrides. */
+    public static int SUN_YEAR = (int) DemoAstro.nowUtc()[0];
+    public static int SUN_MONTH = (int) DemoAstro.nowUtc()[1];
+    public static int SUN_DAY = (int) DemoAstro.nowUtc()[2];
     public static float SUN_AZIMUTH = 355f;
     public static float SUN_ALTITUDE = 9f;
     public static float SUN_INTENSITY = 1.0f;
@@ -255,17 +259,55 @@ public final class DemoConfig {
      *  placed by direction, so they stay in the sky while the map pans under them. The demo
      *  builds them in DemoCelestial - the SDK API knows nothing about suns or moons. */
     /** Free roam: one finger looks around (sideways turns, up/down tilts), two fingers pan, pinch
-     *  zooms. Needed to actually look at the sky; the camera still cannot tilt above the horizon. */
+     *  zooms. Needed to actually look at the sky. */
     public static boolean FREE_ROAM = false;
+    /** How far above the horizon free roam may look, in degrees. This is a NEGATIVE tilt: the
+     *  camera stays put and the view pitches up (Options.setTiltRange). 0 stops at the horizon,
+     *  which is what a map does by default. */
+    public static float LOOK_UP_LIMIT = 90f;
     public static boolean CELESTIAL = true;
     public static boolean CELESTIAL_SUN = true;
     public static boolean CELESTIAL_MOON = true;
     public static boolean CELESTIAL_ARC = true;
+    /** The moon's path across the day, the twin of the sun's. */
+    public static boolean CELESTIAL_MOON_ARC = true;
+    /** Draw the moon with the phase it really has (a bitmap the demo paints), rather than a disc. */
+    public static boolean CELESTIAL_MOON_PHASE = true;
     /** Angular diameters in degrees. The real sun and moon are both about 0.5; larger is easier
      *  to see and to hit on a phone. */
     public static float CELESTIAL_SUN_SIZE = 2.5f;
     public static float CELESTIAL_MOON_SIZE = 2.0f;
     public static float CELESTIAL_ARC_WIDTH = 2.0f;
+
+    // --- stars (DemoStars + DemoStarCatalogue) ----------------------------------------------------
+
+    /** The star layer: the bright-star catalogue, the constellation figures and the planets, all
+     *  placed for the date above. Off by default - it is a second CelestialLayer. */
+    public static boolean STARS = false;
+    public static boolean STARS_STARS = true;
+    public static boolean STARS_FIGURES = true;
+    public static boolean STARS_PLANETS = true;
+    public static boolean STARS_EQUATOR = false;
+    /** A magnitude -1.5 star is this big on screen, and each magnitude takes off that much. The
+     *  sizes are in PIXELS, so they are scaled by the screen density in DemoStars. */
+    public static float STARS_BRIGHTEST_SIZE = 5f;
+    public static float STARS_SIZE_PER_MAGNITUDE = 0.55f;
+    public static float STARS_FAINTEST_SIZE = 1.4f;
+    public static float STARS_FIGURE_WIDTH = 1.5f;
+    public static float STARS_FIGURE_CLICK_RADIUS = 2.5f;
+    public static float STARS_PLANET_SIZE = 1.2f;
+
+    /** Star sky: no map at all - the layers are REMOVED, the terrain is off and the background is
+     *  cleared to transparent, so the only thing drawn is the sky. Fades in and out. */
+    public static boolean STAR_SKY = false;
+    public static float STAR_SKY_FADE_MS = 600f;
+    /** Follow the device's orientation in star sky mode: turning the phone turns the view, and
+     *  raising it looks up. Needs LOOK_UP_LIMIT > 0 to reach the zenith. */
+    public static boolean STAR_SKY_ORIENTATION = false;
+    /** Ask for a TRANSLUCENT GL surface in star sky mode, which is what lets whatever is behind the
+     *  view (a camera preview) show through the transparent clear colour. On its own it looks the
+     *  same - black - and it costs a surface recreation, so it can be turned off. */
+    public static boolean STAR_SKY_TRANSLUCENT = true;
 
     /** Day cycle: sun/moon/stars/clouds shader driven by SUN_HOUR_UTC, updated live by the panel. */
     public static boolean DAY_CYCLE = false;
@@ -562,13 +604,28 @@ public final class DemoConfig {
         TERRAIN_LIGHTING = DemoCfg.cfgBool("terrainLight", TERRAIN_LIGHTING);
         SUN_HOUR_UTC = DemoCfg.cfgFloat("sunHour", SUN_HOUR_UTC);
         FREE_ROAM = DemoCfg.cfgBool("freeRoam", FREE_ROAM);
+        LOOK_UP_LIMIT = DemoCfg.cfgFloat("lookUp", LOOK_UP_LIMIT);
         CELESTIAL = DemoCfg.cfgBool("celestial", CELESTIAL);
         CELESTIAL_SUN = DemoCfg.cfgBool("celestialSun", CELESTIAL_SUN);
         CELESTIAL_MOON = DemoCfg.cfgBool("celestialMoon", CELESTIAL_MOON);
         CELESTIAL_ARC = DemoCfg.cfgBool("celestialArc", CELESTIAL_ARC);
+        CELESTIAL_MOON_ARC = DemoCfg.cfgBool("celestialMoonArc", CELESTIAL_MOON_ARC);
+        CELESTIAL_MOON_PHASE = DemoCfg.cfgBool("celestialMoonPhase", CELESTIAL_MOON_PHASE);
         CELESTIAL_SUN_SIZE = DemoCfg.cfgFloat("celestialSunSize", CELESTIAL_SUN_SIZE);
         CELESTIAL_MOON_SIZE = DemoCfg.cfgFloat("celestialMoonSize", CELESTIAL_MOON_SIZE);
         CELESTIAL_ARC_WIDTH = DemoCfg.cfgFloat("celestialArcWidth", CELESTIAL_ARC_WIDTH);
+        STARS = DemoCfg.cfgBool("stars", STARS);
+        STARS_STARS = DemoCfg.cfgBool("starsStars", STARS_STARS);
+        STARS_FIGURES = DemoCfg.cfgBool("starsFigures", STARS_FIGURES);
+        STARS_PLANETS = DemoCfg.cfgBool("starsPlanets", STARS_PLANETS);
+        STARS_EQUATOR = DemoCfg.cfgBool("starsEquator", STARS_EQUATOR);
+        STARS_BRIGHTEST_SIZE = DemoCfg.cfgFloat("starsSize", STARS_BRIGHTEST_SIZE);
+        STARS_FIGURE_WIDTH = DemoCfg.cfgFloat("starsFigureWidth", STARS_FIGURE_WIDTH);
+        STARS_PLANET_SIZE = DemoCfg.cfgFloat("starsPlanetSize", STARS_PLANET_SIZE);
+        STAR_SKY = DemoCfg.cfgBool("starSky", STAR_SKY);
+        STAR_SKY_FADE_MS = DemoCfg.cfgFloat("starSkyFade", STAR_SKY_FADE_MS);
+        STAR_SKY_ORIENTATION = DemoCfg.cfgBool("starSkyOrientation", STAR_SKY_ORIENTATION);
+        STAR_SKY_TRANSLUCENT = DemoCfg.cfgBool("starSkyTranslucent", STAR_SKY_TRANSLUCENT);
         SUN_YEAR = DemoCfg.cfgInt("sunYear", SUN_YEAR);
         SUN_MONTH = DemoCfg.cfgInt("sunMonth", SUN_MONTH);
         SUN_DAY = DemoCfg.cfgInt("sunDay", SUN_DAY);
@@ -661,6 +718,21 @@ public final class DemoConfig {
         ANIM_ROTATION = DemoCfg.cfgFloat("animRotation", ANIM_ROTATION);
         ANIM_ZOOM_OUT = DemoCfg.cfgFloat("animZoomOut", ANIM_ZOOM_OUT);
         ANIM_SETTLE_MS = DemoCfg.cfgFloat("animSettle", ANIM_SETTLE_MS);
+    }
+
+    /**
+     * The UTC hour the sky is drawn for: the explicit sun hour if one is set (the panel's hour
+     * slider writes it), then the day-cycle hour, and otherwise the real clock - so out of the box
+     * the sun, the moon, the planets and the stars are where they are right now.
+     */
+    public static double currentHourUtc() {
+        if (SUN_HOUR_UTC >= 0) {
+            return SUN_HOUR_UTC;
+        }
+        if (DAY_CYCLE) {
+            return DAY_CYCLE_HOUR;
+        }
+        return DemoAstro.nowUtc()[3];
     }
 
     private DemoConfig() {

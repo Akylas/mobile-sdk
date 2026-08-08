@@ -82,20 +82,24 @@ public class DemoMap {
 
     /** One switchable layer of the demo. */
     public enum Feature {
-        CELESTIAL, BASE, SATELLITE, HILLSHADE, HYPSO, CONTOUR, CONTOUR_TILES, ROUTES, ROUTE_TEST, ELEMENTS
+        CELESTIAL, STARS, BASE, SATELLITE, HILLSHADE, HYPSO, CONTOUR, CONTOUR_TILES, ROUTES, ROUTE_TEST, ELEMENTS
     }
 
     /** Bottom -> top draw order. Toggling a layer never reorders the others. */
     private static final Feature[] LAYER_ORDER = {
         // The sky goes FIRST, so the map and the terrain draw over it and a ridge hides what is
         // behind it - which is what a body in the sky should do.
-        Feature.CELESTIAL,
+        Feature.CELESTIAL, Feature.STARS,
         Feature.BASE, Feature.SATELLITE, Feature.HILLSHADE, Feature.HYPSO,
         Feature.CONTOUR, Feature.CONTOUR_TILES, Feature.ROUTES, Feature.ROUTE_TEST, Feature.ELEMENTS
     };
 
-    /** Sun, moon and the sun's daily path - demo content built on the generic celestial API. */
+    /** Sun, moon and their daily paths - demo content built on the generic celestial API. */
     public final DemoCelestial celestial = new DemoCelestial();
+    /** The bright-star catalogue, the constellation figures and the planets - same API. */
+    public final DemoStars stars = new DemoStars();
+    /** Device orientation driving the camera, for the star sky mode. */
+    private DemoOrientation orientation;
 
     private final Context context;
     public final MapView mapView;
@@ -159,6 +163,11 @@ public class DemoMap {
         if (DemoConfig.DAY_CYCLE) {
             applyDayCycle(DemoConfig.DAY_CYCLE_HOUR);
         }
+        if (DemoConfig.STAR_SKY) {
+            // Already built without the map layers (isEnabled), so there is nothing to fade out.
+            saveMapAppearance();
+            enterStarSky();
+        }
         startScriptedAnimation();
     }
 
@@ -168,8 +177,14 @@ public class DemoMap {
 
     /** True if the feature is currently switched on in the config. */
     public boolean isEnabled(Feature feature) {
+        // Star sky mode: every map layer is left OUT of the layer list rather than hidden, so no
+        // tile is fetched, decoded or drawn - the mode costs what an empty map costs.
+        if (DemoConfig.STAR_SKY && feature != Feature.CELESTIAL && feature != Feature.STARS) {
+            return false;
+        }
         switch (feature) {
             case CELESTIAL: return DemoConfig.CELESTIAL;
+            case STARS: return DemoConfig.STARS;
             case BASE: return DemoConfig.LAYER_BASE;
             case SATELLITE: return DemoConfig.LAYER_SATELLITE;
             case HILLSHADE: return DemoConfig.LAYER_HILLSHADE;
@@ -185,6 +200,8 @@ public class DemoMap {
 
     public void setEnabled(Feature feature, boolean enabled) {
         switch (feature) {
+            case CELESTIAL: DemoConfig.CELESTIAL = enabled; break;
+            case STARS: DemoConfig.STARS = enabled; break;
             case BASE: DemoConfig.LAYER_BASE = enabled; break;
             case SATELLITE: DemoConfig.LAYER_SATELLITE = enabled; break;
             case HILLSHADE: DemoConfig.LAYER_HILLSHADE = enabled; break;
@@ -225,15 +242,24 @@ public class DemoMap {
             vector.add(layer);
         }
         mapView.getLayers().setAll(vector);
-        // The celestial objects are built with the layer, which happens here - after
-        // applyLightOptions has run - so place them now that they exist.
-        celestial.update(this);
+        // The sky objects are built with their layer, which happens here, so place them now that
+        // they exist.
+        updateSky();
+        mapView.requestRender();
+    }
+
+    /** Puts every sky object where it really is for the configured date, hour and position. */
+    public void updateSky() {
+        celestial.update();
+        double n = DemoAstro.daysSinceJ2000(DemoConfig.SUN_YEAR, DemoConfig.SUN_MONTH, DemoConfig.SUN_DAY, DemoConfig.currentHourUtc());
+        stars.update(n, DemoConfig.START_LAT, DemoConfig.START_LON);
         mapView.requestRender();
     }
 
     private Layer createLayer(Feature feature) {
         switch (feature) {
             case CELESTIAL: return celestial.createLayer(mapView);
+            case STARS: return stars.createLayer(mapView);
             case BASE: return createBaseLayer();
             case SATELLITE: return new RasterTileLayer(rasterSource());
             case HILLSHADE: return createHillshadeLayer();
@@ -758,8 +784,7 @@ public class DemoMap {
         lightOptions.setShadowBias(DemoConfig.SHADOW_BIAS);
         lightOptions.setShadowDistance(DemoConfig.SHADOW_DISTANCE);
         lightOptions.setShadowCasterMargin(DemoConfig.SHADOW_CASTER_MARGIN);
-        celestial.update(this);
-        mapView.requestRender();
+        updateSky();
     }
 
     /** The sky is always attached so the panel can toggle it live; disabled = no sky at all. */
@@ -782,6 +807,7 @@ public class DemoMap {
      */
     public void applyDayCycle(float hourUtc) {
         DemoConfig.DAY_CYCLE_HOUR = hourUtc;
+        updateSky(); // the hour is also what places the sun, the moon and the stars
         if (!DemoConfig.DAY_CYCLE) {
             if (skyOptions != null) {
                 skyOptions.setShaderSource("");
@@ -807,9 +833,180 @@ public class DemoMap {
         Projection proj = mapView.getOptions().getBaseProjection();
         mapView.setFocusPos(proj.fromWgs84(new MapPos(DemoConfig.START_LON, DemoConfig.START_LAT)), 0);
         mapView.setZoom(DemoConfig.START_ZOOM, 0);
-        mapView.getOptions().setFreeRoam(DemoConfig.FREE_ROAM);
+        applyLookRange();
         mapView.setTilt(DemoConfig.START_TILT, 0);
         mapView.setMapRotation(DemoConfig.START_ROTATION, 0);
+    }
+
+    /**
+     * Free roam and how far above the horizon the view may look.
+     *
+     * A NEGATIVE tilt is the look up: the camera stays where the tilt geometry put it and only the
+     * view pitches, so nothing about zoom or the visible tiles changes. A map stops at the horizon
+     * by default (tilt range 0..90), which is why this has to be asked for.
+     */
+    public void applyLookRange() {
+        mapView.getOptions().setFreeRoam(DemoConfig.FREE_ROAM);
+        mapView.getOptions().setTiltRange(new com.carto.core.MapRange(-Math.max(0f, DemoConfig.LOOK_UP_LIMIT), 90f));
+    }
+
+    // =============================================================================================
+    // STAR SKY: the map removed, the background cleared to nothing, only the sky left
+    // =============================================================================================
+
+    private Color savedClearColor;
+    private Color savedSkyColor;
+    private com.carto.graphics.Bitmap savedBackgroundBitmap;
+    private boolean starSkySaved;
+
+    /**
+     * Switches the whole map off and leaves the sky.
+     *
+     * "Not drawn" here means NOT BUILT: the map layers leave the layer list (see isEnabled), the
+     * terrain is disabled and the background is cleared to a fully transparent black, so the frame
+     * costs an empty map plus the sky objects. The transparency is the point - with a translucent
+     * surface, whatever is behind the view (a camera preview) shows through it.
+     *
+     * The map fades out before it is dropped and fades back in after it returns, so the switch is
+     * not a pop.
+     */
+    public void applyStarSky(final boolean enabled) {
+        if (enabled == DemoConfig.STAR_SKY && starSkySaved == enabled) {
+            return;
+        }
+        long duration = (long) Math.max(0f, DemoConfig.STAR_SKY_FADE_MS);
+        if (enabled) {
+            saveMapAppearance();
+            fadeMapLayers(1f, 0f, duration, new Runnable() {
+                public void run() {
+                    enterStarSky();
+                }
+            });
+        } else {
+            leaveStarSky();
+            fadeMapLayers(0f, 1f, duration, null);
+        }
+    }
+
+    private void saveMapAppearance() {
+        if (starSkySaved) {
+            return;
+        }
+        Options options = mapView.getOptions();
+        savedClearColor = options.getClearColor();
+        savedSkyColor = options.getSkyColor();
+        savedBackgroundBitmap = options.getBackgroundBitmap();
+        starSkySaved = true;
+    }
+
+    private void enterStarSky() {
+        DemoConfig.STAR_SKY = true;
+        Options options = mapView.getOptions();
+        // Transparent, not black: the frame is then a hole that whatever is behind the surface
+        // shows through, and it looks black on its own anyway.
+        options.setClearColor(new Color((short) 0, (short) 0, (short) 0, (short) 0));
+        options.setSkyColor(new Color((short) 0, (short) 0, (short) 0, (short) 0));
+        options.setBackgroundBitmap(null);
+        if (terrainOptions != null) {
+            terrainOptions.setEnabled(false);
+        }
+        if (skyOptions != null) {
+            skyOptions.setEnabled(false);
+        }
+        setSurfaceTranslucent(DemoConfig.STAR_SKY_TRANSLUCENT);
+        rebuildLayers();
+        Log.i(TAG, "star sky on: " + mapView.getLayers().count() + " layers, clear "
+                + options.getClearColor().getARGB() + ", background " + options.getBackgroundBitmap());
+        setMapLayerOpacity(1f); // the layers are out of the list now: leave them ready to come back
+        applyLookRange();
+        setOrientationFollowing(DemoConfig.STAR_SKY_ORIENTATION);
+        mapView.requestRender();
+    }
+
+    private void leaveStarSky() {
+        setOrientationFollowing(false);
+        DemoConfig.STAR_SKY = false;
+        Options options = mapView.getOptions();
+        if (starSkySaved) {
+            options.setClearColor(savedClearColor);
+            options.setSkyColor(savedSkyColor);
+            options.setBackgroundBitmap(savedBackgroundBitmap);
+            starSkySaved = false;
+        }
+        if (terrainOptions != null) {
+            terrainOptions.setEnabled(DemoConfig.TERRAIN_ENABLED);
+        }
+        if (skyOptions != null) {
+            skyOptions.setEnabled(DemoConfig.SKY_ENABLED);
+        }
+        if (DemoConfig.STAR_SKY_TRANSLUCENT) {
+            setSurfaceTranslucent(false);
+        }
+        setMapLayerOpacity(0f);
+        rebuildLayers();
+        mapView.requestRender();
+    }
+
+    /** Turning the device turns the view, raising it looks up - the negative tilt in action. */
+    public void setOrientationFollowing(boolean enabled) {
+        DemoConfig.STAR_SKY_ORIENTATION = enabled;
+        if (enabled) {
+            if (orientation == null) {
+                orientation = new DemoOrientation(context, mapView);
+            }
+            orientation.start();
+        } else if (orientation != null) {
+            orientation.stop();
+        }
+    }
+
+    /**
+     * A translucent GL surface, which is what makes a transparent clear colour visible: the map is
+     * then composited over whatever is behind it (with setZOrderMediaOverlay, a camera preview).
+     * Without this the transparency is real but the surface is still opaque, so it just looks black.
+     */
+    private void setSurfaceTranslucent(boolean translucent) {
+        try {
+            mapView.setZOrderMediaOverlay(translucent);
+            mapView.getHolder().setFormat(translucent ? android.graphics.PixelFormat.TRANSLUCENT : android.graphics.PixelFormat.OPAQUE);
+        } catch (Exception e) {
+            Log.w(TAG, "could not change the surface format: " + e);
+        }
+    }
+
+    /** Opacity of every layer that is NOT the sky. */
+    private void setMapLayerOpacity(float opacity) {
+        for (Map.Entry<Feature, Layer> entry : layers.entrySet()) {
+            if (entry.getKey() != Feature.CELESTIAL && entry.getKey() != Feature.STARS) {
+                entry.getValue().setOpacity(opacity);
+            }
+        }
+        mapView.requestRender();
+    }
+
+    private void fadeMapLayers(final float from, final float to, long durationMs, final Runnable onEnd) {
+        if (durationMs <= 0) {
+            setMapLayerOpacity(to);
+            if (onEnd != null) {
+                onEnd.run();
+            }
+            return;
+        }
+        android.animation.ValueAnimator animator = android.animation.ValueAnimator.ofFloat(from, to);
+        animator.setDuration(durationMs);
+        animator.addUpdateListener(new android.animation.ValueAnimator.AnimatorUpdateListener() {
+            public void onAnimationUpdate(android.animation.ValueAnimator a) {
+                setMapLayerOpacity(((Float) a.getAnimatedValue()).floatValue());
+            }
+        });
+        if (onEnd != null) {
+            animator.addListener(new android.animation.AnimatorListenerAdapter() {
+                public void onAnimationEnd(android.animation.Animator a) {
+                    onEnd.run();
+                }
+            });
+        }
+        animator.start();
     }
 
     /**

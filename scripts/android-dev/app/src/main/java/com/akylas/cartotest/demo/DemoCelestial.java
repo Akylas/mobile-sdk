@@ -1,31 +1,50 @@
 package com.akylas.cartotest.demo;
 
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffXfermode;
+import android.graphics.RectF;
 import android.widget.Toast;
 
 import com.carto.celestial.CelestialArc;
 import com.carto.celestial.CelestialObject;
 import com.carto.celestial.CelestialSprite;
+import com.carto.core.DoubleVector;
+import com.carto.core.MapPos;
+import com.carto.core.Variant;
 import com.carto.graphics.Color;
 import com.carto.layers.CelestialEventListener;
 import com.carto.layers.CelestialLayer;
 import com.carto.ui.ClickInfo;
 import com.carto.ui.MapView;
+import com.carto.utils.BitmapUtils;
 
 /**
- * The sun, the moon and the sun's path across the day, built on the generic celestial API.
+ * The sun, the moon and their paths across the day, built on the generic celestial API.
  *
- * NOTHING here is a sun or a moon as far as the SDK is concerned: they are two sprites and one
- * arc, placed by direction. The astronomy lives in this file, which is the point - the same API
- * carries an aircraft ({@link #addAircraft}) or a star catalogue with no SDK change at all.
+ * NOTHING here is a sun or a moon as far as the SDK is concerned: they are two sprites and two
+ * arcs, placed by direction. The astronomy lives in {@link DemoAstro}, which is the point - the
+ * same API carries an aircraft ({@link #addAircraft}) or a star catalogue ({@link DemoStars}) with
+ * no SDK change at all.
+ *
+ * The positions are the REAL ones for the demo's date, hour and location, and the arcs are sampled
+ * from the same ephemeris over the whole day, so the disc always sits exactly on its own arc. That
+ * is a free correctness check on both: they are computed independently of each other.
  */
 public final class DemoCelestial {
 
     private static final String META_NAME = "name";
+    private static final int MOON_BITMAP_SIZE = 128;
+    /** The sampling step of a daily path, in minutes. 10 is smooth at any field of view. */
+    private static final int PATH_STEP_MINUTES = 10;
 
     private CelestialLayer layer;
     private CelestialSprite sun;
     private CelestialSprite moon;
     private CelestialArc sunPath;
+    private CelestialArc moonPath;
+    private double lastMoonPhase = -1;
 
     /** Builds the layer and its objects. Added FIRST, so the map and the terrain draw over them. */
     public CelestialLayer createLayer(final MapView mapView) {
@@ -36,30 +55,39 @@ public final class DemoCelestial {
         sun.setColor(new Color((short) 255, (short) 244, (short) 214, (short) 255));
         sun.setSoftness(0.35f);
         sun.setClickRadius(3f);
-        sun.setMetaDataElement(META_NAME, new com.carto.core.Variant("Sun"));
+        sun.setMetaDataElement(META_NAME, new Variant("Sun"));
 
         moon = new CelestialSprite();
         moon.setAngularSize(DemoConfig.CELESTIAL_MOON_SIZE);
-        moon.setColor(new Color((short) 235, (short) 235, (short) 225, (short) 255));
+        moon.setColor(new Color((short) 245, (short) 245, (short) 235, (short) 255));
         moon.setSoftness(0.25f);
         moon.setClickRadius(3f);
-        moon.setMetaDataElement(META_NAME, new com.carto.core.Variant("Moon"));
+        moon.setMetaDataElement(META_NAME, new Variant("Moon"));
 
         sunPath = new CelestialArc();
         sunPath.setColor(new Color((short) 255, (short) 216, (short) 120, (short) 160));
         sunPath.setWidth(DemoConfig.CELESTIAL_ARC_WIDTH);
         sunPath.setBelowHorizonVisible(false);
-        sunPath.setMetaDataElement(META_NAME, new com.carto.core.Variant("Sun path"));
+        sunPath.setClickRadius(2f);
+        sunPath.setMetaDataElement(META_NAME, new Variant("Sun path"));
+
+        moonPath = new CelestialArc();
+        moonPath.setColor(new Color((short) 170, (short) 190, (short) 255, (short) 130));
+        moonPath.setWidth(DemoConfig.CELESTIAL_ARC_WIDTH);
+        moonPath.setBelowHorizonVisible(false);
+        moonPath.setClickRadius(2f);
+        moonPath.setMetaDataElement(META_NAME, new Variant("Moon path"));
 
         layer.add(sun);
         layer.add(moon);
         layer.add(sunPath);
+        layer.add(moonPath);
 
         layer.setCelestialEventListener(new CelestialEventListener() {
             @Override
             public boolean onCelestialObjectClicked(ClickInfo clickInfo, CelestialObject object) {
                 final String message = object.getMetaDataElement(META_NAME).getString()
-                        + "  az " + Math.round(object.getAzimuth()) + "\u00b0  alt " + Math.round(object.getAltitude()) + "\u00b0";
+                        + "  az " + Math.round(object.getAzimuth()) + "°  alt " + Math.round(object.getAltitude()) + "°";
                 // The listener is called on the touch thread; a Toast needs the UI thread.
                 mapView.post(new Runnable() {
                     @Override
@@ -74,38 +102,103 @@ public final class DemoCelestial {
     }
 
     /**
-     * Places the objects for the demo's current date, time and location. The sun's direction is
-     * taken from the SDK's own solar position (LightOptions), so the sprite sits exactly where the
-     * light comes from; the moon and the arc are computed here.
+     * Places the objects for the demo's current date, time and location.
+     *
+     * Both bodies come from {@link DemoAstro} rather than from the light options, because the panel
+     * can drive the sun's azimuth and altitude by hand: what is drawn here is always where the body
+     * really is on that date, which is the only version of it whose daily arc means anything.
      */
-    public void update(DemoMap demoMap) {
-        if (layer == null || demoMap == null || demoMap.lightOptions == null) {
+    public void update() {
+        if (layer == null) {
             return;
         }
-        double hourUtc = DemoConfig.SUN_HOUR_UTC >= 0 ? DemoConfig.SUN_HOUR_UTC : DemoConfig.DAY_CYCLE_HOUR;
+        double hourUtc = DemoConfig.currentHourUtc();
         double lat = DemoConfig.START_LAT;
         double lon = DemoConfig.START_LON;
+        double n = DemoAstro.daysSinceJ2000(DemoConfig.SUN_YEAR, DemoConfig.SUN_MONTH, DemoConfig.SUN_DAY, hourUtc);
 
-        float sunAzimuth = demoMap.lightOptions.getSunAzimuth();
-        float sunAltitude = demoMap.lightOptions.getSunAltitude();
-        sun.setDirection(sunAzimuth, sunAltitude, 0);
+        double[] sunDir = DemoAstro.sunHorizon(n, lat, lon);
+        sun.setDirection((float) sunDir[0], (float) sunDir[1], 0);
 
-        double[] moonDir = moonAzimuthAltitude(DemoConfig.SUN_YEAR, DemoConfig.SUN_MONTH, DemoConfig.SUN_DAY, hourUtc, lat, lon);
+        double[] moonDir = DemoAstro.moonHorizon(n, lat, lon);
         moon.setDirection((float) moonDir[0], (float) moonDir[1], 0);
+        updateMoonPhase(n);
 
-        // The sun's path across the day is the circle of constant declination about the celestial
-        // pole: the axis points north at an altitude equal to the latitude, and the radius is 90
-        // degrees minus the declination. Declination comes back out of the sun's own direction.
-        double altRad = Math.toRadians(sunAltitude);
-        double azRad = Math.toRadians(sunAzimuth);
-        double latRad = Math.toRadians(lat);
-        double sinDecl = Math.sin(altRad) * Math.sin(latRad) + Math.cos(altRad) * Math.cos(latRad) * Math.cos(azRad);
-        double declination = Math.toDegrees(Math.asin(Math.max(-1, Math.min(1, sinDecl))));
-        sunPath.setCircle(lat >= 0 ? 0f : 180f, (float) Math.abs(lat), (float) (90.0 - declination));
+        // The path across the day, sampled from the same ephemeris every PATH_STEP_MINUTES from
+        // midnight to midnight. A circle about the celestial pole would be a good enough sun path
+        // (declination barely moves in a day), but the moon's does move - a quarter of the sky in a
+        // day - so both are sampled and the two arcs are then the same kind of object.
+        sunPath.setDirections(dailyPath(true, lat, lon));
+        moonPath.setDirections(dailyPath(false, lat, lon));
 
         sun.setVisible(DemoConfig.CELESTIAL_SUN);
         moon.setVisible(DemoConfig.CELESTIAL_MOON);
         sunPath.setVisible(DemoConfig.CELESTIAL_ARC);
+        moonPath.setVisible(DemoConfig.CELESTIAL_MOON_ARC);
+        android.util.Log.i("DemoCelestial", "sun az " + Math.round(sunDir[0]) + " alt " + Math.round(sunDir[1])
+                + ", moon az " + Math.round(moonDir[0]) + " alt " + Math.round(moonDir[1])
+                + ", hour " + hourUtc + " UTC " + DemoConfig.SUN_YEAR + "-" + DemoConfig.SUN_MONTH + "-" + DemoConfig.SUN_DAY);
+    }
+
+    /** The body's track over the configured date, as alternating azimuth/altitude degrees. */
+    private static DoubleVector dailyPath(boolean isSun, double lat, double lon) {
+        DoubleVector directions = new DoubleVector();
+        for (int minute = 0; minute <= 24 * 60; minute += PATH_STEP_MINUTES) {
+            double n = DemoAstro.daysSinceJ2000(DemoConfig.SUN_YEAR, DemoConfig.SUN_MONTH, DemoConfig.SUN_DAY, minute / 60.0);
+            double[] horizon = isSun ? DemoAstro.sunHorizon(n, lat, lon) : DemoAstro.moonHorizon(n, lat, lon);
+            directions.add(horizon[0]);
+            directions.add(horizon[1]);
+        }
+        return directions;
+    }
+
+    /**
+     * Draws the moon with the phase it really has: a disc with a bite taken out of it by a second
+     * ellipse, which is what a terminator is - the projection of the circle dividing the lit and
+     * unlit halves. Painting it into the sprite's bitmap keeps this out of the SDK entirely.
+     */
+    private void updateMoonPhase(double n) {
+        double[] phase = DemoAstro.moonPhase(n);
+        if (!DemoConfig.CELESTIAL_MOON_PHASE) {
+            if (lastMoonPhase >= 0) {
+                moon.setBitmap(null);
+                lastMoonPhase = -1;
+            }
+            return;
+        }
+        double illuminated = phase[0];
+        double signedPhase = phase[1] * illuminated;
+        if (Math.abs(signedPhase - lastMoonPhase) < 0.01) {
+            return; // a hundredth of a phase is invisible; do not rebuild the texture for it
+        }
+        lastMoonPhase = signedPhase;
+
+        android.graphics.Bitmap bitmap = android.graphics.Bitmap.createBitmap(MOON_BITMAP_SIZE, MOON_BITMAP_SIZE, android.graphics.Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        float radius = MOON_BITMAP_SIZE * 0.5f;
+        paint.setColor(0xFFF5F5EB);
+        canvas.drawCircle(radius, radius, radius - 1, paint);
+
+        // The terminator: an ellipse whose half-width goes from the full radius at new moon, through
+        // zero at the quarter, to the full radius again at full moon - the same circle seen edge on.
+        float terminator = (float) Math.abs(1.0 - 2.0 * illuminated) * (radius - 1);
+        Paint eraser = new Paint(Paint.ANTI_ALIAS_FLAG);
+        eraser.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
+        boolean waxing = phase[1] > 0;
+        // Waxing: lit on the side towards the sun, the western limb - drawn on the right, so the
+        // dark half is the left one (angles run clockwise from 3 o'clock in Canvas).
+        RectF disc = new RectF(1, 1, MOON_BITMAP_SIZE - 1, MOON_BITMAP_SIZE - 1);
+        canvas.drawArc(disc, waxing ? 90 : -90, 180, true, eraser);
+        RectF terminatorOval = new RectF(radius - terminator, 1, radius + terminator, MOON_BITMAP_SIZE - 1);
+        if (illuminated < 0.5) {
+            // Crescent: the terminator bulges INTO the lit half, so the ellipse erases as well.
+            canvas.drawOval(terminatorOval, eraser);
+        } else {
+            // Gibbous: it bulges into the dark half, so the ellipse paints the moon back in.
+            canvas.drawOval(terminatorOval, paint);
+        }
+        moon.setBitmap(BitmapUtils.createBitmapFromAndroidBitmap(bitmap));
     }
 
     /**
@@ -116,48 +209,9 @@ public final class DemoCelestial {
         CelestialSprite aircraft = new CelestialSprite();
         aircraft.setScreenSize(24f);
         aircraft.setColor(new Color((short) 255, (short) 255, (short) 255, (short) 255));
-        aircraft.setPosition(new com.carto.core.MapPos(lon, lat), altitudeMeters);
-        aircraft.setMetaDataElement(META_NAME, new com.carto.core.Variant("Aircraft"));
+        aircraft.setPosition(new MapPos(lon, lat), altitudeMeters);
+        aircraft.setMetaDataElement(META_NAME, new Variant("Aircraft"));
         layer.add(aircraft);
         return aircraft;
-    }
-
-    /**
-     * Moon position, low-precision (about 0.3 degrees, which is the moon's own diameter): the
-     * standard abbreviated lunar series, then the same equatorial-to-horizon conversion the sun
-     * uses. Good enough to point at the moon in the sky; not an ephemeris.
-     */
-    private static double[] moonAzimuthAltitude(int year, int month, int day, double hourUtc, double lat, double lon) {
-        int a = (14 - month) / 12;
-        int y = year + 4800 - a;
-        int m = month + 12 * a - 3;
-        double jdn = day + (153 * m + 2) / 5 + 365L * y + y / 4 - y / 100 + y / 400 - 32045;
-        double jd = jdn + (hourUtc - 12.0) / 24.0;
-        double n = jd - 2451545.0;
-
-        double meanLong = Math.toRadians(218.316 + 13.176396 * n);
-        double meanAnom = Math.toRadians(134.963 + 13.064993 * n);
-        double argLat = Math.toRadians(93.272 + 13.229350 * n);
-
-        double eclipticLong = meanLong + Math.toRadians(6.289) * Math.sin(meanAnom);
-        double eclipticLat = Math.toRadians(5.128) * Math.sin(argLat);
-        double obliquity = Math.toRadians(23.439 - 0.0000004 * n);
-
-        double rightAsc = Math.atan2(Math.sin(eclipticLong) * Math.cos(obliquity) - Math.tan(eclipticLat) * Math.sin(obliquity),
-                Math.cos(eclipticLong));
-        double decl = Math.asin(Math.sin(eclipticLat) * Math.cos(obliquity)
-                + Math.cos(eclipticLat) * Math.sin(obliquity) * Math.sin(eclipticLong));
-
-        double gmst = (18.697374558 + 24.06570982441908 * n) % 24.0;
-        if (gmst < 0) {
-            gmst += 24.0;
-        }
-        double lmst = Math.toRadians(gmst * 15.0) + Math.toRadians(lon);
-        double hourAngle = lmst - rightAsc;
-
-        double latRad = Math.toRadians(lat);
-        double altitude = Math.asin(Math.sin(latRad) * Math.sin(decl) + Math.cos(latRad) * Math.cos(decl) * Math.cos(hourAngle));
-        double azimuth = Math.atan2(Math.sin(hourAngle), Math.cos(hourAngle) * Math.sin(latRad) - Math.tan(decl) * Math.cos(latRad));
-        return new double[] { Math.toDegrees(azimuth) + 180.0, Math.toDegrees(altitude) };
     }
 }
