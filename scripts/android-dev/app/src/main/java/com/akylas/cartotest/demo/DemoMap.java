@@ -848,8 +848,22 @@ public class DemoMap {
      * by default (tilt range 0..90), which is why this has to be asked for.
      */
     public void applyLookRange() {
-        mapView.getOptions().setFreeRoam(DemoConfig.FREE_ROAM);
-        mapView.getOptions().setTiltRange(new com.carto.core.MapRange(-Math.max(0f, DemoConfig.LOOK_UP_LIMIT), 90f));
+        Options options = mapView.getOptions();
+        options.setFreeRoamMode(freeRoamMode(DemoConfig.FREE_ROAM_MODE));
+        options.setFreeRoamLookSensitivity(DemoConfig.FREE_ROAM_LOOK_SENSITIVITY);
+        options.setFreeRoamMoveSpeed(DemoConfig.FREE_ROAM_MOVE_SPEED);
+        options.setTiltRange(new com.carto.core.MapRange(-Math.max(0f, DemoConfig.LOOK_UP_LIMIT), 90f));
+    }
+
+    /** "off" / "look" / "fps" -> the SDK enum. */
+    public static com.carto.components.FreeRoamMode freeRoamMode(String name) {
+        if ("look".equals(name)) {
+            return com.carto.components.FreeRoamMode.FREE_ROAM_MODE_LOOK;
+        }
+        if ("fps".equals(name)) {
+            return com.carto.components.FreeRoamMode.FREE_ROAM_MODE_FIRST_PERSON;
+        }
+        return com.carto.components.FreeRoamMode.FREE_ROAM_MODE_OFF;
     }
 
     // =============================================================================================

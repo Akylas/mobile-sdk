@@ -258,9 +258,14 @@ public final class DemoConfig {
     /** Celestial objects: sun, moon and the sun's daily path, drawn by a CelestialLayer and
      *  placed by direction, so they stay in the sky while the map pans under them. The demo
      *  builds them in DemoCelestial - the SDK API knows nothing about suns or moons. */
-    /** Free roam: one finger looks around (sideways turns, up/down tilts), two fingers pan, pinch
-     *  zooms. Needed to actually look at the sky. */
-    public static boolean FREE_ROAM = false;
+    /** Free roam mode: "off", "look" (one finger looks, two fingers still pan/pinch/rotate the
+     *  map) or "fps" (mouse look - the camera never moves - and two fingers move like the keys
+     *  would, with no pinch and no rotation). '--es freeRoam fps'. */
+    public static String FREE_ROAM_MODE = "off";
+    /** Degrees of turn per inch of drag. */
+    public static float FREE_ROAM_LOOK_SENSITIVITY = 90f;
+    /** How far an inch of two-finger drag moves, as a fraction of the camera to focus distance. */
+    public static float FREE_ROAM_MOVE_SPEED = 0.5f;
     /** How far above the horizon free roam may look, in degrees. This is a NEGATIVE tilt: the
      *  camera stays put and the view pitches up (Options.setTiltRange). 0 stops at the horizon,
      *  which is what a map does by default. */
@@ -606,7 +611,14 @@ public final class DemoConfig {
         // sun / shadows
         TERRAIN_LIGHTING = DemoCfg.cfgBool("terrainLight", TERRAIN_LIGHTING);
         SUN_HOUR_UTC = DemoCfg.cfgFloat("sunHour", SUN_HOUR_UTC);
-        FREE_ROAM = DemoCfg.cfgBool("freeRoam", FREE_ROAM);
+        FREE_ROAM_MODE = DemoCfg.cfgStr("freeRoam", FREE_ROAM_MODE);
+        if ("true".equals(FREE_ROAM_MODE)) {
+            FREE_ROAM_MODE = "look";
+        } else if ("false".equals(FREE_ROAM_MODE)) {
+            FREE_ROAM_MODE = "off";
+        }
+        FREE_ROAM_LOOK_SENSITIVITY = DemoCfg.cfgFloat("lookSensitivity", FREE_ROAM_LOOK_SENSITIVITY);
+        FREE_ROAM_MOVE_SPEED = DemoCfg.cfgFloat("moveSpeed", FREE_ROAM_MOVE_SPEED);
         LOOK_UP_LIMIT = DemoCfg.cfgFloat("lookUp", LOOK_UP_LIMIT);
         CELESTIAL = DemoCfg.cfgBool("celestial", CELESTIAL);
         CELESTIAL_SUN = DemoCfg.cfgBool("celestialSun", CELESTIAL_SUN);

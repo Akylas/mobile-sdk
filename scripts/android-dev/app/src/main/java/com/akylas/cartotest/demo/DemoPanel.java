@@ -400,8 +400,22 @@ public final class DemoPanel {
      */
     private static void buildCelestialSection(Context context, LinearLayout panel, final DemoMap demo) {
         header(context, panel, "SKY OBJECTS");
-        check(context, panel, "free roam (1 finger looks)", DemoConfig.FREE_ROAM, new BoolSetting() {
-            public void set(boolean value) { DemoConfig.FREE_ROAM = value; demo.applyLookRange(); }
+        // off = the map gestures; look = one finger looks; fps = mouse look + two-finger move.
+        final String[] roamModes = { "off", "look", "fps" };
+        int currentRoam = 0;
+        for (int i = 0; i < roamModes.length; i++) {
+            if (roamModes[i].equals(DemoConfig.FREE_ROAM_MODE)) {
+                currentRoam = i;
+            }
+        }
+        choice(context, panel, "free roam", roamModes, currentRoam, new IntSetting() {
+            public void set(int index) { DemoConfig.FREE_ROAM_MODE = roamModes[index]; demo.applyLookRange(); }
+        });
+        slider(context, panel, "look sensitivity (deg/inch)", 20, 200, DemoConfig.FREE_ROAM_LOOK_SENSITIVITY, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.FREE_ROAM_LOOK_SENSITIVITY = value; demo.applyLookRange(); }
+        });
+        slider(context, panel, "move speed (x distance/inch)", 0.05f, 2f, DemoConfig.FREE_ROAM_MOVE_SPEED, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.FREE_ROAM_MOVE_SPEED = value; demo.applyLookRange(); }
         });
         // 0 stops at the horizon, which is what a map does; 90 reaches the zenith.
         slider(context, panel, "look above horizon (deg)", 0, 90, DemoConfig.LOOK_UP_LIMIT, true, new FloatSetting() {
@@ -514,6 +528,14 @@ public final class DemoPanel {
         header(context, panel, "ACTIONS");
         check(context, panel, "relief outline effect", DemoConfig.RELIEF_OUTLINE, new BoolSetting() {
             public void set(boolean value) { demo.setReliefOutlineEnabled(value); }
+        });
+        // The only way to trigger a two-finger gesture without fingers: in free roam 'fps' this
+        // is the move, everywhere else the pan.
+        button(context, panel, "two-finger drag: forward", new Action() {
+            public void run() { DemoTests.runTwoFingerDrag(demo, 0, -500); }
+        });
+        button(context, panel, "two-finger drag: strafe", new Action() {
+            public void run() { DemoTests.runTwoFingerDrag(demo, 400, 0); }
         });
         button(context, panel, "offline routing test", new Action() {
             public void run() { DemoTests.runOfflineRouting(demo); }
