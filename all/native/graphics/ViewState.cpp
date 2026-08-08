@@ -25,6 +25,7 @@ namespace carto {
         _cameraChanged(true),
         _rotation(0),
         _tilt(90),
+        _cameraTilt(90),
         _zoom(0.0f),
         _2PowZoom(1.0f),
         _zoom0Distance(0.0f),
@@ -170,10 +171,21 @@ namespace carto {
             return;
         }
         _tilt = tilt;
+        // The map camera model: the camera sits at the tilt, and everything below the horizon is
+        // a rotation of the view about it. setViewTilt is the other model, where the camera stays.
+        _cameraTilt = std::max(tilt, 0.0f);
     }
 
-    float ViewState::getGroundTilt() const {
-        return std::max(_tilt, 0.0f);
+    void ViewState::setViewTilt(float tilt) {
+        if (!std::isfinite(tilt)) {
+            Log::Errorf("ViewState::setViewTilt: Invalid value %g", tilt);
+            return;
+        }
+        _tilt = tilt;
+    }
+
+    float ViewState::getCameraTilt() const {
+        return _cameraTilt;
     }
 
     cglib::vec3<double> ViewState::calculateViewDir() const {
@@ -182,14 +194,15 @@ namespace carto {
             return cglib::vec3<double>::zero();
         }
         viewVec = cglib::unit(viewVec);
-        if (_tilt >= 0) {
+        float viewPitch = _cameraTilt - _tilt;
+        if (viewPitch == 0) {
             return viewVec;
         }
         cglib::vec3<double> axis = cglib::vector_product(viewVec, _upVec);
         if (cglib::length(axis) == 0) {
             return viewVec;
         }
-        return cglib::unit(cglib::transform_vector(viewVec, cglib::rotate4_matrix(axis, -_tilt * Const::DEG_TO_RAD)));
+        return cglib::unit(cglib::transform_vector(viewVec, cglib::rotate4_matrix(axis, viewPitch * Const::DEG_TO_RAD)));
     }
     
     float ViewState::getZoom() const {
@@ -550,7 +563,7 @@ namespace carto {
 
                 cglib::vec3<double> axis = cglib::vector_product(_focusPos - _cameraPos, _upVec);
                 if (cglib::length(axis) != 0) {
-                    cglib::mat4x4<double> transform = cglib::rotate4_matrix(axis, (90 - getGroundTilt()) * Const::DEG_TO_RAD);
+                    cglib::mat4x4<double> transform = cglib::rotate4_matrix(axis, (90 - _cameraTilt) * Const::DEG_TO_RAD);
                     _cameraPos = _focusPos + cglib::transform_vector(_cameraPos - _focusPos, transform);
                     _upVec = cglib::transform_vector(_upVec, transform);
                 }
@@ -936,7 +949,8 @@ namespace carto {
     }
     
     cglib::mat4x4<double> ViewState::calculateLookatMat() const {
-        if (_tilt >= 0) {
+        float viewPitch = _cameraTilt - _tilt;
+        if (viewPitch == 0) {
             return cglib::lookat4_matrix(_cameraPos, _focusPos, _upVec);
         }
         // Above the horizon the camera stays exactly where the tilt geometry left it and only the
@@ -950,7 +964,7 @@ namespace carto {
         if (cglib::length(axis) == 0) {
             return cglib::lookat4_matrix(_cameraPos, _focusPos, _upVec);
         }
-        cglib::mat4x4<double> transform = cglib::rotate4_matrix(axis, -_tilt * Const::DEG_TO_RAD);
+        cglib::mat4x4<double> transform = cglib::rotate4_matrix(axis, viewPitch * Const::DEG_TO_RAD);
         return cglib::lookat4_matrix(_cameraPos, _cameraPos + cglib::transform_vector(viewVec, transform), cglib::transform_vector(_upVec, transform));
     }
     

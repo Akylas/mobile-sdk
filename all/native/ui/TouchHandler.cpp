@@ -131,7 +131,7 @@ namespace carto {
                     if (deltaTime >= DUAL_STOP_HOLD_DURATION) {
                         // Free roam turns the one-finger drag into a look: panning moves to two
                         // fingers, which dualPointerPan already does.
-                        if (_options->isFreeRoam()) {
+                        if (_options->getFreeRoamMode() != FreeRoamMode::FREE_ROAM_MODE_OFF) {
                             singlePointerLook(screenPos1, viewState);
                         } else {
                             singlePointerPan(screenPos1, viewState);
@@ -144,6 +144,9 @@ namespace carto {
                 break;
             case DUAL_POINTER_GUESS:
                 dualPointerGuess(screenPos1, screenPos2, viewState);
+                break;
+            case DUAL_POINTER_MOVE:
+                dualPointerMove(screenPos1, screenPos2, viewState);
                 break;
             case DUAL_POINTER_TILT:
                 dualPointerTilt(screenPos1, viewState);
@@ -184,6 +187,11 @@ namespace carto {
             }
             case SINGLE_POINTER_PAN:
                 _gestureMode = SINGLE_POINTER_CLICK_GUESS;
+                // A first person drag is a look, and a look does not glide on after the finger
+                // leaves: every kinetic handler pans, rotates or zooms the MAP.
+                if (_options->getFreeRoamMode() == FreeRoamMode::FREE_ROAM_MODE_FIRST_PERSON) {
+                    break;
+                }
                 if (_noDualPointerYet) {
                     _mapRenderer->getKineticEventHandler().startPan();
                 } else {
@@ -210,6 +218,7 @@ namespace carto {
             case DUAL_POINTER_ROTATE:
             case DUAL_POINTER_SCALE:
             case DUAL_POINTER_FREE:
+            case DUAL_POINTER_MOVE:
                 _dualPointerReleaseTime = std::chrono::steady_clock::now();
                 _prevScreenPos1 = screenPos2;
                 _gestureMode = SINGLE_POINTER_PAN;
@@ -228,6 +237,7 @@ namespace carto {
             case DUAL_POINTER_ROTATE:
             case DUAL_POINTER_SCALE:
             case DUAL_POINTER_FREE:
+            case DUAL_POINTER_MOVE:
                  _dualPointerReleaseTime = std::chrono::steady_clock::now();
                  _prevScreenPos1 = screenPos1;
                  _gestureMode = SINGLE_POINTER_PAN;
@@ -381,13 +391,13 @@ namespace carto {
             // The turn is about the CAMERA, not about the focus point on the ground: turning your
             // head does not move you. Rotating about the focus - what a map rotation does - swings
             // the camera around a circle of the focus distance, and at a low tilt that walks it
-            // straight through the terrain. The rotation event already takes a pivot, so this is
-            // the camera's own position handed to it.
+            // straight through the terrain. In first person the rotation event pivots there by
+            // itself (the whole camera model does); in LOOK mode it is asked for explicitly.
             if (dx != 0) {
                 std::shared_ptr<ProjectionSurface> projectionSurface = viewState.getProjectionSurface();
                 CameraRotationEvent cameraEvent;
-                cameraEvent.setRotationDelta(dx * INCHES_TO_LOOK_ROTATION_DELTA / dpi);
-                if (projectionSurface) {
+                cameraEvent.setRotationDelta(dx * _options->getFreeRoamLookSensitivity() / dpi);
+                if (projectionSurface && _options->getFreeRoamMode() != FreeRoamMode::FREE_ROAM_MODE_FIRST_PERSON) {
                     cameraEvent.setTargetPos(projectionSurface->calculateMapPos(viewState.getCameraPos()));
                 }
                 _cameraEvents |= CAMERA_ROTATE;
@@ -537,6 +547,63 @@ namespace carto {
         _prevScreenPos1 = screenPos;
     }
     
+    void TouchHandler::dualPointerMove(const ScreenPos& screenPos1, const ScreenPos& screenPos2, const ViewState& viewState) {
+        if (_options->isUserInput()) {
+            std::shared_ptr<ProjectionSurface> projectionSurface = viewState.getProjectionSurface();
+            if (!projectionSurface) {
+                return;
+            }
+
+            _mapRenderer->getAnimationHandler().stopPan();
+            _mapRenderer->getAnimationHandler().stopRotation();
+            _mapRenderer->getAnimationHandler().stopTilt();
+            _mapRenderer->getAnimationHandler().stopZoom();
+
+            // First person movement: the two fingers are the movement keys. Dragging them up walks
+            // forward, down walks back, sideways strafes - the camera keeps its height, its heading
+            // and its zoom, and nothing is anchored to a point on the ground, so this works just as
+            // well with the view aimed at the sky, where a map pan has no ground to hold on to.
+            float dx = (screenPos1.getX() + screenPos2.getX()) * 0.5f - (_prevScreenPos1.getX() + _prevScreenPos2.getX()) * 0.5f;
+            float dy = (screenPos1.getY() + screenPos2.getY()) * 0.5f - (_prevScreenPos1.getY() + _prevScreenPos2.getY()) * 0.5f;
+            _prevScreenPos1 = screenPos1;
+            _prevScreenPos2 = screenPos2;
+            if (dx == 0 && dy == 0) {
+                return;
+            }
+
+            // The horizontal frame the movement happens in, taken from the view itself: forward is
+            // where the camera looks, flattened onto the ground.
+            cglib::vec3<double> cameraPos = viewState.getCameraPos();
+            MapPos cameraMapPos = projectionSurface->calculateMapPos(cameraPos);
+            cglib::vec3<double> normal = projectionSurface->calculateNormal(cameraMapPos);
+            cglib::vec3<double> viewDir = viewState.calculateViewDir();
+            cglib::vec3<double> right = cglib::vector_product(viewDir, normal);
+            if (cglib::length(right) == 0) {
+                right = cglib::vector_product(viewState.getUpVec(), normal); // looking straight up or down
+            }
+            if (cglib::length(right) == 0) {
+                return;
+            }
+            right = cglib::unit(right);
+            cglib::vec3<double> forward = cglib::vector_product(normal, right);
+            if (cglib::length(forward) == 0) {
+                return;
+            }
+            forward = cglib::unit(forward);
+
+            // Distance per inch of drag, as a fraction of the camera to focus distance, so a move
+            // covers the same part of the view at any zoom.
+            double perInch = _options->getFreeRoamMoveSpeed() * viewState.calculateCameraDistance();
+            double dpi = _options->getDPI();
+            cglib::vec3<double> offset = forward * (-dy / dpi * perInch) + right * (-dx / dpi * perInch);
+
+            CameraPanEvent cameraEvent;
+            cameraEvent.setPosDelta(std::make_pair(cameraMapPos, projectionSurface->calculateMapPos(cameraPos + offset)));
+            _cameraEvents |= CAMERA_PAN;
+            _mapRenderer->calculateCameraEvent(cameraEvent, 0, true);
+        }
+    }
+
     void TouchHandler::dualPointerPan(const ScreenPos& screenPos1, const ScreenPos& screenPos2, bool rotate, bool scale, const ViewState& viewState) {
         if (_options->isUserInput()) {
             std::shared_ptr<ProjectionSurface> projectionSurface = viewState.getProjectionSurface();
@@ -831,7 +898,9 @@ namespace carto {
         _swipe2 = cglib::vec2<float>(0, 0);
         _prevScreenPos1 = screenPos1;
         _prevScreenPos2 = screenPos2;
-        _gestureMode = DUAL_POINTER_GUESS;
+        // First person: two fingers MOVE, and there is nothing to guess between - a pinch and a
+        // two-finger rotation are map gestures, and this control scheme has neither.
+        _gestureMode = (_options->getFreeRoamMode() == FreeRoamMode::FREE_ROAM_MODE_FIRST_PERSON ? DUAL_POINTER_MOVE : DUAL_POINTER_GUESS);
         ScreenPos middlePos((screenPos1.getX() + screenPos2.getX()) * 0.5f, (screenPos1.getY() + screenPos2.getY()) * 0.5f);
         updateGestureAnchorHeight(middlePos, _mapRenderer->getViewState());
     }
@@ -903,7 +972,6 @@ namespace carto {
     
     const float TouchHandler::INCHES_TO_TILT_DELTA = 32.0f;
     // A full turn takes about two swipes across a phone, which is what a look control wants.
-    const float TouchHandler::INCHES_TO_LOOK_ROTATION_DELTA = 90.0f;
 
     const float TouchHandler::INCHES_TO_ZOOM_DELTA = 1.0f;
         

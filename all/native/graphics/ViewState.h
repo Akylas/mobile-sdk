@@ -85,13 +85,20 @@ namespace carto {
         void setTilt(float tilt);
 
         /**
-         * Returns the part of the tilt that positions the camera: the tilt, floored at 0.
-         * The camera-to-focus vector is built from this angle alone, and everything below the
-         * horizon (a negative tilt) is a rotation of the VIEW about the camera instead - see
-         * calculateLookatMat.
-         * @return The tilt angle in degrees, never negative.
+         * Sets the tilt of the VIEW only, leaving the camera where it is. The difference between
+         * the camera tilt and this one is applied as a rotation of the view about the camera, so
+         * the camera does not move at all - which is what a first person look is.
+         * @param tilt The new view tilt angle in degrees.
          */
-        float getGroundTilt() const;
+        void setViewTilt(float tilt);
+
+        /**
+         * Returns the tilt the CAMERA POSITION is built at: the camera-to-focus vector is at this
+         * angle, never below the horizon, and the difference to the view tilt is a rotation of the
+         * view about the camera (see calculateLookatMat).
+         * @return The camera tilt angle in degrees, never negative.
+         */
+        float getCameraTilt() const;
 
         /**
          * Returns the unit direction the camera looks along, including the look above the horizon
@@ -450,6 +457,7 @@ namespace carto {
     
         float _rotation;
         float _tilt;
+        float _cameraTilt;
         float _zoom;
         float _2PowZoom;
         float _zoom0Distance;

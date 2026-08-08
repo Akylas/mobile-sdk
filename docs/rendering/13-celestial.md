@@ -71,16 +71,41 @@ report.
 ## Seeing them: free roam
 
 Sky content is normally off the top of the screen, because the map camera points at the ground.
-`Options::FreeRoam` changes what a one-finger drag does: sideways turns the heading, up and down
-changes the tilt, and panning moves to a two-finger drag. Pinch still zooms; the two-finger paths
-are untouched.
+`Options::FreeRoamMode` changes what the gestures do, and there are three:
 
-The heading turn pivots about the **camera**, not about the focus point on the ground — turning
-your head does not move you. A map rotation rotates camera *and* focus about the focus, which
-swings the camera around a circle of the focus distance and, at a low tilt, straight through the
-terrain. `CameraRotationEvent` already takes a pivot (`setTargetPos`), so free roam hands it the
-camera's own position and the camera comes out of the gesture exactly where it went in
-(verified: camera unchanged to the metre across a 90° drag, focus orbiting it).
+| Mode | One finger | Two fingers | Camera model |
+|------|-----------|-------------|--------------|
+| `OFF` (default) | pans the map | pan / pinch / rotate | the map's: tilt and rotation orbit the focus |
+| `LOOK` | looks around | pan / pinch / rotate | the map's, except that the heading turns about the camera |
+| `FIRST_PERSON` | looks around, **the position never changes** | move: forward/back and strafe | the camera never orbits anything |
+
+`FIRST_PERSON` is a mouse look, and it is a **camera model, not a gesture mapping**: `CameraTiltEvent`
+and `CameraRotationEvent` both pivot about the camera whatever asks them to, so `setTilt` and
+`setMapRotation` driven by a device's orientation sensor behave exactly like the drag. That is the
+point — the same code path serves the finger and the phone being turned.
+
+What each piece is:
+
+- **Turning** pivots about the camera. A map rotation rotates camera *and* focus about the focus,
+  which swings the camera around a circle of the focus distance and, at a low tilt, straight
+  through the terrain. `CameraRotationEvent` already took a pivot (`setTargetPos`); in
+  `FIRST_PERSON` it defaults to the camera's own position, and in `LOOK` the touch handler hands it
+  over explicitly. Verified: the camera is unchanged to the metre across a 90° drag.
+- **Pitching** in `FIRST_PERSON` writes `ViewState::setViewTilt`, which moves nothing at all — the
+  camera keeps the position (and therefore the height) it had, and the difference to
+  `getCameraTilt()` is applied as a rotation of the view about the camera. In the other modes the
+  camera still orbits the focus, which is what a map tilt is.
+- **Moving** (`TouchHandler::dualPointerMove`) translates camera and focus together, forward along
+  the view flattened onto the ground and sideways along the right vector, `FreeRoamMoveSpeed` × the
+  camera-to-focus distance per inch of drag — so it covers the same part of the view at any zoom,
+  and it needs no ground under the touch, which matters when the view is aimed at the sky. Pinch,
+  two-finger rotation, two-finger tilt and the kinetic handlers are all off in this mode: they are
+  map gestures and this scheme has none of them.
+- **`FreeRoamLookSensitivity`** is the turn in degrees per inch of drag (default 90).
+
+A two-finger gesture cannot be synthesized with `adb` (one pointer only, and the emulator's touch
+devices are not writable from the shell), so the demo has a panel button that feeds `onTouchEvent`
+a real two-pointer `MotionEvent` sequence — same entry point as a finger.
 
 ## Looking above the horizon: a negative tilt
 

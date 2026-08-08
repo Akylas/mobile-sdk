@@ -20,6 +20,7 @@
 !enum(carto::RenderProjectionMode::RenderProjectionMode)
 !enum(carto::PanningMode::PanningMode)
 !enum(carto::PivotMode::PivotMode)
+!enum(carto::FreeRoamMode::FreeRoamMode)
 !shared_ptr(carto::Options, components.Options)
 
 %import "core/MapBounds.i"
@@ -37,7 +38,9 @@
 %attribute(carto::Options, bool, KineticZoom, isKineticZoom, setKineticZoom)
 %attribute(carto::Options, bool, Rotatable, isRotatable, setRotatable)
 %attribute(carto::Options, bool, UserInput, isUserInput, setUserInput)
-%attribute(carto::Options, bool, FreeRoam, isFreeRoam, setFreeRoam)
+%attribute(carto::Options, carto::FreeRoamMode::FreeRoamMode, FreeRoamMode, getFreeRoamMode, setFreeRoamMode)
+%attribute(carto::Options, float, FreeRoamLookSensitivity, getFreeRoamLookSensitivity, setFreeRoamLookSensitivity)
+%attribute(carto::Options, float, FreeRoamMoveSpeed, getFreeRoamMoveSpeed, setFreeRoamMoveSpeed)
 %attribute(carto::Options, bool, DebugTileBorders, isDebugTileBorders, setDebugTileBorders)
 %attribute(carto::Options, bool, ClickTypeDetection, isClickTypeDetection, setClickTypeDetection)
 %attribute(carto::Options, bool, DoubleClickDetection, isDoubleClickDetection, setDoubleClickDetection)

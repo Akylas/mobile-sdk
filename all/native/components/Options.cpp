@@ -44,7 +44,9 @@ namespace carto {
         _skyBitmap(),
         _backgroundBitmap(GetDefaultBackgroundBitmap()),
         _userInput(true),
-        _freeRoam(false),
+        _freeRoamMode(FreeRoamMode::FREE_ROAM_MODE_OFF),
+        _freeRoamLookSensitivity(90.0f),
+        _freeRoamMoveSpeed(0.5f),
         _kineticPan(true),
         _kineticRotation(true),
         _kineticZoom(true),
@@ -533,20 +535,52 @@ namespace carto {
         notifyOptionChanged("UserInput");
     }
     
-    bool Options::isFreeRoam() const {
+    FreeRoamMode::FreeRoamMode Options::getFreeRoamMode() const {
         std::lock_guard<std::mutex> lock(_mutex);
-        return _freeRoam;
+        return _freeRoamMode;
     }
 
-    void Options::setFreeRoam(bool enabled) {
+    void Options::setFreeRoamMode(FreeRoamMode::FreeRoamMode mode) {
         {
             std::lock_guard<std::mutex> lock(_mutex);
-            if (_freeRoam == enabled) {
+            if (_freeRoamMode == mode) {
                 return;
             }
-            _freeRoam = enabled;
+            _freeRoamMode = mode;
         }
-        notifyOptionChanged("FreeRoam");
+        notifyOptionChanged("FreeRoamMode");
+    }
+
+    float Options::getFreeRoamLookSensitivity() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        return _freeRoamLookSensitivity;
+    }
+
+    void Options::setFreeRoamLookSensitivity(float degreesPerInch) {
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            if (_freeRoamLookSensitivity == degreesPerInch) {
+                return;
+            }
+            _freeRoamLookSensitivity = degreesPerInch;
+        }
+        notifyOptionChanged("FreeRoamLookSensitivity");
+    }
+
+    float Options::getFreeRoamMoveSpeed() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        return _freeRoamMoveSpeed;
+    }
+
+    void Options::setFreeRoamMoveSpeed(float distancePerInch) {
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            if (_freeRoamMoveSpeed == distancePerInch) {
+                return;
+            }
+            _freeRoamMoveSpeed = distancePerInch;
+        }
+        notifyOptionChanged("FreeRoamMoveSpeed");
     }
 
     bool Options::isKineticPan() {

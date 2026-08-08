@@ -68,6 +68,38 @@ namespace carto {
         };
     }
     
+    namespace FreeRoamMode {
+        /**
+         * Possible free roam modes: what a one-finger drag does, and which camera model the
+         * tilt and the rotation follow.
+         */
+        enum FreeRoamMode {
+            /**
+             * Off: the standard map gestures. A one-finger drag pans the map.
+             */
+            FREE_ROAM_MODE_OFF,
+            /**
+             * Look: a one-finger drag looks around instead of panning - sideways turns the heading
+             * about the camera, up and down tilts the map the way the two-finger tilt does, so the
+             * camera still orbits its focus point. Panning moves to a two-finger drag; pinch and
+             * two-finger rotation are unchanged.
+             */
+            FREE_ROAM_MODE_LOOK,
+            /**
+             * First person: the camera stops orbiting anything. A one-finger drag turns the view
+             * about the CAMERA on both axes, like a mouse in a first person game - the position
+             * never changes - and a two-finger drag moves, forward/back and strafing, the way the
+             * keys would. Pinch and two-finger rotation are off, since neither belongs to that
+             * control scheme.
+             *
+             * The camera model applies to every source, not just to touch: setTilt and
+             * setMapRotation turn the view in place too, so a camera driven by the device's
+             * orientation behaves exactly like the drag.
+             */
+            FREE_ROAM_MODE_FIRST_PERSON
+        };
+    }
+
     namespace PivotMode {
         /**
          *  Possible pivot modes.
@@ -451,21 +483,45 @@ namespace carto {
         void setUserInput(bool enabled);
     
         /**
-         * Returns the state of the free roam flag.
-         * @return True if free roam is enabled.
+         * Returns the free roam mode.
+         * @return The free roam mode.
          */
-        bool isFreeRoam() const;
+        FreeRoamMode::FreeRoamMode getFreeRoamMode() const;
         /**
-         * Sets the state of the free roam flag. In free roam a ONE-finger drag looks around -
-         * sideways turns the heading, up and down changes the tilt - instead of panning the map,
-         * and panning moves to a two-finger drag. Pinch still zooms. This is what makes content
-         * placed in the sky (CelestialLayer) reachable, since it is normally off the top of the
-         * screen. To look ABOVE the horizon the tilt range has to allow a negative tilt - e.g.
-         * setTiltRange(MapRange(-90, 90)) - as it stops at the horizon by default. The default is
-         * false.
-         * @param enabled The new state of the free roam flag.
+         * Sets the free roam mode: what a one-finger drag does, and which camera model the tilt
+         * and the rotation follow. Free roam is what makes content placed in the sky
+         * (CelestialLayer) reachable, since it is normally off the top of the screen. To look
+         * ABOVE the horizon the tilt range has to allow a negative tilt - e.g.
+         * setTiltRange(MapRange(-90, 90)) - as it stops at the horizon by default.
+         * The default is FREE_ROAM_MODE_OFF.
+         * @param mode The new free roam mode.
          */
-        void setFreeRoam(bool enabled);
+        void setFreeRoamMode(FreeRoamMode::FreeRoamMode mode);
+
+        /**
+         * Returns how fast a free roam drag turns the view.
+         * @return The turn in degrees per inch of drag.
+         */
+        float getFreeRoamLookSensitivity() const;
+        /**
+         * Sets how fast a free roam drag turns the view, in degrees per inch of drag. The default
+         * is 90, i.e. an inch of drag turns a quarter turn.
+         * @param degreesPerInch The turn in degrees per inch of drag.
+         */
+        void setFreeRoamLookSensitivity(float degreesPerInch);
+
+        /**
+         * Returns how far a first person move drag travels.
+         * @return The distance per inch of drag, as a fraction of the camera to focus distance.
+         */
+        float getFreeRoamMoveSpeed() const;
+        /**
+         * Sets how far a two-finger move travels in FREE_ROAM_MODE_FIRST_PERSON, per inch of drag,
+         * as a fraction of the distance from the camera to its focus point - so a move covers the
+         * same part of the view at any zoom. The default is 0.5.
+         * @param distancePerInch The distance per inch of drag.
+         */
+        void setFreeRoamMoveSpeed(float distancePerInch);
 
         /**
          * Returns the state of the kinetic panning flag.
@@ -720,7 +776,9 @@ namespace carto {
         std::shared_ptr<Bitmap> _backgroundBitmap;
         
         bool _userInput;
-        bool _freeRoam;
+        FreeRoamMode::FreeRoamMode _freeRoamMode;
+        float _freeRoamLookSensitivity;
+        float _freeRoamMoveSpeed;
     
         bool _kineticPan;
         bool _kineticRotation;

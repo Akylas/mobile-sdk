@@ -79,7 +79,8 @@ namespace carto {
             DUAL_POINTER_TILT,
             DUAL_POINTER_ROTATE,
             DUAL_POINTER_SCALE,
-            DUAL_POINTER_FREE
+            DUAL_POINTER_FREE,
+            DUAL_POINTER_MOVE
         };
 
         enum {
@@ -111,6 +112,7 @@ namespace carto {
         bool singlePointerZoomStop(const ScreenPos& screenPos, const ViewState& viewState);
         void dualPointerGuess(const ScreenPos& screenPos1, const ScreenPos& screenPos2, const ViewState& viewState);
         void dualPointerTilt(const ScreenPos& screenPos, const ViewState& viewState);
+        void dualPointerMove(const ScreenPos& screenPos1, const ScreenPos& screenPos2, const ViewState& viewState);
         void dualPointerPan(const ScreenPos& screenPos1, const ScreenPos& screenPos2, bool rotate, bool scale, const ViewState& viewState);
         void doubleTapZoom(const ScreenPos& screenPos, const ViewState& viewState);
 
@@ -143,7 +145,6 @@ namespace carto {
 
         // Determines how the finger sliding distance will be converted to tilt angle
         static const float INCHES_TO_TILT_DELTA;
-        static const float INCHES_TO_LOOK_ROTATION_DELTA;
 
         // Determines how finger sliding distance will be converted to zoom delta
         static const float INCHES_TO_ZOOM_DELTA;
