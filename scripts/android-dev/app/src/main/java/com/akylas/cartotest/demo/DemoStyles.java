@@ -552,12 +552,13 @@ public final class DemoStyles {
             "  text-secondary-dx: " + DemoConfig.PEAKS_ELE_GAP + ";",
             "  text-secondary-dy: " + DemoConfig.PEAKS_ELE_DY + ";",
             "  text-size: " + DemoConfig.PEAKS_TEXT_SIZE + ";",
-            "  text-fill: " + hex(DemoConfig.RELIEF_DARK ? 0xffe8ecf5 : 0xff14141a) + ";",
-            "  text-halo-fill: " + hex(DemoConfig.RELIEF_DARK ? 0xff10131a : 0xffffffff) + ";",
+            "  text-fill: " + hex(DemoMap.reliefInk()) + ";",
+            "  text-halo-fill: " + hex(DemoMap.reliefPaper()) + ";",
             "  text-halo-radius: 1.5;",
             // The plate behind the name - a general label property, so a classic map style can use
             // exactly the same four lines.
-            "  text-background-fill: " + hex(DemoConfig.PEAKS_BG_COLOR_ARGB) + ";",
+            // The plate follows the palette too, so the names stay readable in both.
+            "  text-background-fill: " + hex(DemoConfig.RELIEF_DARK ? DemoConfig.RELIEF_PAPER_DARK : DemoConfig.PEAKS_BG_COLOR_ARGB) + ";",
             "  text-background-opacity: " + DemoConfig.PEAKS_BG_OPACITY + ";",
             "  text-background-radius: " + DemoConfig.PEAKS_BG_RADIUS + ";",
             "  text-background-padding-x: " + DemoConfig.PEAKS_BG_PADDING_X + ";",

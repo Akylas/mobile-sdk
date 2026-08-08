@@ -777,11 +777,7 @@ public final class DemoPanel {
             public void set(boolean value) { demo.setReliefOutlineEnabled(value); }
         });
         check(context, "dark palette", DemoConfig.RELIEF_DARK, new BoolSetting() {
-            public void set(boolean value) {
-                DemoConfig.RELIEF_DARK = value;
-                demo.applyReliefSurface();
-                demo.applyReliefOutlineParameters();
-            }
+            public void set(boolean value) { demo.setReliefDark(value); }
         });
         slider(context, "outline width (px)", 0.5f, 4, DemoConfig.RELIEF_OUTLINE_WIDTH, false, new FloatSetting() {
             public void set(float value) { DemoConfig.RELIEF_OUTLINE_WIDTH = value; demo.applyReliefOutlineParameters(); }

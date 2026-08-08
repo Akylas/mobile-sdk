@@ -953,13 +953,29 @@ public class DemoMap {
      * background fill, so it is what shows wherever no tile layer paints - switch the base map
      * off to see it.
      */
+    /** The relief palette, in one switch: the shaded surface, the ink lines, the names, the plate
+     *  behind them and the sky all come from the same pair of colours (see DemoConfig). The names
+     *  need their layer rebuilt because a CartoCSS style bakes its colours in. */
+    public void setReliefDark(boolean dark) {
+        DemoConfig.RELIEF_DARK = dark;
+        applyReliefSurface();
+        applyReliefOutlineParameters();
+        applySkyOptions();
+        rebuildPeaksLayer();
+    }
+
+    public static int reliefInk() { return DemoConfig.RELIEF_DARK ? DemoConfig.RELIEF_INK_DARK : DemoConfig.RELIEF_INK_LIGHT; }
+    public static int reliefPaper() { return DemoConfig.RELIEF_DARK ? DemoConfig.RELIEF_PAPER_DARK : DemoConfig.RELIEF_PAPER_LIGHT; }
+    public static int reliefShade() { return DemoConfig.RELIEF_DARK ? DemoConfig.RELIEF_SHADE_DARK : DemoConfig.RELIEF_SHADE_LIGHT; }
+    public static int reliefSky() { return DemoConfig.RELIEF_DARK ? DemoConfig.RELIEF_SKY_DARK : DemoConfig.RELIEF_SKY_LIGHT; }
+
     public void applyReliefSurface() {
         if (terrainOptions == null) {
             return;
         }
         terrainOptions.setSurfaceShaderSource(DemoConfig.RELIEF_SURFACE ? DemoStyles.reliefSurfaceShader() : "");
-        terrainOptions.setSurfaceColorParameter("uPaperColor", color(DemoConfig.RELIEF_DARK ? 0xff10131a : 0xfff7f7f4));
-        terrainOptions.setSurfaceColorParameter("uShadeColor", color(DemoConfig.RELIEF_DARK ? 0xff5a6070 : 0xff6c7280));
+        terrainOptions.setSurfaceColorParameter("uPaperColor", color(reliefPaper()));
+        terrainOptions.setSurfaceColorParameter("uShadeColor", color(reliefShade()));
         terrainOptions.setSurfaceParameter("uShadeStrength", DemoConfig.RELIEF_SHADE_STRENGTH);
         terrainOptions.setSurfaceParameter("uAmbient", DemoConfig.RELIEF_AMBIENT);
         terrainOptions.setSurfaceParameter("uHaze", DemoConfig.RELIEF_HAZE);
@@ -1006,6 +1022,11 @@ public class DemoMap {
         // angle it is still at full strength at (negative = from the terrain, 0 = from the horizon).
         skyOptions.setFogBlend(DemoConfig.SKY_FOG_BLEND);
         skyOptions.setFogHorizon(DemoConfig.SKY_FOG_HORIZON);
+        // In the relief view the sky is part of the palette: a light one over the paper, a night
+        // one over the ink. Alpha 0 makes it see-through, which is what an AR overlay wants.
+        if (DemoConfig.RELIEF_SURFACE || DemoConfig.PEAK_FINDER) {
+            skyOptions.setSkyColor(color(reliefSky()));
+        }
         mapView.requestRender();
     }
 
@@ -1329,8 +1350,8 @@ public class DemoMap {
         reliefEffect.setFloatParameter("uDepthThreshold", DemoConfig.RELIEF_DEPTH_THRESHOLD);
         reliefEffect.setFloatParameter("uCreaseStrength", DemoConfig.RELIEF_CREASE_STRENGTH);
         reliefEffect.setFloatParameter("uHaze", DemoConfig.RELIEF_HAZE);
-        reliefEffect.setColorParameter("uInkColor", color(DemoConfig.RELIEF_DARK ? 0xffe8ecf5 : 0xff14141a));
-        reliefEffect.setColorParameter("uPaperColor", color(DemoConfig.RELIEF_DARK ? 0xff10131a : 0xffffffff));
+        reliefEffect.setColorParameter("uInkColor", color(reliefInk()));
+        reliefEffect.setColorParameter("uPaperColor", color(reliefPaper()));
         mapView.requestRender();
     }
 

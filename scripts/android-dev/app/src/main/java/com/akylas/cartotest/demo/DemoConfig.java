@@ -517,6 +517,17 @@ public final class DemoConfig {
     public static boolean RELIEF_SURFACE = false;
     /** Relief palette: false = ink on paper (light), true = paper on ink (dark / AR). */
     public static boolean RELIEF_DARK = false;
+    /** Palette of the whole relief view, dark and light. The names, their plate, the shaded
+     *  surface, the ink lines and the sky all read from these, so one switch changes the lot. */
+    public static int RELIEF_INK_LIGHT = 0xff14141a;
+    public static int RELIEF_INK_DARK = 0xffe8ecf5;
+    public static int RELIEF_PAPER_LIGHT = 0xfff7f7f4;
+    public static int RELIEF_PAPER_DARK = 0xff10131a;
+    public static int RELIEF_SHADE_LIGHT = 0xff6c7280;
+    public static int RELIEF_SHADE_DARK = 0xff5a6070;
+    /** Sky behind the relief; alpha 0 makes it see-through, which is what AR mode wants. */
+    public static int RELIEF_SKY_LIGHT = 0xff9fc6e8;
+    public static int RELIEF_SKY_DARK = 0xff070a12;
     /** Surface shading: how far the slopes go from the paper colour towards the shade colour. */
     public static float RELIEF_SHADE_STRENGTH = 0.55f;
     /** Surface shading: light left on a slope facing away from the sun. */
