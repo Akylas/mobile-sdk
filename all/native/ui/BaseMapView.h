@@ -146,6 +146,36 @@ namespace carto {
          * @param durationSeconds The duration in which the panning operation will be completed in seconds.
          */
         void setFocusPos(const MapPos& pos, float durationSeconds);
+
+        /**
+         * Moves the camera to a position and a zoom level in ONE animation, pulling back over a
+         * long move and coming down at the target (Van Wijk & Nuij's optimal path). Unlike
+         * setFocusPos + setZoom, which run on their own clocks and cross the map at the final
+         * zoom, this keeps the whole path in view.
+         * @param pos The target position in base projection coordinate system.
+         * @param zoom The target zoom level.
+         * @param durationSeconds The duration in seconds, or 0 to derive it from the length of
+         *                        the path - a move twice as far then does not take twice as long.
+         */
+        void flyTo(const MapPos& pos, float zoom, float durationSeconds);
+        /**
+         * Moves the camera to a position, zoom, rotation and tilt in one animation. See flyTo.
+         * @param pos The target position in base projection coordinate system.
+         * @param zoom The target zoom level.
+         * @param rotation The target rotation in degrees.
+         * @param tilt The target tilt in degrees.
+         * @param durationSeconds The duration in seconds, or 0 to derive it from the path.
+         */
+        void flyTo(const MapPos& pos, float zoom, float rotation, float tilt, float durationSeconds);
+        /**
+         * Stops a flight started with flyTo, leaving the camera where it is.
+         */
+        void stopFlight();
+        /**
+         * Returns true while a flyTo animation is running.
+         * @return True if the camera is in flight.
+         */
+        bool isFlightActive() const;
         
         /**
          * Rotates the view relative to the current rotation value. Positive values rotate clockwise, negative values counterclockwise.
@@ -346,6 +376,9 @@ namespace carto {
          */
         void clearAllCaches();
     
+    protected:
+        void stopCameraAnimations();
+
     private:
         std::shared_ptr<CancelableThreadPool> _envelopeThreadPool;
         std::shared_ptr<CancelableThreadPool> _tileThreadPool;

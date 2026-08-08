@@ -413,6 +413,44 @@ public class DemoMap {
      * has not. So the mode turns the map layers off, the relief and the names on, and tilts the
      * camera to a panorama (in this SDK tilt 90 is straight down).
      */
+    /**
+     * Enters the peak-finder view from wherever the map is, as ONE move: the camera flies to the
+     * current focus at the panorama's zoom and tilt (MapView.flyTo, which pulls back over a long
+     * move and comes down at the target), while the viewpoint climbs to PEAK_FINDER_FLY_ELEVATION
+     * and the terrain, the relief and the names come up on the same clock. Everything here is
+     * ordinary SDK API driven from the app - the SDK has no peak-finder mode.
+     */
+    public void flyToPeakFinder() {
+        final MapPos focus = mapView.getFocusPos();
+        // The mode itself first: the terrain, the relief surface and the names then have the whole
+        // flight to load and fade in, instead of appearing when it lands.
+        setPeakFinderMode(true);
+        // ... but the tilt belongs to the flight, so undo what the mode did to it and let the one
+        // animation carry it.
+        mapView.setTilt(savedTilt > 0 ? savedTilt : mapView.getTilt(), 0);
+        mapView.flyTo(focus, DemoConfig.PEAK_FINDER_FLY_ZOOM, mapView.getRotation(),
+                DemoConfig.PEAK_FINDER_TILT, DemoConfig.PEAK_FINDER_FLY_DURATION);
+        // The viewpoint climbs over the same seconds. The elevation is app state (the widget's),
+        // so the app animates it - there is no SDK animation to hang it on.
+        final float targetElevation = DemoConfig.PEAK_FINDER_FLY_ELEVATION;
+        final long start = System.currentTimeMillis();
+        final long duration = (long) (Math.max(0.1f, DemoConfig.PEAK_FINDER_FLY_DURATION) * 1000);
+        mapView.post(new Runnable() {
+            @Override
+            public void run() {
+                float t = Math.min(1f, (System.currentTimeMillis() - start) / (float) duration);
+                // Ease the same way the flight feels: slow out of the start, slow into the target.
+                float eased = t * t * (3 - 2 * t);
+                DemoConfig.PEAK_FINDER_ELEVATION = targetElevation * eased;
+                applyViewpointElevation();
+                DemoPanel.refreshElevationLabel();
+                if (t < 1f) {
+                    mapView.postDelayed(this, 16);
+                }
+            }
+        });
+    }
+
     public void setPeakFinderMode(boolean enabled) {
         DemoConfig.PEAK_FINDER = enabled;
         if (enabled) {

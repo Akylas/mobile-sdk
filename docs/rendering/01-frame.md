@@ -89,3 +89,21 @@ Two consequences worth knowing:
   loop, and it will not look like a bug — it looks like battery drain. `TileRenderer` logs when it
   has been waiting many frames on a pending elevation rebuild for this reason.
 </content>
+
+## Camera animations
+
+`AnimationHandler` (all/native/renderers/components/) runs one animation per camera property — pan,
+rotation, tilt, zoom — each on its own clock, each moving a share of what is left every frame.
+
+`flyTo` (`BaseMapView::flyTo`, `MapView.flyTo`) is the exception: **one** animation driving pan and
+zoom (and optionally rotation and tilt) from a single clock, along Van Wijk & Nuij's optimal path
+("Smooth and efficient zooming and panning", 2003). The zoom pulls back over a long move and comes
+down at the target, so the whole path stays in view instead of the camera crossing the map at the
+final zoom. `durationSeconds` 0 derives the duration from the length of the path — their point is
+that a move twice as far should not take twice as long. It stops the per-property animations and
+the kinetic handler when it starts, and they stay out of the way until it finishes (`isFlightActive`,
+`stopFlight`). ρ is fixed at their 1.42.
+
+An app that wants to animate its own state alongside it (the demo lifts the viewpoint's elevation
+and switches the peak-finder view on during the flight — `DemoMap.flyToPeakFinder`) runs its own
+clock over the same duration; there is no per-frame progress callback.

@@ -295,6 +295,14 @@ public final class DemoPanel {
     }
 
     /** Shown only in peak-finder mode; DemoMap calls this when the mode is switched. */
+    /** Repaints the elevation readout from DemoConfig - for whoever moves the viewpoint without
+     *  touching the buttons (the peak-finder fly-in animates it). */
+    public static void refreshElevationLabel() {
+        if (elevationText != null) {
+            elevationText.setText(String.format("%.0fm", DemoConfig.PEAK_FINDER_ELEVATION));
+        }
+    }
+
     public static void setElevationWidgetVisible(final boolean visible) {
         final LinearLayout widget = elevationWidget;
         if (widget == null) {
@@ -758,7 +766,9 @@ public final class DemoPanel {
         // One switch for the whole view: the pieces below are independent, and each one on its own
         // looks like nothing happens (the surface hides under the map, the names need summits).
         check(context, "peak finder mode", DemoConfig.PEAK_FINDER, new BoolSetting() {
-            public void set(boolean value) { demo.setPeakFinderMode(value); }
+            // Entering it flies there - one camera move that pulls back, comes down at the
+            // panorama's zoom and tilt, and lifts the viewpoint while the terrain loads.
+            public void set(boolean value) { if (value) { demo.flyToPeakFinder(); } else { demo.setPeakFinderMode(false); } }
         });
         check(context, "relief surface", DemoConfig.RELIEF_SURFACE, new BoolSetting() {
             public void set(boolean value) { DemoConfig.RELIEF_SURFACE = value; demo.applyReliefSurface(); }

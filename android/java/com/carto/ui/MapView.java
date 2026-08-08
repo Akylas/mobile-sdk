@@ -396,6 +396,45 @@ public class MapView extends GLSurfaceView implements GLSurfaceView.Renderer, Ma
     }
 
     /**
+     * Moves the camera to a position and a zoom level in one animation, pulling back over a long
+     * move and coming down at the target. See BaseMapView.flyTo.
+     * @param pos The target position in base projection coordinate system.
+     * @param zoom The target zoom level.
+     * @param durationSeconds The duration in seconds, 0 to derive it from the length of the path.
+     */
+    public void flyTo(MapPos pos, float zoom, float durationSeconds) {
+        baseMapView.flyTo(pos, zoom, durationSeconds);
+    }
+
+    /**
+     * Moves the camera to a position, zoom, rotation and tilt in one animation.
+     * @param pos The target position in base projection coordinate system.
+     * @param zoom The target zoom level.
+     * @param rotation The target rotation in degrees.
+     * @param tilt The target tilt in degrees.
+     * @param durationSeconds The duration in seconds, 0 to derive it from the length of the path.
+     */
+    public void flyTo(MapPos pos, float zoom, float rotation, float tilt, float durationSeconds) {
+        baseMapView.flyTo(pos, zoom, rotation, tilt, durationSeconds);
+    }
+
+    /**
+     * Stops a flyTo animation, leaving the camera where it is.
+     */
+    public void stopFlight() {
+        baseMapView.stopFlight();
+    }
+
+    /**
+     * Returns true while a flyTo animation is running.
+     * @return True if the camera is in flight.
+     */
+    public boolean isFlightActive() {
+        return baseMapView.isFlightActive();
+    }
+
+
+    /**
      * Rotates the view relative to the current rotation value. Positive values rotate clockwise, negative values counterclockwise.
      * The new calculated rotation value will be wrapped to the range of (-180 .. 180]. Rotations are ignored if Options::setRotatable
      * is set to false.

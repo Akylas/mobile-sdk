@@ -24,6 +24,12 @@
 #include <vector>
 #include <sstream>
 
+namespace {
+    // Van Wijk & Nuij's rho, the aggressiveness of the pull-back over a long move; 1.42 is the
+    // value they derive as optimal, and neither they nor any port of it exposes another.
+    const float FLIGHT_RHO = 1.42f;
+}
+
 namespace carto {
 
     std::string BaseMapView::GetSDKVersion() {
@@ -136,6 +142,35 @@ namespace carto {
         _mapRenderer->calculateCameraEvent(cameraEvent, durationSeconds, false);
     }
     
+    void BaseMapView::flyTo(const MapPos& pos, float zoom, float durationSeconds) {
+        stopCameraAnimations();
+        _mapRenderer->getAnimationHandler().setFlightTarget(_options->getBaseProjection()->toInternal(pos), zoom, nullptr, nullptr, durationSeconds, FLIGHT_RHO);
+    }
+
+    void BaseMapView::flyTo(const MapPos& pos, float zoom, float rotation, float tilt, float durationSeconds) {
+        stopCameraAnimations();
+        _mapRenderer->getAnimationHandler().setFlightTarget(_options->getBaseProjection()->toInternal(pos), zoom, &rotation, &tilt, durationSeconds, FLIGHT_RHO);
+    }
+
+    void BaseMapView::stopCameraAnimations() {
+        // Whatever was moving the camera has to let go, or it fights the flight for it.
+        _mapRenderer->getAnimationHandler().stopPan();
+        _mapRenderer->getAnimationHandler().stopRotation();
+        _mapRenderer->getAnimationHandler().stopTilt();
+        _mapRenderer->getAnimationHandler().stopZoom();
+        _mapRenderer->getKineticEventHandler().stopPan();
+        _mapRenderer->getKineticEventHandler().stopRotation();
+        _mapRenderer->getKineticEventHandler().stopZoom();
+    }
+
+    void BaseMapView::stopFlight() {
+        _mapRenderer->getAnimationHandler().stopFlight();
+    }
+
+    bool BaseMapView::isFlightActive() const {
+        return _mapRenderer->getAnimationHandler().isFlightActive();
+    }
+
     void BaseMapView::rotate(float rotationDelta, float durationSeconds) {
         _mapRenderer->getAnimationHandler().stopRotation();
         _mapRenderer->getKineticEventHandler().stopRotation();

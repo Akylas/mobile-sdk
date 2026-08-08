@@ -546,6 +546,11 @@ public final class DemoConfig {
     /** View distance the mode asks for, as a multiple of tangram's rule: a panorama is the case
      *  their rule answers badly, and above 1 the far plane follows the extra ground. */
     public static float PEAK_FINDER_VIEW_DISTANCE = 3;
+    /** Fly-in: the elevation the viewpoint climbs to, the zoom it lands at and how long it takes.
+     *  0 seconds lets the SDK derive the duration from the length of the path. */
+    public static float PEAK_FINDER_FLY_ELEVATION = 1000;
+    public static float PEAK_FINDER_FLY_ZOOM = 13.6f;
+    public static float PEAK_FINDER_FLY_DURATION = 3.5f;
     /** All labels pinned to the top of the screen instead of a band lower down. The two looks
      *  differ by which CORNER of the label the row is aligned on: a band lower down hangs the
      *  names off their bottom left corner (they read up and to the right), a pinned row hangs
@@ -847,6 +852,9 @@ public final class DemoConfig {
         PEAK_FINDER_ELEVATION = DemoCfg.cfgFloat("peakFinderElevation", PEAK_FINDER_ELEVATION);
         PEAK_FINDER_OCCLUSION_TOLERANCE = DemoCfg.cfgFloat("peakFinderOcclusion", PEAK_FINDER_OCCLUSION_TOLERANCE);
         PEAK_FINDER_VIEW_DISTANCE = DemoCfg.cfgFloat("peakFinderViewDistance", PEAK_FINDER_VIEW_DISTANCE);
+        PEAK_FINDER_FLY_ELEVATION = DemoCfg.cfgFloat("peakFinderFlyElevation", PEAK_FINDER_FLY_ELEVATION);
+        PEAK_FINDER_FLY_ZOOM = DemoCfg.cfgFloat("peakFinderFlyZoom", PEAK_FINDER_FLY_ZOOM);
+        PEAK_FINDER_FLY_DURATION = DemoCfg.cfgFloat("peakFinderFlyDuration", PEAK_FINDER_FLY_DURATION);
         PEAKS_PIN_TOP = DemoCfg.cfgBool("peaksPinTop", PEAKS_PIN_TOP);
         PEAKS_TOP_OFFSET = DemoCfg.cfgFloat("peaksTopOffset", PEAKS_TOP_OFFSET);
         LAYER_PEAKS = DemoCfg.cfgBool("peaks", LAYER_PEAKS);
