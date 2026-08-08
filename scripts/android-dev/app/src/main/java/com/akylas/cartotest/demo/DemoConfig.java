@@ -556,6 +556,13 @@ public final class DemoConfig {
     public static float PEAKS_ROW_STEP = 26;
     public static int PEAKS_MAX_ROWS = 10;
     public static float PEAKS_LINE_WIDTH = 1;
+    /** Plate behind each name: colour, opacity, corner radius and padding (style properties, so
+     *  they work in any CartoCSS style, not just this one). */
+    public static int PEAKS_BG_COLOR_ARGB = 0xffffffff;
+    public static float PEAKS_BG_OPACITY = 0.85f;
+    public static float PEAKS_BG_RADIUS = 6;
+    public static float PEAKS_BG_PADDING_X = 5;
+    public static float PEAKS_BG_PADDING_Y = 2;
     /** Metres beyond which a summit is not labelled at all; 0 = no limit. */
     public static float PEAKS_MAX_DISTANCE = 120000;
     /** Scripted camera move so animation artifacts can be captured with adb screenrecord:
@@ -812,6 +819,9 @@ public final class DemoConfig {
         PEAKS_ROW_STEP = DemoCfg.cfgFloat("peaksStep", PEAKS_ROW_STEP);
         PEAKS_MAX_ROWS = DemoCfg.cfgInt("peaksRows", PEAKS_MAX_ROWS);
         PEAKS_LINE_WIDTH = DemoCfg.cfgFloat("peaksLineWidth", PEAKS_LINE_WIDTH);
+        PEAKS_BG_COLOR_ARGB = DemoCfg.cfgColorInt("peaksBgColor", PEAKS_BG_COLOR_ARGB);
+        PEAKS_BG_OPACITY = DemoCfg.cfgFloat("peaksBgOpacity", PEAKS_BG_OPACITY);
+        PEAKS_BG_RADIUS = DemoCfg.cfgFloat("peaksBgRadius", PEAKS_BG_RADIUS);
         PEAKS_MAX_DISTANCE = DemoCfg.cfgFloat("peaksMaxDistance", PEAKS_MAX_DISTANCE);
         ANIM = DemoCfg.cfgStr("anim", ANIM);
         ANIM_DELAY_MS = DemoCfg.cfgFloat("animDelay", ANIM_DELAY_MS);

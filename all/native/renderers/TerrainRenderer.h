@@ -197,6 +197,11 @@ namespace carto {
         std::string _surfaceShaderSource;    // source _surfaceShader was built from
         bool _surfaceShaderFailed = false;   // that source does not compile: do not retry every frame
         std::chrono::steady_clock::time_point _startTime = std::chrono::steady_clock::now(); // u_time origin
+        // What the packed depth texture currently holds: it is reused while the camera, the
+        // elevation and the mesh cap are unchanged (see renderDepthTexture).
+        cglib::mat4x4<double> _depthTextureMVPMatrix = cglib::mat4x4<double>::zero();
+        unsigned int _depthTextureElevationVersion = 0;
+        int _depthTextureMeshResolutionCap = -1;
         std::shared_ptr<Bitmap> _backgroundBitmap; // source of _backgroundTex, for change detection
         std::shared_ptr<Texture> _backgroundTex;
         // Keyed by (tile id, mesh grid size): the occlusion depth texture draws the same

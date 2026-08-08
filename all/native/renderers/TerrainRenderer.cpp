@@ -335,10 +335,23 @@ namespace carto {
         int bufferHeight = std::max(1, viewState.getHeight() / BUFFER_DOWNSCALE);
         if (!_frameBuffer || !_frameBuffer->isValid() || _frameBuffer->getWidth() != bufferWidth || _frameBuffer->getHeight() != bufferHeight) {
             _frameBuffer = glResourceManager->create<FrameBuffer>(bufferWidth, bufferHeight, true, true, false);
+            _depthTextureMVPMatrix = cglib::mat4x4<double>::zero();
         }
         if (!_frameBuffer) {
             return false;
         }
+
+        // The texture is still there from the last frame: with the camera and the elevation
+        // unchanged it is still the answer. This pass draws the terrain from CPU meshes at the
+        // full mesh resolution and was the largest single item in a peak-finder frame (9.5 ms of
+        // 19.3 on an Adreno 610), all of it repeated for a map that is standing still.
+        unsigned int elevationVersion = (terrainOptions->getElevationManager() ? terrainOptions->getElevationManager()->getVersion() : 0);
+        if (_depthTextureMVPMatrix == viewState.getModelviewProjectionMat() && _depthTextureElevationVersion == elevationVersion && _depthTextureMeshResolutionCap == meshResolutionCap) {
+            return true;
+        }
+        _depthTextureMVPMatrix = viewState.getModelviewProjectionMat();
+        _depthTextureElevationVersion = elevationVersion;
+        _depthTextureMeshResolutionCap = meshResolutionCap;
 
         GLint prevFBO = 0;
         glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFBO);

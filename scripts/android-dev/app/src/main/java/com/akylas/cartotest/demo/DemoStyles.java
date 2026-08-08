@@ -541,6 +541,13 @@ public final class DemoStyles {
             "  text-fill: " + hex(DemoConfig.RELIEF_DARK ? 0xffe8ecf5 : 0xff14141a) + ";",
             "  text-halo-fill: " + hex(DemoConfig.RELIEF_DARK ? 0xff10131a : 0xffffffff) + ";",
             "  text-halo-radius: 1.5;",
+            // The plate behind the name - a general label property, so a classic map style can use
+            // exactly the same four lines.
+            "  text-background-fill: " + hex(DemoConfig.PEAKS_BG_COLOR_ARGB) + ";",
+            "  text-background-opacity: " + DemoConfig.PEAKS_BG_OPACITY + ";",
+            "  text-background-radius: " + DemoConfig.PEAKS_BG_RADIUS + ";",
+            "  text-background-padding-x: " + DemoConfig.PEAKS_BG_PADDING_X + ";",
+            "  text-background-padding-y: " + DemoConfig.PEAKS_BG_PADDING_Y + ";",
             "  text-placement: nuticallout;",
             // The higher summit claims the row: without this the winner is whichever label the
             // tile order happened to offer first, and a 700 m hill hides a 2000 m one behind it.
