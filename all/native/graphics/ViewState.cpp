@@ -804,6 +804,16 @@ namespace carto {
         if (_terrainHeightMax > _terrainHeightMin) {
             near = std::max(near, std::min(terrainNear, far * 0.5f));
         }
+        if (_cameraTilt != _tilt) {
+            // The view is pitched away from the camera geometry - looking above the horizon, or a
+            // first person camera. The loop above takes the near plane from where the sampled rays
+            // MEET THE GROUND, and as the view pitches up those hits walk off into the distance:
+            // the near plane follows them out and starts clipping everything close to the camera,
+            // worse the higher the view goes. What is close to the camera does not move when the
+            // view turns, so cap the near plane with the rule that does not depend on the view
+            // direction at all - tangram's `near = m_pos.z / 50`.
+            near = std::min(near, terrainNear);
+        }
         if (!groundVisible) {
             // Nothing but sky: no ray met the ground, so the loop above left far == near and the
             // depth range would collapse onto the near plane, taking everything drawn INTO the sky

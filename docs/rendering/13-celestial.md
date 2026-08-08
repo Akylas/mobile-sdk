@@ -103,6 +103,22 @@ What each piece is:
   map gestures and this scheme has none of them.
 - **`FreeRoamLookSensitivity`** is the turn in degrees per inch of drag (default 90).
 
+### Panning speed on a tilted view
+
+Not a free roam thing, but the same family of problem: on a tilted view a touch near the horizon
+corresponds to a map point far away, so the exact grab-the-world pan moves the map by kilometres
+for the same finger travel that moves it by metres at the bottom of the screen. Worse, the scale is
+re-derived from wherever the finger is NOW, so a drag that starts close and travels up the screen
+**accelerates while the finger is down** — measured at z15 tilt 65: the same 1300 px drag moved
+2160 m that way against 1186 m at the speed it started with.
+
+`Options::PanningSpeedMode` picks between them: `MAP` is the exact grab-the-world pan, `ANCHORED`
+(the default) measures the scale where the gesture starts and keeps it for the whole gesture, and
+`CONSTANT` always measures at the centre of the screen, so the speed depends neither on where the
+finger started nor on where it goes. The two new modes pan by the SCREEN delta in the ground frame,
+which also means they work with the view aimed at the sky, where there is no ground under the touch
+for a map pan to hold on to.
+
 A two-finger gesture cannot be synthesized with `adb` (one pointer only, and the emulator's touch
 devices are not writable from the shell), so the demo has a panel button that feeds `onTouchEvent`
 a real two-pointer `MotionEvent` sequence — same entry point as a finger.

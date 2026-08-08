@@ -108,6 +108,8 @@ namespace carto {
 
         void singlePointerPan(const ScreenPos& screenPos, const ViewState& viewState);
         void singlePointerLook(const ScreenPos& screenPos, const ViewState& viewState);
+        double calculatePanScale(const ScreenPos& screenPos, const ViewState& viewState) const;
+        void updatePanScale(const ScreenPos& screenPos, const ViewState& viewState);
         void singlePointerZoom(const ScreenPos& screenPos, const ViewState& viewState);
         bool singlePointerZoomStop(const ScreenPos& screenPos, const ViewState& viewState);
         void dualPointerGuess(const ScreenPos& screenPos1, const ScreenPos& screenPos2, const ViewState& viewState);
@@ -169,6 +171,7 @@ namespace carto {
         // Panning and picking are anchored to the plane at this height so that the touched
         // terrain point stays under the finger. 0 when terrain is not enabled.
         std::atomic<double> _gestureAnchorHeight;
+        std::atomic<double> _panScale; // internal units per screen pixel, frozen when a pan starts
 
         ScreenPos _prevScreenPos1;
         ScreenPos _prevScreenPos2;

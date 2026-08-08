@@ -44,6 +44,7 @@ namespace carto {
         _skyBitmap(),
         _backgroundBitmap(GetDefaultBackgroundBitmap()),
         _userInput(true),
+        _panningSpeedMode(PanningSpeedMode::PANNING_SPEED_MODE_ANCHORED),
         _freeRoamMode(FreeRoamMode::FREE_ROAM_MODE_OFF),
         _freeRoamLookSensitivity(90.0f),
         _freeRoamMoveSpeed(0.5f),
@@ -535,6 +536,22 @@ namespace carto {
         notifyOptionChanged("UserInput");
     }
     
+    PanningSpeedMode::PanningSpeedMode Options::getPanningSpeedMode() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        return _panningSpeedMode;
+    }
+
+    void Options::setPanningSpeedMode(PanningSpeedMode::PanningSpeedMode mode) {
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            if (_panningSpeedMode == mode) {
+                return;
+            }
+            _panningSpeedMode = mode;
+        }
+        notifyOptionChanged("PanningSpeedMode");
+    }
+
     FreeRoamMode::FreeRoamMode Options::getFreeRoamMode() const {
         std::lock_guard<std::mutex> lock(_mutex);
         return _freeRoamMode;

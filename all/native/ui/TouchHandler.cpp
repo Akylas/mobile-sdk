@@ -26,6 +26,7 @@ namespace carto {
     TouchHandler::TouchHandler(const std::shared_ptr<MapRenderer>& mapRenderer, const std::shared_ptr<Options>& options) :
         _gestureMode(SINGLE_POINTER_CLICK_GUESS),
         _gestureAnchorHeight(0.0),
+        _panScale(0.0),
         _prevScreenPos1(0, 0),
         _prevScreenPos2(0, 0),
         _swipe1(0, 0),
@@ -222,6 +223,7 @@ namespace carto {
                 _dualPointerReleaseTime = std::chrono::steady_clock::now();
                 _prevScreenPos1 = screenPos2;
                 _gestureMode = SINGLE_POINTER_PAN;
+                updatePanScale(screenPos2, viewState); // a new pan starts here: a new speed
                 break;
             }
             break;
@@ -241,6 +243,7 @@ namespace carto {
                  _dualPointerReleaseTime = std::chrono::steady_clock::now();
                  _prevScreenPos1 = screenPos1;
                  _gestureMode = SINGLE_POINTER_PAN;
+                 updatePanScale(screenPos1, viewState); // a new pan starts here: a new speed
                  break;
             default:
                 break;
@@ -361,6 +364,46 @@ namespace carto {
             _mapRenderer->getAnimationHandler().stopTilt();
             _mapRenderer->getAnimationHandler().stopZoom();
             
+            double panScale = _panScale.load();
+            if (_options->getPanningSpeedMode() != PanningSpeedMode::PANNING_SPEED_MODE_MAP && panScale > 0) {
+                // The pan travels the SCREEN delta at the scale the gesture started with. Grabbing
+                // the world exactly - the other mode - re-derives that scale from wherever the
+                // finger is now, so a drag that starts near the camera and travels up the screen
+                // speeds up as it goes, which is not something the hand asked for.
+                float dx = screenPos.getX() - _prevScreenPos1.getX();
+                float dy = screenPos.getY() - _prevScreenPos1.getY();
+                _prevScreenPos1 = screenPos;
+                if (dx == 0 && dy == 0) {
+                    return;
+                }
+
+                cglib::vec3<double> focusPos = viewState.getFocusPos();
+                MapPos focusMapPos = projectionSurface->calculateMapPos(focusPos);
+                cglib::vec3<double> normal = projectionSurface->calculateNormal(focusMapPos);
+                cglib::vec3<double> right = cglib::vector_product(viewState.calculateViewDir(), normal);
+                if (cglib::length(right) == 0) {
+                    right = cglib::vector_product(viewState.getUpVec(), normal); // straight up or down
+                }
+                if (cglib::length(right) == 0) {
+                    return;
+                }
+                right = cglib::unit(right);
+                cglib::vec3<double> forward = cglib::vector_product(normal, right);
+                if (cglib::length(forward) == 0) {
+                    return;
+                }
+                forward = cglib::unit(forward);
+
+                // Dragging the world down brings what was beyond the top edge into view, i.e. the
+                // camera goes forward; dragging it right takes the camera left.
+                cglib::vec3<double> offset = forward * (dy * panScale) + right * (-dx * panScale);
+                CameraPanEvent cameraEvent;
+                cameraEvent.setPosDelta(std::make_pair(focusMapPos, projectionSurface->calculateMapPos(focusPos + offset)));
+                _cameraEvents |= CAMERA_PAN;
+                _mapRenderer->calculateCameraEvent(cameraEvent, 0, true);
+                return;
+            }
+
             if (isValidScreenPosition(screenPos, viewState) && isValidScreenPosition(_prevScreenPos1, viewState)) {
                 MapPos currentPos = mapScreenPosition(screenPos, viewState);
                 MapPos prevPos = mapScreenPosition(_prevScreenPos1, viewState);
@@ -812,6 +855,45 @@ namespace carto {
         return cglib::ray3<double>(near, far - near);
     }
 
+    void TouchHandler::updatePanScale(const ScreenPos& screenPos, const ViewState& viewState) {
+        _panScale.store(calculatePanScale(screenPos, viewState));
+    }
+
+    /**
+     * How much map a screen pixel is worth where the gesture starts, which is what fixes the pan
+     * speed for the rest of it. On a tilted view this varies over the screen by orders of
+     * magnitude - that is the whole point of measuring it once.
+     */
+    double TouchHandler::calculatePanScale(const ScreenPos& screenPos, const ViewState& viewState) const {
+        std::shared_ptr<ProjectionSurface> projectionSurface = viewState.getProjectionSurface();
+        if (!projectionSurface || viewState.getHeight() <= 0) {
+            return 0;
+        }
+        // A pixel at the FAR plane is the largest a pixel can honestly be worth: near the horizon
+        // the two sample rays run almost parallel to the ground and their hit points fly apart.
+        double maxScale = viewState.getFar() * 2.0 * viewState.getTanHalfFOVY() / viewState.getHeight();
+
+        ScreenPos samplePos = screenPos;
+        if (_options->getPanningSpeedMode() == PanningSpeedMode::PANNING_SPEED_MODE_CONSTANT) {
+            samplePos = ScreenPos(viewState.getHalfWidth(), viewState.getHalfHeight());
+        }
+        double height = _gestureAnchorHeight.load();
+        for (int attempt = 0; attempt < 2; attempt++) {
+            cglib::vec3<double> pos0 = viewState.screenToWorld(cglib::vec2<float>(samplePos.getX(), samplePos.getY()), height);
+            cglib::vec3<double> pos1 = viewState.screenToWorld(cglib::vec2<float>(samplePos.getX(), samplePos.getY() + 1), height);
+            if (std::isfinite(cglib::norm(pos0)) && std::isfinite(cglib::norm(pos1))) {
+                double scale = projectionSurface->calculateDistance(pos0, pos1);
+                if (scale > 0) {
+                    return std::min(scale, maxScale);
+                }
+            }
+            // No ground under the touch - the view is aimed at the sky, or past the horizon. The
+            // centre of the screen is the fallback, and the far plane the last resort.
+            samplePos = ScreenPos(viewState.getHalfWidth(), viewState.getHalfHeight());
+        }
+        return maxScale;
+    }
+
     MapPos TouchHandler::mapScreenPosition(const ScreenPos& screenPos, const ViewState& viewState) const {
         cglib::vec3<double> pos = viewState.screenToWorld(cglib::vec2<float>(screenPos.getX(), screenPos.getY()), _gestureAnchorHeight.load());
         return viewState.getProjectionSurface()->calculateMapPos(pos);
@@ -889,7 +971,9 @@ namespace carto {
         std::lock_guard<std::recursive_mutex> lock(_mutex);
         _prevScreenPos1 = screenPos;
         _gestureMode = SINGLE_POINTER_PAN;
-        updateGestureAnchorHeight(screenPos, _mapRenderer->getViewState());
+        ViewState viewState = _mapRenderer->getViewState();
+        updateGestureAnchorHeight(screenPos, viewState);
+        updatePanScale(screenPos, viewState);
     }
 
     void TouchHandler::startDualPointer(const ScreenPos& screenPos1, const ScreenPos& screenPos2) {

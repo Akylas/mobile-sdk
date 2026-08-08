@@ -100,6 +100,33 @@ namespace carto {
         };
     }
 
+    namespace PanningSpeedMode {
+        /**
+         * How fast a one-finger pan moves the map on a TILTED view, where a touch near the horizon
+         * corresponds to a point far away and a touch at the bottom of the screen to a near one.
+         */
+        enum PanningSpeedMode {
+            /**
+             * The map point under the finger follows it exactly, which is what a flat map does.
+             * On a tilted view the speed then changes DURING the gesture: a drag that starts near
+             * the camera and travels up the screen accelerates as the finger reaches parts of the
+             * screen that are further away.
+             */
+            PANNING_SPEED_MODE_MAP,
+            /**
+             * The scale is measured where the pan STARTS and stays fixed for the whole gesture:
+             * starting far away still pans fast and starting close still pans slowly, but the
+             * speed never changes while the finger is down. The default.
+             */
+            PANNING_SPEED_MODE_ANCHORED,
+            /**
+             * The scale is measured at the centre of the screen, so it depends neither on where
+             * the finger started nor on where it goes - every pan moves the map at the same rate.
+             */
+            PANNING_SPEED_MODE_CONSTANT
+        };
+    }
+
     namespace PivotMode {
         /**
          *  Possible pivot modes.
@@ -483,6 +510,20 @@ namespace carto {
         void setUserInput(bool enabled);
     
         /**
+         * Returns the panning speed mode.
+         * @return The panning speed mode.
+         */
+        PanningSpeedMode::PanningSpeedMode getPanningSpeedMode() const;
+        /**
+         * Sets how fast a one-finger pan moves the map on a tilted view. The default is
+         * PANNING_SPEED_MODE_ANCHORED, which keeps the speed a gesture starts with for as long as
+         * it lasts; PANNING_SPEED_MODE_MAP is the exact grab-the-world pan, which changes speed as
+         * the finger moves between near and far parts of the screen.
+         * @param mode The new panning speed mode.
+         */
+        void setPanningSpeedMode(PanningSpeedMode::PanningSpeedMode mode);
+
+        /**
          * Returns the free roam mode.
          * @return The free roam mode.
          */
@@ -776,6 +817,7 @@ namespace carto {
         std::shared_ptr<Bitmap> _backgroundBitmap;
         
         bool _userInput;
+        PanningSpeedMode::PanningSpeedMode _panningSpeedMode;
         FreeRoamMode::FreeRoamMode _freeRoamMode;
         float _freeRoamLookSensitivity;
         float _freeRoamMoveSpeed;
