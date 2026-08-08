@@ -67,6 +67,16 @@ public final class DemoStyles {
                 }
                 break;
             }
+            case POI: {
+                // The CartoCSS is written here, the FONTS come from the APK asset package: a shield
+                // icon shaped from osm.ttf needs a font, and a bare CartoCSS string carries none.
+                AssetPackage pack = openAppAssets();
+                if (pack != null) {
+                    lastLoadedDescription = "shield test style + app asset fonts";
+                    return new MBVectorTileDecoder(new CartoCSSStyleSet(poiTestStyle(), pack));
+                }
+                break;
+            }
             case NUTI: {
                 MBVectorTileDecoder decoder = createNutiDecoder();
                 if (decoder != null) {
@@ -300,6 +310,100 @@ public final class DemoStyles {
                     "  contour-label-stubs: 1;",
                     "  contour-label-interval: " + (int) DemoConfig.CONTOUR_LABEL_INTERVAL + ";")
                 : "",
+            "}");
+    }
+
+    // =============================================================================================
+    // SHIELD TEST STYLE (StyleSource.POI)
+    // One shield rule per label: an ICON that stays on the feature and a NAME the culler puts on
+    // whichever side is free ('shield-anchors'), falling back to the icon alone when none is
+    // ('shield-text-optional'). The icon is a GLYPH of assets/style/fonts/osm.ttf - the same font
+    // the real style uses - so it costs one atlas cell and no bitmap.
+    //
+    // Deliberately dense: every '#poi' and every '#place' carries one, which is what makes the
+    // side selection visible (and what a perf comparison needs).
+    // =============================================================================================
+
+    /** A PUA glyph of assets/style/fonts/osm.ttf, as the real style's 'nuti::osm-*' values have them. */
+    private static final String ICON_DOT = "\ue934";
+    private static final String ICON_PEAK = "\uea04";
+    private static final String ICON_RESTAURANT = "\ue919";
+    private static final String ICON_HOTEL = "\ue9d6";
+    private static final String ICON_CAFE = "\ue990";
+
+    /** The shield properties shared by every rule of the test style. */
+    private static String shieldCommon(String icon, String fill, float size) {
+        StringBuilder mss = new StringBuilder();
+        mss.append("  shield-face-name: 'DIN Pro Medium';\n");
+        mss.append("  shield-size: ").append(size).append(";\n");
+        mss.append("  shield-fill: ").append(fill).append(";\n");
+        mss.append("  shield-halo-fill: #ffffff;\n");
+        mss.append("  shield-halo-radius: 1.5;\n");
+        mss.append("  shield-text-dx: ").append(DemoConfig.POI_TEXT_DX).append(";\n");
+        mss.append("  shield-wrap-width: 90;\n");
+        mss.append("  shield-wrap-character: ' ';\n");
+        if (DemoConfig.POI_BITMAP_ICON) {
+            mss.append("  shield-file: url(shields/place.svg);\n");
+        }
+        if (DemoConfig.POI_FONT_ICON) {
+            mss.append("  shield-icon-name: '").append(icon).append("';\n");
+            mss.append("  shield-icon-face-name: 'osm';\n");
+            mss.append("  shield-icon-size: ").append(size + 4f).append(";\n");
+            mss.append("  shield-icon-fill: ").append(fill).append(";\n");
+        }
+        if (DemoConfig.POI_ANCHORS != null && !DemoConfig.POI_ANCHORS.trim().isEmpty()) {
+            mss.append("  shield-anchors: '").append(DemoConfig.POI_ANCHORS.trim()).append("';\n");
+            mss.append("  shield-text-optional: ").append(DemoConfig.POI_TEXT_OPTIONAL ? "true" : "false").append(";\n");
+        }
+        return mss.toString();
+    }
+
+    public static String poiTestStyle() {
+        return String.join("\n",
+            "Map { background-color: #f4f1ec; }",
+            "#water { polygon-fill: #9cc3e0; }",
+            "#landcover { polygon-fill: #dbe8cc; }",
+            "#landuse { polygon-fill: #e7e3dc; }",
+            "#transportation { line-color: #ffffff; line-width: linear([view::zoom], (12, 0.6), (18, 4.0)); }",
+            "#transportation['class'='motorway'] { line-color: #e8b48a; line-width: linear([view::zoom], (12, 1.5), (18, 9.0)); }",
+            "#building[zoom>=15] { polygon-fill: #ded8d0; }",
+
+            // Cities and towns: the low-zoom test - a screen full of them, all competing.
+            "#place[class=city][zoom>=4],",
+            "#place[class=town][zoom>=8],",
+            "#place[class=village][zoom>=11] {",
+            "  shield-name: [name];",
+            shieldCommon(ICON_DOT, "#333333", 12f),
+            "  shield-placement-priority: 10;",
+            "}",
+
+            // Every POI, at the zooms where a real style shows them. One rule per class rather than
+            // nested filter blocks: a nested block builds a symbolizer of its own, and what it
+            // inherits from the block around it is a CartoCSS question this test has no reason to
+            // ask. Several icons so the atlas holds more than one glyph and the screen mixes label
+            // widths, which is what makes the side selection visible.
+            "#poi[zoom>=14][class=restaurant],",
+            "#poi[zoom>=14][class=fast_food] {",
+            "  shield-name: [name];",
+            shieldCommon(ICON_RESTAURANT, "#b5651d", 11f),
+            "}",
+            "#poi[zoom>=14][class=lodging] {",
+            "  shield-name: [name];",
+            shieldCommon(ICON_HOTEL, "#2a6f97", 11f),
+            "}",
+            "#poi[zoom>=14][class=cafe] {",
+            "  shield-name: [name];",
+            shieldCommon(ICON_CAFE, "#7d5a3c", 11f),
+            "}",
+            "#poi[zoom>=14][class!=restaurant][class!=fast_food][class!=lodging][class!=cafe] {",
+            "  shield-name: [name];",
+            shieldCommon(ICON_DOT, "#4a4a4a", 11f),
+            "}",
+
+            // Peaks: the 3D test - these sit on the terrain, so their icons ride the relief.
+            "#mountain_peak[zoom>=11] {",
+            "  shield-name: [name];",
+            shieldCommon(ICON_PEAK, "#5a4632", 11f),
             "}");
     }
 

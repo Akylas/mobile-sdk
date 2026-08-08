@@ -56,6 +56,67 @@ Fork-specific rules, all comparing the **placement's** `localId` (hence the stab
 above): `allowOverlapSameFeatureId`, `sameFeatureIdDependent`, and group ids with
 `minimumGroupDistance`.
 
+### Anchored shields: the name takes a free side (fork-specific)
+
+A shield is ONE label whose glyph run is `[icon glyphs] CR [text glyphs …]`: the icon comes before
+the first line break and the text after it, and `buildPointVertexData` resets the pen at that break.
+Everything below rests on that split — the icon stays on the feature, only the text moves.
+
+```css
+#poi {
+  shield-name: [name];
+  shield-file: url(shields/place.svg);   /* a bitmap icon, as before */
+  shield-icon-name: '<PUA char>';        /* AND/OR a font icon: one glyph of an icon face */
+  shield-icon-face-name: 'osm';
+  shield-icon-size: 15; shield-icon-fill: #b5651d;
+  shield-anchors: 'right,left,top,bottom';  /* sides, in preference order */
+  shield-text-optional: true;               /* no side free -> draw the icon alone */
+  shield-text-dx: 2;                        /* gap from the icon, MIRRORED per side */
+}
+```
+
+- **The sides are precomputed, the choice is per pass.** `TileLayerBuilder` measures the text once
+  and stores one `TileLabel::Variant` per anchor — a `vec2` shift of the text pen and a `drawText`
+  flag. No extra glyph run, no extra formatting: the block is placed against the icon's edge, so the
+  style's own `horizontal-alignment` does not have to be mirrored, and `dx`/`dy` are re-applied as a
+  gap along the anchor direction (a name pushed 2 px right of the icon is pushed 2 px LEFT on the
+  left side). A style with no `shield-anchors` builds no variants and takes exactly the old path.
+- **`LabelCuller::placeAnchoredLabel`** tries the sides in order and takes the first free one, the
+  side the label already held first — the same committed-placement hysteresis the global sort uses,
+  applied within one label. This is tangram's `do { … } while (isOccluded() && nextAnchor())`
+  (`labelManager.cpp`), with their anchor set and their anchor order.
+- `shield-text-optional` appends a last variant that draws the icon alone. That is mapbox's
+  `text-optional`; here it costs one more variant, not a second label.
+- The side is carried across rebuilds by `snapPlacement`. Without that a label recreated by a
+  tile-set change starts at side 0 again and the name visibly hops around its icon while panning.
+
+**Cost.** All sides share the placement, the scale and the label's screen axes, so
+`Label::calculateVariantEnvelopes` builds all of their envelopes in one call and the culler only
+repeats the cheap part (project + grid test) per side. Measured on the emulator with a deliberately
+extreme style (every POI anchored, ~2300 live labels, 4 sides + icon-only): **20.8 ms per culler
+pass against 16.3 ms with the property unset**, and the frame time moves by under 1 ms — which is
+the extra labels `text-optional` lets through, not the placement. Building one envelope per side
+instead cost 27.8 ms per pass, so the shared setup is worth keeping. A style that does not use
+`shield-anchors` measures identical to before. The pass runs on the placement worker; no frame
+section shows it, which is why `RenderStats::cullerNs` (`cullMs=` in the `RenderStats:` line) exists.
+
+### Font icons
+
+`shield-icon-name` is a run of glyphs from an icon face, drawn before the text with its own colour
+(`shield-icon-fill`, a third style slot next to the halo and the second text run) and its own size.
+It is not a bitmap: the glyphs are SDF like the text, so they stay sharp at any zoom and cost one
+atlas cell each.
+
+The face has to be reached **through the label font** — `getFont(labelFont->getName(), iconFace)` —
+because `FontManagerFont::shapeGlyphs` rasterizes a fallback's glyphs into the atlas of the font it
+was called on, and one label can only be drawn from one atlas. Resolving the icon face on its own
+and shaping with it gives glyphs in a different atlas and the label renders nothing. The face is
+also re-requested at the render size the ICON is drawn at, not the text's, so a large icon next to
+small text is not a magnified small raster.
+
+A shield may carry both: the bitmap (`shield-file`) is the first prefix glyph and the icon run
+follows it, so they sit side by side rather than on top of each other.
+
 ### Max distance (fork-specific)
 
 A label glyph is screen-space: a street name 5 km away is drawn at the same size as one 50 m away,
@@ -99,7 +160,11 @@ zoom filter.
 ## Against tangram
 
 Tangram's labels are built into the tile's styled mesh at tile build time and placed by their own
-`LabelManager`; ours are re-merged and re-placed from the live tile set. The visible difference is
+`LabelManager`; ours are re-merged and re-placed from the live tile set. Their icon and its name are
+**two labels** linked by `setRelative`, with `optional` deciding whether the parent survives the
+child being occluded; a shield here is one label with several text layouts, so the anchor retry loop
+is theirs but the object model is not (see
+[11-tangram-diff.md](11-tangram-diff.md)). The visible difference is
 where the work happens: theirs is amortised into tile building, ours falls on tile-set changes during
 panning. Their contour labels are generated from the elevation texture with no geometry at all,
 which this fork now also does ([07-hillshade-contours.md](07-hillshade-contours.md)).

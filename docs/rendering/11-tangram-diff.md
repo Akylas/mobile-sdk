@@ -53,6 +53,24 @@ That border machinery is a seam feature they do not have: it is what makes DEM t
 zoom levels meet without a visible ridge. The port that keeps it is to upload the grid's own samples
 and patch the borders as small `glTexSubImage2D` strips — not to drop the feature.
 
+### An icon and its name are one label, not two
+
+Tangram builds a `SpriteLabel` for the icon and a `TextLabel` for the name and links them
+(`setRelative`, `pointStyleBuilder.cpp`): the pair collides as two objects, and `optional` decides
+whether the parent survives its child being occluded. A shield here has always been ONE label whose
+glyph run holds the icon and the text together, and every shield property (dx/dy, halo, plate, the
+placement rules) is written for that one object.
+
+So the anchor mechanism was ported and the object model was not: `TextLabelStyle::anchors` is their
+`Label::Options::anchors`, in their order, tried by their retry loop — but a side is a text layout
+inside one label rather than a second label moved by `anchorDirection() * dim * 0.5`. What that
+buys is that all the shield properties keep working unchanged; what it costs is that the icon and
+the name cannot win or lose a slot independently — "icon placed, name dropped" is the
+`shield-text-optional` variant, not a separate object. Their three pre-built alignment ranges have
+no equivalent because CartoCSS centres every line within the block already, so alignment only moves
+the block and one glyph run covers all sides. See
+[06-labels.md](06-labels.md#anchored-shields-the-name-takes-a-free-side-fork-specific).
+
 ### Draped fills (the old path) are being removed, not maintained
 
 Not documented here on purpose; see [README.md](README.md#two-rules-that-shaped-everything-here).

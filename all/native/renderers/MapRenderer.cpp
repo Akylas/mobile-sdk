@@ -108,20 +108,23 @@ namespace carto {
                 deltas[i] = values[i] - lastValues[i];
                 lastValues[i] = values[i];
             }
-            static long long lastPasses = 0, lastFlips = 0;
+            static long long lastPasses = 0, lastFlips = 0, lastCullerNs = 0;
             long long passes = RenderStats::cullerPasses.load();
             long long flips = RenderStats::cullerVisibilityFlips.load();
+            long long cullerNs = RenderStats::cullerNs.load();
             long long deltaPasses = passes - lastPasses;
             long long deltaFlips = flips - lastFlips;
+            long long deltaCullerNs = cullerNs - lastCullerNs;
             lastPasses = passes;
             lastFlips = flips;
+            lastCullerNs = cullerNs;
 
-            Log::Infof("RenderStats: cullUpd=%lld tileRecalc=%lld tileSkip=%lld tileSets=%lld labelMaps=%lld | surfBuilt=%lld surfInval=%lld | labelsAlloc=%lld reused=%lld live=%lld elevReanchor=%lld | placeUpd=%lld reNull=%lld reHidden=%lld reVisible=%lld search=%lld | snap=%lld snapMoved=%lld | cullPasses=%lld visFlips=%lld",
+            Log::Infof("RenderStats: cullUpd=%lld tileRecalc=%lld tileSkip=%lld tileSets=%lld labelMaps=%lld | surfBuilt=%lld surfInval=%lld | labelsAlloc=%lld reused=%lld live=%lld elevReanchor=%lld | placeUpd=%lld reNull=%lld reHidden=%lld reVisible=%lld search=%lld | snap=%lld snapMoved=%lld | cullPasses=%lld visFlips=%lld cullMs=%.2f",
                        deltas[13], deltas[14], deltas[15], deltas[0], deltas[11],
                        deltas[1], deltas[2],
                        deltas[3], deltas[12], RenderStats::labelsLive.load(), deltas[4],
                        deltas[5], deltas[6], deltas[7], deltas[8], deltas[16],
-                       deltas[9], deltas[10], deltaPasses, deltaFlips);
+                       deltas[9], deltas[10], deltaPasses, deltaFlips, deltaCullerNs / 1.0e6);
 
             // Draw submission, per interval. geomDraws is the number that matters: the frame
             // cost of a style tracks it, not the index count next to it.
