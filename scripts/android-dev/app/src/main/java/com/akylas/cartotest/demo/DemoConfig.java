@@ -226,12 +226,20 @@ public final class DemoConfig {
     public static float SKY_FOG_HORIZON = -1f;
     public static float VIEW_DISTANCE_FACTOR = 1f;
     /** Absolute view distance in METRES, whatever the camera's height or pitch. 0 = the factor
-     *  rule above (tangram's, which shortens the view as the camera comes down to the ground). */
+     *  rule above (tangram's, which shortens the view as the camera comes down to the ground -
+     *  which is why this is pinned instead). What a long view costs is NOT the distance but the
+     *  distance times the finest a far tile is allowed to be: at coarsening 3 this drew 550 tiles
+     *  against 50, all of them z13, which is minutes of loading and a tile blinking as each lands.
+     *  Pair it with enough COARSENING (below) and it costs the same 50 tiles. */
     public static float VIEW_DISTANCE_METERS = 170000f;
     /** Zoom levels below the camera a tile may coarsen to in terrain mode. The tile surface is the
      *  depth occluder and the DEM level follows the tile zoom, so unbounded coarsening means leaky
-     *  ridges and blocky hillshade. '--es coarsening 2'. */
-    public static int TERRAIN_MAX_TILE_ZOOM_COARSENING = 3;
+     *  ridges and blocky hillshade - but too little of it is what makes a long view unaffordable,
+     *  because it overrides the screen-area LOD rule that would coarsen the horizon by itself.
+     *  8 with the 170 km view above: 50 tiles, and the near field gets FINER (z15 against z13),
+     *  because the budget goes where it is visible instead of paving the horizon.
+     *  '--es coarsening 2'. */
+    public static int TERRAIN_MAX_TILE_ZOOM_COARSENING = 8;
 
     // =============================================================================================
     // SUN / LIGHT / SHADOWS (com.carto.components.LightOptions)
