@@ -524,6 +524,31 @@ public final class DemoConfig {
     public static String ROUTE_TEST_OPACITY_MODE = "geom";
 
     // =============================================================================================
+    // GEOJSON TILE-BUILD BENCH (DemoTests.runGeoJSONBench)
+    // Times GeoJSONVectorTileDataSource with no renderer in the way. '--es geojsonBench many|long|
+    // both|<name>' runs it at startup; the panel has a button for each dataset.
+    // =============================================================================================
+
+    /** Empty = off. many | long | both | an asset (or data-directory) file name. */
+    public static String GEOJSON_BENCH = "";
+    /** MANY OBJECTS: 5000 short routes, ~165k points - the per-tile feature scan. */
+    public static String GEOJSON_BENCH_MANY_NAME = "bench-many-routes.geojson";
+    /** LONG LINES: 8 routes of 100-250 km, ~300k points - re-clipping a long line per tile. */
+    public static String GEOJSON_BENCH_LONG_NAME = "bench-long-routes.geojson";
+    public static int GEOJSON_BENCH_MIN_ZOOM = 8;
+    public static int GEOJSON_BENCH_MAX_ZOOM = 17;
+    /** Tiles per side around the data centre, at every zoom. 4 -> 16 tiles x 10 zooms = 160 tiles. */
+    public static int GEOJSON_BENCH_TILES_PER_SIDE = 4;
+    /** Adds a bench dataset as a REAL layer (route style) instead of timing tile builds, so the
+     *  RENDER cost can be panned through. Empty = off. many | long | both | a file name. */
+    public static String GEOJSON_BENCH_LAYER = "";
+    /** Simplify tolerance of the bench source, in tile subpixels. This is the SDK default (1.0),
+     *  NOT the route test's 0: at 0 nothing is dropped at any zoom, and 5000 routes then reach the
+     *  terrain lattice at full resolution - measured 24M indices/frame and 4 fps on the Crosscall,
+     *  against 15.7 fps at tolerance 2. Set it to 0 to reproduce that worst case on purpose. */
+    public static float GEOJSON_BENCH_SIMPLIFY = 1.0f;
+
+    // =============================================================================================
     // DEBUG / HARNESS
     // =============================================================================================
 
@@ -862,6 +887,12 @@ public final class DemoConfig {
         ROUTE_TEST_OPACITY = DemoCfg.cfgFloat("routeOpacity", ROUTE_TEST_OPACITY);
         ROUTE_TEST_SIMPLIFY = DemoCfg.cfgFloat("routeSimplify", ROUTE_TEST_SIMPLIFY);
         ROUTE_TEST_OPACITY_MODE = DemoCfg.cfgStr("routeOpacityMode", ROUTE_TEST_OPACITY_MODE);
+        GEOJSON_BENCH = DemoCfg.cfgStr("geojsonBench", GEOJSON_BENCH);
+        GEOJSON_BENCH_MIN_ZOOM = DemoCfg.cfgInt("geojsonBenchMinZoom", GEOJSON_BENCH_MIN_ZOOM);
+        GEOJSON_BENCH_MAX_ZOOM = DemoCfg.cfgInt("geojsonBenchMaxZoom", GEOJSON_BENCH_MAX_ZOOM);
+        GEOJSON_BENCH_TILES_PER_SIDE = DemoCfg.cfgInt("geojsonBenchTiles", GEOJSON_BENCH_TILES_PER_SIDE);
+        GEOJSON_BENCH_LAYER = DemoCfg.cfgStr("geojsonLayer", GEOJSON_BENCH_LAYER);
+        GEOJSON_BENCH_SIMPLIFY = DemoCfg.cfgFloat("geojsonBenchSimplify", GEOJSON_BENCH_SIMPLIFY);
 
         // inline style
         INLINE_BACKGROUND_COLOR = DemoCfg.cfgColor("bg", INLINE_BACKGROUND_COLOR);

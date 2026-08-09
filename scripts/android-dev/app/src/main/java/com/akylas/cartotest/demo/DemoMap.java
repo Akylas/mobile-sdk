@@ -194,6 +194,12 @@ public class DemoMap {
             enterStarSky();
         }
         startScriptedAnimation();
+        if (DemoConfig.GEOJSON_BENCH != null && !DemoConfig.GEOJSON_BENCH.isEmpty()) {
+            DemoTests.runGeoJSONBench(this, DemoConfig.GEOJSON_BENCH);
+        }
+        if (DemoConfig.GEOJSON_BENCH_LAYER != null && !DemoConfig.GEOJSON_BENCH_LAYER.isEmpty()) {
+            DemoTests.addGeoJSONBenchLayer(this, DemoConfig.GEOJSON_BENCH_LAYER);
+        }
     }
 
     // =============================================================================================
@@ -716,7 +722,14 @@ public class DemoMap {
         source.setSimplifyTolerance(DemoConfig.ROUTE_TEST_SIMPLIFY);
         try {
             int layerIndex = source.createLayer("route");
-            source.addGeoJSONStringFeature(layerIndex, geoJSON);
+            long importStart = System.nanoTime();
+            // A FeatureCollection goes in whole (the many-objects bench); a bare Feature is the route.
+            if (geoJSON.contains("\"FeatureCollection\"")) {
+                source.setLayerGeoJSONString(layerIndex, geoJSON);
+            } else {
+                source.addGeoJSONStringFeature(layerIndex, geoJSON);
+            }
+            Log.i(TAG, "route test geojson imported in " + ((System.nanoTime() - importStart) / 1000000L) + " ms");
         } catch (IOException e) {
             Log.w(TAG, "route test geojson rejected: " + e.getMessage());
             return null;
@@ -733,19 +746,23 @@ public class DemoMap {
      *   adb push my-route.geojson /sdcard/alpimaps_mbtiles/route-test.geojson
      */
     private String readRouteTestGeoJSON() {
-        String name = DemoConfig.ROUTE_TEST_GEOJSON_NAME;
+        return readDataOrAsset(DemoConfig.ROUTE_TEST_GEOJSON_NAME);
+    }
+
+    /** The data directory wins over the APK asset, so a dataset can be swapped with a push. */
+    public String readDataOrAsset(String name) {
         File file = new File(dataPath + "/" + name);
         if (file.exists()) {
             try {
                 return readStream(new FileInputStream(file));
             } catch (Exception e) {
-                Log.w(TAG, "route test geojson not readable (" + file + "): " + e.getMessage());
+                Log.w(TAG, "geojson not readable (" + file + "): " + e.getMessage());
             }
         }
         try {
             return readStream(context.getAssets().open(name));
         } catch (Exception e) {
-            Log.w(TAG, "route test asset unavailable (" + name + "): " + e.getMessage());
+            Log.w(TAG, "geojson asset unavailable (" + name + "): " + e.getMessage());
             return null;
         }
     }
