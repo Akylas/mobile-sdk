@@ -47,6 +47,17 @@ __attribute__ ((visibility("default"))) @interface NTMapView : NTGLKView
  */
 -(NTLayers*)getLayers;
 /**
+ * Makes the view translucent, so that whatever is behind it shows through wherever the map does
+ * not paint. Combine it with a transparent clear color - [options setClearColor:
+ * [[NTColor alloc] initWithR:0 g:0 b:0 a:0]] - which is what leaves the frame empty; the SDK
+ * renders with premultiplied alpha, so the result composites correctly.
+ *
+ * The view is an ordinary UIView, so it blends with the views behind it: a camera preview layer,
+ * or any other content. The default is opaque.
+ * @param translucent True to make the view translucent.
+ */
+-(void)setTranslucent:(BOOL)translucent;
+/**
  * Returns the Options object, that can be used for modifying various map options.
  * @return the Option object.
  */

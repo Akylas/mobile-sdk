@@ -221,6 +221,9 @@ public final class DemoConfig {
      *  the blend), 0 = from the mathematical horizon, >0 = pinned. '--es fogHorizon 0'. */
     public static float SKY_FOG_HORIZON = -1f;
     public static float VIEW_DISTANCE_FACTOR = 1f;
+    /** Absolute view distance in METRES, whatever the camera's height or pitch. 0 = the factor
+     *  rule above (tangram's, which shortens the view as the camera comes down to the ground). */
+    public static float VIEW_DISTANCE_METERS = 170000f;
     /** Zoom levels below the camera a tile may coarsen to in terrain mode. The tile surface is the
      *  depth occluder and the DEM level follows the tile zoom, so unbounded coarsening means leaky
      *  ridges and blocky hillshade. '--es coarsening 2'. */
@@ -233,7 +236,11 @@ public final class DemoConfig {
     public static boolean TERRAIN_LIGHTING = false;
     /** When >= 0 the sun is placed from the date+hour below instead of azimuth/altitude. */
     public static float SUN_HOUR_UTC = -1f;
-    public static int SUN_YEAR = 2026, SUN_MONTH = 7, SUN_DAY = 26;
+    /** The date the sky is drawn for. TODAY by default, which is what makes the sun, the moon, the
+     *  planets and the stars the ones actually up there. '--es sunYear/sunMonth/sunDay' overrides. */
+    public static int SUN_YEAR = (int) DemoAstro.nowUtc()[0];
+    public static int SUN_MONTH = (int) DemoAstro.nowUtc()[1];
+    public static int SUN_DAY = (int) DemoAstro.nowUtc()[2];
     public static float SUN_AZIMUTH = 355f;
     public static float SUN_ALTITUDE = 9f;
     public static float SUN_INTENSITY = 1.0f;
@@ -251,6 +258,79 @@ public final class DemoConfig {
     // =============================================================================================
 
     public static boolean SKY_ENABLED = true;
+    /** Celestial objects: sun, moon and the sun's daily path, drawn by a CelestialLayer and
+     *  placed by direction, so they stay in the sky while the map pans under them. The demo
+     *  builds them in DemoCelestial - the SDK API knows nothing about suns or moons. */
+    /** Free roam mode: "off", "look" (one finger looks, two fingers still pan/pinch/rotate the
+     *  map) or "fps" (mouse look - the camera never moves - and two fingers move like the keys
+     *  would, with no pinch and no rotation). '--es freeRoam fps'. */
+    public static String FREE_ROAM_MODE = "off";
+    /** Pan speed on a tilted view: "map" (the point under the finger follows it exactly, so the
+     *  speed changes as the finger moves between near and far parts of the screen), "anchored"
+     *  (the speed a gesture starts with, kept for the whole gesture) or "constant" (always the
+     *  scale at the centre of the screen). '--es panSpeed map|anchored|constant'. */
+    public static String PANNING_SPEED_MODE = "anchored";
+    /** Degrees of turn per inch of drag. */
+    public static float FREE_ROAM_LOOK_SENSITIVITY = 90f;
+    /** How far an inch of two-finger drag moves, as a fraction of the camera to focus distance. */
+    public static float FREE_ROAM_MOVE_SPEED = 0.5f;
+    /** How far above the horizon free roam may look, in degrees. This is a NEGATIVE tilt: the
+     *  camera stays put and the view pitches up (Options.setTiltRange). 0 stops at the horizon,
+     *  which is what a map does by default. */
+    public static float LOOK_UP_LIMIT = 90f;
+    public static boolean CELESTIAL = true;
+    public static boolean CELESTIAL_SUN = true;
+    public static boolean CELESTIAL_MOON = true;
+    public static boolean CELESTIAL_ARC = true;
+    /** The moon's path across the day, the twin of the sun's. */
+    public static boolean CELESTIAL_MOON_ARC = true;
+    /** Draw the moon with the phase it really has (a bitmap the demo paints), rather than a disc. */
+    public static boolean CELESTIAL_MOON_PHASE = true;
+    /** Angular diameters in degrees. The real sun and moon are both about 0.5; larger is easier
+     *  to see and to hit on a phone. */
+    public static float CELESTIAL_SUN_SIZE = 2.5f;
+    public static float CELESTIAL_MOON_SIZE = 2.0f;
+    public static float CELESTIAL_ARC_WIDTH = 2.0f;
+
+    // --- stars (DemoStars + DemoStarCatalogue) ----------------------------------------------------
+
+    /** The star layer: the bright-star catalogue, the constellation figures and the planets, all
+     *  placed for the date above. Off by default - it is a second CelestialLayer. */
+    public static boolean STARS = false;
+    public static boolean STARS_STARS = true;
+    public static boolean STARS_FIGURES = true;
+    public static boolean STARS_PLANETS = true;
+    public static boolean STARS_EQUATOR = false;
+    /** A magnitude -1.5 star is this big on screen, and each magnitude takes off that much. The
+     *  sizes are in PIXELS, so they are scaled by the screen density in DemoStars. */
+    public static float STARS_BRIGHTEST_SIZE = 5f;
+    public static float STARS_SIZE_PER_MAGNITUDE = 0.55f;
+    public static float STARS_FAINTEST_SIZE = 1.4f;
+    public static float STARS_FIGURE_WIDTH = 1.5f;
+    public static float STARS_FIGURE_CLICK_RADIUS = 2.5f;
+    public static float STARS_PLANET_SIZE = 1.2f;
+    /** Constellation NAMES drawn in the sky, at the middle of each figure. The demo paints them
+     *  into a bitmap, so they are styled entirely by the app. */
+    public static boolean STARS_LABELS = true;
+    public static float STARS_LABEL_TEXT_SIZE = 15f;   // dp of the text inside the bitmap
+    public static float STARS_LABEL_SCALE = 1f;        // 1 = the text at the size it was painted
+    public static float STARS_LABEL_OPACITY = 0.85f;
+
+    /** Star sky: no map at all - the layers are REMOVED, the terrain is off and the background is
+     *  cleared to transparent, so the only thing drawn is the sky. Fades in and out. */
+    public static boolean STAR_SKY = false;
+    public static float STAR_SKY_FADE_MS = 600f;
+    /** Follow the device's orientation in star sky mode: turning the phone turns the view, and
+     *  raising it looks up. Needs LOOK_UP_LIMIT > 0 to reach the zenith. */
+    public static boolean STAR_SKY_ORIENTATION = false;
+    /** Show the live camera BEHIND the transparent map in star sky mode: the sky drawn over what
+     *  the camera sees. Needs the CAMERA permission, and needs STAR_SKY_TRANSLUCENT. */
+    public static boolean STAR_SKY_CAMERA = false;
+    /** Ask for a TRANSLUCENT GL surface in star sky mode, which is what lets whatever is behind the
+     *  view (a camera preview) show through the transparent clear colour. On its own it looks the
+     *  same - black - and it costs a surface recreation, so it can be turned off. */
+    public static boolean STAR_SKY_TRANSLUCENT = true;
+
     /** Day cycle: sun/moon/stars/clouds shader driven by SUN_HOUR_UTC, updated live by the panel. */
     public static boolean DAY_CYCLE = false;
     public static float DAY_CYCLE_HOUR = 12f;
@@ -457,6 +537,120 @@ public final class DemoConfig {
     /** Delay before switching the effect on, in ms: attaching it before the GL surface exists
      *  leaves the offscreen colour buffer unwritten and the screen black. */
     public static float RELIEF_OUTLINE_DELAY_MS = 8000;
+    /** Shaded terrain surface (TerrainOptions surface shader): the ground the outline draws on.
+     *  Only visible where no tile layer paints, so pair it with base/satellite/hillshade off. */
+    public static boolean RELIEF_SURFACE = false;
+    /** Relief palette: false = ink on paper (light), true = paper on ink (dark / AR). */
+    public static boolean RELIEF_DARK = false;
+    /** Palette of the whole relief view, dark and light. The names, their plate, the shaded
+     *  surface, the ink lines and the sky all read from these, so one switch changes the lot. */
+    public static int RELIEF_INK_LIGHT = 0xff14141a;
+    public static int RELIEF_INK_DARK = 0xffe8ecf5;
+    public static int RELIEF_PAPER_LIGHT = 0xfff7f7f4;
+    public static int RELIEF_PAPER_DARK = 0xff10131a;
+    public static int RELIEF_SHADE_LIGHT = 0xff6c7280;
+    public static int RELIEF_SHADE_DARK = 0xff5a6070;
+    /** Sky behind the relief; alpha 0 makes it see-through, which is what AR mode wants. */
+    public static int RELIEF_SKY_LIGHT = 0xff9fc6e8;
+    public static int RELIEF_SKY_DARK = 0xff070a12;
+    /** Surface shading: how far the slopes go from the paper colour towards the shade colour. */
+    public static float RELIEF_SHADE_STRENGTH = 0.55f;
+    /** Surface shading: light left on a slope facing away from the sun. */
+    public static float RELIEF_AMBIENT = 0.35f;
+    /** How much of the shading distance washes out (0..1), over RELIEF_HAZE_DISTANCE metres. */
+    public static float RELIEF_HAZE = 0.7f;
+    public static float RELIEF_HAZE_DISTANCE = 60000;
+    /** Outline: base line width in pixels and the extra width at the far plane. */
+    public static float RELIEF_OUTLINE_WIDTH = 1.2f;
+    public static float RELIEF_HORIZON_BOOST = 2.5f;
+    /** Outline: silhouette sensitivity and the strength of the ridge/valley lines. */
+    public static float RELIEF_DEPTH_THRESHOLD = 1.0f;
+    public static float RELIEF_CREASE_STRENGTH = 0.6f;
+
+    /** The whole peak-finder view in one switch: relief surface + outline + peak names, and
+     *  every map layer off (the surface only shows where no tile layer paints). */
+    public static boolean PEAK_FINDER = false;
+    /** Tilt the mode sets, in SDK convention - 90 is straight down, so a panorama is a low tilt. */
+    public static float PEAK_FINDER_TILT = 25;
+    /** Metres the viewpoint is lifted above the ground, driven by the on-screen elevation widget. */
+    public static float PEAK_FINDER_ELEVATION = 0;
+    public static float PEAK_FINDER_ELEVATION_STEP = 200;
+    /** How far behind the terrain a label anchor may sit and still be labelled, as a fraction of
+     *  its distance. The peak-finder view wants this generous: a summit right ON a ridge, or a
+     *  metre behind it, is exactly what the view is for. 0.02 is the SDK default. */
+    public static float PEAK_FINDER_OCCLUSION_TOLERANCE = 0.15f;
+    /** View distance the mode asks for, as a multiple of tangram's rule: a panorama is the case
+     *  their rule answers badly, and above 1 the far plane follows the extra ground. */
+    public static float PEAK_FINDER_VIEW_DISTANCE = 3;
+    /** Fly-in: the elevation the viewpoint climbs to, the zoom it lands at and how long it takes.
+     *  0 seconds lets the SDK derive the duration from the length of the path. */
+    public static float PEAK_FINDER_FLY_ELEVATION = 1000;
+    public static float PEAK_FINDER_FLY_ZOOM = 13.6f;
+    public static float PEAK_FINDER_FLY_DURATION = 3.5f;
+    /** Extra height at the middle of the fly-in, in metres: the viewpoint climbs over the way
+     *  there like a plane instead of rising straight to its final elevation. */
+    public static float PEAK_FINDER_FLY_CLIMB = 1500;
+    /** AR: the relief view over the camera preview. Dark palette, a transparent clear colour and a
+     *  translucent GL surface (the map is then composited over the preview), the sky off, and the
+     *  device's orientation driving the camera. */
+    public static boolean AR_MODE = false;
+    public static boolean AR_ORIENTATION = true;
+    public static boolean AR_CAMERA = true;
+    /** All labels pinned to the top of the screen instead of a band lower down. The two looks
+     *  differ by which CORNER of the label the row is aligned on: a band lower down hangs the
+     *  names off their bottom left corner (they read up and to the right), a pinned row hangs
+     *  them off their top right corner so the text stays under the screen edge. */
+    public static boolean PEAKS_PIN_TOP = true;
+    /** How far below the top of the screen that row sits, as a fraction of the screen height. */
+    public static float PEAKS_TOP_OFFSET = 0.03f;
+
+    /** Summit names as callout labels (their own vector tile layer on the base source). */
+    public static boolean LAYER_PEAKS = false;
+    public static int PEAKS_MIN_ZOOM = 8;
+    public static float PEAKS_TEXT_SIZE = 16;
+    /** Rotation of the label text, degrees. The peak-finder look tilts them off the leader line. */
+    public static float PEAKS_TEXT_ANGLE = 55;
+    /** Where the label band sits, as a fraction of the screen height from the top. */
+    public static float PEAKS_BAND = 0.25f;
+    /** Shortest leader line, and the height of one stacking row, in pixels. */
+    public static float PEAKS_MIN_OFFSET = 10;
+    public static float PEAKS_ROW_STEP = 26;
+    /** 1 = one strict row: every name on the same line, and a summit that cannot get a slot there
+     *  loses its name to a better ranked one. Above 1 the losers stack instead. */
+    public static int PEAKS_MAX_ROWS = 1;
+    /** Pixels two names must stay apart (text-min-distance). It is what thins a crowded ridge out:
+     *  a summit that cannot find a row far enough from the ones already placed loses its name to
+     *  them, and which one wins is the ranking below. 0 = only overlap counts. */
+    public static float PEAKS_MIN_DISTANCE = 14;
+    /** Placement passes a name already on screen may fail before it is hidden (text-callout-persist).
+     *  A panning map re-places its labels whenever its tile set changes, so without a grace a name
+     *  that loses its row for one pass blinks out and back in. Keep it small: a name held over is
+     *  a name drawn where the culler could not place it, so a generous grace shows as overlap. */
+    public static int PEAKS_PERSIST = 2;
+    public static float PEAKS_LINE_WIDTH = 1;
+    /** Which point of the label the leader line ends at (and which is held over the summit), and
+     *  which point sits on the band line: "" | center | bottom-left | top-right | ... Empty keeps
+     *  the label around its own anchor. Left empty here - PEAKS_PIN_TOP picks the pair. */
+    public static String PEAKS_LINE_ANCHOR = "";
+    public static String PEAKS_ALIGN = "";
+    /** Elevation set after the name in a smaller font (text-secondary-*): its size relative to the
+     *  name, the gap before it and its baseline shift, all style properties. 0 scale = no suffix. */
+    public static int PEAKS_ELE_COLOR_ARGB = 0xff6b7280; // the elevation reads as a subtitle
+    public static float PEAKS_ELE_SCALE = 0.62f;
+    public static float PEAKS_ELE_GAP = 3;
+    public static float PEAKS_ELE_DY = 0;
+    /** Metres of distance worth one rank point when the culler decides which names to keep
+     *  ([ele] - [view::distance]/this). 0 = rank by elevation alone. */
+    public static float PEAKS_DISTANCE_RANK = 100;
+    /** Plate behind each name: colour, opacity, corner radius and padding (style properties, so
+     *  they work in any CartoCSS style, not just this one). */
+    public static int PEAKS_BG_COLOR_ARGB = 0xffffffff;
+    public static float PEAKS_BG_OPACITY = 0.85f;
+    public static float PEAKS_BG_RADIUS = 6;
+    public static float PEAKS_BG_PADDING_X = 5;
+    public static float PEAKS_BG_PADDING_Y = 2;
+    /** Metres beyond which a summit is not labelled at all; 0 = no limit. */
+    public static float PEAKS_MAX_DISTANCE = 120000;
     /** Scripted camera move so animation artifacts can be captured with adb screenrecord:
      *  "" | zoom | pan | rotate | zoomseq. */
     public static String ANIM = "";
@@ -565,11 +759,46 @@ public final class DemoConfig {
         SKY_FOG_BLEND = DemoCfg.cfgFloat("fogBlend", SKY_FOG_BLEND);
         SKY_FOG_HORIZON = DemoCfg.cfgFloat("fogHorizon", SKY_FOG_HORIZON);
         VIEW_DISTANCE_FACTOR = DemoCfg.cfgFloat("viewDistance", VIEW_DISTANCE_FACTOR);
+        VIEW_DISTANCE_METERS = DemoCfg.cfgFloat("viewDistanceMeters", VIEW_DISTANCE_METERS);
         TERRAIN_MAX_TILE_ZOOM_COARSENING = DemoCfg.cfgInt("coarsening", TERRAIN_MAX_TILE_ZOOM_COARSENING);
 
         // sun / shadows
         TERRAIN_LIGHTING = DemoCfg.cfgBool("terrainLight", TERRAIN_LIGHTING);
         SUN_HOUR_UTC = DemoCfg.cfgFloat("sunHour", SUN_HOUR_UTC);
+        FREE_ROAM_MODE = DemoCfg.cfgStr("freeRoam", FREE_ROAM_MODE);
+        if ("true".equals(FREE_ROAM_MODE)) {
+            FREE_ROAM_MODE = "look";
+        } else if ("false".equals(FREE_ROAM_MODE)) {
+            FREE_ROAM_MODE = "off";
+        }
+        PANNING_SPEED_MODE = DemoCfg.cfgStr("panSpeed", PANNING_SPEED_MODE);
+        FREE_ROAM_LOOK_SENSITIVITY = DemoCfg.cfgFloat("lookSensitivity", FREE_ROAM_LOOK_SENSITIVITY);
+        FREE_ROAM_MOVE_SPEED = DemoCfg.cfgFloat("moveSpeed", FREE_ROAM_MOVE_SPEED);
+        LOOK_UP_LIMIT = DemoCfg.cfgFloat("lookUp", LOOK_UP_LIMIT);
+        CELESTIAL = DemoCfg.cfgBool("celestial", CELESTIAL);
+        CELESTIAL_SUN = DemoCfg.cfgBool("celestialSun", CELESTIAL_SUN);
+        CELESTIAL_MOON = DemoCfg.cfgBool("celestialMoon", CELESTIAL_MOON);
+        CELESTIAL_ARC = DemoCfg.cfgBool("celestialArc", CELESTIAL_ARC);
+        CELESTIAL_MOON_ARC = DemoCfg.cfgBool("celestialMoonArc", CELESTIAL_MOON_ARC);
+        CELESTIAL_MOON_PHASE = DemoCfg.cfgBool("celestialMoonPhase", CELESTIAL_MOON_PHASE);
+        CELESTIAL_SUN_SIZE = DemoCfg.cfgFloat("celestialSunSize", CELESTIAL_SUN_SIZE);
+        CELESTIAL_MOON_SIZE = DemoCfg.cfgFloat("celestialMoonSize", CELESTIAL_MOON_SIZE);
+        CELESTIAL_ARC_WIDTH = DemoCfg.cfgFloat("celestialArcWidth", CELESTIAL_ARC_WIDTH);
+        STARS = DemoCfg.cfgBool("stars", STARS);
+        STARS_STARS = DemoCfg.cfgBool("starsStars", STARS_STARS);
+        STARS_FIGURES = DemoCfg.cfgBool("starsFigures", STARS_FIGURES);
+        STARS_PLANETS = DemoCfg.cfgBool("starsPlanets", STARS_PLANETS);
+        STARS_EQUATOR = DemoCfg.cfgBool("starsEquator", STARS_EQUATOR);
+        STARS_BRIGHTEST_SIZE = DemoCfg.cfgFloat("starsSize", STARS_BRIGHTEST_SIZE);
+        STARS_FIGURE_WIDTH = DemoCfg.cfgFloat("starsFigureWidth", STARS_FIGURE_WIDTH);
+        STARS_PLANET_SIZE = DemoCfg.cfgFloat("starsPlanetSize", STARS_PLANET_SIZE);
+        STARS_LABELS = DemoCfg.cfgBool("starsLabels", STARS_LABELS);
+        STARS_LABEL_SCALE = DemoCfg.cfgFloat("starsLabelScale", STARS_LABEL_SCALE);
+        STAR_SKY = DemoCfg.cfgBool("starSky", STAR_SKY);
+        STAR_SKY_FADE_MS = DemoCfg.cfgFloat("starSkyFade", STAR_SKY_FADE_MS);
+        STAR_SKY_ORIENTATION = DemoCfg.cfgBool("starSkyOrientation", STAR_SKY_ORIENTATION);
+        STAR_SKY_TRANSLUCENT = DemoCfg.cfgBool("starSkyTranslucent", STAR_SKY_TRANSLUCENT);
+        STAR_SKY_CAMERA = DemoCfg.cfgBool("starSkyCamera", STAR_SKY_CAMERA);
         SUN_YEAR = DemoCfg.cfgInt("sunYear", SUN_YEAR);
         SUN_MONTH = DemoCfg.cfgInt("sunMonth", SUN_MONTH);
         SUN_DAY = DemoCfg.cfgInt("sunDay", SUN_DAY);
@@ -659,6 +888,52 @@ public final class DemoConfig {
         UI_ENABLED = DemoCfg.cfgBool("ui", UI_ENABLED);
         RELIEF_OUTLINE = DemoCfg.cfgBool("peakfinder", RELIEF_OUTLINE);
         RELIEF_OUTLINE_DELAY_MS = DemoCfg.cfgFloat("peakfinderDelay", RELIEF_OUTLINE_DELAY_MS);
+        RELIEF_SURFACE = DemoCfg.cfgBool("reliefSurface", RELIEF_SURFACE);
+        RELIEF_DARK = DemoCfg.cfgBool("reliefDark", RELIEF_DARK);
+        RELIEF_SHADE_STRENGTH = DemoCfg.cfgFloat("reliefShade", RELIEF_SHADE_STRENGTH);
+        RELIEF_AMBIENT = DemoCfg.cfgFloat("reliefAmbient", RELIEF_AMBIENT);
+        RELIEF_HAZE = DemoCfg.cfgFloat("reliefHaze", RELIEF_HAZE);
+        RELIEF_HAZE_DISTANCE = DemoCfg.cfgFloat("reliefHazeDistance", RELIEF_HAZE_DISTANCE);
+        RELIEF_OUTLINE_WIDTH = DemoCfg.cfgFloat("reliefWidth", RELIEF_OUTLINE_WIDTH);
+        RELIEF_HORIZON_BOOST = DemoCfg.cfgFloat("reliefHorizonBoost", RELIEF_HORIZON_BOOST);
+        RELIEF_DEPTH_THRESHOLD = DemoCfg.cfgFloat("reliefThreshold", RELIEF_DEPTH_THRESHOLD);
+        RELIEF_CREASE_STRENGTH = DemoCfg.cfgFloat("reliefCrease", RELIEF_CREASE_STRENGTH);
+        PEAK_FINDER = DemoCfg.cfgBool("peakFinder", PEAK_FINDER);
+        PEAK_FINDER_TILT = DemoCfg.cfgFloat("peakFinderTilt", PEAK_FINDER_TILT);
+        PEAK_FINDER_ELEVATION = DemoCfg.cfgFloat("peakFinderElevation", PEAK_FINDER_ELEVATION);
+        PEAK_FINDER_OCCLUSION_TOLERANCE = DemoCfg.cfgFloat("peakFinderOcclusion", PEAK_FINDER_OCCLUSION_TOLERANCE);
+        PEAK_FINDER_VIEW_DISTANCE = DemoCfg.cfgFloat("peakFinderViewDistance", PEAK_FINDER_VIEW_DISTANCE);
+        PEAK_FINDER_FLY_ELEVATION = DemoCfg.cfgFloat("peakFinderFlyElevation", PEAK_FINDER_FLY_ELEVATION);
+        PEAK_FINDER_FLY_ZOOM = DemoCfg.cfgFloat("peakFinderFlyZoom", PEAK_FINDER_FLY_ZOOM);
+        PEAK_FINDER_FLY_DURATION = DemoCfg.cfgFloat("peakFinderFlyDuration", PEAK_FINDER_FLY_DURATION);
+        PEAK_FINDER_FLY_CLIMB = DemoCfg.cfgFloat("peakFinderFlyClimb", PEAK_FINDER_FLY_CLIMB);
+        AR_MODE = DemoCfg.cfgBool("ar", AR_MODE);
+        AR_ORIENTATION = DemoCfg.cfgBool("arOrientation", AR_ORIENTATION);
+        AR_CAMERA = DemoCfg.cfgBool("arCamera", AR_CAMERA);
+        PEAKS_PIN_TOP = DemoCfg.cfgBool("peaksPinTop", PEAKS_PIN_TOP);
+        PEAKS_TOP_OFFSET = DemoCfg.cfgFloat("peaksTopOffset", PEAKS_TOP_OFFSET);
+        LAYER_PEAKS = DemoCfg.cfgBool("peaks", LAYER_PEAKS);
+        PEAKS_MIN_ZOOM = DemoCfg.cfgInt("peaksMinZoom", PEAKS_MIN_ZOOM);
+        PEAKS_TEXT_SIZE = DemoCfg.cfgFloat("peaksTextSize", PEAKS_TEXT_SIZE);
+        PEAKS_TEXT_ANGLE = DemoCfg.cfgFloat("peaksAngle", PEAKS_TEXT_ANGLE);
+        PEAKS_BAND = DemoCfg.cfgFloat("peaksBand", PEAKS_BAND);
+        PEAKS_MIN_OFFSET = DemoCfg.cfgFloat("peaksOffset", PEAKS_MIN_OFFSET);
+        PEAKS_ROW_STEP = DemoCfg.cfgFloat("peaksStep", PEAKS_ROW_STEP);
+        PEAKS_MAX_ROWS = DemoCfg.cfgInt("peaksRows", PEAKS_MAX_ROWS);
+        PEAKS_MIN_DISTANCE = DemoCfg.cfgFloat("peaksMinDistance", PEAKS_MIN_DISTANCE);
+        PEAKS_PERSIST = DemoCfg.cfgInt("peaksPersist", PEAKS_PERSIST);
+        PEAKS_LINE_WIDTH = DemoCfg.cfgFloat("peaksLineWidth", PEAKS_LINE_WIDTH);
+        PEAKS_LINE_ANCHOR = DemoCfg.cfgStr("peaksLineAnchor", PEAKS_LINE_ANCHOR);
+        PEAKS_ALIGN = DemoCfg.cfgStr("peaksAlign", PEAKS_ALIGN);
+        PEAKS_ELE_SCALE = DemoCfg.cfgFloat("peaksEleScale", PEAKS_ELE_SCALE);
+        PEAKS_ELE_COLOR_ARGB = DemoCfg.cfgColorInt("peaksEleColor", PEAKS_ELE_COLOR_ARGB);
+        PEAKS_ELE_GAP = DemoCfg.cfgFloat("peaksEleGap", PEAKS_ELE_GAP);
+        PEAKS_ELE_DY = DemoCfg.cfgFloat("peaksEleDy", PEAKS_ELE_DY);
+        PEAKS_DISTANCE_RANK = DemoCfg.cfgFloat("peaksDistanceRank", PEAKS_DISTANCE_RANK);
+        PEAKS_BG_COLOR_ARGB = DemoCfg.cfgColorInt("peaksBgColor", PEAKS_BG_COLOR_ARGB);
+        PEAKS_BG_OPACITY = DemoCfg.cfgFloat("peaksBgOpacity", PEAKS_BG_OPACITY);
+        PEAKS_BG_RADIUS = DemoCfg.cfgFloat("peaksBgRadius", PEAKS_BG_RADIUS);
+        PEAKS_MAX_DISTANCE = DemoCfg.cfgFloat("peaksMaxDistance", PEAKS_MAX_DISTANCE);
         ANIM = DemoCfg.cfgStr("anim", ANIM);
         ANIM_DELAY_MS = DemoCfg.cfgFloat("animDelay", ANIM_DELAY_MS);
         ANIM_DURATION_S = DemoCfg.cfgFloat("animDuration", ANIM_DURATION_S);
@@ -668,6 +943,21 @@ public final class DemoConfig {
         ANIM_ROTATION = DemoCfg.cfgFloat("animRotation", ANIM_ROTATION);
         ANIM_ZOOM_OUT = DemoCfg.cfgFloat("animZoomOut", ANIM_ZOOM_OUT);
         ANIM_SETTLE_MS = DemoCfg.cfgFloat("animSettle", ANIM_SETTLE_MS);
+    }
+
+    /**
+     * The UTC hour the sky is drawn for: the explicit sun hour if one is set (the panel's hour
+     * slider writes it), then the day-cycle hour, and otherwise the real clock - so out of the box
+     * the sun, the moon, the planets and the stars are where they are right now.
+     */
+    public static double currentHourUtc() {
+        if (SUN_HOUR_UTC >= 0) {
+            return SUN_HOUR_UTC;
+        }
+        if (DAY_CYCLE) {
+            return DAY_CYCLE_HOUR;
+        }
+        return DemoAstro.nowUtc()[3];
     }
 
     private DemoConfig() {

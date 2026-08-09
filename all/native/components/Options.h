@@ -68,6 +68,65 @@ namespace carto {
         };
     }
     
+    namespace FreeRoamMode {
+        /**
+         * Possible free roam modes: what a one-finger drag does, and which camera model the
+         * tilt and the rotation follow.
+         */
+        enum FreeRoamMode {
+            /**
+             * Off: the standard map gestures. A one-finger drag pans the map.
+             */
+            FREE_ROAM_MODE_OFF,
+            /**
+             * Look: a one-finger drag looks around instead of panning - sideways turns the heading
+             * about the camera, up and down tilts the map the way the two-finger tilt does, so the
+             * camera still orbits its focus point. Panning moves to a two-finger drag; pinch and
+             * two-finger rotation are unchanged.
+             */
+            FREE_ROAM_MODE_LOOK,
+            /**
+             * First person: the camera stops orbiting anything. A one-finger drag turns the view
+             * about the CAMERA on both axes, like a mouse in a first person game - the position
+             * never changes - and a two-finger drag moves, forward/back and strafing, the way the
+             * keys would. Pinch and two-finger rotation are off, since neither belongs to that
+             * control scheme.
+             *
+             * The camera model applies to every source, not just to touch: setTilt and
+             * setMapRotation turn the view in place too, so a camera driven by the device's
+             * orientation behaves exactly like the drag.
+             */
+            FREE_ROAM_MODE_FIRST_PERSON
+        };
+    }
+
+    namespace PanningSpeedMode {
+        /**
+         * How fast a one-finger pan moves the map on a TILTED view, where a touch near the horizon
+         * corresponds to a point far away and a touch at the bottom of the screen to a near one.
+         */
+        enum PanningSpeedMode {
+            /**
+             * The map point under the finger follows it exactly, which is what a flat map does.
+             * On a tilted view the speed then changes DURING the gesture: a drag that starts near
+             * the camera and travels up the screen accelerates as the finger reaches parts of the
+             * screen that are further away.
+             */
+            PANNING_SPEED_MODE_MAP,
+            /**
+             * The scale is measured where the pan STARTS and stays fixed for the whole gesture:
+             * starting far away still pans fast and starting close still pans slowly, but the
+             * speed never changes while the finger is down. The default.
+             */
+            PANNING_SPEED_MODE_ANCHORED,
+            /**
+             * The scale is measured at the centre of the screen, so it depends neither on where
+             * the finger started nor on where it goes - every pan moves the map at the same rate.
+             */
+            PANNING_SPEED_MODE_CONSTANT
+        };
+    }
+
     namespace PivotMode {
         /**
          *  Possible pivot modes.
@@ -451,6 +510,61 @@ namespace carto {
         void setUserInput(bool enabled);
     
         /**
+         * Returns the panning speed mode.
+         * @return The panning speed mode.
+         */
+        PanningSpeedMode::PanningSpeedMode getPanningSpeedMode() const;
+        /**
+         * Sets how fast a one-finger pan moves the map on a tilted view. The default is
+         * PANNING_SPEED_MODE_ANCHORED, which keeps the speed a gesture starts with for as long as
+         * it lasts; PANNING_SPEED_MODE_MAP is the exact grab-the-world pan, which changes speed as
+         * the finger moves between near and far parts of the screen.
+         * @param mode The new panning speed mode.
+         */
+        void setPanningSpeedMode(PanningSpeedMode::PanningSpeedMode mode);
+
+        /**
+         * Returns the free roam mode.
+         * @return The free roam mode.
+         */
+        FreeRoamMode::FreeRoamMode getFreeRoamMode() const;
+        /**
+         * Sets the free roam mode: what a one-finger drag does, and which camera model the tilt
+         * and the rotation follow. Free roam is what makes content placed in the sky
+         * (CelestialLayer) reachable, since it is normally off the top of the screen. To look
+         * ABOVE the horizon the tilt range has to allow a negative tilt - e.g.
+         * setTiltRange(MapRange(-90, 90)) - as it stops at the horizon by default.
+         * The default is FREE_ROAM_MODE_OFF.
+         * @param mode The new free roam mode.
+         */
+        void setFreeRoamMode(FreeRoamMode::FreeRoamMode mode);
+
+        /**
+         * Returns how fast a free roam drag turns the view.
+         * @return The turn in degrees per inch of drag.
+         */
+        float getFreeRoamLookSensitivity() const;
+        /**
+         * Sets how fast a free roam drag turns the view, in degrees per inch of drag. The default
+         * is 90, i.e. an inch of drag turns a quarter turn.
+         * @param degreesPerInch The turn in degrees per inch of drag.
+         */
+        void setFreeRoamLookSensitivity(float degreesPerInch);
+
+        /**
+         * Returns how far a first person move drag travels.
+         * @return The distance per inch of drag, as a fraction of the camera to focus distance.
+         */
+        float getFreeRoamMoveSpeed() const;
+        /**
+         * Sets how far a two-finger move travels in FREE_ROAM_MODE_FIRST_PERSON, per inch of drag,
+         * as a fraction of the distance from the camera to its focus point - so a move covers the
+         * same part of the view at any zoom. The default is 0.5.
+         * @param distancePerInch The distance per inch of drag.
+         */
+        void setFreeRoamMoveSpeed(float distancePerInch);
+
+        /**
          * Returns the state of the kinetic panning flag.
          * @return True if kinetic panning is enabled.
          */
@@ -508,8 +622,11 @@ namespace carto {
         /**
          * Sets the tilt range constraint. This will limit the tilt angle of the camera to the specified range.
          * The current tilt angle will remain unaffected, until the next time the tilt angle changes.
-         * The minimum tilt angle is 30 degrees and the maximum is 90 degrees. Values that are out of range will be clamped.
-         * The default value is MapRange(30, 90).
+         * The minimum tilt angle is -90 degrees and the maximum is 90 degrees. Values that are out of range will be clamped.
+         * The default value is MapRange(0, 90).
+         * A NEGATIVE tilt looks above the horizon: the camera stays where it is and the view pitches
+         * up, which is what an application showing the sky needs. It is opt-in, as the default range
+         * stops at the horizon.
          * @param tiltRange The new tilt range constraint in degrees.
          */
         void setTiltRange(const MapRange& tiltRange);
@@ -700,6 +817,10 @@ namespace carto {
         std::shared_ptr<Bitmap> _backgroundBitmap;
         
         bool _userInput;
+        PanningSpeedMode::PanningSpeedMode _panningSpeedMode;
+        FreeRoamMode::FreeRoamMode _freeRoamMode;
+        float _freeRoamLookSensitivity;
+        float _freeRoamMoveSpeed;
     
         bool _kineticPan;
         bool _kineticRotation;

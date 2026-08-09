@@ -25,6 +25,7 @@ namespace carto {
         _cameraChanged(true),
         _rotation(0),
         _tilt(90),
+        _cameraTilt(90),
         _zoom(0.0f),
         _2PowZoom(1.0f),
         _zoom0Distance(0.0f),
@@ -99,9 +100,23 @@ namespace carto {
         double cameraHeight = _cameraPos(2) - _focusPos(2);
         double minHeight = _terrainMinCameraZ - _focusPos(2);
         if (!(cameraHeight > 0) || !(minHeight > 0)) {
-            return static_cast<float>(_zoom + std::log2(_cameraPos(2) / _terrainMinCameraZ)); // degenerate: focus at or above the shell
+            // The camera is at or below the height of the focus - a horizontal view (tilt 0) or a
+            // look above the horizon (a negative tilt). Zooming moves the camera ALONG the
+            // camera-to-focus vector, so with no vertical component left there is no zoom that
+            // clears the terrain: any bound derived here is unreachable, and clampZoom chasing it
+            // walks the zoom towards minus infinity, one step per frame, until the map is gone.
+            return std::numeric_limits<float>::infinity();
         }
-        return _zoom + static_cast<float>(std::log2(cameraHeight / minHeight));
+        float maxZoom = _zoom + static_cast<float>(std::log2(cameraHeight / minHeight));
+        if (maxZoom < _zoomRange.getMin()) {
+            // Unsatisfiable. The camera's height above the focus is dist * sin(tilt), so as the
+            // view approaches the horizon it rises by almost nothing as it zooms out and the bound
+            // runs off to minus infinity. Clamping to it then throws the map to its minimum zoom -
+            // an empty world - instead of keeping the camera clear of the ground, which it cannot
+            // do at any zoom anyway.
+            return std::numeric_limits<float>::infinity();
+        }
+        return maxZoom;
     }
 
     void ViewState::setCameraPos(const cglib::vec3<double>& cameraPos) {
@@ -152,10 +167,42 @@ namespace carto {
     
     void ViewState::setTilt(float tilt) {
         if (!std::isfinite(tilt)) {
-            Log::Errorf("ViewState::setTilt: Invalid value %g", tilt); 
+            Log::Errorf("ViewState::setTilt: Invalid value %g", tilt);
             return;
         }
         _tilt = tilt;
+        // The map camera model: the camera sits at the tilt, and everything below the horizon is
+        // a rotation of the view about it. setViewTilt is the other model, where the camera stays.
+        _cameraTilt = std::max(tilt, 0.0f);
+    }
+
+    void ViewState::setViewTilt(float tilt) {
+        if (!std::isfinite(tilt)) {
+            Log::Errorf("ViewState::setViewTilt: Invalid value %g", tilt);
+            return;
+        }
+        _tilt = tilt;
+    }
+
+    float ViewState::getCameraTilt() const {
+        return _cameraTilt;
+    }
+
+    cglib::vec3<double> ViewState::calculateViewDir() const {
+        cglib::vec3<double> viewVec = _focusPos - _cameraPos;
+        if (cglib::length(viewVec) == 0) {
+            return cglib::vec3<double>::zero();
+        }
+        viewVec = cglib::unit(viewVec);
+        float viewPitch = _cameraTilt - _tilt;
+        if (viewPitch == 0) {
+            return viewVec;
+        }
+        cglib::vec3<double> axis = cglib::vector_product(viewVec, _upVec);
+        if (cglib::length(axis) == 0) {
+            return viewVec;
+        }
+        return cglib::unit(cglib::transform_vector(viewVec, cglib::rotate4_matrix(axis, viewPitch * Const::DEG_TO_RAD)));
     }
     
     float ViewState::getZoom() const {
@@ -359,7 +406,11 @@ namespace carto {
 
         mapPos.setX(GeneralUtils::Clamp(mapPos.getX(), mapBounds.getMin().getX(), mapBounds.getMax().getX()));
         mapPos.setY(GeneralUtils::Clamp(mapPos.getY(), mapBounds.getMin().getY(), mapBounds.getMax().getY()));
-        mapPos.setZ(0);
+        // The pan bounds are a GROUND rectangle: they clamp x and y. The focus keeps its height,
+        // so an application can lift the viewpoint off the map plane (setFocusPos with a z) - a
+        // panorama seen from higher up than the ground under it. Zeroing it here pulled the focus,
+        // and with it the camera, back down on every frame.
+        mapPos.setZ(oldMapPos.getZ());
 
         if (seamlessPanning && renderProjectionMode == RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
             double n = std::floor((mapPos.getX() + Const::WORLD_SIZE * 0.5) / Const::WORLD_SIZE);
@@ -516,7 +567,7 @@ namespace carto {
 
                 cglib::vec3<double> axis = cglib::vector_product(_focusPos - _cameraPos, _upVec);
                 if (cglib::length(axis) != 0) {
-                    cglib::mat4x4<double> transform = cglib::rotate4_matrix(axis, (90 - _tilt) * Const::DEG_TO_RAD);
+                    cglib::mat4x4<double> transform = cglib::rotate4_matrix(axis, (90 - _cameraTilt) * Const::DEG_TO_RAD);
                     _cameraPos = _focusPos + cglib::transform_vector(_cameraPos - _focusPos, transform);
                     _upVec = cglib::transform_vector(_upVec, transform);
                 }
@@ -675,7 +726,9 @@ namespace carto {
         float tanHalfFOVY = std::tan(static_cast<float>(halfFOVY * Const::DEG_TO_RAD));
         float zoom0Distance = _height * 0.5 * Const::WORLD_SIZE / (_tileDrawSize * tanHalfFOVY * (_dpi / Const::UNSCALED_DPI));
         float initialZ = std::pow(2.0f, -_zoom) * zoom0Distance / 64.0f;
-        cglib::vec3<double> zProjVector = cglib::unit(_focusPos - _cameraPos);
+        // The direction the camera actually looks along, which above the horizon is not the
+        // direction of the focus point (calculateLookatMat).
+        cglib::vec3<double> zProjVector = calculateViewDir();
 
         cglib::mat4x4<double> projMat = calculatePerspMat(halfFOVY, initialZ, 2.0f * initialZ, options);
         cglib::mat4x4<double> modelviewMat = calculateLookatMat();
@@ -687,6 +740,7 @@ namespace carto {
         near = static_cast<float>(cglib::dot_product(options.getProjectionSurface()->calculateNearestPoint(_cameraPos, heightMax) - _cameraPos, zProjVector));
         far  = near;
         skyVisible = false;
+        bool groundVisible = false;
         // ... and where the sky starts on screen. The bisection below already walks each column
         // from the ground up to the first ray that reaches no ground at all, which IS the horizon;
         // the lowest such sample over the columns is where the sky can first appear. The sky quad
@@ -707,6 +761,7 @@ namespace carto {
                         float z = static_cast<float>(cglib::dot_product(ray(t) - worldPos0, zProjVector));
                         near = std::min(near, z);
                         far  = std::max(far,  z);
+                        groundVisible = true;
 
                         if (iter < 0) {
                             break;
@@ -748,10 +803,43 @@ namespace carto {
         double viewDistance = calculateViewDistance(options);
         float terrainNear = static_cast<float>(calculateCameraDistance() / 50.0);
         if (viewDistance > 0) {
-            far = std::min(far, std::max(static_cast<float>(viewDistance), terrainNear * 2.0f));
+            float viewDistanceFactor = 1.0f;
+            bool absoluteViewDistance = false;
+            if (std::shared_ptr<TerrainOptions> terrainOptions = options.getTerrainOptions()) {
+                viewDistanceFactor = terrainOptions->getViewDistanceFactor();
+                absoluteViewDistance = terrainOptions->getViewDistance() > 0;
+            }
+            if (absoluteViewDistance || viewDistanceFactor > 1.0f) {
+                // The app has asked for MORE ground than tangram's rule gives. The far plane has
+                // to follow, or the extra tiles the walk fetches are drawn and then clipped - which
+                // is what "raising the view distance does nothing" was. It costs depth precision:
+                // the whole depth model is calibrated on the far/near ratio (see below), so this is
+                // an explicit trade, not the default.
+                far = std::max(far, static_cast<float>(viewDistance));
+            } else {
+                far = std::min(far, std::max(static_cast<float>(viewDistance), terrainNear * 2.0f));
+            }
         }
         if (_terrainHeightMax > _terrainHeightMin) {
             near = std::max(near, std::min(terrainNear, far * 0.5f));
+        }
+        if (_cameraTilt != _tilt) {
+            // The view is pitched away from the camera geometry - looking above the horizon, or a
+            // first person camera. The loop above takes the near plane from where the sampled rays
+            // MEET THE GROUND, and as the view pitches up those hits walk off into the distance:
+            // the near plane follows them out and starts clipping everything close to the camera,
+            // worse the higher the view goes. What is close to the camera does not move when the
+            // view turns, so cap the near plane with the rule that does not depend on the view
+            // direction at all - tangram's `near = m_pos.z / 50`.
+            near = std::min(near, terrainNear);
+        }
+        if (!groundVisible) {
+            // Nothing but sky: no ray met the ground, so the loop above left far == near and the
+            // depth range would collapse onto the near plane, taking everything drawn INTO the sky
+            // (celestial objects park just inside the far plane) with it. Give it the distance the
+            // ground would have been drawn to.
+            near = std::max(near, terrainNear);
+            far = std::max(static_cast<float>(viewDistance > 0 ? viewDistance : maxDist), near * 2.0f);
         }
     }
 
@@ -786,12 +874,25 @@ namespace carto {
         // ground-derived view distance (no cap at all).
         float factor = 1.0f;
         if (std::shared_ptr<TerrainOptions> terrainOptions = options.getTerrainOptions()) {
+            // An absolute distance takes over completely: the point of it is that the ground
+            // reaches the same distance whatever the camera's height and pitch.
+            float absolute = terrainOptions->getViewDistance();
+            if (absolute > 0) {
+                return absolute * static_cast<double>(Const::WORLD_SIZE) / Const::EARTH_CIRCUMFERENCE;
+            }
             factor = terrainOptions->getViewDistanceFactor();
         }
         if (!(factor > 0.0f)) {
             return 0;
         }
-        double cameraDistance = calculateCameraDistance();
+        // Tangram's m_pos.z is the camera's height above the ground PLANE, which for their camera
+        // is also the zoom-derived distance to the focus. With 3D terrain and a free camera the two
+        // part company: a viewpoint standing on a 2600 m summit is high above the ground while its
+        // zoom says it is close to it, and the zoom-derived quantity alone then draws the ground
+        // out to a few kilometres - the closer to the terrain, the less of the panorama. Take the
+        // larger of the two, so the rule follows whichever reason there is to see far. (The NEAR
+        // plane keeps the zoom-derived distance on purpose - see calculateCameraDistance.)
+        double cameraDistance = std::max(calculateCameraDistance(), _cameraPos(2));
 
         // Tilt is measured from the horizontal here and pitch from the vertical there, so the
         // angle from the view axis to the horizon is (90 - tilt) + fovy/2.
@@ -890,7 +991,23 @@ namespace carto {
     }
     
     cglib::mat4x4<double> ViewState::calculateLookatMat() const {
-        return cglib::lookat4_matrix(_cameraPos, _focusPos, _upVec);
+        float viewPitch = _cameraTilt - _tilt;
+        if (viewPitch == 0) {
+            return cglib::lookat4_matrix(_cameraPos, _focusPos, _upVec);
+        }
+        // Above the horizon the camera stays exactly where the tilt geometry left it and only the
+        // view direction pitches up. Carrying on rotating the camera about the focus - which is
+        // what tilting does between 90 and 0 degrees - puts the camera under the ground, and the
+        // view comes back upside down because the up vector is derived from a focus point on the
+        // ground. Rotating the view about the CAMERA has neither problem, and it keeps
+        // dist(camera, focus), so zoom, culling and the near/far budget are untouched.
+        cglib::vec3<double> viewVec = _focusPos - _cameraPos;
+        cglib::vec3<double> axis = cglib::vector_product(viewVec, _upVec);
+        if (cglib::length(axis) == 0) {
+            return cglib::lookat4_matrix(_cameraPos, _focusPos, _upVec);
+        }
+        cglib::mat4x4<double> transform = cglib::rotate4_matrix(axis, viewPitch * Const::DEG_TO_RAD);
+        return cglib::lookat4_matrix(_cameraPos, _cameraPos + cglib::transform_vector(viewVec, transform), cglib::transform_vector(_upVec, transform));
     }
     
     cglib::mat4x4<double> ViewState::calculateModelViewMat(const carto::Options& options) const {

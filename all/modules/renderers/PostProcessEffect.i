@@ -3,7 +3,7 @@
 
 %module PostProcessEffect
 
-!proxy_imports(carto::PostProcessEffect)
+!proxy_imports(carto::PostProcessEffect, graphics.Color)
 
 %{
 #include "renderers/PostProcessEffect.h"
@@ -15,6 +15,8 @@
 %include <std_shared_ptr.i>
 %include <cartoswig.i>
 
+%import "graphics/Color.i"
+
 !shared_ptr(carto::PostProcessEffect, renderers.PostProcessEffect)
 
 %attributestring(carto::PostProcessEffect, std::string, Name, getName)
@@ -23,6 +25,7 @@
 %std_exceptions(carto::PostProcessEffect::PostProcessEffect)
 
 %ignore carto::PostProcessEffect::getFloatParameters;
+%ignore carto::PostProcessEffect::getColorParameters;
 
 !standard_equals(carto::PostProcessEffect);
 

@@ -171,7 +171,9 @@ public class SecondFragment extends Fragment {
                 }
                 getActivity().runOnUiThread(new Runnable() {
                     public void run() {
-                        String text = String.format("z=%.2f tilt=%.0f", mapView.getZoom(), mapView.getTilt());
+                        MapPos focus = mapView.getFocusPos();
+                        String text = String.format("z=%.2f  tilt=%.0f  %.5f, %.5f",
+                                mapView.getZoom(), mapView.getTilt(), focus.getY(), focus.getX());
                         if (zoomText != null) {
                             zoomText.setText(text);
                         }

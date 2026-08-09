@@ -126,6 +126,17 @@ static const int NATIVE_NO_COORDINATE = -1;
 #endif
 }
 
+-(void)setTranslucent:(BOOL)translucent {
+    // The GL view itself, and the layer it draws into: both have to stop claiming they cover
+    // their pixels, or the compositor skips whatever is underneath. The drawable is already
+    // RGBA8888 (see initContext), so the alpha the renderer writes is the one that is composited.
+    self.opaque = !translucent;
+    self.layer.opaque = !translucent;
+    if (translucent) {
+        self.backgroundColor = [UIColor clearColor];
+    }
+}
+
 -(void)willMoveToWindow:(UIWindow *)newWindow {
     [super willMoveToWindow:newWindow];
 

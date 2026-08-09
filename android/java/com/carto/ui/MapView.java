@@ -129,6 +129,29 @@ public class MapView extends GLSurfaceView implements GLSurfaceView.Renderer, Ma
     }
 
     /**
+     * Makes the view translucent, so that whatever is behind it shows through wherever the map
+     * does not paint. Combine it with a transparent clear color - Options.setClearColor(new
+     * Color(0, 0, 0, 0)) - which is what leaves the frame empty; the SDK renders with premultiplied
+     * alpha, so the result composites correctly.
+     *
+     * IMPORTANT, and the usual trap: a MapView is a SurfaceView. Its surface is composited BELOW
+     * the window, so it can only reveal another surface below it - typically a camera preview -
+     * and NOT other views of the same layout, which are drawn above it. This method also raises the
+     * surface above other media surfaces (setZOrderMediaOverlay) so a preview placed behind it is
+     * what shows through.
+     *
+     * To blend with ordinary views instead, use TextureMapView, which is a real view in the
+     * hierarchy.
+     *
+     * Changing this after the view is attached recreates the GL surface.
+     * @param translucent True to make the view translucent.
+     */
+    public void setTranslucent(boolean translucent) {
+        setZOrderMediaOverlay(translucent);
+        getHolder().setFormat(translucent ? android.graphics.PixelFormat.TRANSLUCENT : android.graphics.PixelFormat.OPAQUE);
+    }
+
+    /**
      * Deletes the resources associated with the MapView.
      * The method can be used to dispose native objects immediately,
      * without waiting for next GC cycle.
@@ -371,6 +394,68 @@ public class MapView extends GLSurfaceView implements GLSurfaceView.Renderer, Ma
     public void rotate(float deltaAngle, float durationSeconds) {
         baseMapView.rotate(deltaAngle, durationSeconds);
     }
+
+    /**
+     * Moves the camera to a position and a zoom level in one animation, pulling back over a long
+     * move and coming down at the target. See BaseMapView.flyTo.
+     * @param pos The target position in base projection coordinate system.
+     * @param zoom The target zoom level.
+     * @param durationSeconds The duration in seconds, 0 to derive it from the length of the path.
+     */
+    public void flyTo(MapPos pos, float zoom, float durationSeconds) {
+        baseMapView.flyTo(pos, zoom, durationSeconds);
+    }
+
+    /**
+     * Moves the camera to a position, zoom, rotation and tilt in one animation.
+     * @param pos The target position in base projection coordinate system.
+     * @param zoom The target zoom level.
+     * @param rotation The target rotation in degrees.
+     * @param tilt The target tilt in degrees.
+     * @param durationSeconds The duration in seconds, 0 to derive it from the length of the path.
+     */
+    public void flyTo(MapPos pos, float zoom, float rotation, float tilt, float durationSeconds) {
+        baseMapView.flyTo(pos, zoom, rotation, tilt, durationSeconds);
+    }
+
+    /**
+     * Moves the camera to a position, zoom, rotation and tilt in one animation, climbing over the
+     * way there: the target position's Z is the height it ends at, and the climb is added as a
+     * parabola, highest halfway and back to nothing at both ends.
+     * @param pos The target position in base projection coordinate system; its Z is the target height.
+     * @param zoom The target zoom level.
+     * @param rotation The target rotation in degrees.
+     * @param tilt The target tilt in degrees.
+     * @param climbHeight The extra height at the middle of the path.
+     * @param durationSeconds The duration in seconds, 0 to derive it from the length of the path.
+     */
+    public void flyTo(MapPos pos, float zoom, float rotation, float tilt, float climbHeight, float durationSeconds) {
+        baseMapView.flyTo(pos, zoom, rotation, tilt, climbHeight, durationSeconds);
+    }
+
+    /**
+     * How far along a flyTo animation is, from 0 to 1, or -1 when none is running.
+     * @return The flight progress, or -1.
+     */
+    public float getFlightProgress() {
+        return baseMapView.getFlightProgress();
+    }
+
+    /**
+     * Stops a flyTo animation, leaving the camera where it is.
+     */
+    public void stopFlight() {
+        baseMapView.stopFlight();
+    }
+
+    /**
+     * Returns true while a flyTo animation is running.
+     * @return True if the camera is in flight.
+     */
+    public boolean isFlightActive() {
+        return baseMapView.isFlightActive();
+    }
+
 
     /**
      * Rotates the view relative to the current rotation value. Positive values rotate clockwise, negative values counterclockwise.

@@ -84,6 +84,12 @@ adb shell am start -n com.akylas.cartotest/.MainActivity --es ui false --es drap
   drapeResolution meshResolution exaggeration`, `fog fogStart fogDistance viewDistance`,
   `hs sat satZoom contour bld3d stitch`, `daycycle sunHour sunAzimuth sunAltitude shadow`,
   `ui false` (hide the panel), `anim zoom|zoomseq`.
+- Relief / peak-finder look: `reliefSurface true` (shaded terrain surface, only visible where no
+  tile layer paints - pair it with `--es map false --es hillshade false`), `peakfinder true` (the
+  outline effect, `peakfinderDelay` ms), `reliefDark`, `reliefWidth reliefHorizonBoost
+  reliefThreshold reliefCrease reliefShade reliefAmbient reliefHaze reliefHazeDistance`.
+  A panorama needs a LOW tilt: in this SDK tilt 90 is straight down, so the peak-finder camera is
+  around `--es tilt 25`, not 85.
 - Runtime UI: the gear at the bottom-left opens a settings panel (checkboxes + sliders for
   drape, mesh resolution, sun, shadows, fog, max visible distance). Driving it from adb works:
   `adb shell input tap 84 2236` toggles the panel, `input swipe` scrolls it and drags sliders.

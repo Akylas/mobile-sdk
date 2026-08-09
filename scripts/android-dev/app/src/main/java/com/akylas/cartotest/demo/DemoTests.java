@@ -47,6 +47,76 @@ public final class DemoTests {
 
     private static LocalVectorDataSource resultSource;
 
+    /**
+     * Drives a TWO-FINGER drag over the map, as a real gesture would.
+     *
+     * The only way to exercise it: adb can synthesize one pointer, not two, and the emulator's
+     * touch devices are not writable from the shell. The MotionEvent goes through
+     * MapView.onTouchEvent, which is the same entry point a finger uses, so what it tests is the
+     * gesture path and not a shortcut around it.
+     *
+     * @param dx horizontal travel in pixels, @param dy vertical travel (negative = upwards)
+     */
+    public static void runTwoFingerDrag(final DemoMap demo, final float dx, final float dy) {
+        final com.carto.ui.MapView mapView = demo.mapView;
+        final Handler handler = new Handler(Looper.getMainLooper());
+        final MapPos before = mapView.getFocusPos();
+        final float x1 = 400, x2 = 700, y = 1600;
+        final long downTime = android.os.SystemClock.uptimeMillis();
+        final int steps = 12;
+        // Real delays between the events, not a tight loop: the gesture is only recognised once
+        // the click handler THREAD has seen the movement, so a burst of events with fake
+        // timestamps is dropped as a two-finger tap.
+        send(mapView, downTime, downTime, android.view.MotionEvent.ACTION_DOWN, 1, x1, y, x2, y);
+        handler.postDelayed(new Runnable() {
+            public void run() {
+                send(mapView, downTime, android.os.SystemClock.uptimeMillis(),
+                        android.view.MotionEvent.ACTION_POINTER_DOWN | (1 << android.view.MotionEvent.ACTION_POINTER_INDEX_SHIFT),
+                        2, x1, y, x2, y);
+            }
+        }, 30);
+        for (int step = 1; step <= steps; step++) {
+            final float fx = dx * step / steps, fy = dy * step / steps;
+            handler.postDelayed(new Runnable() {
+                public void run() {
+                    send(mapView, downTime, android.os.SystemClock.uptimeMillis(),
+                            android.view.MotionEvent.ACTION_MOVE, 2, x1 + fx, y + fy, x2 + fx, y + fy);
+                }
+            }, 60 + step * 25L);
+        }
+        handler.postDelayed(new Runnable() {
+            public void run() {
+                send(mapView, downTime, android.os.SystemClock.uptimeMillis(),
+                        android.view.MotionEvent.ACTION_POINTER_UP | (1 << android.view.MotionEvent.ACTION_POINTER_INDEX_SHIFT),
+                        2, x1 + dx, y + dy, x2 + dx, y + dy);
+                send(mapView, downTime, android.os.SystemClock.uptimeMillis(),
+                        android.view.MotionEvent.ACTION_UP, 1, x1 + dx, y + dy, x2 + dx, y + dy);
+                Log.i(TAG, "two-finger drag (" + dx + "," + dy + "): focus " + before + " -> " + mapView.getFocusPos());
+            }
+        }, 60 + (steps + 2) * 25L);
+    }
+
+    private static void send(com.carto.ui.MapView mapView, long downTime, long eventTime, int action,
+                             int count, float x1, float y1, float x2, float y2) {
+        android.view.MotionEvent.PointerProperties[] properties = new android.view.MotionEvent.PointerProperties[count];
+        android.view.MotionEvent.PointerCoords[] coords = new android.view.MotionEvent.PointerCoords[count];
+        for (int i = 0; i < count; i++) {
+            properties[i] = new android.view.MotionEvent.PointerProperties();
+            properties[i].id = i;
+            properties[i].toolType = android.view.MotionEvent.TOOL_TYPE_FINGER;
+            coords[i] = new android.view.MotionEvent.PointerCoords();
+            coords[i].x = (i == 0 ? x1 : x2);
+            coords[i].y = (i == 0 ? y1 : y2);
+            coords[i].pressure = 1;
+            coords[i].size = 1;
+        }
+        android.view.MotionEvent event = android.view.MotionEvent.obtain(downTime, eventTime, action, count,
+                properties, coords, 0, 0, 1, 1, 0, 0, android.view.InputDevice.SOURCE_TOUCHSCREEN, 0);
+        mapView.onTouchEvent(event);
+        event.recycle();
+    }
+
+
     /** Lazily creates (and adds) the layer every test draws its result into. */
     private static LocalVectorDataSource results(DemoMap demo) {
         if (resultSource == null) {
