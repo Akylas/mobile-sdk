@@ -1299,17 +1299,15 @@ namespace carto {
             }
         }
 
-        // Label placement is SCREEN space, so it goes stale when the camera zooms even though the
-        // tile set - which is what normally asks for a new pass (VectorTileLayer::calculateDrawData)
-        // - has not changed. A label that had to fall back to its icon alone (shield-text-optional)
-        // or to a worse side would then keep it until tiles happened to change, however much room
-        // the zoom made for it. Panning and rotating leave every label's size alone, and both
-        // already change the tile set, so only the zoom is worth a pass of its own.
+        // A placement pass is otherwise only asked for when the tile set changes, but a label's
+        // envelope is screen space: zooming in makes room nothing would notice, and a name that fell
+        // back to its icon (shield-text-optional) would keep it. Postponed rather than queued, so a
+        // zoom gesture places once when it ends instead of thrashing at every step.
         if (vectorTileLayer) {
             float zoom = getViewState().getZoom();
             if (std::abs(zoom - _lastLabelPlacementZoom) >= LABEL_PLACEMENT_ZOOM_THRESHOLD) {
                 _lastLabelPlacementZoom = zoom;
-                _vtLabelPlacementWorker->init(vectorTileLayer, VT_LABEL_PLACEMENT_TASK_DELAY);
+                _vtLabelPlacementWorker->postpone(vectorTileLayer, LABEL_PLACEMENT_ZOOM_DELAY);
             }
         }
     
@@ -3081,10 +3079,10 @@ namespace carto {
     const int MapRenderer::BILLBOARD_PLACEMENT_TASK_DELAY = 200;
 
     const int MapRenderer::VT_LABEL_PLACEMENT_TASK_DELAY = 200;
-    // A quarter of a zoom level: labels are drawn at the same pixel size at every zoom, so what
-    // changes is how much MAP is under them - a quarter level is about 20% more room, which is
-    // enough to fit a name that did not fit before.
+    // A quarter of a zoom level is ~20% more room under the labels - enough to fit a name that did
+    // not fit before. The delay is what makes a zoom gesture place once, when it settles.
     const float MapRenderer::LABEL_PLACEMENT_ZOOM_THRESHOLD = 0.25f;
+    const int MapRenderer::LABEL_PLACEMENT_ZOOM_DELAY = 250;
 
     const int MapRenderer::ELEVATION_REFRESH_DELAY = 500;
 

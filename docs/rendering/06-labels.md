@@ -81,24 +81,26 @@ Everything below rests on that split — the icon stays on the feature, only the
   style's own `horizontal-alignment` does not have to be mirrored, and `dx`/`dy` are re-applied as a
   gap along the anchor direction (a name pushed 2 px right of the icon is pushed 2 px LEFT on the
   left side). A style with no `shield-anchors` builds no variants and takes exactly the old path.
-- **`LabelCuller::placeAnchoredLabel`** tries the sides **from the first one, every pass**, and
-  takes the first free one. This is tangram's `do { … } while (isOccluded() && nextAnchor())`
-  (`labelManager.cpp`), with their anchor set and their anchor order.
-  Trying the side the label already held *first* looks like the committed-placement rule the global
-  sort uses, and it is a bug: the last variant of a `text-optional` label is the icon alone, it is
-  smaller than every other one, so it always fits — a label that fell back to it once kept it for
-  good and its name never came back however far the camera zoomed in. Stability comes from the sort
-  (a label that was visible claims its slot before new ones), not from remembering a side.
+- **`LabelCuller::placeAnchoredLabel`** tries the side the label already holds first and then the
+  style's order, taking the first free one — tangram's
+  `do { … } while (isOccluded() && nextAnchor())` (`labelManager.cpp`), with their anchor set and
+  order. Keeping the current side is what stops a name swapping sides under a moving camera; the
+  exception is the icon-only variant, which is smaller than every other one and therefore always
+  fits, so a label that fell back to it once would keep it for good and its name would never come
+  back. It is never the preferred side.
+- Along the side's own axis the text is placed against the icon's **edge**, and `dx`/`dy` become a
+  gap pushed away from the icon. Across that axis it is **centred on the anchor** — a name above the
+  icon has to sit over it, and the formatter's own alignment is derived from the sign of `dx`, which
+  means nothing once `dx` is a gap.
 - `shield-text-optional` appends a last variant that draws the icon alone. That is mapbox's
   `text-optional`; here it costs one more variant, not a second label.
 - The side is carried across rebuilds by `snapPlacement`, so a label recreated by a tile-set change
   does not start at side 0 for one frame before the next pass moves it back.
-- **Placement is re-run when the camera zooms** (`MapRenderer::viewChanged`, threshold ¼ of a zoom
-  level). A pass is otherwise only asked for when the TILE SET changes
-  (`VectorTileLayer::calculateDrawData`), and a label's envelope is screen-space: zooming in makes
-  room that nothing would have noticed, so a name that had fallen back to its icon stayed an icon
-  until tiles happened to change. Panning and rotating leave every label's size alone and already
-  change the tile set, so only the zoom needs a pass of its own.
+- **Placement is re-run when the camera zooms** (`MapRenderer::viewChanged`, ¼ of a zoom level). A
+  pass is otherwise only asked for when the TILE SET changes, and a label's envelope is screen-space:
+  zooming in makes room nothing notices. The pass is **postponed** rather than queued
+  (`VTLabelPlacementWorker::postpone`), so a zoom gesture places once when it settles instead of
+  re-deciding at every step — placing mid-gesture is what made labels fade in and straight back out.
 
 **Which labels keep their text** is decided by the same greedy insertion as everything else: the
 culler sorts by priority → `wasVisible` → layer index → size → opacity and inserts in that order, so

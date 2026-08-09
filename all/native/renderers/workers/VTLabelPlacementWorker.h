@@ -26,6 +26,8 @@ namespace carto {
         void setComponents(const std::weak_ptr<MapRenderer>& mapRenderer, const std::shared_ptr<VTLabelPlacementWorker>& worker);
         
         void init(const std::shared_ptr<Layer>& layer, int delayTime);
+        /** Same, but pushes an already pending pass back instead of running it earlier. */
+        void postpone(const std::shared_ptr<Layer>& layer, int delayTime);
         
         void stop();
         
@@ -35,6 +37,7 @@ namespace carto {
     
     private:
         void run();
+        void schedule(const std::shared_ptr<Layer>& layer, int delayTime, bool postpone);
         
         bool calculateVTLabelPlacement();
         
