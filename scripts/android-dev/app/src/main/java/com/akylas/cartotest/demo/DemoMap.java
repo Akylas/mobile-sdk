@@ -14,6 +14,7 @@ import com.carto.core.MapPosVector;
 import com.carto.core.MapVec;
 import com.carto.core.StringMap;
 import com.carto.core.StringVector;
+import com.carto.core.Variant;
 import com.carto.datasources.ContourTileDataSource;
 import com.carto.datasources.GeoJSONVectorTileDataSource;
 import com.carto.datasources.HTTPTileDataSource;
@@ -34,6 +35,7 @@ import com.carto.layers.RasterTileFilterMode;
 import com.carto.layers.RasterTileLayer;
 import com.carto.layers.TileSubstitutionPolicy;
 import com.carto.layers.VectorLayer;
+import com.carto.layers.VectorTileEventListener;
 import com.carto.layers.VectorTileLayer;
 import com.carto.layers.VectorTileRenderOrder;
 import com.carto.projections.Projection;
@@ -46,6 +48,7 @@ import com.carto.styles.CartoCSSStyleSet;
 import com.carto.styles.LineStyleBuilder;
 import com.carto.styles.MarkerStyleBuilder;
 import com.carto.ui.MapView;
+import com.carto.ui.VectorTileClickInfo;
 import com.carto.vectorelements.Line;
 import com.carto.vectorelements.Marker;
 import com.carto.vectortiles.MBVectorTileDecoder;
@@ -82,7 +85,7 @@ public class DemoMap {
 
     /** One switchable layer of the demo. */
     public enum Feature {
-        CELESTIAL, STARS, BASE, SATELLITE, HILLSHADE, HYPSO, CONTOUR, CONTOUR_TILES, ROUTES, ROUTE_TEST, ELEMENTS
+        CELESTIAL, STARS, BASE, SATELLITE, HILLSHADE, HYPSO, CONTOUR, CONTOUR_TILES, ROUTES, ROUTE_TEST, ELEMENTS, PEAKS
     }
 
     /** Bottom -> top draw order. Toggling a layer never reorders the others. */
@@ -91,7 +94,9 @@ public class DemoMap {
         // behind it - which is what a body in the sky should do.
         Feature.CELESTIAL, Feature.STARS,
         Feature.BASE, Feature.SATELLITE, Feature.HILLSHADE, Feature.HYPSO,
-        Feature.CONTOUR, Feature.CONTOUR_TILES, Feature.ROUTES, Feature.ROUTE_TEST, Feature.ELEMENTS
+        Feature.CONTOUR, Feature.CONTOUR_TILES, Feature.ROUTES, Feature.ROUTE_TEST, Feature.ELEMENTS,
+        // Last: the summit names go over everything the map draws.
+        Feature.PEAKS
     };
 
     /** Sun, moon and their daily paths - demo content built on the generic celestial API. */
@@ -116,6 +121,12 @@ public class DemoMap {
     public CompositeVectorTileLayer compositeLayer;      // same object as baseLayer in COMPOSITE mode
     public MBVectorTileDecoder baseDecoder;              // decoder of the base layer
     public ContourTileDataSource contourSource;          // shared by the layer and the composite slot
+    public PostProcessEffect reliefEffect;               // the attached relief outline effect, if any
+    // What the peak-finder mode switched off, so leaving it puts the map back as it was.
+    private boolean savedLayerBase, savedLayerHillshade, savedLayerContour, savedLayerContourTiles, savedLayerSatellite, savedLayerHypso;
+    private float savedTilt;
+    private float savedOcclusionTolerance;
+    private float savedViewDistance = 1;
     /** Result of the last {@link #checkCompositeSlots()}: which slots the style really has. */
     public String compositeStatus = "";
 
@@ -162,6 +173,18 @@ public class DemoMap {
                 }
             }, (long) DemoConfig.RELIEF_OUTLINE_DELAY_MS);
         }
+        if (DemoConfig.PEAK_FINDER) {
+            // After the same delay as the effect: attaching it before the GL surface exists
+            // leaves the offscreen colour buffer unwritten.
+            handler.postDelayed(new Runnable() {
+                public void run() {
+                    setPeakFinderMode(true);
+                    if (DemoConfig.AR_MODE) {
+                        setArMode(true); // over the camera, once the view it composites is there
+                    }
+                }
+            }, (long) DemoConfig.RELIEF_OUTLINE_DELAY_MS);
+        }
         if (DemoConfig.DAY_CYCLE) {
             applyDayCycle(DemoConfig.DAY_CYCLE_HOUR);
         }
@@ -196,6 +219,7 @@ public class DemoMap {
             case ROUTES: return DemoConfig.LAYER_ROUTES;
             case ROUTE_TEST: return DemoConfig.LAYER_ROUTE_TEST;
             case ELEMENTS: return DemoConfig.LAYER_ELEMENTS;
+            case PEAKS: return DemoConfig.LAYER_PEAKS;
             default: return false;
         }
     }
@@ -213,6 +237,7 @@ public class DemoMap {
             case ROUTES: DemoConfig.LAYER_ROUTES = enabled; break;
             case ROUTE_TEST: DemoConfig.LAYER_ROUTE_TEST = enabled; break;
             case ELEMENTS: DemoConfig.LAYER_ELEMENTS = enabled; break;
+            case PEAKS: DemoConfig.LAYER_PEAKS = enabled; break;
         }
         rebuildLayers();
     }
@@ -271,6 +296,7 @@ public class DemoMap {
             case ROUTES: return createRoutesLayer();
             case ROUTE_TEST: return createRouteTestLayer();
             case ELEMENTS: return createElementsLayer();
+            case PEAKS: return createPeaksLayer();
             default: return null;
         }
     }
@@ -382,6 +408,178 @@ public class DemoMap {
     /** Rebuilds the base layer: needed after a style-source or base-mode change. */
     public void rebuildBaseLayer() {
         invalidate(Feature.BASE);
+        rebuildLayers();
+    }
+
+    /**
+     * The peak-finder view, in one switch. The pieces are independent SDK features, but each one
+     * on its own looks like nothing happens: the shaded surface only shows where NO tile layer
+     * paints, and summit names need a view that has summits in it - which a top-down city camera
+     * has not. So the mode turns the map layers off, the relief and the names on, and tilts the
+     * camera to a panorama (in this SDK tilt 90 is straight down).
+     */
+    /**
+     * Enters the peak-finder view from wherever the map is, as ONE move: the camera flies to the
+     * current focus at the panorama's zoom and tilt (MapView.flyTo, which pulls back over a long
+     * move and comes down at the target), while the viewpoint climbs to PEAK_FINDER_FLY_ELEVATION
+     * and the terrain, the relief and the names come up on the same clock. Everything here is
+     * ordinary SDK API driven from the app - the SDK has no peak-finder mode.
+     */
+    public void flyToPeakFinder() {
+        final MapPos focus = mapView.getFocusPos();
+        // 3D terrain first, then the mode: the terrain, the relief surface and the names all have
+        // the whole flight to load and fade in, instead of appearing when it lands.
+        if (!DemoConfig.TERRAIN_ENABLED) {
+            DemoConfig.TERRAIN_ENABLED = true;
+            applyTerrainOptions();
+        }
+        setPeakFinderMode(true);
+        // The tilt belongs to the flight, so undo what the mode did to it and let the one
+        // animation carry it - together with the climb to the viewpoint's elevation.
+        mapView.setTilt(savedTilt > 0 ? savedTilt : mapView.getTilt(), 0);
+        MapPos target = new MapPos(focus.getX(), focus.getY(), DemoConfig.PEAK_FINDER_FLY_ELEVATION);
+        mapView.flyTo(target, DemoConfig.PEAK_FINDER_FLY_ZOOM, mapView.getRotation(),
+                DemoConfig.PEAK_FINDER_TILT, DemoConfig.PEAK_FINDER_FLY_CLIMB,
+                DemoConfig.PEAK_FINDER_FLY_DURATION);
+        // The viewpoint's height is the flight's now (the target's Z, plus the climb over the way),
+        // so the demo only has to follow it: read the flight's own progress rather than run a
+        // second clock beside it, and keep the widget's number and the config in step.
+        DemoConfig.PEAK_FINDER_ELEVATION = DemoConfig.PEAK_FINDER_FLY_ELEVATION;
+        mapView.post(new Runnable() {
+            @Override
+            public void run() {
+                float progress = mapView.getFlightProgress();
+                if (progress >= 0) {
+                    DemoPanel.refreshElevationLabel();
+                    mapView.postDelayed(this, 16);
+                }
+            }
+        });
+    }
+
+    /**
+     * AR: the relief view over the camera preview. Everything here is an SDK feature the app puts
+     * together - a transparent clear colour (the frame becomes a hole), a translucent GL surface
+     * (so the hole shows the preview behind it), the sky off, the dark palette, and the device's
+     * orientation driving the camera. The terrain, the relief surface and the names stay exactly
+     * as they are in the peak-finder view; only what is BEHIND them changes.
+     */
+    public void setArMode(boolean enabled) {
+        DemoConfig.AR_MODE = enabled;
+        Options options = mapView.getOptions();
+        if (enabled) {
+            if (!DemoConfig.PEAK_FINDER) {
+                setPeakFinderMode(true);
+            }
+            saveMapAppearance();
+            options.setClearColor(new Color((short) 0, (short) 0, (short) 0, (short) 0));
+            options.setSkyColor(new Color((short) 0, (short) 0, (short) 0, (short) 0));
+            options.setBackgroundBitmap(null);
+            if (skyOptions != null) {
+                skyOptions.setEnabled(false);
+            }
+            setReliefDark(true);
+            setSurfaceTranslucent(true);
+            setCameraPreviewEnabled(DemoConfig.AR_CAMERA);
+            setOrientationFollowing(DemoConfig.AR_ORIENTATION);
+        } else {
+            setOrientationFollowing(false);
+            setCameraPreviewEnabled(false);
+            setSurfaceTranslucent(false);
+            restoreMapAppearance();
+            if (skyOptions != null) {
+                skyOptions.setEnabled(DemoConfig.SKY_ENABLED);
+            }
+            setReliefDark(false);
+        }
+        mapView.requestRender();
+    }
+
+    public void setPeakFinderMode(boolean enabled) {
+        DemoConfig.PEAK_FINDER = enabled;
+        if (enabled) {
+            savedLayerBase = DemoConfig.LAYER_BASE;
+            savedLayerHillshade = DemoConfig.LAYER_HILLSHADE;
+            savedLayerContour = DemoConfig.LAYER_CONTOUR;
+            savedLayerContourTiles = DemoConfig.LAYER_CONTOUR_TILES;
+            savedLayerSatellite = DemoConfig.LAYER_SATELLITE;
+            savedLayerHypso = DemoConfig.LAYER_HYPSO;
+            savedTilt = mapView.getTilt();
+            DemoConfig.LAYER_BASE = false;
+            DemoConfig.LAYER_HILLSHADE = false;
+            DemoConfig.LAYER_CONTOUR = false;
+            DemoConfig.LAYER_CONTOUR_TILES = false;
+            DemoConfig.LAYER_SATELLITE = false;
+            DemoConfig.LAYER_HYPSO = false;
+            DemoConfig.LAYER_PEAKS = true;
+            DemoConfig.RELIEF_SURFACE = true;
+            savedOcclusionTolerance = DemoConfig.TERRAIN_OCCLUSION_TOLERANCE;
+            // A summit sitting ON a ridge, or a metre behind it, is exactly what the view is for,
+            // so the label occlusion is deliberately generous here.
+            DemoConfig.TERRAIN_OCCLUSION_TOLERANCE = DemoConfig.PEAK_FINDER_OCCLUSION_TOLERANCE;
+            // And a panorama wants the far ranges: tangram's rule stops the ground a few kilometres
+            // out, which is most of what the view is about (see TerrainOptions.ViewDistanceFactor).
+            savedViewDistance = DemoConfig.VIEW_DISTANCE_FACTOR;
+            DemoConfig.VIEW_DISTANCE_FACTOR = DemoConfig.PEAK_FINDER_VIEW_DISTANCE;
+            applyTerrainOptions();
+            rebuildLayers();
+            applyReliefSurface();
+            setReliefOutlineEnabled(true);
+            mapView.setTilt(DemoConfig.PEAK_FINDER_TILT, 0.6f);
+            DemoPanel.setElevationWidgetVisible(true);
+        } else {
+            DemoConfig.LAYER_BASE = savedLayerBase;
+            DemoConfig.LAYER_HILLSHADE = savedLayerHillshade;
+            DemoConfig.LAYER_CONTOUR = savedLayerContour;
+            DemoConfig.LAYER_CONTOUR_TILES = savedLayerContourTiles;
+            DemoConfig.LAYER_SATELLITE = savedLayerSatellite;
+            DemoConfig.LAYER_HYPSO = savedLayerHypso;
+            DemoConfig.LAYER_PEAKS = false;
+            DemoConfig.RELIEF_SURFACE = false;
+            DemoConfig.TERRAIN_OCCLUSION_TOLERANCE = savedOcclusionTolerance;
+            DemoConfig.VIEW_DISTANCE_FACTOR = savedViewDistance;
+            DemoConfig.PEAK_FINDER_ELEVATION = 0;
+            applyTerrainOptions();
+            applyViewpointElevation();
+            rebuildLayers();
+            applyReliefSurface();
+            setReliefOutlineEnabled(false);
+            if (savedTilt > 0) {
+                mapView.setTilt(savedTilt, 0.6f);
+            }
+            DemoPanel.setElevationWidgetVisible(false);
+        }
+        mapView.requestRender();
+    }
+
+    /**
+     * Lifts the viewpoint by {@link DemoConfig#PEAK_FINDER_ELEVATION} metres. The focus position
+     * carries a height and the camera rides on it, so raising the focus raises the eye - which is
+     * what a peak-finder view wants: see over the ridge in front of you.
+     * The z of a MapPos is in INTERNAL units, and one metre is worth more of them the further from
+     * the equator (mercator), hence the latitude term.
+     */
+    public void applyViewpointElevation() {
+        Projection proj = mapView.getOptions().getBaseProjection();
+        MapPos wgs = proj.toWgs84(mapView.getFocusPos());
+        double groundElevation = 0;
+        if (terrainOptions != null) {
+            double sample = terrainOptions.getElevation(wgs);
+            if (sample > -100000) {
+                groundElevation = sample;
+            }
+        }
+        // The projection converts metres to internal units itself (toInternal scales z with x/y),
+        // so this stays in METRES - with the mercator stretch the terrain heights also carry, or
+        // the viewpoint would sit lower than the mountains it is measured against.
+        double meters = (groundElevation + DemoConfig.PEAK_FINDER_ELEVATION) / Math.cos(Math.toRadians(wgs.getY()));
+        mapView.setFocusPos(proj.fromWgs84(new MapPos(wgs.getX(), wgs.getY(), meters)), 0.3f);
+        mapView.requestRender();
+    }
+
+    /** The peak labels are style-driven, so every callout knob needs a new decoder. */
+    public void rebuildPeaksLayer() {
+        invalidate(Feature.PEAKS);
         rebuildLayers();
     }
 
@@ -564,6 +762,36 @@ public class DemoMap {
         } finally {
             stream.close();
         }
+    }
+
+    /**
+     * Summit names as callout labels: their own vector tile layer on the base source, with a
+     * peaks-only style (see DemoStyles.peaksStyle). Clicking one reports it through the standard
+     * vector tile click path - a callout label is picked where it is DRAWN, at the end of its
+     * leader line.
+     */
+    private Layer createPeaksLayer() {
+        VectorTileLayer layer = new VectorTileLayer(vectorSource(), new MBVectorTileDecoder(new CartoCSSStyleSet(DemoStyles.peaksStyle())));
+        layer.setLabelRenderOrder(VectorTileRenderOrder.VECTOR_TILE_RENDER_ORDER_LAST);
+        // Out of the post-process pass: the relief effect reads the terrain depth but paints over
+        // the whole frame, so a ridge line drawn after the names crosses them. Opting the layer out
+        // draws it AFTER the effect has resolved (Layer.setPostProcessed), which is also what keeps
+        // the glyphs crisp - they are not resampled by the effect's half-resolution buffer.
+        layer.setPostProcessed(false);
+        layer.setVectorTileEventListener(new VectorTileEventListener() {
+            @Override
+            public boolean onVectorTileClicked(VectorTileClickInfo clickInfo) {
+                Variant properties = clickInfo.getFeature().getProperties();
+                final String name = properties.getObjectElement("name").getString()
+                        + " " + properties.getObjectElement("ele").toString() + " m";
+                Log.i(TAG, "peak clicked: " + name);
+                mapView.post(new Runnable() {
+                    public void run() { android.widget.Toast.makeText(context, name, android.widget.Toast.LENGTH_SHORT).show(); }
+                });
+                return true;
+            }
+        });
+        return layer;
     }
 
     /**
@@ -757,7 +985,44 @@ public class DemoMap {
         terrainOptions.setFogStartDistance(DemoConfig.FOG_START_DISTANCE);
         terrainOptions.setFogDistance(DemoConfig.FOG_DISTANCE);
         terrainOptions.setViewDistanceFactor(DemoConfig.VIEW_DISTANCE_FACTOR);
+        terrainOptions.setViewDistance(DemoConfig.VIEW_DISTANCE_METERS);
         terrainOptions.setMaxTileZoomCoarsening(DemoConfig.TERRAIN_MAX_TILE_ZOOM_COARSENING);
+        applyReliefSurface();
+        mapView.requestRender();
+    }
+
+    /**
+     * The shaded terrain surface of the relief look. The surface shader replaces the terrain
+     * background fill, so it is what shows wherever no tile layer paints - switch the base map
+     * off to see it.
+     */
+    /** The relief palette, in one switch: the shaded surface, the ink lines, the names, the plate
+     *  behind them and the sky all come from the same pair of colours (see DemoConfig). The names
+     *  need their layer rebuilt because a CartoCSS style bakes its colours in. */
+    public void setReliefDark(boolean dark) {
+        DemoConfig.RELIEF_DARK = dark;
+        applyReliefSurface();
+        applyReliefOutlineParameters();
+        applySkyOptions();
+        rebuildPeaksLayer();
+    }
+
+    public static int reliefInk() { return DemoConfig.RELIEF_DARK ? DemoConfig.RELIEF_INK_DARK : DemoConfig.RELIEF_INK_LIGHT; }
+    public static int reliefPaper() { return DemoConfig.RELIEF_DARK ? DemoConfig.RELIEF_PAPER_DARK : DemoConfig.RELIEF_PAPER_LIGHT; }
+    public static int reliefShade() { return DemoConfig.RELIEF_DARK ? DemoConfig.RELIEF_SHADE_DARK : DemoConfig.RELIEF_SHADE_LIGHT; }
+    public static int reliefSky() { return DemoConfig.RELIEF_DARK ? DemoConfig.RELIEF_SKY_DARK : DemoConfig.RELIEF_SKY_LIGHT; }
+
+    public void applyReliefSurface() {
+        if (terrainOptions == null) {
+            return;
+        }
+        terrainOptions.setSurfaceShaderSource(DemoConfig.RELIEF_SURFACE ? DemoStyles.reliefSurfaceShader() : "");
+        terrainOptions.setSurfaceColorParameter("uPaperColor", color(reliefPaper()));
+        terrainOptions.setSurfaceColorParameter("uShadeColor", color(reliefShade()));
+        terrainOptions.setSurfaceParameter("uShadeStrength", DemoConfig.RELIEF_SHADE_STRENGTH);
+        terrainOptions.setSurfaceParameter("uAmbient", DemoConfig.RELIEF_AMBIENT);
+        terrainOptions.setSurfaceParameter("uHaze", DemoConfig.RELIEF_HAZE);
+        terrainOptions.setSurfaceParameter("uHazeDistance", DemoConfig.RELIEF_HAZE_DISTANCE);
         mapView.requestRender();
     }
 
@@ -800,6 +1065,17 @@ public class DemoMap {
         // angle it is still at full strength at (negative = from the terrain, 0 = from the horizon).
         skyOptions.setFogBlend(DemoConfig.SKY_FOG_BLEND);
         skyOptions.setFogHorizon(DemoConfig.SKY_FOG_HORIZON);
+        // In the relief view the sky is part of the palette: a light one over the paper, a night
+        // one over the ink. Alpha 0 makes it see-through, which is what an AR overlay wants.
+        if (DemoConfig.RELIEF_SURFACE || DemoConfig.PEAK_FINDER) {
+            // The generated day-cycle shader owns the sky's colours, so it has to go for the
+            // palette's own sky to be visible at all (SkyOptions falls back to the built-in sky).
+            if (!DemoConfig.DAY_CYCLE) {
+                skyOptions.setShaderSource("");
+            }
+            skyOptions.setSkyColor(color(reliefSky()));
+            mapView.getOptions().setSkyColor(color(reliefSky()));
+        }
         mapView.requestRender();
     }
 
@@ -925,6 +1201,18 @@ public class DemoMap {
         savedSkyColor = options.getSkyColor();
         savedBackgroundBitmap = options.getBackgroundBitmap();
         starSkySaved = true;
+    }
+
+    /** Puts back what saveMapAppearance kept - the clear colour, the sky and the background. */
+    private void restoreMapAppearance() {
+        if (!starSkySaved) {
+            return;
+        }
+        Options options = mapView.getOptions();
+        options.setClearColor(savedClearColor);
+        options.setSkyColor(savedSkyColor);
+        options.setBackgroundBitmap(savedBackgroundBitmap);
+        starSkySaved = false;
     }
 
     private void enterStarSky() {
@@ -1102,12 +1390,39 @@ public class DemoMap {
         DemoConfig.RELIEF_OUTLINE = enabled;
         MapRenderer renderer = mapView.getMapRenderer();
         if (enabled) {
-            PostProcessEffect effect = PostProcessEffect.createReliefOutlineEffect();
-            effect.setFloatParameter("uIntensity", 1.0f);
-            renderer.setPostProcessEffect(effect);
+            // The SDK provides the mechanism - an offscreen frame, the packed terrain depth and
+            // named parameters - and the app provides the look, as a fragment shader string. There
+            // is no relief effect in the SDK.
+            reliefEffect = new PostProcessEffect("relief_outline", DemoStyles.reliefOutlineShader());
+            reliefEffect.setTerrainDepthRequired(true);
+            applyReliefOutlineParameters();
+            renderer.setPostProcessEffect(reliefEffect);
         } else {
+            reliefEffect = null;
             renderer.setPostProcessEffect(null);
         }
+        mapView.requestRender();
+    }
+
+    /** Pushes the outline knobs (and the light/dark palette) onto the attached effect. */
+    public void applyReliefOutlineParameters() {
+        if (reliefEffect == null) {
+            return;
+        }
+        reliefEffect.setFloatParameter("uIntensity", 1.0f);
+        reliefEffect.setFloatParameter("uOutlineWidth", DemoConfig.RELIEF_OUTLINE_WIDTH);
+        reliefEffect.setFloatParameter("uHorizonBoost", DemoConfig.RELIEF_HORIZON_BOOST);
+        reliefEffect.setFloatParameter("uDepthThreshold", DemoConfig.RELIEF_DEPTH_THRESHOLD);
+        reliefEffect.setFloatParameter("uCreaseStrength", DemoConfig.RELIEF_CREASE_STRENGTH);
+        reliefEffect.setFloatParameter("uHaze", DemoConfig.RELIEF_HAZE);
+        // The depth texture is half resolution (TerrainRenderer::BUFFER_DOWNSCALE), and the two
+        // below are what keep the horizon the boldest line: the silhouette test is relaxed by the
+        // grazing angle, and terrain-vs-terrain lines fade with distance while the sky's do not.
+        reliefEffect.setFloatParameter("uDepthTexelSize", 2.0f);
+        reliefEffect.setFloatParameter("uGrazingFloor", 0.15f);
+        reliefEffect.setFloatParameter("uDistanceFade", 0.45f);
+        reliefEffect.setColorParameter("uInkColor", color(reliefInk()));
+        reliefEffect.setColorParameter("uPaperColor", color(reliefPaper()));
         mapView.requestRender();
     }
 

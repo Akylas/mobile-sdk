@@ -48,6 +48,10 @@ hides it, for free, with no extra work.
   anything itself.
 - Objects are sorted **far to near** before drawing so overlapping discs blend in the expected
   order.
+- **Over a stylized map**: `setPostProcessed(false)` on the layer draws it after a post-process
+  effect resolves, so a daily path keeps its colour over a relief-styled ground and still goes
+  behind the ridges (the depth buffer is the same one). See
+  [14-post-process.md](14-post-process.md#layers-above-the-effect).
 
 ## Clicking, and the gap it exposed
 

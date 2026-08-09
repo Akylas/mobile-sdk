@@ -582,6 +582,7 @@ namespace carto {
         cglib::mat4x4<double> modelViewMat = viewState.getModelviewMat() * cglib::translate4_matrix(cglib::vec3<double>(_horizontalLayerOffset, 0, 0));
         vt::ViewState vtViewState(viewState.getProjectionMat(), modelViewMat, viewState.getZoom(), viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewState.getNormalizedResolution());
         vtViewState.planarProjection = isPlanarProjectionMode(); // labels rescale by view depth, so neither terrain elevation nor a tilt blows up their screen size
+        vtViewState.focusDistance = static_cast<float>(cglib::length(viewState.getCameraPos() - viewState.getFocusPos())); // what the zoom sizes labels at; vt guesses it from the ground plane otherwise
         tileRenderer->setViewState(vtViewState);
         // A line width is given in unscaled-DPI units; this is what one of them is worth in device
         // pixels, so the antialias ramp can be one pixel wide instead of one unit (see lineFsh).
@@ -1000,6 +1001,7 @@ namespace carto {
         vt::ViewState cullViewState(viewState.getProjectionMat(), modelViewMat, viewState.getZoom(),
 viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewState.getNormalizedResolution());
         cullViewState.planarProjection = isPlanarProjectionMode(); // keep culling envelopes consistent with the rendered label sizes
+        cullViewState.focusDistance = static_cast<float>(cglib::length(viewState.getCameraPos() - viewState.getFocusPos()));
         culler.setViewState(cullViewState);
 
         try {

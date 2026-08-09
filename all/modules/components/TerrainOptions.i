@@ -11,6 +11,7 @@
 #include <memory>
 %}
 
+%include <std_string.i>
 %include <std_shared_ptr.i>
 %include <cartoswig.i>
 
@@ -41,11 +42,16 @@
 %attribute(carto::TerrainOptions, float, FogStartDistance, getFogStartDistance, setFogStartDistance)
 %attribute(carto::TerrainOptions, float, FogDistance, getFogDistance, setFogDistance)
 %attribute(carto::TerrainOptions, float, ViewDistanceFactor, getViewDistanceFactor, setViewDistanceFactor)
+%attribute(carto::TerrainOptions, float, ViewDistance, getViewDistance, setViewDistance)
 %attribute(carto::TerrainOptions, int, MaxTileZoomCoarsening, getMaxTileZoomCoarsening, setMaxTileZoomCoarsening)
 %attribute(carto::TerrainOptions, float, DepthBias, getDepthBias, setDepthBias)
 %attribute(carto::TerrainOptions, bool, BillboardOcclusionEnabled, isBillboardOcclusionEnabled, setBillboardOcclusionEnabled)
 %attribute(carto::TerrainOptions, float, BillboardOcclusionTolerance, getBillboardOcclusionTolerance, setBillboardOcclusionTolerance)
+%attributestring(carto::TerrainOptions, std::string, SurfaceShaderSource, getSurfaceShaderSource, setSurfaceShaderSource)
 %std_exceptions(carto::TerrainOptions::TerrainOptions)
+
+%ignore carto::TerrainOptions::getSurfaceParameters;
+%ignore carto::TerrainOptions::getSurfaceColorParameters;
 
 %ignore carto::TerrainOptions::OnChangeListener;
 %ignore carto::TerrainOptions::registerOnChangeListener;

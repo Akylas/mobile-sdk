@@ -24,6 +24,12 @@
 #include <vector>
 #include <sstream>
 
+namespace {
+    // Van Wijk & Nuij's rho, the aggressiveness of the pull-back over a long move; 1.42 is the
+    // value they derive as optimal, and neither they nor any port of it exposes another.
+    const float FLIGHT_RHO = 1.42f;
+}
+
 namespace carto {
 
     std::string BaseMapView::GetSDKVersion() {
@@ -136,6 +142,49 @@ namespace carto {
         _mapRenderer->calculateCameraEvent(cameraEvent, durationSeconds, false);
     }
     
+    void BaseMapView::flyTo(const MapPos& pos, float zoom, float durationSeconds) {
+        stopCameraAnimations();
+        _mapRenderer->getAnimationHandler().setFlightTarget(_options->getBaseProjection()->toInternal(pos), zoom, nullptr, nullptr, 0.0f, durationSeconds, FLIGHT_RHO);
+    }
+
+    void BaseMapView::flyTo(const MapPos& pos, float zoom, float rotation, float tilt, float durationSeconds) {
+        flyTo(pos, zoom, rotation, tilt, 0.0f, durationSeconds);
+    }
+
+    void BaseMapView::flyTo(const MapPos& pos, float zoom, float rotation, float tilt, float climbHeight, float durationSeconds) {
+        stopCameraAnimations();
+        // The climb is a height in the base projection's units, like the position's Z, so it goes
+        // through the same conversion - the internal Z scale is not the internal XY scale.
+        MapPos internalPos = _options->getBaseProjection()->toInternal(pos);
+        MapPos internalGround = _options->getBaseProjection()->toInternal(MapPos(pos.getX(), pos.getY(), 0));
+        MapPos internalClimb = _options->getBaseProjection()->toInternal(MapPos(pos.getX(), pos.getY(), climbHeight));
+        double internalClimbHeight = internalClimb.getZ() - internalGround.getZ();
+        _mapRenderer->getAnimationHandler().setFlightTarget(internalPos, zoom, &rotation, &tilt, static_cast<float>(internalClimbHeight), durationSeconds, FLIGHT_RHO);
+    }
+
+    float BaseMapView::getFlightProgress() const {
+        return _mapRenderer->getAnimationHandler().getFlightProgress();
+    }
+
+    void BaseMapView::stopCameraAnimations() {
+        // Whatever was moving the camera has to let go, or it fights the flight for it.
+        _mapRenderer->getAnimationHandler().stopPan();
+        _mapRenderer->getAnimationHandler().stopRotation();
+        _mapRenderer->getAnimationHandler().stopTilt();
+        _mapRenderer->getAnimationHandler().stopZoom();
+        _mapRenderer->getKineticEventHandler().stopPan();
+        _mapRenderer->getKineticEventHandler().stopRotation();
+        _mapRenderer->getKineticEventHandler().stopZoom();
+    }
+
+    void BaseMapView::stopFlight() {
+        _mapRenderer->getAnimationHandler().stopFlight();
+    }
+
+    bool BaseMapView::isFlightActive() const {
+        return _mapRenderer->getAnimationHandler().isFlightActive();
+    }
+
     void BaseMapView::rotate(float rotationDelta, float durationSeconds) {
         _mapRenderer->getAnimationHandler().stopRotation();
         _mapRenderer->getKineticEventHandler().stopRotation();

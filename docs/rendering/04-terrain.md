@@ -141,6 +141,38 @@ Their far plane (`2·height/cos(pitch + fovy/2)`) is available as
 `TerrainOptions::ViewDistanceFactor` but changes nothing at the cameras tested: the ground-derived far is
 already inside the bound it gives.
 
+## The surface shader
+
+`TerrainOptions::setSurfaceShaderSource` lets the application paint the terrain surface itself. It
+replaces the background bitmap and the background colour as the base fill (precedence: shader >
+bitmap > colour) and is drawn by `TerrainRenderer::renderSurface` where those are — globally,
+before any tile layer, with the same `keepDepth` semantics. So a map with **no tile layer at all**
+still shows shaded relief; that is the relief (peak-finder) case, and it is what
+[14-post-process.md](14-post-process.md) draws its lines over.
+
+The shader defines `vec4 surfaceColor()` and gets `v_normal` (world space), `v_worldPos`,
+`v_elevation` (metres, before exaggeration), `v_dist` (metres from the camera), the resolved sun
+(`u_sunDir`, `u_sunColor`, `u_sunIntensity`, `u_ambientIntensity`), the resolved fog (`u_fogColor`,
+`u_fogRange`, plus a `fogAmount(dist)` helper), `u_time`, `u_zoom`, `u_resolution` and every
+parameter set with `setSurfaceParameter` / `setSurfaceColorParameter`. Sun and fog come from
+`resolveLighting` / `resolveFog` ([08-lighting-sky-fog.md](08-lighting-sky-fog.md)), so a shaded
+surface, the tile content and the sky agree on the light. Redeclaring a provided name is a compile
+error and the shader is dropped (logged, falls back to the bitmap/colour fill) — the same trap as
+`SkyOptions::setShaderSource`.
+
+Two implementation notes:
+
+- **Normals are per-vertex and lazy.** `TerrainRenderer::ensureSurfaceAttribs` fills a
+  normal + elevation array from the mesh's own height field the first time a mesh is used by the
+  surface pass — central differences in tile-local space, which is a world direction because the
+  tile matrix scales x, y and z alike. The depth passes never allocate it (at grid 96 it would be
+  150 kB per tile).
+- **Nothing else asks for elevation when there is no tile layer.** The tile layers are what
+  normally drive DEM loads, so the surface pass prefetches the DEM for its own visible tiles
+  (`ElevationManager::prefetchTileGrid`) and keeps requesting frames until they arrive — the same
+  argument, and the same code, as the terrain paint cover. Without it the surface shades a flat
+  height field and the map goes idle on it.
+
 ## Occlusion depth
 
 Billboards and vector elements need to know whether a point is behind a ridge. The terrain is

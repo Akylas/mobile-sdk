@@ -657,6 +657,233 @@ public final class DemoStyles {
             "}");
     }
 
+    /**
+     * Summit names, drawn as callout labels: the label is lifted to a band near the top of the
+     * screen and joined back to the summit by a leader line, and a label that would collide is
+     * moved one row up instead of being dropped ('nuticallout' placement, see vt::LabelOrientation).
+     * The layer name and fields are OpenMapTiles ('mountain_peak', name/ele/class).
+     */
+    public static String peaksStyle() {
+        // The leader line always meets the FIRST letter of the name, which is also the point held
+        // over the summit. What changes with the mode is the corner the row is aligned on: pinned
+        // to the top the labels hang from their top right corner so the text stays under the
+        // screen edge; in a band lower down they line up on the same bottom left corner they are
+        // anchored by, and read up and to the right.
+        String lineAnchor = DemoConfig.PEAKS_LINE_ANCHOR.isEmpty() ? "bottom-left" : DemoConfig.PEAKS_LINE_ANCHOR;
+        String align = DemoConfig.PEAKS_ALIGN.isEmpty()
+            ? (DemoConfig.PEAKS_PIN_TOP ? "top-right" : "bottom-left") : DemoConfig.PEAKS_ALIGN;
+        return String.join("\n",
+            "#mountain_peak['class'='peak'][zoom>=" + DemoConfig.PEAKS_MIN_ZOOM + "] {",
+            "  text-name: [name];",
+            // The elevation as a second run of text: same label, same plate, smaller font.
+            "  text-secondary-name: [ele]+'m';",
+            "  text-secondary-scale: " + DemoConfig.PEAKS_ELE_SCALE + ";",
+            "  text-secondary-fill: " + hex(DemoConfig.PEAKS_ELE_COLOR_ARGB) + ";",
+            "  text-secondary-dx: " + DemoConfig.PEAKS_ELE_GAP + ";",
+            "  text-secondary-dy: " + DemoConfig.PEAKS_ELE_DY + ";",
+            "  text-size: " + DemoConfig.PEAKS_TEXT_SIZE + ";",
+            "  text-fill: " + hex(DemoMap.reliefInk()) + ";",
+            "  text-halo-fill: " + hex(DemoMap.reliefPaper()) + ";",
+            "  text-halo-radius: 1.5;",
+            // The plate behind the name - a general label property, so a classic map style can use
+            // exactly the same four lines.
+            // The plate follows the palette too, so the names stay readable in both.
+            "  text-background-fill: " + hex(DemoConfig.RELIEF_DARK ? DemoConfig.RELIEF_PAPER_DARK : DemoConfig.PEAKS_BG_COLOR_ARGB) + ";",
+            "  text-background-opacity: " + DemoConfig.PEAKS_BG_OPACITY + ";",
+            "  text-background-radius: " + DemoConfig.PEAKS_BG_RADIUS + ";",
+            "  text-background-padding-x: " + DemoConfig.PEAKS_BG_PADDING_X + ";",
+            "  text-background-padding-y: " + DemoConfig.PEAKS_BG_PADDING_Y + ";",
+            "  text-placement: nuticallout;",
+            // The higher summit claims the row: without this the winner is whichever label the
+            // tile order happened to offer first, and a 700 m hill hides a 2000 m one behind it.
+            "  text-placement-priority: [ele];",
+            DemoConfig.PEAKS_MIN_DISTANCE > 0 ? "  text-min-distance: " + DemoConfig.PEAKS_MIN_DISTANCE + ";" : "",
+            // ... and the nearer of two summits of the same height wins the slot. text-rank is
+            // evaluated per label by the culler, which is where view::distance means something.
+            // No feature field in it on purpose: an expression that reads only the view state is
+            // built ONCE and shared by every label.
+            // '0 - x', not '-x': in CartoCSS a leading minus in front of a field is read as the
+            // literal "-" (the parser's literal rule accepts '-' as a first character).
+            DemoConfig.PEAKS_DISTANCE_RANK > 0 ? "  text-rank: [ele] + [view::distance]/" + DemoConfig.PEAKS_DISTANCE_RANK + ";" : "",
+            "  text-orientation: " + DemoConfig.PEAKS_TEXT_ANGLE + ";",
+            "  text-callout-line-anchor: " + lineAnchor + ";",
+            "  text-callout-align: " + align + ";",
+            "  text-callout-screen-anchor: " + (DemoConfig.PEAKS_PIN_TOP ? DemoConfig.PEAKS_TOP_OFFSET : DemoConfig.PEAKS_BAND) + ";",
+            "  text-callout-offset: " + DemoConfig.PEAKS_MIN_OFFSET + ";",
+            // Pinned to the top there is no room above the row, so the extra rows go DOWN.
+            "  text-callout-step: " + (DemoConfig.PEAKS_PIN_TOP ? -DemoConfig.PEAKS_ROW_STEP : DemoConfig.PEAKS_ROW_STEP) + ";",
+            "  text-callout-max-rows: " + DemoConfig.PEAKS_MAX_ROWS + ";",
+            "  text-callout-persist: " + DemoConfig.PEAKS_PERSIST + ";",
+            "  text-callout-line-width: " + DemoConfig.PEAKS_LINE_WIDTH + ";",
+            DemoConfig.PEAKS_MAX_DISTANCE > 0 ? "  text-max-distance: " + DemoConfig.PEAKS_MAX_DISTANCE + ";" : "",
+            "}");
+    }
+
+    /**
+     * The relief (peak-finder) OUTLINE effect, as a fragment shader for PostProcessEffect:
+     * silhouettes and creases reconstructed from the packed terrain depth the renderer hands the
+     * effect. It lives here, not in the SDK, for the same reason the surface shader does - the SDK
+     * provides the mechanism (an offscreen frame, a depth texture, named parameters) and the
+     * application decides what the map looks like.
+     * Parameters (PostProcessEffect.setFloatParameter / setColorParameter): uIntensity,
+     * uOutlineWidth, uHorizonBoost, uDepthThreshold, uCreaseStrength, uDepthTexelSize,
+     * uGrazingFloor, uDistanceFade, uHaze, uInkColor, uPaperColor.
+     */
+    public static String reliefOutlineShader() {
+        return String.join("\n",
+            "#version 100",
+            "#ifdef GL_FRAGMENT_PRECISION_HIGH",
+            "precision highp float;",
+            "#else",
+            "precision mediump float;",
+            "#endif",
+            "",
+            "uniform sampler2D uColorTex;",
+            "uniform sampler2D uTerrainDepthTex;",
+            "uniform vec2 uInvScreenSize;",
+            "uniform vec2 uProjInvScale;",
+            "uniform float uFar;",
+            "uniform float uIntensity;",
+            "uniform float uOutlineWidth;",
+            "uniform float uHorizonBoost;",
+            "uniform float uDepthThreshold;",
+            "uniform float uCreaseStrength;",
+            "uniform float uDepthTexelSize;",
+            "uniform float uGrazingFloor;",
+            "uniform float uDistanceFade;",
+            "uniform float uHaze;",
+            "uniform vec4 uInkColor;",
+            "uniform vec4 uPaperColor;",
+            "",
+            "float unpackDepth(vec4 c) {",
+            "    return dot(c.rgb, vec3(1.0, 1.0 / 255.0, 1.0 / 65025.0));",
+            "}",
+            "",
+            "// Eye-space position of a pixel from the packed linear depth.",
+            "vec3 eyePos(vec2 uv, float depth) {",
+            "    vec2 ndc = uv * 2.0 - 1.0;",
+            "    return vec3(ndc * uProjInvScale, -1.0) * depth * uFar;",
+            "}",
+            "",
+            "void main(void) {",
+            "    vec2 uv = gl_FragCoord.xy * uInvScreenSize;",
+            "    vec4 color = texture2D(uColorTex, uv);",
+            "",
+            "    vec4 c0 = texture2D(uTerrainDepthTex, uv);",
+            "    float d0 = unpackDepth(c0);",
+            "",
+            "    // One width for the terrain-against-terrain lines, everywhere. Widening them with",
+            "    // distance instead (the obvious reading of \"the horizon is bolder\") smears the",
+            "    // far ranges into a solid band: up there the ridges are a pixel apart, so every",
+            "    // pixel is inside some line. What is bold in a panorama is the SKY silhouette,",
+            "    // and that gets its own, wider test below.",
+            "    // Never narrower than uDepthTexelSize screen pixels: the terrain depth runs at",
+            "    // half resolution with nearest filtering, so a narrower step samples the same",
+            "    // texel twice and every comparison below degenerates.",
+            "    vec2 delta = uInvScreenSize * max(uOutlineWidth, uDepthTexelSize);",
+            "    vec2 skyDelta = uInvScreenSize * max(uOutlineWidth * (1.0 + uHorizonBoost), uDepthTexelSize);",
+            "    vec4 cx0 = texture2D(uTerrainDepthTex, uv - vec2(delta.x, 0.0));",
+            "    vec4 cx1 = texture2D(uTerrainDepthTex, uv + vec2(delta.x, 0.0));",
+            "    vec4 cy0 = texture2D(uTerrainDepthTex, uv - vec2(0.0, delta.y));",
+            "    vec4 cy1 = texture2D(uTerrainDepthTex, uv + vec2(0.0, delta.y));",
+            "    float dx0 = unpackDepth(cx0);",
+            "    float dx1 = unpackDepth(cx1);",
+            "    float dy0 = unpackDepth(cy0);",
+            "    float dy1 = unpackDepth(cy1);",
+            "",
+            "    // The local surface, from the four neighbours. Two things below need it: a",
+            "    // surface seen edge-on legitimately changes depth fast from pixel to pixel, and a",
+            "    // fold has to be told apart from a merely oblique slope.",
+            "    vec3 p0 = eyePos(uv, d0);",
+            "    vec3 tx0 = eyePos(uv - vec2(delta.x, 0.0), dx0) - p0;",
+            "    vec3 tx1 = eyePos(uv + vec2(delta.x, 0.0), dx1) - p0;",
+            "    vec3 ty0 = eyePos(uv - vec2(0.0, delta.y), dy0) - p0;",
+            "    vec3 ty1 = eyePos(uv + vec2(0.0, delta.y), dy1) - p0;",
+            "    // Two samples that landed on the same depth texel give a zero tangent, and",
+            "    // normalizing that is undefined - it painted the whole near field grey.",
+            "    float minLength = 1.0e-4 * d0 * uFar;",
+            "    bool tangentsValid = length(tx1) > minLength && length(ty1) > minLength;",
+            "    float grazing = 1.0;",
+            "    if (tangentsValid) {",
+            "        vec3 surfaceNormal = normalize(cross(tx1, ty1));",
+            "        grazing = abs(dot(normalize(-p0), surfaceNormal));",
+            "    }",
+            "",
+            "    // Silhouette: the line belongs to the NEARER side of a depth break, so only a",
+            "    // neighbour FURTHER away counts. Testing the absolute difference draws the same",
+            "    // ridge twice, once on each side, which at the horizon merges into a smear.",
+            "    // The threshold is relative to the depth, or the far half of the view draws",
+            "    // no line at all - and it is relaxed where the surface is seen EDGE-ON, because",
+            "    // there the depth runs away between neighbouring pixels without anything being",
+            "    // in front of anything: flat ground at its own horizon drew a solid black band.",
+            "    float behind = max(max(dx0 - d0, dx1 - d0), max(dy0 - d0, dy1 - d0));",
+            "    float threshold = uDepthThreshold * (0.0008 + 0.02 * d0) / max(grazing, uGrazingFloor);",
+            "    float edge = smoothstep(threshold, threshold * 2.0, behind);",
+            "    // Terrain-against-terrain lines fade with distance so that the horizon - the sky",
+            "    // silhouette below, which does not fade - is the boldest line in the frame.",
+            "    edge *= mix(1.0, uDistanceFade, d0);",
+            "    // ...and terrain against the sky always is one (coverage, not depth: a sky pixel",
+            "    // is at the far plane, which the relative threshold above would forgive). This is",
+            "    // the horizon line, and it is the one that is drawn wide.",
+            "    float skyNeighbour = 1.0 - min(",
+            "        min(texture2D(uTerrainDepthTex, uv - vec2(skyDelta.x, 0.0)).a, texture2D(uTerrainDepthTex, uv + vec2(skyDelta.x, 0.0)).a),",
+            "        min(texture2D(uTerrainDepthTex, uv - vec2(0.0, skyDelta.y)).a, texture2D(uTerrainDepthTex, uv + vec2(0.0, skyDelta.y)).a));",
+            "    edge = max(edge, skyNeighbour * c0.a);",
+            "",
+            "    // Ridges and valleys: the two tangent directions away from this pixel point",
+            "    // straight apart on a flat surface (dot -1) and fold together over a crest.",
+            "    // Done on eye positions rather than on depth, so a merely oblique slope - which",
+            "    // is most of a panorama - does not read as a fold.",
+            "    float cover = min(min(cx0.a, cx1.a), min(cy0.a, cy1.a)) * c0.a;",
+            "    if (uCreaseStrength > 0.0 && cover > 0.0) {",
+            "        float fold = 0.0;",
+            "        if (length(tx0) > minLength && length(tx1) > minLength) {",
+            "            fold = max(fold, 1.0 + dot(normalize(tx0), normalize(tx1)));",
+            "        }",
+            "        if (length(ty0) > minLength && length(ty1) > minLength) {",
+            "            fold = max(fold, 1.0 + dot(normalize(ty0), normalize(ty1)));",
+            "        }",
+            "        // Same reasoning as the silhouette threshold: an edge-on surface folds in",
+            "        // projection without folding in the world.",
+            "        edge = max(edge, smoothstep(0.05, 0.4, fold) * uCreaseStrength * grazing * mix(1.0, uDistanceFade, d0));",
+            "    }",
+            "",
+            "    // Aerial perspective: the shaded surface fades into the paper with distance, so",
+            "    // the far ranges read as pale outlines and the near ground keeps its shading.",
+            "    vec3 shaded = mix(color.rgb, uPaperColor.rgb, uHaze * d0 * c0.a);",
+            "    vec3 stylized = mix(shaded, uInkColor.rgb, edge * uInkColor.a);",
+            "",
+            "    gl_FragColor = vec4(mix(color.rgb, stylized, uIntensity), 1.0);",
+            "}");
+    }
+
+    /**
+     * Terrain surface shader for the relief (peak-finder) look: the shaded ground the outline
+     * effect draws its ink lines over. Lambert shading between a paper and a shade colour, the
+     * distance pulling everything back towards the paper, and the resolved fog on top - so a
+     * panorama reads as a stack of ever paler ridges.
+     * Parameters (TerrainOptions.setSurfaceParameter / setSurfaceColorParameter):
+     * uPaperColor, uShadeColor, uShadeStrength, uAmbient, uHaze, uHazeDistance.
+     */
+    public static String reliefSurfaceShader() {
+        return String.join("\n",
+            "uniform vec4 uPaperColor;",
+            "uniform vec4 uShadeColor;",
+            "uniform float uShadeStrength;",
+            "uniform float uAmbient;",
+            "uniform float uHaze;",
+            "uniform float uHazeDistance;",
+            "vec4 surfaceColor() {",
+            "    vec3 n = normalize(v_normal);",
+            "    float lambert = max(dot(n, normalize(u_sunDir)), 0.0);",
+            "    float light = mix(uAmbient, 1.0, lambert);",
+            "    vec3 color = mix(uShadeColor.rgb, uPaperColor.rgb, clamp(1.0 - uShadeStrength * (1.0 - light), 0.0, 1.0));",
+            "    color = mix(color, uPaperColor.rgb, clamp(v_dist / max(uHazeDistance, 1.0), 0.0, 1.0) * uHaze);",
+            "    color = mix(color, u_fogColor.rgb, fogAmount(v_dist));",
+            "    return vec4(color, 1.0);",
+            "}");
+    }
+
     private DemoStyles() {
     }
 }
