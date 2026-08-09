@@ -340,7 +340,7 @@ public final class DemoStyles {
         mss.append("  shield-halo-fill: #ffffff;\n");
         mss.append("  shield-halo-radius: 1.5;\n");
         mss.append("  shield-text-dx: ").append(DemoConfig.POI_TEXT_DX).append(";\n");
-        mss.append("  shield-wrap-width: 90;\n");
+        mss.append("  shield-wrap-width: ").append(DemoConfig.POI_WRAP_WIDTH).append(";\n");
         mss.append("  shield-wrap-character: ' ';\n");
         if (DemoConfig.POI_BITMAP_ICON) {
             mss.append("  shield-file: url(shields/place.svg);\n");
@@ -351,6 +351,31 @@ public final class DemoStyles {
             mss.append("  shield-icon-size: ").append(size + 4f).append(";\n");
             mss.append("  shield-icon-fill: ").append(fill).append(";\n");
         }
+        if (DemoConfig.POI_TEXT_ALIGN != null && !DemoConfig.POI_TEXT_ALIGN.trim().isEmpty()) {
+            mss.append("  shield-text-horizontal-alignment: '").append(DemoConfig.POI_TEXT_ALIGN.trim()).append("';\n");
+        }
+        if (DemoConfig.POI_TEXT_BG) {
+            mss.append("  shield-background-fill: #ffffff;\n");
+            mss.append("  shield-background-opacity: 0.85;\n");
+            mss.append("  shield-background-radius: ").append(DemoConfig.POI_BG_RADIUS).append(";\n");
+            mss.append("  shield-background-padding-x: ").append(DemoConfig.POI_BG_PADDING).append(";\n");
+            mss.append("  shield-background-padding-y: ").append(DemoConfig.POI_BG_PADDING * 0.6f).append(";\n");
+            if (DemoConfig.POI_BG_BORDER > 0) {
+                mss.append("  shield-background-border-fill: ").append(fill).append(";\n");
+                mss.append("  shield-background-border-width: ").append(DemoConfig.POI_BG_BORDER).append(";\n");
+            }
+        }
+        if (DemoConfig.POI_ICON_BG) {
+            mss.append("  shield-icon-background-fill: #ffffff;\n");
+            mss.append("  shield-icon-background-opacity: 0.9;\n");
+            mss.append("  shield-icon-background-radius: 20;\n");   // a pill around the icon
+            mss.append("  shield-icon-background-padding-x: ").append(DemoConfig.POI_BG_PADDING).append(";\n");
+            mss.append("  shield-icon-background-padding-y: ").append(DemoConfig.POI_BG_PADDING).append(";\n");
+            if (DemoConfig.POI_BG_BORDER > 0) {
+                mss.append("  shield-icon-background-border-fill: ").append(fill).append(";\n");
+                mss.append("  shield-icon-background-border-width: ").append(DemoConfig.POI_BG_BORDER).append(";\n");
+            }
+        }
         if (DemoConfig.POI_ANCHORS != null && !DemoConfig.POI_ANCHORS.trim().isEmpty()) {
             mss.append("  shield-anchors: '").append(DemoConfig.POI_ANCHORS.trim()).append("';\n");
             mss.append("  shield-text-optional: ").append(DemoConfig.POI_TEXT_OPTIONAL ? "true" : "false").append(";\n");
@@ -359,7 +384,7 @@ public final class DemoStyles {
     }
 
     public static String poiTestStyle() {
-        return String.join("\n",
+        String css = String.join("\n",
             "Map { background-color: #f4f1ec; }",
             "#water { polygon-fill: #9cc3e0; }",
             "#landcover { polygon-fill: #dbe8cc; }",
@@ -397,7 +422,7 @@ public final class DemoStyles {
             "}",
             "#poi[zoom>=14][class!=restaurant][class!=fast_food][class!=lodging][class!=cafe] {",
             "  shield-name: [name];",
-            shieldCommon(ICON_DOT, "#4a4a4a", 11f),
+            shieldCommon(ICON_CAFE, "#4a4a4a", 11f),
             "}",
 
             // Peaks: the 3D test - these sit on the terrain, so their icons ride the relief.
@@ -405,6 +430,7 @@ public final class DemoStyles {
             "  shield-name: [name];",
             shieldCommon(ICON_PEAK, "#5a4632", 11f),
             "}");
+        return css;
     }
 
     /**

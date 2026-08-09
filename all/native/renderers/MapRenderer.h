@@ -233,6 +233,8 @@ namespace carto {
 
         static const int BILLBOARD_PLACEMENT_TASK_DELAY;
         static const int VT_LABEL_PLACEMENT_TASK_DELAY;
+        // Zoom change that asks for a fresh label placement pass on its own (see viewChanged).
+        static const float LABEL_PLACEMENT_ZOOM_THRESHOLD;
 
         static const int ELEVATION_REFRESH_DELAY; // milliseconds between vector layer refreshes caused by elevation data changes
 
@@ -243,6 +245,7 @@ namespace carto {
         std::optional<std::chrono::steady_clock::time_point> _lastFrameTime;
     
         ViewState _viewState;
+        float _lastLabelPlacementZoom = 0.0f;
 
         std::shared_ptr<GLResourceManager> _glResourceManager;
 

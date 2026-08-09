@@ -9,6 +9,7 @@
 #include "layers/Layer.h"
 #include "layers/TileLayer.h"
 #include "layers/VectorLayer.h"
+#include "layers/VectorTileLayer.h"
 #include "projections/Projection.h"
 #include "projections/ProjectionSurface.h"
 #include "renderers/BillboardRenderer.h"
@@ -1289,9 +1290,27 @@ namespace carto {
     }
     
     void MapRenderer::viewChanged(bool delay) {
+        std::shared_ptr<Layer> vectorTileLayer;
         for (const std::shared_ptr<Layer>& layer : _layers->getAll()) {
             int delayTime = layer->getCullDelay();
             _cullWorker->init(layer, delay ? delayTime : 0);
+            if (!vectorTileLayer && std::dynamic_pointer_cast<VectorTileLayer>(layer)) {
+                vectorTileLayer = layer;
+            }
+        }
+
+        // Label placement is SCREEN space, so it goes stale when the camera zooms even though the
+        // tile set - which is what normally asks for a new pass (VectorTileLayer::calculateDrawData)
+        // - has not changed. A label that had to fall back to its icon alone (shield-text-optional)
+        // or to a worse side would then keep it until tiles happened to change, however much room
+        // the zoom made for it. Panning and rotating leave every label's size alone, and both
+        // already change the tile set, so only the zoom is worth a pass of its own.
+        if (vectorTileLayer) {
+            float zoom = getViewState().getZoom();
+            if (std::abs(zoom - _lastLabelPlacementZoom) >= LABEL_PLACEMENT_ZOOM_THRESHOLD) {
+                _lastLabelPlacementZoom = zoom;
+                _vtLabelPlacementWorker->init(vectorTileLayer, VT_LABEL_PLACEMENT_TASK_DELAY);
+            }
         }
     
         billboardsChanged();
@@ -3062,6 +3081,10 @@ namespace carto {
     const int MapRenderer::BILLBOARD_PLACEMENT_TASK_DELAY = 200;
 
     const int MapRenderer::VT_LABEL_PLACEMENT_TASK_DELAY = 200;
+    // A quarter of a zoom level: labels are drawn at the same pixel size at every zoom, so what
+    // changes is how much MAP is under them - a quarter level is about 20% more room, which is
+    // enough to fit a name that did not fit before.
+    const float MapRenderer::LABEL_PLACEMENT_ZOOM_THRESHOLD = 0.25f;
 
     const int MapRenderer::ELEVATION_REFRESH_DELAY = 500;
 

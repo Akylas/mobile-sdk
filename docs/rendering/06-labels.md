@@ -81,16 +81,48 @@ Everything below rests on that split — the icon stays on the feature, only the
   style's own `horizontal-alignment` does not have to be mirrored, and `dx`/`dy` are re-applied as a
   gap along the anchor direction (a name pushed 2 px right of the icon is pushed 2 px LEFT on the
   left side). A style with no `shield-anchors` builds no variants and takes exactly the old path.
-- **`LabelCuller::placeAnchoredLabel`** tries the sides in order and takes the first free one, the
-  side the label already held first — the same committed-placement hysteresis the global sort uses,
-  applied within one label. This is tangram's `do { … } while (isOccluded() && nextAnchor())`
+- **`LabelCuller::placeAnchoredLabel`** tries the sides **from the first one, every pass**, and
+  takes the first free one. This is tangram's `do { … } while (isOccluded() && nextAnchor())`
   (`labelManager.cpp`), with their anchor set and their anchor order.
+  Trying the side the label already held *first* looks like the committed-placement rule the global
+  sort uses, and it is a bug: the last variant of a `text-optional` label is the icon alone, it is
+  smaller than every other one, so it always fits — a label that fell back to it once kept it for
+  good and its name never came back however far the camera zoomed in. Stability comes from the sort
+  (a label that was visible claims its slot before new ones), not from remembering a side.
 - `shield-text-optional` appends a last variant that draws the icon alone. That is mapbox's
   `text-optional`; here it costs one more variant, not a second label.
-- The side is carried across rebuilds by `snapPlacement`. Without that a label recreated by a
-  tile-set change starts at side 0 again and the name visibly hops around its icon while panning.
+- The side is carried across rebuilds by `snapPlacement`, so a label recreated by a tile-set change
+  does not start at side 0 for one frame before the next pass moves it back.
+- **Placement is re-run when the camera zooms** (`MapRenderer::viewChanged`, threshold ¼ of a zoom
+  level). A pass is otherwise only asked for when the TILE SET changes
+  (`VectorTileLayer::calculateDrawData`), and a label's envelope is screen-space: zooming in makes
+  room that nothing would have noticed, so a name that had fallen back to its icon stayed an icon
+  until tiles happened to change. Panning and rotating leave every label's size alone and already
+  change the tile set, so only the zoom needs a pass of its own.
 
-**Cost.** All sides share the placement, the scale and the label's screen axes, so
+**Which labels keep their text** is decided by the same greedy insertion as everything else: the
+culler sorts by priority → `wasVisible` → layer index → size → opacity and inserts in that order, so
+a label sorted earlier claims its preferred side while later ones find less room and fall back to
+`text-optional`. `shield-placement-priority` is therefore the knob for "these names matter more than
+those", and a bigger `shield-size` also sorts earlier among equal priorities.
+
+### Justifying a wrapped name (fork-specific)
+
+`shield-text-horizontal-alignment: 'left' | 'middle' | 'right' | 'auto'` justifies the LINES of a
+wrapped name inside its block. `auto` follows the side the culler chose — flush left when the name
+is to the right of its icon, flush right when it is to the left — and an explicit value is mirrored
+the same way. Unset keeps every line centred, which is what the formatter always did.
+
+It costs no second glyph run: the formatter still centres each line, and `Label` measures each
+line's ink extent once (`measureTextLines`) and shifts the pen per line at draw time
+(`calculateLineShift`). Single-line labels — nearly all of them — shift by zero.
+
+This is also what fixes "the gap looks bigger on one side": for a single-line name the gap is
+symmetric by construction (the text is placed against the icon's edge, and it measures the same
+17 px either way on screen), but a centred short line inside a wider block sits away from the icon,
+and only justification can close that.
+
+**Cost of the sides.** All sides share the placement, the scale and the label's screen axes, so
 `Label::calculateVariantEnvelopes` builds all of their envelopes in one call and the culler only
 repeats the cheap part (project + grid test) per side. Measured on the emulator with a deliberately
 extreme style (every POI anchored, ~2300 live labels, 4 sides + icon-only): **20.8 ms per culler
@@ -116,6 +148,39 @@ small text is not a magnified small raster.
 
 A shield may carry both: the bitmap (`shield-file`) is the first prefix glyph and the icon run
 follows it, so they sit side by side rather than on top of each other.
+
+### Plates behind the text and behind the icon (fork-specific)
+
+A label may carry two plates — one behind the text, one behind the icon run — each a rounded
+rectangle with its own colour, corner radius, padding and border:
+
+```css
+#road_label {
+  text-background-fill: #ffffff;  text-background-opacity: 0.85;   /* also on a shield: */
+  text-background-radius: 3;                                        /*   shield-background-*   */
+  text-background-padding-x: 4; text-background-padding-y: 2;       /*   shield-icon-background-* */
+  text-background-border-fill: #444444; text-background-border-width: 1;
+}
+```
+
+- A plate is **3-sliced from one atlas cell** (`buildRoundedRectBitmap`, cached by radius, the glyph
+  map dedupes by pointer): left cap, stretched middle, right cap — which is what keeps the corners
+  round at any name width.
+- The **border is a second plate behind the fill**, one border width larger on every side and with
+  its corner radius grown to match. That is why it needs no shader and no second texture: it is the
+  same cell drawn bigger in another colour.
+- Both plates are part of what the label covers, so `calculatePlatedBBox` grows the envelope by
+  their padding and border — the culler tests what is actually drawn, and a callout's leader line
+  ends outside the plate rather than inside it.
+- Each colour is one slot in the label batch, like the halo (`LabelBatchParameters::MAX_PARAMETERS`
+  is 16; a style using both plates with borders takes 4 of them plus text, halo, secondary and icon).
+
+**Cost**, measured on the emulator with a plate behind the name AND behind the icon on ~2100 labels:
+vertex build **4.6 → 5.2 µs per label per frame** (+13%) and batch time **12.8 → 17.8 µs per label**
+(+39%), i.e. about **+1 ms per frame at 2100 plated labels**, and no change in draw-call count
+(≈60/s either way). It is proportional to the plated labels on screen: each plate is 3 quads built
+in the same loop as the glyph quads, so a screen of road shields — tens, not thousands — is far
+below what the frame-time noise on this emulator can even resolve.
 
 ### Max distance (fork-specific)
 
