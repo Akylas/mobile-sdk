@@ -39,7 +39,11 @@ public final class DemoConfig {
         NUTI,
         /** AndroidAssetPackage over the style project bundled in the APK assets (assets/style).
          *  The smallest complete example of a style a composite layer can weave sources into. */
-        ASSETS
+        ASSETS,
+        /** Shield test style: a CartoCSS string that uses the APK asset package for its FONTS, so
+         *  it can put a font icon next to a name and let the culler pick the side (see
+         *  DemoStyles.poiTestStyle). Dense on purpose - every POI and every place carries one. */
+        POI
     }
 
     public static BaseMode BASE_MODE = BaseMode.COMPOSITE;
@@ -454,6 +458,31 @@ public final class DemoConfig {
      *  knob that exercises that path. */
     public static String INLINE_COMP_OP = "";
 
+    // ---- shield test style (StyleSource.POI) ----
+    /** Sides the POI/place names may be laid out on, in preference order. Empty = the fixed layout
+     *  a shield always had. '--es poiAnchors "right,left,top,bottom"' */
+    public static String POI_ANCHORS = "right,left,top,bottom";
+    /** Draw the icon alone when no side is free, instead of dropping the whole label. */
+    public static boolean POI_TEXT_OPTIONAL = true;
+    /** Gap between the icon and the name, in pixels - MIRRORED with the side the name is on. */
+    public static float POI_TEXT_DX = 2f;
+    /** Font icon instead of a bitmap shield: a glyph of assets/style/fonts/osm.ttf. */
+    public static boolean POI_FONT_ICON = true;
+    /** Bitmap shield (assets/style/shields/place.svg) instead of / besides the font icon. */
+    public static boolean POI_BITMAP_ICON = false;
+    /** How the lines of a wrapped name are justified: 'auto' follows the side the name is on,
+     *  'left'/'right' are mirrored with it, 'middle' (or empty) centres them as before. */
+    public static String POI_TEXT_ALIGN = "auto";
+    /** A plate behind the name / behind the icon ('--es poiTextBg true --es poiIconBg true'). */
+    public static boolean POI_TEXT_BG = false;
+    public static boolean POI_ICON_BG = false;
+    /** Shared plate geometry, in screen pixels. Border 0 = no border. */
+    public static float POI_BG_RADIUS = 3f;
+    public static float POI_BG_PADDING = 3f;
+    public static float POI_BG_BORDER = 0f;
+    /** Where a name wraps, in pixels - low values are how the line justification gets tested. */
+    public static float POI_WRAP_WIDTH = 90f;
+
     public static float INLINE_LANDCOVER_OPACITY = 1.0f;
     public static int INLINE_SATELLITE_MIN_ZOOM = 11;
     public static String INLINE_HILLSHADE_SHADOW_COLOR = "#473B24";
@@ -846,6 +875,26 @@ public final class DemoConfig {
         INLINE_STYLE_LIGHTING = DemoCfg.cfgBool("styleLight", INLINE_STYLE_LIGHTING);
         INLINE_LABELS = DemoCfg.cfgBool("labels", INLINE_LABELS);
         INLINE_STYLE_MINIMAL = DemoCfg.cfgBool("minimal", INLINE_STYLE_MINIMAL);
+        // 'none' rather than an empty value: 'adb shell am start --es key ""' drops the empty
+        // argument and every extra AFTER it is then read one token off.
+        POI_ANCHORS = DemoCfg.cfgStr("poiAnchors", POI_ANCHORS);
+        if ("none".equalsIgnoreCase(POI_ANCHORS) || "off".equalsIgnoreCase(POI_ANCHORS)) {
+            POI_ANCHORS = "";
+        }
+        POI_TEXT_OPTIONAL = DemoCfg.cfgBool("poiTextOptional", POI_TEXT_OPTIONAL);
+        POI_TEXT_DX = DemoCfg.cfgFloat("poiTextDx", POI_TEXT_DX);
+        POI_FONT_ICON = DemoCfg.cfgBool("poiFontIcon", POI_FONT_ICON);
+        POI_BITMAP_ICON = DemoCfg.cfgBool("poiBitmapIcon", POI_BITMAP_ICON);
+        POI_TEXT_ALIGN = DemoCfg.cfgStr("poiTextAlign", POI_TEXT_ALIGN);
+        if ("none".equalsIgnoreCase(POI_TEXT_ALIGN)) {
+            POI_TEXT_ALIGN = "";
+        }
+        POI_TEXT_BG = DemoCfg.cfgBool("poiTextBg", POI_TEXT_BG);
+        POI_ICON_BG = DemoCfg.cfgBool("poiIconBg", POI_ICON_BG);
+        POI_BG_RADIUS = DemoCfg.cfgFloat("poiBgRadius", POI_BG_RADIUS);
+        POI_BG_PADDING = DemoCfg.cfgFloat("poiBgPadding", POI_BG_PADDING);
+        POI_BG_BORDER = DemoCfg.cfgFloat("poiBgBorder", POI_BG_BORDER);
+        POI_WRAP_WIDTH = DemoCfg.cfgFloat("poiWrapWidth", POI_WRAP_WIDTH);
         INLINE_LANDCOVER_OPACITY = DemoCfg.cfgFloat("landcoverOpacity", INLINE_LANDCOVER_OPACITY);
         INLINE_COMP_OP = DemoCfg.cfgStr("compOp", INLINE_COMP_OP);
         INLINE_SATELLITE_MIN_ZOOM = DemoCfg.cfgInt("satZoom", INLINE_SATELLITE_MIN_ZOOM);

@@ -9,6 +9,7 @@
 #include "layers/Layer.h"
 #include "layers/TileLayer.h"
 #include "layers/VectorLayer.h"
+#include "layers/VectorTileLayer.h"
 #include "projections/Projection.h"
 #include "projections/ProjectionSurface.h"
 #include "renderers/BillboardRenderer.h"
@@ -108,20 +109,23 @@ namespace carto {
                 deltas[i] = values[i] - lastValues[i];
                 lastValues[i] = values[i];
             }
-            static long long lastPasses = 0, lastFlips = 0;
+            static long long lastPasses = 0, lastFlips = 0, lastCullerNs = 0;
             long long passes = RenderStats::cullerPasses.load();
             long long flips = RenderStats::cullerVisibilityFlips.load();
+            long long cullerNs = RenderStats::cullerNs.load();
             long long deltaPasses = passes - lastPasses;
             long long deltaFlips = flips - lastFlips;
+            long long deltaCullerNs = cullerNs - lastCullerNs;
             lastPasses = passes;
             lastFlips = flips;
+            lastCullerNs = cullerNs;
 
-            Log::Infof("RenderStats: cullUpd=%lld tileRecalc=%lld tileSkip=%lld tileSets=%lld labelMaps=%lld | surfBuilt=%lld surfInval=%lld | labelsAlloc=%lld reused=%lld live=%lld elevReanchor=%lld | placeUpd=%lld reNull=%lld reHidden=%lld reVisible=%lld search=%lld | snap=%lld snapMoved=%lld | cullPasses=%lld visFlips=%lld",
+            Log::Infof("RenderStats: cullUpd=%lld tileRecalc=%lld tileSkip=%lld tileSets=%lld labelMaps=%lld | surfBuilt=%lld surfInval=%lld | labelsAlloc=%lld reused=%lld live=%lld elevReanchor=%lld | placeUpd=%lld reNull=%lld reHidden=%lld reVisible=%lld search=%lld | snap=%lld snapMoved=%lld | cullPasses=%lld visFlips=%lld cullMs=%.2f",
                        deltas[13], deltas[14], deltas[15], deltas[0], deltas[11],
                        deltas[1], deltas[2],
                        deltas[3], deltas[12], RenderStats::labelsLive.load(), deltas[4],
                        deltas[5], deltas[6], deltas[7], deltas[8], deltas[16],
-                       deltas[9], deltas[10], deltaPasses, deltaFlips);
+                       deltas[9], deltas[10], deltaPasses, deltaFlips, deltaCullerNs / 1.0e6);
 
             // Draw submission, per interval. geomDraws is the number that matters: the frame
             // cost of a style tracks it, not the index count next to it.
@@ -1341,9 +1345,25 @@ namespace carto {
     }
     
     void MapRenderer::viewChanged(bool delay) {
+        std::shared_ptr<Layer> vectorTileLayer;
         for (const std::shared_ptr<Layer>& layer : _layers->getAll()) {
             int delayTime = layer->getCullDelay();
             _cullWorker->init(layer, delay ? delayTime : 0);
+            if (!vectorTileLayer && std::dynamic_pointer_cast<VectorTileLayer>(layer)) {
+                vectorTileLayer = layer;
+            }
+        }
+
+        // A placement pass is otherwise only asked for when the tile set changes, but a label's
+        // envelope is screen space: zooming in makes room nothing would notice, and a name that fell
+        // back to its icon (shield-text-optional) would keep it. Postponed rather than queued, so a
+        // zoom gesture places once when it ends instead of thrashing at every step.
+        if (vectorTileLayer) {
+            float zoom = getViewState().getZoom();
+            if (std::abs(zoom - _lastLabelPlacementZoom) >= LABEL_PLACEMENT_ZOOM_THRESHOLD) {
+                _lastLabelPlacementZoom = zoom;
+                _vtLabelPlacementWorker->postpone(vectorTileLayer, LABEL_PLACEMENT_ZOOM_DELAY);
+            }
         }
     
         billboardsChanged();
@@ -3214,6 +3234,10 @@ namespace carto {
     const int MapRenderer::BILLBOARD_PLACEMENT_TASK_DELAY = 200;
 
     const int MapRenderer::VT_LABEL_PLACEMENT_TASK_DELAY = 200;
+    // A quarter of a zoom level is ~20% more room under the labels - enough to fit a name that did
+    // not fit before. The delay is what makes a zoom gesture place once, when it settles.
+    const float MapRenderer::LABEL_PLACEMENT_ZOOM_THRESHOLD = 0.25f;
+    const int MapRenderer::LABEL_PLACEMENT_ZOOM_DELAY = 250;
 
     const int MapRenderer::ELEVATION_REFRESH_DELAY = 500;
 

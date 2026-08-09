@@ -35,14 +35,30 @@ namespace carto {
     }
         
     void VTLabelPlacementWorker::init(const std::shared_ptr<Layer>& layer, int delayTime) {
+        schedule(layer, delayTime, false);
+    }
+
+    void VTLabelPlacementWorker::postpone(const std::shared_ptr<Layer>& layer, int delayTime) {
+        schedule(layer, delayTime, true);
+    }
+
+    // 'postpone' pushes the pass back on every call instead of keeping the earliest deadline, so a
+    // stream of triggers (a camera zooming) results in ONE pass, once it stops.
+    void VTLabelPlacementWorker::schedule(const std::shared_ptr<Layer>& layer, int delayTime, bool postpone) {
         if (!std::dynamic_pointer_cast<VectorTileLayer>(layer)) {
             return;
         }
 
         std::lock_guard<std::mutex> lock(_mutex);
+        std::chrono::steady_clock::time_point wakeupTime = std::chrono::steady_clock::now() + std::chrono::milliseconds(delayTime);
         _idle = false;
+        if (postpone) {
+            _wakeupTime = (_pendingWakeup ? std::max(_wakeupTime, wakeupTime) : wakeupTime);
+        }
+        else {
+            _wakeupTime = std::min(_wakeupTime, wakeupTime);
+        }
         _pendingWakeup = true;
-        _wakeupTime = std::min(_wakeupTime, std::chrono::steady_clock::now() + std::chrono::milliseconds(delayTime));
         _condition.notify_one();
     }
     

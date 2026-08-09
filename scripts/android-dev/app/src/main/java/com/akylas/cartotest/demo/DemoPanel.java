@@ -199,6 +199,7 @@ public final class DemoPanel {
 
         buildLayerSection(context, demo);
         buildCompositeSection(context, demo);
+        buildShieldSection(context, demo);
         buildTerrainSection(context, demo);
         buildHillshadeSection(context, demo);
         buildContourSection(context, demo);
@@ -418,6 +419,52 @@ public final class DemoPanel {
                 demo.rebuildBaseLayer();
                 refreshStatus(demo);
             }
+        });
+    }
+
+    /**
+     * The shield test style (StyleSource.POI): a font icon on every POI and the name on whichever
+     * side is free. Every knob here rebuilds the base layer, because all of them are style text -
+     * the style is compiled once, when the decoder is built.
+     */
+    private static void buildShieldSection(Context context, final DemoMap demo) {
+        header(context, "SHIELDS (style 'POI')");
+        check(context, "use the shield test style", DemoConfig.STYLE_SOURCE == DemoConfig.StyleSource.POI, new BoolSetting() {
+            public void set(boolean value) {
+                DemoConfig.STYLE_SOURCE = (value ? DemoConfig.StyleSource.POI : DemoConfig.StyleSource.INLINE);
+                demo.rebuildBaseLayer();
+                refreshStatus(demo);
+            }
+        });
+        check(context, "name on the free side", !DemoConfig.POI_ANCHORS.isEmpty(), new BoolSetting() {
+            public void set(boolean value) { DemoConfig.POI_ANCHORS = (value ? "right,left,top,bottom" : ""); demo.rebuildBaseLayer(); }
+        });
+        check(context, "icon alone when nothing fits", DemoConfig.POI_TEXT_OPTIONAL, new BoolSetting() {
+            public void set(boolean value) { DemoConfig.POI_TEXT_OPTIONAL = value; demo.rebuildBaseLayer(); }
+        });
+        check(context, "font icon", DemoConfig.POI_FONT_ICON, new BoolSetting() {
+            public void set(boolean value) { DemoConfig.POI_FONT_ICON = value; demo.rebuildBaseLayer(); }
+        });
+        check(context, "bitmap shield", DemoConfig.POI_BITMAP_ICON, new BoolSetting() {
+            public void set(boolean value) { DemoConfig.POI_BITMAP_ICON = value; demo.rebuildBaseLayer(); }
+        });
+        check(context, "plate behind the name", DemoConfig.POI_TEXT_BG, new BoolSetting() {
+            public void set(boolean value) { DemoConfig.POI_TEXT_BG = value; demo.rebuildBaseLayer(); }
+        });
+        check(context, "plate behind the icon", DemoConfig.POI_ICON_BG, new BoolSetting() {
+            public void set(boolean value) { DemoConfig.POI_ICON_BG = value; demo.rebuildBaseLayer(); }
+        });
+        slider(context, "plate radius", 0f, 20f, DemoConfig.POI_BG_RADIUS, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.POI_BG_RADIUS = value; demo.rebuildBaseLayer(); }
+        });
+        slider(context, "plate padding", 0f, 12f, DemoConfig.POI_BG_PADDING, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.POI_BG_PADDING = value; demo.rebuildBaseLayer(); }
+        });
+        slider(context, "plate border", 0f, 4f, DemoConfig.POI_BG_BORDER, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.POI_BG_BORDER = value; demo.rebuildBaseLayer(); }
+        });
+        slider(context, "gap icon/name", 0f, 12f, DemoConfig.POI_TEXT_DX, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.POI_TEXT_DX = value; demo.rebuildBaseLayer(); }
         });
     }
 
