@@ -66,6 +66,8 @@ public final class DemoPanel {
 
     private static float density = 1f;
     private static TextView gearButton;
+    private static LinearLayout elevationWidget;   // viewpoint elevation, peak-finder mode only
+    private static TextView elevationText;
     private static LinearLayout sections;      // the column every section is added to
     private static LinearLayout currentContent; // the section rows are currently going into
     private static final List<Row> rows = new ArrayList<Row>();
@@ -197,6 +199,7 @@ public final class DemoPanel {
 
         buildLayerSection(context, demo);
         buildCompositeSection(context, demo);
+        buildShieldSection(context, demo);
         buildTerrainSection(context, demo);
         buildHillshadeSection(context, demo);
         buildContourSection(context, demo);
@@ -204,6 +207,7 @@ public final class DemoPanel {
         buildSunSection(context, demo);
         buildCelestialSection(context, demo);
         buildSkyFogSection(context, demo);
+        buildReliefSection(context, demo);
         buildDebugSection(context, demo);
         buildActionsSection(context, demo);
 
@@ -236,6 +240,30 @@ public final class DemoPanel {
                 showSheet(sheet, sheet.getVisibility() != View.VISIBLE);
             }
         });
+        // Viewpoint elevation, the peak-finder control: a column on the right edge, up/down and a
+        // readout. Only shown in that mode - see setElevationWidgetVisible.
+        elevationWidget = new LinearLayout(context);
+        elevationWidget.setOrientation(LinearLayout.VERTICAL);
+        elevationWidget.setGravity(Gravity.CENTER_HORIZONTAL);
+        elevationWidget.setBackground(rounded(0xCC1E2731, 22));
+        elevationWidget.setPadding(dp(4), dp(6), dp(4), dp(6));
+        elevationWidget.setVisibility(DemoConfig.PEAK_FINDER ? View.VISIBLE : View.GONE);
+        elevationText = new TextView(context);
+        elevationText.setTextColor(COLOR_TEXT);
+        elevationText.setTextSize(11);
+        elevationText.setTypeface(Typeface.MONOSPACE);
+        elevationText.setGravity(Gravity.CENTER);
+        elevationText.setText(String.format("%.0fm", DemoConfig.PEAK_FINDER_ELEVATION));
+        elevationWidget.addView(elevationStep(context, demo, "\u25B2", +1));
+        elevationWidget.addView(elevationText, new LinearLayout.LayoutParams(dp(52), ViewGroup.LayoutParams.WRAP_CONTENT));
+        elevationWidget.addView(elevationStep(context, demo, "\u25BC", -1));
+        ConstraintLayout.LayoutParams elevParams = new ConstraintLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        elevParams.topToTop = ConstraintLayout.LayoutParams.PARENT_ID;
+        elevParams.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID;
+        elevParams.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID;
+        elevParams.rightMargin = dp(12);
+        parent.addView(elevationWidget, elevParams);
+
         ConstraintLayout.LayoutParams gearParams = new ConstraintLayout.LayoutParams(dp(48), dp(48));
         gearParams.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID;
         gearParams.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID;
@@ -244,6 +272,51 @@ public final class DemoPanel {
         parent.addView(gear, gearParams);
 
         applyInsets(parent, sheet, readout, gear);
+    }
+
+    /** One arrow of the elevation column. */
+    private static TextView elevationStep(Context context, final DemoMap demo, String glyph, final int direction) {
+        TextView button = new TextView(context);
+        button.setText(glyph);
+        button.setTextSize(18);
+        button.setTextColor(COLOR_TEXT);
+        button.setGravity(Gravity.CENTER);
+        button.setPadding(dp(10), dp(8), dp(10), dp(8));
+        button.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                DemoConfig.PEAK_FINDER_ELEVATION = Math.max(0, DemoConfig.PEAK_FINDER_ELEVATION
+                        + direction * DemoConfig.PEAK_FINDER_ELEVATION_STEP);
+                if (elevationText != null) {
+                    elevationText.setText(String.format("%.0fm", DemoConfig.PEAK_FINDER_ELEVATION));
+                }
+                demo.applyViewpointElevation();
+            }
+        });
+        return button;
+    }
+
+    /** Shown only in peak-finder mode; DemoMap calls this when the mode is switched. */
+    /** Repaints the elevation readout from DemoConfig - for whoever moves the viewpoint without
+     *  touching the buttons (the peak-finder fly-in animates it). */
+    public static void refreshElevationLabel() {
+        if (elevationText != null) {
+            elevationText.setText(String.format("%.0fm", DemoConfig.PEAK_FINDER_ELEVATION));
+        }
+    }
+
+    public static void setElevationWidgetVisible(final boolean visible) {
+        final LinearLayout widget = elevationWidget;
+        if (widget == null) {
+            return;
+        }
+        widget.post(new Runnable() {
+            public void run() {
+                widget.setVisibility(visible ? View.VISIBLE : View.GONE);
+                if (elevationText != null) {
+                    elevationText.setText(String.format("%.0fm", DemoConfig.PEAK_FINDER_ELEVATION));
+                }
+            }
+        });
     }
 
     /** The sheet and the button that opens it are the same control: only one shows at a time. */
@@ -346,6 +419,52 @@ public final class DemoPanel {
                 demo.rebuildBaseLayer();
                 refreshStatus(demo);
             }
+        });
+    }
+
+    /**
+     * The shield test style (StyleSource.POI): a font icon on every POI and the name on whichever
+     * side is free. Every knob here rebuilds the base layer, because all of them are style text -
+     * the style is compiled once, when the decoder is built.
+     */
+    private static void buildShieldSection(Context context, final DemoMap demo) {
+        header(context, "SHIELDS (style 'POI')");
+        check(context, "use the shield test style", DemoConfig.STYLE_SOURCE == DemoConfig.StyleSource.POI, new BoolSetting() {
+            public void set(boolean value) {
+                DemoConfig.STYLE_SOURCE = (value ? DemoConfig.StyleSource.POI : DemoConfig.StyleSource.INLINE);
+                demo.rebuildBaseLayer();
+                refreshStatus(demo);
+            }
+        });
+        check(context, "name on the free side", !DemoConfig.POI_ANCHORS.isEmpty(), new BoolSetting() {
+            public void set(boolean value) { DemoConfig.POI_ANCHORS = (value ? "right,left,top,bottom" : ""); demo.rebuildBaseLayer(); }
+        });
+        check(context, "icon alone when nothing fits", DemoConfig.POI_TEXT_OPTIONAL, new BoolSetting() {
+            public void set(boolean value) { DemoConfig.POI_TEXT_OPTIONAL = value; demo.rebuildBaseLayer(); }
+        });
+        check(context, "font icon", DemoConfig.POI_FONT_ICON, new BoolSetting() {
+            public void set(boolean value) { DemoConfig.POI_FONT_ICON = value; demo.rebuildBaseLayer(); }
+        });
+        check(context, "bitmap shield", DemoConfig.POI_BITMAP_ICON, new BoolSetting() {
+            public void set(boolean value) { DemoConfig.POI_BITMAP_ICON = value; demo.rebuildBaseLayer(); }
+        });
+        check(context, "plate behind the name", DemoConfig.POI_TEXT_BG, new BoolSetting() {
+            public void set(boolean value) { DemoConfig.POI_TEXT_BG = value; demo.rebuildBaseLayer(); }
+        });
+        check(context, "plate behind the icon", DemoConfig.POI_ICON_BG, new BoolSetting() {
+            public void set(boolean value) { DemoConfig.POI_ICON_BG = value; demo.rebuildBaseLayer(); }
+        });
+        slider(context, "plate radius", 0f, 20f, DemoConfig.POI_BG_RADIUS, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.POI_BG_RADIUS = value; demo.rebuildBaseLayer(); }
+        });
+        slider(context, "plate padding", 0f, 12f, DemoConfig.POI_BG_PADDING, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.POI_BG_PADDING = value; demo.rebuildBaseLayer(); }
+        });
+        slider(context, "plate border", 0f, 4f, DemoConfig.POI_BG_BORDER, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.POI_BG_BORDER = value; demo.rebuildBaseLayer(); }
+        });
+        slider(context, "gap icon/name", 0f, 12f, DemoConfig.POI_TEXT_DX, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.POI_TEXT_DX = value; demo.rebuildBaseLayer(); }
         });
     }
 
@@ -685,6 +804,91 @@ public final class DemoPanel {
         });
     }
 
+    /**
+     * The relief (peak-finder) look: a shaded terrain surface plus the outline effect over it.
+     * The surface only shows where no tile layer paints, so switch the base map off in LAYERS.
+     */
+    private static void buildReliefSection(Context context, final DemoMap demo) {
+        header(context, "RELIEF");
+        // One switch for the whole view: the pieces below are independent, and each one on its own
+        // looks like nothing happens (the surface hides under the map, the names need summits).
+        check(context, "peak finder mode", DemoConfig.PEAK_FINDER, new BoolSetting() {
+            // Entering it flies there - one camera move that pulls back, comes down at the
+            // panorama's zoom and tilt, and lifts the viewpoint while the terrain loads.
+            public void set(boolean value) { if (value) { demo.flyToPeakFinder(); } else { demo.setPeakFinderMode(false); } }
+        });
+        check(context, "relief surface", DemoConfig.RELIEF_SURFACE, new BoolSetting() {
+            public void set(boolean value) { DemoConfig.RELIEF_SURFACE = value; demo.applyReliefSurface(); }
+        });
+        check(context, "relief outline effect", DemoConfig.RELIEF_OUTLINE, new BoolSetting() {
+            public void set(boolean value) { demo.setReliefOutlineEnabled(value); }
+        });
+        check(context, "dark palette", DemoConfig.RELIEF_DARK, new BoolSetting() {
+            public void set(boolean value) { demo.setReliefDark(value); }
+        });
+        check(context, "AR (over the camera)", DemoConfig.AR_MODE, new BoolSetting() {
+            public void set(boolean value) { demo.setArMode(value); }
+        });
+        slider(context, "outline width (px)", 0.5f, 4, DemoConfig.RELIEF_OUTLINE_WIDTH, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.RELIEF_OUTLINE_WIDTH = value; demo.applyReliefOutlineParameters(); }
+        });
+        slider(context, "horizon boost", 0, 8, DemoConfig.RELIEF_HORIZON_BOOST, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.RELIEF_HORIZON_BOOST = value; demo.applyReliefOutlineParameters(); }
+        });
+        slider(context, "silhouette threshold", 0.1f, 4, DemoConfig.RELIEF_DEPTH_THRESHOLD, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.RELIEF_DEPTH_THRESHOLD = value; demo.applyReliefOutlineParameters(); }
+        });
+        slider(context, "ridge lines", 0, 1, DemoConfig.RELIEF_CREASE_STRENGTH, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.RELIEF_CREASE_STRENGTH = value; demo.applyReliefOutlineParameters(); }
+        });
+        slider(context, "shade strength", 0, 1, DemoConfig.RELIEF_SHADE_STRENGTH, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.RELIEF_SHADE_STRENGTH = value; demo.applyReliefSurface(); }
+        });
+        slider(context, "ambient", 0, 1, DemoConfig.RELIEF_AMBIENT, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.RELIEF_AMBIENT = value; demo.applyReliefSurface(); }
+        });
+        slider(context, "haze", 0, 1, DemoConfig.RELIEF_HAZE, false, new FloatSetting() {
+            public void set(float value) {
+                DemoConfig.RELIEF_HAZE = value;
+                demo.applyReliefSurface();
+                demo.applyReliefOutlineParameters();
+            }
+        });
+        slider(context, "haze distance (m)", 5000, 200000, DemoConfig.RELIEF_HAZE_DISTANCE, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.RELIEF_HAZE_DISTANCE = value; demo.applyReliefSurface(); }
+        });
+
+        // The peak labels are style-driven, so every knob here rebuilds the layer with a new
+        // style - hence applyOnRelease on the sliders.
+        check(context, "peak names", DemoConfig.LAYER_PEAKS, new BoolSetting() {
+            public void set(boolean value) { demo.setEnabled(DemoMap.Feature.PEAKS, value); }
+        });
+        slider(context, "peak label band (screen)", 0, 0.6f, DemoConfig.PEAKS_BAND, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.PEAKS_BAND = value; demo.rebuildPeaksLayer(); }
+        });
+        slider(context, "peak label angle", 0, 90, DemoConfig.PEAKS_TEXT_ANGLE, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.PEAKS_TEXT_ANGLE = value; demo.rebuildPeaksLayer(); }
+        });
+        slider(context, "peak row step (px)", 8, 60, DemoConfig.PEAKS_ROW_STEP, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.PEAKS_ROW_STEP = value; demo.rebuildPeaksLayer(); }
+        });
+        slider(context, "peak max distance (m)", 0, 300000, DemoConfig.PEAKS_MAX_DISTANCE, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.PEAKS_MAX_DISTANCE = value; demo.rebuildPeaksLayer(); }
+        });
+        check(context, "peak labels pinned to top", DemoConfig.PEAKS_PIN_TOP, new BoolSetting() {
+            public void set(boolean value) { DemoConfig.PEAKS_PIN_TOP = value; demo.rebuildPeaksLayer(); }
+        });
+        // How far behind the terrain an anchor may sit and still be labelled. A summit ON the ridge
+        // line is a hair behind it as far as the depth buffer is concerned.
+        slider(context, "label occlusion tolerance", 0, 0.5f, DemoConfig.TERRAIN_OCCLUSION_TOLERANCE, false, new FloatSetting() {
+            public void set(float value) {
+                DemoConfig.TERRAIN_OCCLUSION_TOLERANCE = value;
+                DemoConfig.PEAK_FINDER_OCCLUSION_TOLERANCE = value;
+                demo.applyTerrainOptions();
+            }
+        });
+    }
+
     private static void buildSkyFogSection(Context context, final DemoMap demo) {
         header(context, "SKY");
         check(context, "sky", DemoConfig.SKY_ENABLED, new BoolSetting() {
@@ -732,6 +936,11 @@ public final class DemoPanel {
         slider(context, "view distance (x tangram, 0=all)", 0, 4, DemoConfig.VIEW_DISTANCE_FACTOR, true, new FloatSetting() {
             public void set(float value) { DemoConfig.VIEW_DISTANCE_FACTOR = value < 0.05f ? 0 : value; demo.terrainOptions.setViewDistanceFactor(DemoConfig.VIEW_DISTANCE_FACTOR); }
         });
+        // Absolute distance wins over the factor above: the ground reaches the same distance
+        // whatever the camera's height and pitch, which is what a view along the ground wants.
+        slider(context, "view distance (km, 0=factor)", 0, 300, DemoConfig.VIEW_DISTANCE_METERS / 1000.0f, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.VIEW_DISTANCE_METERS = value < 0.5f ? 0 : value * 1000.0f; demo.terrainOptions.setViewDistance(DemoConfig.VIEW_DISTANCE_METERS); }
+        });
     }
 
     /** One-shot actions: post-process effects and the routing / search / geometry test cases. */
@@ -744,9 +953,6 @@ public final class DemoPanel {
 
     private static void buildActionsSection(final Context context, final DemoMap demo) {
         header(context, "ACTIONS");
-        check(context, "relief outline effect", DemoConfig.RELIEF_OUTLINE, new BoolSetting() {
-            public void set(boolean value) { demo.setReliefOutlineEnabled(value); }
-        });
         // The only way to trigger a two-finger gesture without fingers: in free roam 'fps' this
         // is the move, everywhere else the pan.
         button(context, "two-finger drag: forward", new Action() {

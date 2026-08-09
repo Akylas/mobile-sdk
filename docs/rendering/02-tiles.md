@@ -58,7 +58,15 @@ Three terrain-specific details, each of which was a bug once:
 - **The view distance stops the recursion**, tested against the nearest point of the tile. It is
   tangram's too (`ViewState::calculateViewDistance`): `2 * cameraHeight / cos(pitch + fovy/2)`,
   capped at 127 tile widths (their `MAX_LOD` 6), scaled by `TerrainOptions::ViewDistanceFactor`
-  (1 = their rule verbatim, 0 = as far as the visible ground goes). A style may pin an absolute
+  (1 = their rule verbatim, 0 = as far as the visible ground goes). `cameraHeight` is the larger of
+  the zoom-derived camera-to-focus distance and the camera's height above sea level: they are the
+  same thing for tangram's camera, but a viewpoint standing on a 2600 m summit is high above the
+  ground while its zoom says it is close to it, and the zoom-derived quantity alone ends the
+  panorama a few kilometres out - the closer to the terrain, the less of it you see.
+  **Above 1 the factor also deepens the far plane** (`calculateViewDistances`), because otherwise
+  the extra tiles the walk fetches are drawn and then clipped, and raising the factor appears to do
+  nothing. It costs depth precision — the depth model is calibrated on the far/near ratio (see
+  [05-depth.md](05-depth.md)) — so it is an explicit trade, not the default. A style may pin an absolute
   distance in metres with `terrain-max-visible-distance`. Pair a short one with fog
   ([08-lighting-sky-fog.md](08-lighting-sky-fog.md)) or the ground simply ends.
 

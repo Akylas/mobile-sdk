@@ -105,6 +105,23 @@ and [09-composite-layer.md](09-composite-layer.md), not micro-optimisation.
 | occlusion depth read-back on its own thread | 13.7 → 14.9 fps |
 | contour lines as a shader block | render tiles 494 → 216 |
 | contour label stubs + shader lines (device) | 14.5 → 16.6 fps, `layers` 8.7 → 7.0 ms |
+| label mutex taken per 32 labels instead of per label | culler pass 19.4 → 15.4 ms (device, ~1960 labels) |
+
+### The label culler, measured on the device
+
+A pass is `cullMs / cullPasses` from the `RenderStats:` line. At a POI-dense camera with ~1960 live
+labels it was **19.4 ms**, and splitting it showed **44% of that was waiting on `labelMutex`** — the
+loop took and released it once per label, ~1900 times, against a GL thread that holds it to build
+label vertices. `BatchLock` (32 labels per acquisition, handed back around the sort) is most of the
+win. The rest: two screen-aligned envelopes whose bounds intersect *do* overlap, so the
+separating-axis test is skipped for them (`CullRecord::axisAligned` — exact, not an approximation,
+and it covers every billboard label), and the two per-label heap allocations in the collection loop
+became reused buffers.
+
+Ruled out on the way: SAT was **not** the bottleneck — the fast path alone barely moved a style with
+no anchors. And the batch size does not trade against frame time the way it looks like it should:
+batch 8 and batch 32 measure the same worst frame (~46 ms against ~40 before). The worst-frame cost
+is the culler doing the same work in a denser burst, not the mutex being held longer.
 
 ## Runtime switches (no rebuild)
 

@@ -56,6 +56,313 @@ Fork-specific rules, all comparing the **placement's** `localId` (hence the stab
 above): `allowOverlapSameFeatureId`, `sameFeatureIdDependent`, and group ids with
 `minimumGroupDistance`.
 
+### Label size and the camera (fork-specific)
+
+In a planar projection a label keeps a **constant on-screen size**: its world size comes from the
+zoom alone, so the perspective divide would otherwise blow it up towards the camera on a tilted view
+(and 3D terrain, which lifts anchors by a kilometre, made that obvious). `calculateTerrainScaleFactor`
+cancels it by scaling the label with `viewDepth / focusDepth`.
+
+`focusDepth` is the distance the zoom is calibrated at — the **camera-to-focus distance**, which
+`TileRenderer` puts in `ViewState::focusDistance` for both the render and the cull pass. vt used to
+guess it as the point where the view axis meets the z=0 plane; that is the same number only while
+the focus sits ON the ground. Lift the viewpoint (free roam, a panorama from 2600 m) or aim at the
+horizon and the guess runs away, shrinking every label on screen as the camera rises or flattens —
+which is what "labels get smaller as I go up or pan" was. `focusDistance` 0 falls back to the old
+guess, so a host that does not set it behaves as before.
+
+A **callout** is sized differently: it is a screen object, so one glyph unit is `size` pixels taken
+off the projection (`calculateLabelScale` → `calculatePixelToWorld`), not off the zoom. The
+zoom-derived scale keeps a constant screen size only while the camera distance follows the zoom,
+and free roam breaks that — lift the viewpoint or tilt and the names grow or shrink on screen.
+
+### Callout labels (fork-specific)
+
+`LabelOrientation::CALLOUT` — style `text-placement: nuticallout` — is a point label **lifted away
+from its anchor in screen space** and joined back to it by a leader line. It exists because a
+panorama is the case the ordinary rules answer badly: hundreds of summits within a few degrees of
+the horizon, all wanting the same band of pixels, and hiding all but a handful of them loses exactly
+the information the view is for.
+
+What changes, and only for this orientation:
+
+- **`LabelCuller::placeCalloutLabel` replaces the hide.** The label is placed at its band
+  (`text-callout-screen-anchor`, a fraction of the screen height from the top; below 0 it stacks
+  from its own anchor instead), and while the grid says it is taken it moves up one
+  `text-callout-step` at a time, for at most `text-callout-max-rows` rows. Everything else — the
+  priority sort, the `wasVisible` hysteresis, the shared grid — is untouched, so callouts collide
+  with ordinary labels and with each other in the usual way.
+- **The lift is in SCREEN PIXELS, and it stays there.** Two things make that true, and both had to
+  be fixed before a row of names was a row:
+  - *The conversion is read off the projection, not off the label's scale.* One pixel is
+    `depth / (projection scale × half the screen height)` world units at the label's own depth
+    (`Label::calculatePixelToWorld`). Converting with the label's scale instead — which comes from
+    the zoom — makes the same stored lift mean a different number of pixels whenever the camera
+    tilts, rises or zooms, so the labels slide up and down the screen between placement passes.
+  - *The anchor moves; the label does not follow it.* Labels are re-anchored on the GL thread as
+    elevation tiles arrive (`updateElevation`), and a tilt slides the anchor up or down the screen,
+    while a placement pass only runs when the draw data changes. The culler therefore records the
+    anchor's screen position along with the lift (`setCalloutPlacement`) and the draw path corrects
+    by how far it has moved since (`calculateCalloutLift`), so the label holds its LINE rather than
+    its distance from a summit that has meanwhile moved.
+- **The leader line is one more quad in the label's own vertex stream**, textured from a 4×4 white
+  cell loaded into the glyph atlas (`TileLabel::Style::calloutLineGlyph`). It is built per frame
+  rather than cached with the text — its length is the offset, which changes with everything else
+  on screen — and only once, after both text passes, since a halo copy would just draw it twice.
+  Sampling the cell's interior matters: the outer texels blend into the atlas padding under linear
+  filtering, which thins the line and fades its ends.
+- **A callout has to be clamped to the screen.** Every other label is evidence of its own
+  visibility; this one is drawn where it is not anchored, so the culler caps the lift a constant
+  `SCREEN_EDGE_MARGIN` short of the top edge. The margin is a constant on purpose: it also caps a
+  label the band placed correctly, and a margin proportional to the label's own height then pushes
+  long names further down than short ones — the row stops being a row. A summit already high in the
+  frame has no room left above it, and its name is the one worth keeping, so the lift is **pulled
+  back down** to that cap rather than hidden (its leader line shortens to nothing with it).
+- Rotation (`text-orientation`) stays with the CALLOUT placement instead of downgrading to POINT —
+  angled names over a horizon is the whole look.
+
+**Which point of the label is anchored.** Two style properties, both naming a point of the label's
+own box — `center`, `left`, `right`, `top`, `bottom`, `top-left`, `top-right`, `bottom-left`,
+`bottom-right` — rotated with the text, so on a name tilted 55° the `bottom-left` corner is where
+its first letter starts:
+
+```css
+#mountain_peak {
+  text-callout-line-anchor: bottom-left;  /* held over the summit; where the leader line ends */
+  text-callout-align: top-right;          /* the point put on the band line */
+}
+```
+
+`text-callout-line-anchor` **moves the label** so that point lands on the anchor's vertical
+(`Label::calculateCalloutShift`, applied to the glyph offsets, the plate and the envelope alike) —
+which is what keeps every leader line vertical while the text starts exactly above its summit.
+`text-callout-align` only decides what the band line is measured against (`LabelCuller` reads that
+point off the screen envelope by bilinear interpolation of its four corners). The pair is what the
+two panorama looks are made of: names pinned to the top of the screen hang from their `top-right`
+corner so the text stays under the edge, names in a band lower down line up on the same
+`bottom-left` corner they are anchored by. Unset (the default) keeps the old behaviour: the text
+laid out around its own anchor, the band measured against the bottom of the bounding box.
+
+### A second run of text (fork-specific)
+
+A summit name and its elevation are one label with two type sizes. `TextFormatter::Options` carries
+an optional second run, so it is laid out **with** the first one — one baseline, one bounding box,
+one background plate, one colour:
+
+```css
+#mountain_peak {
+  text-name: [name];
+  text-secondary-name: [ele]+'m';
+  text-secondary-scale: 0.62;   /* of the main font size */
+  text-secondary-dx: 3;         /* gap before it, pixels */
+  text-secondary-dy: 0;         /* baseline shift, pixels, down positive */
+}
+```
+
+`TextFormatter::appendSecondaryRun` lays the run out on its own (left aligned), scales its glyph
+geometry, and rebases its `CR` pseudo-glyphs — which carry an **absolute** pen position, see
+`Label::buildPointVertexData` — onto the end of the first run. Both runs then shift by the share of
+the extra width the alignment asks for, so `text-horizontal-alignment` still applies to the pair.
+The glyphs come from the same atlas raster as the main text, so a very small scale is a magnified
+raster: this is for a suffix, not for a second paragraph.
+
+### Ranking with the view (fork-specific)
+
+`text-placement-priority` is evaluated once, at decode time, from the feature. A panorama also wants
+to rank by something only the frame knows — how far the summit is — so a label style may carry a
+**rank function**, evaluated by the culler once per label per placement pass and **added to the
+priority**:
+
+```css
+#mountain_peak {
+  text-placement-priority: [ele];              /* the higher summit claims the row ... */
+  text-rank: 0 - [view::distance]/100;         /* ... and the nearer of two equals wins it */
+}
+```
+
+`view::distance` is metres from the camera to the label being ranked. It is defined **only** in this
+evaluation: `ViewState::labelDistance` is 0 everywhere else, because the renderer evaluates a style
+function once per batch (`GLTileRenderer::renderLabelPass` packs colour and size into a 16-slot
+parameter table) and a per-label value there would cost a batch per label. Ranking never changes how
+a label looks — only which of two colliding labels keeps its slot.
+
+Two notes for style authors:
+
+- Prefer an expression that reads **only** the view state. It has no feature dependency, so
+  `FloatFunctionProperty::getFunction` hands every feature the same function object and the label
+  style is not rebuilt per feature.
+- `0 - x`, not `-x`: CartoCSS's `literal` rule accepts `-` as a first character, so a leading minus
+  in front of a field is read as the literal string `"-"` and the declaration fails to parse.
+
+- **A callout keeps the row it holds.** The offset is carried across label rebuilds
+  (`snapPlacement` — it belongs to the label, not to the tiles it was built from; without that, a
+  rebuilt label drops onto its own anchor until the next placement pass, which is a whole screen
+  of names jumping every time tiles stream in), and a label that was visible tries its previous
+  row before any other. `text-callout-persist: <passes>` goes further: a name already on screen may
+  fail placement that many consecutive passes before it is hidden, so it does not blink out and
+  back in while the camera moves. Default 0 — hide on the first failure, as before. A held-over
+  name may sit closer to its neighbours than `text-min-distance` allows, but never **on top** of
+  one: a placement pass only runs when the draw data changes, so an overlap granted here would
+  stay on screen until something else moved. It is held on the band's own line too, never at the
+  lift it happened to have — a name kept off the row is what the row exists to avoid.
+- **The step's sign is the stacking direction.** A negative `text-callout-step` stacks the rows
+  DOWNWARDS, which is what a band pinned to the top of the screen needs: there is no room above it,
+  so stepping up piles every row that loses its slot into the top edge — and since the ranking puts
+  the nearest summits first, the effect reads as "the closer the label, the lower it sits".
+- **The group's minimum distance is tested at every row.** `text-min-distance` is what thins a
+  crowded ridge out, and testing it only after placement would put a label on a free row and then
+  hide it for being too close to a neighbour — the one outcome the stacking exists to avoid.
+
+Picking is unchanged and needs nothing new: `GLTileRenderer::findLabelIntersections` tests the
+placed geometry, so a callout is clicked where it is drawn, at the end of its leader line.
+
+### Anchored shields: the name takes a free side (fork-specific)
+
+A shield is ONE label whose glyph run is `[icon glyphs] CR [text glyphs …]`: the icon comes before
+the first line break and the text after it, and `buildPointVertexData` resets the pen at that break.
+Everything below rests on that split — the icon stays on the feature, only the text moves.
+
+```css
+#poi {
+  shield-name: [name];
+  shield-file: url(shields/place.svg);   /* a bitmap icon, as before */
+  shield-icon-name: '<PUA char>';        /* AND/OR a font icon: one glyph of an icon face */
+  shield-icon-face-name: 'osm';
+  shield-icon-size: 15; shield-icon-fill: #b5651d;
+  shield-anchors: 'right,left,top,bottom';  /* sides, in preference order */
+  shield-text-optional: true;               /* no side free -> draw the icon alone */
+  shield-text-dx: 2;                        /* gap from the icon, MIRRORED per side */
+}
+```
+
+- **The sides are precomputed, the choice is per pass.** `TileLayerBuilder` measures the text once
+  and stores one `TileLabel::Variant` per anchor — a `vec2` shift of the text pen and a `drawText`
+  flag. No extra glyph run, no extra formatting: the block is placed against the icon's edge, so the
+  style's own `horizontal-alignment` does not have to be mirrored, and `dx`/`dy` are re-applied as a
+  gap along the anchor direction (a name pushed 2 px right of the icon is pushed 2 px LEFT on the
+  left side). A style with no `shield-anchors` builds no variants and takes exactly the old path.
+- **`LabelCuller::placeAnchoredLabel`** tries the side the label already holds first and then the
+  style's order, taking the first free one — tangram's
+  `do { … } while (isOccluded() && nextAnchor())` (`labelManager.cpp`), with their anchor set and
+  order. Keeping the current side is what stops a name swapping sides under a moving camera; the
+  exception is the icon-only variant, which is smaller than every other one and therefore always
+  fits, so a label that fell back to it once would keep it for good and its name would never come
+  back. It is never the preferred side.
+- Along the side's own axis the text is placed against the icon's **edge**, and `dx`/`dy` become a
+  gap pushed away from the icon. Across that axis it is **centred on the anchor** — a name above the
+  icon has to sit over it, and the formatter's own alignment is derived from the sign of `dx`, which
+  means nothing once `dx` is a gap.
+- `shield-text-optional` appends a last variant that draws the icon alone. That is mapbox's
+  `text-optional`; here it costs one more variant, not a second label.
+- The side is carried across rebuilds by `snapPlacement`, so a label recreated by a tile-set change
+  does not start at side 0 for one frame before the next pass moves it back.
+- **Placement is re-run when the camera zooms** (`MapRenderer::viewChanged`, ¼ of a zoom level). A
+  pass is otherwise only asked for when the TILE SET changes, and a label's envelope is screen-space:
+  zooming in makes room nothing notices. The pass is **postponed** rather than queued
+  (`VTLabelPlacementWorker::postpone`), so a zoom gesture places once when it settles instead of
+  re-deciding at every step — placing mid-gesture is what made labels fade in and straight back out.
+
+**Which labels keep their text.** The culler sorts by priority → `wasVisible` → layer index → size →
+opacity and inserts greedily, so a label sorted earlier claims its side first;
+`shield-placement-priority` is the knob for "these names matter more than those", and a bigger
+`shield-size` sorts earlier among equal priorities.
+
+Insertion is **greedy and single-pass**: a label takes the first of its sides that is free, and a name
+placed there may leave a neighbour's icon nowhere to go — the neighbour is hidden. That is what
+mapbox does, and it is what makes a dense POI field readable: names win space from icons.
+
+**Two alternatives were tried and reverted, both on the device and both worth not re-deriving:**
+
+- *Yielding up front* — before taking a side, a label that can still shrink tests it against the
+  smallest layout of every equal-priority label after it, and drops to its icon rather than cost that
+  label its place. Correct on two labels; on two thousand every name overlaps *some* neighbour's
+  icon, so every name yields and the map shows icons only. It also cost ~25% more culler time and
+  raised visibility flips per pass from 4.4 to 6.9.
+- *Two passes* — commit every label at its smallest layout, then grow each back where the screen is
+  still free. No collapse, and the same cost as greedy (14.5 vs 15.4 ms per pass), but pass 1 keeps
+  every icon that fits, so the dense camera showed ~18 names where greedy shows ~60. Icons are not
+  worth that much.
+
+So a name still displaces a lower-ranked icon, and `shield-placement-priority` is the only lever over
+who wins.
+
+### Justifying a wrapped name (fork-specific)
+
+`shield-text-horizontal-alignment: 'left' | 'middle' | 'right' | 'auto'` justifies the LINES of a
+wrapped name inside its block. `auto` follows the side the culler chose — flush left when the name
+is to the right of its icon, flush right when it is to the left — and an explicit value is mirrored
+the same way. Unset keeps every line centred, which is what the formatter always did.
+
+It costs no second glyph run: the formatter still centres each line, and `Label` measures each
+line's ink extent once (`measureTextLines`) and shifts the pen per line at draw time
+(`calculateLineShift`). Single-line labels — nearly all of them — shift by zero.
+
+This is also what fixes "the gap looks bigger on one side": for a single-line name the gap is
+symmetric by construction (the text is placed against the icon's edge, and it measures the same
+17 px either way on screen), but a centred short line inside a wider block sits away from the icon,
+and only justification can close that.
+
+**Cost of the sides.** All sides share the placement, the scale and the label's screen axes, so
+`Label::calculateVariantEnvelopes` builds all of their envelopes in one call and the culler only
+repeats the cheap part (project + grid test) per side. Measured on the emulator with a deliberately
+extreme style (every POI anchored, ~2300 live labels, 4 sides + icon-only): **20.8 ms per culler
+pass against 16.3 ms with the property unset**, and the frame time moves by under 1 ms — which is
+the extra labels `text-optional` lets through, not the placement. Building one envelope per side
+instead cost 27.8 ms per pass, so the shared setup is worth keeping. A style that does not use
+`shield-anchors` measures identical to before. The pass runs on the placement worker; no frame
+section shows it, which is why `RenderStats::cullerNs` (`cullMs=` in the `RenderStats:` line) exists.
+
+### Font icons
+
+`shield-icon-name` is a run of glyphs from an icon face, drawn before the text with its own colour
+(`shield-icon-fill`, a third style slot next to the halo and the second text run) and its own size.
+It is not a bitmap: the glyphs are SDF like the text, so they stay sharp at any zoom and cost one
+atlas cell each.
+
+The face has to be reached **through the label font** — `getFont(labelFont->getName(), iconFace)` —
+because `FontManagerFont::shapeGlyphs` rasterizes a fallback's glyphs into the atlas of the font it
+was called on, and one label can only be drawn from one atlas. Resolving the icon face on its own
+and shaping with it gives glyphs in a different atlas and the label renders nothing. The face is
+also re-requested at the render size the ICON is drawn at, not the text's, so a large icon next to
+small text is not a magnified small raster.
+
+A shield may carry both: the bitmap (`shield-file`) is the first prefix glyph and the icon run
+follows it, so they sit side by side rather than on top of each other.
+
+### Plates behind the text and behind the icon (fork-specific)
+
+A label may carry two plates — one behind the text, one behind the icon run — each a rounded
+rectangle with its own colour, corner radius, padding and border:
+
+```css
+#road_label {
+  text-background-fill: #ffffff;  text-background-opacity: 0.85;   /* also on a shield: */
+  text-background-radius: 3;                                        /*   shield-background-*   */
+  text-background-padding-x: 4; text-background-padding-y: 2;       /*   shield-icon-background-* */
+  text-background-border-fill: #444444; text-background-border-width: 1;
+}
+```
+
+- A plate is **3-sliced from one atlas cell** (`buildRoundedRectBitmap`, cached by radius, the glyph
+  map dedupes by pointer): left cap, stretched middle, right cap — which is what keeps the corners
+  round at any name width.
+- The **border is a second plate behind the fill**, one border width larger on every side and with
+  its corner radius grown to match. That is why it needs no shader and no second texture: it is the
+  same cell drawn bigger in another colour.
+- Both plates are part of what the label covers, so `calculatePlatedBBox` grows the envelope by
+  their padding and border — the culler tests what is actually drawn, and a callout's leader line
+  ends outside the plate rather than inside it.
+- Each colour is one slot in the label batch, like the halo (`LabelBatchParameters::MAX_PARAMETERS`
+  is 16; a style using both plates with borders takes 4 of them plus text, halo, secondary and icon).
+
+**Cost**, measured on the emulator with a plate behind the name AND behind the icon on ~2100 labels:
+vertex build **4.6 → 5.2 µs per label per frame** (+13%) and batch time **12.8 → 17.8 µs per label**
+(+39%), i.e. about **+1 ms per frame at 2100 plated labels**, and no change in draw-call count
+(≈60/s either way). It is proportional to the plated labels on screen: each plate is 3 quads built
+in the same loop as the glyph quads, so a screen of road shields — tens, not thousands — is far
+below what the frame-time noise on this emulator can even resolve.
+
+
 ### Max distance (fork-specific)
 
 A label glyph is screen-space: a street name 5 km away is drawn at the same size as one 50 m away,
@@ -99,7 +406,11 @@ zoom filter.
 ## Against tangram
 
 Tangram's labels are built into the tile's styled mesh at tile build time and placed by their own
-`LabelManager`; ours are re-merged and re-placed from the live tile set. The visible difference is
+`LabelManager`; ours are re-merged and re-placed from the live tile set. Their icon and its name are
+**two labels** linked by `setRelative`, with `optional` deciding whether the parent survives the
+child being occluded; a shield here is one label with several text layouts, so the anchor retry loop
+is theirs but the object model is not (see
+[11-tangram-diff.md](11-tangram-diff.md)). The visible difference is
 where the work happens: theirs is amortised into tile building, ours falls on tile-set changes during
 panning. Their contour labels are generated from the elevation texture with no geometry at all,
 which this fork now also does ([07-hillshade-contours.md](07-hillshade-contours.md)).
