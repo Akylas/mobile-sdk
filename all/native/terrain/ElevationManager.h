@@ -240,7 +240,7 @@ namespace carto {
         // handed straight back to the next one).
         const unsigned long long _instanceId;
 
-        std::atomic<unsigned int> _dataVersion;
+        mutable std::atomic<unsigned int> _dataVersion; // moves with _version whenever tile data changes
 
         std::atomic<float> _exaggeration;
         std::atomic<bool> _seamlessTileEdges;

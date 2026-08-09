@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace carto {
 
@@ -27,6 +28,8 @@ namespace carto {
     static constexpr double DEFAULT_MAX_ELEVATION = 9000.0;
     static constexpr int RAY_MARCH_MAX_STEPS = 256;
     static constexpr int RAY_BISECT_STEPS = 24;
+    // Latitude quantum of the metres-to-internal scale memo, ~40 m of world (see getDisplayScale).
+    static const double DISPLAY_SCALE_STEP = Const::WORLD_SIZE / 1048576.0;
 
     struct ElevationManager::DataSourceListener : public TileDataSource::OnChangeListener {
         explicit DataSourceListener(ElevationManager& manager) : _manager(manager) { }
@@ -96,7 +99,10 @@ namespace carto {
     }
 
     void ElevationManager::setExaggeration(float exaggeration) {
-        _exaggeration.store(std::max(0.0f, exaggeration));
+        float value = std::max(0.0f, exaggeration);
+        if (_exaggeration.exchange(value) == value) {
+            return; // re-setting the same value invalidates every CPU-side height for nothing
+        }
         // The DATA version deliberately stands still: heights are scaled on the GPU and the tile
         // surfaces are built flat, so nothing geometric is stale. Only what reads heights on the
         // CPU - label anchors, the raycast - has to catch up, and that watches the global version.
@@ -322,6 +328,12 @@ namespace carto {
                 // per-tile derived data can then rebuild only the affected tiles. Bump the
                 // version under the same lock as the cache insert, so a consumer that sees
                 // the new version also sees the grid and a matching log entry.
+                // The DATA version moves with it: a decoded tile IS new elevation data, and a
+                // consumer telling a scale-only change apart from a data change compares the
+                // two. While this only moved for whole-data-set changes, every tile load read
+                // as scale-only, which takes the blanket invalidation path - a whole screen of
+                // label anchors resampled per arriving tile instead of those over that tile.
+                _dataVersion++;
                 unsigned int version = _version.fetch_add(1) + 1;
                 _changeLog.emplace_back(version, grid->getTile());
                 while (_changeLog.size() > MAX_CHANGE_LOG_ENTRIES) {
@@ -438,9 +450,28 @@ namespace carto {
     }
 
     double ElevationManager::getDisplayScale(double internalY) const {
-        double sin = std::tanh(internalY * 2 * Const::PI / Const::WORLD_SIZE);
+        // The metres-to-internal scale only depends on the latitude, and a dense consumer (the
+        // label re-anchor, the raycast) walks points a few metres apart - but tanh() is the
+        // single most expensive thing in that loop (measured: tanh + expm1 = 21% of the render
+        // thread). Quantise the latitude to DISPLAY_SCALE_STEP and remember the last step: the
+        // step spans ~40 m, over which the scale moves by ~4e-7 relative, i.e. under two
+        // millimetres on a 3000 m summit. Quantising rather than interpolating keeps it a
+        // function of the position alone, so the same vertex always gets the same height and
+        // nothing oscillates between frames.
+        double step = std::floor(internalY / DISPLAY_SCALE_STEP + 0.5);
+        struct ScaleMemo {
+            double step = std::numeric_limits<double>::quiet_NaN();
+            double scale = 0;
+        };
+        static thread_local ScaleMemo memo;
+        if (memo.step == step) {
+            return memo.scale;
+        }
+        double sin = std::tanh(step * DISPLAY_SCALE_STEP * 2 * Const::PI / Const::WORLD_SIZE);
         double cos = std::sqrt(std::max(1.0e-6, 1.0 - sin * sin));
-        return Const::WORLD_SIZE / Const::EARTH_CIRCUMFERENCE / cos;
+        double scale = Const::WORLD_SIZE / Const::EARTH_CIRCUMFERENCE / cos;
+        memo = ScaleMemo { step, scale };
+        return scale;
     }
 
     void ElevationManager::getDisplayHeightRange(double internalY, double& minZ, double& maxZ) const {
@@ -668,9 +699,36 @@ namespace carto {
     }
 
     std::shared_ptr<ElevationTileGrid> ElevationManager::getGridForInternalPos(double internalX, double internalY, LoadMode mode) const {
+        // Dense point queries - a label re-anchor samples every vertex of every label - walk the
+        // same grid thousands of times in a row, and finding WHICH tile a point belongs to costs
+        // a projection transform, a tile id, a flip and the zoom clamp before the cache lookup
+        // (and its own memo) is even reached. Measured with labels over 3D terrain, that tile
+        // math was 70% of the render thread. A grid is immutable and every elevation change bumps
+        // the version, so the last grid whose bounds contain the point is the same answer the
+        // resolution below would produce - the raycast in intersectRay keeps its grid for exactly
+        // this reason. LOAD_EXACT is excluded: it must not be satisfied by an ancestor stand-in.
+        struct PosMemo {
+            unsigned long long instanceId = 0;
+            unsigned int version = 0;
+            LoadMode mode = LoadMode::CACHED_ONLY;
+            std::shared_ptr<ElevationTileGrid> grid;
+        };
+        static thread_local PosMemo memo;
+        unsigned int memoVersion = _version.load();
+        bool memoizable = (mode != LoadMode::LOAD_EXACT);
+        if (memoizable && memo.instanceId == _instanceId && memo.version == memoVersion && memo.mode == mode && memo.grid) {
+            if (memo.grid->getInternalBounds().contains(MapPos(internalX, internalY, 0))) {
+                return memo.grid;
+            }
+        }
+
         MapPos dataSourcePos = _projection->fromInternal(MapPos(internalX, internalY, 0));
         MapTile mapTile = TileUtils::CalculateClippedMapTile(dataSourcePos, _dataSource->getMaxZoom(), _projection).getFlipped();
-        return getTileGrid(mapTile, mode);
+        std::shared_ptr<ElevationTileGrid> grid = getTileGrid(mapTile, mode);
+        if (memoizable && grid) {
+            memo = PosMemo { _instanceId, memoVersion, mode, grid };
+        }
+        return grid;
     }
 
     std::shared_ptr<ElevationTileGrid> ElevationManager::loadTileGrid(const MapTile& requestedTile) const {

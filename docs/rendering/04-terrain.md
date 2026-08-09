@@ -17,6 +17,29 @@ half surface cell), which costs about two zoom levels of detail. That cap is rig
 wrong for per-fragment shading, which is why the terrain paint can opt out of it
 ([07-hillshade-contours.md](07-hillshade-contours.md#the-dem-level)).
 
+### CPU height queries
+
+`getDisplayHeight`/`getElevationMeters` are point queries, and their callers are dense: the label
+re-anchor walks every vertex of every label, the raycast marches a ray. Three things make one sample
+cheap, and each of them was a measured frame cost before it existed:
+
+- **The last grid, kept.** `getGridForInternalPos` remembers the last resolved grid per thread and
+  reuses it while the point is inside its bounds. Without it every sample paid a projection
+  transform, a tile id (`IntPow` alone was 21% of the render thread), a flip and the zoom clamp
+  before reaching the cache — to find the tile the previous sample had just used. `lookupTileGrid`
+  keeps a second memo for the callers that arrive with a tile id already.
+- **The latitude scale, quantised.** `getDisplayScale` is `tanh`-based and was 21% of the render
+  thread on its own (`tanh` + `expm1`). It is now memoised over a ~40 m latitude quantum, which
+  moves a height by under two millimetres and — being a function of the position alone — keeps the
+  same vertex at the same height frame after frame.
+- **Two versions, and what they mean.** `getVersion` moves on *any* change; `getDataVersion` moves
+  when the elevation DATA changes, **including a tile load**. A consumer tells an exaggeration ramp
+  (heights scale on the GPU, surfaces stay valid) apart from new data by comparing the two.
+  `_dataVersion` used to stand still for tile loads, so `TileRenderer` read every arriving DEM tile
+  as scale-only and took the blanket invalidation path — a whole screen of label anchors resampled
+  per tile, instead of the labels over that tile. Setting the same exaggeration twice is now a
+  no-op for the same reason.
+
 ### The elevation texture
 
 Displacement happens in the **vertex shader** (vertex texture fetch), so each tile needs its DEM as

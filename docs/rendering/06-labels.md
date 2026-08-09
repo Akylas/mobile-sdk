@@ -395,10 +395,18 @@ zoom filter.
 - **Terrain anchoring.** Label geometry is built flat at decode time, so a label must be re-anchored
   onto the terrain: once when it is new, and afterwards only when the elevation under one of its
   tiles changed. `invalidateLabelElevation(tileIds)` marks exactly those; the blanket version exists
-  for whole-data-set changes. Anchoring costs one elevation sample per label vertex (~233 µs per
-  label), and a whole screen of labels goes dirty at once while elevation streams in, so this loop
-  measures 2.5–4.1 ms of a frame. It still has to run to completion: a label left dirty is drawn and
-  culled at its old height, which reads as labels popping in at the wrong place and settling.
+  for whole-data-set changes. Anchoring costs one elevation sample per label vertex, and a whole
+  screen of labels goes dirty at once while elevation streams in. It still has to run to completion:
+  a label left dirty is drawn and culled at its old height, which reads as labels popping in at the
+  wrong place and settling.
+  **This is the most expensive thing on the render thread over 3D terrain** — measured at ~750 000
+  elevation samples per frame on the north pan with a full style, 82% of the render thread. Two
+  faults made it that: `TileRenderer` classified every arriving DEM tile as a *scale-only* change
+  and took the blanket path (see [04-terrain.md](04-terrain.md#cpu-height-queries)), and each sample
+  re-derived its tile and its latitude scale from scratch. What remains after both fixes is genuine
+  volume: a changed DEM tile at z12 intersects every label tile beneath it, so "targeted" still means
+  most of the screen. Cutting it further means cutting samples — anchor only labels that are placed,
+  or budget the loop — and both trade against how fast a label settles onto the terrain.
 - **Vertex data.** Glyph quads are rebuilt from scratch for every visible label every frame and
   uploaded as one batch (`labelVertexBuildNs`, `labelBatchNs`). A GPU-billboard path would remove
   the per-frame world transform (`labelTransformNs`) — it is on the backlog, not implemented.
