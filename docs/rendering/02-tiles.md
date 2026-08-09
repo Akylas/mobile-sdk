@@ -70,6 +70,31 @@ Three terrain-specific details, each of which was a bug once:
   distance in metres with `terrain-max-visible-distance`. Pair a short one with fog
   ([08-lighting-sky-fog.md](08-lighting-sky-fog.md)) or the ground simply ends.
 
+### The coarsening floor times the view distance
+
+`TerrainOptions::MaxTileZoomCoarsening` floors how coarse a far tile may get (default: 3 levels
+under the camera), so that far surfaces stay usable as depth occluders. It **overrides the
+screen-area rule**, which would happily coarsen the horizon on its own — and that is fine until it
+is multiplied by a long view distance. The cost of a long view is not the distance, it is the
+distance paved in tiles no coarser than the floor.
+
+Measured at the demo's default camera, a 170 km pinned view distance:
+
+| coarsening floor | tiles fetched | deepest zoom |
+|---|---|---|
+| 3 | **550** (all z13) | z13 |
+| 8 | 50 | z15 |
+
+The 550-tile case is a map that loads for minutes and blinks one tile at a time as each arrives,
+because every tile is fetched, decoded, draped and re-baked. Note the near field gets *finer* with
+more coarsening allowed (z15 against z13): the budget goes where it is visible instead of paving
+the horizon.
+
+`TileLayer::calculateVisibleTiles` therefore **relaxes the floor rather than shortening the view**:
+whatever the app configured, it allows enough coarsening for the covered ground to fit in
+`TERRAIN_COVER_TILE_BUDGET` (256) tiles, and logs when it does. Two settings that each look
+reasonable can be ruinous multiplied together, and an app has no way to see that coming.
+
 ## Substitution, preloading, caching
 
 - `TileSubstitutionPolicy` decides whether a missing tile is stood in for by a parent/child.
