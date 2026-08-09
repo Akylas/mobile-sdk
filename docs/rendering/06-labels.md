@@ -107,23 +107,24 @@ opacity and inserts greedily, so a label sorted earlier claims its side first;
 `shield-placement-priority` is the knob for "these names matter more than those", and a bigger
 `shield-size` sorts earlier among equal priorities.
 
-Greedy insertion alone would let the first label take everything, so a label that can still shrink
-**yields to a later label of the same priority**: before taking a side it tests that side against the
-*smallest* layout of every equal-priority label that comes after it (`_minimumGrid`,
-`testPeerReservations`) and drops to a smaller variant rather than cost that label its place. With
-A = icon + name and B = icon only:
+Insertion is **greedy and single-pass**: a label takes the first of its sides that is free, and a name
+placed there may leave a neighbour's icon nowhere to go — the neighbour is hidden. That is what
+mapbox does, and it is what makes a dense POI field readable: names win space from icons.
 
-| | |
-|---|---|
-| equal priority | A drops to its icon, B keeps its place |
-| A higher | A keeps its name, B is hidden |
-| B higher | B is placed first, A drops to its icon |
+**Two alternatives were tried and reverted, both on the device and both worth not re-deriving:**
 
-Reservations only exist between labels that *have* a smaller layout — a plain label has nothing to
-fall back to, so nothing yields to it. And yielding is a courtesy, never a disappearance: when no
-side avoids the reservations, the label takes the first free one anyway. The rule costs ~45% more
-culler time and makes placement more sensitive to the camera (visibility flips per pass go from
-+40% to +66% over a style with no anchors), because a label's own layout now depends on its peers.
+- *Yielding up front* — before taking a side, a label that can still shrink tests it against the
+  smallest layout of every equal-priority label after it, and drops to its icon rather than cost that
+  label its place. Correct on two labels; on two thousand every name overlaps *some* neighbour's
+  icon, so every name yields and the map shows icons only. It also cost ~25% more culler time and
+  raised visibility flips per pass from 4.4 to 6.9.
+- *Two passes* — commit every label at its smallest layout, then grow each back where the screen is
+  still free. No collapse, and the same cost as greedy (14.5 vs 15.4 ms per pass), but pass 1 keeps
+  every icon that fits, so the dense camera showed ~18 names where greedy shows ~60. Icons are not
+  worth that much.
+
+So a name still displaces a lower-ranked icon, and `shield-placement-priority` is the only lever over
+who wins.
 
 ### Justifying a wrapped name (fork-specific)
 
