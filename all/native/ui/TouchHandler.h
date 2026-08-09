@@ -148,6 +148,11 @@ namespace carto {
         // Determines how the finger sliding distance will be converted to tilt angle
         static const float INCHES_TO_TILT_DELTA;
 
+        // Below this, a cross product of two view vectors carries no direction, only
+        // rounding: sin(0.06 degrees), so the fallback axis it selects is indistinguishable
+        // from the one it replaces.
+        static const double VIEW_AXIS_EPSILON;
+
         // Determines how finger sliding distance will be converted to zoom delta
         static const float INCHES_TO_ZOOM_DELTA;
         
