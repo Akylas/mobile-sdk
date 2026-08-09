@@ -478,6 +478,10 @@ namespace carto {
 
         static const float DISCRETE_ZOOM_LEVEL_BIAS;
 
+        // Ceiling on the terrain tile cover, used to relax the coarsening floor when the
+        // view distance would otherwise demand more tiles than a frame can carry.
+        static const int TERRAIN_COVER_TILE_BUDGET;
+
         static const int MAX_PARENT_SEARCH_DEPTH;
         static const int MAX_STAND_IN_DEPTH;
         static const int MAX_CHILD_SEARCH_DEPTH;

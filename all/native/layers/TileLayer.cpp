@@ -672,6 +672,29 @@ namespace carto {
             }
         }
 
+        // SAFEGUARD: a coarsening floor and a view distance are set independently, and multiplied
+        // they decide how much ground has to be paved in tiles no coarser than that floor. The two
+        // that look reasonable apart can be ruinous together - a 170 km view with a floor 3 levels
+        // under the camera measured 550 tiles against 50, every one of them fetched, decoded,
+        // draped and re-baked, which reads as a map that loads for minutes and blinks a tile at a
+        // time. The floor exists to keep far tiles usable as depth occluders, so it is relaxed
+        // rather than the view shortened: whatever the app asked for, allow enough coarsening that
+        // the covered ground fits in TERRAIN_COVER_TILE_BUDGET tiles. The screen-area rule below
+        // then coarsens the horizon on its own; this only stops the floor from forbidding it.
+        if (_terrainMinTileZoom > 0 && _maxVisibleDistance > 0) {
+            // Tiles across the covered ground, worst case (a square of side 2 * distance):
+            //     (2 * distance / tileWidth)^2 <= budget,   tileWidth = WORLD_SIZE / 2^zoom
+            double maxTileZoom = std::log2(Const::WORLD_SIZE * std::sqrt(static_cast<double>(TERRAIN_COVER_TILE_BUDGET)) / (2 * _maxVisibleDistance));
+            int budgetMinTileZoom = static_cast<int>(std::floor(maxTileZoom));
+            if (budgetMinTileZoom < _terrainMinTileZoom) {
+                if (_terrainMinTileZoom - budgetMinTileZoom > 1) {
+                    Log::Infof("TileLayer::calculateVisibleTiles: the view distance needs %d more levels of terrain tile coarsening than allowed; coarsening to zoom %d to stay inside %d tiles",
+                               _terrainMinTileZoom - budgetMinTileZoom, budgetMinTileZoom, TERRAIN_COVER_TILE_BUDGET);
+                }
+                _terrainMinTileZoom = std::max(0, budgetMinTileZoom);
+            }
+        }
+
         // Tangram's LOD threshold (TileManager::updateTileSets): a tile is refined while its
         // projected SCREEN AREA is at least that of a 2x2 block of nominal tiles - so refinement
         // stops when a tile covers between one and two tile sizes on screen, which is the same
@@ -1264,6 +1287,10 @@ namespace carto {
     }
 
     const float TileLayer::DISCRETE_ZOOM_LEVEL_BIAS = 0.001f;
+
+    // Measured at the demo's mountain camera: a sane cover is ~50 tiles and the pathological
+    // one was 550, so this only engages on a configuration that is already unaffordable.
+    const int TileLayer::TERRAIN_COVER_TILE_BUDGET = 256;
 
     const int TileLayer::MAX_PARENT_SEARCH_DEPTH = 6;
     // As deep as the parent search: a stand-in must be able to cover a zoom-in of several levels,
