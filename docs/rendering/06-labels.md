@@ -410,10 +410,20 @@ zoom filter.
   been anchored never defers — its geometry is still flat, and placing it at sea level under a
   mountain is what makes labels pop. That deferral measured **+6% and no more**, because most dirty
   labels do hold a placement.
+  The bigger cut was the **vertex count itself**. A label's line went through the same terrain
+  tesselation as a drawn line — including the lattice split, which cuts a segment at every surface
+  cell edge *and* diagonal so that a painted line stays inside one triangle. A label line is never
+  painted: it is read, to place glyphs and to anchor them. It now takes
+  `TileTransformer::tesselateLabelLineString`, which halves to the **surface cell** and skips the
+  lattice split — the profile a glyph run follows cannot carry more detail than the surface it is
+  laid on. **`prepare` 157 → 72 ms, 1.75 → 2.10 fps.** The bound was measured first with
+  `debug.carto.linesourcedensity 1` (no line subdivision at all): `prepare` 154 → 68, so the label
+  path gives up almost nothing by keeping the surface-cell step.
+  Visible cost: a glyph run can shift a few pixels along its line, and it may sag by the surface's
+  own chord error where a segment crosses a cell diagonal. Contour labels — the most sensitive class,
+  laid along a line the whole way — still track their line at the ridge camera.
   What remains is genuine volume: a changed DEM tile at z12 intersects every label tile beneath it,
-  so "targeted" still means most of the screen, and a line label resamples its **whole** clipped
-  polyline while the glyph run occupies a short stretch of it. The next real cut is there — restrict
-  the resample to the placement neighbourhood — and it changes what the placement search can see.
+  so "targeted" still means most of the screen.
 - **Vertex data.** Glyph quads are rebuilt from scratch for every visible label every frame and
   uploaded as one batch (`labelVertexBuildNs`, `labelBatchNs`). A GPU-billboard path would remove
   the per-frame world transform (`labelTransformNs`) — it is on the backlog, not implemented.

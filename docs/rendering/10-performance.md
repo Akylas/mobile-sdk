@@ -121,6 +121,8 @@ and [09-composite-layer.md](09-composite-layer.md), not micro-optimisation.
 | contour label stubs + shader lines (device) | 14.5 → 16.6 fps, `layers` 8.7 → 7.0 ms |
 | label mutex taken per 32 labels instead of per label | culler pass 19.4 → 15.4 ms (device, ~1960 labels) |
 | label terrain re-anchor: DEM tile loads no longer read as a scale-only change, plus a grid and a latitude-scale memo | full stack over terrain, interleaved ×3: **1.00 → 1.55 fps**, `prepare` 658 → 219 ms |
+| an off-screen, already-anchored label defers its re-anchor | 1.60 → 1.70 fps — small, most dirty labels do hold a placement |
+| label lines tesselated for reading, not for painting (no lattice split, surface-cell step) | **1.75 → 2.10 fps**, `prepare` 157 → 72 ms |
 
 ### The label culler, measured on the device
 

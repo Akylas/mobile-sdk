@@ -39,13 +39,14 @@ namespace carto {
             virtual float calculateHeight(const cglib::vec2<float>& pos, float height) const override;
 
             virtual void tesselateLineString(const cglib::vec2<float>* points, std::size_t count, vt::VertexArray<cglib::vec2<float>>& tesselatedPoints) const override;
+            virtual void tesselateLabelLineString(const cglib::vec2<float>* points, std::size_t count, vt::VertexArray<cglib::vec2<float>>& tesselatedPoints) const override;
             virtual void tesselateTriangles(const std::size_t* indices, std::size_t count, vt::VertexArray<cglib::vec2<float>>& coords, vt::VertexArray<cglib::vec2<float>>& texCoords, vt::VertexArray<std::size_t>& tesselatedIndices) const override;
 
         private:
             double calculateLocalHeight(const cglib::vec2<float>& pos) const;
             double calculateMercatorCosine(double internalY) const;
 
-            void tesselateSegment(const cglib::vec2<float>& pos0, const cglib::vec2<float>& pos1, float dist, vt::VertexArray<cglib::vec2<float>>& points) const;
+            void tesselateSegment(const cglib::vec2<float>& pos0, const cglib::vec2<float>& pos1, float dist, float threshold, vt::VertexArray<cglib::vec2<float>>& points) const;
             // Splits a segment where it crosses the surface grid's cell edges and the diagonal
             // each cell is split along, so that every resulting sub-segment lies inside ONE
             // surface triangle. Returns false when the segment spans too many cells to be worth
