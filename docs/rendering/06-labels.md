@@ -403,10 +403,17 @@ zoom filter.
   elevation samples per frame on the north pan with a full style, 82% of the render thread. Two
   faults made it that: `TileRenderer` classified every arriving DEM tile as a *scale-only* change
   and took the blanket path (see [04-terrain.md](04-terrain.md#cpu-height-queries)), and each sample
-  re-derived its tile and its latitude scale from scratch. What remains after both fixes is genuine
-  volume: a changed DEM tile at z12 intersects every label tile beneath it, so "targeted" still means
-  most of the screen. Cutting it further means cutting samples — anchor only labels that are placed,
-  or budget the loop — and both trade against how fast a label settles onto the terrain.
+  re-derived its tile and its latitude scale from scratch.
+  A label that has already been anchored and is neither placed nor on screen then **defers** its
+  re-anchor (`Label::isElevationDirty`): it keeps the heights it has, at worst one LOD step out,
+  and reports itself dirty again the moment the culler gives it a placement. A label that has never
+  been anchored never defers — its geometry is still flat, and placing it at sea level under a
+  mountain is what makes labels pop. That deferral measured **+6% and no more**, because most dirty
+  labels do hold a placement.
+  What remains is genuine volume: a changed DEM tile at z12 intersects every label tile beneath it,
+  so "targeted" still means most of the screen, and a line label resamples its **whole** clipped
+  polyline while the glyph run occupies a short stretch of it. The next real cut is there — restrict
+  the resample to the placement neighbourhood — and it changes what the placement search can see.
 - **Vertex data.** Glyph quads are rebuilt from scratch for every visible label every frame and
   uploaded as one batch (`labelVertexBuildNs`, `labelBatchNs`). A GPU-billboard path would remove
   the per-frame world transform (`labelTransformNs`) — it is on the backlog, not implemented.
