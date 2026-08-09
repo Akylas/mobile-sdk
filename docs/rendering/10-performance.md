@@ -62,6 +62,20 @@ is the one whose call graph starts at `MapRenderer::onDrawFrame`.
 - Helper scripts: `scripts/android-dev/bench/` (`ab.sh`, `ab2.sh`, `north.sh`, `abapk.sh`,
   `abprop.sh`, `absum.py`).
 
+## Reset the debug props before measuring
+
+`debug.carto.*` properties survive until the device reboots, and a session that leaves them set
+measures a crippled build for weeks. A run in August 2026 found `drapebudget 0` and `drapemip 0`
+(the drape memory budget and its mipmaps, i.e. the whole win of the round that added them) still
+set from the session that introduced them, along with `paintdetail 0` and `skyclip 0`. Clear every
+one of them before a baseline:
+
+```sh
+for p in areasourcedensity areathreshold asyncdepth asyncdepthms background demtaps depthshift \
+         drapebudget drapemip groundpaint linesourcedensity paintdetail skyclip terrainpaint \
+         tilebg tilemasks; do adb shell setprop debug.carto.$p '""'; done
+```
+
 ## Where the frame goes today
 
 At `-O2`, on the north pan with content, the render thread has **no dominant leaf**: draw submission
@@ -106,6 +120,9 @@ and [09-composite-layer.md](09-composite-layer.md), not micro-optimisation.
 | contour lines as a shader block | render tiles 494 → 216 |
 | contour label stubs + shader lines (device) | 14.5 → 16.6 fps, `layers` 8.7 → 7.0 ms |
 | label mutex taken per 32 labels instead of per label | culler pass 19.4 → 15.4 ms (device, ~1960 labels) |
+| label terrain re-anchor: DEM tile loads no longer read as a scale-only change, plus a grid and a latitude-scale memo | full stack over terrain, interleaved ×3: **1.00 → 1.55 fps**, `prepare` 658 → 219 ms |
+| an off-screen, already-anchored label defers its re-anchor | 1.60 → 1.70 fps — small, most dirty labels do hold a placement |
+| label lines tesselated for reading, not for painting (no lattice split, surface-cell step) | **1.75 → 2.10 fps**, `prepare` 157 → 72 ms |
 
 ### The label culler, measured on the device
 

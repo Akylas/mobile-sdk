@@ -2787,7 +2787,19 @@ namespace carto {
                         std::size_t bakedFingerprint = request.fingerprint;
                         for (std::size_t i = 0; i < drapeLayers.size() && i < sizeof(std::size_t) * 8; i++) {
                             if (drapeLayers[i]->paintsEveryDrapeTile() && (bakedMask & (static_cast<std::size_t>(1) << i)) == 0) {
-                                bakedFingerprint = ~request.fingerprint;
+                                // ONLY when the paint should have been able to paint this tile: its
+                                // elevation is decoded and the texture merely was not uploaded yet,
+                                // which the next frame fixes. A tile with no elevation at all - a
+                                // coarse cached ancestor, ground the DEM does not cover - can NEVER
+                                // be painted, and marking THAT one never-matching left it stale for
+                                // ever: re-baked forever, one per frame, each bake swapping its
+                                // texture and asking for another frame. Elevation ARRIVING is
+                                // already covered without this, because the wanted fingerprint
+                                // folds in 'paintable' per tile.
+                                auto leafElevationIt = leafElevation.find(request.tileId);
+                                if (leafElevationIt != leafElevation.end() && leafElevationIt->second) {
+                                    bakedFingerprint = ~request.fingerprint;
+                                }
                                 break;
                             }
                         }
@@ -2836,7 +2848,15 @@ namespace carto {
                     for (auto it = partialTiles.begin(); it != partialTiles.end() && budget > 0 && bakeTimeLeft(); it++, budget--) {
                         bakeTile(*it);
                     }
-                    budget = DRAPE_BAKE_BUDGET_STALE;
+                    // One stale tile per frame is the right ration while the camera moves - the
+                    // picture is merely out of date and the frame has better things to do. On a map
+                    // at REST it is a livelock: nothing else asks for frames, so the map draws only
+                    // the frames the bakes themselves request, and a backlog of a few dozen tiles
+                    // takes half a minute to drain, one texture swap at a time - which is what the
+                    // terrain "loading and blinking" looks like when nothing is moving. At rest let
+                    // the wall-clock budget ration it instead: a longer frame is invisible on a map
+                    // that is not moving, the same argument DRAPE_BAKE_TIME_BUDGET_STILL is made of.
+                    budget = (bakeCameraMoving ? DRAPE_BAKE_BUDGET_STALE : DRAPE_BAKE_BUDGET_BLANK);
                     for (auto it = staleTiles.begin(); it != staleTiles.end() && budget > 0 && bakeTimeLeft(); it++, budget--) {
                         bakeTile(*it);
                     }

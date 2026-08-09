@@ -104,7 +104,26 @@ namespace carto {
                     continue;
                 }
                 float dist = cglib::length(pos1 - pos0) * static_cast<float>(_tileScaleMeters);
-                tesselateSegment(pos0, pos1, dist, tesselatedPoints);
+                tesselateSegment(pos0, pos1, dist, _lineDivideThreshold, tesselatedPoints);
+            }
+        }
+    }
+
+    void TerrainTileTransformer::TerrainVertexTransformer::tesselateLabelLineString(const cglib::vec2<float>* points, std::size_t count, vt::VertexArray<cglib::vec2<float>>& tesselatedPoints) const {
+        // A label line is READ, never drawn: the lattice split keeps a DRAWN segment inside one
+        // surface triangle, which buys a glyph run nothing, and neither does the finer line
+        // threshold - the profile a run follows cannot carry more detail than the surface it is
+        // laid on. Halve to the SURFACE cell instead. Every vertex dropped here is an elevation
+        // sample dropped from every terrain re-anchor, which is the most expensive thing on the
+        // render thread over 3D terrain (docs/rendering/06-labels.md). Measured: with no line
+        // subdivision at all, 'prepare' goes 154 -> 68 ms on the north pan.
+        if (count > 0) {
+            tesselatedPoints.append(points[0]);
+            for (std::size_t i = 0; i + 1 < count; i++) {
+                const cglib::vec2<float>& pos0 = points[i + 0];
+                const cglib::vec2<float>& pos1 = points[i + 1];
+                float dist = cglib::length(pos1 - pos0) * static_cast<float>(_tileScaleMeters);
+                tesselateSegment(pos0, pos1, dist, _divideThreshold, tesselatedPoints);
             }
         }
     }
@@ -185,11 +204,11 @@ namespace carto {
         return std::sqrt(std::max(1.0e-6, 1.0 - sin * sin));
     }
 
-    void TerrainTileTransformer::TerrainVertexTransformer::tesselateSegment(const cglib::vec2<float>& pos0, const cglib::vec2<float>& pos1, float dist, vt::VertexArray<cglib::vec2<float>>& points) const {
-        if (dist > _lineDivideThreshold) {
+    void TerrainTileTransformer::TerrainVertexTransformer::tesselateSegment(const cglib::vec2<float>& pos0, const cglib::vec2<float>& pos1, float dist, float threshold, vt::VertexArray<cglib::vec2<float>>& points) const {
+        if (dist > threshold) {
             cglib::vec2<float> posM = (pos0 + pos1) * 0.5f;
-            tesselateSegment(pos0, posM, dist * 0.5f, points);
-            tesselateSegment(posM, pos1, dist * 0.5f, points);
+            tesselateSegment(pos0, posM, dist * 0.5f, threshold, points);
+            tesselateSegment(posM, pos1, dist * 0.5f, threshold, points);
         }
         else {
             points.append(pos1);

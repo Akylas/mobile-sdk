@@ -395,10 +395,35 @@ zoom filter.
 - **Terrain anchoring.** Label geometry is built flat at decode time, so a label must be re-anchored
   onto the terrain: once when it is new, and afterwards only when the elevation under one of its
   tiles changed. `invalidateLabelElevation(tileIds)` marks exactly those; the blanket version exists
-  for whole-data-set changes. Anchoring costs one elevation sample per label vertex (~233 µs per
-  label), and a whole screen of labels goes dirty at once while elevation streams in, so this loop
-  measures 2.5–4.1 ms of a frame. It still has to run to completion: a label left dirty is drawn and
-  culled at its old height, which reads as labels popping in at the wrong place and settling.
+  for whole-data-set changes. Anchoring costs one elevation sample per label vertex, and a whole
+  screen of labels goes dirty at once while elevation streams in. It still has to run to completion:
+  a label left dirty is drawn and culled at its old height, which reads as labels popping in at the
+  wrong place and settling.
+  **This is the most expensive thing on the render thread over 3D terrain** — measured at ~750 000
+  elevation samples per frame on the north pan with a full style, 82% of the render thread. Two
+  faults made it that: `TileRenderer` classified every arriving DEM tile as a *scale-only* change
+  and took the blanket path (see [04-terrain.md](04-terrain.md#cpu-height-queries)), and each sample
+  re-derived its tile and its latitude scale from scratch.
+  A label that has already been anchored and is neither placed nor on screen then **defers** its
+  re-anchor (`Label::isElevationDirty`): it keeps the heights it has, at worst one LOD step out,
+  and reports itself dirty again the moment the culler gives it a placement. A label that has never
+  been anchored never defers — its geometry is still flat, and placing it at sea level under a
+  mountain is what makes labels pop. That deferral measured **+6% and no more**, because most dirty
+  labels do hold a placement.
+  The bigger cut was the **vertex count itself**. A label's line went through the same terrain
+  tesselation as a drawn line — including the lattice split, which cuts a segment at every surface
+  cell edge *and* diagonal so that a painted line stays inside one triangle. A label line is never
+  painted: it is read, to place glyphs and to anchor them. It now takes
+  `TileTransformer::tesselateLabelLineString`, which halves to the **surface cell** and skips the
+  lattice split — the profile a glyph run follows cannot carry more detail than the surface it is
+  laid on. **`prepare` 157 → 72 ms, 1.75 → 2.10 fps.** The bound was measured first with
+  `debug.carto.linesourcedensity 1` (no line subdivision at all): `prepare` 154 → 68, so the label
+  path gives up almost nothing by keeping the surface-cell step.
+  Visible cost: a glyph run can shift a few pixels along its line, and it may sag by the surface's
+  own chord error where a segment crosses a cell diagonal. Contour labels — the most sensitive class,
+  laid along a line the whole way — still track their line at the ridge camera.
+  What remains is genuine volume: a changed DEM tile at z12 intersects every label tile beneath it,
+  so "targeted" still means most of the screen.
 - **Vertex data.** Glyph quads are rebuilt from scratch for every visible label every frame and
   uploaded as one batch (`labelVertexBuildNs`, `labelBatchNs`). A GPU-billboard path would remove
   the per-frame world transform (`labelTransformNs`) — it is on the backlog, not implemented.
