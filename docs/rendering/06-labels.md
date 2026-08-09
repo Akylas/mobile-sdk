@@ -102,11 +102,28 @@ Everything below rests on that split — the icon stays on the feature, only the
   (`VTLabelPlacementWorker::postpone`), so a zoom gesture places once when it settles instead of
   re-deciding at every step — placing mid-gesture is what made labels fade in and straight back out.
 
-**Which labels keep their text** is decided by the same greedy insertion as everything else: the
-culler sorts by priority → `wasVisible` → layer index → size → opacity and inserts in that order, so
-a label sorted earlier claims its preferred side while later ones find less room and fall back to
-`text-optional`. `shield-placement-priority` is therefore the knob for "these names matter more than
-those", and a bigger `shield-size` also sorts earlier among equal priorities.
+**Which labels keep their text.** The culler sorts by priority → `wasVisible` → layer index → size →
+opacity and inserts greedily, so a label sorted earlier claims its side first;
+`shield-placement-priority` is the knob for "these names matter more than those", and a bigger
+`shield-size` sorts earlier among equal priorities.
+
+Greedy insertion alone would let the first label take everything, so a label that can still shrink
+**yields to a later label of the same priority**: before taking a side it tests that side against the
+*smallest* layout of every equal-priority label that comes after it (`_minimumGrid`,
+`testPeerReservations`) and drops to a smaller variant rather than cost that label its place. With
+A = icon + name and B = icon only:
+
+| | |
+|---|---|
+| equal priority | A drops to its icon, B keeps its place |
+| A higher | A keeps its name, B is hidden |
+| B higher | B is placed first, A drops to its icon |
+
+Reservations only exist between labels that *have* a smaller layout — a plain label has nothing to
+fall back to, so nothing yields to it. And yielding is a courtesy, never a disappearance: when no
+side avoids the reservations, the label takes the first free one anyway. The rule costs ~45% more
+culler time and makes placement more sensitive to the camera (visibility flips per pass go from
++40% to +66% over a style with no anchors), because a label's own layout now depends on its peers.
 
 ### Justifying a wrapped name (fork-specific)
 
