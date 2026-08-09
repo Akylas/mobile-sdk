@@ -926,16 +926,16 @@ public final class DemoPanel {
         button(context, "geojson line test", new Action() {
             public void run() { DemoTests.addGeoJSONLine(demo); }
         });
-        button(context, panel, "geojson bench: many routes", new Action() {
+        button(context, "geojson bench: many routes", new Action() {
             public void run() { DemoTests.runGeoJSONBench(demo, "many"); }
         });
-        button(context, panel, "geojson bench: long routes", new Action() {
+        button(context, "geojson bench: long routes", new Action() {
             public void run() { DemoTests.runGeoJSONBench(demo, "long"); }
         });
-        button(context, panel, "load bench layer: many routes", new Action() {
+        button(context, "load bench layer: many routes", new Action() {
             public void run() { DemoTests.addGeoJSONBenchLayer(demo, "many"); }
         });
-        button(context, panel, "load bench layer: long routes", new Action() {
+        button(context, "load bench layer: long routes", new Action() {
             public void run() { DemoTests.addGeoJSONBenchLayer(demo, "long"); }
         });
     }
