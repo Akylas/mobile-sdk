@@ -104,8 +104,12 @@ android {
                 // RelWithDebInfo keeps -g, so simpleperf still symbolizes the result.
                 // Turn it off to step through native code in a debugger:
                 //   './gradlew :app:assembleDebug -PnativeOpt=false'
+                // RelWithDebInfo is NOT what ships: it is a plain -O2 -g build, while Release
+                // applies -Oz + thin LTO and the per-subproject -O2/-Oz split. Bench the shipped
+                // configuration with './gradlew ... -PnativeConfig=Release' (no symbols left for
+                // simpleperf then, but the PROF/RenderStats lines still work).
                 if (project.findProperty('nativeOpt') != 'false') {
-                    arguments "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
+                    arguments "-DCMAKE_BUILD_TYPE=${project.findProperty('nativeConfig') ?: 'RelWithDebInfo'}"
                 }
             }
         }
