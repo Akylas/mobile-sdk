@@ -4,6 +4,7 @@ import sys
 import argparse
 import subprocess
 import shutil
+import concurrent.futures
 from build.sdk_build_utils import *
 
 ENUM_TEMPLATE = """
@@ -467,8 +468,8 @@ def findRegexInFile(sourcePath, regexp):
 
   m = re.search(regexp, data)
 
-def buildSwigPackage(args, sourceDir, packageName):
-  for fileName in os.listdir(sourceDir):
+def collectSwigJobs(args, sourceDir, packageName, jobs):
+  for fileName in sorted(os.listdir(sourceDir)):
     if fileName == 'NutiSwig.i':
       continue
     fileNameWithoutExt = fileName.split(".")[0]
@@ -490,11 +491,25 @@ def buildSwigPackage(args, sourceDir, packageName):
       includes += ["-I%s/Lib/java" % swigPath, "-I%s/Lib" % swigPath]
     defines = ["-D%s" % define for define in args.defines.split(';') if define]
     cmd = [args.swig, "-c++", "-java", "-package", "com.carto.%s" % packageName, "-outdir", proxyDir, "-o", outPath, "-doxygen"] + defines + includes + [sourcePath]
-    if subprocess.call(cmd) != 0:
-      print("Error in %s" % fileName)
+    jobs.append({ 'cmd': cmd, 'fileName': fileName, 'sourcePath': sourcePath,
+                  'proxyDir': proxyDir, 'fileNameWithoutExt': fileNameWithoutExt })
+
+def runSwigJobs(jobs):
+  # One SWIG process per module, and no two modules write the same output, so the calls run
+  # concurrently - the whole pass was one core at 96% before. The proxy fix-ups stay serial and
+  # in collection order: two modules can name the same %template proxy, and the rewrite is a
+  # read-modify-write of a shared file.
+  workers = min(len(jobs), (os.cpu_count() or 1))
+  with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+    codes = list(pool.map(lambda job: subprocess.call(job['cmd']), jobs))
+  for job, code in zip(jobs, codes):
+    if code != 0:
+      print("Error in %s" % job['fileName'])
       return False
 
-    for line in [line.rstrip('\n') for line in readUncommentedLines(sourcePath)]:
+  for job in jobs:
+    proxyDir, fileNameWithoutExt = job['proxyDir'], job['fileNameWithoutExt']
+    for line in [line.rstrip('\n') for line in readUncommentedLines(job['sourcePath'])]:
       match = re.search(r'^\s*%template\((.*)\).*$', line)
       if match:
         templateFileNameWithoutExt = match.group(1)
@@ -505,16 +520,17 @@ def buildSwigPackage(args, sourceDir, packageName):
     os.remove(os.path.join(proxyDir, fileNameWithoutExt + "Module.java"))
   return True
 
-def buildSwigPackages(args, sourceDir, basePackageName):
-  for dirName in os.listdir(sourceDir):
+def buildSwigPackages(args, sourceDir, basePackageName, jobs=None):
+  topLevel = jobs is None
+  jobs = [] if topLevel else jobs
+  for dirName in sorted(os.listdir(sourceDir)):
     sourcePath = os.path.join(sourceDir, dirName)
     if not os.path.isdir(sourcePath) or dirName.startswith("."):
       continue
     packageName = (basePackageName + '.' if basePackageName else '') + dirName
-    buildSwigPackages(args, sourcePath, packageName)
-    if not buildSwigPackage(args, sourcePath, packageName):
-      return False
-  return True
+    buildSwigPackages(args, sourcePath, packageName, jobs)
+    collectSwigJobs(args, sourcePath, packageName, jobs)
+  return runSwigJobs(jobs) if topLevel else True
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--profile', dest='profile', default=getDefaultProfileId(), type=validProfile, help='Build profile')
