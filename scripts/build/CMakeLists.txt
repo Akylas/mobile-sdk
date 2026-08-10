@@ -140,6 +140,10 @@ endif(INCLUDE_SQLITE)
 
 if(INCLUDE_VALHALLA)
   list(APPEND SDK_EXTERNAL_SUBPROJECTS "date" "protobuf" "valhalla")
+  # ValhallaRoutingProxy only calls route(), trace_attributes() and narrate(), so the matrix,
+  # isochrone, locate, height, expansion, status and optimized-route actions are dead weight in the
+  # SDK. Declared here so this default wins over the ON default in the valhalla subproject.
+  option(VALHALLA_SERVICES "Build the Valhalla service actions beyond routing and map matching" OFF)
 endif(INCLUDE_VALHALLA)
 
 foreach(SDK_SUBPROJECT IN ITEMS ${SDK_CARTO_SUBPROJECTS})
