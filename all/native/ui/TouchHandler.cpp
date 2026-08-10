@@ -380,16 +380,23 @@ namespace carto {
                 cglib::vec3<double> focusPos = viewState.getFocusPos();
                 MapPos focusMapPos = projectionSurface->calculateMapPos(focusPos);
                 cglib::vec3<double> normal = projectionSurface->calculateNormal(focusMapPos);
+                // NOT '== 0': looking straight down, this cross product is meant to collapse and
+                // hand over to the up vector - but a tilt REACHED BY GESTURE is vertical only to
+                // within rounding, so it comes out at ~1e-16 instead of 0, the hand-over is missed,
+                // and unit() then turns pure floating point noise into a unit vector pointing
+                // anywhere. That is a pan that goes sideways when the finger goes up. Setting the
+                // tilt to 90 outright happens to build the camera exactly vertical, which is why
+                // only the gesture shows it.
                 cglib::vec3<double> right = cglib::vector_product(viewState.calculateViewDir(), normal);
-                if (cglib::length(right) == 0) {
+                if (cglib::length(right) < VIEW_AXIS_EPSILON) {
                     right = cglib::vector_product(viewState.getUpVec(), normal); // straight up or down
                 }
-                if (cglib::length(right) == 0) {
+                if (cglib::length(right) < VIEW_AXIS_EPSILON) {
                     return;
                 }
                 right = cglib::unit(right);
                 cglib::vec3<double> forward = cglib::vector_product(normal, right);
-                if (cglib::length(forward) == 0) {
+                if (cglib::length(forward) < VIEW_AXIS_EPSILON) {
                     return;
                 }
                 forward = cglib::unit(forward);
@@ -620,16 +627,18 @@ namespace carto {
             MapPos cameraMapPos = projectionSurface->calculateMapPos(cameraPos);
             cglib::vec3<double> normal = projectionSurface->calculateNormal(cameraMapPos);
             cglib::vec3<double> viewDir = viewState.calculateViewDir();
+            // Threshold, not '== 0' - see singlePointerPan: a view that is vertical only to within
+            // rounding leaves a ~1e-16 cross product, and normalising that is normalising noise.
             cglib::vec3<double> right = cglib::vector_product(viewDir, normal);
-            if (cglib::length(right) == 0) {
+            if (cglib::length(right) < VIEW_AXIS_EPSILON) {
                 right = cglib::vector_product(viewState.getUpVec(), normal); // looking straight up or down
             }
-            if (cglib::length(right) == 0) {
+            if (cglib::length(right) < VIEW_AXIS_EPSILON) {
                 return;
             }
             right = cglib::unit(right);
             cglib::vec3<double> forward = cglib::vector_product(normal, right);
-            if (cglib::length(forward) == 0) {
+            if (cglib::length(forward) < VIEW_AXIS_EPSILON) {
                 return;
             }
             forward = cglib::unit(forward);
@@ -1055,6 +1064,8 @@ namespace carto {
     const float TouchHandler::WHEEL_TICK_TO_ZOOM_DELTA = 0.25f;
     
     const float TouchHandler::INCHES_TO_TILT_DELTA = 32.0f;
+
+    const double TouchHandler::VIEW_AXIS_EPSILON = 1.0e-3;
     // A full turn takes about two swipes across a phone, which is what a look control wants.
 
     const float TouchHandler::INCHES_TO_ZOOM_DELTA = 1.0f;

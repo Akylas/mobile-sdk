@@ -961,6 +961,9 @@ public final class DemoPanel {
         button(context, "two-finger drag: strafe", new Action() {
             public void run() { DemoTests.runTwoFingerDrag(demo, 400, 0); }
         });
+        button(context, "maneuver head: next svg", new Action() {
+            public void run() { DemoTests.report(demo, "maneuver head: " + demo.cycleManeuverHead()); }
+        });
         button(context, "offline routing test", new Action() {
             public void run() { DemoTests.runOfflineRouting(demo); }
         });

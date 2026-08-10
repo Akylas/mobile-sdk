@@ -65,6 +65,80 @@ paint surface, …). Consequences worth knowing:
   `Shader::getUniformLoc` returns **0** — a valid location that then clobbers uniform 0. Always use
   `glGetUniformLocation` with a `>= 0` guard (`SkyRenderer` is the pattern to copy).
 
+## Line end arrows
+
+`line-end-arrow: true` puts an arrow head on a line's last vertex, sized by `line-arrow-width` and
+`line-arrow-length` in **multiples of the line width**. It is built in `tesselateLineEndArrow` out
+of the same screen-space extrusion the line itself uses — the offsets ride the binormal attribute,
+which the vertex shader multiplies by the line width — so the head keeps its screen size at every
+zoom and needs no bitmap, no marker and no label.
+
+Two details are what make it usable rather than a triangle stuck on the end:
+
+- **The head hangs on its incenter**, and the line is pulled back to the head's base by the same
+  amount. A homothety about the incenter moves every edge of a triangle by the same distance, so
+  two heads about a common incenter stay a constant distance apart everywhere. Anchoring the tip
+  instead pins them together at the point: the border is then zero at the tip and widest at the
+  base, a wedge.
+- **A casing rule must not simply repeat the numbers.** They are multiples of *its own* width, so a
+  13-wide casing over an 8-wide fill draws a head 13/8 bigger — a border round the head ≈1.7× the
+  `(casing − fill)/2` the shaft has. Because the two heads are similar triangles about a common
+  incenter, the casing's numbers can be worked back from the border you want; `DemoStyles`
+  (`maneuverCasingArrowScale`) is the formula, and it is zoom-independent — it depends only on the
+  ratio of the two widths.
+
+- **`line-arrow-only` draws the head and nothing else**, so a style can order the parts by hand:
+  shaft casing, shaft fill, head casing, head fill. The head then paints OVER the line and keeps its
+  silhouette where it lands on its own shaft — a U-turn seen from far enough away — instead of
+  dissolving into it.
+- **A head drawn on its own has a SLOT cut out of its base**, one line width wide: the width of the
+  very line the same rule draws elsewhere, so it needs to know nothing about the other rule. The
+  slot leaves the shaft it docks on untouched, so no bar of head colour crosses the line, while the
+  shoulders, barbs and tip still paint over it. That is what makes shaft and head read as ONE
+  polygon while the head still sits on top. Both alternatives were tried and are worse: no slot with
+  the head on top puts a casing bar across the line; casings-then-fills (a union order) loses the
+  head's outline wherever it overlaps its own shaft.
+
+- **`line-arrow-path` replaces the built-in triangle with a contour of your own** — the `d`
+  attribute of an SVG path: `M/L/H/V/C/S` and `Z`, absolute or relative, curves flattened. Any
+  viewBox works, because the contour is **fitted into the arrow box** — `line-arrow-length` along
+  the line by `line-arrow-width` across it — and SVG's downward y is flipped. So the two size
+  properties still drive the size in path mode.
+  The fitted contour is a SKELETON: what is drawn is it offset outward by half of *each rule's own*
+  line width, triangulated by ear clipping. `line-arrow-scale` multiplies the fitted contour and
+  `line-arrow-rotation` turns it about its centre, in degrees clockwise, relative to the direction
+  of travel — an icon drawn pointing up needs 90. A custom head is CENTRED on the last vertex and
+  carries no docking slot: a slot is a notch where the shaft enters an arrow head, and cutting one
+  through the middle of an icon only gashes it. Centring also matters for the border: place the
+  contour by its back edge instead and the casing, whose units are its own wider line, sits further
+  back than the fill, so the border reads slid along the arrow rather than wrapping it.
+- **One binormal unit is a QUARTER of the line width** — the line's own edge sits two units out.
+  Measured, not assumed: an offset of one unit made the head's border exactly half the shaft's,
+  which is what the eye caught first.
+- **A casing rule must shrink its box by the ratio of the widths** (`fill / casing`). The box is in
+  multiples of the line width, so repeating the fill's numbers draws a skeleton 13/8 bigger *on top
+  of* its own larger offset — the border comes out about twice too thick. Scaled back, both rules
+  describe the same skeleton and the offsets alone make the border, exactly `(casing - fill) / 2`.
+  `DemoStyles.maneuverStyle` does it in one line; the built-in triangle needs the incenter formula
+  instead, because its numbers describe the drawn shape rather than a skeleton.
+- **Custom heads must be CONVEX.** Offsetting a contour that turns back on itself folds the offset
+  over and the border blows out into blobs where the shape is concave — a Homer Simpson silhouette
+  renders, docks and scales correctly, and its hair is a mess. Removing those loops is a polygon
+  offsetting algorithm of its own (Clipper-style); a maneuver arrow head has never needed one.
+  `LineSymbolizer::isConvexArrowPath` logs a warning rather than silently redrawing the shape.
+
+  > This is the part to replace when a custom (SVG) head lands: treat the head's outline as a
+  > **skeleton stroked by the line width**, the way the shaft already is, and the border falls out
+  > for any shape with no arithmetic in the style. Scaling only works because triangles are special
+  > — growing an arbitrary polygon is a Minkowski offset, not a scaled copy.
+- **The head is solid, with no antialias ramp.** The distance field a line carries (`vDist` against
+  `vWidth` in `lineFsh`) describes a band one width wide; stretched over a triangle it faded the
+  silhouette near the barbs while leaving the tip hard. The head's corners carry a zero distance,
+  which the fragment shader keeps opaque — so its edges are aliased, like polygon fills here.
+
+A navigation maneuver arrow is one line with this property set: see
+[15-maneuver-arrows.md](15-maneuver-arrows.md).
+
 ## Line joins
 
 `TileLayerBuilder::tesselateLine` picks per vertex between a miter, a bevel, a round fan and a split,
@@ -178,6 +252,12 @@ is a world quad through the projection and tapers with distance. Left unbounded 
 towards the camera until a near contour is a blob, so the projected offset is measured and **shrunk**
 back to the nominal width when it exceeds it. The factor is ≤ 1 by construction — it can never
 manufacture an oversized quad, which is what an unbounded screen-space fit does.
+
+The ceiling is **this vertex's own extrusion**, `roundedWidth * length(aVertexBinormal)`, not one
+line width. Not every line vertex sits one width out: a round cap's corners are at √2, and an end
+arrow's barbs at several. Clamping those to one width squashes the shape they belong to back into
+the line's silhouette — which is what made `line-end-arrow` draw nothing at all in terrain mode
+while it drew fine on a flat map.
 
 > **The capped vertex takes its DEPTH from the terrain, and its XY from the screen.** Both halves
 > are load-bearing. Applying the shrunk offset to `centerClip.xy` and keeping `centerClip.z` — the

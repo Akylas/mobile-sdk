@@ -22,6 +22,7 @@ loading the rest. Every page states its scope at the top and links out rather th
 | sun, shadows, sky, fog | [08-lighting-sky-fog.md](08-lighting-sky-fog.md) |
 | CompositeVectorTileLayer, style-driven slots | [09-composite-layer.md](09-composite-layer.md) |
 | markers, popups, app-drawn lines/polygons, picking | [12-vector-elements.md](12-vector-elements.md) |
+| navigation maneuver arrows on a route | [15-maneuver-arrows.md](15-maneuver-arrows.md) |
 | sun/moon/stars/aircraft: objects placed in the sky | [13-celestial.md](13-celestial.md) |
 | full-screen effects, the relief look, layers drawn above them | [14-post-process.md](14-post-process.md) |
 | making it faster, or measuring anything | [10-performance.md](10-performance.md) |
