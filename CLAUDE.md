@@ -52,9 +52,14 @@ cd scripts && python3 swigpp-java.py --profile "standard+valhalla+geocoding+rout
   --swig /Volumes/dev/carto/mobile-swig/swig     # 3. regenerate wrappers, else the build fails
 ```
 
-The checked-in `generated/` wrappers reference the newer API and will not compile against older
+The `generated/` wrappers in the tree reference the newer API and will not compile against older
 headers. Restore the same way (`git checkout HEAD -- all/`, submodule back to its branch,
 regenerate). SWIG is never run by gradle — any change to `all/modules/*.i` needs step 3 too.
+
+**`generated/` is gitignored, not tracked.** There is no `git checkout` that brings it back: a
+`swigpp-java.py` run overwrites the tree's wrappers with whatever `--profile` you passed (322 files
+for the full profile, 256 for `standard`, 236 for `lite`), and the only way back is to run it again
+with the profile you develop against. Size per profile is in [`docs/build-size.md`](docs/build-size.md).
 
 `gh pr create` needs `--repo Akylas/mobile-sdk` (or `--repo farfromrefug/mobile-carto-libs`).
 Both repos are forks of the archived CartoDB originals, and without `--repo` gh targets the
