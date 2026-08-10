@@ -20,6 +20,7 @@ and *still different*, the latter with the reason it is not simply copied.
 | contour labels | generated from the elevation texture, no contour geometry (`core/src/style/contourTextStyle.cpp`) | label stubs in `ContourTileDataSource`, same algorithm | **ported** ([07](07-hillshade-contours.md)) |
 | hillshade / contours / hypsometric | fragment blocks on the terrain raster draw (`res/scenes/hillshade.yaml`) | hillshade and contours are a paint/shader block; hypsometric is still its own layer | **partly** |
 | line width | extrude in model space, displace per vertex, no ceiling (`core/shaders/polyline.vs`) | same, capped at the nominal width so a near line cannot grow into a blob | **ported with a bound** ([03](03-vt-renderer.md#lines-over-terrain)) |
+| arrow-ended lines | none — an arrow is a sprite in the scene | `line-end-arrow`, built into the line tesselation so shaft and head are one shape | **ours** ([03](03-vt-renderer.md#line-end-arrows)) |
 | line antialias | none — hard-edged quads (`core/shaders/polyline.fs`) | ramp over one device pixel (`uAntialiasScale`) | **different — we antialias** |
 | content subdivision | none at all | area fills to two surface cells; lines cut at the lattice | **different — see below** |
 | elevation texture | source raster bound directly, ancestors via uv sub-rects, edges extrapolated in-shader (`res/scenes/elevation.yaml`) | per-tile CPU re-encode with a 1-texel border from up to 8 neighbours | **different — see below** |
