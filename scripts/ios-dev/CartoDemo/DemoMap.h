@@ -2,9 +2,9 @@
 #import "CartoMobileSDK.h"
 
 /**
- * Builds and updates the map, the iOS counterpart of scripts/android-dev's DemoMap.java: the
- * layer registry, the shared tile sources, the terrain options and the camera all live here, and
- * the panel (once ported) writes DemoConfig and calls back into an apply* method.
+ * Builds and updates the map, the counterpart of scripts/android-dev's DemoMap.java: the layer
+ * registry, the shared tile sources, terrain, sky/light and the camera. The panel writes
+ * DemoConfig and then calls one of the apply* methods, exactly as DemoPanel.java does.
  */
 @interface DemoMap : NSObject
 
@@ -12,9 +12,13 @@
 
 /** Rebuild the layer stack from DemoConfig. */
 + (void)applyLayers:(NTMapView *)mapView;
-/** Push DemoConfig's terrain settings onto Options. */
+/** Push DemoConfig's Options-level settings (tile pool, sky). */
++ (void)applyOptions:(NTMapView *)mapView;
+/** Rebuild TerrainOptions from DemoConfig. */
 + (void)applyTerrainConfig:(NTMapView *)mapView;
-/** Move the camera to DemoConfig's start position. */
+/** Push sun/ambient/shadow onto LightOptions. */
++ (void)applySkyAndLightConfig:(NTMapView *)mapView;
+/** Move the camera to DemoConfig's position. */
 + (void)applyCameraConfig:(NTMapView *)mapView;
 
 @end

@@ -46,16 +46,34 @@ Mirrors the Android demo file for file, so the two can be compared knob by knob:
 |---|---|---|
 | `DemoConfig.h/.m` | `demo/DemoConfig.java` | every default + the launch-argument key map |
 | `DemoCfg.h/.m` | `demo/DemoCfg.java` | typed readers for the overrides |
-| `DemoMap.h/.m` | `demo/DemoMap.java` | layer registry, tile sources, terrain, camera |
+| `DemoMap.h/.m` | `demo/DemoMap.java` | layer registry, tile sources, terrain, sky/light, camera |
+| `DemoStyles.h/.m` | `demo/DemoStyles.java` | generated CartoCSS + the style decoders |
+| `DemoPanel.h/.m` | `demo/DemoPanel.java` | the on-screen settings panel |
+| `DemoTests.h/.m` | `demo/DemoTests.java` | one-shot actions (route, search, clear) |
 | `DemoViewController.m` | `ui/main/SecondFragment.java` | platform glue only |
+
+One deliberate difference: `DemoConfig.java` is ~230 static fields, each hand-mapped to an intent
+extra. Here the values live in a dictionary keyed by the **same names**, so the override pass is
+automatic and adding a knob is one line instead of four. `DemoPanel` is likewise table-driven
+rather than a hand-built layout - the Java panel is 1200 lines mostly because every control is
+written out.
+
+## Adding a source file
+
+`./regen.sh` — it strips the legacy elements CMake re-emits and re-runs XcodeGen. Needed because
+`xcodegen generate` on its own fails after any CMake reconfigure, and fails *silently* in the
+sense that the project keeps its old file list.
 
 ## Status
 
-The project, the build wiring and the config plumbing are complete. The demo itself is a **first
-slice**: raster base map, hillshade, 3D terrain and the camera. The Android demo is ~7,500 lines,
-and the rest is still to port — vector base map and styles (`DemoStyles`), the on-screen settings
-panel (`DemoPanel`), sky/day-cycle (`DemoSky`), stars (`DemoStars`), and the one-shot routing /
-search / GeoJSON actions (`DemoTests`).
+Covered: vector and raster base maps (composite or plain), the generated inline CartoCSS with its
+label / road-width / 3D-building / landcover knobs, the composite hillshade and satellite slots,
+the stand-alone hillshade layer, contours both on-the-fly and pre-baked, 3D terrain, sun and sky,
+the camera, the settings panel and the route/search/clear actions.
+
+Not ported yet: the day cycle and celestial objects (`DemoSky`, `DemoStars`), free-roam and
+peak-finder modes, the maneuver-arrow gallery, the GeoJSON benchmarks, and the vector-tile search
+service behind the search action (which currently only reports the query point).
 
 ## Gotchas
 

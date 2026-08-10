@@ -1,42 +1,36 @@
 #import <Foundation/Foundation.h>
 
 /**
- * Every default in one place, mirroring scripts/android-dev's DemoConfig.java field for field so
- * the two demos can be compared knob by knob. Change a default here, not in DemoMap.
+ * Every knob in one place, the counterpart of scripts/android-dev's DemoConfig.java.
  *
- * applyLaunchArgumentOverrides maps launch arguments onto these, the same way DemoConfig.java's
- * applyIntentOverrides maps intent extras.
+ * The Java version is ~230 static fields plus an applyIntentOverrides that maps each one onto an
+ * intent extra. Mirroring that field for field in Objective-C would be ~2000 lines of property
+ * boilerplate, so the values live in a dictionary keyed by the SAME names the Android demo uses
+ * as intent extras. That keeps the thing that actually matters - a camera or a layer set reads
+ * identically for both demos - and makes the override pass automatic: any key with a default
+ * here can be set with '-key value' at launch, no per-knob plumbing.
+ *
+ *   xcrun simctl launch <device> com.akylas.CartoDemo -zoom 14 -hillshade true -style inline
+ *
+ * Read with the typed accessors; write with set*, which is what the panel does before calling
+ * back into a DemoMap apply* method.
  */
 @interface DemoConfig : NSObject
 
-// Layers
-@property (class, nonatomic) BOOL baseEnabled;
-@property (class, nonatomic) BOOL satelliteEnabled;
-@property (class, nonatomic) BOOL hillshadeEnabled;
++ (BOOL)boolFor:(NSString *)key;
++ (float)floatFor:(NSString *)key;
++ (double)doubleFor:(NSString *)key;
++ (int)intFor:(NSString *)key;
++ (NSString *)stringFor:(NSString *)key;
+/** "#rrggbb" or "#aarrggbb" as an ARGB integer. */
++ (unsigned int)colorFor:(NSString *)key;
 
-// Tile sources - kept identical to DemoConfig.java
-@property (class, nonatomic, copy) NSString *rasterUrl;
-@property (class, nonatomic) int rasterMinZoom;
-@property (class, nonatomic) int rasterMaxZoom;
-@property (class, nonatomic, copy) NSString *demUrl;
-@property (class, nonatomic) int demMinZoom;
-@property (class, nonatomic) int demMaxZoom;
-/** "terrarium" or "mapbox" - decides which ElevationDecoder is used. */
-@property (class, nonatomic, copy) NSString *demEncoding;
-@property (class, nonatomic, copy) NSString *httpUserAgent;
++ (void)setValue:(id)value forKey:(NSString *)key;
 
-// Camera
-@property (class, nonatomic) double startLon;
-@property (class, nonatomic) double startLat;
-@property (class, nonatomic) float startZoom;
-@property (class, nonatomic) float startTilt;
-@property (class, nonatomic) float startRotation;
-
-// 3D terrain
-@property (class, nonatomic) BOOL terrainEnabled;
-@property (class, nonatomic) float terrainExaggeration;
-@property (class, nonatomic) int terrainMeshResolution;
-
+/** Fold the launch arguments over the defaults. Called once, before the map is built. */
 + (void)applyLaunchArgumentOverrides;
+
+/** Every known key, for the settings panel. */
++ (NSArray<NSString *> *)allKeys;
 
 @end

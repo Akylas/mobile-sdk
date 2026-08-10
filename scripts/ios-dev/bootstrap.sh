@@ -67,19 +67,6 @@ cmake -G Xcode $OPTIONS \
   -DSDK_IOS_BASEARCH="$BASEARCH" \
   -S "$BASE_DIR/scripts/build" -B "$BUILD_DIR"
 
-# CMake's Xcode generator still emits PBXBuildStyle objects (an Xcode 2 vestige that Xcode itself
-# ignores), and XcodeGen's parser refuses to read a project containing them. Strip them so the SDK
-# can be a real project dependency of the app rather than a prebuilt blob.
-python3 - "$BUILD_DIR/carto_mobile_sdk.xcodeproj/project.pbxproj" <<'PYEOF'
-import re, sys
-path = sys.argv[1]
-text = open(path).read()
-text = re.sub(r'/\* Begin PBXBuildStyle section \*/.*?/\* End PBXBuildStyle section \*/\n', '', text, flags=re.S)
-text = re.sub(r'\n\t*buildStyles = \(.*?\);', '', text, flags=re.S)
-open(path, 'w').write(text)
-print('stripped PBXBuildStyle from the SDK project')
-PYEOF
-
 # project.yml refers to the SDK project through this symlink, so switching platform is a
 # re-bootstrap rather than an edit.
 rm -f .sdkproj .angle
@@ -88,7 +75,7 @@ ln -s "$BUILD_DIR" .sdkproj
 ln -s "$BASE_DIR/libs-external/angle-metal/$BASEARCH" .angle
 
 echo "==> Generating CartoDemo.xcodeproj"
-xcodegen generate
+./regen.sh
 
 echo
 echo "Done. Open CartoDemo.xcodeproj, or:"
