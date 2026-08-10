@@ -258,6 +258,42 @@ public final class DemoStyles {
                     "  hillshade-contour-color: " + DemoStyles.hex(DemoConfig.HILLSHADE_CONTOUR_COLOR_ARGB) + ";")
                 : "",
             "}",
+
+                "#contour[zoom>=" + DemoConfig.CONTOUR_MIN_VISIBLE_ZOOM + "] {",
+                // Lines only for the traced geometry: a label stub is a ~20 point fragment of a
+                // contour, long enough to lay text along and nothing more, so drawing it as a line
+                // paints dashes over the map. Both modes carry 'stub', so the filter is safe in
+                // either. In stub mode the LINES come from the hillshade shader instead.
+                "  [stub=0] {",
+                "    line-color: #C56008;",
+                contourWidthByDiv(),
+                "  }",
+                DemoConfig.INLINE_LABELS
+                        ? String.join("\n",
+                        "[div=1000][zoom>=12],",
+                        "[div=500][zoom>=12],",
+                        "[div=200][zoom>=14],",
+                        "[div=250][zoom>=13][zoom<14],",
+                        "[div=100][zoom>=14],",
+                        "[div=50][zoom>=15] {",
+                        "text-name: [ele]+' m';",
+                        "text-fill: #000000;",
+                        " text-spacing: 10;",
+                        "text-placement: line;",
+                        // [zoom] here is the CONTOUR TILE zoom, which never drops below the DEM zoom - it
+                        // does not gate on the camera. [view::zoom] is evaluated per frame, and size 0
+                        // hides the label.
+                        "text-size: linear([view::zoom], (11.99, 0), (12, 14));",
+                        "}")
+                        : "",
+                "  contour-base-interval: " + (int) DemoConfig.CONTOUR_BASE_INTERVAL + ";",
+                // The composite slot reads the source's generation parameters from the style too.
+                DemoConfig.CONTOUR_LABEL_STUBS
+                        ? String.join("\n",
+                        "  contour-label-stubs: 1;",
+                        "  contour-label-interval: " + (int) DemoConfig.CONTOUR_LABEL_INTERVAL + ";")
+                        : "",
+                "}",
             "#transportation { line-color: #ffffff; line-width: " + DemoConfig.INLINE_ROAD_WIDTH + "; }",
             DemoConfig.INLINE_LABELS
                 ? String.join("\n",
@@ -275,42 +311,7 @@ public final class DemoStyles {
             "#transportation['class'='motorway'] { line-color: #e27d60; line-width: " + DemoConfig.INLINE_MOTORWAY_WIDTH + "; }",
             DemoConfig.INLINE_BUILDINGS_3D
                 ? "#building[zoom>=14] { building-fill: #d9cfc4; building-height: " + DemoConfig.INLINE_BUILDING_HEIGHT + "; }"
-                : "#building[zoom>=14] { polygon-fill: #d9cfc4; }",
-            "#contour[zoom>=" + DemoConfig.CONTOUR_MIN_VISIBLE_ZOOM + "] {",
-                // Lines only for the traced geometry: a label stub is a ~20 point fragment of a
-                // contour, long enough to lay text along and nothing more, so drawing it as a line
-                // paints dashes over the map. Both modes carry 'stub', so the filter is safe in
-                // either. In stub mode the LINES come from the hillshade shader instead.
-                "  [stub=0] {",
-                "    line-color: #C56008;",
-                contourWidthByDiv(),
-                "  }",
-                DemoConfig.INLINE_LABELS
-                ? String.join("\n",
-                    "[div=1000][zoom>=12],",
-                    "[div=500][zoom>=12],",
-                    "[div=200][zoom>=14],",
-                    "[div=250][zoom>=13][zoom<14],",
-                    "[div=100][zoom>=14],",
-                    "[div=50][zoom>=15] {",
-                    "text-name: [ele]+' m';",
-                    "text-fill: #000000;",
-                    " text-spacing: 10;",
-                    "text-placement: line;",
-                    // [zoom] here is the CONTOUR TILE zoom, which never drops below the DEM zoom - it
-                    // does not gate on the camera. [view::zoom] is evaluated per frame, and size 0
-                    // hides the label.
-                    "text-size: linear([view::zoom], (11.99, 0), (12, 14));",
-                    "}")
-                : "",
-            "  contour-base-interval: " + (int) DemoConfig.CONTOUR_BASE_INTERVAL + ";",
-            // The composite slot reads the source's generation parameters from the style too.
-            DemoConfig.CONTOUR_LABEL_STUBS
-                ? String.join("\n",
-                    "  contour-label-stubs: 1;",
-                    "  contour-label-interval: " + (int) DemoConfig.CONTOUR_LABEL_INTERVAL + ";")
-                : "",
-            "}");
+                : "#building[zoom>=14] { polygon-fill: #d9cfc4; }");
     }
 
     // =============================================================================================
@@ -556,12 +557,12 @@ public final class DemoStyles {
             "  hillshade-shadow-color: #103040;",
             "}",
             "#satellite[zoom>=" + DemoConfig.INLINE_SATELLITE_MIN_ZOOM + "] { raster-opacity: 0.45; }",
+                "#contour[zoom>=12] { line-color: #9a5a12; line-width: 0.8; line-opacity: 0.7; }",
             "#transportation { line-color: #ffffff; line-width: 1.2; }",
             "#transportation['class'='motorway'] { line-color: #e27d60; line-width: " + DemoConfig.INLINE_MOTORWAY_WIDTH + "; }",
             DemoConfig.INLINE_BUILDINGS_3D
                 ? "#building[zoom>=14] { building-fill: #d9cfc4; building-height: " + DemoConfig.INLINE_BUILDING_HEIGHT + "; }"
-                : "#building[zoom>=14] { polygon-fill: #d9cfc4; }",
-            "#contour[zoom>=12] { line-color: #9a5a12; line-width: 0.8; line-opacity: 0.7; }");
+                : "#building[zoom>=14] { polygon-fill: #d9cfc4; }");
 
         try {
             java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
