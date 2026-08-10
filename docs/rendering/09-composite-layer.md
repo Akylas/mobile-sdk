@@ -64,4 +64,9 @@ Tangram has one ordered style list, so "hillshade under the roads but over the l
 with separate renderers, and the composite layer is what buys back the single ordered list. The
 long-term convergence is the same as theirs: fewer separate tile sets, more of the terrain-derived
 paint computed inside the ground draw.
+
+An app's own content can take a slot the same way, not just terrain-derived sources: a maneuver arrow
+source added with `addVectorDataSource` draws over the roads and under the labels, see
+[15-maneuver-arrows.md](15-maneuver-arrows.md).
+
 </content>

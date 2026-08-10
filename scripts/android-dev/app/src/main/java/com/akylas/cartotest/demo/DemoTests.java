@@ -199,23 +199,136 @@ public final class DemoTests {
         }).start();
     }
 
-    /** Decodes the Valhalla shape of every leg and draws it. */
+    /** Decodes the Valhalla shape of every leg, draws it, and puts an arrow on every turn. */
     private static void drawRoute(DemoMap demo, String rawJson, ValhallaRoutingService service) throws Exception {
         GeoJSONGeometryReader reader = new GeoJSONGeometryReader();
         JSONArray legs = new JSONObject(rawJson).getJSONObject("trip").getJSONArray("legs");
         LineStyleBuilder style = new LineStyleBuilder();
         style.setWidth(4);
         style.setColor(new Color((short) 255, (short) 0, (short) 0, (short) 255));
+        demo.clearManeuverArrows();
         int points = 0;
+        int arrowCount = 0;
         for (int i = 0; i < legs.length(); i++) {
-            String coordinates = service.parseShape(legs.getJSONObject(i).getString("shape"));
+            JSONObject leg = legs.getJSONObject(i);
+            String coordinates = service.parseShape(leg.getString("shape"));
             LineGeometry geometry = (LineGeometry) reader.readGeometry("{\"type\":\"LineString\", \"coordinates\":" + coordinates + "}");
             MapPosVector poses = geometry.getPoses();
             points += (int) poses.size();
             results(demo).add(new Line(poses, style.buildStyle()));
+            arrowCount += addManeuverArrows(demo, leg, poses, arrowCount);
         }
-        report(demo, "route drawn (" + points + " points)");
+        report(demo, "route drawn (" + points + " points, " + arrowCount + " maneuver arrows)");
     }
+
+    /**
+     * One arrow per real turn of a leg. Valhalla maneuver types 0-6 are the start and destination
+     * ones, which have nothing to point at. The shape indices are per leg, and so is the geometry
+     * handed over here, so they line up.
+     *
+     * The shape is WGS84 (that is what the GeoJSON reader returns), hence the null projection.
+     */
+    private static int addManeuverArrows(DemoMap demo, JSONObject leg, MapPosVector poses, int firstArrowId) {
+        JSONArray maneuvers = leg.optJSONArray("maneuvers");
+        if (maneuvers == null) {
+            return 0;
+        }
+        int count = 0;
+        for (int i = 0; i < maneuvers.length(); i++) {
+            JSONObject maneuver = maneuvers.optJSONObject(i);
+            if (maneuver == null || maneuver.optInt("type", 0) <= 6) {
+                continue;
+            }
+            int index = maneuver.optInt("begin_shape_index", -1);
+            if (index < 0) {
+                continue;
+            }
+            demo.setManeuverArrow(firstArrowId + count, demo.maneuverBuilder().buildArrowAtIndex(null, poses, index));
+            count++;
+        }
+        return count;
+    }
+
+    /**
+     * The maneuver gallery: one arrow per shape real navigation actually produces, laid out on a
+     * grid around the start position, so the whole set can be judged in one screenshot instead of
+     * waiting for a route to happen to contain a hairpin.
+     *
+     * Each entry is a synthetic route in METRES around its own cell, fed through the real builder
+     * with a maneuver index - so the slicing, not just the drawing, is what is on screen. The
+     * roundabout gets longer lengths, because what a driver needs to see there is the whole arc.
+     */
+    public static int seedManeuverArrows(DemoMap demo) {
+        double lon = DemoConfig.START_LON, lat = DemoConfig.START_LAT;
+        // Longer than the 30 m default: these are drawn side by side to be READ, and a shaft only
+        // as long as the head is, is a triangle with a stub, not a maneuver.
+        float before = GALLERY_LEG, after = GALLERY_LEG;
+        int count = 0;
+        try {
+            // col, row, name, points (east/north metres from the cell centre), maneuver index
+            count += addGalleryArrow(demo, count, lon, lat, 0, 1, new double[][] {
+                    { -90, 0 }, { 0, 0 }, { 0, -90 } }, 1, before, after);              // right 90
+            count += addGalleryArrow(demo, count, lon, lat, 1, 1, new double[][] {
+                    { -90, 0 }, { 0, 0 }, { 0, 90 } }, 1, before, after);               // left 90
+            count += addGalleryArrow(demo, count, lon, lat, 2, 1, new double[][] {
+                    { -90, 0 }, { 0, 0 }, { 65, -65 } }, 1, before, after);             // slight right 45
+            count += addGalleryArrow(demo, count, lon, lat, 0, 0, new double[][] {
+                    { -90, 0 }, { 0, 0 }, { -65, -65 } }, 1, before, after);            // sharp right 135
+            count += addGalleryArrow(demo, count, lon, lat, 1, 0, new double[][] {
+                    { -90, 22 }, { 0, 22 }, { 20, 11 }, { 20, -11 }, { 0, -22 }, { -90, -22 } }, 1, before, after); // U-turn
+            count += addGalleryArrow(demo, count, lon, lat, 2, 0, roundabout(45, 3, 10), 2, 40, 260);     // roundabout
+        } catch (Exception e) {
+            Log.w(TAG, "maneuver gallery failed: " + e.getMessage());
+        }
+        demo.maneuverBuilder().setLengthBefore(DemoConfig.MANEUVER_LENGTH_BEFORE);
+        demo.maneuverBuilder().setLengthAfter(DemoConfig.MANEUVER_LENGTH_AFTER);
+        Log.i(TAG, "seeded " + count + " gallery maneuver arrows around " + lat + ", " + lon);
+        return count;
+    }
+
+    /** Cell spacing of the gallery grid, and the length of each leg, in metres. */
+    private static final double GALLERY_SPACING = 300;
+    private static final float GALLERY_LEG = 60;
+
+    private static int addGalleryArrow(DemoMap demo, int arrowId, double lon, double lat,
+                                       int col, int row, double[][] points, int maneuverIndex,
+                                       float lengthBefore, float lengthAfter) {
+        demo.maneuverBuilder().setLengthBefore(lengthBefore);
+        demo.maneuverBuilder().setLengthAfter(lengthAfter);
+        double east = (col - 1) * GALLERY_SPACING;
+        double north = (row - 0.5) * GALLERY_SPACING;
+        MapPosVector poses = new MapPosVector();
+        for (double[] point : points) {
+            poses.add(offsetMeters(lon, lat, east + point[0], north + point[1]));
+        }
+        demo.setManeuverArrow(arrowId, demo.maneuverBuilder().buildArrowAtIndex(null, poses, maneuverIndex));
+        return 1;
+    }
+
+    /**
+     * A roundabout: straight approach from the west, then the ring, then the exit north. The
+     * maneuver point is the entry, which is what a routing engine reports.
+     */
+    private static double[][] roundabout(double radius, int exitQuarters, int stepDegrees) {
+        java.util.List<double[]> points = new java.util.ArrayList<double[]>();
+        points.add(new double[] { -radius - 90, -radius });
+        points.add(new double[] { -radius, -radius });                 // entry: index 1, the maneuver
+        for (int angle = 180; angle >= 180 - 90 * exitQuarters; angle -= stepDegrees) {
+            double a = Math.toRadians(angle);
+            points.add(new double[] { Math.cos(a) * radius, Math.sin(a) * radius - radius });
+        }
+        double a = Math.toRadians(180 - 90 * exitQuarters);
+        points.add(new double[] { Math.cos(a) * radius, Math.sin(a) * radius - radius - 90 });
+        return points.toArray(new double[0][]);
+    }
+
+    /** Offsets a WGS84 position by metres east / north - exact enough over the few hundred here. */
+    private static MapPos offsetMeters(double lon, double lat, double east, double north) {
+        double metresPerDegLat = 111320.0;
+        double metresPerDegLon = metresPerDegLat * Math.cos(Math.toRadians(lat));
+        return new MapPos(lon + east / metresPerDegLon, lat + north / metresPerDegLat);
+    }
+
 
     // =============================================================================================
     // SEARCH
@@ -452,7 +565,7 @@ public final class DemoTests {
     // =============================================================================================
 
     /** Toast + log, from any thread. */
-    private static void report(final DemoMap demo, final String message) {
+    static void report(final DemoMap demo, final String message) {
         Log.i(TAG, message);
         new Handler(Looper.getMainLooper()).post(new Runnable() {
             public void run() {

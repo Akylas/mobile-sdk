@@ -76,4 +76,12 @@ does (`ElevationManager::elevationLerp` over the texture's own CPU buffer, with 
 
 `TileLayer::setUTFGridDataSource` attaches a UTF-grid source for feature interactivity; hits are
 resolved from the grid rather than from geometry, and reported through `UTFGridEventListener`.
+
+## App content that is NOT a vector element
+
+Content the app owns can also be served as vector tiles from an in-memory source and styled by
+CartoCSS — which keeps it on the tile path (terrain tesselation, shared drape, style-driven z-order)
+instead of this one, and lets style properties do work an element would need new C++ for. Navigation
+maneuver arrows are built that way: see [15-maneuver-arrows.md](15-maneuver-arrows.md).
+
 </content>
