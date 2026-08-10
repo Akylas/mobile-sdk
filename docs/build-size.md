@@ -73,11 +73,6 @@ the 5 GB default has the four ABIs evicting each other.
 
 ## Open, roughly by value
 
-- **`RegisterNatives`** instead of 3138 exported symbols. The mangled export names average ~88
-  bytes; a `JNINativeMethod` table needs only the short name and signature, so this trades ~277 KB
-  of `.dynstr` for maybe 60 KB of `.rodata` and drops `.dynsym` (83 KB) and the hash tables (52 KB)
-  outright. Also makes symbol binding at load cheaper. Needs a post-processing step over the 322
-  generated wrapper files; failure mode is a loud `UnsatisfiedLinkError` at startup.
 - **iOS gets no LTO for the static framework** — `-flto=full` sits inside `if(SHARED_LIBRARY)` in
   `scripts/build/CMakeLists.txt`, so the default build misses it while Android gets `-flto=thin`.
   Bitcode is still wired (`ENABLE_BITCODE=YES` for armv7/arm64, dead since Xcode 14) and `i386` and
@@ -88,3 +83,33 @@ the 5 GB default has the four ABIs evicting each other.
   needs the callback paths audited before it can be trusted.
 - Unset and cheap: `-Wl,--exclude-libs,ALL`, `-fmerge-all-constants`, `-fno-math-errno`. No PGO
   anywhere.
+
+## Measured NOT to work — `RegisterNatives`
+
+The obvious-looking win is to stop exporting the 3496 `Java_*` wrappers and register them from
+`JNI_OnLoad` instead. It was built and measured: the generator derives every descriptor from the
+`*ModuleJNI.java` sources, and the emitted symbol set matched the 3496 exports exactly, in both
+directions. **It makes the library 131 KB bigger.**
+
+| section | exported | registered | delta |
+|---|---|---|---|
+| `.dynstr` | 307,725 | 4,202 | −303,523 |
+| `.dynsym` | 92,160 | 8,280 | −83,880 |
+| `.hash` + `.gnu.hash` + `.gnu.version` | 64,096 | 3,490 | −60,606 |
+| `.rela.dyn` | 574,512 | 836,784 | **+262,272** |
+| `.rodata` | 1,112,997 | 1,338,149 | +225,152 |
+| `.data.rel.ro` | 209,168 | 298,352 | +89,184 |
+| **file** | 11,418,904 | 11,547,912 | **+131,055** |
+
+The −448 KB of dynamic symbol machinery is real and lands as predicted. What kills it is that
+`JNINativeMethod` holds **three pointers** — name, signature, function — so 3496 methods put 10,488
+relocated pointers in `.data.rel.ro`, each costing a 24-byte `R_AARCH64_RELATIVE` entry. A string
+table the dynamic linker already packs efficiently gets traded for a relocated pointer table that
+does not.
+
+A version storing string *offsets* into one blob, and materialising the function pointers in code
+rather than data, would remove ~178 KB of relocations and ~84 KB more, landing near **−150 to
+−190 KB (1.3–1.6%)**. That is a hand-rolled offset encoding inside generated code, for less than a
+twentieth of what moving an app to the `standard` profile gives. Not worth it on size alone. The
+one argument not tested is load time: 3496 fewer dynamic symbols should make `dlopen` cheaper, and
+if that turns out to matter the calculus changes.
