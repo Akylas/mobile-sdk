@@ -4,6 +4,22 @@ apply plugin: 'com.android.library'
 // This variable should normally reflect the value of '--profile' argument when generating wrappers via 'swigpp-java.py' script!
 def profiles = "standard+valhalla+geocoding+routing+packagemanager"
 
+// Compiler launcher, only when ccache is installed. AGP already drives CMake through ninja, so
+// this is the missing half: every ABI recompiles the same headers, and the Boost.Spirit grammars
+// (mapnikvt ParserUtils/GeneratorUtils, CartoCSSParser, QueryExpressionParser) are ~15% of a full
+// build while practically never changing. Turn it off with './gradlew ... -Pccache=false'.
+def ccacheOptions = {
+    if (project.findProperty('ccache') == 'false') {
+        return []
+    }
+    def name = System.getProperty('os.name').toLowerCase().contains('windows') ? 'ccache.exe' : 'ccache'
+    def found = System.getenv('PATH')?.split(File.pathSeparator)?.collect { new File(it, name) }?.find { it.canExecute() }
+    if (found == null) {
+        return []
+    }
+    return ["-DCMAKE_C_COMPILER_LAUNCHER=${found.absolutePath}", "-DCMAKE_CXX_COMPILER_LAUNCHER=${found.absolutePath}"]
+}
+
 def cmakeOptions = {
     def jsonFile = file('$projectDir/../../../build/sdk_profiles.json')
     def parsedJson = new groovy.json.JsonSlurper().parseText(jsonFile.text)
@@ -90,6 +106,7 @@ android {
             cmake {
                 arguments "-DSDK_VERSION=Devel", "-DSDK_PLATFORM='Android'", "-DANDROID_STL=c++_static", '-DANDROID_ARM_NEON:BOOL=ON', '-DSINGLE_LIBRARY:BOOL=ON', '-DHAVE_ZSTD:BOOL=ON', '-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON', "-DWRAPPER_DIR=${projectDir.absolutePath.replaceAll('\\\\', '/')}/../../../generated/android-java/wrappers"
                 cmakeOptions().each {option -> arguments option }
+                ccacheOptions().each {option -> arguments option }
                 // Render profiling, off unless asked for: './gradlew :app:assembleDebug -PprofileRender'
                 // turns on the per-frame section timings (utils/FrameProfiler.h) and the vt
                 // draw/label/tile counters (vt/RenderStats.h), both printed to logcat as 'PROF'

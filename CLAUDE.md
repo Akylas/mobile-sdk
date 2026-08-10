@@ -141,6 +141,18 @@ adb shell am start -n com.akylas.cartotest/.MainActivity --es ui false --es drap
 ## Building / checking
 
 Full builds take 1+ hour (see `BUILDING.md`; requires SWIG fork + boost symlink).
+
+The Android-family build scripts (`build-android.py`, `build-routing-android.py`,
+`build-xamarin.py`) pick **ninja** over make and prefix the compiler with **ccache**, both
+auto-detected and both opt-out (`--ninja none`, `--ccache none`). Ninja is taken from `PATH`,
+otherwise from the newest `$ANDROID_HOME/cmake/*/bin/ninja`. Switching generator clears the
+affected `build/<target>-<abi>` directory — CMake refuses to reconfigure a Makefiles tree as
+Ninja. Measured on one arm64 Release build with a private cache: 70.9 s cold, **13.8 s warm**
+(1128/1134 direct hits), what is left being the thin-LTO link. Raise the cache first —
+`ccache --max-size 30G` — because one ABI writes ~1 GB of objects and the 5 GB default makes the
+four ABIs evict each other; the scripts warn when it is under 20 GB. The `scripts/android-dev`
+gradle build already runs ninja through AGP and now picks up ccache too (`-Pccache=false` off).
+
 For fast iteration on the vt renderer, a syntax/type check is enough:
 
 ```sh
