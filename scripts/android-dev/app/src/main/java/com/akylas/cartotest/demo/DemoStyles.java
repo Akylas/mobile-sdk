@@ -614,6 +614,105 @@ public final class DemoStyles {
         return mss.toString();
     }
 
+    /**
+     * Style of the MANEUVER ARROW layer (DemoConfig.LAYER_MANEUVERS). ManeuverArrowBuilder
+     * serves one LINE per arrow; the head is 'line-end-arrow', which the vt line tesselator builds
+     * on the last vertex out of the same screen-space extrusion the line itself uses.
+     *
+     * That is why the casing works: the casing rule repeats the arrow properties with its own,
+     * wider line, and the head grows about its incenter - so the border is as thick round the head
+     * as it is along the shaft, and shaft and head are ONE shape with no seam between them.
+     *
+     * Everything scales together with the camera. The two widths are interpolated over
+     * [view::zoom] - the LIVE camera zoom, re-evaluated every frame, not the tile's zoom - and the
+     * head is a multiple of the width, so shaft, head and border shrink in step as the map zooms
+     * out and the arrow keeps its shape instead of swallowing the junction.
+     */
+    public static String maneuverStyle(String headPath) {
+        StringBuilder mss = new StringBuilder();
+        // Whole SHAFT first, then the head over it, each part in its own attachment - an attachment
+        // is drawn at the position of its FIRST rule. The head paints over the line, so it keeps
+        // its outline where it lands on its own shaft (a U-turn, once the map is zoomed out enough)
+        // instead of dissolving into it; and 'line-arrow-only' cuts a slot one line width wide out
+        // of the head's base, so nothing of the head crosses the shaft it docks on and the two read
+        // as a single polygon. The shaft rules carry no arrow: the line runs its full length under
+        // the head.
+        // Both modes need the casing's numbers scaled back, for the same reason: they are read
+        // against ITS wider line. With a custom path the box is what scales, so the correction is
+        // just the ratio of the widths - shrink the casing's box by it and both rules describe the
+        // SAME skeleton, leaving the (casing - fill) / 2 offset to draw the border. Without it the
+        // casing's head is 13/8 bigger on top of its offset, and the border comes out twice too
+        // thick. The built-in triangle needs the incenter formula instead, because its numbers
+        // describe the drawn shape rather than a skeleton.
+        float scale = headPath.isEmpty()
+                ? maneuverCasingArrowScale()
+                : DemoConfig.MANEUVER_WIDTH / Math.max(1.0e-3f, DemoConfig.MANEUVER_CASING_WIDTH);
+        if (DemoConfig.MANEUVER_CASING_WIDTH > 0) {
+            mss.append("#maneuver::case { line-color: ").append(DemoConfig.MANEUVER_CASING_COLOR)
+               .append("; line-width: ").append(maneuverWidthByZoom(DemoConfig.MANEUVER_CASING_WIDTH))
+               .append("; line-join: round; line-cap: round; }\n");
+        }
+        mss.append("#maneuver::fill { line-color: ").append(DemoConfig.MANEUVER_COLOR)
+           .append("; line-width: ").append(maneuverWidthByZoom(DemoConfig.MANEUVER_WIDTH))
+           .append("; line-join: round; line-cap: round; }\n");
+        if (DemoConfig.MANEUVER_CASING_WIDTH > 0) {
+            mss.append("#maneuver::headcase { line-color: ").append(DemoConfig.MANEUVER_CASING_COLOR)
+               .append("; line-width: ").append(maneuverWidthByZoom(DemoConfig.MANEUVER_CASING_WIDTH))
+               .append(";").append(maneuverArrow(DemoConfig.MANEUVER_ARROW_WIDTH * scale,
+                                                 DemoConfig.MANEUVER_ARROW_LENGTH * scale, headPath))
+               .append(" }\n");
+        }
+        mss.append("#maneuver::head { line-color: ").append(DemoConfig.MANEUVER_COLOR)
+           .append("; line-width: ").append(maneuverWidthByZoom(DemoConfig.MANEUVER_WIDTH))
+           .append(";").append(maneuverArrow(DemoConfig.MANEUVER_ARROW_WIDTH,
+                                             DemoConfig.MANEUVER_ARROW_LENGTH, headPath))
+           .append(" }");
+        return mss.toString();
+    }
+
+    private static String maneuverArrow(float arrowWidth, float arrowLength, String headPath) {
+        // A custom path replaces the built-in triangle. It is a SKELETON, offset outward by half of
+        // each rule's own line width, so BOTH rules use the same path and the casing lands
+        // (casing - fill) / 2 outside the fill - the border the shaft has, for any shape. The
+        // built-in triangle keeps its own route (grown about its incenter), which is the same
+        // offset on a triangle and needs no path at all.
+        // In path mode the two numbers are the BOX the contour is fitted into - length along the
+        // line, width across it - so they still drive the size, and the path can come from any
+        // viewBox.
+        String shape = headPath.isEmpty()
+                ? " line-arrow-width: " + arrowWidth + "; line-arrow-length: " + arrowLength + ";"
+                : " line-arrow-width: " + arrowWidth + "; line-arrow-length: " + arrowLength
+                  + "; line-arrow-scale: " + DemoConfig.MANEUVER_ARROW_SCALE
+                  + "; line-arrow-rotation: " + DemoConfig.MANEUVER_ARROW_ROTATION
+                  + "; line-arrow-path: '" + headPath + "';";
+        return " line-join: round; line-cap: round; line-end-arrow: true; line-arrow-only: true;" + shape;
+    }
+
+    /**
+     * What to multiply the fill's arrow numbers by for the casing rule, so the head keeps the
+     * border the shaft has. The head's inradius is r = a*L / (a + hypot(a, L)) for a half-base a
+     * and a length L; the casing head is the fill head grown by (casing - fill) / 2, which for a
+     * triangle is the same shape scaled about its incenter - and the numbers are read against the
+     * casing's own, wider line, hence the width ratio.
+     */
+    private static float maneuverCasingArrowScale() {
+        float fill = DemoConfig.MANEUVER_WIDTH, casing = DemoConfig.MANEUVER_CASING_WIDTH;
+        if (fill <= 0 || casing <= fill) {
+            return 1;
+        }
+        double a = DemoConfig.MANEUVER_ARROW_WIDTH * fill / 2, l = DemoConfig.MANEUVER_ARROW_LENGTH * fill;
+        double inradius = a * l / (a + Math.hypot(a, l));
+        double grown = inradius + (casing - fill) / 2;
+        return (float) (grown / inradius * fill / casing);
+    }
+
+    /** width at MANEUVER_ZOOM_REF, MIN_SCALE of it at MANEUVER_ZOOM_MIN, interpolated in between. */
+    private static String maneuverWidthByZoom(float width) {
+        return "linear([view::zoom], (" + DemoConfig.MANEUVER_ZOOM_MIN + ", "
+                + (width * DemoConfig.MANEUVER_MIN_SCALE) + "), ("
+                + DemoConfig.MANEUVER_ZOOM_REF + ", " + width + "))";
+    }
+
     // =============================================================================================
     // SHADERS used by the hillshade / custom raster layers
     // =============================================================================================

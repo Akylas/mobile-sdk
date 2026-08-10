@@ -94,6 +94,8 @@ public final class DemoConfig {
     public static boolean LAYER_ROUTES = false;
     /** Synthetic mountain-road route (GeoJSON tiles + CartoCSS): the line join / cap / opacity bench. */
     public static boolean LAYER_ROUTE_TEST = false;
+    /** Navigation maneuver arrows (ManeuverArrowBuilder + CartoCSS). Filled by the routing test. */
+    public static boolean LAYER_MANEUVERS = false;
 
     // =============================================================================================
     // COMPOSITE SLOTS (BaseMode.COMPOSITE only)
@@ -532,6 +534,50 @@ public final class DemoConfig {
     public static String ROUTE_TEST_OPACITY_MODE = "geom";
 
     // =============================================================================================
+    // MANEUVER ARROWS (LAYER_MANEUVERS)
+    // The turn arrow of a navigation app: ManeuverArrowBuilder cuts it out of a route geometry
+    // and serves it as ONE vector tile layer ('maneuver'), styled below like any other layer. The
+    // offline routing test fills it - run it with the layer on and the arrows appear on the turns.
+    // =============================================================================================
+
+    /** Metres of the route kept before and after the maneuver point. */
+    public static float MANEUVER_LENGTH_BEFORE = 30f;
+    public static float MANEUVER_LENGTH_AFTER = 30f;
+    public static float MANEUVER_WIDTH = 8f;
+    public static float MANEUVER_CASING_WIDTH = 13f;
+    public static String MANEUVER_COLOR = "#FFFFFF";
+    public static String MANEUVER_CASING_COLOR = "#1A73E8";
+    /** Arrow head, in multiples of the line width: 'line-end-arrow' builds it into the line itself,
+     *  so the casing rule outlines the head as evenly as it outlines the shaft. Because it is a
+     *  multiple of the width, the head follows the width scaling below by itself. */
+    public static float MANEUVER_ARROW_WIDTH = 2.4f;
+    public static float MANEUVER_ARROW_LENGTH = 1.9f;
+    /** Custom arrow head outline, an SVG-style path (M/L/Z, absolute) in multiples of the line
+     *  width: x along the line, y across it. Empty = the built-in triangle. The contour is a
+     *  SKELETON - what is drawn is half a line width larger all round, which is what gives the
+     *  casing rule an even border without any arithmetic, whatever the shape.
+     *  Try a swallow-tail chevron: '--es maneuverPath "M-0.5,-1.2 L1.4,0 L-0.5,1.2 L0.1,0"'. */
+    public static String MANEUVER_ARROW_PATH = "";
+    /** SVG file whose first path becomes the head: a name in the data directory, or 'asset:<name>'
+     *  for one bundled in the APK. Empty = the built-in triangle. The panel cycles through whatever
+     *  .svg files sit in the data directory, so a head can be tried with a single adb push:
+     *    adb push my-head.svg /sdcard/alpimaps_mbtiles/
+     *  MANEUVER_ARROW_PATH above wins over this when both are set. */
+    public static String MANEUVER_ARROW_SVG = "";
+    /** The SVG head bundled in the APK, last in the panel's cycle. */
+    public static String MANEUVER_SVG_ASSET = "maneuver-head-cloud.svg";
+    /** Applied to the fitted contour, about its centre: a multiplier on the box, and a rotation in
+     *  degrees clockwise - an icon drawn pointing up rather than along the line needs 90. */
+    public static float MANEUVER_ARROW_SCALE = 1f;
+    public static float MANEUVER_ARROW_ROTATION = 0f;
+    /** The widths above are exact at REF zoom and shrink to MIN_SCALE of them at MIN zoom, so the
+     *  whole arrow - shaft, head and border - gets smaller together as the camera pulls back and
+     *  the arrow stays readable as an arrow instead of covering the junction. */
+    public static float MANEUVER_ZOOM_REF = 17f;
+    public static float MANEUVER_ZOOM_MIN = 12f;
+    public static float MANEUVER_MIN_SCALE = 0.3f;
+
+    // =============================================================================================
     // GEOJSON TILE-BUILD BENCH (DemoTests.runGeoJSONBench)
     // Times GeoJSONVectorTileDataSource with no renderer in the way. '--es geojsonBench many|long|
     // both|<name>' runs it at startup; the panel has a button for each dataset.
@@ -735,6 +781,7 @@ public final class DemoConfig {
         LAYER_ELEMENTS = DemoCfg.cfgBool("elements", LAYER_ELEMENTS);
         LAYER_ROUTES = DemoCfg.cfgBool("routes", LAYER_ROUTES);
         LAYER_ROUTE_TEST = DemoCfg.cfgBool("routeTest", LAYER_ROUTE_TEST);
+        LAYER_MANEUVERS = DemoCfg.cfgBool("maneuvers", LAYER_MANEUVERS);
 
         // composite slots ('hs', 'sat', 'contour' are the historical keys)
         COMPOSITE_HILLSHADE = DemoCfg.cfgBool("hs", COMPOSITE_HILLSHADE);
@@ -895,6 +942,23 @@ public final class DemoConfig {
         ROUTE_TEST_OPACITY = DemoCfg.cfgFloat("routeOpacity", ROUTE_TEST_OPACITY);
         ROUTE_TEST_SIMPLIFY = DemoCfg.cfgFloat("routeSimplify", ROUTE_TEST_SIMPLIFY);
         ROUTE_TEST_OPACITY_MODE = DemoCfg.cfgStr("routeOpacityMode", ROUTE_TEST_OPACITY_MODE);
+
+        // maneuver arrows
+        MANEUVER_LENGTH_BEFORE = DemoCfg.cfgFloat("maneuverBefore", MANEUVER_LENGTH_BEFORE);
+        MANEUVER_LENGTH_AFTER = DemoCfg.cfgFloat("maneuverAfter", MANEUVER_LENGTH_AFTER);
+        MANEUVER_WIDTH = DemoCfg.cfgFloat("maneuverWidth", MANEUVER_WIDTH);
+        MANEUVER_CASING_WIDTH = DemoCfg.cfgFloat("maneuverCaseWidth", MANEUVER_CASING_WIDTH);
+        MANEUVER_COLOR = DemoCfg.cfgColor("maneuverColor", MANEUVER_COLOR);
+        MANEUVER_CASING_COLOR = DemoCfg.cfgColor("maneuverCaseColor", MANEUVER_CASING_COLOR);
+        MANEUVER_ARROW_WIDTH = DemoCfg.cfgFloat("maneuverArrowWidth", MANEUVER_ARROW_WIDTH);
+        MANEUVER_ARROW_LENGTH = DemoCfg.cfgFloat("maneuverArrowLength", MANEUVER_ARROW_LENGTH);
+        MANEUVER_ZOOM_REF = DemoCfg.cfgFloat("maneuverZoomRef", MANEUVER_ZOOM_REF);
+        MANEUVER_ZOOM_MIN = DemoCfg.cfgFloat("maneuverZoomMin", MANEUVER_ZOOM_MIN);
+        MANEUVER_MIN_SCALE = DemoCfg.cfgFloat("maneuverMinScale", MANEUVER_MIN_SCALE);
+        MANEUVER_ARROW_PATH = DemoCfg.cfgStr("maneuverPath", MANEUVER_ARROW_PATH);
+        MANEUVER_ARROW_SVG = DemoCfg.cfgStr("maneuverSvg", MANEUVER_ARROW_SVG);
+        MANEUVER_ARROW_SCALE = DemoCfg.cfgFloat("maneuverPathScale", MANEUVER_ARROW_SCALE);
+        MANEUVER_ARROW_ROTATION = DemoCfg.cfgFloat("maneuverPathRotation", MANEUVER_ARROW_ROTATION);
         GEOJSON_BENCH = DemoCfg.cfgStr("geojsonBench", GEOJSON_BENCH);
         GEOJSON_BENCH_MIN_ZOOM = DemoCfg.cfgInt("geojsonBenchMinZoom", GEOJSON_BENCH_MIN_ZOOM);
         GEOJSON_BENCH_MAX_ZOOM = DemoCfg.cfgInt("geojsonBenchMaxZoom", GEOJSON_BENCH_MAX_ZOOM);

@@ -23,6 +23,9 @@ import com.carto.datasources.MBTilesTileDataSource;
 import com.carto.datasources.MultiTileDataSource;
 import com.carto.datasources.PersistentCacheTileDataSource;
 import com.carto.datasources.TileDataSource;
+import com.carto.geometry.FeatureCollection;
+import com.carto.geometry.FeatureVector;
+import com.carto.geometry.ManeuverArrowBuilder;
 import com.carto.graphics.Color;
 import com.carto.layers.CompositeSourceType;
 import com.carto.layers.CompositeVectorTileLayer;
@@ -85,7 +88,7 @@ public class DemoMap {
 
     /** One switchable layer of the demo. */
     public enum Feature {
-        CELESTIAL, STARS, BASE, SATELLITE, HILLSHADE, HYPSO, CONTOUR, CONTOUR_TILES, ROUTES, ROUTE_TEST, ELEMENTS, PEAKS
+        CELESTIAL, STARS, BASE, SATELLITE, HILLSHADE, HYPSO, CONTOUR, CONTOUR_TILES, ROUTES, ROUTE_TEST, MANEUVERS, ELEMENTS, PEAKS
     }
 
     /** Bottom -> top draw order. Toggling a layer never reorders the others. */
@@ -94,7 +97,7 @@ public class DemoMap {
         // behind it - which is what a body in the sky should do.
         Feature.CELESTIAL, Feature.STARS,
         Feature.BASE, Feature.SATELLITE, Feature.HILLSHADE, Feature.HYPSO,
-        Feature.CONTOUR, Feature.CONTOUR_TILES, Feature.ROUTES, Feature.ROUTE_TEST, Feature.ELEMENTS,
+        Feature.CONTOUR, Feature.CONTOUR_TILES, Feature.ROUTES, Feature.ROUTE_TEST, Feature.MANEUVERS, Feature.ELEMENTS,
         // Last: the summit names go over everything the map draws.
         Feature.PEAKS
     };
@@ -137,6 +140,11 @@ public class DemoMap {
     private TileDataSource cachedVector;
     private TileDataSource cachedRaster;
     private TileDataSource cachedContourTiles;
+    private GeoJSONVectorTileDataSource cachedManeuvers;
+    private int maneuverLayerIndex = -1;
+    private final ManeuverArrowBuilder maneuverBuilder = new ManeuverArrowBuilder();
+    private final Map<Integer, FeatureCollection> maneuverArrows = new LinkedHashMap<Integer, FeatureCollection>();
+    private boolean seededManeuvers;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private boolean nutiParameterOn = true;
@@ -224,6 +232,7 @@ public class DemoMap {
             case CONTOUR_TILES: return DemoConfig.LAYER_CONTOUR_TILES;
             case ROUTES: return DemoConfig.LAYER_ROUTES;
             case ROUTE_TEST: return DemoConfig.LAYER_ROUTE_TEST;
+            case MANEUVERS: return DemoConfig.LAYER_MANEUVERS;
             case ELEMENTS: return DemoConfig.LAYER_ELEMENTS;
             case PEAKS: return DemoConfig.LAYER_PEAKS;
             default: return false;
@@ -242,6 +251,7 @@ public class DemoMap {
             case CONTOUR_TILES: DemoConfig.LAYER_CONTOUR_TILES = enabled; break;
             case ROUTES: DemoConfig.LAYER_ROUTES = enabled; break;
             case ROUTE_TEST: DemoConfig.LAYER_ROUTE_TEST = enabled; break;
+            case MANEUVERS: DemoConfig.LAYER_MANEUVERS = enabled; break;
             case ELEMENTS: DemoConfig.LAYER_ELEMENTS = enabled; break;
             case PEAKS: DemoConfig.LAYER_PEAKS = enabled; break;
         }
@@ -301,6 +311,7 @@ public class DemoMap {
             case CONTOUR_TILES: return createContourTilesLayer();
             case ROUTES: return createRoutesLayer();
             case ROUTE_TEST: return createRouteTestLayer();
+            case MANEUVERS: return createManeuversLayer();
             case ELEMENTS: return createElementsLayer();
             case PEAKS: return createPeaksLayer();
             default: return null;
@@ -735,6 +746,151 @@ public class DemoMap {
             return null;
         }
         return new VectorTileLayer(source, decoder);
+    }
+
+    /**
+     * The maneuver arrows. The source is served as a normal vector tile layer, so the arrow goes
+     * through the same tesselator, drape and terrain occlusion as the base map's roads - and, as a
+     * layer of its own, it draws over everything below it in {@link #LAYER_ORDER} and under every
+     * Marker (billboards are drawn last, after all layers).
+     *
+     * In an app whose base map is a CompositeVectorTileLayer, the same source can go INSIDE the
+     * style's layer order instead - compositeLayer.addVectorDataSource("maneuver", source) with a
+     * 'maneuver' entry in the style's layers array - and then it draws over the roads but under the
+     * labels. That needs the style to carry the rules, which the demo's inline CartoCSS does here.
+     */
+    private Layer createManeuversLayer() {
+        MBVectorTileDecoder decoder = new MBVectorTileDecoder(new CartoCSSStyleSet(DemoStyles.maneuverStyle(maneuverHeadPath())));
+        GeoJSONVectorTileDataSource source = maneuverSource();
+        if (!seededManeuvers) {
+            // So the layer shows something without an offline routing package on the device. The
+            // routing test overwrites these with the real turns of the route it computes.
+            seededManeuvers = true;
+            DemoTests.seedManeuverArrows(this);
+        }
+        return new VectorTileLayer(source, decoder);
+    }
+
+    /**
+     * The head outline the maneuver style should use: the explicit path if one was given, else the
+     * first 'd' attribute of the selected SVG, else empty for the built-in triangle. Only the path
+     * DATA is read - fills, strokes, transforms and the rest of SVG are ignored, because what the
+     * renderer wants is a contour, not a picture.
+     */
+    public String maneuverHeadPath() {
+        if (!DemoConfig.MANEUVER_ARROW_PATH.isEmpty()) {
+            return DemoConfig.MANEUVER_ARROW_PATH;
+        }
+        String name = DemoConfig.MANEUVER_ARROW_SVG;
+        if (name == null || name.isEmpty()) {
+            return "";
+        }
+        String svg = readDataOrAsset(name.startsWith("asset:") ? name.substring(6) : name);
+        if (svg == null) {
+            Log.w(TAG, "maneuver svg not readable: " + name);
+            return "";
+        }
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("\\bd\\s*=\\s*\"([^\"]+)\"").matcher(svg);
+        if (!matcher.find()) {
+            Log.w(TAG, "maneuver svg carries no path: " + name);
+            return "";
+        }
+        // The parser reads a 'd' as written; the spaces only have to go because an intent extra
+        // would be cut at the first one, and it costs nothing to normalise here as well.
+        return matcher.group(1).replaceAll("\\s+", ",");
+    }
+
+    /**
+     * The heads to cycle through: the built-in triangle, every .svg pushed to the data directory
+     * (adb push my-head.svg /sdcard/alpimaps_mbtiles/), and the one bundled in the APK.
+     */
+    public java.util.List<String> maneuverHeadChoices() {
+        java.util.List<String> choices = new java.util.ArrayList<String>();
+        choices.add("");
+        File[] files = new File(dataPath).listFiles();
+        if (files != null) {
+            java.util.Arrays.sort(files);
+            for (File file : files) {
+                if (file.getName().toLowerCase().endsWith(".svg")) {
+                    choices.add(file.getName());
+                }
+            }
+        }
+        choices.add("asset:" + DemoConfig.MANEUVER_SVG_ASSET);
+        return choices;
+    }
+
+    /** Moves to the next head and rebuilds the layer - the style holds the outline, so it must go. */
+    public String cycleManeuverHead() {
+        java.util.List<String> choices = maneuverHeadChoices();
+        int index = choices.indexOf(DemoConfig.MANEUVER_ARROW_SVG);
+        DemoConfig.MANEUVER_ARROW_SVG = choices.get((index + 1) % choices.size());
+        DemoConfig.MANEUVER_ARROW_PATH = ""; // an explicit path would win over the file
+        invalidate(Feature.MANEUVERS);
+        rebuildLayers();
+        return DemoConfig.MANEUVER_ARROW_SVG.isEmpty() ? "built-in triangle" : DemoConfig.MANEUVER_ARROW_SVG;
+    }
+
+    /** The maneuver arrow source, kept across layer rebuilds so the arrows survive a toggle. */
+    public GeoJSONVectorTileDataSource maneuverSource() {
+        if (cachedManeuvers == null) {
+            cachedManeuvers = new GeoJSONVectorTileDataSource(0, 24);
+            try {
+                maneuverLayerIndex = cachedManeuvers.createLayer("maneuver");
+            } catch (IOException e) {
+                Log.w(TAG, "maneuver layer unavailable: " + e.getMessage());
+            }
+            maneuverBuilder.setLengthBefore(DemoConfig.MANEUVER_LENGTH_BEFORE);
+            maneuverBuilder.setLengthAfter(DemoConfig.MANEUVER_LENGTH_AFTER);
+        }
+        return cachedManeuvers;
+    }
+
+    /** Cuts the arrows; the lengths are its settings, so callers can widen them per arrow. */
+    public ManeuverArrowBuilder maneuverBuilder() {
+        return maneuverBuilder;
+    }
+
+    /**
+     * Shows one arrow under an id, or removes it when the arrow is null or empty.
+     *
+     * The source serves a WHOLE layer at a time, so several arrows are kept here and the layer is
+     * rebuilt from them - which is all the removed ManeuverArrowDataSource used to do, and belongs
+     * in the app rather than in the SDK now that an arrow is a single line feature.
+     */
+    public void setManeuverArrow(int arrowId, FeatureCollection arrow) {
+        maneuverSource();
+        if (arrow == null || arrow.getFeatureCount() == 0) {
+            maneuverArrows.remove(arrowId);
+        } else {
+            maneuverArrows.put(arrowId, arrow);
+        }
+        rebuildManeuverLayer();
+    }
+
+    public void clearManeuverArrows() {
+        if (maneuverArrows.isEmpty()) {
+            return;
+        }
+        maneuverArrows.clear();
+        rebuildManeuverLayer();
+    }
+
+    private void rebuildManeuverLayer() {
+        if (maneuverLayerIndex < 0) {
+            return;
+        }
+        FeatureVector features = new FeatureVector();
+        for (FeatureCollection arrow : maneuverArrows.values()) {
+            for (int i = 0; i < arrow.getFeatureCount(); i++) {
+                features.add(arrow.getFeature(i));
+            }
+        }
+        try {
+            cachedManeuvers.setLayerFeatureCollection(maneuverLayerIndex, null, new FeatureCollection(features));
+        } catch (IOException e) {
+            Log.w(TAG, "maneuver arrows rejected: " + e.getMessage());
+        }
     }
 
     /**
