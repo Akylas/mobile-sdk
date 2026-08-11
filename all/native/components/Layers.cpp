@@ -103,9 +103,15 @@ namespace carto {
             for (const std::shared_ptr<Layer>& layer : layers) {
                 mapRenderer->layerChanged(layer, false);
             }
+            // ...and a redraw for the ones that are GONE, which nothing above speaks for: a layer
+            // that just left the list gets no layerChanged, so with the remaining layers already
+            // loaded there is nothing to schedule a frame and the removed content stays on screen
+            // until something else happens to redraw (a pan). Every other mutator here ends with
+            // this call.
+            mapRenderer->requestRedraw();
         }
     }
-    
+
     void Layers::insert(int index, const std::shared_ptr<Layer>& layer) {
         if (!layer) {
             throw NullArgumentException("Null layer");
