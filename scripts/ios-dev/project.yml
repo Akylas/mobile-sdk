@@ -34,10 +34,16 @@ targets:
       - sdk: QuartzCore.framework
       - sdk: Metal.framework
       - sdk: OpenGLES.framework
+      # The AR mode's camera preview, and the device orientation the star sky follows.
+      - sdk: AVFoundation.framework
+      - sdk: CoreMotion.framework
       - sdk: libz.tbd
     info:
       path: CartoDemo/Info.plist
       properties:
+        # The AR / star-sky modes; without these iOS kills the app on the first request.
+        NSCameraUsageDescription: The AR and star-sky modes draw the map over the live camera.
+        NSMotionUsageDescription: Following the device orientation points the camera where the phone points.
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait

@@ -90,16 +90,28 @@ the route / maneuver-arrow / GeoJSON-benchmark / vector-tile-search / clear acti
 
 Also covered: the hypsometric tint (a `CustomRasterTileLayer` filter shader over the raw DEM),
 slope-angle bands, vector elements (marker / text / line / polygon), summit callout labels, the
-peak-finder camera and relief surface, free roam with a negative tilt range, device-heading
-following, and the sun / moon / arcs / star field on a `CelestialLayer`.
+peak-finder mode with its `flyTo` entry, the relief surface **and** the outline post-process
+effect, AR over the live camera, free roam with a negative tilt range, device-heading following,
+star sky, the scripted `anim` modes, the in-memory `nuti::` project style, the maneuver-head SVG
+gallery, and the sun / moon / daily arcs / star catalogue on a `CelestialLayer`.
 
-Not ported: the AR camera passthrough (`DemoCameraPreview`), the nuti style source, the scripted
-animation modes (`anim`), and the maneuver-head SVG gallery. Two things are **approximations**
-rather than ports, and are marked as such in the source: `DemoSky`'s solar position is a simple
-model rather than `DemoAstro`'s ephemeris (the SDK's own `LightOptions.setSunPositionFromTime` is
-the accurate route if that matters), and the star field is a 15-star stand-in rather than
-`DemoStarCatalogue`'s ~300 entries with RA/dec — enough to see the field render and size-by-
-magnitude work, but the positions are indicative, not astrometric.
+Every demo is now a port rather than an approximation: `DemoAstro` is the same low-precision
+ephemeris the Android demo uses (Astronomical Almanac sun, abbreviated lunar series, JPL's
+Keplerian elements for the planets), `DemoSky` places the sun with
+`LightOptions.setSunPositionFromTime` and generates the same sky shader, and `DemoStarCatalogue`
+carries the same ~190 stars and 30 constellation figures.
+
+### One structure, two platforms
+
+`DemoMap` mirrors `DemoMap.java` method for method: a `DemoFeature` registry with a fixed
+bottom-to-top `LAYER_ORDER`, lazily built layers cached across toggles, `isEnabled` /
+`setEnabled` / `invalidate` / `rebuildLayers`, lazily created shared tile sources, and the same
+`apply*` names the panel calls. The panel's sections and rows are the Java panel's, in the same
+order. Both demos read the same key names, so a camera or a layer set can be pasted from one
+command line to the other.
+
+The one structural difference: `DemoConfig` is a dictionary rather than ~230 static fields (see
+above), so `DemoConfig.boolFor:@"hillshade"` stands in for `DemoConfig.LAYER_HILLSHADE`.
 
 ## Composite slots are not layers
 
@@ -112,6 +124,17 @@ defaults and same key names as the Android demo, where `contour` is on by defaul
 
 ## Gotchas
 
+- **A launch value starting with `-` is silently dropped.** UIKit folds `-key value` pairs into
+  `NSUserDefaults`, and it reads `-tilt -45` as two keys, so the knob keeps its default and the
+  demo runs at a camera you did not ask for. Quote it with a leading space — `-tilt " -45"` — or
+  set it from the panel. The startup log line `CartoDemo: camera lon … tilt …` reports what the
+  camera actually ended up at, which is the fastest way to catch this (and the terrain's zoom
+  clamp).
+- **Tilt 90 is straight down**, 0 is the horizon and negative looks above it. A panorama is around
+  tilt 25, not 85; `-tilt 0` shows nothing but sky.
+- **Screen sizes in the celestial API are pixels, not points.** The Android demo multiplies them by
+  the display density and this one multiplies by `UIScreen.mainScreen.scale`; without it every star
+  and figure line comes out a third of its intended size on a 3x phone.
 - **Positions must go through the map's own projection.** `[[mapView getOptions] getBaseProjection]`
   is EPSG3857; converting with `NTEPSG4326` instead compiles, looks right, and silently feeds
   lon/lat to the map as metres, which puts the camera in the ocean off 0,0.

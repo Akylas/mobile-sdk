@@ -1,5 +1,6 @@
 #import "DemoStyles.h"
 #import "DemoConfig.h"
+#import "DemoMap.h"
 
 @implementation DemoStyles
 
@@ -204,10 +205,27 @@
         @"}"]];
 }
 
+/**
+ * Summit names, drawn as callout labels: the label is lifted to a band near the top of the screen
+ * and joined back to the summit by a leader line, and a label that would collide is moved one row
+ * up instead of being dropped ('nuticallout' placement). The layer name and fields are
+ * OpenMapTiles ('mountain_peak', name/ele/class).
+ */
 + (NSString *)peaksStyle {
-    // 'nuticallout' lifts the label to a band near the top of the screen and joins it back to the
-    // summit with a leader line; a label that would collide moves one row up instead of dropping.
+    // The leader line always meets the FIRST letter of the name, which is also the point held over
+    // the summit. What changes with the mode is the corner the row is aligned on: pinned to the top
+    // the labels hang from their top right corner so the text stays under the screen edge; in a
+    // band lower down they line up on the same bottom left corner they are anchored by.
     BOOL pinTop = [DemoConfig boolFor:@"peaksPinTop"];
+    NSString *lineAnchor = [DemoConfig stringFor:@"peaksLineAnchor"].length
+        ? [DemoConfig stringFor:@"peaksLineAnchor"] : @"bottom-left";
+    NSString *align = [DemoConfig stringFor:@"peaksAlign"].length
+        ? [DemoConfig stringFor:@"peaksAlign"] : (pinTop ? @"top-right" : @"bottom-left");
+    float minDistance = [DemoConfig floatFor:@"peaksMinDistance"];
+    float distanceRank = [DemoConfig floatFor:@"peaksDistanceRank"];
+    float maxDistance = [DemoConfig floatFor:@"peaksMaxDistance"];
+    float step = [DemoConfig floatFor:@"peaksStep"];
+
     return [self join:@[
         @"Map { }",
         [NSString stringWithFormat:@"#mountain_peak['class'='peak'][zoom>=%d] {",
@@ -215,21 +233,146 @@
         @"  text-name: [name];",
         // The elevation as a second run of text: same label, same plate, smaller font.
         @"  text-secondary-name: [ele]+'m';",
-        @"  text-secondary-scale: 0.8;",
-        @"  text-secondary-dx: 4;",
+        [NSString stringWithFormat:@"  text-secondary-scale: %g;", [DemoConfig floatFor:@"peaksEleScale"]],
+        [NSString stringWithFormat:@"  text-secondary-fill: %@;", [DemoConfig stringFor:@"peaksEleColor"]],
+        [NSString stringWithFormat:@"  text-secondary-dx: %g;", [DemoConfig floatFor:@"peaksEleGap"]],
+        [NSString stringWithFormat:@"  text-secondary-dy: %g;", [DemoConfig floatFor:@"peaksEleDy"]],
         [NSString stringWithFormat:@"  text-size: %g;", [DemoConfig floatFor:@"peaksTextSize"]],
-        @"  text-fill: #202020;",
-        @"  text-halo-fill: #ffffff;",
+        // The names follow the relief palette, so they stay readable in both.
+        [NSString stringWithFormat:@"  text-fill: %@;", [DemoMap reliefInk]],
+        [NSString stringWithFormat:@"  text-halo-fill: %@;", [DemoMap reliefPaper]],
         @"  text-halo-radius: 1.5;",
-        @"  text-background-fill: #ffffff;",
+        // The plate behind the name - a general label property, so a classic map style can use
+        // exactly the same four lines.
+        [NSString stringWithFormat:@"  text-background-fill: %@;",
+            [DemoConfig boolFor:@"reliefDark"] ? [DemoConfig stringFor:@"reliefPaperDark"]
+                                               : [DemoConfig stringFor:@"peaksBgColor"]],
         [NSString stringWithFormat:@"  text-background-opacity: %g;", [DemoConfig floatFor:@"peaksBgOpacity"]],
-        @"  text-background-radius: 3;",
+        [NSString stringWithFormat:@"  text-background-radius: %g;", [DemoConfig floatFor:@"peaksBgRadius"]],
+        [NSString stringWithFormat:@"  text-background-padding-x: %g;", [DemoConfig floatFor:@"peaksBgPaddingX"]],
+        [NSString stringWithFormat:@"  text-background-padding-y: %g;", [DemoConfig floatFor:@"peaksBgPaddingY"]],
         @"  text-placement: nuticallout;",
-        // The higher summit claims the row: otherwise the winner is whichever label the tile order
-        // happened to offer first, and a 700 m hill hides a 2000 m one.
+        // The higher summit claims the row: without this the winner is whichever label the tile
+        // order happened to offer first, and a 700 m hill hides a 2000 m one behind it.
         @"  text-placement-priority: [ele];",
-        [NSString stringWithFormat:@"  text-callout-align: %@;", pinTop ? @"top-right" : @"bottom-left"],
+        minDistance > 0 ? [NSString stringWithFormat:@"  text-min-distance: %g;", minDistance] : @"",
+        // ... and the nearer of two summits of the same height wins the slot. No feature field in
+        // the expression on purpose: one that reads only the view state is built ONCE and shared by
+        // every label. '0 - x', not '-x': a leading minus in front of a field parses as a literal.
+        distanceRank > 0
+            ? [NSString stringWithFormat:@"  text-rank: [ele] + [view::distance]/%g;", distanceRank] : @"",
+        [NSString stringWithFormat:@"  text-orientation: %g;", [DemoConfig floatFor:@"peaksAngle"]],
+        [NSString stringWithFormat:@"  text-callout-line-anchor: %@;", lineAnchor],
+        [NSString stringWithFormat:@"  text-callout-align: %@;", align],
+        [NSString stringWithFormat:@"  text-callout-screen-anchor: %g;",
+            pinTop ? [DemoConfig floatFor:@"peaksTopOffset"] : [DemoConfig floatFor:@"peaksBand"]],
+        [NSString stringWithFormat:@"  text-callout-offset: %g;", [DemoConfig floatFor:@"peaksOffset"]],
+        // Pinned to the top there is no room above the row, so the extra rows go DOWN.
+        [NSString stringWithFormat:@"  text-callout-step: %g;", pinTop ? -step : step],
+        [NSString stringWithFormat:@"  text-callout-max-rows: %d;", [DemoConfig intFor:@"peaksRows"]],
+        [NSString stringWithFormat:@"  text-callout-persist: %d;", [DemoConfig intFor:@"peaksPersist"]],
+        [NSString stringWithFormat:@"  text-callout-line-width: %g;", [DemoConfig floatFor:@"peaksLineWidth"]],
+        maxDistance > 0 ? [NSString stringWithFormat:@"  text-max-distance: %g;", maxDistance] : @"",
         @"}"]];
+}
+
+// =================================================================================================
+// MANEUVER ARROWS
+// =================================================================================================
+
+/** width at maneuverZoomRef, minScale of it at maneuverZoomMin, interpolated in between. */
++ (NSString *)maneuverWidthByZoom:(float)width {
+    return [NSString stringWithFormat:@"linear([view::zoom], (%g, %g), (%g, %g))",
+            [DemoConfig floatFor:@"maneuverZoomMin"], width * [DemoConfig floatFor:@"maneuverMinScale"],
+            [DemoConfig floatFor:@"maneuverZoomRef"], width];
+}
+
+/**
+ * What to multiply the fill's arrow numbers by for the casing rule, so the head keeps the border
+ * the shaft has. The head's inradius is r = a*L / (a + hypot(a, L)) for a half-base a and a length
+ * L; the casing head is the fill head grown by (casing - fill) / 2, which for a triangle is the
+ * same shape scaled about its incenter - and the numbers are read against the casing's own, wider
+ * line, hence the width ratio.
+ */
++ (float)maneuverCasingArrowScale {
+    float fill = [DemoConfig floatFor:@"maneuverWidth"];
+    float casing = [DemoConfig floatFor:@"maneuverCaseWidth"];
+    if (fill <= 0 || casing <= fill) {
+        return 1;
+    }
+    double a = [DemoConfig floatFor:@"maneuverArrowWidth"] * fill / 2;
+    double l = [DemoConfig floatFor:@"maneuverArrowLength"] * fill;
+    double inradius = a * l / (a + hypot(a, l));
+    double grown = inradius + (casing - fill) / 2;
+    return (float)(grown / inradius * fill / casing);
+}
+
++ (NSString *)maneuverArrow:(float)arrowWidth length:(float)arrowLength path:(NSString *)headPath {
+    // A custom path replaces the built-in triangle. It is a SKELETON, offset outward by half of
+    // each rule's own line width, so BOTH rules use the same path and the casing lands
+    // (casing - fill) / 2 outside the fill - the border the shaft has, for any shape. The built-in
+    // triangle keeps its own route (grown about its incenter), which is the same offset on a
+    // triangle and needs no path at all.
+    // In path mode the two numbers are the BOX the contour is fitted into - length along the line,
+    // width across it - so they still drive the size, and the path can come from any viewBox.
+    NSString *shape = headPath.length == 0
+        ? [NSString stringWithFormat:@" line-arrow-width: %g; line-arrow-length: %g;", arrowWidth, arrowLength]
+        : [NSString stringWithFormat:@" line-arrow-width: %g; line-arrow-length: %g;"
+                                     @" line-arrow-scale: %g; line-arrow-rotation: %g;"
+                                     @" line-arrow-path: '%@';",
+           arrowWidth, arrowLength, [DemoConfig floatFor:@"maneuverPathScale"],
+           [DemoConfig floatFor:@"maneuverPathRotation"], headPath];
+    return [@" line-join: round; line-cap: round; line-end-arrow: true; line-arrow-only: true;"
+            stringByAppendingString:shape];
+}
+
+/**
+ * ManeuverArrowBuilder serves one LINE per arrow; the head is 'line-end-arrow', which the vt line
+ * tesselator builds on the last vertex out of the same screen-space extrusion the line itself uses.
+ *
+ * That is why the casing works: the casing rule repeats the arrow properties with its own, wider
+ * line, and the head grows about its incenter - so the border is as thick round the head as it is
+ * along the shaft, and shaft and head are ONE shape with no seam between them.
+ *
+ * Everything scales together with the camera: the widths are interpolated over [view::zoom] - the
+ * LIVE camera zoom, re-evaluated every frame, not the tile's - and the head is a multiple of the
+ * width, so the arrow keeps its shape instead of swallowing the junction as the map zooms out.
+ */
++ (NSString *)maneuverStyle:(NSString *)headPath {
+    float width = [DemoConfig floatFor:@"maneuverWidth"];
+    float casing = [DemoConfig floatFor:@"maneuverCaseWidth"];
+    float arrowWidth = [DemoConfig floatFor:@"maneuverArrowWidth"];
+    float arrowLength = [DemoConfig floatFor:@"maneuverArrowLength"];
+    // Both modes need the casing's numbers scaled back, because they are read against ITS wider
+    // line. With a custom path the box is what scales, so the correction is just the ratio of the
+    // widths; the built-in triangle needs the incenter formula instead, because its numbers
+    // describe the drawn shape rather than a skeleton.
+    float scale = headPath.length == 0 ? [self maneuverCasingArrowScale]
+                                       : width / MAX(1.0e-3f, casing);
+
+    NSMutableString *mss = [NSMutableString string];
+    // Whole SHAFT first, then the head over it, each part in its own attachment - an attachment is
+    // drawn at the position of its FIRST rule. The head paints over the line, so it keeps its
+    // outline where it lands on its own shaft (a U-turn, once the map is zoomed out enough) instead
+    // of dissolving into it; and 'line-arrow-only' cuts a slot one line width wide out of the
+    // head's base, so the two read as a single polygon.
+    if (casing > 0) {
+        [mss appendFormat:@"#maneuver::case { line-color: %@; line-width: %@;"
+                          @" line-join: round; line-cap: round; }\n",
+         [DemoConfig stringFor:@"maneuverCaseColor"], [self maneuverWidthByZoom:casing]];
+    }
+    [mss appendFormat:@"#maneuver::fill { line-color: %@; line-width: %@;"
+                      @" line-join: round; line-cap: round; }\n",
+     [DemoConfig stringFor:@"maneuverColor"], [self maneuverWidthByZoom:width]];
+    if (casing > 0) {
+        [mss appendFormat:@"#maneuver::headcase { line-color: %@; line-width: %@;%@ }\n",
+         [DemoConfig stringFor:@"maneuverCaseColor"], [self maneuverWidthByZoom:casing],
+         [self maneuverArrow:arrowWidth * scale length:arrowLength * scale path:headPath]];
+    }
+    [mss appendFormat:@"#maneuver::head { line-color: %@; line-width: %@;%@ }",
+     [DemoConfig stringFor:@"maneuverColor"], [self maneuverWidthByZoom:width],
+     [self maneuverArrow:arrowWidth length:arrowLength path:headPath]];
+    return mss;
 }
 
 + (NSString *)poiTestStyle {
@@ -250,8 +393,290 @@
         @"}"]];
 }
 
+/**
+ * The relief (peak-finder) OUTLINE effect, as a fragment shader for PostProcessEffect: silhouettes
+ * and creases reconstructed from the packed terrain depth the renderer hands the effect. It lives
+ * here, not in the SDK, for the same reason the surface shader does - the SDK provides the
+ * mechanism (an offscreen frame, a depth texture, named parameters) and the application decides
+ * what the map looks like.
+ * Parameters: uIntensity, uOutlineWidth, uHorizonBoost, uDepthThreshold, uCreaseStrength,
+ * uDepthTexelSize, uGrazingFloor, uDistanceFade, uHaze, uInkColor, uPaperColor.
+ */
++ (NSString *)reliefOutlineShader {
+    return [self join:@[
+        @"#version 100",
+        @"#ifdef GL_FRAGMENT_PRECISION_HIGH",
+        @"precision highp float;",
+        @"#else",
+        @"precision mediump float;",
+        @"#endif",
+        @"",
+        @"uniform sampler2D uColorTex;",
+        @"uniform sampler2D uTerrainDepthTex;",
+        @"uniform vec2 uInvScreenSize;",
+        @"uniform vec2 uProjInvScale;",
+        @"uniform float uFar;",
+        @"uniform float uIntensity;",
+        @"uniform float uOutlineWidth;",
+        @"uniform float uHorizonBoost;",
+        @"uniform float uDepthThreshold;",
+        @"uniform float uCreaseStrength;",
+        @"uniform float uDepthTexelSize;",
+        @"uniform float uGrazingFloor;",
+        @"uniform float uDistanceFade;",
+        @"uniform float uHaze;",
+        @"uniform vec4 uInkColor;",
+        @"uniform vec4 uPaperColor;",
+        @"",
+        @"float unpackDepth(vec4 c) {",
+        @"    return dot(c.rgb, vec3(1.0, 1.0 / 255.0, 1.0 / 65025.0));",
+        @"}",
+        @"",
+        @"// Eye-space position of a pixel from the packed linear depth.",
+        @"vec3 eyePos(vec2 uv, float depth) {",
+        @"    vec2 ndc = uv * 2.0 - 1.0;",
+        @"    return vec3(ndc * uProjInvScale, -1.0) * depth * uFar;",
+        @"}",
+        @"",
+        @"void main(void) {",
+        @"    vec2 uv = gl_FragCoord.xy * uInvScreenSize;",
+        @"    vec4 color = texture2D(uColorTex, uv);",
+        @"",
+        @"    vec4 c0 = texture2D(uTerrainDepthTex, uv);",
+        @"    float d0 = unpackDepth(c0);",
+        @"",
+        @"    // One width for the terrain-against-terrain lines, everywhere. Widening them with",
+        @"    // distance instead (the obvious reading of \"the horizon is bolder\") smears the",
+        @"    // far ranges into a solid band: up there the ridges are a pixel apart, so every",
+        @"    // pixel is inside some line. What is bold in a panorama is the SKY silhouette,",
+        @"    // and that gets its own, wider test below.",
+        @"    // Never narrower than uDepthTexelSize screen pixels: the terrain depth runs at",
+        @"    // half resolution with nearest filtering, so a narrower step samples the same",
+        @"    // texel twice and every comparison below degenerates.",
+        @"    vec2 delta = uInvScreenSize * max(uOutlineWidth, uDepthTexelSize);",
+        @"    vec2 skyDelta = uInvScreenSize * max(uOutlineWidth * (1.0 + uHorizonBoost), uDepthTexelSize);",
+        @"    vec4 cx0 = texture2D(uTerrainDepthTex, uv - vec2(delta.x, 0.0));",
+        @"    vec4 cx1 = texture2D(uTerrainDepthTex, uv + vec2(delta.x, 0.0));",
+        @"    vec4 cy0 = texture2D(uTerrainDepthTex, uv - vec2(0.0, delta.y));",
+        @"    vec4 cy1 = texture2D(uTerrainDepthTex, uv + vec2(0.0, delta.y));",
+        @"    float dx0 = unpackDepth(cx0);",
+        @"    float dx1 = unpackDepth(cx1);",
+        @"    float dy0 = unpackDepth(cy0);",
+        @"    float dy1 = unpackDepth(cy1);",
+        @"",
+        @"    // The local surface, from the four neighbours. Two things below need it: a",
+        @"    // surface seen edge-on legitimately changes depth fast from pixel to pixel, and a",
+        @"    // fold has to be told apart from a merely oblique slope.",
+        @"    vec3 p0 = eyePos(uv, d0);",
+        @"    vec3 tx0 = eyePos(uv - vec2(delta.x, 0.0), dx0) - p0;",
+        @"    vec3 tx1 = eyePos(uv + vec2(delta.x, 0.0), dx1) - p0;",
+        @"    vec3 ty0 = eyePos(uv - vec2(0.0, delta.y), dy0) - p0;",
+        @"    vec3 ty1 = eyePos(uv + vec2(0.0, delta.y), dy1) - p0;",
+        @"    // Two samples that landed on the same depth texel give a zero tangent, and",
+        @"    // normalizing that is undefined - it painted the whole near field grey.",
+        @"    float minLength = 1.0e-4 * d0 * uFar;",
+        @"    bool tangentsValid = length(tx1) > minLength && length(ty1) > minLength;",
+        @"    float grazing = 1.0;",
+        @"    if (tangentsValid) {",
+        @"        vec3 surfaceNormal = normalize(cross(tx1, ty1));",
+        @"        grazing = abs(dot(normalize(-p0), surfaceNormal));",
+        @"    }",
+        @"",
+        @"    // Silhouette: the line belongs to the NEARER side of a depth break, so only a",
+        @"    // neighbour FURTHER away counts. Testing the absolute difference draws the same",
+        @"    // ridge twice, once on each side, which at the horizon merges into a smear.",
+        @"    // The threshold is relative to the depth, or the far half of the view draws",
+        @"    // no line at all - and it is relaxed where the surface is seen EDGE-ON, because",
+        @"    // there the depth runs away between neighbouring pixels without anything being",
+        @"    // in front of anything: flat ground at its own horizon drew a solid black band.",
+        @"    float behind = max(max(dx0 - d0, dx1 - d0), max(dy0 - d0, dy1 - d0));",
+        @"    float threshold = uDepthThreshold * (0.0008 + 0.02 * d0) / max(grazing, uGrazingFloor);",
+        @"    float edge = smoothstep(threshold, threshold * 2.0, behind);",
+        @"    // Terrain-against-terrain lines fade with distance so that the horizon - the sky",
+        @"    // silhouette below, which does not fade - is the boldest line in the frame.",
+        @"    edge *= mix(1.0, uDistanceFade, d0);",
+        @"    // ...and terrain against the sky always is one (coverage, not depth: a sky pixel",
+        @"    // is at the far plane, which the relative threshold above would forgive). This is",
+        @"    // the horizon line, and it is the one that is drawn wide.",
+        @"    float skyNeighbour = 1.0 - min(",
+        @"        min(texture2D(uTerrainDepthTex, uv - vec2(skyDelta.x, 0.0)).a, texture2D(uTerrainDepthTex, uv + vec2(skyDelta.x, 0.0)).a),",
+        @"        min(texture2D(uTerrainDepthTex, uv - vec2(0.0, skyDelta.y)).a, texture2D(uTerrainDepthTex, uv + vec2(0.0, skyDelta.y)).a));",
+        @"    edge = max(edge, skyNeighbour * c0.a);",
+        @"",
+        @"    // Ridges and valleys: the two tangent directions away from this pixel point",
+        @"    // straight apart on a flat surface (dot -1) and fold together over a crest.",
+        @"    // Done on eye positions rather than on depth, so a merely oblique slope - which",
+        @"    // is most of a panorama - does not read as a fold.",
+        @"    float cover = min(min(cx0.a, cx1.a), min(cy0.a, cy1.a)) * c0.a;",
+        @"    if (uCreaseStrength > 0.0 && cover > 0.0) {",
+        @"        float fold = 0.0;",
+        @"        if (length(tx0) > minLength && length(tx1) > minLength) {",
+        @"            fold = max(fold, 1.0 + dot(normalize(tx0), normalize(tx1)));",
+        @"        }",
+        @"        if (length(ty0) > minLength && length(ty1) > minLength) {",
+        @"            fold = max(fold, 1.0 + dot(normalize(ty0), normalize(ty1)));",
+        @"        }",
+        @"        // Same reasoning as the silhouette threshold: an edge-on surface folds in",
+        @"        // projection without folding in the world.",
+        @"        edge = max(edge, smoothstep(0.05, 0.4, fold) * uCreaseStrength * grazing * mix(1.0, uDistanceFade, d0));",
+        @"    }",
+        @"",
+        @"    // Aerial perspective: the shaded surface fades into the paper with distance, so",
+        @"    // the far ranges read as pale outlines and the near ground keeps its shading.",
+        @"    vec3 shaded = mix(color.rgb, uPaperColor.rgb, uHaze * d0 * c0.a);",
+        @"    vec3 stylized = mix(shaded, uInkColor.rgb, edge * uInkColor.a);",
+        @"",
+        @"    gl_FragColor = vec4(mix(color.rgb, stylized, uIntensity), 1.0);",
+        @"}"]];
+}
+
+// =================================================================================================
+// NUTI PARAMETER STYLE
+// 'nuti::' parameters are user settings the style reacts to at runtime (decoder.setStyleParameter).
+// They can only be DECLARED in a style project, so the project is built in memory here:
+// project.json + style.mss, zipped, wrapped in a CompiledStyleSet.
+// =================================================================================================
+
++ (NSString *)nutiParameter {
+    return @"show_relief";
+}
+
++ (NTMBVectorTileDecoder *)createNutiDecoder {
+    NSString *parameter = [self nutiParameter];
+    // 'layers' is TOP -> BOTTOM (reversed into draw order) and must list every composite slot.
+    NSString *projectJson = [self join:@[
+        @"{",
+        @"  \"styles\": [\"style.mss\"],",
+        @"  \"layers\": [\"contour\", \"building\", \"transportation\", \"satellite\", \"hillshade\", \"landcover\", \"water\"],",
+        [NSString stringWithFormat:@"  \"nutiparameters\": { \"%@\": { \"default\": true } }", parameter],
+        @"}"]];
+    NSString *mss = [self join:@[
+        [NSString stringWithFormat:@"Map { background-color: %@; }", [DemoConfig stringFor:@"bg"]],
+        @"#water { polygon-fill: #9cc3e0; }",
+        [NSString stringWithFormat:@"#landcover { polygon-fill: #dbe8cc;%@ }", [self landcoverOpacity]],
+        // the hillshade slot exists only while the user setting is on
+        [NSString stringWithFormat:@"#hillshade['nuti::%@'=true][zoom>=4] {", parameter],
+        @"  hillshade-opacity: linear([view::zoom], (4, 0.5), (12, 0.9));",
+        @"  hillshade-exaggeration: linear([view::zoom], (4, 0.6), (12, 1.4));",
+        @"  hillshade-illumination-direction: 315;",
+        @"  hillshade-shadow-color: #103040;",
+        @"}",
+        [NSString stringWithFormat:@"#satellite[zoom>=%d] { raster-opacity: 0.45; }",
+            [DemoConfig intFor:@"satZoom"]],
+        @"#contour[zoom>=12] { line-color: #9a5a12; line-width: 0.8; line-opacity: 0.7; }",
+        @"#transportation { line-color: #ffffff; line-width: 1.2; }",
+        [NSString stringWithFormat:
+            @"#transportation['class'='motorway'] { line-color: #e27d60; line-width: %@; }",
+            [DemoConfig stringFor:@"motorwayWidth"]],
+        [DemoConfig boolFor:@"bld3d"]
+            ? [NSString stringWithFormat:
+                @"#building[zoom>=14] { building-fill: #d9cfc4; building-height: %g; }",
+                [DemoConfig floatFor:@"bldHeight"]]
+            : @"#building[zoom>=14] { polygon-fill: #d9cfc4; }"]];
+
+    NSMutableData *zip = [self zipWithEntries:@{ @"project.json": projectJson, @"style.mss": mss }];
+    if (!zip) {
+        NSLog(@"CartoDemo: could not build the nuti project style");
+        return nil;
+    }
+    NTBinaryData *data = [[NTBinaryData alloc] initWithDataPtr:(unsigned char *)zip.bytes
+                                                          size:(unsigned int)zip.length];
+    NTZippedAssetPackage *package = [[NTZippedAssetPackage alloc] initWithZipData:data];
+    return [[NTMBVectorTileDecoder alloc] initWithCompiledStyleSet:
+            [[NTCompiledStyleSet alloc] initWithAssetPackage:package]];
+}
+
+/**
+ * A minimal STORED (uncompressed) zip. Foundation has no zip writer, and the whole archive here is
+ * two small text files, so deflate would buy nothing - the SDK's reader accepts stored entries.
+ */
++ (NSMutableData *)zipWithEntries:(NSDictionary<NSString *, NSString *> *)entries {
+    NSMutableData *out = [NSMutableData data];
+    NSMutableData *directory = [NSMutableData data];
+    uint16_t count = 0;
+
+    for (NSString *name in entries) {
+        NSData *nameBytes = [name dataUsingEncoding:NSUTF8StringEncoding];
+        NSData *content = [entries[name] dataUsingEncoding:NSUTF8StringEncoding];
+        uint32_t crc = [self crc32OfData:content];
+        uint32_t offset = (uint32_t)out.length;
+
+        uint8_t local[30] = {0};
+        uint32_t signature = 0x04034b50;
+        memcpy(local, &signature, 4);
+        local[4] = 20;                                  // version needed
+        local[8] = 0;                                   // method 0 = stored
+        memcpy(local + 14, &crc, 4);
+        uint32_t size = (uint32_t)content.length;
+        memcpy(local + 18, &size, 4);                   // compressed size
+        memcpy(local + 22, &size, 4);                   // uncompressed size
+        uint16_t nameLength = (uint16_t)nameBytes.length;
+        memcpy(local + 26, &nameLength, 2);
+        [out appendBytes:local length:sizeof(local)];
+        [out appendData:nameBytes];
+        [out appendData:content];
+
+        uint8_t entry[46] = {0};
+        uint32_t centralSignature = 0x02014b50;
+        memcpy(entry, &centralSignature, 4);
+        entry[4] = 20;                                  // version made by
+        entry[6] = 20;                                  // version needed
+        entry[10] = 0;                                  // method 0 = stored
+        memcpy(entry + 16, &crc, 4);
+        memcpy(entry + 20, &size, 4);
+        memcpy(entry + 24, &size, 4);
+        memcpy(entry + 28, &nameLength, 2);
+        memcpy(entry + 42, &offset, 4);
+        [directory appendBytes:entry length:sizeof(entry)];
+        [directory appendData:nameBytes];
+        count++;
+    }
+
+    uint32_t directoryOffset = (uint32_t)out.length;
+    [out appendData:directory];
+
+    uint8_t end[22] = {0};
+    uint32_t endSignature = 0x06054b50;
+    memcpy(end, &endSignature, 4);
+    memcpy(end + 8, &count, 2);
+    memcpy(end + 10, &count, 2);
+    uint32_t directorySize = (uint32_t)directory.length;
+    memcpy(end + 12, &directorySize, 4);
+    memcpy(end + 16, &directoryOffset, 4);
+    [out appendBytes:end length:sizeof(end)];
+    return out;
+}
+
++ (uint32_t)crc32OfData:(NSData *)data {
+    static uint32_t table[256];
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        for (uint32_t i = 0; i < 256; i++) {
+            uint32_t c = i;
+            for (int k = 0; k < 8; k++) {
+                c = (c & 1) ? (0xedb88320u ^ (c >> 1)) : (c >> 1);
+            }
+            table[i] = c;
+        }
+    });
+    const uint8_t *bytes = data.bytes;
+    uint32_t crc = 0xffffffffu;
+    for (NSUInteger i = 0; i < data.length; i++) {
+        crc = table[(crc ^ bytes[i]) & 0xff] ^ (crc >> 8);
+    }
+    return crc ^ 0xffffffffu;
+}
+
 + (NTMBVectorTileDecoder *)createDecoder {
     NSString *source = [DemoConfig stringFor:@"style"];
+
+    if ([source isEqualToString:@"nuti"]) {
+        NTMBVectorTileDecoder *decoder = [self createNutiDecoder];
+        if (decoder) {
+            return decoder;
+        }
+        NSLog(@"CartoDemo: falling back to the inline style");
+    }
 
     if ([source isEqualToString:@"zip"] || [source isEqualToString:@"assets"]) {
         // A style zip bundled with the app, mirroring the Android demo's osm.zip path.

@@ -1,4 +1,5 @@
 #import "DemoConfig.h"
+#import "DemoAstro.h"
 
 @implementation DemoConfig
 
@@ -18,7 +19,7 @@ static NSMutableDictionary *sValues = nil;
         @"singlePass":          @YES,
 
         // --- layers ---
-        @"satellite":           @NO,
+        @"satLayer":            @NO,
         @"hillshade":           @NO,
         @"hypso":               @NO,
         @"contourLayer":        @NO,
@@ -159,6 +160,7 @@ static NSMutableDictionary *sValues = nil;
         @"routeCap":            @"round",
         @"routeMiterLimit":     @4.0f,
         @"routeOpacity":        @1.0f,
+        @"routeOpacityMode":    @"geom",      // geom | layer
         @"maneuvers":           @NO,
         @"maneuverBefore":      @30.0f,
         @"maneuverAfter":       @30.0f,
@@ -166,50 +168,174 @@ static NSMutableDictionary *sValues = nil;
         @"maneuverCaseWidth":   @13.0f,
         @"maneuverColor":       @"#FFFFFF",
         @"maneuverCaseColor":   @"#1A73E8",
+        @"maneuverArrowWidth":  @2.4f,
+        @"maneuverArrowLength": @1.9f,
+        @"maneuverZoomRef":     @17.0f,
+        @"maneuverZoomMin":     @12.0f,
+        @"maneuverMinScale":    @0.3f,
+        // An explicit head outline wins over the SVG; both empty = the built-in triangle.
+        @"maneuverPath":        @"",
+        @"maneuverSvg":         @"",
+        @"maneuverPathScale":   @1.0f,
+        @"maneuverPathRotation": @0.0f,
 
-        // --- vector elements / extra layers ---
-        @"hypso":               @NO,
+        // --- peak callout labels ---
         @"peaks":               @NO,
-        @"peaksMinZoom":        @9,
-        @"peaksTextSize":       @15.0f,
+        @"peaksMinZoom":        @8,
+        @"peaksTextSize":       @16.0f,
+        @"peaksAngle":          @55.0f,
+        @"peaksBand":           @0.25f,
+        @"peaksOffset":         @10.0f,
+        @"peaksStep":           @26.0f,
+        @"peaksRows":           @1,
+        @"peaksMinDistance":    @14.0f,
+        @"peaksPersist":        @2,
+        @"peaksLineWidth":      @1.0f,
+        @"peaksLineAnchor":     @"",
+        @"peaksAlign":          @"",
+        @"peaksPinTop":         @YES,
+        @"peaksTopOffset":      @0.03f,
+        @"peaksEleScale":       @0.62f,
+        @"peaksEleColor":       @"#6b7280",
+        @"peaksEleGap":         @3.0f,
+        @"peaksEleDy":          @0.0f,
+        @"peaksDistanceRank":   @100.0f,
+        @"peaksBgColor":        @"#ffffff",
         @"peaksBgOpacity":      @0.8f,
-        @"peaksPinTop":         @NO,
+        @"peaksBgRadius":       @3.0f,
+        @"peaksBgPaddingX":     @4.0f,
+        @"peaksBgPaddingY":     @2.0f,
+        @"peaksMaxDistance":    @120000.0f,
 
-        // --- peak finder / relief surface ---
+        // --- peak finder / relief surface / outline effect ---
         @"peakfinder":          @NO,
+        @"peakfinderDelay":     @8000.0f,
         @"peakFinderTilt":      @25.0f,
-        @"peakFinderZoom":      @13.0f,
+        @"peakFinderElevation": @0.0f,
+        @"peakFinderOcclusion": @0.15f,
+        @"peakFinderViewDistance": @3.0f,
+        @"peakFinderFlyElevation": @1000.0f,
+        @"peakFinderFlyZoom":   @13.6f,
+        @"peakFinderFlyDuration": @3.5f,
+        @"peakFinderFlyClimb":  @1500.0f,
         @"reliefSurface":       @NO,
+        @"reliefOutline":       @NO,
         @"reliefDark":          @NO,
-        @"reliefShade":         @0.7f,
+        @"reliefShade":         @0.55f,
         @"reliefAmbient":       @0.35f,
-        @"reliefHaze":          @0.5f,
-        @"reliefHazeDistance":  @40000.0f,
+        @"reliefHaze":          @0.7f,
+        @"reliefHazeDistance":  @60000.0f,
+        @"reliefWidth":         @1.2f,
+        @"reliefHorizonBoost":  @2.5f,
+        @"reliefThreshold":     @1.0f,
+        @"reliefCrease":        @0.6f,
+        // The relief palette, one pair per mode - the surface, the ink, the plate and the sky all
+        // come from these.
+        @"reliefInkLight":      @"#14141a",
+        @"reliefInkDark":       @"#e8ecf5",
+        @"reliefPaperLight":    @"#f7f7f4",
+        @"reliefPaperDark":     @"#10131a",
+        @"reliefShadeLight":    @"#6c7280",
+        @"reliefShadeDark":     @"#5a6070",
+        @"reliefSkyLight":      @"#9fc6e8",
+        @"reliefSkyDark":       @"#070a12",
+
+        // --- AR: the relief view over the camera ---
+        @"ar":                  @NO,
+        @"arOrientation":       @YES,
+        @"arCamera":            @YES,
 
         // --- free roam ---
-        @"freeRoam":            @"off",
+        @"freeRoam":            @"off",       // off | look | fps
+        @"panSpeed":            @"anchored",  // map | anchored | constant
+        @"lookSensitivity":     @90.0f,
+        @"moveSpeed":           @0.5f,
         @"lookUp":              @90.0f,
 
-        // --- celestial objects and stars ---
+        // --- celestial objects ---
         @"celestial":           @NO,
         @"celestialSun":        @YES,
         @"celestialMoon":       @YES,
         @"celestialArc":        @YES,
         @"celestialMoonArc":    @YES,
+        @"celestialMoonPhase":  @YES,
         @"celestialSunSize":    @2.5f,
         @"celestialMoonSize":   @2.0f,
         @"celestialArcWidth":   @2.0f,
-        @"stars":               @NO,
-        @"starsSize":           @5.0f,
-        @"starsLabels":         @YES,
-        @"starsEquator":        @NO,
 
-        // --- device orientation ---
-        @"orientation":         @NO,
+        // --- stars ---
+        @"stars":               @NO,
+        @"starsStars":          @YES,
+        @"starsFigures":        @YES,
+        @"starsPlanets":        @YES,
+        @"starsEquator":        @NO,
+        @"starsSize":           @5.0f,
+        @"starsSizePerMagnitude": @0.55f,
+        @"starsFaintestSize":   @1.4f,
+        @"starsFigureWidth":    @1.5f,
+        @"starsFigureClickRadius": @2.5f,
+        @"starsPlanetSize":     @1.2f,
+        @"starsLabels":         @YES,
+        @"starsLabelTextSize":  @15.0f,
+        @"starsLabelScale":     @1.0f,
+        @"starsLabelOpacity":   @0.85f,
+
+        // --- star sky: the map switched off entirely, only the sky left ---
+        @"starSky":             @NO,
+        @"starSkyFade":         @600.0f,
+        @"starSkyOrientation":  @NO,
+        @"starSkyCamera":       @NO,
+        @"starSkyTranslucent":  @YES,
+
+        // The date the sky is drawn for; 0 means TODAY, which is what makes the sun, the moon, the
+        // planets and the stars the ones actually up there.
+        @"sunYear":             @0,
+        @"sunMonth":            @0,
+        @"sunDay":              @0,
+
+        // --- scripted camera moves, for screen recordings without touch input ---
+        @"anim":                @"",          // "" | zoom | pan | rotate | zoomseq
+        @"animDelay":           @12000.0f,
+        @"animDuration":        @8.0f,
+        @"animZoomDelta":       @3.0f,
+        @"animLonDelta":        @0.05f,
+        @"animLatDelta":        @0.0f,
+        @"animRotation":        @180.0f,
+        @"animZoomOut":         @10.2f,
+        @"animSettle":          @8000.0f,
+
+        // --- nuti style parameter ---
+        @"nutiInterval":        @0.0f,
+
+        // --- debug ---
+        @"tileBorders":         @NO,
 
         // --- app ---
         @"ui":                  @YES,
     } mutableCopy];
+
+    // TODAY, unless the launch arguments say otherwise: what the sky demos draw is then the sky
+    // that is actually up there.
+    int year, month, day;
+    double hour;
+    [DemoAstro nowUtcYear:&year month:&month day:&day hour:&hour];
+    sValues[@"sunYear"] = @(year);
+    sValues[@"sunMonth"] = @(month);
+    sValues[@"sunDay"] = @(day);
+}
+
++ (double)currentHourUtc {
+    float explicitHour = [self floatFor:@"sunHour"];
+    if (explicitHour >= 0) {
+        return explicitHour;
+    }
+    if ([self boolFor:@"daycycle"]) {
+        return [self floatFor:@"dayCycleHour"];
+    }
+    int year, month, day;
+    double hour;
+    [DemoAstro nowUtcYear:&year month:&month day:&day hour:&hour];
+    return hour;
 }
 
 + (id)valueFor:(NSString *)key {

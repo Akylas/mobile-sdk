@@ -2,16 +2,23 @@
 #import "CartoMobileSDK.h"
 
 /**
- * Turns the map with the device, the counterpart of scripts/android-dev's DemoOrientation.java.
- * Android reads the rotation vector sensor; here it is CoreMotion's device motion, whose yaw is
- * already fused from gyro and magnetometer.
+ * Points the camera where the device points: turning the phone turns the view, raising it looks up.
+ * The counterpart of scripts/android-dev's DemoOrientation.java - Android reads the rotation vector
+ * sensor, here it is CoreMotion's device motion, which is fused the same way.
  *
- * Only useful on a device - the simulator reports no motion - but it is wired the same way so the
- * free-roam and peak-finder modes have something to drive them.
+ * This is the star-sky demo's reason for a negative tilt. The map's rotation is the opposite of the
+ * heading (rotating the map right turns the view left), and the elevation above the horizon IS the
+ * negative tilt the SDK now supports - at tilt -90 the view looks straight at the zenith.
+ *
+ * Only useful on a device: the simulator reports no device motion.
  */
 @interface DemoOrientation : NSObject
 
-+ (void)setFollowing:(BOOL)following mapView:(NTMapView *)mapView;
-+ (BOOL)isFollowing;
+- (instancetype)initWithMapView:(NTMapView *)mapView;
+
+@property (nonatomic, readonly) BOOL running;
+
+- (void)start;
+- (void)stop;
 
 @end

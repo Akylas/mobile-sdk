@@ -1,159 +1,217 @@
 #import "DemoCelestial.h"
+#import "DemoAstro.h"
 #import "DemoConfig.h"
-#import "DemoSky.h"
+#import "DemoToast.h"
+#import <UIKit/UIKit.h>
 // Fork additions, not listed in the umbrella header.
 #import "NTCelestialLayer.h"
 #import "NTCelestialObject.h"
 #import "NTCelestialSprite.h"
 #import "NTCelestialArc.h"
+#import "NTCelestialEventListener.h"
 
-@implementation DemoCelestial
+static NSString *const META_NAME = @"name";
+static const int MOON_BITMAP_SIZE = 128;
+/** The sampling step of a daily path, in minutes. 10 is smooth at any field of view. */
+static const int PATH_STEP_MINUTES = 10;
 
-static NTCelestialLayer *sLayer = nil;
+@interface DemoCelestialListener : NTCelestialEventListener
+@end
 
-+ (void)removeFromMapView:(NTMapView *)mapView {
-    if (sLayer) {
-        [[mapView getLayers] remove:sLayer];
-        sLayer = nil;
-    }
+@implementation DemoCelestialListener
+
+- (BOOL)onCelestialObjectClicked:(NTClickInfo *)clickInfo celestialObject:(NTCelestialObject *)object {
+    [DemoToast show:[NSString stringWithFormat:@"%@  az %.0f°  alt %.0f°",
+                     [[object getMetaDataElement:META_NAME] getString],
+                     [object getAzimuth], [object getAltitude]]];
+    return YES;
 }
 
-+ (NTColor *)colorWithRed:(int)red green:(int)green blue:(int)blue alpha:(int)alpha {
-    return [[NTColor alloc] initWithR:red g:green b:blue a:alpha];
+@end
+
+@implementation DemoCelestial {
+    NTCelestialLayer *_layer;
+    NTCelestialSprite *_sun;
+    NTCelestialSprite *_moon;
+    NTCelestialArc *_sunPath;
+    NTCelestialArc *_moonPath;
+    double _lastMoonPhase;
+    DemoCelestialListener *_listener;
 }
 
-+ (void)applyToMapView:(NTMapView *)mapView {
-    [self removeFromMapView:mapView];
-    if (![DemoConfig boolFor:@"celestial"] && ![DemoConfig boolFor:@"stars"]) {
-        return;
+- (instancetype)init {
+    if ((self = [super init])) {
+        _lastMoonPhase = -1;
     }
-
-    NTProjection *projection = [[mapView getOptions] getBaseProjection];
-    NTMapPos *centre = [projection toWgs84:[mapView getFocusPos]];
-    double latitude = [centre getY];
-    float hour = [DemoConfig boolFor:@"daycycle"] ? [DemoConfig floatFor:@"dayCycleHour"] : 12.0f;
-
-    sLayer = [[NTCelestialLayer alloc] init];
-
-    if ([DemoConfig boolFor:@"celestial"]) {
-        [self addSunAndMoon:sLayer hour:hour latitude:latitude];
-    }
-    if ([DemoConfig boolFor:@"stars"]) {
-        [self addStars:sLayer latitude:latitude];
-    }
-    [[mapView getLayers] add:sLayer];
+    return self;
 }
 
-+ (void)addSunAndMoon:(NTCelestialLayer *)layer hour:(float)hour latitude:(double)latitude {
-    if ([DemoConfig boolFor:@"celestialSun"]) {
-        NTCelestialSprite *sun = [[NTCelestialSprite alloc] init];
-        [sun setAngularSize:[DemoConfig floatFor:@"celestialSunSize"]];
-        [sun setColor:[self colorWithRed:255 green:238 blue:170 alpha:255]];
-        [sun setSoftness:0.35f];
-        [sun setDirection:[DemoSky sunAzimuthForHour:hour latitude:latitude]
-                 altitude:[DemoSky sunAltitudeForHour:hour latitude:latitude]
-                 distance:0];
-        [layer add:sun];
-    }
+- (NTCelestialLayer *)createLayer:(NTMapView *)mapView {
+    _layer = [[NTCelestialLayer alloc] init];
+    // Drawn after any post-process effect (still depth-tested, so a path still goes behind the
+    // ridges): the relief look is for the ground, not for the objects over it.
+    [_layer setPostProcessed:NO];
 
-    if ([DemoConfig boolFor:@"celestialMoon"]) {
-        NTCelestialSprite *moon = [[NTCelestialSprite alloc] init];
-        [moon setAngularSize:[DemoConfig floatFor:@"celestialMoonSize"]];
-        [moon setColor:[self colorWithRed:235 green:235 blue:225 alpha:255]];
-        [moon setSoftness:0.2f];
-        // Roughly opposite the sun, which is close enough for a full moon and enough to see the
-        // arc and the sprite behave.
-        [moon setDirection:[DemoSky sunAzimuthForHour:fmodf(hour + 12.0f, 24.0f) latitude:latitude]
-                  altitude:[DemoSky sunAltitudeForHour:fmodf(hour + 12.0f, 24.0f) latitude:latitude]
-                  distance:0];
-        [layer add:moon];
-    }
+    _sun = [[NTCelestialSprite alloc] init];
+    [_sun setAngularSize:[DemoConfig floatFor:@"celestialSunSize"]];
+    [_sun setColor:[[NTColor alloc] initWithR:255 g:244 b:214 a:255]];
+    [_sun setSoftness:0.35f];
+    [_sun setClickRadius:3];
+    [_sun setMetaDataElement:META_NAME element:[[NTVariant alloc] initWithString:@"Sun"]];
 
-    // The day arc: the path the sun walks across the sky, as a circle on the dome. A circle about
-    // the celestial pole is exactly what a day's motion is, so this is the arc rather than a
-    // sampled polyline.
-    if ([DemoConfig boolFor:@"celestialArc"]) {
-        NTCelestialArc *arc = [[NTCelestialArc alloc] init];
-        [arc setCircle:(latitude >= 0 ? 0.0f : 180.0f)
-          axisAltitude:(float)fabs(latitude)
-                radius:90.0f];
-        [arc setWidth:[DemoConfig floatFor:@"celestialArcWidth"]];
-        [arc setColor:[self colorWithRed:255 green:210 blue:120 alpha:200]];
-        [arc setBelowHorizonVisible:YES];
-        [layer add:arc];
-    }
-    if ([DemoConfig boolFor:@"celestialMoonArc"]) {
-        NTCelestialArc *arc = [[NTCelestialArc alloc] init];
-        // The moon's path is tilted a few degrees off the sun's; enough to tell them apart.
-        [arc setCircle:(latitude >= 0 ? 0.0f : 180.0f)
-          axisAltitude:(float)fabs(latitude) + 5.0f
-                radius:90.0f];
-        [arc setWidth:[DemoConfig floatFor:@"celestialArcWidth"]];
-        [arc setColor:[self colorWithRed:170 green:190 blue:230 alpha:170]];
-        [arc setBelowHorizonVisible:YES];
-        [layer add:arc];
-    }
+    _moon = [[NTCelestialSprite alloc] init];
+    [_moon setAngularSize:[DemoConfig floatFor:@"celestialMoonSize"]];
+    [_moon setColor:[[NTColor alloc] initWithR:245 g:245 b:235 a:255]];
+    [_moon setSoftness:0.25f];
+    [_moon setClickRadius:3];
+    [_moon setMetaDataElement:META_NAME element:[[NTVariant alloc] initWithString:@"Moon"]];
+
+    _sunPath = [[NTCelestialArc alloc] init];
+    [_sunPath setColor:[[NTColor alloc] initWithR:255 g:216 b:120 a:160]];
+    [_sunPath setWidth:[DemoConfig floatFor:@"celestialArcWidth"]];
+    [_sunPath setBelowHorizonVisible:NO];
+    [_sunPath setClickRadius:2];
+    [_sunPath setMetaDataElement:META_NAME element:[[NTVariant alloc] initWithString:@"Sun path"]];
+
+    _moonPath = [[NTCelestialArc alloc] init];
+    [_moonPath setColor:[[NTColor alloc] initWithR:170 g:190 b:255 a:130]];
+    [_moonPath setWidth:[DemoConfig floatFor:@"celestialArcWidth"]];
+    [_moonPath setBelowHorizonVisible:NO];
+    [_moonPath setClickRadius:2];
+    [_moonPath setMetaDataElement:META_NAME element:[[NTVariant alloc] initWithString:@"Moon path"]];
+
+    [_layer add:_sun];
+    [_layer add:_moon];
+    [_layer add:_sunPath];
+    [_layer add:_moonPath];
+
+    _listener = [[DemoCelestialListener alloc] init];
+    [_layer setCelestialEventListener:_listener];
+    return _layer;
 }
 
 /**
- * The brightest stars, by azimuth/altitude at the map's latitude.
- *
- * The Android demo carries a real catalogue (DemoStarCatalogue, ~300 entries with RA/dec and
- * magnitudes) and converts through hour angle. This is a compact stand-in: enough bright stars
- * and figures to see the field render, size-by-magnitude work and the labels place, without
- * porting the catalogue wholesale. Positions are indicative, not astrometric.
+ * Both bodies come from DemoAstro rather than from the light options, because the panel can drive
+ * the sun's azimuth and altitude by hand: what is drawn here is always where the body really is on
+ * that date, which is the only version of it whose daily arc means anything.
  */
-+ (void)addStars:(NTCelestialLayer *)layer latitude:(double)latitude {
-    // name, azimuth, altitude, magnitude
-    NSArray *catalogue = @[
-        @[@"Polaris",   @0.0f,   @(latitude), @1.98f],
-        @[@"Vega",      @70.0f,  @62.0f,  @0.03f],
-        @[@"Deneb",     @45.0f,  @70.0f,  @1.25f],
-        @[@"Altair",    @110.0f, @45.0f,  @0.77f],
-        @[@"Arcturus",  @250.0f, @55.0f,  @(-0.05f)],
-        @[@"Capella",   @330.0f, @48.0f,  @0.08f],
-        @[@"Sirius",    @180.0f, @22.0f,  @(-1.46f)],
-        @[@"Betelgeuse",@195.0f, @40.0f,  @0.50f],
-        @[@"Rigel",     @186.0f, @28.0f,  @0.13f],
-        @[@"Aldebaran", @215.0f, @52.0f,  @0.85f],
-        @[@"Procyon",   @160.0f, @35.0f,  @0.34f],
-        @[@"Spica",     @230.0f, @30.0f,  @0.97f],
-        @[@"Antares",   @205.0f, @18.0f,  @1.09f],
-        @[@"Pollux",    @145.0f, @58.0f,  @1.14f],
-        @[@"Regulus",   @260.0f, @42.0f,  @1.35f],
-    ];
+- (void)update {
+    if (!_layer) {
+        return;
+    }
+    double hourUtc = [DemoConfig currentHourUtc];
+    double lat = [DemoConfig doubleFor:@"lat"];
+    double lon = [DemoConfig doubleFor:@"lon"];
+    double n = [DemoAstro daysSinceJ2000WithYear:[DemoConfig intFor:@"sunYear"]
+                                           month:[DemoConfig intFor:@"sunMonth"]
+                                             day:[DemoConfig intFor:@"sunDay"]
+                                            hour:hourUtc];
 
-    float brightest = [DemoConfig floatFor:@"starsSize"];
-    float perMagnitude = 0.55f;
-    float faintest = 1.4f;
+    DemoHorizon sun = [DemoAstro sunHorizon:n lat:lat lon:lon];
+    [_sun setDirection:sun.azimuth altitude:sun.altitude distance:0];
 
-    for (NSArray *star in catalogue) {
-        float magnitude = [star[3] floatValue];
-        // Brighter star, bigger dot: magnitudes run backwards, hence the subtraction.
-        float size = fmaxf(faintest, brightest - (magnitude + 1.5f) * perMagnitude);
+    DemoHorizon moon = [DemoAstro moonHorizon:n lat:lat lon:lon];
+    [_moon setDirection:moon.azimuth altitude:moon.altitude distance:0];
+    [self updateMoonPhase:n];
 
-        NTCelestialSprite *sprite = [[NTCelestialSprite alloc] init];
-        [sprite setScreenSize:size];
-        [sprite setColor:[self colorWithRed:255 green:255 blue:245 alpha:230]];
-        [sprite setSoftness:0.6f];
-        [sprite setDirection:[star[1] floatValue] altitude:[star[2] floatValue] distance:0];
-        if ([DemoConfig boolFor:@"starsLabels"]) {
-            [sprite setMetaDataElement:@"name" element:[[NTVariant alloc] initWithString:star[0]]];
+    // The path across the day, sampled from the same ephemeris every PATH_STEP_MINUTES from
+    // midnight to midnight. A circle about the celestial pole would be a good enough sun path
+    // (declination barely moves in a day), but the moon's does move - a quarter of the sky in a day
+    // - so both are sampled and the two arcs are then the same kind of object.
+    [_sunPath setDirections:[self dailyPath:YES lat:lat lon:lon]];
+    [_moonPath setDirections:[self dailyPath:NO lat:lat lon:lon]];
+
+    [_sun setVisible:[DemoConfig boolFor:@"celestialSun"]];
+    [_moon setVisible:[DemoConfig boolFor:@"celestialMoon"]];
+    [_sunPath setVisible:[DemoConfig boolFor:@"celestialArc"]];
+    [_moonPath setVisible:[DemoConfig boolFor:@"celestialMoonArc"]];
+    NSLog(@"CartoDemo: sun az %.0f alt %.0f, moon az %.0f alt %.0f, hour %.2f UTC %d-%d-%d",
+          sun.azimuth, sun.altitude, moon.azimuth, moon.altitude, hourUtc,
+          [DemoConfig intFor:@"sunYear"], [DemoConfig intFor:@"sunMonth"], [DemoConfig intFor:@"sunDay"]);
+}
+
+/** The body's track over the configured date, as alternating azimuth/altitude degrees. */
+- (NTDoubleVector *)dailyPath:(BOOL)isSun lat:(double)lat lon:(double)lon {
+    NTDoubleVector *directions = [[NTDoubleVector alloc] init];
+    for (int minute = 0; minute <= 24 * 60; minute += PATH_STEP_MINUTES) {
+        double n = [DemoAstro daysSinceJ2000WithYear:[DemoConfig intFor:@"sunYear"]
+                                               month:[DemoConfig intFor:@"sunMonth"]
+                                                 day:[DemoConfig intFor:@"sunDay"]
+                                                hour:minute / 60.0];
+        DemoHorizon horizon = isSun ? [DemoAstro sunHorizon:n lat:lat lon:lon]
+                                    : [DemoAstro moonHorizon:n lat:lat lon:lon];
+        [directions add:horizon.azimuth];
+        [directions add:horizon.altitude];
+    }
+    return directions;
+}
+
+/**
+ * Draws the moon with the phase it really has: a disc with a bite taken out of it by a second
+ * ellipse, which is what a terminator is - the projection of the circle dividing the lit and unlit
+ * halves. Painting it into the sprite's bitmap keeps this out of the SDK entirely.
+ */
+- (void)updateMoonPhase:(double)n {
+    CGPoint phase = [DemoAstro moonPhase:n];
+    if (![DemoConfig boolFor:@"celestialMoonPhase"]) {
+        if (_lastMoonPhase >= 0) {
+            [_moon setBitmap:nil];
+            _lastMoonPhase = -1;
         }
-        [layer add:sprite];
+        return;
     }
+    double illuminated = phase.x;
+    double signedPhase = phase.y * illuminated;
+    if (fabs(signedPhase - _lastMoonPhase) < 0.01) {
+        return; // a hundredth of a phase is invisible; do not rebuild the texture for it
+    }
+    _lastMoonPhase = signedPhase;
 
-    if ([DemoConfig boolFor:@"starsEquator"]) {
-        // The celestial equator: a great circle 90 degrees from the pole.
-        NTCelestialArc *equator = [[NTCelestialArc alloc] init];
-        [equator setCircle:(latitude >= 0 ? 0.0f : 180.0f)
-              axisAltitude:(float)fabs(latitude)
-                    radius:90.0f];
-        [equator setWidth:1.0f];
-        [equator setColor:[self colorWithRed:120 green:170 blue:220 alpha:120]];
-        [equator setBelowHorizonVisible:NO];
-        [layer add:equator];
-    }
+    CGFloat side = MOON_BITMAP_SIZE;
+    CGFloat radius = side * 0.5;
+    // The terminator: an ellipse whose half-width goes from the full radius at new moon, through
+    // zero at the quarter, to the full radius again at full moon - the same circle seen edge on.
+    CGFloat terminator = (CGFloat)fabs(1.0 - 2.0 * illuminated) * (radius - 1);
+    BOOL waxing = phase.y > 0;
+
+    UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat defaultFormat];
+    format.opaque = NO;
+    format.scale = 1;
+    UIGraphicsImageRenderer *renderer =
+        [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(side, side) format:format];
+    UIImage *image = [renderer imageWithActions:^(UIGraphicsImageRendererContext *rendererContext) {
+        CGContextRef context = rendererContext.CGContext;
+        UIColor *lit = [UIColor colorWithRed:245 / 255.0 green:245 / 255.0 blue:235 / 255.0 alpha:1];
+        [lit setFill];
+        CGContextFillEllipseInRect(context, CGRectMake(1, 1, side - 2, side - 2));
+
+        // Waxing: lit on the side towards the sun, the western limb - kept on the right, so the
+        // dark half is the left one.
+        CGContextSetBlendMode(context, kCGBlendModeClear);
+        CGContextFillRect(context, waxing ? CGRectMake(0, 0, radius, side) : CGRectMake(radius, 0, radius, side));
+
+        CGRect terminatorOval = CGRectMake(radius - terminator, 1, terminator * 2, side - 2);
+        if (illuminated < 0.5) {
+            // Crescent: the terminator bulges INTO the lit half, so the ellipse erases as well.
+            CGContextFillEllipseInRect(context, terminatorOval);
+        } else {
+            // Gibbous: it bulges into the dark half, so the ellipse paints the moon back in.
+            CGContextSetBlendMode(context, kCGBlendModeNormal);
+            [lit setFill];
+            CGContextFillEllipseInRect(context, terminatorOval);
+        }
+    }];
+    [_moon setBitmap:[NTBitmapUtils createBitmapFromUIImage:image]];
+}
+
+- (NTCelestialSprite *)addAircraft:(double)lon lat:(double)lat altitude:(double)altitudeMeters {
+    NTCelestialSprite *aircraft = [[NTCelestialSprite alloc] init];
+    [aircraft setScreenSize:24];
+    [aircraft setColor:[[NTColor alloc] initWithR:255 g:255 b:255 a:255]];
+    [aircraft setPosition:[[NTMapPos alloc] initWithX:lon y:lat] altitude:altitudeMeters];
+    [aircraft setMetaDataElement:META_NAME element:[[NTVariant alloc] initWithString:@"Aircraft"]];
+    [_layer add:aircraft];
+    return aircraft;
 }
 
 @end

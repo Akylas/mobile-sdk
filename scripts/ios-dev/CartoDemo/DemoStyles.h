@@ -12,8 +12,11 @@
  */
 @interface DemoStyles : NSObject
 
-/** Decoder for the base map, honouring the 'style' knob (inline | zip | assets). */
+/** Decoder for the base map, honouring the 'style' knob (inline | zip | nuti). */
 + (NTMBVectorTileDecoder *)createDecoder;
+
+/** Name of the boolean 'nuti::' parameter the demo flips; see DemoMap's nuti toggle loop. */
++ (NSString *)nutiParameter;
 
 /** The generated base-map CartoCSS. */
 + (NSString *)inlineStyle;
@@ -27,6 +30,8 @@
 + (NSString *)peaksStyle;
 /** Shield test style: an icon that stays on the feature, a name the culler puts on a free side. */
 + (NSString *)poiTestStyle;
+/** Style of the maneuver arrow layer; headPath is the head outline, empty for the built-in one. */
++ (NSString *)maneuverStyle:(NSString *)headPath;
 
 // --- shaders ---
 /** Slope-angle bands, as a lighting shader on the hillshade layer. */
@@ -35,5 +40,7 @@
 + (NSString *)hypsometricShader;
 /** The peak-finder relief surface, drawn where no tile layer paints. */
 + (NSString *)reliefSurfaceShader;
+/** The relief OUTLINE effect: silhouettes and creases from the packed terrain depth. */
++ (NSString *)reliefOutlineShader;
 
 @end

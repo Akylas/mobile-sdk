@@ -2,7 +2,6 @@
 #import "DemoConfig.h"
 #import "DemoMap.h"
 #import "DemoTests.h"
-#import "DemoOrientation.h"
 #import <objc/runtime.h>
 
 // The entry a control belongs to, carried on the control itself so the target/action handlers stay
@@ -22,38 +21,31 @@ typedef NS_ENUM(NSInteger, DemoEntryKind) {
     DemoEntryAction,
 };
 
-/** What rebuilding a knob costs: the cheapest apply that still shows the change. */
-typedef NS_ENUM(NSInteger, DemoApply) {
-    DemoApplyLayers,
-    DemoApplyTerrain,
-    DemoApplyLight,
-    DemoApplyCamera,
-    DemoApplyOptions,
-    DemoApplyCelestial,
-    DemoApplyOrientation,
-};
-
+/**
+ * One row. 'apply' is what the row does after writing DemoConfig - the same closure the Java panel
+ * passes as a BoolSetting/FloatSetting, so each row still says which apply it needs and nothing
+ * central has to know.
+ */
 @interface DemoEntry : NSObject
 @property (nonatomic, copy) NSString *key;
 @property (nonatomic, copy) NSString *label;
 @property (nonatomic) DemoEntryKind kind;
-@property (nonatomic) DemoApply apply;
+@property (nonatomic, copy) void (^apply)(void);
 @property (nonatomic) float minimum;
 @property (nonatomic) float maximum;
 @property (nonatomic, copy) NSArray<NSString *> *choices;
-@property (nonatomic, copy) NSString *action;
 @end
 
 @implementation DemoEntry
 
-+ (instancetype)toggle:(NSString *)key label:(NSString *)label apply:(DemoApply)apply {
++ (instancetype)toggle:(NSString *)key label:(NSString *)label apply:(void (^)(void))apply {
     DemoEntry *e = [DemoEntry new];
     e.key = key; e.label = label; e.kind = DemoEntryToggle; e.apply = apply;
     return e;
 }
 
 + (instancetype)slider:(NSString *)key label:(NSString *)label
-                   min:(float)minimum max:(float)maximum apply:(DemoApply)apply {
+                   min:(float)minimum max:(float)maximum apply:(void (^)(void))apply {
     DemoEntry *e = [DemoEntry new];
     e.key = key; e.label = label; e.kind = DemoEntrySlider; e.apply = apply;
     e.minimum = minimum; e.maximum = maximum;
@@ -61,16 +53,16 @@ typedef NS_ENUM(NSInteger, DemoApply) {
 }
 
 + (instancetype)choice:(NSString *)key label:(NSString *)label
-               choices:(NSArray<NSString *> *)choices apply:(DemoApply)apply {
+               choices:(NSArray<NSString *> *)choices apply:(void (^)(void))apply {
     DemoEntry *e = [DemoEntry new];
     e.key = key; e.label = label; e.kind = DemoEntryChoice; e.apply = apply;
     e.choices = choices;
     return e;
 }
 
-+ (instancetype)action:(NSString *)action label:(NSString *)label {
++ (instancetype)button:(NSString *)label apply:(void (^)(void))apply {
     DemoEntry *e = [DemoEntry new];
-    e.label = label; e.kind = DemoEntryAction; e.action = action;
+    e.label = label; e.kind = DemoEntryAction; e.apply = apply;
     return e;
 }
 
@@ -95,7 +87,7 @@ typedef NS_ENUM(NSInteger, DemoApply) {
 @end
 
 @interface DemoPanel () <UITableViewDataSource, UITableViewDelegate, UISearchBarDelegate>
-@property (nonatomic, weak) NTMapView *mapView;
+@property (nonatomic, strong) DemoMap *demo;
 @property (nonatomic, strong) NSArray<DemoSection *> *allSections;
 /** Sections after the search filter, with only their surviving entries. */
 @property (nonatomic, strong) NSArray<DemoSection *> *visibleSections;
@@ -106,9 +98,9 @@ typedef NS_ENUM(NSInteger, DemoApply) {
 
 @implementation DemoPanel
 
-- (instancetype)initWithMapView:(NTMapView *)mapView {
+- (instancetype)initWithDemo:(DemoMap *)demo {
     if ((self = [super init])) {
-        _mapView = mapView;
+        _demo = demo;
         _query = @"";
         [self buildEntries];
         // Everything but the layer list starts closed: the panel is long, and this is the section
@@ -129,114 +121,256 @@ typedef NS_ENUM(NSInteger, DemoApply) {
 }
 
 - (void)buildEntries {
+    DemoMap *demo = self.demo;
+    // The applies, named once so the rows below read like the Java panel's one-liners.
+    void (^layers)(void) = ^{ [demo rebuildLayers]; };
+    void (^base)(void) = ^{ [demo rebuildBaseLayer]; };
+    void (^composite)(void) = ^{ [demo syncCompositeSources]; };
+    void (^terrain)(void) = ^{ [demo applyTerrainOptions]; };
+    void (^light)(void) = ^{ [demo applyLightOptions]; };
+    void (^sky)(void) = ^{ [demo applySkyOptions]; };
+    void (^hillshade)(void) = ^{ [demo applyHillshadeConfig]; };
+    void (^contours)(void) = ^{ [demo applyContourConfig]; };
+    void (^camera)(void) = ^{ [demo applyCamera]; };
+    void (^look)(void) = ^{ [demo applyLookRange]; };
+    void (^skyObjects)(void) = ^{ [demo updateSky]; };
+    void (^relief)(void) = ^{ [demo applyReliefSurface]; };
+    void (^outline)(void) = ^{ [demo applyReliefOutlineParameters]; };
+    void (^peaks)(void) = ^{ [demo rebuildPeaksLayer]; };
+    void (^debug)(void) = ^{ [demo applyDebugConfig]; };
+
     self.allSections = @[
-        [self section:@"Layers" entries:@[
-            [DemoEntry toggle:@"map" label:@"Base map" apply:DemoApplyLayers],
-            [DemoEntry toggle:@"satellite" label:@"Satellite layer" apply:DemoApplyLayers],
-            [DemoEntry toggle:@"hillshade" label:@"Hillshade layer" apply:DemoApplyLayers],
-            [DemoEntry toggle:@"contourLayer" label:@"Contour layer (own layer)" apply:DemoApplyLayers],
-            [DemoEntry toggle:@"contourTiles" label:@"Contour tiles" apply:DemoApplyLayers],
-            [DemoEntry toggle:@"hypso" label:@"Hypsometric tint" apply:DemoApplyLayers],
-            [DemoEntry toggle:@"elements" label:@"Vector elements" apply:DemoApplyLayers],
-            [DemoEntry toggle:@"peaks" label:@"Peak callouts" apply:DemoApplyLayers],
+        [self section:@"LAYERS" entries:@[
+            [DemoEntry toggle:@"celestial" label:@"celestial" apply:layers],
+            [DemoEntry toggle:@"stars" label:@"stars" apply:layers],
+            [DemoEntry toggle:@"map" label:@"base map" apply:layers],
+            [DemoEntry toggle:@"satLayer" label:@"satellite" apply:layers],
+            [DemoEntry toggle:@"hillshade" label:@"hillshade" apply:layers],
+            [DemoEntry toggle:@"hypso" label:@"hypso (hypsometric tint)" apply:layers],
+            [DemoEntry toggle:@"contourLayer" label:@"contour (traced from the DEM)" apply:layers],
+            [DemoEntry toggle:@"contourTiles" label:@"contour tiles (pre-baked)" apply:layers],
+            [DemoEntry toggle:@"routeTest" label:@"route test" apply:layers],
+            [DemoEntry toggle:@"maneuvers" label:@"maneuvers" apply:layers],
+            [DemoEntry toggle:@"elements" label:@"elements" apply:layers],
+            [DemoEntry toggle:@"peaks" label:@"peaks" apply:layers],
         ]],
-        [self section:@"Base map" entries:@[
-            [DemoEntry choice:@"base" label:@"Mode" choices:@[@"composite", @"plain"] apply:DemoApplyLayers],
-            [DemoEntry choice:@"style" label:@"Style source" choices:@[@"inline", @"zip"] apply:DemoApplyLayers],
-            [DemoEntry toggle:@"hs" label:@"Composite hillshade" apply:DemoApplyLayers],
-            [DemoEntry toggle:@"sat" label:@"Composite satellite" apply:DemoApplyLayers],
-            [DemoEntry toggle:@"contour" label:@"Composite contours" apply:DemoApplyLayers],
-            [DemoEntry toggle:@"singlePass" label:@"Single-pass rendering" apply:DemoApplyLayers],
-            [DemoEntry toggle:@"labels" label:@"Labels" apply:DemoApplyLayers],
-            [DemoEntry toggle:@"bld3d" label:@"3D buildings" apply:DemoApplyLayers],
-            [DemoEntry toggle:@"minimal" label:@"Minimal style" apply:DemoApplyLayers],
-            [DemoEntry slider:@"landcoverOpacity" label:@"Landcover opacity" min:0 max:1 apply:DemoApplyLayers],
-            [DemoEntry slider:@"satZoom" label:@"Satellite min zoom" min:0 max:19 apply:DemoApplyLayers],
+        [self section:@"BASE MAP" entries:@[
+            [DemoEntry choice:@"base" label:@"mode" choices:@[@"composite", @"plain"] apply:base],
+            [DemoEntry choice:@"style" label:@"style" choices:@[@"inline", @"zip", @"nuti"] apply:base],
+            [DemoEntry toggle:@"singlePass" label:@"single-pass rendering" apply:base],
+            [DemoEntry toggle:@"labels" label:@"labels (inline style)" apply:base],
+            [DemoEntry toggle:@"bld3d" label:@"3D buildings (inline style)" apply:base],
+            [DemoEntry toggle:@"minimal" label:@"minimal style (slots only)" apply:base],
+            [DemoEntry slider:@"landcoverOpacity" label:@"landcover opacity" min:0 max:1 apply:base],
+            [DemoEntry slider:@"satZoom" label:@"satellite min zoom" min:0 max:19 apply:base],
         ]],
-        [self section:@"3D terrain" entries:@[
-            [DemoEntry toggle:@"terrain" label:@"Enabled" apply:DemoApplyTerrain],
-            [DemoEntry slider:@"exaggeration" label:@"Exaggeration" min:0 max:3 apply:DemoApplyTerrain],
-            [DemoEntry slider:@"meshResolution" label:@"Mesh resolution" min:8 max:256 apply:DemoApplyTerrain],
-            [DemoEntry toggle:@"stitch" label:@"Tile edge stitching" apply:DemoApplyTerrain],
-            [DemoEntry toggle:@"seamlessEdges" label:@"Seamless tile edges" apply:DemoApplyTerrain],
-            [DemoEntry toggle:@"prefetch" label:@"Elevation prefetch" apply:DemoApplyTerrain],
-            [DemoEntry toggle:@"painterDepth" label:@"Painter-order depth" apply:DemoApplyTerrain],
+        [self section:@"COMPOSITE SLOTS" entries:@[
+            [DemoEntry toggle:@"hs" label:@"hillshade slot" apply:composite],
+            [DemoEntry toggle:@"sat" label:@"satellite slot" apply:composite],
+            [DemoEntry toggle:@"contour" label:@"contour slot" apply:composite],
+            [DemoEntry slider:@"hsBias" label:@"hillshade zoom bias" min:-2 max:2 apply:composite],
         ]],
-        [self section:@"Sun & sky" entries:@[
-            [DemoEntry toggle:@"sky" label:@"Sky" apply:DemoApplyOptions],
-            [DemoEntry toggle:@"daycycle" label:@"Day cycle" apply:DemoApplyLight],
-            [DemoEntry slider:@"dayCycleHour" label:@"Hour" min:0 max:24 apply:DemoApplyLight],
-            [DemoEntry toggle:@"terrainLight" label:@"Terrain lighting" apply:DemoApplyLight],
-            [DemoEntry slider:@"sunAzimuth" label:@"Sun azimuth" min:0 max:360 apply:DemoApplyLight],
-            [DemoEntry slider:@"sunAltitude" label:@"Sun altitude" min:-10 max:90 apply:DemoApplyLight],
-            [DemoEntry slider:@"sunIntensity" label:@"Sun intensity" min:0 max:2 apply:DemoApplyLight],
-            [DemoEntry slider:@"ambient" label:@"Ambient" min:0 max:2 apply:DemoApplyLight],
-            [DemoEntry slider:@"shadow" label:@"Shadow strength" min:0 max:1 apply:DemoApplyLight],
-            [DemoEntry slider:@"shadowSoftness" label:@"Shadow softness" min:0 max:4 apply:DemoApplyLight],
+        [self section:@"SHIELDS (style 'poi')" entries:@[
+            [DemoEntry toggle:@"poiTextOptional" label:@"icon alone when nothing fits" apply:base],
+            [DemoEntry toggle:@"poiFontIcon" label:@"font icon" apply:base],
+            [DemoEntry toggle:@"poiBitmapIcon" label:@"bitmap shield" apply:base],
+            [DemoEntry toggle:@"poiTextBg" label:@"plate behind the name" apply:base],
+            [DemoEntry toggle:@"poiIconBg" label:@"plate behind the icon" apply:base],
+            [DemoEntry slider:@"poiBgRadius" label:@"plate radius" min:0 max:20 apply:base],
+            [DemoEntry slider:@"poiBgPadding" label:@"plate padding" min:0 max:12 apply:base],
+            [DemoEntry slider:@"poiTextDx" label:@"gap icon/name" min:0 max:12 apply:base],
+            [DemoEntry slider:@"poiWrapWidth" label:@"wrap width" min:30 max:200 apply:base],
         ]],
-        [self section:@"Fog & view distance" entries:@[
-            [DemoEntry toggle:@"fog" label:@"Fog" apply:DemoApplyTerrain],
-            [DemoEntry slider:@"fogStart" label:@"Fog start (m)" min:0 max:20000 apply:DemoApplyTerrain],
-            [DemoEntry slider:@"fogDistance" label:@"Fog distance (m)" min:0 max:80000 apply:DemoApplyTerrain],
-            [DemoEntry slider:@"viewDistance" label:@"View distance factor" min:0 max:4 apply:DemoApplyTerrain],
+        [self section:@"TERRAIN" entries:@[
+            [DemoEntry toggle:@"terrain" label:@"3D terrain" apply:terrain],
+            [DemoEntry slider:@"exaggeration" label:@"exaggeration" min:0 max:3 apply:terrain],
+            [DemoEntry slider:@"meshResolution" label:@"mesh resolution" min:8 max:256 apply:terrain],
+            [DemoEntry slider:@"clearance" label:@"camera clearance (m)" min:0 max:400 apply:terrain],
+            [DemoEntry toggle:@"drape" label:@"drape fills" apply:terrain],
+            [DemoEntry toggle:@"drapeLines" label:@"drape lines" apply:terrain],
+            [DemoEntry toggle:@"stitch" label:@"tile edge stitching" apply:terrain],
+            [DemoEntry toggle:@"seamlessEdges" label:@"seamless tile edges" apply:terrain],
+            [DemoEntry toggle:@"prefetch" label:@"elevation prefetch" apply:terrain],
+            [DemoEntry toggle:@"painterDepth" label:@"painter-order depth" apply:terrain],
+            [DemoEntry toggle:@"occlusion" label:@"billboard occlusion" apply:terrain],
+            [DemoEntry toggle:@"backgroundBitmap" label:@"background bitmap" apply:terrain],
         ]],
-        [self section:@"Hillshade" entries:@[
-            [DemoEntry slider:@"hsContrast" label:@"Contrast" min:0 max:1 apply:DemoApplyLayers],
-            [DemoEntry slider:@"hsHeightScale" label:@"Height scale" min:0 max:0.5 apply:DemoApplyLayers],
-            [DemoEntry slider:@"hsIllumination" label:@"Illumination" min:0 max:360 apply:DemoApplyLayers],
-            [DemoEntry slider:@"hsBias" label:@"Composite zoom bias" min:-2 max:2 apply:DemoApplyLayers],
-            [DemoEntry toggle:@"hsContours" label:@"Shader contour lines" apply:DemoApplyLayers],
-            [DemoEntry toggle:@"slopes" label:@"Slope-angle bands" apply:DemoApplyLayers],
-            [DemoEntry slider:@"hsContourInterval" label:@"Shader interval (m)" min:10 max:500 apply:DemoApplyLayers],
+        [self section:@"HILLSHADE LAYER" entries:@[
+            [DemoEntry choice:@"hsMethod" label:@"method"
+                      choices:@[@"IGOR", @"COMBINED", @"BASIC", @"MULTIDIRECTIONAL", @"STANDARD"]
+                        apply:hillshade],
+            [DemoEntry slider:@"hsContrast" label:@"contrast" min:0 max:1 apply:hillshade],
+            [DemoEntry slider:@"hsHeightScale" label:@"height scale" min:0 max:0.5 apply:hillshade],
+            [DemoEntry slider:@"hsExaggeration" label:@"exaggeration" min:0 max:3 apply:hillshade],
+            [DemoEntry slider:@"hsIllumination" label:@"illumination (deg)" min:0 max:360 apply:hillshade],
+            [DemoEntry toggle:@"hsContours" label:@"shader contour lines" apply:hillshade],
+            [DemoEntry slider:@"hsContourInterval" label:@"shader interval (m)" min:10 max:500 apply:hillshade],
+            [DemoEntry toggle:@"slopes" label:@"slope-angle bands" apply:hillshade],
         ]],
-        [self section:@"Contours" entries:@[
-            [DemoEntry slider:@"contourInterval" label:@"Base interval" min:5 max:200 apply:DemoApplyLayers],
-            [DemoEntry slider:@"contourMinZoom" label:@"Min zoom" min:1 max:16 apply:DemoApplyLayers],
-            [DemoEntry toggle:@"contourStubs" label:@"Label stubs" apply:DemoApplyLayers],
-            [DemoEntry slider:@"contourStubInterval" label:@"Stub interval" min:0 max:500 apply:DemoApplyLayers],
+        [self section:@"CONTOUR SOURCE" entries:@[
+            [DemoEntry slider:@"contourInterval" label:@"base interval (m)" min:5 max:200 apply:contours],
+            [DemoEntry slider:@"contourResolution" label:@"tracing grid" min:32 max:512 apply:contours],
+            [DemoEntry slider:@"contourSimplify" label:@"simplify (tile px)" min:0 max:8 apply:contours],
+            [DemoEntry slider:@"contourMinZoom" label:@"min zoom" min:1 max:16 apply:contours],
+            [DemoEntry toggle:@"contourSeamless" label:@"seamless edges" apply:contours],
+            [DemoEntry toggle:@"contourStubs" label:@"label stubs only" apply:contours],
+            [DemoEntry slider:@"contourStubInterval" label:@"stub interval (m)" min:0 max:500 apply:contours],
+            [DemoEntry toggle:@"stubsFromTerrain" label:@"stubs off the terrain" apply:contours],
         ]],
-        [self section:@"Peak finder & relief" entries:@[
-            [DemoEntry toggle:@"peakfinder" label:@"Peak finder camera" apply:DemoApplyCamera],
-            [DemoEntry slider:@"peakFinderTilt" label:@"Tilt (low = panorama)" min:0 max:90 apply:DemoApplyCamera],
-            [DemoEntry toggle:@"reliefSurface" label:@"Relief surface" apply:DemoApplyTerrain],
-            [DemoEntry toggle:@"reliefDark" label:@"Dark palette" apply:DemoApplyTerrain],
-            [DemoEntry slider:@"reliefShade" label:@"Shade strength" min:0 max:1 apply:DemoApplyTerrain],
-            [DemoEntry slider:@"reliefAmbient" label:@"Ambient" min:0 max:1 apply:DemoApplyTerrain],
-            [DemoEntry slider:@"reliefHaze" label:@"Haze" min:0 max:1 apply:DemoApplyTerrain],
+        [self section:@"ROUTE TEST" entries:@[
+            [DemoEntry slider:@"routeWidth" label:@"width" min:1 max:30 apply:layers],
+            [DemoEntry slider:@"routeCaseWidth" label:@"casing width" min:0 max:40 apply:layers],
+            [DemoEntry choice:@"routeJoin" label:@"join" choices:@[@"round", @"miter", @"bevel"] apply:layers],
+            [DemoEntry choice:@"routeCap" label:@"cap" choices:@[@"round", @"square", @"butt"] apply:layers],
+            [DemoEntry slider:@"routeMiterLimit" label:@"miter limit" min:1 max:10 apply:layers],
+            [DemoEntry slider:@"routeOpacity" label:@"opacity" min:0 max:1 apply:layers],
+            [DemoEntry choice:@"routeOpacityMode" label:@"opacity mode" choices:@[@"geom", @"layer"] apply:layers],
+            [DemoEntry slider:@"maneuverWidth" label:@"maneuver width" min:1 max:20 apply:layers],
+            [DemoEntry slider:@"maneuverCaseWidth" label:@"maneuver casing" min:0 max:30 apply:layers],
+            [DemoEntry slider:@"maneuverArrowWidth" label:@"arrow width (x line)" min:1 max:5 apply:layers],
+            [DemoEntry slider:@"maneuverArrowLength" label:@"arrow length (x line)" min:1 max:5 apply:layers],
         ]],
-        [self section:@"Celestial & stars" entries:@[
-            [DemoEntry toggle:@"celestial" label:@"Sun & moon" apply:DemoApplyCelestial],
-            [DemoEntry toggle:@"celestialArc" label:@"Sun arc" apply:DemoApplyCelestial],
-            [DemoEntry toggle:@"celestialMoonArc" label:@"Moon arc" apply:DemoApplyCelestial],
-            [DemoEntry slider:@"celestialSunSize" label:@"Sun size" min:0.5 max:10 apply:DemoApplyCelestial],
-            [DemoEntry toggle:@"stars" label:@"Stars" apply:DemoApplyCelestial],
-            [DemoEntry slider:@"starsSize" label:@"Brightest star size" min:1 max:12 apply:DemoApplyCelestial],
-            [DemoEntry toggle:@"starsLabels" label:@"Star labels" apply:DemoApplyCelestial],
-            [DemoEntry toggle:@"starsEquator" label:@"Celestial equator" apply:DemoApplyCelestial],
+        [self section:@"SUN" entries:@[
+            [DemoEntry toggle:@"terrainLight" label:@"terrain lighting" apply:light],
+            [DemoEntry toggle:@"daycycle" label:@"day cycle" apply:^{
+                [demo applyDayCycle:[DemoConfig floatFor:@"dayCycleHour"]];
+            }],
+            [DemoEntry slider:@"dayCycleHour" label:@"hour (UTC)" min:0 max:24 apply:^{
+                [demo applyDayCycle:[DemoConfig floatFor:@"dayCycleHour"]];
+            }],
+            [DemoEntry slider:@"sunAzimuth" label:@"azimuth" min:0 max:360 apply:light],
+            [DemoEntry slider:@"sunAltitude" label:@"altitude" min:-10 max:90 apply:light],
+            [DemoEntry slider:@"sunIntensity" label:@"intensity" min:0 max:2 apply:light],
+            [DemoEntry slider:@"ambient" label:@"ambient" min:0 max:2 apply:light],
         ]],
-        [self section:@"Free roam" entries:@[
-            [DemoEntry choice:@"freeRoam" label:@"Mode" choices:@[@"off", @"on"] apply:DemoApplyCamera],
-            [DemoEntry slider:@"lookUp" label:@"Look-up limit" min:0 max:90 apply:DemoApplyCamera],
-            [DemoEntry toggle:@"orientation" label:@"Follow device heading" apply:DemoApplyOrientation],
+        [self section:@"SHADOWS" entries:@[
+            [DemoEntry slider:@"shadow" label:@"strength" min:0 max:1 apply:light],
+            [DemoEntry slider:@"shadowSoftness" label:@"softness" min:0 max:4 apply:light],
+            [DemoEntry slider:@"shadowCascades" label:@"cascades" min:1 max:4 apply:light],
+            [DemoEntry slider:@"shadowBias" label:@"bias" min:0 max:4 apply:light],
+            [DemoEntry slider:@"shadowDistance" label:@"distance (m, 0=view)" min:0 max:20000 apply:light],
         ]],
-        [self section:@"Camera" entries:@[
-            [DemoEntry slider:@"zoom" label:@"Zoom" min:1 max:20 apply:DemoApplyCamera],
-            [DemoEntry slider:@"tilt" label:@"Tilt" min:0 max:90 apply:DemoApplyCamera],
-            [DemoEntry slider:@"rotation" label:@"Rotation" min:-180 max:180 apply:DemoApplyCamera],
+        [self section:@"SKY OBJECTS" entries:@[
+            [DemoEntry choice:@"freeRoam" label:@"free roam" choices:@[@"off", @"look", @"fps"] apply:look],
+            [DemoEntry slider:@"lookSensitivity" label:@"look sensitivity (deg/inch)" min:20 max:200 apply:look],
+            [DemoEntry slider:@"moveSpeed" label:@"move speed" min:0.05 max:2 apply:look],
+            [DemoEntry slider:@"lookUp" label:@"look above horizon (deg)" min:0 max:90 apply:look],
+            [DemoEntry toggle:@"celestialSun" label:@"sun" apply:skyObjects],
+            [DemoEntry toggle:@"celestialMoon" label:@"moon" apply:skyObjects],
+            [DemoEntry toggle:@"celestialMoonPhase" label:@"moon phase" apply:skyObjects],
+            [DemoEntry toggle:@"celestialArc" label:@"sun path today" apply:skyObjects],
+            [DemoEntry toggle:@"celestialMoonArc" label:@"moon path today" apply:skyObjects],
         ]],
-        [self section:@"Route & maneuvers" entries:@[
-            [DemoEntry slider:@"routeWidth" label:@"Route width" min:1 max:30 apply:DemoApplyLayers],
-            [DemoEntry slider:@"routeCaseWidth" label:@"Casing width" min:1 max:40 apply:DemoApplyLayers],
-            [DemoEntry choice:@"routeJoin" label:@"Join" choices:@[@"round", @"miter", @"bevel"] apply:DemoApplyLayers],
-            [DemoEntry choice:@"routeCap" label:@"Cap" choices:@[@"round", @"square", @"butt"] apply:DemoApplyLayers],
-            [DemoEntry slider:@"routeOpacity" label:@"Opacity" min:0 max:1 apply:DemoApplyLayers],
+        [self section:@"STARS" entries:@[
+            [DemoEntry toggle:@"starsStars" label:@"stars" apply:skyObjects],
+            [DemoEntry toggle:@"starsFigures" label:@"constellations" apply:skyObjects],
+            [DemoEntry toggle:@"starsLabels" label:@"constellation names" apply:skyObjects],
+            [DemoEntry toggle:@"starsPlanets" label:@"planets" apply:skyObjects],
+            [DemoEntry toggle:@"starsEquator" label:@"celestial equator" apply:skyObjects],
+            // No map at all: the layers leave the layer list, so this costs an empty map.
+            [DemoEntry toggle:@"starSky" label:@"star sky (no map, transparent)" apply:^{
+                [demo applyStarSky:[DemoConfig boolFor:@"starSky"]];
+            }],
+            [DemoEntry toggle:@"starSkyOrientation" label:@"follow device orientation" apply:^{
+                [demo setOrientationFollowing:[DemoConfig boolFor:@"starSkyOrientation"]];
+            }],
+            // The camera preview goes BEHIND the transparent map: the sky over what the camera sees.
+            [DemoEntry toggle:@"starSkyCamera" label:@"camera behind (AR sky)" apply:^{
+                [demo setCameraPreviewEnabled:[DemoConfig boolFor:@"starSkyCamera"]];
+            }],
         ]],
-        [self section:@"Actions" entries:@[
-            [DemoEntry action:@"route" label:@"Route test (GeoJSON)"],
-            [DemoEntry action:@"maneuvers" label:@"Maneuver arrows"],
-            [DemoEntry action:@"geojsonBench" label:@"GeoJSON benchmark"],
-            [DemoEntry action:@"search" label:@"Search test"],
-            [DemoEntry action:@"clear" label:@"Clear test layers"],
+        [self section:@"RELIEF" entries:@[
+            // One switch for the whole view: the pieces below are independent, and each one on its
+            // own looks like nothing happens (the surface hides under the map, the names need
+            // summits). Entering it FLIES there - one camera move that pulls back, comes down at
+            // the panorama's zoom and tilt, and lifts the viewpoint while the terrain loads.
+            [DemoEntry toggle:@"peakfinder" label:@"peak finder mode" apply:^{
+                if ([DemoConfig boolFor:@"peakfinder"]) {
+                    [demo flyToPeakFinder];
+                } else {
+                    [demo setPeakFinderMode:NO];
+                }
+            }],
+            [DemoEntry toggle:@"reliefSurface" label:@"relief surface" apply:relief],
+            [DemoEntry toggle:@"reliefOutline" label:@"relief outline effect" apply:^{
+                [demo setReliefOutlineEnabled:[DemoConfig boolFor:@"reliefOutline"]];
+            }],
+            [DemoEntry toggle:@"reliefDark" label:@"dark palette" apply:^{
+                [demo setReliefDark:[DemoConfig boolFor:@"reliefDark"]];
+            }],
+            [DemoEntry toggle:@"ar" label:@"AR (over the camera)" apply:^{
+                [demo setArMode:[DemoConfig boolFor:@"ar"]];
+            }],
+            [DemoEntry slider:@"reliefWidth" label:@"outline width (px)" min:0.5 max:4 apply:outline],
+            [DemoEntry slider:@"reliefHorizonBoost" label:@"horizon boost" min:0 max:8 apply:outline],
+            [DemoEntry slider:@"reliefThreshold" label:@"silhouette threshold" min:0.1 max:4 apply:outline],
+            [DemoEntry slider:@"reliefCrease" label:@"ridge lines" min:0 max:1 apply:outline],
+            [DemoEntry slider:@"reliefShade" label:@"shade strength" min:0 max:1 apply:relief],
+            [DemoEntry slider:@"reliefAmbient" label:@"ambient" min:0 max:1 apply:relief],
+            [DemoEntry slider:@"reliefHaze" label:@"haze" min:0 max:1 apply:^{
+                [demo applyReliefSurface];
+                [demo applyReliefOutlineParameters];
+            }],
+            [DemoEntry slider:@"reliefHazeDistance" label:@"haze distance (m)" min:5000 max:200000 apply:relief],
+            [DemoEntry slider:@"peakFinderTilt" label:@"panorama tilt" min:0 max:90 apply:camera],
+            // The peak labels are style-driven, so every knob here rebuilds the layer.
+            [DemoEntry slider:@"peaksBand" label:@"label band (screen)" min:0 max:0.6 apply:peaks],
+            [DemoEntry slider:@"peaksAngle" label:@"label angle" min:0 max:90 apply:peaks],
+            [DemoEntry slider:@"peaksStep" label:@"row step (px)" min:8 max:60 apply:peaks],
+            [DemoEntry slider:@"peaksMaxDistance" label:@"max distance (m)" min:0 max:300000 apply:peaks],
+            [DemoEntry toggle:@"peaksPinTop" label:@"labels pinned to top" apply:peaks],
+            // How far behind the terrain an anchor may sit and still be labelled. A summit ON the
+            // ridge line is a hair behind it as far as the depth buffer is concerned.
+            [DemoEntry slider:@"occlusionTolerance" label:@"label occlusion tolerance" min:0 max:0.5 apply:terrain],
+        ]],
+        [self section:@"SKY" entries:@[
+            [DemoEntry toggle:@"sky" label:@"sky" apply:sky],
+            [DemoEntry slider:@"fogBlend" label:@"sky fog blend (deg)" min:0 max:45 apply:sky],
+            [DemoEntry slider:@"fogHorizon" label:@"sky fog horizon (deg, <0=auto)" min:-1 max:30 apply:sky],
+        ]],
+        [self section:@"FOG / DISTANCE" entries:@[
+            [DemoEntry toggle:@"fog" label:@"fog" apply:terrain],
+            [DemoEntry slider:@"fogStart" label:@"fog start (m)" min:0 max:40000 apply:terrain],
+            [DemoEntry slider:@"fogDistance" label:@"fog distance (m, 0=off)" min:0 max:120000 apply:terrain],
+            [DemoEntry slider:@"lodFactor" label:@"tile LOD (x tangram)" min:0 max:4 apply:^{
+                [demo applyOptions];
+            }],
+            [DemoEntry slider:@"coarsening" label:@"tile coarsening (levels)" min:0 max:6 apply:terrain],
+            [DemoEntry slider:@"viewDistance" label:@"view distance (x tangram)" min:0 max:4 apply:terrain],
+            // Absolute distance wins over the factor above: the ground reaches the same distance
+            // whatever the camera's height and pitch.
+            [DemoEntry slider:@"viewDistanceMeters" label:@"view distance (m, 0=factor)" min:0 max:300000 apply:terrain],
+        ]],
+        [self section:@"CAMERA" entries:@[
+            [DemoEntry slider:@"zoom" label:@"zoom" min:1 max:20 apply:camera],
+            [DemoEntry slider:@"tilt" label:@"tilt" min:0 max:90 apply:camera],
+            [DemoEntry slider:@"rotation" label:@"rotation" min:-180 max:180 apply:camera],
+        ]],
+        [self section:@"DEBUG" entries:@[
+            [DemoEntry toggle:@"tileBorders" label:@"tile borders" apply:debug],
+        ]],
+        [self section:@"ACTIONS" entries:@[
+            [DemoEntry button:@"maneuver gallery: reseed" apply:^{
+                [DemoTests run:@"maneuverGallery" demo:demo];
+            }],
+            [DemoEntry button:@"maneuver head: next svg" apply:^{
+                [DemoTests run:@"maneuverHead" demo:demo];
+            }],
+            [DemoEntry button:@"online routing test" apply:^{
+                [DemoTests run:@"onlineRouting" demo:demo];
+            }],
+            [DemoEntry button:@"vector tile search test" apply:^{
+                [DemoTests run:@"search" demo:demo];
+            }],
+            [DemoEntry button:@"geojson line test" apply:^{
+                [DemoTests run:@"geojsonLine" demo:demo];
+            }],
+            [DemoEntry button:@"geojson bench: long routes" apply:^{
+                [DemoTests run:@"geojsonBench" demo:demo];
+            }],
+            [DemoEntry button:@"clear test layers" apply:^{
+                [DemoTests run:@"clear" demo:demo];
+            }],
         ]],
     ];
 }
@@ -257,8 +391,7 @@ typedef NS_ENUM(NSInteger, DemoApply) {
             }
         }
         if (matches.count) {
-            DemoSection *copy = [self section:section.title entries:matches];
-            [filtered addObject:copy];
+            [filtered addObject:[self section:section.title entries:matches]];
         }
     }
     self.visibleSections = filtered;
@@ -292,24 +425,6 @@ typedef NS_ENUM(NSInteger, DemoApply) {
         [self.tableView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
         [self.tableView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
     ]];
-}
-
-- (void)applyEntry:(DemoEntry *)entry {
-    NTMapView *mapView = self.mapView;
-    if (!mapView) {
-        return;
-    }
-    switch (entry.apply) {
-        case DemoApplyLayers:  [DemoMap applyLayers:mapView]; break;
-        case DemoApplyTerrain: [DemoMap applyTerrainConfig:mapView]; break;
-        case DemoApplyLight:   [DemoMap applySkyAndLightConfig:mapView]; break;
-        case DemoApplyCamera:  [DemoMap applyCameraConfig:mapView]; break;
-        case DemoApplyOptions: [DemoMap applyOptions:mapView]; break;
-        case DemoApplyCelestial: [DemoMap applyCelestial:mapView]; break;
-        case DemoApplyOrientation:
-            [DemoOrientation setFollowing:[DemoConfig boolFor:@"orientation"] mapView:mapView];
-            break;
-    }
 }
 
 // ---- search ----
@@ -415,23 +530,29 @@ typedef NS_ENUM(NSInteger, DemoApply) {
         index = (index == NSNotFound) ? 0 : (index + 1) % entry.choices.count;
         [DemoConfig setValue:entry.choices[index] forKey:entry.key];
         [tableView reloadRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationNone];
-        [self applyEntry:entry];
-    } else if (entry.kind == DemoEntryAction) {
-        [DemoTests run:entry.action mapView:self.mapView];
+        if (entry.apply) {
+            entry.apply();
+        }
+    } else if (entry.kind == DemoEntryAction && entry.apply) {
+        entry.apply();
     }
 }
 
 - (void)toggleChanged:(UISwitch *)sender {
     DemoEntry *entry = getEntry(sender);
     [DemoConfig setValue:@(sender.isOn) forKey:entry.key];
-    [self applyEntry:entry];
+    if (entry.apply) {
+        entry.apply();
+    }
 }
 
 - (void)sliderChanged:(UISlider *)sender {
     DemoEntry *entry = getEntry(sender);
     [DemoConfig setValue:@(sender.value) forKey:entry.key];
     [self.tableView reloadData];
-    [self applyEntry:entry];
+    if (entry.apply) {
+        entry.apply();
+    }
 }
 
 @end

@@ -27,6 +27,13 @@
 
 + (void)setValue:(id)value forKey:(NSString *)key;
 
+/**
+ * The hour the sky is drawn for: the explicit 'sunHour' if one was given, the day cycle's hour
+ * while it runs, and otherwise the real UTC hour - so by default the demo shows the sky that is
+ * actually up there.
+ */
++ (double)currentHourUtc;
+
 /** Fold the launch arguments over the defaults. Called once, before the map is built. */
 + (void)applyLaunchArgumentOverrides;
 
