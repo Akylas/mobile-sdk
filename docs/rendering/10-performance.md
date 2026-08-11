@@ -205,6 +205,19 @@ which is the point of the feature.
 
 Classification costs ~37 ms once per style load on that style (a walk over every rule and property).
 
+**What this does not solve: selection.** A style that drives "selected" with a parameter — the route
+style's `when ([nuti::selected_osmid]=@osmid)::selected`, plus a width that mixes the parameter with
+the feature field `[osmid]` — stays on the re-decode path, and the filter part *has* to: the casing
+of the selected route only exists because that rule matched, and a redraw cannot build geometry. The
+durable answer is maplibre's `feature-state` model: the selected id becomes a **uniform** and the
+comparison happens per vertex against a feature-id attribute, so a selection change costs nothing on
+the CPU at all. That needs a feature-id vertex attribute in `vt` and shader support — not done.
+A cheaper half-step is to let "parameter + feature field" expressions be live: `TileReader` already
+builds one processor per distinct feature-data, so the function can close over that feature's value
+and read the store per frame. The price is one function object per feature-data, and geometries only
+batch when they share one (16 style-parameter slots per geometry), so it fragments draws on a dense
+layer.
+
 ## Measured NOT to matter — do not re-run these
 
 | hypothesis | result |
