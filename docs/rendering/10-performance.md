@@ -253,18 +253,66 @@ which is the point of the feature.
 
 Classification costs ~37 ms once per style load on that style (a walk over every rule and property).
 
-**What this does not solve: selection.** A style that drives "selected" with a parameter — the route
-style's `when ([nuti::selected_osmid]=@osmid)::selected`, plus a width that mixes the parameter with
-the feature field `[osmid]` — stays on the re-decode path, and the filter part *has* to: the casing
-of the selected route only exists because that rule matched, and a redraw cannot build geometry. The
-durable answer is maplibre's `feature-state` model: the selected id becomes a **uniform** and the
-comparison happens per vertex against a feature-id attribute, so a selection change costs nothing on
-the CPU at all. That needs a feature-id vertex attribute in `vt` and shader support — not done.
-A cheaper half-step is to let "parameter + feature field" expressions be live: `TileReader` already
-builds one processor per distinct feature-data, so the function can close over that feature's value
-and read the store per frame. The price is one function object per feature-data, and geometries only
-batch when they share one (16 style-parameter slots per geometry), so it fragments draws on a dense
-layer.
+### Selection: the appearance half, without a decode
+
+A selection is a parameter compared with a feature field — `[nuti::selected_id] = [osmid] + ''` —
+which the classification above rejects, because the comparison can only be answered per feature. The
+**appearance** half of it no longer needs a decode either, for a style that asks:
+
+```json
+"nutiparameters": { "selected_id": { "default": "", "selects": true } }
+```
+
+Opt-in on purpose. It only works for a style written a particular way, so inferring it would make
+every other style pay a walk over its rules to be told no, and would leave an author whose style
+just misses the conditions with no way to find out. `resolveSelectionParameter` returns before
+touching anything when no parameter declares itself, and warns with the reason when a declared one
+does not qualify.
+
+A geometry already carries up to 16 style slots, whose colour and width are uniform arrays refilled
+every frame, and every vertex names its slot in one byte of `aVertexAttribs`. So the decoder folds
+the comparison BOTH ways: it builds the symbolizer twice, once with the parameter forced to the
+feature's own value and once to a value it cannot equal, and both answers land as two slots of the
+same geometry. Nothing else about the feature changes, so it is tesselated once.
+
+- `mvt::resolveSelectionParameter` verifies the declared parameter at style load and marks the
+  properties it may fold (`Property::setSelectionFoldable`). A folded property reads no parameter, so
+  it collapses to a constant — which is what makes it a slot, and what lets every unselected feature
+  share one.
+- `ExpressionContext::setNutiParameterOverride` is how the fold is forced; `TileReader::createSelectionFeatureProcessor`
+  runs the branch that is not drawn over an EMPTY feature collection, so it registers its slot without
+  laying down vertices.
+- Each feature keeps a 64-bit `hashValue` of what it is compared with, next to the vertex run
+  (`vt::TileGeometry::FeatureStyleRange`). `MBVectorTileDecoder` publishes the hash of the parameter
+  in a shared atomic; `GLTileRenderer` compares the two in `buildCompiledTileGeometry`, rewrites the
+  style byte of the runs that changed and re-uploads exactly those bytes with `glBufferSubData`.
+
+Deciding it on the render thread rather than walking the tile cache is what keeps it free of locks:
+the vertex data is only ever touched where it is uploaded, and a tile decoded later picks the state
+up on its own.
+
+Conservative, because a fold that got the tesselation wrong could not be undone by a repaint. The
+parameter has to be read only by the `stroke`, `stroke-opacity` and `stroke-width` of line
+symbolizers — the three that end up as slots and touch no vertex — always inside an `=` against the
+same field expression, never in a rule filter, never beside another parameter in one property. A
+dashed line whose width is selected is refused as well: the dash raster is sized by the width, so the
+two branches would not share their vertices.
+
+Measured with the demo's selection bench (`--es routeSelect true --es routeSelectCycle 2500`,
+12 routes, z12.5, `--es tilt 90`), with a temporary `decodeTile` probe. `value` mode goes from 6
+`decodeTile` calls per selection to **zero**, on the emulator and on the Crosscall alike, and
+`setStyleParameter` from 2.2-3.6 ms to **0.32-0.81 ms** on the device (0.08-0.39 ms on the emulator).
+`filter` mode still decodes its 6 tiles per selection, as it must, and logs `it is read by a rule
+filter, which decides whether the geometry exists at all`. The selected route changes colour and
+width in the next frame in both, and the 23-layer base-map style is unaffected - it declares no
+selecting parameter, so its rules are never walked.
+
+**What is still a decode: the structural half.** `when ([nuti::selected_id] = [osmid] + '')::selected`
+decides whether the casing geometry exists at all, and no repaint can build geometry. A style that
+wants a free selection has to express the casing as appearance — a width and a colour that fold —
+rather than as a rule. The durable answer for the general case is maplibre's `feature-state` model:
+the selected id becomes a **uniform** compared per vertex against a feature-id attribute, which needs
+a feature-id vertex attribute in `vt` and shader support — not done.
 
 ## Measured NOT to matter — do not re-run these
 
