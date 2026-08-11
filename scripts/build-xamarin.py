@@ -37,13 +37,12 @@ def buildAndroidSO(args, abi):
     print('Failed to detect available platform APIs')
     return False
   print('Using API-%d for 32-bit builds, API-%d for 64-bit builds' % (api32, api64))
+  resetBuildDirOnGeneratorChange(args, buildDir)
 
-  if not cmake(args, buildDir, options + [
-    '-G', 'Unix Makefiles',
+  if not cmake(args, buildDir, options + getGeneratorOptions(args) + getCCacheOptions(args) + [
     "-DCMAKE_TOOLCHAIN_FILE='%s/build/cmake/android.toolchain.cmake'" % args.androidndkpath,
     "-DCMAKE_SYSTEM_NAME=Android",
     "-DCMAKE_BUILD_TYPE=%s" % args.configuration,
-    "-DCMAKE_MAKE_PROGRAM='%s'" % args.make,
     "-DWRAPPER_DIR=%s" % ('%s/generated/android-csharp/wrappers' % baseDir),
     "-DSINGLE_LIBRARY:BOOL=ON",
     "-DANDROID_STL='c++_static'",
@@ -183,7 +182,9 @@ parser.add_argument('--msbuild', dest='msbuild', default='msbuild', help='Xamari
 parser.add_argument('--nuget', dest='nuget', default='nuget', help='nuget executable')
 parser.add_argument('--android-ndk-path', dest='androidndkpath', default='auto', help='Android NDK path')
 parser.add_argument('--android-sdk-path', dest='androidsdkpath', default='auto', help='Android SDK path')
-parser.add_argument('--make', dest='make', default='make', help='Make executable for Android')
+parser.add_argument('--make', dest='make', default='make', help='Make executable for Android, used only when no ninja is available')
+parser.add_argument('--ninja', dest='ninja', default='auto', help="Ninja executable for Android, 'auto' to detect one, 'none' to build with make")
+parser.add_argument('--ccache', dest='ccache', default='auto', help="Ccache executable, 'auto' to detect one, 'none' to compile without a launcher")
 parser.add_argument('--cmake', dest='cmake', default='cmake', help='CMake executable')
 parser.add_argument('--cmake-options', dest='cmakeoptions', default='', help='CMake options')
 parser.add_argument('--configuration', dest='configuration', default='Release', choices=['Release', 'RelWithDebInfo', 'Debug'], help='Configuration')
@@ -227,8 +228,9 @@ if not checkExecutable(args.cmake, '--help'):
   sys.exit(-1)
 
 if args.target == 'android':
-  if not checkExecutable(args.make, '--help'):
-    print('Failed to find make executable. Use --make to specify its location')
+  resolveBuildTools(args)
+  if not args.ninjapath and not checkExecutable(args.make, '--help'):
+    print('Failed to find ninja or make executable. Use --ninja or --make to specify its location')
     sys.exit(-1)
   for abi in ANDROID_ABIS:
     if not (abi in args.androidabi or os.path.exists('%s/libcarto_mobile_sdk.so' % getBuildDir('xamarin_android', abi))):

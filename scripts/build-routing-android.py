@@ -35,14 +35,13 @@ def buildRoutingSO(args, abi):
         print('Failed to detect available platform APIs')
         return False
     print('Using API-%d for 32-bit builds, API-%d for 64-bit builds' % (api32, api64))
+    resetBuildDirOnGeneratorChange(args, buildDir)
 
-    if not cmake(args, buildDir, options + defines + [
-        '-G', 'Unix Makefiles',
+    if not cmake(args, buildDir, options + defines + getGeneratorOptions(args) + getCCacheOptions(args) + [
         "-DCMAKE_TOOLCHAIN_FILE='%s/build/cmake/android.toolchain.cmake'" % args.androidndkpath,
         "-DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=ON",
         "-DCMAKE_SYSTEM_NAME=Android",
         "-DCMAKE_BUILD_TYPE=%s" % args.configuration,
-        "-DCMAKE_MAKE_PROGRAM='%s'" % args.make,
         "-DCMAKE_ANDROID_NDK='%s'" % args.androidndkpath,
         "-DCMAKE_ANDROID_ARCH_ABI='%s'" % abi,
         '-DSINGLE_LIBRARY:BOOL=ON',
@@ -117,7 +116,9 @@ parser.add_argument('--android-ndk-path', dest='androidndkpath', default='auto',
 parser.add_argument('--android-sdk-path', dest='androidsdkpath', default='auto',   help='Android SDK path')
 parser.add_argument('--defines',          dest='defines',        default='',       help='C++ preprocessor defines (semicolon-separated)')
 parser.add_argument('--javac',            dest='javac',          default='javac',  help='Java compiler executable (accepted, not used)')
-parser.add_argument('--make',             dest='make',           default='make',   help='Make executable')
+parser.add_argument('--make',             dest='make',           default='make',   help='Make executable, used only when no ninja is available')
+parser.add_argument('--ninja',            dest='ninja',          default='auto',   help="Ninja executable, 'auto' to detect one, 'none' to build with make")
+parser.add_argument('--ccache',           dest='ccache',         default='auto',   help="Ccache executable, 'auto' to detect one, 'none' to compile without a launcher")
 parser.add_argument('--cmake',            dest='cmake',          default='cmake',  help='CMake executable')
 parser.add_argument('--cmake-options',    dest='cmakeoptions',   default='',       help='CMake options (semicolon-separated)')
 parser.add_argument('--gradle',           dest='gradle',         default='gradle', help='Gradle executable')
@@ -146,8 +147,10 @@ if not checkExecutable(args.cmake, '--help'):
     print('Failed to find CMake executable. Use --cmake to specify its location')
     sys.exit(-1)
 
-if not checkExecutable(args.make, '--help'):
-    print('Failed to find make executable. Use --make to specify its location')
+resolveBuildTools(args)
+
+if not args.ninjapath and not checkExecutable(args.make, '--help'):
+    print('Failed to find ninja or make executable. Use --ninja or --make to specify its location')
     sys.exit(-1)
 
 if not checkExecutable(args.gradle, '--help'):

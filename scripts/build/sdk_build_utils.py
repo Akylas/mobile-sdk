@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+import glob
 import subprocess
 import argparse
 import shutil
@@ -78,6 +79,85 @@ def checkExecutable(cmd, *cmdArgs):
 
 def cmake(args, dir, cmdArgs):
   return execute(args.cmake, dir, *cmdArgs)
+
+def detectNinja(args):
+  # Ninja over Unix Makefiles: better scheduling on the single ~1700 translation unit target,
+  # and it writes .ninja_log, the only per-file build timing this repo has.
+  ninja = getattr(args, 'ninja', 'auto')
+  if ninja == 'none':
+    return None
+  if ninja != 'auto':
+    return ninja if checkExecutable(ninja, '--version') else None
+  found = shutil.which('ninja')
+  if found:
+    return found
+  # A machine that never installed ninja itself still has one per Android SDK cmake package.
+  sdkPath = getattr(args, 'androidsdkpath', None)
+  candidates = glob.glob('%s/cmake/*/bin/ninja' % sdkPath) if sdkPath else []
+  if not candidates:
+    return None
+  versionKey = lambda path: [int(part) if part.isdigit() else 0 for part in path.split('/')[-3].split('.')]
+  return sorted(candidates, key=versionKey)[-1]
+
+def detectCCache(args):
+  ccache = getattr(args, 'ccache', 'auto')
+  if ccache == 'none':
+    return None
+  if ccache != 'auto':
+    return ccache if checkExecutable(ccache, '--version') else None
+  return shutil.which('ccache')
+
+def getCCacheMaxSizeGB(ccachePath):
+  try:
+    output = subprocess.check_output([ccachePath, '--get-config', 'max_size'], stderr=subprocess.STDOUT).decode('utf-8').strip()
+  except:
+    return None
+  match = re.match(r'([0-9.]+)\s*([KMGT]?)i?B?$', output, re.IGNORECASE)
+  if not match:
+    return None
+  scale = { '': 1e-9, 'K': 1e-6, 'M': 1e-3, 'G': 1.0, 'T': 1000.0 }
+  return float(match.group(1)) * scale.get(match.group(2).upper(), 1.0)
+
+def resolveBuildTools(args):
+  # Resolved once, so the per-ABI builds all report and use the same tools.
+  args.ninjapath = detectNinja(args)
+  args.ccachepath = detectCCache(args)
+  print('Using build tool: %s' % (args.ninjapath or '%s (no ninja found)' % args.make))
+  print('Using compiler launcher: %s' % (args.ccachepath or 'none'))
+  if args.ccachepath:
+    # One ABI writes about 1GB of objects, so on the 5GB default the four ABIs evict each
+    # other and every build stays a miss.
+    maxSizeGB = getCCacheMaxSizeGB(args.ccachepath)
+    if maxSizeGB is not None and maxSizeGB < 20:
+      print('Warning: ccache max_size is %.0fGB, too small to keep a full build. Raise it with: %s --max-size 30G' % (maxSizeGB, args.ccachepath))
+
+def getGeneratorOptions(args):
+  if args.ninjapath:
+    return ['-G', 'Ninja', '-DCMAKE_MAKE_PROGRAM=%s' % args.ninjapath]
+  return ['-G', 'Unix Makefiles', "-DCMAKE_MAKE_PROGRAM='%s'" % args.make]
+
+def resetBuildDirOnGeneratorChange(args, buildDir):
+  # CMake refuses to reconfigure an existing build tree with a different generator, so an
+  # existing Unix Makefiles tree has to go before the first Ninja build.
+  cachePath = '%s/CMakeCache.txt' % buildDir
+  if not os.path.exists(cachePath):
+    return
+  generator = 'Ninja' if args.ninjapath else 'Unix Makefiles'
+  with open(cachePath, 'r') as f:
+    match = re.search(r'^CMAKE_GENERATOR:INTERNAL=(.*)$', f.read(), re.MULTILINE)
+  if match and match.group(1).strip() == generator:
+    return
+  print('Generator changed to %s, clearing build directory %s' % (generator, buildDir))
+  shutil.rmtree(buildDir, True)
+  makedirs(buildDir)
+
+def getCCacheOptions(args):
+  # Every ABI recompiles the same headers, and the four Boost.Spirit grammars (mapnikvt
+  # ParserUtils/GeneratorUtils, CartoCSSParser, QueryExpressionParser) are ~15% of a full
+  # build on their own while practically never changing.
+  if not args.ccachepath:
+    return []
+  return ['-DCMAKE_C_COMPILER_LAUNCHER=%s' % args.ccachepath, '-DCMAKE_CXX_COMPILER_LAUNCHER=%s' % args.ccachepath]
 
 def getBaseDir():
   baseDir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
