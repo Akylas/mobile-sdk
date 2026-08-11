@@ -101,6 +101,10 @@ Keplerian elements for the planets), `DemoSky` places the sun with
 `LightOptions.setSunPositionFromTime` and generates the same sky shader, and `DemoStarCatalogue`
 carries the same ~190 stars and 30 constellation figures.
 
+A **camera readout** sits along the bottom (`z=… tilt=… lat, lon`), the counterpart of the Android
+layout's `zoomText`, and every move logs the same line the Android demo logs so a scripted run can
+read the camera back out. Tapping the map reports the position and the terrain elevation under it.
+
 ### One structure, two platforms
 
 `DemoMap` mirrors `DemoMap.java` method for method: a `DemoFeature` registry with a fixed
@@ -135,6 +139,11 @@ defaults and same key names as the Android demo, where `contour` is on by defaul
 - **Screen sizes in the celestial API are pixels, not points.** The Android demo multiplies them by
   the display density and this one multiplies by `UIScreen.mainScreen.scale`; without it every star
   and figure line comes out a third of its intended size on a 3x phone.
+- **Nothing repaints unless the renderer is asked.** Android's demo ends every apply with
+  `mapView.requestRender()`; the iOS `MapView` has no such method, so `DemoMap.requestRender` calls
+  `[[mapView getMapRenderer] requestRedraw]` in the same places. Adding a layer used to appear at
+  once and removing one only on the next pan, which was `Layers::setAll` never requesting a redraw
+  of its own (fixed in the SDK - it notified the surviving layers only).
 - **Positions must go through the map's own projection.** `[[mapView getOptions] getBaseProjection]`
   is EPSG3857; converting with `NTEPSG4326` instead compiles, looks right, and silently feeds
   lon/lat to the map as metres, which puts the camera in the ocean off 0,0.

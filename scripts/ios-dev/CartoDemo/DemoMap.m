@@ -145,6 +145,16 @@ static const DemoFeature LAYER_ORDER[] = {
     [self startScriptedAnimation];
 }
 
+/** Elevation under a WGS84 position; blocks on tile loading, so call it off the main thread. */
+- (double)getElevation:(NTMapPos *)wgs84Pos {
+    return _terrainOptions ? [_terrainOptions getElevation:wgs84Pos] : 0;
+}
+
+/** The counterpart of Android's mapView.requestRender(): iOS redraws when the renderer asks. */
+- (void)requestRender {
+    [[self.mapView getMapRenderer] requestRedraw];
+}
+
 - (void)after:(float)seconds run:(void (^)(void))block {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(seconds * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), block);
@@ -216,6 +226,7 @@ static const DemoFeature LAYER_ORDER[] = {
     // The sky objects are built with their layer, which happens here, so place them now that they
     // exist.
     [self updateSky];
+    [self requestRender];
 }
 
 - (void)updateSky {
@@ -225,6 +236,7 @@ static const DemoFeature LAYER_ORDER[] = {
                                              day:[DemoConfig intFor:@"sunDay"]
                                             hour:[DemoConfig currentHourUtc]];
     [self.stars updateWithN:n lat:[DemoConfig doubleFor:@"lat"] lon:[DemoConfig doubleFor:@"lon"]];
+    [self requestRender];
 }
 
 - (NTLayer *)createLayer:(DemoFeature)feature {
@@ -314,6 +326,7 @@ static const DemoFeature LAYER_ORDER[] = {
         [_compositeLayer removeExternalDataSource:@"contour"];
     }
     [self checkCompositeSlots];
+    [self requestRender];
 }
 
 /**
@@ -392,6 +405,7 @@ static const DemoFeature LAYER_ORDER[] = {
     BOOL slopes = [DemoConfig boolFor:@"slopes"];
     [layer setExagerateHeightScaleEnabled:!slopes];
     [layer setNormalMapLightingShader:slopes ? [DemoStyles slopesShader] : @""];
+    [self requestRender];
 }
 
 - (enum NTHillshadeMethod)hillshadeMethod {
@@ -741,6 +755,7 @@ static const DemoFeature LAYER_ORDER[] = {
     // Stubs off the terrain's own elevation: no DEM tile of the contour source's own to fetch and
     // decode. Same DEM source on both sides, so the labels state the heights the terrain draws.
     [_contourSource setTerrainOptions:[DemoConfig boolFor:@"stubsFromTerrain"] ? _terrainOptions : nil];
+    [self requestRender];
 }
 
 - (NTElevationDecoder *)elevationDecoder {
@@ -762,6 +777,7 @@ static const DemoFeature LAYER_ORDER[] = {
 
 - (void)applyDebugConfig {
     [[self.mapView getOptions] setDebugTileBorders:[DemoConfig boolFor:@"tileBorders"]];
+    [self requestRender];
 }
 
 - (void)applyTerrainOptions {
@@ -796,6 +812,7 @@ static const DemoFeature LAYER_ORDER[] = {
     [_terrainOptions setViewDistance:[DemoConfig floatFor:@"viewDistanceMeters"]];
     [_terrainOptions setMaxTileZoomCoarsening:[DemoConfig intFor:@"coarsening"]];
     [self applyReliefSurface];
+    [self requestRender];
 }
 
 - (void)applyLightOptions {
@@ -851,6 +868,7 @@ static const DemoFeature LAYER_ORDER[] = {
         [_skyOptions setSkyColor:[DemoMap colorFromHex:[DemoMap reliefSky]]];
         [[self.mapView getOptions] setSkyColor:[DemoMap colorFromHex:[DemoMap reliefSky]]];
     }
+    [self requestRender];
 }
 
 /**
@@ -872,6 +890,7 @@ static const DemoFeature LAYER_ORDER[] = {
     NTProjection *projection = [[self.mapView getOptions] getBaseProjection];
     NTMapPos *centre = [projection toWgs84:[self.mapView getFocusPos]];
     [DemoSky applyHour:hourUtc light:_lightOptions sky:_skyOptions lat:[centre getY] lon:[centre getX]];
+    [self requestRender];
 }
 
 // =================================================================================================
@@ -1015,6 +1034,7 @@ static const DemoFeature LAYER_ORDER[] = {
     [_terrainOptions setSurfaceParameter:@"uAmbient" value:[DemoConfig floatFor:@"reliefAmbient"]];
     [_terrainOptions setSurfaceParameter:@"uHaze" value:[DemoConfig floatFor:@"reliefHaze"]];
     [_terrainOptions setSurfaceParameter:@"uHazeDistance" value:[DemoConfig floatFor:@"reliefHazeDistance"]];
+    [self requestRender];
 }
 
 /** PeakFinder-style relief outline post-process effect. */
@@ -1034,6 +1054,7 @@ static const DemoFeature LAYER_ORDER[] = {
         _reliefEffect = nil;
         [renderer setPostProcessEffect:nil];
     }
+    [self requestRender];
 }
 
 - (void)applyReliefOutlineParameters {
@@ -1054,6 +1075,7 @@ static const DemoFeature LAYER_ORDER[] = {
     [_reliefEffect setFloatParameter:@"uDistanceFade" value:0.45f];
     [_reliefEffect setColorParameter:@"uInkColor" color:[DemoMap colorFromHex:[DemoMap reliefInk]]];
     [_reliefEffect setColorParameter:@"uPaperColor" color:[DemoMap colorFromHex:[DemoMap reliefPaper]]];
+    [self requestRender];
 }
 
 /**
@@ -1129,6 +1151,7 @@ static const DemoFeature LAYER_ORDER[] = {
             [self.mapView setTilt:_savedTilt durationSeconds:0.6f];
         }
     }
+    [self requestRender];
 }
 
 /**
@@ -1220,6 +1243,7 @@ static const DemoFeature LAYER_ORDER[] = {
         [_skyOptions setEnabled:[DemoConfig boolFor:@"sky"]];
         [self setReliefDark:NO];
     }
+    [self requestRender];
 }
 
 // =================================================================================================
@@ -1286,6 +1310,7 @@ static const DemoFeature LAYER_ORDER[] = {
     [self setMapLayerOpacity:1]; // the layers are out of the list now: leave them ready to come back
     [self applyLookRange];
     [self setOrientationFollowing:[DemoConfig boolFor:@"starSkyOrientation"]];
+    [self requestRender];
 }
 
 - (void)leaveStarSky {
@@ -1300,6 +1325,7 @@ static const DemoFeature LAYER_ORDER[] = {
     }
     [self setMapLayerOpacity:0];
     [self rebuildLayers];
+    [self requestRender];
 }
 
 /** Opacity of every layer that is NOT the sky. */
@@ -1310,6 +1336,7 @@ static const DemoFeature LAYER_ORDER[] = {
             [layer setOpacity:opacity];
         }
     }];
+    [self requestRender];
 }
 
 - (void)fadeMapLayersFrom:(float)from to:(float)to duration:(float)duration
