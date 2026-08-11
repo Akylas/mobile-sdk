@@ -12,11 +12,13 @@
 #include <memory>
 #include <mutex>
 #include <map>
+#include <set>
 #include <vector>
 #include <string>
 #include <variant>
 
 #include <mapnikvt/Value.h>
+#include <mapnikvt/NutiParameterStore.h>
 #include <mapnikvt/LayerConfigResolver.h>
 
 namespace carto {
@@ -201,7 +203,9 @@ namespace carto {
     protected:
         void updateCurrentStyleSet(const std::variant<std::shared_ptr<CompiledStyleSet>, std::shared_ptr<CartoCSSStyleSet> >& styleSet);
         void updateSymbolizerContext();
+        void updateParameterStore();
         bool setStyleParameterInternal(const std::string& param, const std::string& value);
+        bool areParametersLive(const std::vector<std::string>& params) const;
         void updateSymbolizer();
 
         static const std::string DEFAULT_FALLBACK_FONT_NAME;
@@ -220,6 +224,8 @@ namespace carto {
         std::variant<std::shared_ptr<CompiledStyleSet>, std::shared_ptr<CartoCSSStyleSet> > _styleSet;
         std::string _styleAssetName; // what the current _map was loaded from, so the symbolizer
         std::shared_ptr<AssetPackage> _styleAssetPackage; // context can be rebuilt without it
+        std::shared_ptr<mvt::NutiParameterStore> _parameterStore; // the values the decoded tiles read
+        std::set<std::string> _liveParameters; // those of them that only a per-frame function reads
         std::shared_ptr<const mvt::Map> _map;
         std::shared_ptr<const mvt::Map::Settings> _mapSettings;
         std::shared_ptr<const mvt::SymbolizerContext> _symbolizerContext;

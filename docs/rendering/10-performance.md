@@ -174,9 +174,63 @@ overhead ~30%, so read the shares, not the absolutes):
 | symbolizer property evaluation | 4% |
 | rule prefilter + field gathering | 2% |
 
-So the CartoCSS/expression machinery is **~18% of a decode** — geometry building is the cost. Note
-what this means for `setStyleParameter`: it invalidates every tile ([TileLayer.cpp](../../all/native/layers/TileLayer.cpp)
-`updateTiles`), so changing one `nuti::` colour costs *visible tiles × ~130 ms* of decode CPU.
+So the CartoCSS/expression machinery is **~18% of a decode** — geometry building is the cost.
+
+### The compiled map is cached
+
+A compiled `mvt::Map` is read-only, and a decoder's parameter values live in its own store, so the
+same map can serve several decoders. `MBVectorTileDecoder` keeps a small process-wide cache keyed by
+**(asset package, style asset name, `cartoCSSLayerNamesIgnored`)** — weak references plus the last
+two held strongly, so a day/night pair stays warm without pinning every style ever loaded. Measured
+on the device, loading the same style a second time: **411 ms → 0.00 ms** (the symbolizer context is
+already cached by asset package too, so the second load is free end to end).
+
+The key is the asset **package object**, not its contents: two styles of one package (the day/night
+case, `CompiledStyleSet(pack, "day")` / `(pack, "night")`) hit the cache, but re-creating the package
+around the same files does not. Hashing the assets to do better would cost more than it saves for
+the single-load case.
+
+### Live style parameters
+
+`setStyleParameter` used to invalidate every tile ([TileLayer.cpp](../../all/native/layers/TileLayer.cpp)
+`updateTiles`), so changing one `nuti::` colour cost *visible tiles × ~130 ms* of decode CPU. A
+parameter that **only** feeds properties the renderer evaluates per frame does not need any of that:
+
+- the values live in a `mvt::NutiParameterStore` that decoded tiles hold a pointer to, so replacing
+  them is visible to already-decoded tiles;
+- a colour/width property whose expression reads parameters (and at most the view state) becomes a
+  `vt::ColorFunction`/`FloatFunction` instead of being folded at decode — `Property::isLiveCapable`;
+- `mvt::resolveLiveNutiParameters` classifies each parameter at load, and `MBVectorTileDecoder`
+  takes the cheap path only when **every** parameter in the call is live: swap the values, ask for a
+  redraw (`onDecoderRefreshed`), decode nothing.
+
+Conservative by construction. A parameter is **not** live when it appears in a rule filter (it
+decides what the tile contains), when it feeds a property that is also read at decode time — glyph
+raster size, generated marker bitmap, stroke pattern (`Property::isBakedAtDecode`) — when the
+expression also reads a feature field or the zoom, or when it drives `_geometryscale`, `_fontscale`
+or `_zoomlevelbias`. Anything unclassified stays on the re-decode path.
+
+Measured on the device with the demo's in-memory nuti style (`--es style nuti`): flipping a colour
+parameter every 3 s produced **zero `decodeTile` calls** and the water polygons changed between the
+two colours in the next frame; flipping the boolean the style uses in a filter still re-decodes, as
+it must. Worth knowing: the bundled 23-layer style has **no** live parameter — its 461 parameters all
+sit in filters, text or marker sizes — so this pays only for styles written with colour parameters,
+which is the point of the feature.
+
+Classification costs ~37 ms once per style load on that style (a walk over every rule and property).
+
+**What this does not solve: selection.** A style that drives "selected" with a parameter — the route
+style's `when ([nuti::selected_osmid]=@osmid)::selected`, plus a width that mixes the parameter with
+the feature field `[osmid]` — stays on the re-decode path, and the filter part *has* to: the casing
+of the selected route only exists because that rule matched, and a redraw cannot build geometry. The
+durable answer is maplibre's `feature-state` model: the selected id becomes a **uniform** and the
+comparison happens per vertex against a feature-id attribute, so a selection change costs nothing on
+the CPU at all. That needs a feature-id vertex attribute in `vt` and shader support — not done.
+A cheaper half-step is to let "parameter + feature field" expressions be live: `TileReader` already
+builds one processor per distinct feature-data, so the function can close over that feature's value
+and read the store per frame. The price is one function object per feature-data, and geometries only
+batch when they share one (16 style-parameter slots per geometry), so it fragments draws on a dense
+layer.
 
 ## Measured NOT to matter — do not re-run these
 
@@ -216,6 +270,8 @@ what this means for `setStyleParameter`: it invalidates every tile ([TileLayer.c
 | `setPixelScale` rebuilds only the symbolizer context, not the compiled map | startup style cost 2 × 0.5–0.7 s → one load plus a ~0.1 s context rebuild |
 | CartoCSS compile: per-zoom predicate memo, field-bucketed property insert, interned field ids | compile 264 → 157 ms, `buildMap` 362 → 261 ms (23-layer style, device) |
 | CartoCSS compile: skip a zoom whose predicate results repeat, reuse the trial property set | compile 157 → 129 ms, `buildMap` → 220 ms |
+| live style parameters (a colour-only parameter swaps values and redraws) | a parameter change went from *visible tiles × ~130 ms* of decode to **zero decodes** |
+| compiled-map cache keyed by asset package + style name | loading the same style again: 411 ms → **0.00 ms** |
 | render and tile paths at `-O2` in Release instead of `-Oz` | device 39.09 → 37.82 ms/frame (3.2%), CPU work minus the swap wait 14.39 → 13.51 ms (6.1%), `prepare` 2.65 → 2.22, `prelude` 0.91 → 0.70; +614 KB on arm64 |
 
 The `-Oz` → `-O2` A/B is a warning about the emulator as much as a result. Three interleaved cycles

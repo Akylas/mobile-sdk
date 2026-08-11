@@ -35,6 +35,7 @@
 #include <mapnikvt/MBVTFeatureDecoder.h>
 #include <mapnikvt/MBVTTileReader.h>
 #include <mapnikvt/MapParser.h>
+#include <mapnikvt/NutiParameterResolver.h>
 #include <cartocss/CartoCSSMapLoader.h>
 
 #include <functional>
@@ -43,6 +44,125 @@
 #include <boost/algorithm/string/predicate.hpp>
 
 namespace carto {
+
+    namespace {
+        // A style parameter may hold an object or an array (a table the style reads with get()),
+        // and the public API passes parameter values as strings - so those are carried as JSON.
+        mvt::Value convertJSONValue(const picojson::value& value) {
+            if (value.is<std::string>()) {
+                return mvt::Value(value.get<std::string>());
+            }
+            if (value.is<bool>()) {
+                return mvt::Value(value.get<bool>());
+            }
+            if (value.is<std::int64_t>()) {
+                return mvt::Value(static_cast<long long>(value.get<std::int64_t>()));
+            }
+            if (value.is<double>()) {
+                return mvt::Value(value.get<double>());
+            }
+            if (value.is<picojson::object>()) {
+                std::map<std::string, mvt::Value> members;
+                const picojson::object& obj = value.get<picojson::object>();
+                for (auto it = obj.begin(); it != obj.end(); it++) {
+                    members[it->first] = convertJSONValue(it->second);
+                }
+                return mvt::Value(std::make_shared<const mvt::ValueObject>(std::move(members)));
+            }
+            if (value.is<picojson::array>()) {
+                std::vector<mvt::Value> elements;
+                const picojson::array& arr = value.get<picojson::array>();
+                for (auto it = arr.begin(); it != arr.end(); it++) {
+                    elements.push_back(convertJSONValue(*it));
+                }
+                return mvt::Value(std::make_shared<const mvt::ValueArray>(std::move(elements)));
+            }
+            return mvt::Value();
+        }
+
+        picojson::value convertValueToJSON(const mvt::Value& value) {
+            if (auto val = std::get_if<bool>(&value)) {
+                return picojson::value(*val);
+            }
+            if (auto val = std::get_if<long long>(&value)) {
+                return picojson::value(static_cast<std::int64_t>(*val));
+            }
+            if (auto val = std::get_if<double>(&value)) {
+                return picojson::value(*val);
+            }
+            if (auto val = std::get_if<std::string>(&value)) {
+                return picojson::value(*val);
+            }
+            if (auto val = std::get_if<std::shared_ptr<const mvt::ValueObject>>(&value)) {
+                picojson::object obj;
+                if (*val) {
+                    for (auto it = (*val)->members.begin(); it != (*val)->members.end(); it++) {
+                        obj[it->first] = convertValueToJSON(it->second);
+                    }
+                }
+                return picojson::value(obj);
+            }
+            if (auto val = std::get_if<std::shared_ptr<const mvt::ValueArray>>(&value)) {
+                picojson::array arr;
+                if (*val) {
+                    for (auto it = (*val)->elements.begin(); it != (*val)->elements.end(); it++) {
+                        arr.push_back(convertValueToJSON(*it));
+                    }
+                }
+                return picojson::value(arr);
+            }
+            return picojson::value();
+        }
+
+        bool isContainerValue(const mvt::Value& value) {
+            return std::get_if<std::shared_ptr<const mvt::ValueObject>>(&value) || std::get_if<std::shared_ptr<const mvt::ValueArray>>(&value);
+        }
+
+        // Compiled maps, shared between decoders. Parsing and compiling a style is 0.5-0.7 s for a
+        // 23-layer project, and an app that switches between two styles of one asset package - day
+        // and night - or builds several layers from the same style, pays it every time otherwise.
+        // A compiled map is read-only, and the values a decoder sets live in its own parameter
+        // store, so sharing one is safe.
+        struct MapCacheKey {
+            const AssetPackage* assetPackage = nullptr;
+            std::string styleAssetName;
+            std::string cartoCSS;
+            bool ignoreLayerPredicates = false;
+
+            bool operator == (const MapCacheKey& other) const {
+                return assetPackage == other.assetPackage && styleAssetName == other.styleAssetName && cartoCSS == other.cartoCSS && ignoreLayerPredicates == other.ignoreLayerPredicates;
+            }
+        };
+
+        std::mutex g_mapCacheMutex;
+        std::vector<std::pair<MapCacheKey, std::weak_ptr<const mvt::Map>>> g_mapCache;
+        std::vector<std::shared_ptr<const mvt::Map>> g_mapCacheRetained; // keeps the last few alive
+
+        std::shared_ptr<const mvt::Map> findCachedMap(const MapCacheKey& key) {
+            std::lock_guard<std::mutex> lock(g_mapCacheMutex);
+            for (auto it = g_mapCache.begin(); it != g_mapCache.end(); ) {
+                std::shared_ptr<const mvt::Map> map = it->second.lock();
+                if (!map) {
+                    it = g_mapCache.erase(it);
+                    continue;
+                }
+                if (it->first == key) {
+                    return map;
+                }
+                it++;
+            }
+            return std::shared_ptr<const mvt::Map>();
+        }
+
+        void storeCachedMap(const MapCacheKey& key, const std::shared_ptr<const mvt::Map>& map) {
+            std::lock_guard<std::mutex> lock(g_mapCacheMutex);
+            g_mapCache.emplace_back(key, map);
+            g_mapCacheRetained.push_back(map);
+            if (g_mapCacheRetained.size() > 2) {
+                g_mapCacheRetained.erase(g_mapCacheRetained.begin());
+            }
+        }
+    }
 
     MBVectorTileDecoder::MBVectorTileDecoder(const std::shared_ptr<CompiledStyleSet>& compiledStyleSet) :
         _logger(std::make_shared<MVTLogger>("MBVectorTileDecoder")),
@@ -157,6 +277,10 @@ namespace carto {
             }
         }
 
+        if (isContainerValue(value)) {
+            return convertValueToJSON(value).serialize(); // a table parameter reads back as JSON
+        }
+
         if (!nutiParam.getEnumMap().empty()) {
             for (auto it2 = nutiParam.getEnumMap().begin(); it2 != nutiParam.getEnumMap().end(); it2++) {
                 if (it2->second == value) {
@@ -195,13 +319,7 @@ namespace carto {
         if (!_map) {
             return mvt::ResolvedLayerConfig();
         }
-        // Effective nuti value map: style defaults overlaid with runtime overrides (same as
-        // updateSymbolizer()).
-        auto nutiValues = std::make_shared<std::map<std::string, mvt::Value>>(*_symbolizerContextSettings->getNutiParameterValueMap());
-        for (auto it = _parameterValueMap.begin(); it != _parameterValueMap.end(); it++) {
-            (*nutiValues)[it->first] = it->second;
-        }
-        return mvt::resolveLayerConfig(*_map, layerName, viewZoom, nutiValues);
+        return mvt::resolveLayerConfig(*_map, layerName, viewZoom, _parameterStore);
     }
 
     std::vector<int> MBVectorTileDecoder::getStyleLayerZoomRange(const std::string& layerName) const {
@@ -214,13 +332,38 @@ namespace carto {
         return { range.first, range.second };
     }
 
-    void MBVectorTileDecoder::updateSymbolizer() {
-        auto parameterValueMap = std::make_shared<std::map<std::string, mvt::Value>>(*_symbolizerContextSettings->getNutiParameterValueMap());
-        for (auto it2 = _parameterValueMap.begin(); it2 != _parameterValueMap.end(); it2++) {
-            (*parameterValueMap)[it2->first] = it2->second;
+    void MBVectorTileDecoder::updateParameterStore() {
+        // The style defaults, overlaid with whatever the app has set. The store is never replaced,
+        // only its values are - the decoded tiles read through it.
+        std::map<std::string, mvt::Value> parameterValues;
+        for (auto it = _map->getNutiParameterMap().begin(); it != _map->getNutiParameterMap().end(); it++) {
+            parameterValues[it->first] = it->second.getDefaultValue();
         }
-        _symbolizerContextSettings = std::make_shared<mvt::SymbolizerContext::Settings>(_symbolizerContextSettings->getTileSize(), parameterValueMap, _symbolizerContextSettings->getFallbackFont(), _pixelScale);
+        for (auto it = _parameterValueMap.begin(); it != _parameterValueMap.end(); it++) {
+            parameterValues[it->first] = it->second;
+        }
+        _parameterStore->setValues(std::move(parameterValues));
+    }
+
+    void MBVectorTileDecoder::updateSymbolizer() {
+        updateParameterStore();
+
+        // Settings snapshot the parameters that scale geometry and glyphs, so they are rebuilt
+        // whenever a parameter changes structurally.
+        _symbolizerContextSettings = std::make_shared<mvt::SymbolizerContext::Settings>(_symbolizerContextSettings->getTileSize(), _parameterStore, _symbolizerContextSettings->getFallbackFont(), _pixelScale);
         _symbolizerContext = std::make_shared<mvt::SymbolizerContext>(_symbolizerContext->getBitmapManager(), _symbolizerContext->getFontManager(), _symbolizerContext->getStrokeMap(), _symbolizerContext->getGlyphMap(), *_symbolizerContextSettings);
+    }
+
+    bool MBVectorTileDecoder::areParametersLive(const std::vector<std::string>& params) const {
+        if (params.empty() || _liveParameters.empty()) {
+            return false;
+        }
+        for (const std::string& param : params) {
+            if (_liveParameters.find(param) == _liveParameters.end()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     bool MBVectorTileDecoder::setStyleParameterInternal(const std::string& param, const std::string& value) {
@@ -238,6 +381,21 @@ namespace carto {
                 return false;
             }
             _parameterValueMap[param] = it2->second;
+        } else if (isContainerValue(nutiParam.getDefaultValue())) {
+            // An object/array parameter is set as JSON, and its shape must match what the style
+            // declared - a style reading get(table, key) must not be handed a scalar.
+            picojson::value jsonValue;
+            std::string err = picojson::parse(jsonValue, value);
+            if (!err.empty()) {
+                Log::Errorf("MBVectorTileDecoder::setStyleParameter: Could not parse JSON for parameter %s: %s", param.c_str(), err.c_str());
+                return false;
+            }
+            mvt::Value val = convertJSONValue(jsonValue);
+            if (val.index() != nutiParam.getDefaultValue().index()) {
+                Log::Errorf("MBVectorTileDecoder::setStyleParameter: Value of parameter %s does not match the declared object/array type", param.c_str());
+                return false;
+            }
+            _parameterValueMap[param] = val;
         } else {
             try {
                 mvt::Value val = nutiParam.getDefaultValue();
@@ -267,14 +425,26 @@ namespace carto {
     }
 
     bool MBVectorTileDecoder::setStyleParameter(const std::string& param, const std::string& value) {
+        bool live = false;
         {
             std::lock_guard<std::mutex> lock(_mutex);
 
             setStyleParameterInternal(param, value);
 
-            updateSymbolizer();
+            live = areParametersLive({ param });
+            if (live) {
+                updateParameterStore();
+            } else {
+                updateSymbolizer();
+            }
         }
-        notifyDecoderChanged();
+        // A parameter that nothing but a per-frame colour or width reads is already visible to the
+        // decoded tiles through the store: they only have to be drawn again.
+        if (live) {
+            notifyDecoderRefreshed();
+        } else {
+            notifyDecoderChanged();
+        }
         return true;
     }
     void MBVectorTileDecoder::setJSONStyleParameters(const std::string& params) {
@@ -287,14 +457,26 @@ namespace carto {
                 throw ParseException(std::string("JSON parsing failed: ") + err, params);
             }
             const picojson::object &jsonValues = val.get<picojson::object>();
+            bool live = false;
             {
                 std::lock_guard<std::mutex> lock(_mutex);
+                std::vector<std::string> params;
                 for (auto it = jsonValues.begin(); it != jsonValues.end(); it++) {
                     setStyleParameterInternal(it->first, it->second.get<std::string>());
+                    params.push_back(it->first);
                 }
-                updateSymbolizer();
+                live = areParametersLive(params);
+                if (live) {
+                    updateParameterStore();
+                } else {
+                    updateSymbolizer();
+                }
             }
-            notifyDecoderChanged();
+            if (live) {
+                notifyDecoderRefreshed();
+            } else {
+                notifyDecoderChanged();
+            }
         }
         catch (const std::exception &ex)
         {
@@ -303,14 +485,27 @@ namespace carto {
         }
     }
     void MBVectorTileDecoder::setStyleParameters(const std::map<std::string, std::string>& params) {
-        std::lock_guard<std::mutex> lock(_mutex);
+        bool live = false;
         {
+            std::lock_guard<std::mutex> lock(_mutex);
+
+            std::vector<std::string> paramNames;
             for (auto p = params.begin(); p != params.end(); ++p)  {
                 setStyleParameterInternal(p->first, p->second);
+                paramNames.push_back(p->first);
             }
-            updateSymbolizer();
+            live = areParametersLive(paramNames);
+            if (live) {
+                updateParameterStore();
+            } else {
+                updateSymbolizer();
+            }
         }
-        notifyDecoderChanged();
+        if (live) {
+            notifyDecoderRefreshed();
+        } else {
+            notifyDecoderChanged();
+        }
     }
 
     bool MBVectorTileDecoder::isFeatureIdOverride() const {
@@ -553,13 +748,26 @@ namespace carto {
 
     void MBVectorTileDecoder::updateCurrentStyleSet(const std::variant<std::shared_ptr<CompiledStyleSet>, std::shared_ptr<CartoCSSStyleSet> >& styleSet) {
         std::string styleAssetName;
+        std::string cartoCSS;
         std::shared_ptr<AssetPackage> assetPackage;
-        std::shared_ptr<mvt::Map> map;
+        std::shared_ptr<const mvt::Map> map;
 
+        // What identifies the compiled map: the asset package it came from, which style of it, and
+        // whether layer predicates were ignored (that one changes how the style compiles).
         if (auto cartoCSSStyleSet = std::get_if<std::shared_ptr<CartoCSSStyleSet> >(&styleSet)) {
-            styleAssetName = "";
             assetPackage = (*cartoCSSStyleSet)->getAssetPackage();
+            cartoCSS = (*cartoCSSStyleSet)->getCartoCSS();
+        } else if (auto compiledStyleSet = std::get_if<std::shared_ptr<CompiledStyleSet> >(&styleSet)) {
+            styleAssetName = (*compiledStyleSet)->getStyleAssetName();
+            assetPackage = (*compiledStyleSet)->getAssetPackage();
+        }
+        MapCacheKey mapCacheKey { assetPackage.get(), styleAssetName, cartoCSS, _cartoCSSLayerNamesIgnored };
+        map = findCachedMap(mapCacheKey);
+        bool mapWasCached = static_cast<bool>(map);
 
+        if (map) {
+            // Already compiled - by this decoder before, or by another layer using the same style.
+        } else if (auto cartoCSSStyleSet = std::get_if<std::shared_ptr<CartoCSSStyleSet> >(&styleSet)) {
             try {
                 auto assetLoader = std::make_shared<CartoCSSAssetLoader>("", (*cartoCSSStyleSet)->getAssetPackage());
                 css::CartoCSSMapLoader mapLoader(assetLoader, _logger);
@@ -570,11 +778,9 @@ namespace carto {
                 throw ParseException(std::string("CartoCSS style parsing failed: ") + ex.what(), (*cartoCSSStyleSet)->getCartoCSS());
             }
         } else if (auto compiledStyleSet = std::get_if<std::shared_ptr<CompiledStyleSet> >(&styleSet)) {
-            styleAssetName = (*compiledStyleSet)->getStyleAssetName();
             if (styleAssetName.empty()) {
                 throw InvalidArgumentException("Could not find any styles in the style set");
             }
-            assetPackage = (*compiledStyleSet)->getAssetPackage();
 
             std::shared_ptr<BinaryData> styleData;
             if (assetPackage) {
@@ -612,6 +818,10 @@ namespace carto {
             }
         } else {
             throw InvalidArgumentException("Invalid style set");
+        }
+
+        if (!mapWasCached) {
+            storeCachedMap(mapCacheKey, map);
         }
 
         _styleSet = styleSet;
@@ -671,14 +881,10 @@ namespace carto {
                 // Styles without any font (inline CartoCSS, for example) still need a font for their labels
                 fallbackFont = fontManager->getFont(DEFAULT_FALLBACK_FONT_NAME, fallbackFont);
             }
-            mvt::SymbolizerContext::Settings settings(DEFAULT_TILE_SIZE, std::make_shared<std::map<std::string, mvt::Value>>(), fallbackFont, _pixelScale);
+            mvt::SymbolizerContext::Settings settings(DEFAULT_TILE_SIZE, std::make_shared<mvt::NutiParameterStore>(), fallbackFont, _pixelScale);
             symbolizerContext = std::make_shared<mvt::SymbolizerContext>(bitmapManager, fontManager, strokeMap, glyphMap, settings);
         }
 
-        auto parameterValueMap = std::make_shared<std::map<std::string, mvt::Value>>();
-        for (auto it = map->getNutiParameterMap().begin(); it != map->getNutiParameterMap().end(); it++) {
-            (*parameterValueMap)[it->first] = it->second.getDefaultValue();
-        }
         for (auto it = _parameterValueMap.begin(); it != _parameterValueMap.end(); ) {
             auto it2 = map->getNutiParameterMap().find(it->first);
             if (it2 == map->getNutiParameterMap().end()) {
@@ -702,11 +908,16 @@ namespace carto {
                 continue;
             }
 
-            (*parameterValueMap)[it->first] = it->second;
             it++;
         }
 
-        _symbolizerContextSettings = std::make_shared<mvt::SymbolizerContext::Settings>(symbolizerContext->getSettings().getTileSize(), parameterValueMap, symbolizerContext->getSettings().getFallbackFont(), _pixelScale);
+        if (!_parameterStore) {
+            _parameterStore = std::make_shared<mvt::NutiParameterStore>();
+        }
+        updateParameterStore();
+        _liveParameters = mvt::resolveLiveNutiParameters(*_map);
+
+        _symbolizerContextSettings = std::make_shared<mvt::SymbolizerContext::Settings>(symbolizerContext->getSettings().getTileSize(), _parameterStore, symbolizerContext->getSettings().getFallbackFont(), _pixelScale);
         _symbolizerContext = std::make_shared<mvt::SymbolizerContext>(symbolizerContext->getBitmapManager(), symbolizerContext->getFontManager(), symbolizerContext->getStrokeMap(), symbolizerContext->getGlyphMap(), *_symbolizerContextSettings);
         _cachedFeatureDecoder.first.reset();
         _cachedFeatureDecoder.second.reset();

@@ -33,7 +33,7 @@ namespace {
     template <typename T>
     std::optional<T> readDecoderParameter(const std::shared_ptr<carto::VectorTileDecoder>& decoder, const std::string& paramName) {
         if (auto symbolizerContextSettings = decoder->getSymbolizerContextSettings()) {
-            if (auto parameterValueMap = symbolizerContextSettings->getNutiParameterValueMap()) {
+            if (auto parameterValueMap = symbolizerContextSettings->getNutiParameterValueMap()) { // snapshot
                 auto it = parameterValueMap->find(paramName);
                 if (it != parameterValueMap->end()) {
                     return std::optional<T>(carto::mvt::ValueConverter<T>::convert(it->second));
@@ -651,7 +651,7 @@ namespace carto {
     mvt::ExpressionContext VectorTileLayer::getExpressionContext() const {
         mvt::ExpressionContext exprContext;
         if (auto symbolizerContextSettings = _tileDecoder->getSymbolizerContextSettings()) {
-            exprContext.setNutiParameterValueMap(symbolizerContextSettings->getNutiParameterValueMap());
+            exprContext.setNutiParameterStore(symbolizerContextSettings->getNutiParameterStore());
         }
         return exprContext;
     }
@@ -664,6 +664,19 @@ namespace carto {
     void VectorTileLayer::TileDecoderListener::onDecoderChanged() {
         if (std::shared_ptr<VectorTileLayer> layer = _layer.lock()) {
             layer->updateTiles(false);
+        } else {
+            Log::Error("VectorTileLayer::TileDecoderListener: Lost connection to layer");
+        }
+    }
+
+    void VectorTileLayer::TileDecoderListener::onDecoderRefreshed() {
+        // The decoded tiles already read the new value through the parameter store, and the colours
+        // and widths that read it are evaluated per frame - so the next frame is the only thing that
+        // has to change. No tile is fetched, decoded or re-culled.
+        if (std::shared_ptr<VectorTileLayer> layer = _layer.lock()) {
+            if (std::shared_ptr<MapRenderer> mapRenderer = layer->getMapRenderer()) {
+                mapRenderer->requestRedraw();
+            }
         } else {
             Log::Error("VectorTileLayer::TileDecoderListener: Lost connection to layer");
         }
