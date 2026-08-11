@@ -21,7 +21,7 @@ static NSMutableDictionary *sValues = nil;
         @"satellite":           @NO,
         @"hillshade":           @NO,
         @"hypso":               @NO,
-        @"contour":             @NO,
+        @"contourLayer":        @NO,
         @"contourTiles":        @NO,
         @"elements":            @NO,
         @"routes":              @NO,
@@ -29,6 +29,9 @@ static NSMutableDictionary *sValues = nil;
         // --- composite slots ---
         @"hs":                  @NO,
         @"sat":                 @NO,
+        // Composite contour slot: merged INTO the master source and styled by the '#contour'
+        // rules, which is why it is on by default while the stand-alone layer is not.
+        @"contour":             @YES,
         @"hsBias":              @0.0f,
 
         // --- tile sources ---

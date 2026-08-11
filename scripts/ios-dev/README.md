@@ -48,7 +48,8 @@ Mirrors the Android demo file for file, so the two can be compared knob by knob:
 | `DemoCfg.h/.m` | `demo/DemoCfg.java` | typed readers for the overrides |
 | `DemoMap.h/.m` | `demo/DemoMap.java` | layer registry, tile sources, terrain, sky/light, camera |
 | `DemoStyles.h/.m` | `demo/DemoStyles.java` | generated CartoCSS + the style decoders |
-| `DemoPanel.h/.m` | `demo/DemoPanel.java` | the on-screen settings panel |
+| `DemoPanel.h/.m` | `demo/DemoPanel.java` | the settings bottom sheet |
+| `DemoSky.h/.m` | `demo/DemoSky.java` | day cycle: sun position + sky colours |
 | `DemoTests.h/.m` | `demo/DemoTests.java` | one-shot actions (route, search, clear) |
 | `DemoViewController.m` | `ui/main/SecondFragment.java` | platform glue only |
 
@@ -64,16 +65,38 @@ written out.
 `xcodegen generate` on its own fails after any CMake reconfigure, and fails *silently* in the
 sense that the project keeps its old file list.
 
+## The settings sheet
+
+A bottom sheet rather than a full-screen modal: the point of a knob is watching the map change as
+you drag it, so the sheet opens at a medium, **undimmed** detent with the map live above it, and
+expands to full height for the longer sections.
+
+- **Search** filters on the label *and* the config key, so typing `zoom` finds "Zoom", "Satellite
+  min zoom" and "Min zoom". A search flattens the accordion — a hit inside a closed section would
+  otherwise look like no hit at all.
+- **Collapsible sections**, all closed but the layer list.
+- A control writes `DemoConfig` and calls the cheapest `DemoMap` apply that shows the change
+  (layers / terrain / light / camera / options), declared per row.
+
 ## Status
 
 Covered: vector and raster base maps (composite or plain), the generated inline CartoCSS with its
-label / road-width / 3D-building / landcover knobs, the composite hillshade and satellite slots,
-the stand-alone hillshade layer, contours both on-the-fly and pre-baked, 3D terrain, sun and sky,
-the camera, the settings panel and the route/search/clear actions.
+label / road-width / 3D-building / landcover knobs, the composite hillshade, satellite **and
+contour** slots, the stand-alone hillshade layer, contours both on-the-fly and pre-baked, 3D
+terrain, fog and view distance, sun/sky plus the day cycle, the camera, the settings sheet, and
+the route / maneuver-arrow / GeoJSON-benchmark / vector-tile-search / clear actions.
 
-Not ported yet: the day cycle and celestial objects (`DemoSky`, `DemoStars`), free-roam and
-peak-finder modes, the maneuver-arrow gallery, the GeoJSON benchmarks, and the vector-tile search
-service behind the search action (which currently only reports the query point).
+Not ported yet: celestial objects and stars (`DemoStars`), free-roam and peak-finder modes, the
+hypsometric and vector-element layers, the nuti style source, and the POI/shield test style.
+
+## Composite slots are not layers
+
+`contour`, `hs` and `sat` are **composite slots**, not layers: the source is woven into the master
+style at the position of its `#name` rule. `contour` in particular is merged with
+`addVectorDataSource` so the base style's `#contour` block draws it — `addExternalDataSource`
+would give it its own pass and the style's contour rules would still get no data. The stand-alone
+equivalents are the separate `contourLayer` / `hillshade` / `satellite` keys. Same split, same
+defaults and same key names as the Android demo, where `contour` is on by default.
 
 ## Gotchas
 

@@ -1,6 +1,7 @@
 #import "DemoMap.h"
 #import "DemoConfig.h"
 #import "DemoStyles.h"
+#import "DemoSky.h"
 // Not in the umbrella header (fork additions), so imported directly.
 #import "NTCompositeVectorTileLayer.h"
 #import "NTContourTileDataSource.h"
@@ -65,6 +66,11 @@
     return shared;
 }
 
++ (NTTileDataSource *)contourSource {
+    return [[NTContourTileDataSource alloc] initWithDataSource:[self demSource]
+                                             elevationDecoder:[self elevationDecoder]];
+}
+
 // =================================================================================================
 // LAYERS
 // =================================================================================================
@@ -84,8 +90,9 @@
     if ([DemoConfig boolFor:@"hillshade"]) {
         [layers add:[self buildHillshadeLayer]];
     }
-    if ([DemoConfig boolFor:@"contour"]) {
-        // Contours traced from the DEM on the fly, as their own layer.
+    if ([DemoConfig boolFor:@"contourLayer"]) {
+        // Contours traced from the DEM on the fly, as their OWN layer. The composite slot below
+        // is the other way to get them, and the usual one.
         NTContourTileDataSource *source =
             [[NTContourTileDataSource alloc] initWithDataSource:[self demSource]
                                               elevationDecoder:[self elevationDecoder]];
@@ -130,6 +137,12 @@
                                 type:NT_COMPOSITE_SOURCE_TYPE_HILLSHADE
                     elevationDecoder:[self elevationDecoder]];
         [layer setExternalDataSourceZoomLevelBias:@"hillshade" bias:[DemoConfig floatFor:@"hsBias"]];
+    }
+    if ([DemoConfig boolFor:@"contour"]) {
+        // Merged into the master source rather than added beside it, so the '#contour' rules of
+        // the base style draw it - addExternalDataSource would put it in its own pass and the
+        // style's contour block would still get no data.
+        [layer addVectorDataSource:@"contour" dataSource:[self contourSource]];
     }
     if ([DemoConfig boolFor:@"sat"]) {
         [layer addExternalDataSource:@"satellite"
@@ -178,10 +191,17 @@
     [terrain setSeamlessTileEdgesEnabled:[DemoConfig boolFor:@"seamlessEdges"]];
     [terrain setElevationPrefetchEnabled:[DemoConfig boolFor:@"prefetch"]];
     [terrain setPainterOrderDepthEnabled:[DemoConfig boolFor:@"painterDepth"]];
+    [terrain setViewDistanceFactor:[DemoConfig floatFor:@"viewDistance"]];
     [[mapView getOptions] setTerrainOptions:terrain];
 }
 
 + (void)applySkyAndLightConfig:(NTMapView *)mapView {
+    if ([DemoConfig boolFor:@"daycycle"]) {
+        // The day cycle owns the sun and the sky colours together, so it replaces the manual
+        // sliders rather than layering on top of them.
+        [DemoSky applyDayCycle:mapView hour:[DemoConfig floatFor:@"dayCycleHour"]];
+        return;
+    }
     NTOptions *options = [mapView getOptions];
 
     NTLightOptions *light = [[NTLightOptions alloc] init];
@@ -190,7 +210,12 @@
     [light setSunIntensity:[DemoConfig floatFor:@"sunIntensity"]];
     [light setAmbientIntensity:[DemoConfig floatFor:@"ambient"]];
     [light setShadowStrength:[DemoConfig floatFor:@"shadow"]];
+    [light setShadowSoftness:[DemoConfig floatFor:@"shadowSoftness"]];
     [options setLightOptions:light];
+
+    NTSkyOptions *sky = [options getSkyOptions];
+    [sky setEnabled:[DemoConfig boolFor:@"sky"]];
+    [options setSkyOptions:sky];
 }
 
 + (void)applyCameraConfig:(NTMapView *)mapView {

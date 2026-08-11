@@ -47,9 +47,25 @@
     ]];
 }
 
+/**
+ * The panel comes up as a BOTTOM SHEET rather than a full-screen modal: the point of a knob is
+ * watching the map change as you drag it, and a sheet at a medium detent keeps the map on screen.
+ * Undimmed for the same reason, and .large is available for the long sections.
+ */
 - (void)showPanel {
     DemoPanel *panel = [[DemoPanel alloc] initWithMapView:self.mapView];
     UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:panel];
+
+    UISheetPresentationController *sheet = nav.sheetPresentationController;
+    if (sheet) {
+        sheet.detents = @[[UISheetPresentationControllerDetent mediumDetent],
+                          [UISheetPresentationControllerDetent largeDetent]];
+        sheet.prefersGrabberVisible = YES;
+        sheet.prefersScrollingExpandsWhenScrolledToEdge = NO;
+        // Keep the map live behind the sheet at the medium detent.
+        sheet.largestUndimmedDetentIdentifier = UISheetPresentationControllerDetentIdentifierMedium;
+        sheet.preferredCornerRadius = 16;
+    }
     [self presentViewController:nav animated:YES completion:nil];
 }
 
