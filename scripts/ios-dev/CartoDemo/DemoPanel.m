@@ -2,6 +2,7 @@
 #import "DemoConfig.h"
 #import "DemoMap.h"
 #import "DemoTests.h"
+#import "DemoOrientation.h"
 #import <objc/runtime.h>
 
 // The entry a control belongs to, carried on the control itself so the target/action handlers stay
@@ -28,6 +29,8 @@ typedef NS_ENUM(NSInteger, DemoApply) {
     DemoApplyLight,
     DemoApplyCamera,
     DemoApplyOptions,
+    DemoApplyCelestial,
+    DemoApplyOrientation,
 };
 
 @interface DemoEntry : NSObject
@@ -133,6 +136,9 @@ typedef NS_ENUM(NSInteger, DemoApply) {
             [DemoEntry toggle:@"hillshade" label:@"Hillshade layer" apply:DemoApplyLayers],
             [DemoEntry toggle:@"contourLayer" label:@"Contour layer (own layer)" apply:DemoApplyLayers],
             [DemoEntry toggle:@"contourTiles" label:@"Contour tiles" apply:DemoApplyLayers],
+            [DemoEntry toggle:@"hypso" label:@"Hypsometric tint" apply:DemoApplyLayers],
+            [DemoEntry toggle:@"elements" label:@"Vector elements" apply:DemoApplyLayers],
+            [DemoEntry toggle:@"peaks" label:@"Peak callouts" apply:DemoApplyLayers],
         ]],
         [self section:@"Base map" entries:@[
             [DemoEntry choice:@"base" label:@"Mode" choices:@[@"composite", @"plain"] apply:DemoApplyLayers],
@@ -180,6 +186,7 @@ typedef NS_ENUM(NSInteger, DemoApply) {
             [DemoEntry slider:@"hsIllumination" label:@"Illumination" min:0 max:360 apply:DemoApplyLayers],
             [DemoEntry slider:@"hsBias" label:@"Composite zoom bias" min:-2 max:2 apply:DemoApplyLayers],
             [DemoEntry toggle:@"hsContours" label:@"Shader contour lines" apply:DemoApplyLayers],
+            [DemoEntry toggle:@"slopes" label:@"Slope-angle bands" apply:DemoApplyLayers],
             [DemoEntry slider:@"hsContourInterval" label:@"Shader interval (m)" min:10 max:500 apply:DemoApplyLayers],
         ]],
         [self section:@"Contours" entries:@[
@@ -187,6 +194,30 @@ typedef NS_ENUM(NSInteger, DemoApply) {
             [DemoEntry slider:@"contourMinZoom" label:@"Min zoom" min:1 max:16 apply:DemoApplyLayers],
             [DemoEntry toggle:@"contourStubs" label:@"Label stubs" apply:DemoApplyLayers],
             [DemoEntry slider:@"contourStubInterval" label:@"Stub interval" min:0 max:500 apply:DemoApplyLayers],
+        ]],
+        [self section:@"Peak finder & relief" entries:@[
+            [DemoEntry toggle:@"peakfinder" label:@"Peak finder camera" apply:DemoApplyCamera],
+            [DemoEntry slider:@"peakFinderTilt" label:@"Tilt (low = panorama)" min:0 max:90 apply:DemoApplyCamera],
+            [DemoEntry toggle:@"reliefSurface" label:@"Relief surface" apply:DemoApplyTerrain],
+            [DemoEntry toggle:@"reliefDark" label:@"Dark palette" apply:DemoApplyTerrain],
+            [DemoEntry slider:@"reliefShade" label:@"Shade strength" min:0 max:1 apply:DemoApplyTerrain],
+            [DemoEntry slider:@"reliefAmbient" label:@"Ambient" min:0 max:1 apply:DemoApplyTerrain],
+            [DemoEntry slider:@"reliefHaze" label:@"Haze" min:0 max:1 apply:DemoApplyTerrain],
+        ]],
+        [self section:@"Celestial & stars" entries:@[
+            [DemoEntry toggle:@"celestial" label:@"Sun & moon" apply:DemoApplyCelestial],
+            [DemoEntry toggle:@"celestialArc" label:@"Sun arc" apply:DemoApplyCelestial],
+            [DemoEntry toggle:@"celestialMoonArc" label:@"Moon arc" apply:DemoApplyCelestial],
+            [DemoEntry slider:@"celestialSunSize" label:@"Sun size" min:0.5 max:10 apply:DemoApplyCelestial],
+            [DemoEntry toggle:@"stars" label:@"Stars" apply:DemoApplyCelestial],
+            [DemoEntry slider:@"starsSize" label:@"Brightest star size" min:1 max:12 apply:DemoApplyCelestial],
+            [DemoEntry toggle:@"starsLabels" label:@"Star labels" apply:DemoApplyCelestial],
+            [DemoEntry toggle:@"starsEquator" label:@"Celestial equator" apply:DemoApplyCelestial],
+        ]],
+        [self section:@"Free roam" entries:@[
+            [DemoEntry choice:@"freeRoam" label:@"Mode" choices:@[@"off", @"on"] apply:DemoApplyCamera],
+            [DemoEntry slider:@"lookUp" label:@"Look-up limit" min:0 max:90 apply:DemoApplyCamera],
+            [DemoEntry toggle:@"orientation" label:@"Follow device heading" apply:DemoApplyOrientation],
         ]],
         [self section:@"Camera" entries:@[
             [DemoEntry slider:@"zoom" label:@"Zoom" min:1 max:20 apply:DemoApplyCamera],
@@ -274,6 +305,10 @@ typedef NS_ENUM(NSInteger, DemoApply) {
         case DemoApplyLight:   [DemoMap applySkyAndLightConfig:mapView]; break;
         case DemoApplyCamera:  [DemoMap applyCameraConfig:mapView]; break;
         case DemoApplyOptions: [DemoMap applyOptions:mapView]; break;
+        case DemoApplyCelestial: [DemoMap applyCelestial:mapView]; break;
+        case DemoApplyOrientation:
+            [DemoOrientation setFollowing:[DemoConfig boolFor:@"orientation"] mapView:mapView];
+            break;
     }
 }
 

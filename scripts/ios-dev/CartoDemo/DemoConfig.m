@@ -167,6 +167,46 @@ static NSMutableDictionary *sValues = nil;
         @"maneuverColor":       @"#FFFFFF",
         @"maneuverCaseColor":   @"#1A73E8",
 
+        // --- vector elements / extra layers ---
+        @"hypso":               @NO,
+        @"peaks":               @NO,
+        @"peaksMinZoom":        @9,
+        @"peaksTextSize":       @15.0f,
+        @"peaksBgOpacity":      @0.8f,
+        @"peaksPinTop":         @NO,
+
+        // --- peak finder / relief surface ---
+        @"peakfinder":          @NO,
+        @"peakFinderTilt":      @25.0f,
+        @"peakFinderZoom":      @13.0f,
+        @"reliefSurface":       @NO,
+        @"reliefDark":          @NO,
+        @"reliefShade":         @0.7f,
+        @"reliefAmbient":       @0.35f,
+        @"reliefHaze":          @0.5f,
+        @"reliefHazeDistance":  @40000.0f,
+
+        // --- free roam ---
+        @"freeRoam":            @"off",
+        @"lookUp":              @90.0f,
+
+        // --- celestial objects and stars ---
+        @"celestial":           @NO,
+        @"celestialSun":        @YES,
+        @"celestialMoon":       @YES,
+        @"celestialArc":        @YES,
+        @"celestialMoonArc":    @YES,
+        @"celestialSunSize":    @2.5f,
+        @"celestialMoonSize":   @2.0f,
+        @"celestialArcWidth":   @2.0f,
+        @"stars":               @NO,
+        @"starsSize":           @5.0f,
+        @"starsLabels":         @YES,
+        @"starsEquator":        @NO,
+
+        // --- device orientation ---
+        @"orientation":         @NO,
+
         // --- app ---
         @"ui":                  @YES,
     } mutableCopy];

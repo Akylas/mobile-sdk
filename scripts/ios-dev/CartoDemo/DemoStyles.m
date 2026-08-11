@@ -153,6 +153,103 @@
         @"}"]];
 }
 
++ (NSString *)slopesShader {
+    // Bands rather than a gradient: the point is reading "is this skiable", not a smooth ramp.
+    return [self join:@[
+        @"uniform vec4 u_shadowColor;",
+        @"uniform vec4 u_highlightColor;",
+        @"uniform vec4 u_accentColor;",
+        @"uniform vec3 u_lightDir;",
+        @"vec4 applyLighting(lowp vec4 color, mediump vec3 normal, mediump vec3 surfaceNormal, mediump float intensity) {",
+        @"    mediump float lighting = max(0.0, dot(normal, u_lightDir));",
+        @"    mediump float slope = acos(dot(normal, surfaceNormal)) * 180.0 / 3.14159 * 1.2;",
+        @"    if (slope >= 45.0) { return vec4(0.378, 0.272, 0.358, 0.5); }",
+        @"    if (slope >= 40.0) { return vec4(0.5, 0.0, 0.0, 0.5); }",
+        @"    if (slope >= 35.0) { return vec4(0.455, 0.231, 0.111, 0.5); }",
+        @"    if (slope >= 30.0) { return vec4(0.470, 0.451, 0.153, 0.5); }",
+        @"    return vec4(0.0, 0.0, 0.0, 0.0);",
+        @"}"]];
+}
+
++ (NSString *)hypsometricShader {
+    // Reads the RAW DEM texel rather than the shaded colour, which is what shows that the
+    // custom-raster base class can run any filter over any raster source.
+    return [self join:@[
+        @"vec4 applyLighting(lowp vec4 color, mediump vec3 normal, mediump vec3 surfaceNormal, mediump float intensity) {",
+        @"  vec4 c = getRawColor();",
+        @"  float h = (c.r * 255.0 * 256.0 + c.g * 255.0 + c.b * 255.0 / 256.0) - 32768.0;",
+        @"  float t = clamp(h / 3000.0, 0.0, 1.0);",
+        @"  vec3 col = mix(vec3(0.2, 0.4, 0.8), vec3(0.9, 0.9, 0.4), t);",
+        @"  col = mix(col, vec3(0.5, 0.3, 0.1), clamp((h - 1500.0) / 1500.0, 0.0, 1.0));",
+        @"  return vec4(col, 1.0);",
+        @"}"]];
+}
+
++ (NSString *)reliefSurfaceShader {
+    return [self join:@[
+        @"uniform vec4 uPaperColor;",
+        @"uniform vec4 uShadeColor;",
+        @"uniform float uShadeStrength;",
+        @"uniform float uAmbient;",
+        @"uniform float uHaze;",
+        @"uniform float uHazeDistance;",
+        @"vec4 surfaceColor() {",
+        @"    vec3 n = normalize(v_normal);",
+        @"    float lambert = max(dot(n, normalize(u_sunDir)), 0.0);",
+        @"    float light = mix(uAmbient, 1.0, lambert);",
+        @"    vec3 color = mix(uShadeColor.rgb, uPaperColor.rgb, clamp(1.0 - uShadeStrength * (1.0 - light), 0.0, 1.0));",
+        @"    color = mix(color, uPaperColor.rgb, clamp(v_dist / max(uHazeDistance, 1.0), 0.0, 1.0) * uHaze);",
+        @"    color = mix(color, u_fogColor.rgb, fogAmount(v_dist));",
+        @"    return vec4(color, 1.0);",
+        @"}"]];
+}
+
++ (NSString *)peaksStyle {
+    // 'nuticallout' lifts the label to a band near the top of the screen and joins it back to the
+    // summit with a leader line; a label that would collide moves one row up instead of dropping.
+    BOOL pinTop = [DemoConfig boolFor:@"peaksPinTop"];
+    return [self join:@[
+        @"Map { }",
+        [NSString stringWithFormat:@"#mountain_peak['class'='peak'][zoom>=%d] {",
+            [DemoConfig intFor:@"peaksMinZoom"]],
+        @"  text-name: [name];",
+        // The elevation as a second run of text: same label, same plate, smaller font.
+        @"  text-secondary-name: [ele]+'m';",
+        @"  text-secondary-scale: 0.8;",
+        @"  text-secondary-dx: 4;",
+        [NSString stringWithFormat:@"  text-size: %g;", [DemoConfig floatFor:@"peaksTextSize"]],
+        @"  text-fill: #202020;",
+        @"  text-halo-fill: #ffffff;",
+        @"  text-halo-radius: 1.5;",
+        @"  text-background-fill: #ffffff;",
+        [NSString stringWithFormat:@"  text-background-opacity: %g;", [DemoConfig floatFor:@"peaksBgOpacity"]],
+        @"  text-background-radius: 3;",
+        @"  text-placement: nuticallout;",
+        // The higher summit claims the row: otherwise the winner is whichever label the tile order
+        // happened to offer first, and a 700 m hill hides a 2000 m one.
+        @"  text-placement-priority: [ele];",
+        [NSString stringWithFormat:@"  text-callout-align: %@;", pinTop ? @"top-right" : @"bottom-left"],
+        @"}"]];
+}
+
++ (NSString *)poiTestStyle {
+    // A shield per label: the ICON stays on the feature and the NAME goes on whichever side the
+    // culler finds free, falling back to the icon alone when none is.
+    return [self join:@[
+        @"Map { }",
+        @"#poi {",
+        @"  shield-name: [name];",
+        @"  shield-size: 11;",
+        @"  shield-fill: #333333;",
+        @"  shield-halo-fill: #ffffff;",
+        @"  shield-halo-radius: 1.5;",
+        [NSString stringWithFormat:@"  shield-anchors: '%@';", [DemoConfig stringFor:@"poiAnchors"]],
+        [NSString stringWithFormat:@"  shield-text-optional: %d;", [DemoConfig boolFor:@"poiTextOptional"] ? 1 : 0],
+        [NSString stringWithFormat:@"  shield-dx: %g;", [DemoConfig floatFor:@"poiTextDx"]],
+        [NSString stringWithFormat:@"  shield-wrap-width: %g;", [DemoConfig floatFor:@"poiWrapWidth"]],
+        @"}"]];
+}
+
 + (NTMBVectorTileDecoder *)createDecoder {
     NSString *source = [DemoConfig stringFor:@"style"];
 

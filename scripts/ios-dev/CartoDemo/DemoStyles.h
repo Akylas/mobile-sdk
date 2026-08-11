@@ -23,5 +23,17 @@
 + (NSString *)contourTilesStyle;
 /** Style for the GeoJSON route test layer. */
 + (NSString *)routeTestStyle;
+/** Summit callout labels for the peaks layer. */
++ (NSString *)peaksStyle;
+/** Shield test style: an icon that stays on the feature, a name the culler puts on a free side. */
++ (NSString *)poiTestStyle;
+
+// --- shaders ---
+/** Slope-angle bands, as a lighting shader on the hillshade layer. */
++ (NSString *)slopesShader;
+/** Hypsometric tint, decoding terrarium elevation from the raw DEM texel. */
++ (NSString *)hypsometricShader;
+/** The peak-finder relief surface, drawn where no tile layer paints. */
++ (NSString *)reliefSurfaceShader;
 
 @end

@@ -50,6 +50,8 @@ Mirrors the Android demo file for file, so the two can be compared knob by knob:
 | `DemoStyles.h/.m` | `demo/DemoStyles.java` | generated CartoCSS + the style decoders |
 | `DemoPanel.h/.m` | `demo/DemoPanel.java` | the settings bottom sheet |
 | `DemoSky.h/.m` | `demo/DemoSky.java` | day cycle: sun position + sky colours |
+| `DemoCelestial.h/.m` | `demo/DemoCelestial.java` + `DemoStars.java` | sun, moon, arcs, star field |
+| `DemoOrientation.h/.m` | `demo/DemoOrientation.java` | follow the device heading (CoreMotion) |
 | `DemoTests.h/.m` | `demo/DemoTests.java` | one-shot actions (route, search, clear) |
 | `DemoViewController.m` | `ui/main/SecondFragment.java` | platform glue only |
 
@@ -86,8 +88,18 @@ contour** slots, the stand-alone hillshade layer, contours both on-the-fly and p
 terrain, fog and view distance, sun/sky plus the day cycle, the camera, the settings sheet, and
 the route / maneuver-arrow / GeoJSON-benchmark / vector-tile-search / clear actions.
 
-Not ported yet: celestial objects and stars (`DemoStars`), free-roam and peak-finder modes, the
-hypsometric and vector-element layers, the nuti style source, and the POI/shield test style.
+Also covered: the hypsometric tint (a `CustomRasterTileLayer` filter shader over the raw DEM),
+slope-angle bands, vector elements (marker / text / line / polygon), summit callout labels, the
+peak-finder camera and relief surface, free roam with a negative tilt range, device-heading
+following, and the sun / moon / arcs / star field on a `CelestialLayer`.
+
+Not ported: the AR camera passthrough (`DemoCameraPreview`), the nuti style source, the scripted
+animation modes (`anim`), and the maneuver-head SVG gallery. Two things are **approximations**
+rather than ports, and are marked as such in the source: `DemoSky`'s solar position is a simple
+model rather than `DemoAstro`'s ephemeris (the SDK's own `LightOptions.setSunPositionFromTime` is
+the accurate route if that matters), and the star field is a 15-star stand-in rather than
+`DemoStarCatalogue`'s ~300 entries with RA/dec — enough to see the field render and size-by-
+magnitude work, but the positions are indicative, not astrometric.
 
 ## Composite slots are not layers
 

@@ -18,7 +18,9 @@
 + (void)applyTerrainConfig:(NTMapView *)mapView;
 /** Push sun/ambient/shadow onto LightOptions. */
 + (void)applySkyAndLightConfig:(NTMapView *)mapView;
-/** Move the camera to DemoConfig's position. */
+/** Move the camera to DemoConfig's position, then apply the free-roam and peak-finder modes. */
 + (void)applyCameraConfig:(NTMapView *)mapView;
+/** Rebuild the sky-anchored objects (sun, moon, arcs, stars). */
++ (void)applyCelestial:(NTMapView *)mapView;
 
 @end
