@@ -18,7 +18,14 @@ adb install -r -t app/build/outputs/apk/debug/app-debug.apk
 - `-PprofileRender` compiles in `FrameProfiler` (`PROF` lines) and `vt/RenderStats.h` (`RenderStats`
   lines). Neither exists in the binary otherwise.
 - Install from `app/build/outputs/apk/debug/`. `app/build/intermediates/apk/debug/` also holds an
-  `app-debug.apk` and it is **stale**.
+  `app-debug.apk` and it is **stale** — *except* when you pass
+  `-Pandroid.injected.build.abi=<abi>` to build a single ABI, which inverts it: AGP then writes the
+  fresh APK to `intermediates/` and leaves `outputs/` untouched. Check the mtimes, not the path.
+- **`RelWithDebInfo` is not what ships.** It is a plain `-O2 -g` build: no LTO, and none of the
+  per-subproject `-O2`/`-Oz` split, which is gated on `CMAKE_BUILD_TYPE MATCHES Release`. The
+  shipped Release build compiles the SDK at `-Oz -flto=thin`. Bench the shipped configuration with
+  `-PnativeConfig=Release` (Release strips, so simpleperf loses its symbols — use it for `PROF`
+  numbers, not for profiles).
 
 ## The three instruments
 
@@ -123,6 +130,13 @@ and [09-composite-layer.md](09-composite-layer.md), not micro-optimisation.
 | label terrain re-anchor: DEM tile loads no longer read as a scale-only change, plus a grid and a latitude-scale memo | full stack over terrain, interleaved ×3: **1.00 → 1.55 fps**, `prepare` 658 → 219 ms |
 | an off-screen, already-anchored label defers its re-anchor | 1.60 → 1.70 fps — small, most dirty labels do hold a placement |
 | label lines tesselated for reading, not for painting (no lattice split, surface-cell step) | **1.75 → 2.10 fps**, `prepare` 157 → 72 ms |
+| render and tile paths at `-O2` in Release instead of `-Oz` | device 39.09 → 37.82 ms/frame (3.2%), CPU work minus the swap wait 14.39 → 13.51 ms (6.1%), `prepare` 2.65 → 2.22, `prelude` 0.91 → 0.70; +614 KB on arm64 |
+
+The `-Oz` → `-O2` A/B is a warning about the emulator as much as a result. Three interleaved cycles
+on the emulator put the mean 4.8% apart but reversed the sign on one cycle out of three — no
+conclusion. The same six runs on the device (Adreno 610) favoured `-O2` in **3 of 3 paired runs**.
+Anything worth a few percent needs the device and needs pairing; a single emulator run will happily
+report 10%.
 
 ### The label culler, measured on the device
 

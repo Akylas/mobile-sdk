@@ -191,6 +191,25 @@ file(GLOB SDK_SRC_FILES CONFIGURE_DEPENDS
 )
 set_source_files_properties("${SDK_SRC_DIR}/utils/PlatformUtils.cpp" PROPERTIES COMPILE_OPTIONS "-D_CARTO_MOBILE_SDK_PLATFORM=\"${SDK_PLATFORM}\";-D_CARTO_MOBILE_SDK_VERSION=\"${SDK_VERSION}\"")
 
+# Release builds the whole SDK at -Oz, which is right for the API surface but not for the code
+# the frame budget is actually spent in. Build the render and tile paths for speed, same as the
+# vt/mapnikvt/cartocss subprojects above; everything else (routing, geocoding, search, package
+# manager, network, ui) stays at -Oz.
+if(CMAKE_BUILD_TYPE MATCHES "Release|RELEASE")
+  set(SDK_SPEED_DIRS renderers layers terrain graphics geometry projections vectortiles vectorelements rastertiles datasources)
+  foreach(SDK_SPEED_DIR IN ITEMS ${SDK_SPEED_DIRS})
+    file(GLOB SDK_SPEED_SRC_FILES CONFIGURE_DEPENDS
+      "${SDK_SRC_DIR}/${SDK_SPEED_DIR}/*.cpp"
+      "${SDK_SRC_DIR}/${SDK_SPEED_DIR}/*/*.cpp"
+    )
+    if(WIN32)
+      set_source_files_properties(${SDK_SPEED_SRC_FILES} PROPERTIES COMPILE_OPTIONS "/Ox")
+    else()
+      set_source_files_properties(${SDK_SPEED_SRC_FILES} PROPERTIES COMPILE_OPTIONS "-O2")
+    endif()
+  endforeach()
+endif()
+
 if(WIN32 OR APPLE OR ANDROID)
   list(REMOVE_ITEM SDK_SRC_FILES "${SDK_SRC_DIR}/network/HTTPClientPionImpl.cpp")
 endif()
