@@ -253,11 +253,22 @@ towards the camera until a near contour is a blob, so the projected offset is me
 back to the nominal width when it exceeds it. The factor is ≤ 1 by construction — it can never
 manufacture an oversized quad, which is what an unbounded screen-space fit does.
 
-The ceiling is **this vertex's own extrusion**, `roundedWidth * length(aVertexBinormal)`, not one
-line width. Not every line vertex sits one width out: a round cap's corners are at √2, and an end
-arrow's barbs at several. Clamping those to one width squashes the shape they belong to back into
-the line's silhouette — which is what made `line-end-arrow` draw nothing at all in terrain mode
-while it drew fine on a flat map.
+The ceiling is **this vertex's own extrusion**, `roundedWidth * length(aVertexBinormal *
+uBinormalUnitScale)`, not one line width. Not every line vertex sits one width out: a round cap's
+corners are at √2, and an end arrow's barbs at several. Clamping those to one width squashes the
+shape they belong to back into the line's silhouette — which is what made `line-end-arrow` draw
+nothing at all in terrain mode while it drew fine on a flat map.
+
+> **`aVertexBinormal` is PACKED — its raw length is not a number of line widths.** Binormals ship
+> as `GL_SHORT`, un-normalised (`GL_FALSE`), against a per-geometry scale
+> (`calculateScale` in `TileLayerBuilder`, a power of two ≈ 32768 for unit vectors), which is why
+> the extrusion itself reads `aVertexBinormal * (uBinormalScale * roundedWidth)`. Taking
+> `length(aVertexBinormal)` alone made the ceiling ~32768× too large, so `edgeLen > nominalLen`
+> never fired and **every** terrain line fell back to tangram's unbounded world-space extrusion:
+> near contours grew into fat, soft-edged blobs (their antialias band grows with them), roads read
+> as draped again, and neighbouring vertices no longer agreed on a width so joins came apart.
+> `uBinormalUnitScale` (`1 / binormalScale`, uploaded with `uScreenScale`) undoes the packing:
+> 1 for a plain vertex, more for a miter, a cap corner or an arrow barb.
 
 > **The capped vertex takes its DEPTH from the terrain, and its XY from the screen.** Both halves
 > are load-bearing. Applying the shrunk offset to `centerClip.xy` and keeping `centerClip.z` — the
