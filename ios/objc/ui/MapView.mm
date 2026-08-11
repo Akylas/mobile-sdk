@@ -410,6 +410,30 @@ static const int NATIVE_NO_COORDINATE = -1;
     [_baseMapView rotate:deltaAngle durationSeconds:durationSeconds];
 }
 
+-(void)flyTo:(NTMapPos*)pos zoom:(float)zoom durationSeconds:(float)durationSeconds {
+    [_baseMapView flyTo:pos zoom:zoom durationSeconds:durationSeconds];
+}
+
+-(void)flyTo:(NTMapPos*)pos zoom:(float)zoom rotation:(float)rotation tilt:(float)tilt durationSeconds:(float)durationSeconds {
+    [_baseMapView flyTo:pos zoom:zoom rotation:rotation tilt:tilt durationSeconds:durationSeconds];
+}
+
+-(void)flyTo:(NTMapPos*)pos zoom:(float)zoom rotation:(float)rotation tilt:(float)tilt climbHeight:(float)climbHeight durationSeconds:(float)durationSeconds {
+    [_baseMapView flyTo:pos zoom:zoom rotation:rotation tilt:tilt climbHeight:climbHeight durationSeconds:durationSeconds];
+}
+
+-(void)stopFlight {
+    [_baseMapView stopFlight];
+}
+
+-(BOOL)isFlightActive {
+    return [_baseMapView isFlightActive];
+}
+
+-(float)getFlightProgress {
+    return [_baseMapView getFlightProgress];
+}
+
 -(void)rotate:(float)deltaAngle targetPos:(NTMapPos*)targetPos durationSeconds:(float)durationSeconds {
     [_baseMapView rotate:deltaAngle targetPos:targetPos durationSeconds:durationSeconds];
 }

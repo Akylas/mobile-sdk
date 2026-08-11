@@ -122,6 +122,52 @@ __attribute__ ((visibility("default"))) @interface NTMapView : NTGLKView
  */
 -(void)rotate:(float)deltaAngle durationSeconds:(float)durationSeconds;
 /**
+ * Moves the camera to a position and a zoom level in ONE animation, pulling back over a long move
+ * and coming down at the target. Unlike setFocusPos + setZoom, which run on their own clocks and
+ * cross the map at the final zoom, this keeps the whole path in view.
+ * @param pos The target position in base projection coordinate system.
+ * @param zoom The target zoom level.
+ * @param durationSeconds The duration in seconds, or 0 to derive it from the length of the path.
+ */
+-(void)flyTo:(NTMapPos*)pos zoom:(float)zoom durationSeconds:(float)durationSeconds;
+/**
+ * Moves the camera to a position, zoom, rotation and tilt in one animation. See flyTo.
+ * @param pos The target position in base projection coordinate system.
+ * @param zoom The target zoom level.
+ * @param rotation The target rotation in degrees.
+ * @param tilt The target tilt in degrees.
+ * @param durationSeconds The duration in seconds, or 0 to derive it from the path.
+ */
+-(void)flyTo:(NTMapPos*)pos zoom:(float)zoom rotation:(float)rotation tilt:(float)tilt durationSeconds:(float)durationSeconds;
+/**
+ * Moves the camera to a position, zoom, rotation and tilt in one animation, climbing over the way
+ * there. The target position's Z is the height the viewpoint ends at, and the climb is added to it
+ * as a parabola: highest halfway, back to nothing at both ends.
+ * @param pos The target position in base projection coordinate system; its Z is the target height.
+ * @param zoom The target zoom level.
+ * @param rotation The target rotation in degrees.
+ * @param tilt The target tilt in degrees.
+ * @param climbHeight The extra height at the middle of the path, in the base projection's units.
+ * @param durationSeconds The duration in seconds, or 0 to derive it from the path.
+ */
+-(void)flyTo:(NTMapPos*)pos zoom:(float)zoom rotation:(float)rotation tilt:(float)tilt climbHeight:(float)climbHeight durationSeconds:(float)durationSeconds;
+/**
+ * Stops a flight started with flyTo, leaving the camera where it is.
+ */
+-(void)stopFlight;
+/**
+ * Returns true while a flyTo animation is running.
+ * @return True if the camera is in flight.
+ */
+-(BOOL)isFlightActive;
+/**
+ * How far along a flyTo animation is, from 0 to 1, or -1 when none is running. It is the value the
+ * camera is actually at, so an app animating its own state alongside the move reads it rather than
+ * running a second clock beside it.
+ * @return The flight progress, or -1.
+ */
+-(float)getFlightProgress;
+/**
  * Rotates the view relative to the current rotation value. Positive values rotate clockwise, negative values counterclockwise.
  * The new calculated rotation value will be wrapped to the range of (-180 .. 180]. Rotations are ignored if Options::setRotatable
  * is set to false.

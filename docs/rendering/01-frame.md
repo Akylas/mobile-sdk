@@ -108,6 +108,13 @@ The **viewpoint's height travels with the move**: the target `MapPos`'s Z is whe
 `climbHeight` overload adds a parabola on top of it — highest halfway, nothing at either end, a
 plane's flight, which is also how the camera clears whatever stands between the two ends.
 
+The platform `MapView`s are hand-written wrappers over `BaseMapView`, not generated, so each one has
+to forward the flight API itself: `flyTo` (all three overloads), `stopFlight`, `isFlightActive` and
+`getFlightProgress` are exposed on both `android/java/com/carto/ui/MapView.java` and
+`ios/objc/ui/MapView.{h,mm}`. A method missing from one of those two files is missing from that
+platform's API however complete the C++ is — iOS had no flight API at all until the peak-finder
+demo needed it.
+
 An app animating its own state alongside the move reads `getFlightProgress()` (0..1 while flying,
 -1 otherwise) rather than running a second clock beside it. The demo enters the peak-finder view
 this way (`DemoMap.flyToPeakFinder`): 3D terrain and the mode switch on FIRST, so the terrain, the
