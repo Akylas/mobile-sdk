@@ -176,6 +176,20 @@ overhead ~30%, so read the shares, not the absolutes):
 
 So the CartoCSS/expression machinery is **~18% of a decode** — geometry building is the cost.
 
+### The compiled map is cached
+
+A compiled `mvt::Map` is read-only, and a decoder's parameter values live in its own store, so the
+same map can serve several decoders. `MBVectorTileDecoder` keeps a small process-wide cache keyed by
+**(asset package, style asset name, `cartoCSSLayerNamesIgnored`)** — weak references plus the last
+two held strongly, so a day/night pair stays warm without pinning every style ever loaded. Measured
+on the device, loading the same style a second time: **411 ms → 0.00 ms** (the symbolizer context is
+already cached by asset package too, so the second load is free end to end).
+
+The key is the asset **package object**, not its contents: two styles of one package (the day/night
+case, `CompiledStyleSet(pack, "day")` / `(pack, "night")`) hit the cache, but re-creating the package
+around the same files does not. Hashing the assets to do better would cost more than it saves for
+the single-load case.
+
 ### Live style parameters
 
 `setStyleParameter` used to invalidate every tile ([TileLayer.cpp](../../all/native/layers/TileLayer.cpp)
@@ -257,6 +271,7 @@ layer.
 | CartoCSS compile: per-zoom predicate memo, field-bucketed property insert, interned field ids | compile 264 → 157 ms, `buildMap` 362 → 261 ms (23-layer style, device) |
 | CartoCSS compile: skip a zoom whose predicate results repeat, reuse the trial property set | compile 157 → 129 ms, `buildMap` → 220 ms |
 | live style parameters (a colour-only parameter swaps values and redraws) | a parameter change went from *visible tiles × ~130 ms* of decode to **zero decodes** |
+| compiled-map cache keyed by asset package + style name | loading the same style again: 411 ms → **0.00 ms** |
 | render and tile paths at `-O2` in Release instead of `-Oz` | device 39.09 → 37.82 ms/frame (3.2%), CPU work minus the swap wait 14.39 → 13.51 ms (6.1%), `prepare` 2.65 → 2.22, `prelude` 0.91 → 0.70; +614 KB on arm64 |
 
 The `-Oz` → `-O2` A/B is a warning about the emulator as much as a result. Three interleaved cycles

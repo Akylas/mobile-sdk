@@ -117,6 +117,51 @@ namespace carto {
         bool isContainerValue(const mvt::Value& value) {
             return std::get_if<std::shared_ptr<const mvt::ValueObject>>(&value) || std::get_if<std::shared_ptr<const mvt::ValueArray>>(&value);
         }
+
+        // Compiled maps, shared between decoders. Parsing and compiling a style is 0.5-0.7 s for a
+        // 23-layer project, and an app that switches between two styles of one asset package - day
+        // and night - or builds several layers from the same style, pays it every time otherwise.
+        // A compiled map is read-only, and the values a decoder sets live in its own parameter
+        // store, so sharing one is safe.
+        struct MapCacheKey {
+            const AssetPackage* assetPackage = nullptr;
+            std::string styleAssetName;
+            std::string cartoCSS;
+            bool ignoreLayerPredicates = false;
+
+            bool operator == (const MapCacheKey& other) const {
+                return assetPackage == other.assetPackage && styleAssetName == other.styleAssetName && cartoCSS == other.cartoCSS && ignoreLayerPredicates == other.ignoreLayerPredicates;
+            }
+        };
+
+        std::mutex g_mapCacheMutex;
+        std::vector<std::pair<MapCacheKey, std::weak_ptr<const mvt::Map>>> g_mapCache;
+        std::vector<std::shared_ptr<const mvt::Map>> g_mapCacheRetained; // keeps the last few alive
+
+        std::shared_ptr<const mvt::Map> findCachedMap(const MapCacheKey& key) {
+            std::lock_guard<std::mutex> lock(g_mapCacheMutex);
+            for (auto it = g_mapCache.begin(); it != g_mapCache.end(); ) {
+                std::shared_ptr<const mvt::Map> map = it->second.lock();
+                if (!map) {
+                    it = g_mapCache.erase(it);
+                    continue;
+                }
+                if (it->first == key) {
+                    return map;
+                }
+                it++;
+            }
+            return std::shared_ptr<const mvt::Map>();
+        }
+
+        void storeCachedMap(const MapCacheKey& key, const std::shared_ptr<const mvt::Map>& map) {
+            std::lock_guard<std::mutex> lock(g_mapCacheMutex);
+            g_mapCache.emplace_back(key, map);
+            g_mapCacheRetained.push_back(map);
+            if (g_mapCacheRetained.size() > 2) {
+                g_mapCacheRetained.erase(g_mapCacheRetained.begin());
+            }
+        }
     }
 
     MBVectorTileDecoder::MBVectorTileDecoder(const std::shared_ptr<CompiledStyleSet>& compiledStyleSet) :
@@ -703,13 +748,26 @@ namespace carto {
 
     void MBVectorTileDecoder::updateCurrentStyleSet(const std::variant<std::shared_ptr<CompiledStyleSet>, std::shared_ptr<CartoCSSStyleSet> >& styleSet) {
         std::string styleAssetName;
+        std::string cartoCSS;
         std::shared_ptr<AssetPackage> assetPackage;
-        std::shared_ptr<mvt::Map> map;
+        std::shared_ptr<const mvt::Map> map;
 
+        // What identifies the compiled map: the asset package it came from, which style of it, and
+        // whether layer predicates were ignored (that one changes how the style compiles).
         if (auto cartoCSSStyleSet = std::get_if<std::shared_ptr<CartoCSSStyleSet> >(&styleSet)) {
-            styleAssetName = "";
             assetPackage = (*cartoCSSStyleSet)->getAssetPackage();
+            cartoCSS = (*cartoCSSStyleSet)->getCartoCSS();
+        } else if (auto compiledStyleSet = std::get_if<std::shared_ptr<CompiledStyleSet> >(&styleSet)) {
+            styleAssetName = (*compiledStyleSet)->getStyleAssetName();
+            assetPackage = (*compiledStyleSet)->getAssetPackage();
+        }
+        MapCacheKey mapCacheKey { assetPackage.get(), styleAssetName, cartoCSS, _cartoCSSLayerNamesIgnored };
+        map = findCachedMap(mapCacheKey);
+        bool mapWasCached = static_cast<bool>(map);
 
+        if (map) {
+            // Already compiled - by this decoder before, or by another layer using the same style.
+        } else if (auto cartoCSSStyleSet = std::get_if<std::shared_ptr<CartoCSSStyleSet> >(&styleSet)) {
             try {
                 auto assetLoader = std::make_shared<CartoCSSAssetLoader>("", (*cartoCSSStyleSet)->getAssetPackage());
                 css::CartoCSSMapLoader mapLoader(assetLoader, _logger);
@@ -720,11 +778,9 @@ namespace carto {
                 throw ParseException(std::string("CartoCSS style parsing failed: ") + ex.what(), (*cartoCSSStyleSet)->getCartoCSS());
             }
         } else if (auto compiledStyleSet = std::get_if<std::shared_ptr<CompiledStyleSet> >(&styleSet)) {
-            styleAssetName = (*compiledStyleSet)->getStyleAssetName();
             if (styleAssetName.empty()) {
                 throw InvalidArgumentException("Could not find any styles in the style set");
             }
-            assetPackage = (*compiledStyleSet)->getAssetPackage();
 
             std::shared_ptr<BinaryData> styleData;
             if (assetPackage) {
@@ -762,6 +818,10 @@ namespace carto {
             }
         } else {
             throw InvalidArgumentException("Invalid style set");
+        }
+
+        if (!mapWasCached) {
+            storeCachedMap(mapCacheKey, map);
         }
 
         _styleSet = styleSet;
