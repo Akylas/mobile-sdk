@@ -9,6 +9,7 @@
 
 #include "vectortiles/VectorTileDecoder.h"
 
+#include <atomic>
 #include <memory>
 #include <mutex>
 #include <map>
@@ -204,8 +205,9 @@ namespace carto {
         void updateCurrentStyleSet(const std::variant<std::shared_ptr<CompiledStyleSet>, std::shared_ptr<CartoCSSStyleSet> >& styleSet);
         void updateSymbolizerContext();
         void updateParameterStore();
+        void updateSelectionState();
         bool setStyleParameterInternal(const std::string& param, const std::string& value);
-        bool areParametersLive(const std::vector<std::string>& params) const;
+        bool areParametersRepaintable(const std::vector<std::string>& params) const;
         void updateSymbolizer();
 
         static const std::string DEFAULT_FALLBACK_FONT_NAME;
@@ -226,6 +228,10 @@ namespace carto {
         std::shared_ptr<AssetPackage> _styleAssetPackage; // context can be rebuilt without it
         std::shared_ptr<mvt::NutiParameterStore> _parameterStore; // the values the decoded tiles read
         std::set<std::string> _liveParameters; // those of them that only a per-frame function reads
+        std::string _selectionParameter; // the one that selects a feature, if the style has one
+        // Its value, hashed: the tiles read it while they are drawn, so setting the selection is a
+        // style-byte rewrite rather than a decode. Shared with every tile this decoder built.
+        std::shared_ptr<std::atomic<std::uint64_t>> _selectionState = std::make_shared<std::atomic<std::uint64_t>>(0);
         std::shared_ptr<const mvt::Map> _map;
         std::shared_ptr<const mvt::Map::Settings> _mapSettings;
         std::shared_ptr<const mvt::SymbolizerContext> _symbolizerContext;

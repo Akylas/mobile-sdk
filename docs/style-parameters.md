@@ -63,6 +63,7 @@ per tile), decided per parameter when the style loads:
 - **Redraw** — the parameter is read *only* by properties the renderer evaluates per frame:
   colours, opacities, widths, and only where the expression reads nothing else that is fixed at
   decode time.
+- **Redraw** — or it SELECTS a feature (below).
 - **Re-decode** — everything else, and deliberately so:
   - the parameter appears in a **filter** (`#road['nuti::x' = 1]`, `when (...)`): it decides which
     rules match, i.e. what geometry the tile contains at all;
@@ -75,6 +76,45 @@ per tile), decided per parameter when the style loads:
     glyphs a tile is built with.
 
 So a colour an app exposes as a setting (`"water_color"`) is free to change, while a table read per
-feature class, and anything driving selection, still costs a decode. See
-[`rendering/10-performance.md`](rendering/10-performance.md#live-style-parameters) for the
-measurements and for the feature-state design that would make selection free too.
+feature class still costs a decode.
+
+## Selecting one feature
+
+The one "parameter compared with a feature field" that can be free is a SELECTION, and the style has
+to **ask for it** — nothing is inferred, and a style that declares nothing is not even inspected:
+
+```json
+"nutiparameters": {
+  "selected_id": { "default": "", "selects": true }
+}
+```
+
+```css
+@is_selected: [nuti::selected_id] = [osmid] + '';
+#routes {
+  line-color: @is_selected ? #ff3b00 : #3388ff;
+  line-width: 5 + (@is_selected ? 4 : 0);
+}
+```
+
+```java
+decoder.setStyleParameter("selected_id", Long.toString(osmid));   // no tile is decoded again
+```
+
+The decoder folds the comparison both ways at decode, so the tile carries the selected and the
+unselected appearance as two style slots, and each feature keeps a hash of what it is compared with.
+Setting the parameter rewrites one byte per vertex and redraws.
+
+The rules are narrow, and a style that breaks one falls back to the re-decode path — with a warning
+in the log naming the reason, so `selects` never fails silently:
+
+- only `line-color`, `line-opacity` and `line-width` of a **line** rule may read the parameter;
+- always as `[nuti::x] = <expression of feature fields>`, with the same expression everywhere, and
+  never together with another parameter in one property;
+- never in a **filter** — `when ([nuti::selected_id] = [osmid] + '')::casing` decides whether the
+  casing geometry EXISTS, and no repaint can build geometry. Write the casing as a width and a
+  colour instead of as a rule if you want the selection to stay free;
+- not on a **dashed** line whose width is selected: the dash raster is sized by the width.
+
+See [`rendering/10-performance.md`](rendering/10-performance.md#selection-the-appearance-half-without-a-decode)
+for the mechanism and the measurements.

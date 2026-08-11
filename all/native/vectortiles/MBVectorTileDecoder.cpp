@@ -345,21 +345,38 @@ namespace carto {
         _parameterStore->setValues(std::move(parameterValues));
     }
 
+    void MBVectorTileDecoder::updateSelectionState() {
+        // The whole of the selection, as the tiles see it: every feature keeps the hash of what the
+        // parameter is compared with, and is drawn selected exactly while the two agree.
+        std::uint64_t stateKey = 0;
+        if (!_selectionParameter.empty()) {
+            std::shared_ptr<const std::map<std::string, mvt::Value>> parameterValues = _parameterStore->getValues();
+            auto it = parameterValues->find(_selectionParameter);
+            stateKey = mvt::hashValue(it != parameterValues->end() ? it->second : mvt::Value());
+        }
+        _selectionState->store(stateKey, std::memory_order_relaxed);
+    }
+
     void MBVectorTileDecoder::updateSymbolizer() {
         updateParameterStore();
 
         // Settings snapshot the parameters that scale geometry and glyphs, so they are rebuilt
         // whenever a parameter changes structurally.
-        _symbolizerContextSettings = std::make_shared<mvt::SymbolizerContext::Settings>(_symbolizerContextSettings->getTileSize(), _parameterStore, _symbolizerContextSettings->getFallbackFont(), _pixelScale);
+        _symbolizerContextSettings = std::make_shared<mvt::SymbolizerContext::Settings>(_symbolizerContextSettings->getTileSize(), _parameterStore, _symbolizerContextSettings->getFallbackFont(), _pixelScale, _selectionState);
         _symbolizerContext = std::make_shared<mvt::SymbolizerContext>(_symbolizerContext->getBitmapManager(), _symbolizerContext->getFontManager(), _symbolizerContext->getStrokeMap(), _symbolizerContext->getGlyphMap(), *_symbolizerContextSettings);
     }
 
-    bool MBVectorTileDecoder::areParametersLive(const std::vector<std::string>& params) const {
-        if (params.empty() || _liveParameters.empty()) {
+    bool MBVectorTileDecoder::areParametersRepaintable(const std::vector<std::string>& params) const {
+        if (params.empty()) {
             return false;
         }
         for (const std::string& param : params) {
-            if (_liveParameters.find(param) == _liveParameters.end()) {
+            // Either nothing but a per-frame function reads it, or it is the SELECTING parameter,
+            // whose two appearances every feature already carries as two style slots. Both are
+            // answered by drawing the tiles again; anything else has to decode them.
+            bool live = _liveParameters.find(param) != _liveParameters.end();
+            bool selecting = !_selectionParameter.empty() && param == _selectionParameter;
+            if (!live && !selecting) {
                 return false;
             }
         }
@@ -431,9 +448,10 @@ namespace carto {
 
             setStyleParameterInternal(param, value);
 
-            live = areParametersLive({ param });
+            live = areParametersRepaintable({ param });
             if (live) {
                 updateParameterStore();
+                updateSelectionState();
             } else {
                 updateSymbolizer();
             }
@@ -465,9 +483,10 @@ namespace carto {
                     setStyleParameterInternal(it->first, it->second.get<std::string>());
                     params.push_back(it->first);
                 }
-                live = areParametersLive(params);
+                live = areParametersRepaintable(params);
                 if (live) {
                     updateParameterStore();
+                    updateSelectionState();
                 } else {
                     updateSymbolizer();
                 }
@@ -494,9 +513,10 @@ namespace carto {
                 setStyleParameterInternal(p->first, p->second);
                 paramNames.push_back(p->first);
             }
-            live = areParametersLive(paramNames);
+            live = areParametersRepaintable(paramNames);
             if (live) {
                 updateParameterStore();
+                updateSelectionState();
             } else {
                 updateSymbolizer();
             }
@@ -821,6 +841,10 @@ namespace carto {
         }
 
         if (!mapWasCached) {
+            // Which parameter this style selects features with - a property of the compiled style,
+            // so it is resolved once, here, while the map is still ours alone.
+            std::shared_ptr<mvt::Map> compiledMap = std::const_pointer_cast<mvt::Map>(map);
+            compiledMap->setSelectionParameter(mvt::resolveSelectionParameter(*compiledMap, _logger));
             storeCachedMap(mapCacheKey, map);
         }
 
@@ -916,8 +940,10 @@ namespace carto {
         }
         updateParameterStore();
         _liveParameters = mvt::resolveLiveNutiParameters(*_map);
+        _selectionParameter = _map->getSelectionParameter() ? _map->getSelectionParameter()->name : std::string();
+        updateSelectionState();
 
-        _symbolizerContextSettings = std::make_shared<mvt::SymbolizerContext::Settings>(symbolizerContext->getSettings().getTileSize(), _parameterStore, symbolizerContext->getSettings().getFallbackFont(), _pixelScale);
+        _symbolizerContextSettings = std::make_shared<mvt::SymbolizerContext::Settings>(symbolizerContext->getSettings().getTileSize(), _parameterStore, symbolizerContext->getSettings().getFallbackFont(), _pixelScale, _selectionState);
         _symbolizerContext = std::make_shared<mvt::SymbolizerContext>(symbolizerContext->getBitmapManager(), symbolizerContext->getFontManager(), symbolizerContext->getStrokeMap(), symbolizerContext->getGlyphMap(), *_symbolizerContextSettings);
         _cachedFeatureDecoder.first.reset();
         _cachedFeatureDecoder.second.reset();

@@ -622,7 +622,11 @@ public final class DemoStyles {
             "  \"styles\": [\"style.mss\"],",
             "  \"layers\": [\"routes\"],",
             "  \"nutiparameters\": {",
-            "    \"" + DemoConfig.ROUTE_SELECT_PARAMETER + "\": { \"default\": \"\" }",
+            // 'selects' opts this parameter into the repaint path: the decoder folds the comparison
+            // both ways so a selection change rewrites style bytes instead of decoding the tiles.
+            // In 'filter' mode the same parameter also gates a rule, so it is refused (with a
+            // warning saying why) and the bench measures the decode it always did.
+            "    \"" + DemoConfig.ROUTE_SELECT_PARAMETER + "\": { \"default\": \"\", \"selects\": true }",
             "  }",
             "}");
         boolean filterMode = "filter".equalsIgnoreCase(DemoConfig.ROUTE_SELECT_MODE);
