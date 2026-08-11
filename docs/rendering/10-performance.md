@@ -116,10 +116,31 @@ matches, or pair the runs.
 | fonts, asset scan, symbolizer context | ~110 |
 
 The compile is three layers: `transportation` **115 ms** (2230 rules, 23 attachments), `route` 61 ms,
-`poi` 61 ms; the other 20 together ≈ 35 ms. Two structural reasons, both still open:
-`CartoCSSCompiler::buildPropertyLists` walks the **whole** stylesheet once per layer (23 × 407
-elements here), and `compileLayer` evaluates every property's filters at **all 25 zooms** even when
-the layer resolves to a handful of distinct zoom ranges (`transportation`: 11).
+`poi` 61 ms; the other 20 together ≈ 35 ms.
+
+Inside `compileLayer` it was three near-equal thirds, and each answered to a constant factor rather
+than to the algorithm (per-section ms, `transportation`, cold runs on the Crosscall):
+
+| section | before | after |
+|---|---|---|
+| `buildPropertyLists` | 37.8 | 22.8 |
+| per-zoom filter evaluation | 33.4 | 12.1 |
+| `buildLayerAttachment` | 39.6 | 31.4 |
+| list comparison | 2.2 | 2.0 |
+
+What the three fixes were, in the order they pay: **evaluate each distinct predicate once per zoom**
+(a layer has ~77 predicates and ~640 properties, and every property re-evaluated its own filters —
+this is a memo, not a semantic change); **bucket `insertProperty` by field** (two properties can only
+be equal if they set the same field, and comparing them is a deep expression comparison, so the scan
+went over every property inserted so far); **intern the field strings and hand out references** in
+`buildLayerAttachment` (its innermost operation was a string compare, and each property visit copied
+a `shared_ptr`). Summed over all 23 layers: **264 → 157 ms**, `buildMap` 362 → 261 ms.
+
+Left on the table: `buildPropertyLists` still walks the **whole** stylesheet once per layer (23 × 407
+elements here), and `compileLayer` still evaluates at **all 25 zooms** even when the layer resolves
+to a handful of distinct zoom ranges (`transportation`: 11) — the zoom-breakpoint version of that
+loop would cut the remaining evaluation *and* the attachment rebuilds, which are now the largest
+single item.
 
 **`setPixelScale` used to reload the style.** It rebuilt the symbolizer context by calling
 `updateCurrentStyleSet`, i.e. a full parse + compile, and `VectorTileLayer` calls it when the layer
@@ -181,6 +202,7 @@ what this means for `setStyleParameter`: it invalidates every tile ([TileLayer.c
 | an off-screen, already-anchored label defers its re-anchor | 1.60 → 1.70 fps — small, most dirty labels do hold a placement |
 | label lines tesselated for reading, not for painting (no lattice split, surface-cell step) | **1.75 → 2.10 fps**, `prepare` 157 → 72 ms |
 | `setPixelScale` rebuilds only the symbolizer context, not the compiled map | startup style cost 2 × 0.5–0.7 s → one load plus a ~0.1 s context rebuild |
+| CartoCSS compile: per-zoom predicate memo, field-bucketed property insert, interned field ids | compile sections 264 → 157 ms, `buildMap` 362 → 261 ms (23-layer style, device) |
 | render and tile paths at `-O2` in Release instead of `-Oz` | device 39.09 → 37.82 ms/frame (3.2%), CPU work minus the swap wait 14.39 → 13.51 ms (6.1%), `prepare` 2.65 → 2.22, `prelude` 0.91 → 0.70; +614 KB on arm64 |
 
 The `-Oz` → `-O2` A/B is a warning about the emulator as much as a result. Three interleaved cycles
