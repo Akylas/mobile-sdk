@@ -1302,7 +1302,7 @@ public class DemoMap {
         options.setPanningSpeedMode(panningSpeedMode(DemoConfig.PANNING_SPEED_MODE));
         options.setFreeRoamLookSensitivity(DemoConfig.FREE_ROAM_LOOK_SENSITIVITY);
         options.setFreeRoamMoveSpeed(DemoConfig.FREE_ROAM_MOVE_SPEED);
-        options.setTiltRange(new com.carto.core.MapRange(-Math.max(0f, DemoConfig.LOOK_UP_LIMIT), 90f));
+        options.setTiltRange(new com.carto.core.MapRange(-Math.max(30f, DemoConfig.LOOK_UP_LIMIT), 90f));
     }
 
     /** "map" / "anchored" / "constant" -> the SDK enum. */

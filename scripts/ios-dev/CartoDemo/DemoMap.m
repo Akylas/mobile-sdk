@@ -909,7 +909,7 @@ static const DemoFeature LAYER_ORDER[] = {
     [options setPanningSpeedMode:[self panningSpeedMode:[DemoConfig stringFor:@"panSpeed"]]];
     [options setFreeRoamLookSensitivity:[DemoConfig floatFor:@"lookSensitivity"]];
     [options setFreeRoamMoveSpeed:[DemoConfig floatFor:@"moveSpeed"]];
-    [options setTiltRange:[[NTMapRange alloc] initWithMin:-fmaxf(0, [DemoConfig floatFor:@"lookUp"])
+    [options setTiltRange:[[NTMapRange alloc] initWithMin:-fmaxf(30, [DemoConfig floatFor:@"lookUp"])
                                                       max:90]];
 }
 
