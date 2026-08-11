@@ -49,6 +49,13 @@ namespace carto {
              * Listener method that gets called when decoder parameters have changed and need to be updated.
              */
             virtual void onDecoderChanged() = 0;
+
+            /**
+             * Listener method that gets called when only the appearance of the already decoded tiles
+             * has changed - a style parameter that nothing but a per-frame colour or width reads.
+             * Redrawing is enough, the tiles do not have to be decoded again.
+             */
+            virtual void onDecoderRefreshed() { onDecoderChanged(); }
         };
     
         virtual ~VectorTileDecoder();
@@ -124,6 +131,7 @@ namespace carto {
          * listeners, but generally all cached tiles will be reloaded. 
          */
         virtual void notifyDecoderChanged();
+        virtual void notifyDecoderRefreshed();
         
         /**
          * Registers listener for decoder change events.

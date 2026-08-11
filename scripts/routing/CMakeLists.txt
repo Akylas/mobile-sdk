@@ -71,6 +71,16 @@ endif(APPLE)
 # (same mechanism as scripts/build/CMakeLists.txt)
 set(ROUTING_EXTERNAL_SUBPROJECTS sqlite sqlite3pp zstd date protobuf valhalla)
 
+# CallRaw currently serves the same endpoints as the SDK - route, trace_route, trace_attributes,
+# centroid - so the matrix, isochrone, locate, height, expansion, status and optimized-route
+# actions are left out of the Valhalla build. Configure with -DVALHALLA_SERVICES=ON to build them
+# back in; the endpoints that need them are compiled in by the same switch. Declared before the
+# subproject is added so this default wins over the ON default there.
+option(VALHALLA_SERVICES "Build the Valhalla service actions beyond routing and map matching" OFF)
+if(VALHALLA_SERVICES)
+  add_definitions("-D_CARTO_VALHALLA_SERVICES")
+endif()
+
 foreach(SDK_SUBPROJECT IN ITEMS ${ROUTING_EXTERNAL_SUBPROJECTS})
   add_subdirectory("${SDK_EXTERNAL_LIBS_DIR}/${SDK_SUBPROJECT}" "${SDK_SUBPROJECT}")
 endforeach()

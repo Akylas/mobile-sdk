@@ -96,6 +96,142 @@ The GPU is not the limit: `PROF GPU` with content puts the layers at 29–43 ms 
 So the lever is **fewer draws and fewer layers**, which is [07-hillshade-contours.md](07-hillshade-contours.md)
 and [09-composite-layer.md](09-composite-layer.md), not micro-optimisation.
 
+## Style load and tile decode (off the render thread, but in front of the user)
+
+Measured on a Crosscall HLTE556N with the demo's bundled style project (`--es style assets`:
+`osm.json`, 23 layers, 67 styles, 461 nutiparameters, 9 `.less`/`.mss` files, 74 KB), with temporary
+timers in `CartoCSSMapLoader`, `TileReader` and `MBVectorTileDecoder`. Device clocks move the
+absolute numbers by up to 40% between runs — compare a change against a run whose *style load* time
+matches, or pair the runs.
+
+**Loading a style: ~0.5–0.7 s**, split roughly 7 / 75 / 20 between parse, compile and everything else:
+
+| section | ms |
+|---|---|
+| `CartoCSSParser::parse`, all 9 files (boost::spirit) | 34 |
+| `CartoCSSMapLoader::buildMap` | 362 |
+| — `CartoCSSCompiler::compileLayer`, all layers | 271 |
+| — translate to mapnik rules | 71 |
+| — `Style::optimizeRules` | 9 |
+| fonts, asset scan, symbolizer context | ~110 |
+
+The compile is three layers: `transportation` **115 ms** (2230 rules, 23 attachments), `route` 61 ms,
+`poi` 61 ms; the other 20 together ≈ 35 ms.
+
+Inside `compileLayer` it was three near-equal thirds, and each answered to a constant factor rather
+than to the algorithm (per-section ms, `transportation`, cold runs on the Crosscall):
+
+| section | before | after |
+|---|---|---|
+| `buildPropertyLists` | 37.8 | 22.8 |
+| per-zoom filter evaluation | 33.4 | 12.1 |
+| `buildLayerAttachment` | 39.6 | 31.4 |
+| list comparison | 2.2 | 2.0 |
+
+What the three fixes were, in the order they pay: **evaluate each distinct predicate once per zoom**
+(a layer has ~77 predicates and ~640 properties, and every property re-evaluated its own filters —
+this is a memo, not a semantic change); **bucket `insertProperty` by field** (two properties can only
+be equal if they set the same field, and comparing them is a deep expression comparison, so the scan
+went over every property inserted so far); **intern the field strings and hand out references** in
+`buildLayerAttachment` (its innermost operation was a string compare, and each property visit copied
+a `shared_ptr`). Summed over all 23 layers: **264 → 157 ms**, `buildMap` 362 → 261 ms.
+
+A second round took the same three sections further, for **157 → 129 ms** (`buildMap` 220 ms):
+
+- **A zoom whose predicates evaluate exactly as the previous one is skipped whole.** The optimized
+  property lists are a pure function of (property lists, predicate results), so equal results mean
+  equal lists and equal attachments. Comparing ~80 bytes replaces rebuilding every property list and
+  deep-comparing it. A layer resolves to 1–14 distinct ranges out of the 25 zooms evaluated.
+  `boost::tribool` cannot be compared as a block — two indeterminate values do not test equal — so
+  the results are kept as a three-state byte.
+- `buildLayerAttachment` built a fresh property set (two vectors) per (property, property set) pair
+  considered and dropped it on the common path; one reused object keeps the buffers.
+
+Cumulative: **compile 264 → 129 ms**, `buildMap` 362 → 220 ms on the same style and device.
+
+Left on the table: `buildPropertyLists` still walks the **whole** stylesheet once per layer (23 × 407
+elements here) — worth ~10–15 ms total, so low priority — and `buildLayerAttachment` remains the
+biggest single item (~31 ms of `transportation`'s 55). Its cost is O(properties × property sets²) per
+distinct zoom range, which is the algorithm, not a constant factor.
+
+**`setPixelScale` used to reload the style.** It rebuilt the symbolizer context by calling
+`updateCurrentStyleSet`, i.e. a full parse + compile, and `VectorTileLayer` calls it when the layer
+joins a map — so every startup paid the ~0.5 s twice. Split into `updateSymbolizerContext()`
+(fonts, bitmap/stroke/glyph maps, settings), the second pass is **~100–130 ms**. `addFallbackFont`
+took the same path. `setCartoCSSLayerNamesIgnored` genuinely changes compilation and still reloads.
+
+**Decoding a tile: 120–150 ms mean, ~0.5 s worst** at a z16 city camera. Section split (probe
+overhead ~30%, so read the shares, not the absolutes):
+
+| section | share |
+|---|---|
+| symbolizer → geometry/label build (tesselation) | 35% |
+| loop glue: `shared_ptr`-keyed caches, 67 layer builders per tile, batching | 22% |
+| `TileLayerBuilder::buildTileLayer` | 13% |
+| filter predicate evaluation | 12% |
+| feature tag decode | 7% |
+| protobuf geometry decode + clip | 5% |
+| symbolizer property evaluation | 4% |
+| rule prefilter + field gathering | 2% |
+
+So the CartoCSS/expression machinery is **~18% of a decode** — geometry building is the cost.
+
+### The compiled map is cached
+
+A compiled `mvt::Map` is read-only, and a decoder's parameter values live in its own store, so the
+same map can serve several decoders. `MBVectorTileDecoder` keeps a small process-wide cache keyed by
+**(asset package, style asset name, `cartoCSSLayerNamesIgnored`)** — weak references plus the last
+two held strongly, so a day/night pair stays warm without pinning every style ever loaded. Measured
+on the device, loading the same style a second time: **411 ms → 0.00 ms** (the symbolizer context is
+already cached by asset package too, so the second load is free end to end).
+
+The key is the asset **package object**, not its contents: two styles of one package (the day/night
+case, `CompiledStyleSet(pack, "day")` / `(pack, "night")`) hit the cache, but re-creating the package
+around the same files does not. Hashing the assets to do better would cost more than it saves for
+the single-load case.
+
+### Live style parameters
+
+`setStyleParameter` used to invalidate every tile ([TileLayer.cpp](../../all/native/layers/TileLayer.cpp)
+`updateTiles`), so changing one `nuti::` colour cost *visible tiles × ~130 ms* of decode CPU. A
+parameter that **only** feeds properties the renderer evaluates per frame does not need any of that:
+
+- the values live in a `mvt::NutiParameterStore` that decoded tiles hold a pointer to, so replacing
+  them is visible to already-decoded tiles;
+- a colour/width property whose expression reads parameters (and at most the view state) becomes a
+  `vt::ColorFunction`/`FloatFunction` instead of being folded at decode — `Property::isLiveCapable`;
+- `mvt::resolveLiveNutiParameters` classifies each parameter at load, and `MBVectorTileDecoder`
+  takes the cheap path only when **every** parameter in the call is live: swap the values, ask for a
+  redraw (`onDecoderRefreshed`), decode nothing.
+
+Conservative by construction. A parameter is **not** live when it appears in a rule filter (it
+decides what the tile contains), when it feeds a property that is also read at decode time — glyph
+raster size, generated marker bitmap, stroke pattern (`Property::isBakedAtDecode`) — when the
+expression also reads a feature field or the zoom, or when it drives `_geometryscale`, `_fontscale`
+or `_zoomlevelbias`. Anything unclassified stays on the re-decode path.
+
+Measured on the device with the demo's in-memory nuti style (`--es style nuti`): flipping a colour
+parameter every 3 s produced **zero `decodeTile` calls** and the water polygons changed between the
+two colours in the next frame; flipping the boolean the style uses in a filter still re-decodes, as
+it must. Worth knowing: the bundled 23-layer style has **no** live parameter — its 461 parameters all
+sit in filters, text or marker sizes — so this pays only for styles written with colour parameters,
+which is the point of the feature.
+
+Classification costs ~37 ms once per style load on that style (a walk over every rule and property).
+
+**What this does not solve: selection.** A style that drives "selected" with a parameter — the route
+style's `when ([nuti::selected_osmid]=@osmid)::selected`, plus a width that mixes the parameter with
+the feature field `[osmid]` — stays on the re-decode path, and the filter part *has* to: the casing
+of the selected route only exists because that rule matched, and a redraw cannot build geometry. The
+durable answer is maplibre's `feature-state` model: the selected id becomes a **uniform** and the
+comparison happens per vertex against a feature-id attribute, so a selection change costs nothing on
+the CPU at all. That needs a feature-id vertex attribute in `vt` and shader support — not done.
+A cheaper half-step is to let "parameter + feature field" expressions be live: `TileReader` already
+builds one processor per distinct feature-data, so the function can close over that feature's value
+and read the store per frame. The price is one function object per feature-data, and geometries only
+batch when they share one (16 style-parameter slots per geometry), so it fragments draws on a dense
+layer.
+
 ## Measured NOT to matter — do not re-run these
 
 | hypothesis | result |
@@ -112,6 +248,7 @@ and [09-composite-layer.md](09-composite-layer.md), not micro-optimisation.
 | the per-tile CPU surface rebuild ("the pan hang") | **does not happen at all** in grid mode: `surfBuilt=0 surfInval=0`, the block costs 0.04 ms |
 | DEM border patching instead of full re-encode | 93% fewer re-encodes, **no fps change** at any camera — the encode was never on the render thread |
 | the DEM encode path in a warm pan | **zero encodes** — there is nothing there to optimise |
+| skipping the layer builder for styles the prefilter empties (67 per tile) | 3 paired cold runs each: decode mean 148 vs 147 ms — inside the noise |
 
 ## Things that did pay
 
@@ -130,6 +267,11 @@ and [09-composite-layer.md](09-composite-layer.md), not micro-optimisation.
 | label terrain re-anchor: DEM tile loads no longer read as a scale-only change, plus a grid and a latitude-scale memo | full stack over terrain, interleaved ×3: **1.00 → 1.55 fps**, `prepare` 658 → 219 ms |
 | an off-screen, already-anchored label defers its re-anchor | 1.60 → 1.70 fps — small, most dirty labels do hold a placement |
 | label lines tesselated for reading, not for painting (no lattice split, surface-cell step) | **1.75 → 2.10 fps**, `prepare` 157 → 72 ms |
+| `setPixelScale` rebuilds only the symbolizer context, not the compiled map | startup style cost 2 × 0.5–0.7 s → one load plus a ~0.1 s context rebuild |
+| CartoCSS compile: per-zoom predicate memo, field-bucketed property insert, interned field ids | compile 264 → 157 ms, `buildMap` 362 → 261 ms (23-layer style, device) |
+| CartoCSS compile: skip a zoom whose predicate results repeat, reuse the trial property set | compile 157 → 129 ms, `buildMap` → 220 ms |
+| live style parameters (a colour-only parameter swaps values and redraws) | a parameter change went from *visible tiles × ~130 ms* of decode to **zero decodes** |
+| compiled-map cache keyed by asset package + style name | loading the same style again: 411 ms → **0.00 ms** |
 | render and tile paths at `-O2` in Release instead of `-Oz` | device 39.09 → 37.82 ms/frame (3.2%), CPU work minus the swap wait 14.39 → 13.51 ms (6.1%), `prepare` 2.65 → 2.22, `prelude` 0.91 → 0.70; +614 KB on arm64 |
 
 The `-Oz` → `-O2` A/B is a warning about the emulator as much as a result. Three interleaved cycles

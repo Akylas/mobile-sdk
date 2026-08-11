@@ -102,20 +102,25 @@ std::string ValhallaRoutingProxy::CallRaw(
         const std::string& jsonBody) {
 
     // Map endpoint string → valhalla action enum
+    // The endpoints under _CARTO_VALHALLA_SERVICES need Valhalla action sources that are left out
+    // of the build unless it is configured with -DVALHALLA_SERVICES=ON. Without it they are not
+    // recognised at all, so a caller gets "Unknown Valhalla endpoint" rather than a silent failure.
     valhalla::Options::Action action;
     if      (endpoint == "route"             ) action = valhalla::Options::route;
+    else if (endpoint == "trace_route"       ) action = valhalla::Options::trace_route;
+    else if (endpoint == "trace_attributes"  ) action = valhalla::Options::trace_attributes;
+    else if (endpoint == "centroid"          ) action = valhalla::Options::centroid;
+#ifdef _CARTO_VALHALLA_SERVICES
     else if (endpoint == "locate"            ) action = valhalla::Options::locate;
     else if (endpoint == "matrix" ||
              endpoint == "sources_to_targets") action = valhalla::Options::sources_to_targets;
     else if (endpoint == "optimized_route"   ) action = valhalla::Options::optimized_route;
     else if (endpoint == "isochrone"         ) action = valhalla::Options::isochrone;
-    else if (endpoint == "trace_route"       ) action = valhalla::Options::trace_route;
-    else if (endpoint == "trace_attributes"  ) action = valhalla::Options::trace_attributes;
     else if (endpoint == "height"            ) action = valhalla::Options::height;
     else if (endpoint == "transit_available" ) action = valhalla::Options::transit_available;
     else if (endpoint == "expansion"         ) action = valhalla::Options::expansion;
-    else if (endpoint == "centroid"          ) action = valhalla::Options::centroid;
     else if (endpoint == "status"            ) action = valhalla::Options::status;
+#endif
     else throw GenericException("Unknown Valhalla endpoint", endpoint);
 
     std::string result;
@@ -150,6 +155,7 @@ std::string ValhallaRoutingProxy::CallRaw(
             result = valhalla::tyr::serializeDirections(api);
             break;
 
+#ifdef _CARTO_VALHALLA_SERVICES
         case valhalla::Options::sources_to_targets:
             lokiWorker.matrix(api);
             result = thorWorker.matrix(api);
@@ -177,14 +183,15 @@ std::string ValhallaRoutingProxy::CallRaw(
             result = thorWorker.expansion(api);
             break;
 
-        case valhalla::Options::centroid:
-            thorWorker.centroid(api);
-            result = valhalla::tyr::serializePbf(api);
-            break;
-
         case valhalla::Options::status:
             lokiWorker.status(api);
             result = valhalla::tyr::serializeStatus(api);
+            break;
+#endif
+
+        case valhalla::Options::centroid:
+            thorWorker.centroid(api);
+            result = valhalla::tyr::serializePbf(api);
             break;
 
         default:

@@ -21,6 +21,17 @@ namespace carto {
         }
     }
         
+    void VectorTileDecoder::notifyDecoderRefreshed() {
+        std::vector<std::shared_ptr<OnChangeListener> > onChangeListeners;
+        {
+            std::lock_guard<std::mutex> lock(_onChangeListenersMutex);
+            onChangeListeners = _onChangeListeners;
+        }
+        for (const std::shared_ptr<OnChangeListener>& listener : onChangeListeners) {
+            listener->onDecoderRefreshed();
+        }
+    }
+
     void VectorTileDecoder::registerOnChangeListener(const std::shared_ptr<OnChangeListener>& listener) {
         std::lock_guard<std::mutex> lock(_onChangeListenersMutex);
         _onChangeListeners.push_back(listener);

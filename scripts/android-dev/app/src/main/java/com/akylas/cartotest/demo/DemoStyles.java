@@ -537,17 +537,36 @@ public final class DemoStyles {
     /** Name of the boolean parameter the demo flips; see DemoMap.startNutiToggleLoop. */
     public static final String NUTI_PARAMETER = "show_relief";
 
+    /**
+     * A parameter that nothing but a colour reads. The SDK classifies it as LIVE: setting it swaps
+     * the value the decoded tiles already point at and asks for a redraw, where NUTI_PARAMETER sits
+     * in a filter and so decides what the tile contains - changing that one decodes every tile
+     * again. Flipped by the same loop, so a run shows both paths.
+     */
+    public static final String NUTI_COLOR_PARAMETER = "water_color";
+
+    /**
+     * A parameter holding a TABLE - one colour per road class - that the style reads with
+     * get(table, key, fallback). One parameter replaces one-per-class, and the app owns the
+     * contents. Reading it uses the feature's [class], so changing the table still re-decodes.
+     */
+    public static final String NUTI_TABLE_PARAMETER = "road_colors";
+
     private static MBVectorTileDecoder createNutiDecoder() {
         // 'layers' is TOP -> BOTTOM (reversed into draw order) and must list every composite slot.
         String projectJson = String.join("\n",
             "{",
             "  \"styles\": [\"style.mss\"],",
             "  \"layers\": [\"contour\", \"building\", \"transportation\", \"satellite\", \"hillshade\", \"landcover\", \"water\"],",
-            "  \"nutiparameters\": { \"" + NUTI_PARAMETER + "\": { \"default\": true } }",
+            "  \"nutiparameters\": {",
+            "    \"" + NUTI_PARAMETER + "\": { \"default\": true },",
+            "    \"" + NUTI_COLOR_PARAMETER + "\": { \"default\": \"#9cc3e0\" },",
+            "    \"" + NUTI_TABLE_PARAMETER + "\": { \"default\": { \"motorway\": \"#e27d60\", \"trunk\": \"#f0a868\", \"primary\": \"#d9b382\" } }",
+            "  }",
             "}");
         String mss = String.join("\n",
             "Map { background-color: " + DemoConfig.INLINE_BACKGROUND_COLOR + "; }",
-            "#water { polygon-fill: #9cc3e0; }",
+            "#water { polygon-fill: [nuti::" + NUTI_COLOR_PARAMETER + "]; }",
             "#landcover { polygon-fill: #dbe8cc;" + landcoverOpacity() + " }",
             // the hillshade slot exists only while the user setting is on
             "#hillshade['nuti::" + NUTI_PARAMETER + "'=true][zoom>=4] {",
@@ -558,8 +577,9 @@ public final class DemoStyles {
             "}",
             "#satellite[zoom>=" + DemoConfig.INLINE_SATELLITE_MIN_ZOOM + "] { raster-opacity: 0.45; }",
                 "#contour[zoom>=12] { line-color: #9a5a12; line-width: 0.8; line-opacity: 0.7; }",
-            "#transportation { line-color: #ffffff; line-width: 1.2; }",
-            "#transportation['class'='motorway'] { line-color: #e27d60; line-width: " + DemoConfig.INLINE_MOTORWAY_WIDTH + "; }",
+            // one rule for every class, the colour comes out of the table parameter
+            "#transportation { line-color: get([nuti::" + NUTI_TABLE_PARAMETER + "], [class], #ffffff); line-width: 1.2; }",
+            "#transportation['class'='motorway'] { line-width: " + DemoConfig.INLINE_MOTORWAY_WIDTH + "; }",
             DemoConfig.INLINE_BUILDINGS_3D
                 ? "#building[zoom>=14] { building-fill: #d9cfc4; building-height: " + DemoConfig.INLINE_BUILDING_HEIGHT + "; }"
                 : "#building[zoom>=14] { polygon-fill: #d9cfc4; }");

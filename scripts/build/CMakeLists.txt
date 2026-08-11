@@ -72,10 +72,13 @@ if(APPLE)
     set(CMAKE_XCODE_ATTRIBUTE_DEVELOPMENT_TEAM ${SDK_DEV_TEAM})
   endif()
 
-  if(SHARED_LIBRARY)
-    set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -flto=full")
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -flto=full")
-  endif()
+  # LTO used to be shared-framework only, so the static framework - what actually ships - was the
+  # one build without it. It is safe here because the Release static library is prelinked into a
+  # single master object (GENERATE_MASTER_OBJECT_FILE below): the ld -r that produces it runs the
+  # LTO codegen, so the archive member we ship is native code, not bitcode that would then need a
+  # compatible toolchain in every consuming app.
+  set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -flto=full")
+  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -flto=full")
 
   if(CMAKE_BUILD_TYPE MATCHES "Release|RELEASE")
     set(CMAKE_XCODE_ATTRIBUTE_DEPLOYMENT_POSTPROCESSING YES)
@@ -140,6 +143,10 @@ endif(INCLUDE_SQLITE)
 
 if(INCLUDE_VALHALLA)
   list(APPEND SDK_EXTERNAL_SUBPROJECTS "date" "protobuf" "valhalla")
+  # ValhallaRoutingProxy only calls route(), trace_attributes() and narrate(), so the matrix,
+  # isochrone, locate, height, expansion, status and optimized-route actions are dead weight in the
+  # SDK. Declared here so this default wins over the ON default in the valhalla subproject.
+  option(VALHALLA_SERVICES "Build the Valhalla service actions beyond routing and map matching" OFF)
 endif(INCLUDE_VALHALLA)
 
 foreach(SDK_SUBPROJECT IN ITEMS ${SDK_CARTO_SUBPROJECTS})
