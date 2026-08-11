@@ -184,9 +184,25 @@ Left on the table, per the host section timers after this round (all 23 layers, 
 `buildLayerAttachment` **4.8 ms**, the stylesheet walk in `buildPropertyLists` **2.8 ms**, the
 expression evaluation **0.7 ms** (2.6 before the memo), the per-zoom filter evaluation **0.9 ms**.
 The walk is the structural one: it goes over the **whole** stylesheet once per layer (23 × 407
-elements here) and only then discards what the layer predicate rules out. Sharing one
-`FilteredPropertyState` across a project's layers would fix it, and that is an API change to the
-compiler rather than a local one.
+elements here) and only then discards what the layer predicate rules out.
+
+**That walk was attacked and the attempt was rejected on the device** (branch
+`perf/cartocss-skeleton` in libs-carto, kept unmerged for the record). Only `MapPredicate` and
+`LayerPredicate` read the layer name, so one walk can resolve everything else — every other
+predicate, the variable map (8,211 inserts across the project), the per-block field dedup, the
+specificity counts — into a flat "skeleton" of reachable rule blocks with predicates and properties
+deduplicated once, each layer then materialising by mapping skeleton ids into its own state. It
+produced identical output on all five bundled projects and **6% on the host**, and it measured
+**117.2 → 132.2 ms, i.e. 13% slower on the device** (interleaved A/B, four cycles, same sign every
+cycle). It trades repeated cheap traversal for one-time interning and copying — `Property` and
+`Predicate` copies, string-keyed dedup buckets, a filter-vector copy per rule — and that trade
+loses on ARM even where it wins on x86/arm64 desktop. Two things to take from it: the walk is worth
+at most ~2.8 ms of host time, so anything that adds structure to save it starts from a thin margin;
+and the host bench is a guide for *what changed*, never for *whether it is faster* — that sentence
+was written here as "sharing one `FilteredPropertyState` would fix it", and the device disagreed.
+
+A device A/B also has to be **interleaved install-by-install**: the same APK measured 103 ms twice
+and then 132 ms twice in one series, purely from core frequency.
 
 **`setPixelScale` used to reload the style.** It rebuilt the symbolizer context by calling
 `updateCurrentStyleSet`, i.e. a full parse + compile, and `VectorTileLayer` calls it when the layer
