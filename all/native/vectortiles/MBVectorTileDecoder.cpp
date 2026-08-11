@@ -369,8 +369,9 @@ namespace carto {
             std::lock_guard<std::mutex> lock(_mutex);
             if (fontData) {
                 _fallbackFonts.push_back(fontData);
+                // Fonts live in the symbolizer context, not in the compiled map: rebuild only that.
                 _assetPackageSymbolizerContexts.clear();
-                updateCurrentStyleSet(_styleSet);
+                updateSymbolizerContext();
             }
         }
         notifyDecoderChanged();
@@ -383,10 +384,12 @@ namespace carto {
                 return;
             }
             _pixelScale = pixelScale;
-            // The glyph render size is picked from it when a tile is decoded, so the decoded tiles
-            // have to go. In practice this fires once, when the layer joins a map.
+            // The glyph render size is picked from it when a tile is decoded, so the glyph/stroke
+            // maps have to go. The compiled map does not depend on it - reloading the style here
+            // cost a full parse + compile (~0.5 s for a 23-layer style) on every layer that joins
+            // a map, which is where this fires.
             _assetPackageSymbolizerContexts.clear();
-            updateCurrentStyleSet(_styleSet);
+            updateSymbolizerContext();
         }
         notifyDecoderChanged();
     }
@@ -611,6 +614,20 @@ namespace carto {
             throw InvalidArgumentException("Invalid style set");
         }
 
+        _styleSet = styleSet;
+        _styleAssetName = styleAssetName;
+        _styleAssetPackage = assetPackage;
+        _map = map;
+        _mapSettings = std::make_shared<mvt::Map::Settings>(_map->getSettings());
+
+        updateSymbolizerContext();
+    }
+
+    void MBVectorTileDecoder::updateSymbolizerContext() {
+        const std::string& styleAssetName = _styleAssetName;
+        const std::shared_ptr<AssetPackage>& assetPackage = _styleAssetPackage;
+        const std::shared_ptr<const mvt::Map>& map = _map;
+
         if (_assetPackageSymbolizerContexts.find(std::make_pair(styleAssetName, assetPackage)) == _assetPackageSymbolizerContexts.end() && _assetPackageSymbolizerContexts.size() >= MAX_ASSETPACKAGE_SYMBOLIZER_CONTEXTS) {
             _assetPackageSymbolizerContexts.clear();
         }
@@ -691,9 +708,6 @@ namespace carto {
 
         _symbolizerContextSettings = std::make_shared<mvt::SymbolizerContext::Settings>(symbolizerContext->getSettings().getTileSize(), parameterValueMap, symbolizerContext->getSettings().getFallbackFont(), _pixelScale);
         _symbolizerContext = std::make_shared<mvt::SymbolizerContext>(symbolizerContext->getBitmapManager(), symbolizerContext->getFontManager(), symbolizerContext->getStrokeMap(), symbolizerContext->getGlyphMap(), *_symbolizerContextSettings);
-        _map = map;
-        _mapSettings = std::make_shared<mvt::Map::Settings>(_map->getSettings());
-        _styleSet = styleSet;
         _cachedFeatureDecoder.first.reset();
         _cachedFeatureDecoder.second.reset();
     }

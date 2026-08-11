@@ -200,6 +200,7 @@ namespace carto {
     
     protected:
         void updateCurrentStyleSet(const std::variant<std::shared_ptr<CompiledStyleSet>, std::shared_ptr<CartoCSSStyleSet> >& styleSet);
+        void updateSymbolizerContext();
         bool setStyleParameterInternal(const std::string& param, const std::string& value);
         void updateSymbolizer();
 
@@ -217,6 +218,8 @@ namespace carto {
         std::map<std::string, mvt::Value> _parameterValueMap;
         std::vector<std::shared_ptr<BinaryData> > _fallbackFonts;
         std::variant<std::shared_ptr<CompiledStyleSet>, std::shared_ptr<CartoCSSStyleSet> > _styleSet;
+        std::string _styleAssetName; // what the current _map was loaded from, so the symbolizer
+        std::shared_ptr<AssetPackage> _styleAssetPackage; // context can be rebuilt without it
         std::shared_ptr<const mvt::Map> _map;
         std::shared_ptr<const mvt::Map::Settings> _mapSettings;
         std::shared_ptr<const mvt::SymbolizerContext> _symbolizerContext;
