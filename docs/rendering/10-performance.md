@@ -149,10 +149,44 @@ A second round took the same three sections further, for **157 → 129 ms** (`bu
 
 Cumulative: **compile 264 → 129 ms**, `buildMap` 362 → 220 ms on the same style and device.
 
-Left on the table: `buildPropertyLists` still walks the **whole** stylesheet once per layer (23 × 407
-elements here) — worth ~10–15 ms total, so low priority — and `buildLayerAttachment` remains the
-biggest single item (~31 ms of `transportation`'s 55). Its cost is O(properties × property sets²) per
-distinct zoom range, which is the algorithm, not a constant factor.
+A third round attacked what was then the biggest item, `buildLayerAttachment`, for a paired
+**175.4 → 117.4 ms** on the same device and style project (three cold runs each, spread under
+1.5 ms; the absolute numbers are higher than the round above because the bundled style has grown
+since — only the pair means anything). Its inner loop runs **115,756** times for `transportation`
+alone, and the counters said where:
+
+| what the iteration did | share | what replaces it |
+|---|---|---|
+| "does this set already set this field?" | 71% | one bit test on a per-set field bitmask |
+| filter intersect rejects the merge | 24% | one AND against a per-predicate "disjoint" mask |
+| reaches the redundancy (cover) test | 5% | one AND against a per-predicate "contains" mask |
+
+The field test is the interesting one: it used to scan the set's whole property list and compare
+specificities. `compileLayer` sorts the properties by **decreasing specificity**, so a set that
+already has the field got it from a property that outranks the current one — the answer is always
+"skip", and one bit answers it. That order is now load-bearing; the comment at the sort says so.
+Two smaller items: a merge that cannot succeed is rejected *before* the trial set is copied, and
+`buildPropertyLists` evaluated each property expression once per attachment it appears in rather
+than once per property.
+
+Both masks are 256 bits with a fallback to the scans they replace (the biggest layer here has ~50
+fields and ~80 predicates).
+
+**How this was measured, and how to redo it:** `libs-carto/cartocss/test/CompileBench.cpp` builds
+on the host (the command is in its header), loads a style project the way `CartoCSSMapLoader` does
+and times `compileLayer` per layer. With `CSSBENCH_DUMP=<file>` it dumps every compiled property
+set, so `diff` proves a compiler change kept the output identical — all five bundled projects
+(osm/streets/outdoors/eink/ign) dump identically across this round. The host is ~9× faster than the
+device but splits the same way per layer, so it is a valid *guide*; the ms in this page are always
+device numbers.
+
+Left on the table, per the host section timers after this round (all 23 layers, one run):
+`buildLayerAttachment` **4.8 ms**, the stylesheet walk in `buildPropertyLists` **2.8 ms**, the
+expression evaluation **0.7 ms** (2.6 before the memo), the per-zoom filter evaluation **0.9 ms**.
+The walk is the structural one: it goes over the **whole** stylesheet once per layer (23 × 407
+elements here) and only then discards what the layer predicate rules out. Sharing one
+`FilteredPropertyState` across a project's layers would fix it, and that is an API change to the
+compiler rather than a local one.
 
 **`setPixelScale` used to reload the style.** It rebuilt the symbolizer context by calling
 `updateCurrentStyleSet`, i.e. a full parse + compile, and `VectorTileLayer` calls it when the layer
@@ -270,6 +304,7 @@ layer.
 | `setPixelScale` rebuilds only the symbolizer context, not the compiled map | startup style cost 2 × 0.5–0.7 s → one load plus a ~0.1 s context rebuild |
 | CartoCSS compile: per-zoom predicate memo, field-bucketed property insert, interned field ids | compile 264 → 157 ms, `buildMap` 362 → 261 ms (23-layer style, device) |
 | CartoCSS compile: skip a zoom whose predicate results repeat, reuse the trial property set | compile 157 → 129 ms, `buildMap` → 220 ms |
+| CartoCSS compile: field and predicate bitmasks on the property set, evaluate each property once | compile 175.4 → 117.4 ms paired (same style, later and bigger than the rows above) |
 | live style parameters (a colour-only parameter swaps values and redraws) | a parameter change went from *visible tiles × ~130 ms* of decode to **zero decodes** |
 | compiled-map cache keyed by asset package + style name | loading the same style again: 411 ms → **0.00 ms** |
 | render and tile paths at `-O2` in Release instead of `-Oz` | device 39.09 → 37.82 ms/frame (3.2%), CPU work minus the swap wait 14.39 → 13.51 ms (6.1%), `prepare` 2.65 → 2.22, `prelude` 0.91 → 0.70; +614 KB on arm64 |
