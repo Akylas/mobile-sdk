@@ -290,6 +290,7 @@ namespace carto {
         std::string _clickHandlerLayerFilter;
 
         std::atomic<bool> _tileMapsMode;
+        std::size_t _appearanceGeneration = 0; // bumped when a live style parameter changes
     
         const std::shared_ptr<VectorTileDecoder> _tileDecoder;
         std::shared_ptr<TileDecoderListener> _tileDecoderListener;

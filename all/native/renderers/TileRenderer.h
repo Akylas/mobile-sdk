@@ -61,6 +61,7 @@ namespace carto {
         void setLabelOrder(int order);
         void setBuildingOrder(int order);
         void setRasterFilterMode(vt::RasterFilterMode filterMode);
+        void setAppearanceGeneration(std::size_t generation);
         void setNormalMapShadowColor(const Color& color);
         void setNormalMapHighlightColor(const Color& color);
         void setNormalMapAccentColor(const Color& color);
@@ -215,6 +216,7 @@ namespace carto {
         int _labelOrder;
         int _buildingOrder;
         vt::RasterFilterMode _rasterFilterMode;
+        std::size_t _appearanceGeneration = 0;
         Color _normalMapShadowColor;
         Color _normalMapAccentColor;
         Color _normalMapHighlightColor;

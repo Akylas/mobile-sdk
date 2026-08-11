@@ -141,6 +141,11 @@ namespace carto {
         _rasterFilterMode = filterMode;
     }
 
+    void TileRenderer::setAppearanceGeneration(std::size_t generation) {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _appearanceGeneration = generation;
+    }
+
     void TileRenderer::setNormalMapShadowColor(const Color& color) {
         std::lock_guard<std::mutex> lock(_mutex);
         _normalMapShadowColor = color;
@@ -592,6 +597,9 @@ namespace carto {
         tileRenderer->setLayerBlendingSpeed(_layerBlendingSpeed);
         tileRenderer->setLabelBlendingSpeed(_labelBlendingSpeed);
         tileRenderer->setRendererLayerFilter(_rendererLayerFilter);
+        // A live style parameter changes what the tiles look like without changing their content,
+        // so anything baked from them - the drape textures - has to be baked again.
+        tileRenderer->setAppearanceGeneration(_appearanceGeneration);
 
         // Terrain state: enable depth-based terrain rendering and rebuild tile surfaces
         // when the elevation data changes (new DEM tiles, exaggeration change). The rebuild

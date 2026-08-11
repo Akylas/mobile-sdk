@@ -916,6 +916,9 @@ namespace carto {
         }
         updateParameterStore();
         _liveParameters = mvt::resolveLiveNutiParameters(*_map);
+        // Properties that read a live parameter together with a feature field follow it too, at the
+        // cost of one function per feature - see markLiveWithFeatureProperties.
+        mvt::markLiveWithFeatureProperties(*_map, _liveParameters);
 
         _symbolizerContextSettings = std::make_shared<mvt::SymbolizerContext::Settings>(symbolizerContext->getSettings().getTileSize(), _parameterStore, symbolizerContext->getSettings().getFallbackFont(), _pixelScale);
         _symbolizerContext = std::make_shared<mvt::SymbolizerContext>(symbolizerContext->getBitmapManager(), symbolizerContext->getFontManager(), symbolizerContext->getStrokeMap(), symbolizerContext->getGlyphMap(), *_symbolizerContextSettings);

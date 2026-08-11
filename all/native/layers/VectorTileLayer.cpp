@@ -674,6 +674,11 @@ namespace carto {
         // and widths that read it are evaluated per frame - so the next frame is the only thing that
         // has to change. No tile is fetched, decoded or re-culled.
         if (std::shared_ptr<VectorTileLayer> layer = _layer.lock()) {
+            // The colours and widths read the new value by themselves, but a drape texture baked
+            // from the old ones would keep showing them.
+            if (std::shared_ptr<TileRenderer> tileRenderer = layer->_tileRenderer) {
+                tileRenderer->setAppearanceGeneration(++layer->_appearanceGeneration);
+            }
             if (std::shared_ptr<MapRenderer> mapRenderer = layer->getMapRenderer()) {
                 mapRenderer->requestRedraw();
             }
