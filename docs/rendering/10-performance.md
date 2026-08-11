@@ -136,11 +136,23 @@ went over every property inserted so far); **intern the field strings and hand o
 `buildLayerAttachment` (its innermost operation was a string compare, and each property visit copied
 a `shared_ptr`). Summed over all 23 layers: **264 → 157 ms**, `buildMap` 362 → 261 ms.
 
+A second round took the same three sections further, for **157 → 129 ms** (`buildMap` 220 ms):
+
+- **A zoom whose predicates evaluate exactly as the previous one is skipped whole.** The optimized
+  property lists are a pure function of (property lists, predicate results), so equal results mean
+  equal lists and equal attachments. Comparing ~80 bytes replaces rebuilding every property list and
+  deep-comparing it. A layer resolves to 1–14 distinct ranges out of the 25 zooms evaluated.
+  `boost::tribool` cannot be compared as a block — two indeterminate values do not test equal — so
+  the results are kept as a three-state byte.
+- `buildLayerAttachment` built a fresh property set (two vectors) per (property, property set) pair
+  considered and dropped it on the common path; one reused object keeps the buffers.
+
+Cumulative: **compile 264 → 129 ms**, `buildMap` 362 → 220 ms on the same style and device.
+
 Left on the table: `buildPropertyLists` still walks the **whole** stylesheet once per layer (23 × 407
-elements here), and `compileLayer` still evaluates at **all 25 zooms** even when the layer resolves
-to a handful of distinct zoom ranges (`transportation`: 11) — the zoom-breakpoint version of that
-loop would cut the remaining evaluation *and* the attachment rebuilds, which are now the largest
-single item.
+elements here) — worth ~10–15 ms total, so low priority — and `buildLayerAttachment` remains the
+biggest single item (~31 ms of `transportation`'s 55). Its cost is O(properties × property sets²) per
+distinct zoom range, which is the algorithm, not a constant factor.
 
 **`setPixelScale` used to reload the style.** It rebuilt the symbolizer context by calling
 `updateCurrentStyleSet`, i.e. a full parse + compile, and `VectorTileLayer` calls it when the layer
@@ -202,7 +214,8 @@ what this means for `setStyleParameter`: it invalidates every tile ([TileLayer.c
 | an off-screen, already-anchored label defers its re-anchor | 1.60 → 1.70 fps — small, most dirty labels do hold a placement |
 | label lines tesselated for reading, not for painting (no lattice split, surface-cell step) | **1.75 → 2.10 fps**, `prepare` 157 → 72 ms |
 | `setPixelScale` rebuilds only the symbolizer context, not the compiled map | startup style cost 2 × 0.5–0.7 s → one load plus a ~0.1 s context rebuild |
-| CartoCSS compile: per-zoom predicate memo, field-bucketed property insert, interned field ids | compile sections 264 → 157 ms, `buildMap` 362 → 261 ms (23-layer style, device) |
+| CartoCSS compile: per-zoom predicate memo, field-bucketed property insert, interned field ids | compile 264 → 157 ms, `buildMap` 362 → 261 ms (23-layer style, device) |
+| CartoCSS compile: skip a zoom whose predicate results repeat, reuse the trial property set | compile 157 → 129 ms, `buildMap` → 220 ms |
 | render and tile paths at `-O2` in Release instead of `-Oz` | device 39.09 → 37.82 ms/frame (3.2%), CPU work minus the swap wait 14.39 → 13.51 ms (6.1%), `prepare` 2.65 → 2.22, `prelude` 0.91 → 0.70; +614 KB on arm64 |
 
 The `-Oz` → `-O2` A/B is a warning about the emulator as much as a result. Three interleaved cycles
