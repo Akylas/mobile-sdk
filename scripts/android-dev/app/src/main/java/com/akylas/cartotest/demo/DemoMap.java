@@ -1611,6 +1611,8 @@ public class DemoMap {
                 }
                 nutiParameterOn = !nutiParameterOn;
                 baseDecoder.setStyleParameter(DemoStyles.NUTI_PARAMETER, Boolean.toString(nutiParameterOn));
+                // The colour parameter takes the live path: no tile is decoded for it
+                baseDecoder.setStyleParameter(DemoStyles.NUTI_COLOR_PARAMETER, nutiParameterOn ? "#9cc3e0" : "#2f6f4f");
                 Log.d(TAG, "nuti " + DemoStyles.NUTI_PARAMETER + "=" + nutiParameterOn);
                 handler.postDelayed(this, DemoConfig.NUTI_TOGGLE_INTERVAL_MS);
             }

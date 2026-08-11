@@ -537,17 +537,28 @@ public final class DemoStyles {
     /** Name of the boolean parameter the demo flips; see DemoMap.startNutiToggleLoop. */
     public static final String NUTI_PARAMETER = "show_relief";
 
+    /**
+     * A parameter that nothing but a colour reads. The SDK classifies it as LIVE: setting it swaps
+     * the value the decoded tiles already point at and asks for a redraw, where NUTI_PARAMETER sits
+     * in a filter and so decides what the tile contains - changing that one decodes every tile
+     * again. Flipped by the same loop, so a run shows both paths.
+     */
+    public static final String NUTI_COLOR_PARAMETER = "water_color";
+
     private static MBVectorTileDecoder createNutiDecoder() {
         // 'layers' is TOP -> BOTTOM (reversed into draw order) and must list every composite slot.
         String projectJson = String.join("\n",
             "{",
             "  \"styles\": [\"style.mss\"],",
             "  \"layers\": [\"contour\", \"building\", \"transportation\", \"satellite\", \"hillshade\", \"landcover\", \"water\"],",
-            "  \"nutiparameters\": { \"" + NUTI_PARAMETER + "\": { \"default\": true } }",
+            "  \"nutiparameters\": {",
+            "    \"" + NUTI_PARAMETER + "\": { \"default\": true },",
+            "    \"" + NUTI_COLOR_PARAMETER + "\": { \"default\": \"#9cc3e0\" }",
+            "  }",
             "}");
         String mss = String.join("\n",
             "Map { background-color: " + DemoConfig.INLINE_BACKGROUND_COLOR + "; }",
-            "#water { polygon-fill: #9cc3e0; }",
+            "#water { polygon-fill: [nuti::" + NUTI_COLOR_PARAMETER + "]; }",
             "#landcover { polygon-fill: #dbe8cc;" + landcoverOpacity() + " }",
             // the hillshade slot exists only while the user setting is on
             "#hillshade['nuti::" + NUTI_PARAMETER + "'=true][zoom>=4] {",

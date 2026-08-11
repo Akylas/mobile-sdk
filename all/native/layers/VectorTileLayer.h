@@ -237,6 +237,7 @@ namespace carto {
             explicit TileDecoderListener(const std::shared_ptr<VectorTileLayer>& layer);
             
             virtual void onDecoderChanged();
+            virtual void onDecoderRefreshed();
     
         private:
             std::weak_ptr<VectorTileLayer> _layer;
