@@ -88,7 +88,7 @@ public class DemoMap {
 
     /** One switchable layer of the demo. */
     public enum Feature {
-        CELESTIAL, STARS, BASE, SATELLITE, HILLSHADE, HYPSO, CONTOUR, CONTOUR_TILES, ROUTES, ROUTE_TEST, MANEUVERS, ELEMENTS, PEAKS
+        CELESTIAL, STARS, BASE, SATELLITE, HILLSHADE, HYPSO, CONTOUR, CONTOUR_TILES, ROUTES, ROUTE_TEST, ROUTE_SELECT, MANEUVERS, ELEMENTS, PEAKS
     }
 
     /** Bottom -> top draw order. Toggling a layer never reorders the others. */
@@ -97,7 +97,7 @@ public class DemoMap {
         // behind it - which is what a body in the sky should do.
         Feature.CELESTIAL, Feature.STARS,
         Feature.BASE, Feature.SATELLITE, Feature.HILLSHADE, Feature.HYPSO,
-        Feature.CONTOUR, Feature.CONTOUR_TILES, Feature.ROUTES, Feature.ROUTE_TEST, Feature.MANEUVERS, Feature.ELEMENTS,
+        Feature.CONTOUR, Feature.CONTOUR_TILES, Feature.ROUTES, Feature.ROUTE_TEST, Feature.ROUTE_SELECT, Feature.MANEUVERS, Feature.ELEMENTS,
         // Last: the summit names go over everything the map draws.
         Feature.PEAKS
     };
@@ -108,6 +108,10 @@ public class DemoMap {
     public final DemoStars stars = new DemoStars();
     /** Device orientation driving the camera, for the star sky mode. */
     private DemoOrientation orientation;
+    /** Decoder of the route selection bench - the selection is one style parameter on it. */
+    private MBVectorTileDecoder routeSelectDecoder;
+    private long routeSelectId = 1;
+    private Runnable routeSelectCycle;
     /** Live camera preview behind the transparent map, for the star sky mode. */
     private DemoCameraPreview cameraPreview;
 
@@ -232,6 +236,7 @@ public class DemoMap {
             case CONTOUR_TILES: return DemoConfig.LAYER_CONTOUR_TILES;
             case ROUTES: return DemoConfig.LAYER_ROUTES;
             case ROUTE_TEST: return DemoConfig.LAYER_ROUTE_TEST;
+            case ROUTE_SELECT: return DemoConfig.LAYER_ROUTE_SELECT;
             case MANEUVERS: return DemoConfig.LAYER_MANEUVERS;
             case ELEMENTS: return DemoConfig.LAYER_ELEMENTS;
             case PEAKS: return DemoConfig.LAYER_PEAKS;
@@ -251,6 +256,7 @@ public class DemoMap {
             case CONTOUR_TILES: DemoConfig.LAYER_CONTOUR_TILES = enabled; break;
             case ROUTES: DemoConfig.LAYER_ROUTES = enabled; break;
             case ROUTE_TEST: DemoConfig.LAYER_ROUTE_TEST = enabled; break;
+            case ROUTE_SELECT: DemoConfig.LAYER_ROUTE_SELECT = enabled; break;
             case MANEUVERS: DemoConfig.LAYER_MANEUVERS = enabled; break;
             case ELEMENTS: DemoConfig.LAYER_ELEMENTS = enabled; break;
             case PEAKS: DemoConfig.LAYER_PEAKS = enabled; break;
@@ -311,6 +317,7 @@ public class DemoMap {
             case CONTOUR_TILES: return createContourTilesLayer();
             case ROUTES: return createRoutesLayer();
             case ROUTE_TEST: return createRouteTestLayer();
+            case ROUTE_SELECT: return createRouteSelectLayer();
             case MANEUVERS: return createManeuversLayer();
             case ELEMENTS: return createElementsLayer();
             case PEAKS: return createPeaksLayer();
@@ -746,6 +753,114 @@ public class DemoMap {
             return null;
         }
         return new VectorTileLayer(source, decoder);
+    }
+
+    /**
+     * The SELECTION bench: many routes as GeoJSON vector tiles, one of them selected through a
+     * style parameter compared with the feature's own osmid - what every real route style does.
+     *
+     * Tap a route to select it (or let it cycle with routeSelectCycle). What to watch in logcat is
+     * not the paint but the reload: the tile load listener fires again for every visible tile when
+     * the change forced the tiles to be decoded again, and stays quiet when it did not.
+     */
+    private Layer createRouteSelectLayer() {
+        MBVectorTileDecoder decoder = DemoStyles.createRouteSelectDecoder();
+        if (decoder == null) {
+            return null; // already logged
+        }
+        GeoJSONVectorTileDataSource source = new GeoJSONVectorTileDataSource(0, 24);
+        try {
+            int layerIndex = source.createLayer("routes");
+            source.setLayerGeoJSONString(layerIndex, buildRouteSelectGeoJSON());
+        } catch (IOException e) {
+            Log.w(TAG, "route selection geojson rejected: " + e.getMessage());
+            return null;
+        }
+        VectorTileLayer layer = new VectorTileLayer(source, decoder);
+        layer.setVectorTileEventListener(new VectorTileEventListener() {
+            @Override
+            public boolean onVectorTileClicked(VectorTileClickInfo clickInfo) {
+                Variant properties = clickInfo.getFeature().getProperties();
+                selectRoute((long) properties.getObjectElement("osmid").getLong());
+                return true;
+            }
+        });
+        routeSelectDecoder = decoder;
+        selectRoute(routeSelectId); // the parameter has to carry the current selection into a fresh decoder
+        startRouteSelectCycle();
+        return layer;
+    }
+
+    /** Selects one route by its osmid, which is all a real app does to change the selection. */
+    public void selectRoute(long osmid) {
+        routeSelectId = osmid;
+        if (routeSelectDecoder == null) {
+            return;
+        }
+        long start = System.nanoTime();
+        routeSelectDecoder.setStyleParameter(DemoConfig.ROUTE_SELECT_PARAMETER, Long.toString(osmid));
+        Log.i(TAG, "route " + osmid + " selected in " + ((System.nanoTime() - start) / 1000000.0) + " ms (mode "
+                + DemoConfig.ROUTE_SELECT_MODE + ")");
+    }
+
+    public void selectNextRoute() {
+        selectRoute(routeSelectId % Math.max(1, DemoConfig.ROUTE_SELECT_COUNT) + 1);
+    }
+
+    private void startRouteSelectCycle() {
+        if (routeSelectCycle != null) {
+            mapView.removeCallbacks(routeSelectCycle);
+            routeSelectCycle = null;
+        }
+        if (DemoConfig.ROUTE_SELECT_CYCLE_MS <= 0) {
+            return;
+        }
+        routeSelectCycle = new Runnable() {
+            public void run() {
+                if (!DemoConfig.LAYER_ROUTE_SELECT || DemoConfig.ROUTE_SELECT_CYCLE_MS <= 0) {
+                    return;
+                }
+                selectNextRoute();
+                mapView.postDelayed(this, DemoConfig.ROUTE_SELECT_CYCLE_MS);
+            }
+        };
+        mapView.postDelayed(routeSelectCycle, DemoConfig.ROUTE_SELECT_CYCLE_MS);
+    }
+
+    /**
+     * A fan of routes around the start position, each one a feature with its own 'osmid'. They
+     * overlap near the centre so a tap has something to disambiguate, and every route carries the
+     * same vertex count - the geometry a selection change would have to repoint.
+     */
+    private String buildRouteSelectGeoJSON() {
+        int count = Math.max(1, DemoConfig.ROUTE_SELECT_COUNT);
+        int vertices = Math.max(2, DemoConfig.ROUTE_SELECT_VERTICES);
+        double span = DemoConfig.ROUTE_SELECT_SPAN;
+        StringBuilder json = new StringBuilder("{\"type\":\"FeatureCollection\",\"features\":[");
+        for (int route = 0; route < count; route++) {
+            double angle = Math.PI * route / count;
+            double dx = Math.cos(angle) * span, dy = Math.sin(angle) * span;
+            if (route > 0) {
+                json.append(',');
+            }
+            json.append("{\"type\":\"Feature\",\"properties\":{\"osmid\":").append(route + 1)
+                .append(",\"name\":\"route ").append(route + 1).append("\"},")
+                .append("\"geometry\":{\"type\":\"LineString\",\"coordinates\":[");
+            for (int i = 0; i < vertices; i++) {
+                double t = (double) i / (vertices - 1) - 0.5;
+                // a gentle wave along the route, so the line has joins to tesselate
+                double wave = Math.sin(t * Math.PI * 6) * span * 0.05;
+                double lon = DemoConfig.START_LON + dx * t * 2 - dy * wave;
+                double lat = DemoConfig.START_LAT + dy * t * 2 + dx * wave;
+                if (i > 0) {
+                    json.append(',');
+                }
+                json.append('[').append(lon).append(',').append(lat).append(']');
+            }
+            json.append("]}}");
+        }
+        json.append("]}");
+        return json.toString();
     }
 
     /**

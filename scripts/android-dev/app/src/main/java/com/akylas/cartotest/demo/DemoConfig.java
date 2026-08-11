@@ -94,6 +94,8 @@ public final class DemoConfig {
     public static boolean LAYER_ROUTES = false;
     /** Synthetic mountain-road route (GeoJSON tiles + CartoCSS): the line join / cap / opacity bench. */
     public static boolean LAYER_ROUTE_TEST = false;
+    /** Many routes, one of them selected through a style parameter - the selection-cost bench. */
+    public static boolean LAYER_ROUTE_SELECT = false;
     /** Navigation maneuver arrows (ManeuverArrowBuilder + CartoCSS). Filled by the routing test. */
     public static boolean LAYER_MANEUVERS = false;
 
@@ -534,6 +536,40 @@ public final class DemoConfig {
     public static String ROUTE_TEST_OPACITY_MODE = "geom";
 
     // =============================================================================================
+    // ROUTE SELECTION BENCH (LAYER_ROUTE_SELECT)
+    // Many routes served as GeoJSON vector tiles, with ONE of them selected through a style
+    // parameter that is compared with a feature field - the shape every real route style uses:
+    //
+    //     @is_selected: [nuti::selected_id] = [osmid] + '';
+    //
+    // The point of the bench is what a selection change costs. Two modes, so the two halves can be
+    // told apart:
+    //   value  - the parameter only feeds line-color / line-width, i.e. the APPEARANCE. Nothing
+    //            about which geometry exists changes, so this is the half that could repaint.
+    //   filter - adds the 'when (...)::selected' casing attachment of a real style, which decides
+    //            whether the casing geometry EXISTS. That half can only be answered by decoding.
+    // Tap a route to select it, or let it cycle with routeSelectCycle.
+    // =============================================================================================
+
+    /** Number of routes generated around the start position. */
+    public static int ROUTE_SELECT_COUNT = 12;
+    /** Extent of the fan of routes, in degrees. */
+    public static float ROUTE_SELECT_SPAN = 0.05f;
+    /** Vertices per route: more geometry per feature = more vertex bytes to repoint on selection. */
+    public static int ROUTE_SELECT_VERTICES = 60;
+    public static float ROUTE_SELECT_WIDTH = 5f;
+    /** Width added to the selected route (the appearance half of a real selection). */
+    public static float ROUTE_SELECT_WIDTH_BUMP = 4f;
+    public static String ROUTE_SELECT_COLOR = "#3388ff";
+    public static String ROUTE_SELECT_SELECTED_COLOR = "#ff3b00";
+    /** value = colour/width only; filter = also the 'when (...)::selected' casing of a real style. */
+    public static String ROUTE_SELECT_MODE = "value";
+    /** Style parameter holding the selected id, declared by the in-memory project. */
+    public static String ROUTE_SELECT_PARAMETER = "selected_id";
+    /** Select the next route every N ms. 0 = only on tap / the panel button. */
+    public static int ROUTE_SELECT_CYCLE_MS = 0;
+
+    // =============================================================================================
     // MANEUVER ARROWS (LAYER_MANEUVERS)
     // The turn arrow of a navigation app: ManeuverArrowBuilder cuts it out of a route geometry
     // and serves it as ONE vector tile layer ('maneuver'), styled below like any other layer. The
@@ -781,6 +817,11 @@ public final class DemoConfig {
         LAYER_ELEMENTS = DemoCfg.cfgBool("elements", LAYER_ELEMENTS);
         LAYER_ROUTES = DemoCfg.cfgBool("routes", LAYER_ROUTES);
         LAYER_ROUTE_TEST = DemoCfg.cfgBool("routeTest", LAYER_ROUTE_TEST);
+        LAYER_ROUTE_SELECT = DemoCfg.cfgBool("routeSelect", LAYER_ROUTE_SELECT);
+        ROUTE_SELECT_COUNT = DemoCfg.cfgInt("routeSelectCount", ROUTE_SELECT_COUNT);
+        ROUTE_SELECT_MODE = DemoCfg.cfgStr("routeSelectMode", ROUTE_SELECT_MODE);
+        ROUTE_SELECT_CYCLE_MS = DemoCfg.cfgInt("routeSelectCycle", ROUTE_SELECT_CYCLE_MS);
+        ROUTE_SELECT_WIDTH = DemoCfg.cfgFloat("routeSelectWidth", ROUTE_SELECT_WIDTH);
         LAYER_MANEUVERS = DemoCfg.cfgBool("maneuvers", LAYER_MANEUVERS);
 
         // composite slots ('hs', 'sat', 'contour' are the historical keys)

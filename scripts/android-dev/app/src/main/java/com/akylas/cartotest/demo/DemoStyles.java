@@ -603,6 +603,70 @@ public final class DemoStyles {
     }
 
     /**
+     * Decoder of the ROUTE SELECTION bench (DemoConfig.LAYER_ROUTE_SELECT). It needs a project,
+     * not a bare CartoCSS string, because 'nuti::selected_id' has to be DECLARED before a rule can
+     * read it - the same in-memory zip trick as {@link #createNutiDecoder()}.
+     *
+     * The style is written the way a real route style writes selection, so what the bench measures
+     * is the real shape:
+     *
+     *     @is_selected: [nuti::selected_id] = [osmid] + '';
+     *
+     * In 'value' mode the parameter only reaches line-color and line-width - the appearance. In
+     * 'filter' mode it also gates a casing attachment, which is what decides whether that geometry
+     * exists at all; that is the half no repaint can answer.
+     */
+    public static MBVectorTileDecoder createRouteSelectDecoder() {
+        String projectJson = String.join("\n",
+            "{",
+            "  \"styles\": [\"style.mss\"],",
+            "  \"layers\": [\"routes\"],",
+            "  \"nutiparameters\": {",
+            "    \"" + DemoConfig.ROUTE_SELECT_PARAMETER + "\": { \"default\": \"\" }",
+            "  }",
+            "}");
+        boolean filterMode = "filter".equalsIgnoreCase(DemoConfig.ROUTE_SELECT_MODE);
+        StringBuilder mss = new StringBuilder();
+        mss.append("@osm_id: [osmid] + '';\n");
+        mss.append("@is_selected: [nuti::").append(DemoConfig.ROUTE_SELECT_PARAMETER).append("] = @osm_id;\n");
+        mss.append("#routes {\n");
+        if (filterMode) {
+            // The structural half: the casing only EXISTS for the selected feature
+            // spelled out, not @is_selected: a 'when' filter takes the comparison itself, which is
+            // also how a real route style writes it
+            mss.append("  when ([nuti::").append(DemoConfig.ROUTE_SELECT_PARAMETER).append("] = [osmid] + '') {\n")
+               .append("    casing/line-color: #ffffff;\n")
+               .append("    casing/line-width: ").append(DemoConfig.ROUTE_SELECT_WIDTH + DemoConfig.ROUTE_SELECT_WIDTH_BUMP + 4f).append(";\n")
+               .append("    casing/line-join: round;\n")
+               .append("    casing/line-cap: round;\n")
+               .append("  }\n");
+        }
+        mss.append("  line-join: round;\n")
+           .append("  line-cap: round;\n")
+           .append("  line-color: @is_selected ? ").append(DemoConfig.ROUTE_SELECT_SELECTED_COLOR)
+           .append(" : ").append(DemoConfig.ROUTE_SELECT_COLOR).append(";\n")
+           .append("  line-width: ").append(DemoConfig.ROUTE_SELECT_WIDTH)
+           .append(" + (@is_selected ? ").append(DemoConfig.ROUTE_SELECT_WIDTH_BUMP).append(" : 0);\n")
+           .append("}");
+
+        try {
+            java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+            java.util.zip.ZipOutputStream zos = new java.util.zip.ZipOutputStream(bos);
+            String[][] entries = new String[][] { { "project.json", projectJson }, { "style.mss", mss.toString() } };
+            for (String[] entry : entries) {
+                zos.putNextEntry(new java.util.zip.ZipEntry(entry[0]));
+                zos.write(entry[1].getBytes("UTF-8"));
+                zos.closeEntry();
+            }
+            zos.close();
+            return new MBVectorTileDecoder(new CompiledStyleSet(new ZippedAssetPackage(new BinaryData(bos.toByteArray()))));
+        } catch (Exception e) {
+            Log.e(TAG, "could not build the route selection style", e);
+            return null;
+        }
+    }
+
+    /**
      * Style of the ROUTE TEST layer (DemoConfig.LAYER_ROUTE_TEST): a navigation route drawn the way
      * a turn-by-turn app draws it - a dark casing attachment first (CartoCSS renders attachments in
      * declaration order, so it lands UNDER) and the coloured fill over it.

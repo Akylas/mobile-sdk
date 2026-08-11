@@ -204,6 +204,7 @@ public final class DemoPanel {
         buildHillshadeSection(context, demo);
         buildContourSection(context, demo);
         buildRouteTestSection(context, demo);
+        buildRouteSelectSection(context, demo);
         buildSunSection(context, demo);
         buildCelestialSection(context, demo);
         buildSkyFogSection(context, demo);
@@ -615,6 +616,24 @@ public final class DemoPanel {
         demo.applyContourConfig();
         // Generated tiles are cached by the layers, so drop them to see the new parameters.
         demo.contourSource().notifyTilesChanged(true);
+    }
+
+    /** The selection bench: pick a route, or let it cycle, and watch what the change costs. */
+    private static void buildRouteSelectSection(Context context, final DemoMap demo) {
+        header(context, "ROUTE SELECT");
+        button(context, "select next route", new Action() {
+            public void run() { demo.selectNextRoute(); }
+        });
+        final String[] modes = { "value", "filter" };
+        choice(context, "mode", modes, indexOf(modes, DemoConfig.ROUTE_SELECT_MODE), new IntSetting() {
+            public void set(int index) { DemoConfig.ROUTE_SELECT_MODE = modes[index]; demo.rebuildLayers(); }
+        });
+        slider(context, "routes", 2, 40, DemoConfig.ROUTE_SELECT_COUNT, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.ROUTE_SELECT_COUNT = (int) value; demo.rebuildLayers(); }
+        });
+        slider(context, "cycle ms", 0, 5000, DemoConfig.ROUTE_SELECT_CYCLE_MS, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.ROUTE_SELECT_CYCLE_MS = (int) value; demo.rebuildLayers(); }
+        });
     }
 
     /** Join / cap / opacity of the route test layer - the line tesselation bench. */
