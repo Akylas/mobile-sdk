@@ -15,6 +15,27 @@ namespace carto {
 
     struct MVTValueConverter {
         Variant operator() (std::monostate) const { return Variant(); }
+
+        Variant operator() (const std::shared_ptr<const mvt::ValueArray>& val) const {
+            std::vector<Variant> elements;
+            if (val) {
+                for (auto it = val->elements.begin(); it != val->elements.end(); it++) {
+                    elements.push_back(std::visit(MVTValueConverter(), *it));
+                }
+            }
+            return Variant(elements);
+        }
+
+        Variant operator() (const std::shared_ptr<const mvt::ValueObject>& val) const {
+            std::map<std::string, Variant> members;
+            if (val) {
+                for (auto it = val->members.begin(); it != val->members.end(); it++) {
+                    members[it->first] = std::visit(MVTValueConverter(), it->second);
+                }
+            }
+            return Variant(members);
+        }
+
         template <typename T> Variant operator() (T val) const { return Variant(val); }
     };
 

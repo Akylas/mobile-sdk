@@ -45,6 +45,80 @@
 
 namespace carto {
 
+    namespace {
+        // A style parameter may hold an object or an array (a table the style reads with get()),
+        // and the public API passes parameter values as strings - so those are carried as JSON.
+        mvt::Value convertJSONValue(const picojson::value& value) {
+            if (value.is<std::string>()) {
+                return mvt::Value(value.get<std::string>());
+            }
+            if (value.is<bool>()) {
+                return mvt::Value(value.get<bool>());
+            }
+            if (value.is<std::int64_t>()) {
+                return mvt::Value(static_cast<long long>(value.get<std::int64_t>()));
+            }
+            if (value.is<double>()) {
+                return mvt::Value(value.get<double>());
+            }
+            if (value.is<picojson::object>()) {
+                std::map<std::string, mvt::Value> members;
+                const picojson::object& obj = value.get<picojson::object>();
+                for (auto it = obj.begin(); it != obj.end(); it++) {
+                    members[it->first] = convertJSONValue(it->second);
+                }
+                return mvt::Value(std::make_shared<const mvt::ValueObject>(std::move(members)));
+            }
+            if (value.is<picojson::array>()) {
+                std::vector<mvt::Value> elements;
+                const picojson::array& arr = value.get<picojson::array>();
+                for (auto it = arr.begin(); it != arr.end(); it++) {
+                    elements.push_back(convertJSONValue(*it));
+                }
+                return mvt::Value(std::make_shared<const mvt::ValueArray>(std::move(elements)));
+            }
+            return mvt::Value();
+        }
+
+        picojson::value convertValueToJSON(const mvt::Value& value) {
+            if (auto val = std::get_if<bool>(&value)) {
+                return picojson::value(*val);
+            }
+            if (auto val = std::get_if<long long>(&value)) {
+                return picojson::value(static_cast<std::int64_t>(*val));
+            }
+            if (auto val = std::get_if<double>(&value)) {
+                return picojson::value(*val);
+            }
+            if (auto val = std::get_if<std::string>(&value)) {
+                return picojson::value(*val);
+            }
+            if (auto val = std::get_if<std::shared_ptr<const mvt::ValueObject>>(&value)) {
+                picojson::object obj;
+                if (*val) {
+                    for (auto it = (*val)->members.begin(); it != (*val)->members.end(); it++) {
+                        obj[it->first] = convertValueToJSON(it->second);
+                    }
+                }
+                return picojson::value(obj);
+            }
+            if (auto val = std::get_if<std::shared_ptr<const mvt::ValueArray>>(&value)) {
+                picojson::array arr;
+                if (*val) {
+                    for (auto it = (*val)->elements.begin(); it != (*val)->elements.end(); it++) {
+                        arr.push_back(convertValueToJSON(*it));
+                    }
+                }
+                return picojson::value(arr);
+            }
+            return picojson::value();
+        }
+
+        bool isContainerValue(const mvt::Value& value) {
+            return std::get_if<std::shared_ptr<const mvt::ValueObject>>(&value) || std::get_if<std::shared_ptr<const mvt::ValueArray>>(&value);
+        }
+    }
+
     MBVectorTileDecoder::MBVectorTileDecoder(const std::shared_ptr<CompiledStyleSet>& compiledStyleSet) :
         _logger(std::make_shared<MVTLogger>("MBVectorTileDecoder")),
         _pixelScale(1.0f),
@@ -158,6 +232,10 @@ namespace carto {
             }
         }
 
+        if (isContainerValue(value)) {
+            return convertValueToJSON(value).serialize(); // a table parameter reads back as JSON
+        }
+
         if (!nutiParam.getEnumMap().empty()) {
             for (auto it2 = nutiParam.getEnumMap().begin(); it2 != nutiParam.getEnumMap().end(); it2++) {
                 if (it2->second == value) {
@@ -258,6 +336,21 @@ namespace carto {
                 return false;
             }
             _parameterValueMap[param] = it2->second;
+        } else if (isContainerValue(nutiParam.getDefaultValue())) {
+            // An object/array parameter is set as JSON, and its shape must match what the style
+            // declared - a style reading get(table, key) must not be handed a scalar.
+            picojson::value jsonValue;
+            std::string err = picojson::parse(jsonValue, value);
+            if (!err.empty()) {
+                Log::Errorf("MBVectorTileDecoder::setStyleParameter: Could not parse JSON for parameter %s: %s", param.c_str(), err.c_str());
+                return false;
+            }
+            mvt::Value val = convertJSONValue(jsonValue);
+            if (val.index() != nutiParam.getDefaultValue().index()) {
+                Log::Errorf("MBVectorTileDecoder::setStyleParameter: Value of parameter %s does not match the declared object/array type", param.c_str());
+                return false;
+            }
+            _parameterValueMap[param] = val;
         } else {
             try {
                 mvt::Value val = nutiParam.getDefaultValue();

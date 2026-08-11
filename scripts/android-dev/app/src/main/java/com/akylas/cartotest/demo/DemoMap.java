@@ -1613,6 +1613,10 @@ public class DemoMap {
                 baseDecoder.setStyleParameter(DemoStyles.NUTI_PARAMETER, Boolean.toString(nutiParameterOn));
                 // The colour parameter takes the live path: no tile is decoded for it
                 baseDecoder.setStyleParameter(DemoStyles.NUTI_COLOR_PARAMETER, nutiParameterOn ? "#9cc3e0" : "#2f6f4f");
+                // The table parameter is set as JSON; the style reads it per road class with get()
+                baseDecoder.setStyleParameter(DemoStyles.NUTI_TABLE_PARAMETER, nutiParameterOn
+                    ? "{\"motorway\":\"#e27d60\",\"trunk\":\"#f0a868\",\"primary\":\"#d9b382\"}"
+                    : "{\"motorway\":\"#7048e8\",\"trunk\":\"#9775fa\",\"primary\":\"#b197fc\"}");
                 Log.d(TAG, "nuti " + DemoStyles.NUTI_PARAMETER + "=" + nutiParameterOn);
                 handler.postDelayed(this, DemoConfig.NUTI_TOGGLE_INTERVAL_MS);
             }
