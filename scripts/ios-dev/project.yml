@@ -1,0 +1,95 @@
+name: CartoDemo
+
+# Generated with 'xcodegen generate' by bootstrap.sh - do not open project.yml expecting the
+# .xcodeproj to follow; regenerate instead.
+#
+# The SDK is not linked as a prebuilt framework. '.sdkproj' is a symlink bootstrap.sh points at
+# the CMake-generated build/ios_metal-<PLATFORM>-<ARCH>/ directory, so the SDK builds as a real
+# dependency of the app: touch a .cpp, hit build, only that file recompiles. Same loop as
+# scripts/android-dev, where gradle drives the native build through externalNativeBuild.
+
+options:
+  bundleIdPrefix: com.akylas
+  deploymentTarget:
+    iOS: "13.0"
+  createIntermediateGroups: true
+
+projectReferences:
+  CartoSDK:
+    path: .sdkproj/carto_mobile_sdk.xcodeproj
+
+targets:
+  CartoDemo:
+    type: application
+    platform: iOS
+    sources:
+      - path: CartoDemo
+    dependencies:
+      - target: CartoSDK/carto_mobile_sdk
+      - sdk: Foundation.framework
+      - sdk: CoreGraphics.framework
+      - sdk: CoreText.framework
+      - sdk: CFNetwork.framework
+      - sdk: UIKit.framework
+      - sdk: QuartzCore.framework
+      - sdk: Metal.framework
+      - sdk: OpenGLES.framework
+      # The AR mode's camera preview, and the device orientation the star sky follows.
+      - sdk: AVFoundation.framework
+      - sdk: CoreMotion.framework
+      - sdk: libz.tbd
+    info:
+      path: CartoDemo/Info.plist
+      properties:
+        # The AR / star-sky modes; without these iOS kills the app on the first request.
+        NSCameraUsageDescription: The AR and star-sky modes draw the map over the live camera.
+        NSMotionUsageDescription: Following the device orientation points the camera where the phone points.
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        CFBundleDisplayName: CartoDemo
+    settings:
+      base:
+        # The umbrella ios/objc/CartoMobileSDK.h imports the NT* proxies by plain name and the two
+        # renamed headers (ui/MapView.h, utils/ExceptionWrapper.h) by relative path, so both roots
+        # have to be searchable. build-ios.py copies and renames them instead; here we read them
+        # where they are generated.
+        HEADER_SEARCH_PATHS:
+          - $(SRCROOT)/../../generated/ios-objc/proxies
+          - $(SRCROOT)/../../ios/objc
+          - $(SRCROOT)/../../libs-external/angle-metal/include
+        # Must match the profile bootstrap.sh generated the proxies with: the umbrella header
+        # gates whole feature blocks on these.
+        GCC_PREPROCESSOR_DEFINITIONS:
+          - $(inherited)
+          - _CARTO_SEARCH_SUPPORT=1
+          - _CARTO_OFFLINE_SUPPORT=1
+          - _CARTO_EDITABLE_SUPPORT=1
+          - _CARTO_PACKAGEMANAGER_SUPPORT=1
+          - _CARTO_ROUTING_SUPPORT=1
+          - _CARTO_VALHALLA_ROUTING_SUPPORT=1
+          - _CARTO_GEOCODING_SUPPORT=1
+          - _CARTO_USE_METALANGLE=1
+        # -ObjC so the categories in the static SDK library are loaded. MetalANGLE is linked by
+        # path rather than as a dependency: it is a bare .a, and a project reference does not carry
+        # CMake's target_link_libraries through to the app.
+        OTHER_LDFLAGS:
+          - -ObjC
+          # The app's own sources are all Objective-C, so nothing would pull in the C++ runtime
+          # the SDK and MetalANGLE need.
+          - -lc++
+          - $(SRCROOT)/.angle/libangle.a
+        CLANG_ENABLE_OBJC_ARC: YES
+        GCC_C_LANGUAGE_STANDARD: gnu11
+        CLANG_CXX_LANGUAGE_STANDARD: c++17
+        TARGETED_DEVICE_FAMILY: "1,2"
+        # bootstrap.sh configures the SDK for one architecture, so the app has to match it rather
+        # than build the simulator's usual arm64+x86_64 pair.
+        ARCHS: arm64
+        ONLY_ACTIVE_ARCH: YES
+        CODE_SIGNING_ALLOWED: NO
+      configs:
+        Debug:
+          ONLY_ACTIVE_ARCH: YES

@@ -52,7 +52,7 @@ namespace carto {
         _kineticRotation(true),
         _kineticZoom(true),
         _rotatable(true),
-        _tiltRange(0.0f, 90.0f), // not MIN_SUPPORTED_TILT_ANGLE: looking above the horizon is opt-in
+        _tiltRange(3.0f, 90.0f), // not MIN_SUPPORTED_TILT_ANGLE: looking above the horizon is opt-in
         _zoomRange(0.0, Const::MAX_SUPPORTED_ZOOM_LEVEL),
         _panBounds(MapPos(-std::numeric_limits<double>::infinity(), -std::numeric_limits<double>::infinity()), MapPos(std::numeric_limits<double>::infinity(), std::numeric_limits<double>::infinity())),
         _focusPointOffset(0, 0),

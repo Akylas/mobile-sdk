@@ -88,7 +88,7 @@ public class SecondFragment extends Fragment {
         options.setRestrictedPanning(true);
         options.setSeamlessPanning(true);
         options.setRotatable(true);
-        options.setTiltRange(new MapRange(10, 90));
+        options.setTiltRange(new MapRange(30, 90));
         options.setPanningMode(PanningMode.PANNING_MODE_STICKY);
 
         // Intent extras override the DemoConfig defaults; read them before anything is built.
