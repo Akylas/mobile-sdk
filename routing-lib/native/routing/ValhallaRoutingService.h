@@ -122,8 +122,10 @@ namespace routing {
          * already contain that key.
          *
          * @param endpoint  Endpoint name: "route", "trace_attributes",
-         *                  "trace_route", "matrix", "isochrone", "locate",
-         *                  "height", "expansion", "centroid", "status".
+         *                  "trace_route", "centroid". Building with
+         *                  -DVALHALLA_SERVICES=ON adds "matrix", "isochrone",
+         *                  "locate", "height", "expansion" and "status";
+         *                  without it those throw "Unknown Valhalla endpoint".
          * @param jsonBody  Full Valhalla request JSON string.
          * @return          Raw Valhalla JSON response string.
          */
