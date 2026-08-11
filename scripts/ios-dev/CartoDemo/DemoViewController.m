@@ -2,10 +2,23 @@
 #import "DemoConfig.h"
 #import "DemoMap.h"
 #import "DemoPanel.h"
+#import "DemoToast.h"
 
 @interface DemoViewController ()
 @property (nonatomic, strong) NTMapView *mapView;
 @property (nonatomic, strong) DemoMap *demo;
+/** The camera readout along the bottom - Android's zoomText. */
+@property (nonatomic, strong) UILabel *statusLabel;
+@property (nonatomic, strong) NTMapEventListener *mapListener;
+- (void)updateStatusLabel;
+@end
+
+/**
+ * Camera readout (also what a scripted run reads back out of the log) + a terrain-aware click
+ * probe, the same pair SecondFragment.installMapListener sets up on Android.
+ */
+@interface DemoMapListener : NTMapEventListener
+@property (nonatomic, weak) DemoViewController *controller;
 @end
 
 @implementation DemoViewController
@@ -47,7 +60,48 @@
 
     if ([DemoConfig boolFor:@"ui"]) {
         [self addSettingsButton];
+        [self addStatusLabel];
     }
+    [self installMapListener];
+}
+
+/** The camera readout, bottom centre - the counterpart of the Android layout's zoomText. */
+- (void)addStatusLabel {
+    UILabel *label = [[UILabel alloc] init];
+    label.font = [UIFont monospacedDigitSystemFontOfSize:12 weight:UIFontWeightRegular];
+    label.textColor = [UIColor whiteColor];
+    label.backgroundColor = [UIColor colorWithWhite:0 alpha:0.55];
+    label.textAlignment = NSTextAlignmentCenter;
+    label.layer.cornerRadius = 6;
+    label.clipsToBounds = YES;
+    label.translatesAutoresizingMaskIntoConstraints = NO;
+    // The map keeps every gesture it has under the readout.
+    label.userInteractionEnabled = NO;
+    [self.view addSubview:label];
+    self.statusLabel = label;
+
+    UILayoutGuide *safe = self.view.safeAreaLayoutGuide;
+    [NSLayoutConstraint activateConstraints:@[
+        [label.centerXAnchor constraintEqualToAnchor:safe.centerXAnchor],
+        [label.bottomAnchor constraintEqualToAnchor:safe.bottomAnchor constant:-16],
+        [label.heightAnchor constraintEqualToConstant:24],
+        [label.widthAnchor constraintGreaterThanOrEqualToConstant:240],
+    ]];
+    [self updateStatusLabel];
+}
+
+- (void)updateStatusLabel {
+    NTMapPos *focus = [[[self.mapView getOptions] getBaseProjection] toWgs84:[self.mapView getFocusPos]];
+    self.statusLabel.text = [NSString stringWithFormat:@"z=%.2f  tilt=%.0f  %.5f, %.5f",
+                             [self.mapView getZoom], [self.mapView getTilt],
+                             [focus getY], [focus getX]];
+}
+
+- (void)installMapListener {
+    DemoMapListener *listener = [[DemoMapListener alloc] init];
+    listener.controller = self;
+    self.mapListener = listener;
+    [self.mapView setMapEventListener:listener];
 }
 
 /** Bottom-left gear, the same corner the Android demo puts it in. */
@@ -90,6 +144,40 @@
         sheet.preferredCornerRadius = 16;
     }
     [self presentViewController:nav animated:YES completion:nil];
+}
+
+@end
+
+@implementation DemoMapListener
+
+- (void)onMapMoved {
+    DemoViewController *controller = self.controller;
+    if (!controller) {
+        return;
+    }
+    NTMapView *mapView = controller.mapView;
+    NTMapPos *focus = [[[mapView getOptions] getBaseProjection] toWgs84:[mapView getFocusPos]];
+    NSLog(@"CartoDemo: lat=%.6f lng=%.6f rotation=%.2f z=%.2f tilt=%.0f",
+          [focus getY], [focus getX], [mapView getRotation], [mapView getZoom], [mapView getTilt]);
+    // The listener runs on the map's own thread; the label is UIKit.
+    dispatch_async(dispatch_get_main_queue(), ^{ [controller updateStatusLabel]; });
+}
+
+- (void)onMapClicked:(NTMapClickInfo *)mapClickInfo {
+    DemoViewController *controller = self.controller;
+    if (!controller) {
+        return;
+    }
+    // getClickPos already resolves to the TERRAIN surface; the elevation query itself may block on
+    // tile loading, so it runs off the caller's thread.
+    NTMapPos *wgs84Pos = [[[controller.mapView getOptions] getBaseProjection]
+                          toWgs84:[mapClickInfo getClickPos]];
+    DemoMap *demo = controller.demo;
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        double elevation = [demo getElevation:wgs84Pos];
+        [DemoToast show:[NSString stringWithFormat:@"%.5f, %.5f   %.0f m",
+                         [wgs84Pos getY], [wgs84Pos getX], elevation]];
+    });
 }
 
 @end

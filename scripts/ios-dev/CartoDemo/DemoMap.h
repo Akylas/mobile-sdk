@@ -85,6 +85,10 @@ typedef NS_ENUM(NSInteger, DemoFeature) {
 - (void)applyDebugConfig;
 - (void)applyDayCycle:(float)hourUtc;
 - (void)applyCamera;
+/** Redraw request, the counterpart of Android's mapView.requestRender(). */
+- (void)requestRender;
+/** Elevation under a WGS84 position; blocks on tile loading, so call it off the main thread. */
+- (double)getElevation:(NTMapPos *)wgs84Pos;
 /** Free roam, panning mode and how far above the horizon the view may look. */
 - (void)applyLookRange;
 
