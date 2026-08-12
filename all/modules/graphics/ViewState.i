@@ -72,6 +72,7 @@
 %ignore carto::ViewState::getRTEModelviewProjectionMat;
 %ignore carto::ViewState::getRTESkyProjectionMat;
 %ignore carto::ViewState::setScreenSize;
+%ignore carto::ViewState::setTerrainCameraReference; // renderer plumbing, published every frame
 %ignore carto::ViewState::clampZoom;
 %ignore carto::ViewState::clampFocusPos;
 %ignore carto::ViewState::getFocusPosNormal;

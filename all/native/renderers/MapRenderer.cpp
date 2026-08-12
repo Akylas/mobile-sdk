@@ -1990,7 +1990,7 @@ namespace carto {
                     }
 
                     // Camera terrain-following. The clearance is expressed as a BOUND on the
-                    // zoom (ViewState::setTerrainMinCameraZ -> getTerrainMaxZoom), which every
+                    // zoom (ViewState::setTerrainCameraReference -> getTerrainMaxZoom), which every
                     // zoom path clamps against, rather than as a corrective zoom-out issued
                     // after the camera has already broken through. A corrective event fights
                     // whatever is driving the camera down - the pinch gesture, the double-tap
@@ -2013,7 +2013,7 @@ namespace carto {
                         double minCameraZ = terrainZ + cameraClearance * elevationManager->getDisplayScale(cameraPos(1));
                         {
                             std::lock_guard<std::recursive_mutex> lock(_mutex);
-                            _viewState.setTerrainMinCameraZ(minCameraZ);
+                            _viewState.setTerrainCameraReference(terrainZ, minCameraZ);
                         }
                         // The correction has to LAND on the shell, and it has to have a dead band.
                         // Zooming out scales the camera-to-focus vector, so the camera height it
@@ -2046,7 +2046,7 @@ namespace carto {
                         }
                     } else {
                         std::lock_guard<std::recursive_mutex> lock(_mutex);
-                        _viewState.setTerrainMinCameraZ(0);
+                        _viewState.setTerrainCameraReference(0, 0);
                     }
                 }
             }
@@ -2058,7 +2058,7 @@ namespace carto {
                 }
             }
             std::lock_guard<std::recursive_mutex> lock(_mutex);
-            _viewState.setTerrainMinCameraZ(0); // release the terrain zoom bound
+            _viewState.setTerrainCameraReference(0, 0); // release the terrain zoom bound
         }
 
         // Cross-layer terrain draping. Every drapeable tile layer bakes into ONE texture per

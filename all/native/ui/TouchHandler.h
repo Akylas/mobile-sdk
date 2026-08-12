@@ -107,6 +107,7 @@ namespace carto {
         float calculateRotatingScalingFactor(const ScreenPos& screenPos1, const ScreenPos& screenPos2) const;
 
         void singlePointerPan(const ScreenPos& screenPos, const ViewState& viewState);
+        void panBetween(const ScreenPos& prevScreenPos, const ScreenPos& screenPos, const ViewState& viewState);
         void singlePointerLook(const ScreenPos& screenPos, const ViewState& viewState);
         double calculatePanScale(const ScreenPos& screenPos, const ViewState& viewState) const;
         void updatePanScale(const ScreenPos& screenPos, const ViewState& viewState);
@@ -121,6 +122,7 @@ namespace carto {
         bool isValidScreenPosition(const ScreenPos& screenPos, const ViewState& viewState) const;
         cglib::ray3<double> calculateScreenRay(const ScreenPos& screenPos, const ViewState& viewState) const;
         MapPos mapScreenPosition(const ScreenPos& screenPos, const ViewState& viewState) const;
+        MapPos calculatePivotPos(const ScreenPos& screenPos, const ViewState& viewState) const;
         double calculateTerrainHeight(const ScreenPos& screenPos, const ViewState& viewState) const;
         void updateGestureAnchorHeight(const ScreenPos& screenPos, const ViewState& viewState);
 
@@ -155,6 +157,11 @@ namespace carto {
 
         // Determines how finger sliding distance will be converted to zoom delta
         static const float INCHES_TO_ZOOM_DELTA;
+
+        // Below this tilt a grabbed pan is capped at what the finger travel is worth at the
+        // map scale - tangram's guard against a near-horizontal view (inputHandler.cpp
+        // getTranslation, `m_view.getPitch() > 75 degrees`; their pitch is 90 - our tilt).
+        static const float PAN_CLAMP_MAX_TILT;
         
         // Determines how long it takes to cancel kinetic zoom and rotation after one
         // pointer is lifted but the other one is not

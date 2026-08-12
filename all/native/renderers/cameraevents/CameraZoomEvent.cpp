@@ -99,8 +99,14 @@ namespace carto {
         // Clamping the REQUESTED zoom makes the gesture come to rest against the terrain;
         // letting it through and correcting the camera afterwards makes the two fight
         // every frame, which is what made zooming jump back and forth.
+        // The terrain bound STOPS a zoom in; it never drives a zoom OUT from here. Clamping a
+        // zoom-in request to below the current zoom - which happens whenever the camera is already
+        // inside the clearance shell - scales the map about the PIVOT, and with the pivot under the
+        // fingers that throws the map sideways: the pinch that jumps somewhere else. Getting back
+        // onto the shell is MapRenderer's per-frame correction, which zooms about the focus and so
+        // moves nothing sideways.
         MapRange zoomRange = options.getZoomRange();
-        float maxZoom = std::min(zoomRange.getMax(), viewState.getTerrainMaxZoom());
+        float maxZoom = std::min(zoomRange.getMax(), std::max(viewState.getTerrainMaxZoom(), viewState.getZoom()));
         float zoom = GeneralUtils::Clamp(viewState.getZoom() + _zoomDelta, viewState.getMinZoom(), maxZoom);
         double scale = std::pow(2.0f, viewState.getZoom() - zoom);
         cglib::mat4x4<double> shiftTransform = projectionSurface->calculateTranslateMatrix(focusPos, targetPos, 1.0 - scale);

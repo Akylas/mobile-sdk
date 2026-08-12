@@ -14,7 +14,9 @@ and *still different*, the latter with the reason it is not simply copied.
 | terrain surface | ONE shared static 64-grid VBO for every tile, per-tile uniforms (`core/src/style/rasterStyle.cpp:61`) | same shared grid (`buildCompiledTerrainGridSurfaces`), resolution = `MeshResolution` | **ported** |
 | content on terrain | displaced per vertex, one `texture2D` fetch (`res/scenes/terrain-3d.yaml`) | same | **ported** |
 | content depth | `gl_Position.z += (proxy − layer)·(2⁻¹⁹·w + depth_shift)`, `depth_shift` a flat 0.02, `proxy *= 48` for the raster | same, with the shift derived from the stack's ordinal span so the *budget* matches | **ported** ([05](05-depth-model.md)) |
-| near plane | `m_pos.z / 50` (`core/src/view/view.cpp:452`) | same in terrain mode | **ported** |
+| near plane | `m_pos.z / 50` (`core/src/view/view.cpp:452`), with the camera held a distance from the TERRAIN | `min(focus distance, height over the terrain under the camera) / 50` — their rule against our clearance model ([04](04-terrain.md#near-and-far-planes)) | **ported with a difference** |
+| pinch / rotate gesture | scale and angle from the platform gesture detector, i.e. the SCREEN (`core/src/util/inputHandler.cpp`) | same; the pan stays world-anchored and is capped below tilt 15 by their `getTranslation` guard ([04](04-terrain.md#the-camera-against-the-terrain)) | **ported** |
+| camera against the terrain | zoom-out push from the depth at the screen centre, eye lifted to elevation + 2 m (`core/src/view/view.cpp:404`) | clearance over the ground under the camera, as a zoom bound plus a per-frame correction | **different** |
 | per-layer depth pre-pass, stencil tile masks | none anywhere in `core/src` | none (shared ground) | **ported** |
 | map background | the framebuffer clear colour (`core/src/map.cpp`) | global terrain base fill before all layers; no per-tile background meshes | **ported** |
 | contour labels | generated from the elevation texture, no contour geometry (`core/src/style/contourTextStyle.cpp`) | label stubs in `ContourTileDataSource`, same algorithm | **ported** ([07](07-hillshade-contours.md)) |

@@ -82,7 +82,11 @@ namespace carto {
         }
     }
 
-    void ViewState::setTerrainMinCameraZ(double minCameraZ) {
+    void ViewState::setTerrainCameraReference(double terrainZ, double minCameraZ) {
+        if (terrainZ != _terrainCameraZ) {
+            _terrainCameraZ = terrainZ;
+            _cameraChanged = true; // the near plane is built on it
+        }
         _terrainMinCameraZ = minCameraZ;
     }
 
@@ -801,7 +805,19 @@ namespace carto {
         // The FAR plane is theirs too - see calculateViewDistance, which is also what the tile
         // walk stops at, so the view and the tiles fetched for it always agree.
         double viewDistance = calculateViewDistance(options);
-        float terrainNear = static_cast<float>(calculateCameraDistance() / 50.0);
+        // Tangram's near is a fiftieth of the camera's distance to what it looks at, and their
+        // camera is held a distance away from the TERRAIN (view.cpp: the depth at the screen
+        // centre against minCameraDist). Ours is held a clearance above the terrain UNDER it, so at
+        // a low tilt the focus is kilometres away while the ground is a couple of hundred metres
+        // below - a fiftieth of the focus distance then parks the near plane in front of the ground
+        // at the bottom of the screen and cuts it away. Take the smaller of the two distances: over
+        // flat ground with the focus close they are the same, and it is only the close-to-terrain
+        // case that spends depth precision.
+        double cameraDistance = calculateCameraDistance();
+        if (_terrainCameraZ != 0 && _cameraPos(2) > _terrainCameraZ) {
+            cameraDistance = std::min(cameraDistance, _cameraPos(2) - _terrainCameraZ);
+        }
+        float terrainNear = static_cast<float>(cameraDistance / 50.0);
         if (viewDistance > 0) {
             float viewDistanceFactor = 1.0f;
             bool absoluteViewDistance = false;

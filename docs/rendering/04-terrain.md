@@ -151,6 +151,17 @@ floored at 1/16 of an internal unit — gave centimetre near planes next to a sl
 of 10⁴–10⁶, and NDC depth so non-linear that a constant-NDC bias was worth hundreds of metres at
 range. That is the mechanism behind every see-through this project has had.
 
+"Camera height" is the smaller of the distance to the **focus** and the height above the **terrain
+under the camera** (`ViewState::setTerrainCameraReference`, published every frame by the renderer
+next to the clearance). Tangram's `m_pos.z` is the distance to what the camera looks at and their
+camera is held a distance away from the terrain itself (the depth at the screen centre against
+`minCameraDist`); ours is held a *clearance above the ground under it*, so at a low tilt the focus
+is kilometres away while the ground is a couple of hundred metres below — and a fiftieth of the
+focus distance then parks the near plane in front of the ground at the bottom of the screen and
+cuts it away. Over flat ground with the focus close the two distances are the same; the cost of the
+smaller one is bounded by 1/sin(tilt) (2× at tilt 30), so the depth budget is only spent in the
+close-to-terrain case that needs it.
+
 The floor is a floor and the ground walk is a **ceiling** too, but only when the view is pitched
 away from the camera geometry — free roam looking up, or a first person camera
 ([13-celestial.md](13-celestial.md#seeing-them-free-roam)). The walk takes the near plane from
@@ -163,6 +174,37 @@ direction at all.
 Their far plane (`2·height/cos(pitch + fovy/2)`) is available as
 `TerrainOptions::ViewDistanceFactor` but changes nothing at the cameras tested: the ground-derived far is
 already inside the bound it gives.
+
+## The camera against the terrain
+
+`TerrainOptions::CameraClearance` keeps the camera a height above the ground under it. It is a
+**bound on the zoom** (`ViewState::getTerrainMaxZoom`, clamped in `CameraZoomEvent::calculate`)
+plus a per-frame correction in `MapRenderer` for the paths that lower the camera without zooming —
+panning into a hillside, tilting, a DEM tile arriving. Three rules keep a gesture against that
+bound from throwing the map somewhere else:
+
+- **The bound stops a zoom in; it never drives a zoom out.** A zoom event scales the map about its
+  pivot, and with the pivot under the fingers, clamping a zoom-*in* request to below the current
+  zoom scales the map the other way about that point — the map jumps sideways, once per pinch tick.
+  Getting back onto the shell is the renderer's correction, which zooms about the focus and moves
+  nothing sideways.
+- **A zoom is never cancelled for want of a ground hit.** `TouchHandler::calculatePivotPos` falls
+  back to the focus when the ray under the fingers misses the anchor plane or lands past the far
+  plane. Close to the terrain the far plane is short and half the screen is sky, so requiring a hit
+  (which the pinch, the wheel and the double tap all did) left the map unable to zoom out at all —
+  the "I have to pan somewhere else before I can move" symptom.
+- **The scale and the angle come from the SCREEN, not from the ground.** A pinch and a two-finger
+  turn are what the fingers did (tangram: `InputHandler::handlePinchGesture` /
+  `handleRotateGesture`, fed by the platform gesture detector). Taking them from where the two rays
+  meet the ground makes a grazing ray — a low camera, a finger near the horizon — into most of the
+  answer. The pan is still world-anchored (that is the point of a map pan) and goes through one
+  path for both gestures, `TouchHandler::panBetween`, which honours `PanningSpeedMode` and, below
+  tilt 15, caps the travel at what the finger's pixels are worth at the map scale — tangram's
+  `getTranslation` guard for a near-horizontal view.
+
+`isValidScreenPosition` tests the plane the gesture is actually anchored to (the terrain height
+under the touch, `_gestureAnchorHeight`), not sea level: in the mountains the two are hundreds of
+metres, and at a low tilt kilometres of ray, apart.
 
 ## The surface shader
 
