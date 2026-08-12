@@ -55,6 +55,15 @@ lines on shoulders when it was tried.
 If a vector line disappears into the terrain or shows through it, read
 [05-depth-model.md](05-depth-model.md) before touching any constant here.
 
+**3. The elevation warm-up.** `VectorLayer::FetchTask::loadElements` loads the elevation under the
+elements before their draw data is built, on the fetch thread, so a line is not drawn half draped
+(vertices with and without heights give near-vertical segments). It samples the bounds of each
+loaded element. It used to sample a 4×4 grid over the **cull envelope** instead, and in terrain mode
+that envelope reaches the view distance: its corners land hundreds of km away, off the DEM coverage,
+so every fetch task blocked on elevation tiles that could only 404 — measured on a Crosscall, 15
+failing HTTP round trips per startup, re-issued each time the failure markers expired
+(`FAILED_TILE_TTL_MILLISECONDS`, 30 s) while panning.
+
 ## Picking
 
 `MapRenderer::calculateRayIntersectedElements` turns a screen position into a world ray and asks
