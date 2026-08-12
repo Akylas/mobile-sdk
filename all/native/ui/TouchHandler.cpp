@@ -277,20 +277,17 @@ namespace carto {
             _mapRenderer->getAnimationHandler().stopTilt();
             _mapRenderer->getAnimationHandler().stopZoom();
             
-            if (_options->getPivotMode() != PivotMode::PIVOT_MODE_TOUCHPOINT || isValidScreenPosition(screenPos, viewState)) {
-                updateGestureAnchorHeight(screenPos, viewState);
-                MapPos targetPos = (_options->getPivotMode() == PivotMode::PIVOT_MODE_TOUCHPOINT ? mapScreenPosition(screenPos, viewState) : projectionSurface->calculateMapPos(viewState.getFocusPos()));
+            updateGestureAnchorHeight(screenPos, viewState);
 
-                CameraZoomEvent cameraZoomTargetEvent;
-                cameraZoomTargetEvent.setZoomDelta(delta * WHEEL_TICK_TO_ZOOM_DELTA);
-                cameraZoomTargetEvent.setTargetPos(targetPos);
-                _mapRenderer->calculateCameraEvent(cameraZoomTargetEvent, 0, true);
+            CameraZoomEvent cameraZoomTargetEvent;
+            cameraZoomTargetEvent.setZoomDelta(delta * WHEEL_TICK_TO_ZOOM_DELTA);
+            cameraZoomTargetEvent.setTargetPos(calculatePivotPos(screenPos, viewState));
+            _mapRenderer->calculateCameraEvent(cameraZoomTargetEvent, 0, true);
 
-                DirectorPtr<MapEventListener> mapEventListener = _mapEventListener;
+            DirectorPtr<MapEventListener> mapEventListener = _mapEventListener;
 
-                if (mapEventListener) {
-                    mapEventListener->onMapInteraction(std::make_shared<MapInteractionInfo>(false, true, false, false));
-                }
+            if (mapEventListener) {
+                mapEventListener->onMapInteraction(std::make_shared<MapInteractionInfo>(false, true, false, false));
             }
         }
     }
@@ -354,76 +351,103 @@ namespace carto {
     
     void TouchHandler::singlePointerPan(const ScreenPos& screenPos, const ViewState& viewState) {
         if (_options->isUserInput()) {
-            std::shared_ptr<ProjectionSurface> projectionSurface = viewState.getProjectionSurface();
-            if (!projectionSurface) {
-                return;
-            }
-            
             _mapRenderer->getAnimationHandler().stopPan();
             _mapRenderer->getAnimationHandler().stopRotation();
             _mapRenderer->getAnimationHandler().stopTilt();
             _mapRenderer->getAnimationHandler().stopZoom();
-            
-            double panScale = _panScale.load();
-            if (_options->getPanningSpeedMode() != PanningSpeedMode::PANNING_SPEED_MODE_MAP && panScale > 0) {
-                // The pan travels the SCREEN delta at the scale the gesture started with. Grabbing
-                // the world exactly - the other mode - re-derives that scale from wherever the
-                // finger is now, so a drag that starts near the camera and travels up the screen
-                // speeds up as it goes, which is not something the hand asked for.
-                float dx = screenPos.getX() - _prevScreenPos1.getX();
-                float dy = screenPos.getY() - _prevScreenPos1.getY();
-                _prevScreenPos1 = screenPos;
-                if (dx == 0 && dy == 0) {
-                    return;
-                }
 
-                cglib::vec3<double> focusPos = viewState.getFocusPos();
-                MapPos focusMapPos = projectionSurface->calculateMapPos(focusPos);
-                cglib::vec3<double> normal = projectionSurface->calculateNormal(focusMapPos);
-                // NOT '== 0': looking straight down, this cross product is meant to collapse and
-                // hand over to the up vector - but a tilt REACHED BY GESTURE is vertical only to
-                // within rounding, so it comes out at ~1e-16 instead of 0, the hand-over is missed,
-                // and unit() then turns pure floating point noise into a unit vector pointing
-                // anywhere. That is a pan that goes sideways when the finger goes up. Setting the
-                // tilt to 90 outright happens to build the camera exactly vertical, which is why
-                // only the gesture shows it.
-                cglib::vec3<double> right = cglib::vector_product(viewState.calculateViewDir(), normal);
-                if (cglib::length(right) < VIEW_AXIS_EPSILON) {
-                    right = cglib::vector_product(viewState.getUpVec(), normal); // straight up or down
-                }
-                if (cglib::length(right) < VIEW_AXIS_EPSILON) {
-                    return;
-                }
-                right = cglib::unit(right);
-                cglib::vec3<double> forward = cglib::vector_product(normal, right);
-                if (cglib::length(forward) < VIEW_AXIS_EPSILON) {
-                    return;
-                }
-                forward = cglib::unit(forward);
-
-                // Dragging the world down brings what was beyond the top edge into view, i.e. the
-                // camera goes forward; dragging it right takes the camera left.
-                cglib::vec3<double> offset = forward * (dy * panScale) + right * (-dx * panScale);
-                CameraPanEvent cameraEvent;
-                cameraEvent.setPosDelta(std::make_pair(focusMapPos, projectionSurface->calculateMapPos(focusPos + offset)));
-                _cameraEvents |= CAMERA_PAN;
-                _mapRenderer->calculateCameraEvent(cameraEvent, 0, true);
-                return;
-            }
-
-            if (isValidScreenPosition(screenPos, viewState) && isValidScreenPosition(_prevScreenPos1, viewState)) {
-                MapPos currentPos = mapScreenPosition(screenPos, viewState);
-                MapPos prevPos = mapScreenPosition(_prevScreenPos1, viewState);
-
-                CameraPanEvent cameraEvent;
-                cameraEvent.setPosDelta(std::make_pair(currentPos, prevPos));
-                _cameraEvents |= CAMERA_PAN;
-                _mapRenderer->calculateCameraEvent(cameraEvent, 0, true);
-            }
+            panBetween(_prevScreenPos1, screenPos, viewState);
         }
         _prevScreenPos1 = screenPos;
     }
-    
+
+    /**
+     * Move the map so that what was under prevScreenPos ends up under screenPos - the one pan
+     * both the one-finger drag and the two-finger gesture go through, so they cannot disagree
+     * about the speed mode or about what a grazing ray is allowed to do.
+     */
+    void TouchHandler::panBetween(const ScreenPos& prevScreenPos, const ScreenPos& screenPos, const ViewState& viewState) {
+        std::shared_ptr<ProjectionSurface> projectionSurface = viewState.getProjectionSurface();
+        if (!projectionSurface) {
+            return;
+        }
+
+        float dx = screenPos.getX() - prevScreenPos.getX();
+        float dy = screenPos.getY() - prevScreenPos.getY();
+        if (dx == 0 && dy == 0) {
+            return;
+        }
+
+        double panScale = _panScale.load();
+        if (_options->getPanningSpeedMode() != PanningSpeedMode::PANNING_SPEED_MODE_MAP && panScale > 0) {
+            // The pan travels the SCREEN delta at the scale the gesture started with. Grabbing
+            // the world exactly - the other mode - re-derives that scale from wherever the
+            // finger is now, so a drag that starts near the camera and travels up the screen
+            // speeds up as it goes, which is not something the hand asked for.
+            cglib::vec3<double> focusPos = viewState.getFocusPos();
+            MapPos focusMapPos = projectionSurface->calculateMapPos(focusPos);
+            cglib::vec3<double> normal = projectionSurface->calculateNormal(focusMapPos);
+            // NOT '== 0': looking straight down, this cross product is meant to collapse and
+            // hand over to the up vector - but a tilt REACHED BY GESTURE is vertical only to
+            // within rounding, so it comes out at ~1e-16 instead of 0, the hand-over is missed,
+            // and unit() then turns pure floating point noise into a unit vector pointing
+            // anywhere. That is a pan that goes sideways when the finger goes up. Setting the
+            // tilt to 90 outright happens to build the camera exactly vertical, which is why
+            // only the gesture shows it.
+            cglib::vec3<double> right = cglib::vector_product(viewState.calculateViewDir(), normal);
+            if (cglib::length(right) < VIEW_AXIS_EPSILON) {
+                right = cglib::vector_product(viewState.getUpVec(), normal); // straight up or down
+            }
+            if (cglib::length(right) < VIEW_AXIS_EPSILON) {
+                return;
+            }
+            right = cglib::unit(right);
+            cglib::vec3<double> forward = cglib::vector_product(normal, right);
+            if (cglib::length(forward) < VIEW_AXIS_EPSILON) {
+                return;
+            }
+            forward = cglib::unit(forward);
+
+            // Dragging the world down brings what was beyond the top edge into view, i.e. the
+            // camera goes forward; dragging it right takes the camera left.
+            cglib::vec3<double> offset = forward * (dy * panScale) + right * (-dx * panScale);
+            CameraPanEvent cameraEvent;
+            cameraEvent.setPosDelta(std::make_pair(focusMapPos, projectionSurface->calculateMapPos(focusPos + offset)));
+            _cameraEvents |= CAMERA_PAN;
+            _mapRenderer->calculateCameraEvent(cameraEvent, 0, true);
+            return;
+        }
+
+        if (!isValidScreenPosition(screenPos, viewState) || !isValidScreenPosition(prevScreenPos, viewState)) {
+            return;
+        }
+        MapPos currentPos = mapScreenPosition(screenPos, viewState);
+        MapPos prevPos = mapScreenPosition(prevScreenPos, viewState);
+
+        if (viewState.getTilt() < PAN_CLAMP_MAX_TILT) {
+            // Tangram's guard (inputHandler.cpp getTranslation): near the horizon the two rays run
+            // almost parallel to the ground and their hit points fly apart, so a finger travel of a
+            // few pixels comes out as kilometres. Cap the travel at what those pixels are worth at
+            // the map scale - the pan stops grabbing exactly, which is the point.
+            cglib::vec3<double> pos0 = projectionSurface->calculatePosition(currentPos);
+            cglib::vec3<double> pos1 = projectionSurface->calculatePosition(prevPos);
+            double travel = projectionSurface->calculateDistance(pos0, pos1);
+            // What a pixel is worth at the focus - their pixelsPerMeter, which is the map scale
+            // and knows nothing about where on the screen the finger is.
+            double unitsPerPixel = 2.0 * viewState.calculateCameraDistance() * viewState.getTanHalfFOVY() / std::max(1, viewState.getHeight());
+            double limit = std::sqrt(static_cast<double>(dx) * dx + static_cast<double>(dy) * dy) * unitsPerPixel;
+            if (limit > 0 && travel > limit) {
+                cglib::mat4x4<double> transform = projectionSurface->calculateTranslateMatrix(pos0, pos1, limit / travel);
+                prevPos = projectionSurface->calculateMapPos(cglib::transform_point(pos0, transform));
+            }
+        }
+
+        CameraPanEvent cameraEvent;
+        cameraEvent.setPosDelta(std::make_pair(currentPos, prevPos));
+        _cameraEvents |= CAMERA_PAN;
+        _mapRenderer->calculateCameraEvent(cameraEvent, 0, true);
+    }
+
     void TouchHandler::singlePointerLook(const ScreenPos& screenPos, const ViewState& viewState) {
         if (_options->isUserInput()) {
             _mapRenderer->getAnimationHandler().stopPan();
@@ -475,18 +499,19 @@ namespace carto {
             _mapRenderer->getAnimationHandler().stopTilt();
             _mapRenderer->getAnimationHandler().stopZoom();
             
-            if (isValidScreenPosition(screenPos, viewState) && isValidScreenPosition(_prevScreenPos1, viewState)) {
-                float dpi = _options->getDPI();
-                cglib::vec2<float> tempSwipe1(screenPos.getX() - _prevScreenPos1.getX(), screenPos.getY() - _prevScreenPos1.getY());
-                _swipe1 += tempSwipe1 * (1.0f / dpi);
+            // No ground hit required: this zoom is a vertical drag about the FOCUS, and gating it
+            // on one killed the gesture wherever the fingers' rays miss - a low camera over
+            // terrain, where the ground under half the screen is past the far plane.
+            float dpi = _options->getDPI();
+            cglib::vec2<float> tempSwipe1(screenPos.getX() - _prevScreenPos1.getX(), screenPos.getY() - _prevScreenPos1.getY());
+            _swipe1 += tempSwipe1 * (1.0f / dpi);
 
-                float delta = INCHES_TO_ZOOM_DELTA * (screenPos.getY() - _prevScreenPos1.getY()) / _options->getDPI();
+            float delta = INCHES_TO_ZOOM_DELTA * (screenPos.getY() - _prevScreenPos1.getY()) / dpi;
 
-                CameraZoomEvent cameraEvent;
-                cameraEvent.setZoomDelta(delta);
-                _cameraEvents |= CAMERA_ZOOM;
-                _mapRenderer->calculateCameraEvent(cameraEvent, 0, true);
-            }
+            CameraZoomEvent cameraEvent;
+            cameraEvent.setZoomDelta(delta);
+            _cameraEvents |= CAMERA_ZOOM;
+            _mapRenderer->calculateCameraEvent(cameraEvent, 0, true);
         }
         _prevScreenPos1 = screenPos;
     }
@@ -668,50 +693,47 @@ namespace carto {
             _mapRenderer->getAnimationHandler().stopTilt();
             _mapRenderer->getAnimationHandler().stopZoom();
 
-            if (isValidScreenPosition(screenPos1, viewState) && isValidScreenPosition(_prevScreenPos1, viewState)
-            &&  isValidScreenPosition(screenPos2, viewState) && isValidScreenPosition(_prevScreenPos2, viewState)) {
-                cglib::vec3<double> currentPos1 = projectionSurface->calculatePosition(mapScreenPosition(screenPos1, viewState));
-                cglib::vec3<double> currentPos2 = projectionSurface->calculatePosition(mapScreenPosition(screenPos2, viewState));
-                cglib::vec3<double> currentVec = currentPos2 - currentPos1;
-                double currentDist = projectionSurface->calculateDistance(currentPos1, currentPos2);
-                cglib::mat4x4<double> currentTranslateTransform = projectionSurface->calculateTranslateMatrix(currentPos1, currentPos2, 0.5f);
-                MapPos currentMiddlePos = projectionSurface->calculateMapPos(cglib::transform_point(currentPos1, currentTranslateTransform));
+            // The scale and the angle are what the FINGERS did, taken from the SCREEN - which is
+            // where a pinch and a two-finger turn happen, and how tangram takes them (inputHandler
+            // handlePinchGesture/handleRotateGesture, fed by the platform's gesture detector).
+            // Deriving them from where the two rays meet the ground instead - what this did - hands
+            // a grazing ray straight to the camera: a low camera over terrain puts one finger's hit
+            // kilometres away, so a pinch of a few pixels comes out as a wild zoom or spin, and
+            // where the ray missed the ground altogether the whole gesture was dropped and the map
+            // could not be zoomed at all.
+            cglib::vec2<float> currentVec(screenPos2.getX() - screenPos1.getX(), screenPos2.getY() - screenPos1.getY());
+            cglib::vec2<float> prevVec(_prevScreenPos2.getX() - _prevScreenPos1.getX(), _prevScreenPos2.getY() - _prevScreenPos1.getY());
+            double currentDist = cglib::length(currentVec);
+            double prevDist = cglib::length(prevVec);
 
-                cglib::vec3<double> prevPos1 = projectionSurface->calculatePosition(mapScreenPosition(_prevScreenPos1, viewState));
-                cglib::vec3<double> prevPos2 = projectionSurface->calculatePosition(mapScreenPosition(_prevScreenPos2, viewState));
-                cglib::vec3<double> prevVec = prevPos2 - prevPos1;
-                double prevDist = projectionSurface->calculateDistance(prevPos1, prevPos2);
-                cglib::mat4x4<double> prevTranslateTransform = projectionSurface->calculateTranslateMatrix(prevPos1, prevPos2, 0.5f);
-                MapPos prevMiddlePos = projectionSurface->calculateMapPos(cglib::transform_point(prevPos1, prevTranslateTransform));
+            ScreenPos currentMiddlePos((screenPos1.getX() + screenPos2.getX()) * 0.5f, (screenPos1.getY() + screenPos2.getY()) * 0.5f);
+            ScreenPos prevMiddlePos((_prevScreenPos1.getX() + _prevScreenPos2.getX()) * 0.5f, (_prevScreenPos1.getY() + _prevScreenPos2.getY()) * 0.5f);
 
-                MapPos pivotPos = (_options->getPivotMode() == PivotMode::PIVOT_MODE_TOUCHPOINT ? currentMiddlePos : projectionSurface->calculateMapPos(viewState.getFocusPos()));
+            MapPos pivotPos = calculatePivotPos(currentMiddlePos, viewState);
 
-                if (_options->getPivotMode() == PivotMode::PIVOT_MODE_TOUCHPOINT) {
-                    CameraPanEvent cameraPanEvent;
-                    cameraPanEvent.setPosDelta(std::make_pair(currentMiddlePos, prevMiddlePos));
-                    _cameraEvents |= CAMERA_PAN;
-                    _mapRenderer->calculateCameraEvent(cameraPanEvent, 0, true);
-                }
-            
-                if (scale && prevDist > 0 && currentDist > 0) {
-                    float ratio = static_cast<float>(prevDist / currentDist);
-                    CameraZoomEvent cameraZoomTargetEvent;
-                    cameraZoomTargetEvent.setScale(ratio);
-                    cameraZoomTargetEvent.setTargetPos(pivotPos);
-                    _cameraEvents |= CAMERA_ZOOM;
-                    _mapRenderer->calculateCameraEvent(cameraZoomTargetEvent, 0, true);
-                }
-    
-                if (rotate && _options->isRotationGestures() && cglib::norm(prevVec) > 0 && cglib::norm(currentVec) > 0) {
-                    cglib::vec3<double> axis = cglib::vector_product(cglib::unit(currentVec), cglib::unit(prevVec));
-                    float angle = std::asin(std::max(-1.0f, std::min(1.0f, static_cast<float>(cglib::length(axis)))));
-                    float dir = cglib::dot_product(axis, projectionSurface->calculateNormal(pivotPos)) > 0 ? 1 : -1;
-                    CameraRotationEvent cameraRotateTargetEvent;
-                    cameraRotateTargetEvent.setRotationDelta(static_cast<float>(angle * dir * Const::RAD_TO_DEG));
-                    cameraRotateTargetEvent.setTargetPos(pivotPos);
-                    _cameraEvents |= CAMERA_ROTATE;
-                    _mapRenderer->calculateCameraEvent(cameraRotateTargetEvent, 0, true);
-                }
+            if (_options->getPivotMode() == PivotMode::PIVOT_MODE_TOUCHPOINT) {
+                panBetween(prevMiddlePos, currentMiddlePos, viewState);
+            }
+
+            if (scale && prevDist > 0 && currentDist > 0) {
+                CameraZoomEvent cameraZoomTargetEvent;
+                cameraZoomTargetEvent.setScale(static_cast<float>(prevDist / currentDist));
+                cameraZoomTargetEvent.setTargetPos(pivotPos);
+                _cameraEvents |= CAMERA_ZOOM;
+                _mapRenderer->calculateCameraEvent(cameraZoomTargetEvent, 0, true);
+            }
+
+            if (rotate && _options->isRotationGestures() && prevDist > 0 && currentDist > 0) {
+                // Signed angle from the previous finger vector to the current one. Screen y points
+                // down, which is what turns a clockwise turn of the fingers into a positive map
+                // rotation - the same sign the ground-derived cross product produced.
+                double cross = static_cast<double>(prevVec(0)) * currentVec(1) - static_cast<double>(prevVec(1)) * currentVec(0);
+                double dot = static_cast<double>(prevVec(0)) * currentVec(0) + static_cast<double>(prevVec(1)) * currentVec(1);
+                CameraRotationEvent cameraRotateTargetEvent;
+                cameraRotateTargetEvent.setRotationDelta(static_cast<float>(std::atan2(cross, dot) * Const::RAD_TO_DEG));
+                cameraRotateTargetEvent.setTargetPos(pivotPos);
+                _cameraEvents |= CAMERA_ROTATE;
+                _mapRenderer->calculateCameraEvent(cameraRotateTargetEvent, 0, true);
             }
         }
     
@@ -730,11 +752,10 @@ namespace carto {
         }
 
         updateGestureAnchorHeight(screenPos, viewState);
-        MapPos targetPos = (_options->getPivotMode() == PivotMode::PIVOT_MODE_TOUCHPOINT ? mapScreenPosition(screenPos, viewState) : projectionSurface->calculateMapPos(viewState.getFocusPos()));
 
         CameraZoomEvent cameraZoomTargetEvent;
         cameraZoomTargetEvent.setZoomDelta(1.0f);
-        cameraZoomTargetEvent.setTargetPos(targetPos);
+        cameraZoomTargetEvent.setTargetPos(calculatePivotPos(screenPos, viewState));
         _mapRenderer->calculateCameraEvent(cameraZoomTargetEvent, ZOOM_GESTURE_ANIMATION_DURATION.count() / 1000.0f, true);
 
         DirectorPtr<MapEventListener> mapEventListener = _mapEventListener;
@@ -840,7 +861,11 @@ namespace carto {
         if (!viewState.getProjectionSurface()) {
             return false;
         }
-        cglib::vec3<double> pos = viewState.screenToWorld(cglib::vec2<float>(screenPos.getX(), screenPos.getY()), 0);
+        // The plane the gesture is actually anchored to (mapScreenPosition uses the same one).
+        // Testing the SEA LEVEL plane instead reported a touch as valid, or as past the far plane,
+        // for a surface no gesture ever uses - in the mountains the two are hundreds of metres and,
+        // at a low tilt, kilometres of ray apart.
+        cglib::vec3<double> pos = viewState.screenToWorld(cglib::vec2<float>(screenPos.getX(), screenPos.getY()), _gestureAnchorHeight.load());
         if (std::isnan(cglib::norm(pos))) {
             return false;
         }
@@ -906,6 +931,19 @@ namespace carto {
     MapPos TouchHandler::mapScreenPosition(const ScreenPos& screenPos, const ViewState& viewState) const {
         cglib::vec3<double> pos = viewState.screenToWorld(cglib::vec2<float>(screenPos.getX(), screenPos.getY()), _gestureAnchorHeight.load());
         return viewState.getProjectionSurface()->calculateMapPos(pos);
+    }
+
+    /**
+     * The point a zoom or a rotation turns about: what is under the fingers when the map is
+     * there, the focus otherwise. A missing ground hit must NOT cancel the gesture - that is what
+     * left the map frozen with the camera close to the terrain, where half the screen is sky or
+     * ground past the far plane.
+     */
+    MapPos TouchHandler::calculatePivotPos(const ScreenPos& screenPos, const ViewState& viewState) const {
+        if (_options->getPivotMode() == PivotMode::PIVOT_MODE_TOUCHPOINT && isValidScreenPosition(screenPos, viewState)) {
+            return mapScreenPosition(screenPos, viewState);
+        }
+        return viewState.getProjectionSurface()->calculateMapPos(viewState.getFocusPos());
     }
 
     double TouchHandler::calculateTerrainHeight(const ScreenPos& screenPos, const ViewState& viewState) const {
@@ -995,7 +1033,9 @@ namespace carto {
         // two-finger rotation are map gestures, and this control scheme has neither.
         _gestureMode = (_options->getFreeRoamMode() == FreeRoamMode::FREE_ROAM_MODE_FIRST_PERSON ? DUAL_POINTER_MOVE : DUAL_POINTER_GUESS);
         ScreenPos middlePos((screenPos1.getX() + screenPos2.getX()) * 0.5f, (screenPos1.getY() + screenPos2.getY()) * 0.5f);
-        updateGestureAnchorHeight(middlePos, _mapRenderer->getViewState());
+        ViewState viewState = _mapRenderer->getViewState();
+        updateGestureAnchorHeight(middlePos, viewState);
+        updatePanScale(middlePos, viewState); // the two-finger pan goes through the same speed mode
     }
 
     void TouchHandler::registerOnTouchListener(const std::shared_ptr<OnTouchListener>& listener) {
@@ -1069,6 +1109,8 @@ namespace carto {
     // A full turn takes about two swipes across a phone, which is what a look control wants.
 
     const float TouchHandler::INCHES_TO_ZOOM_DELTA = 1.0f;
+
+    const float TouchHandler::PAN_CLAMP_MAX_TILT = 15.0f; // tangram's pitch > 75 degrees
         
     const std::chrono::milliseconds TouchHandler::DUAL_KINETIC_HOLD_DURATION = std::chrono::milliseconds(100);
 

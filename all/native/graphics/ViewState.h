@@ -208,12 +208,14 @@ namespace carto {
         void setTerrainHeightRange(float minZ, float maxZ);
 
         /**
-         * Sets the minimum camera height (in internal units) imposed by the terrain
-         * clearance, or 0 to disable the terrain zoom bound. Published once per frame
-         * by the renderer from the elevation under the camera.
-         * @param minCameraZ The minimum camera height, 0 to disable.
+         * Sets the terrain reference under the camera (in internal units), published once
+         * per frame by the renderer: the ground height there, and the minimum camera height
+         * the clearance imposes. The height bounds the near plane (the ground cannot be
+         * further than that below the camera), the minimum drives the terrain zoom bound.
+         * @param terrainZ The terrain height under the camera.
+         * @param minCameraZ The minimum camera height, 0 to disable the zoom bound.
          */
-        void setTerrainMinCameraZ(double minCameraZ);
+        void setTerrainCameraReference(double terrainZ, double minCameraZ);
         /**
          * Returns the maximum zoom allowed by the terrain clearance, or infinity when
          * no terrain bound is active. Evaluated against the CURRENT camera state, so it
@@ -482,6 +484,7 @@ namespace carto {
         float _terrainHeightMin = 0.0f;
         float _terrainHeightMax = 0.0f;
         double _terrainMinCameraZ = 0.0; // 0 = no terrain zoom bound
+        double _terrainCameraZ = 0.0; // terrain height under the camera, 0 = unknown
     
         int _fovY;
         float _halfFOVY;

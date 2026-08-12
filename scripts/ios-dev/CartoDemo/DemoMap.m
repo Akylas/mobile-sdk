@@ -919,17 +919,22 @@ static const DemoFeature LAYER_ORDER[] = {
  * Free roam and how far above the horizon the view may look.
  *
  * A NEGATIVE tilt is the look up: the camera stays where the tilt geometry put it and only the view
- * pitches, so nothing about zoom or the visible tiles changes. A map stops at the horizon by
- * default (tilt range 0..90), which is why this has to be asked for.
+ * pitches, so nothing about zoom or the visible tiles changes.
+ *
+ * A map stops at 30: below that the camera grazes the terrain and at 0 it looks along the ground
+ * from under it. Only the two modes that are ABOUT looking up - free roam and the star sky - get
+ * the full range.
  */
 - (void)applyLookRange {
     NTOptions *options = [self.mapView getOptions];
-    [options setFreeRoamMode:[self freeRoamMode:[DemoConfig stringFor:@"freeRoam"]]];
+    NSString *freeRoam = [DemoConfig stringFor:@"freeRoam"];
+    [options setFreeRoamMode:[self freeRoamMode:freeRoam]];
     [options setPanningSpeedMode:[self panningSpeedMode:[DemoConfig stringFor:@"panSpeed"]]];
     [options setFreeRoamLookSensitivity:[DemoConfig floatFor:@"lookSensitivity"]];
     [options setFreeRoamMoveSpeed:[DemoConfig floatFor:@"moveSpeed"]];
-    [options setTiltRange:[[NTMapRange alloc] initWithMin:-fmaxf(30, [DemoConfig floatFor:@"lookUp"])
-                                                      max:90]];
+    BOOL lookUp = ![freeRoam isEqualToString:@"off"] || [DemoConfig boolFor:@"starSky"];
+    float minTilt = lookUp ? -fmaxf(30, [DemoConfig floatFor:@"lookUp"]) : 30;
+    [options setTiltRange:[[NTMapRange alloc] initWithMin:minTilt max:90]];
 }
 
 - (enum NTPanningSpeedMode)panningSpeedMode:(NSString *)name {
@@ -1325,6 +1330,7 @@ static const DemoFeature LAYER_ORDER[] = {
     }
     [self setMapLayerOpacity:0];
     [self rebuildLayers];
+    [self applyLookRange]; // back to a map: the tilt stops at 30 again
     [self requestRender];
 }
 
