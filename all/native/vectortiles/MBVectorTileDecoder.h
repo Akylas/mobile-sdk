@@ -231,7 +231,7 @@ namespace carto {
         std::string _selectionParameter; // the one that selects a feature, if the style has one
         // Its value, hashed: the tiles read it while they are drawn, so setting the selection is a
         // style-byte rewrite rather than a decode. Shared with every tile this decoder built.
-        std::shared_ptr<std::atomic<std::uint64_t>> _selectionState = std::make_shared<std::atomic<std::uint64_t>>(0);
+        std::shared_ptr<std::atomic<std::uint64_t> > _selectionState = std::make_shared<std::atomic<std::uint64_t> >(0);
         std::shared_ptr<const mvt::Map> _map;
         std::shared_ptr<const mvt::Map::Settings> _mapSettings;
         std::shared_ptr<const mvt::SymbolizerContext> _symbolizerContext;
