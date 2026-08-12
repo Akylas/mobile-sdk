@@ -21,6 +21,7 @@
 #include <mapnikvt/Value.h>
 #include <mapnikvt/NutiParameterStore.h>
 #include <mapnikvt/LayerConfigResolver.h>
+#include <mapnikvt/ContourStyleResolver.h>
 
 namespace carto {
     namespace mvt {
@@ -136,6 +137,15 @@ namespace carto {
          * @return The resolved configuration (visible flag + evaluated property values).
          */
         mvt::ResolvedLayerConfig resolveLayerConfig(const std::string& layerName, float viewZoom) const;
+
+        /**
+         * Resolves the LINE rules of a style layer into per-elevation-divisor contour classes at
+         * the given view zoom and parameter state, and says whether they can be drawn as bands in
+         * the terrain shader at all (mvt::resolveContourStyle). Used by CompositeVectorTileLayer
+         * to choose between the shader contours and the traced ones.
+         * Note: for internal use, not exposed to the public API.
+         */
+        mvt::ResolvedContourStyle resolveContourStyle(const std::string& layerName, float viewZoom, const std::vector<float>& divisors) const;
 
         /**
          * Returns the { minZoom, maxZoom } range over which the named style layer's config

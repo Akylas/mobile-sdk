@@ -467,7 +467,11 @@ namespace carto {
     }
 
     void ContourTileDataSource::setLabelStubsEnabled(bool enabled) {
-        _labelStubs = enabled;
+        if (_labelStubs.exchange(enabled) == enabled) {
+            return; // re-setting the same value would throw away every tile, and every elevation
+                    // grid with them (ElevationManager listens on this source) - once a frame, if
+                    // the caller keeps the mode in step with a per-frame decision.
+        }
         notifyTilesChanged(false);
     }
 
@@ -740,6 +744,11 @@ namespace carto {
         // worth their cost depends on the style that draws them, so they are the app's to set
         // (setIntervalMultiplier); the defaults below are only a starting point.
         return _baseInterval * getIntervalMultiplier(zoom);
+    }
+
+    const std::vector<float>& ContourTileDataSource::getDivisorLadder() {
+        static const std::vector<float> ladder = { 10.0f, 20.0f, 50.0f, 100.0f, 200.0f, 250.0f, 500.0f, 1000.0f };
+        return ladder; // the divisors computeDiv can answer with, finest first
     }
 
     long long ContourTileDataSource::computeDiv(long long ele) {

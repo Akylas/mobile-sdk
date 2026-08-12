@@ -322,6 +322,15 @@ namespace carto {
         return mvt::resolveLayerConfig(*_map, layerName, viewZoom, _parameterStore);
     }
 
+    mvt::ResolvedContourStyle MBVectorTileDecoder::resolveContourStyle(const std::string& layerName, float viewZoom, const std::vector<float>& divisors) const {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (!_map) {
+            return mvt::ResolvedContourStyle();
+        }
+        return mvt::resolveContourStyle(*_map, layerName, viewZoom, divisors, _parameterStore);
+    }
+
     std::vector<int> MBVectorTileDecoder::getStyleLayerZoomRange(const std::string& layerName) const {
         std::lock_guard<std::mutex> lock(_mutex);
 

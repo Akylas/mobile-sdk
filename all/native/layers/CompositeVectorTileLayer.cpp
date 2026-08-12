@@ -15,8 +15,13 @@
 #include "utils/Log.h"
 
 #include <algorithm>
+#include <cstdlib>
 #include <cmath>
 #include <variant>
+
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
 
 #include <mapnikvt/Value.h>
 #include <mapnikvt/LayerConfigResolver.h>
@@ -816,6 +821,76 @@ namespace carto {
         }
     }
 
+    bool CompositeVectorTileLayer::shaderContoursAllowed() {
+        // OPT-IN, because as it stands it is SLOWER than the geometry it replaces: measured on a
+        // Crosscall at the city camera, 9.2 fps against 12.0, GPU layers 56 ms against 21 - the
+        // paint is an EXTRA full-cover surface pass whose fragment shader reconstructs the DEM
+        // (nine taps) and runs the hillshade lighting before the bands, and that costs more than
+        // the geometry it saves (10.1M indices against 22.0M). Tangram pays none of it because
+        // their contours are a block inside the earth draw that runs anyway, not a pass on top -
+        // which is where this has to move before it can be the default.
+        //   adb shell setprop debug.carto.shadercontours 1
+#ifdef __ANDROID__
+        static const bool allowed = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            if (__system_property_get("debug.carto.shadercontours", property) > 0) {
+                return std::atoi(property) != 0;
+            }
+            return false;
+        }();
+        return allowed;
+#else
+        return false;
+#endif
+    }
+
+    void CompositeVectorTileLayer::applyContourPaint(const ExternalSource& source, const std::shared_ptr<MBVectorTileDecoder>& decoder, const ViewState& viewState) {
+        auto contourSource = std::dynamic_pointer_cast<ContourTileDataSource>(source.dataSource);
+        auto childLayer = std::dynamic_pointer_cast<TileLayer>(source.childLayer);
+        if (!contourSource || !childLayer || !decoder) {
+            return;
+        }
+
+        // The lines are a function of the elevation alone, so a style that only asks for a colour,
+        // a width and an opacity per 'div' can be painted per fragment on the terrain instead of
+        // traced into a tile set of its own - which is a second set of tiles to fetch, decode,
+        // tesselate and draw. Anything the shader cannot reproduce keeps the traced path.
+        mvt::ResolvedContourStyle style;
+        bool terrainActive = shaderContoursAllowed();
+        if (terrainActive) {
+            terrainActive = false;
+            if (auto options = getOptions()) {
+                if (auto terrainOptions = options->getTerrainOptions()) {
+                    terrainActive = terrainOptions->isEnabled();
+                }
+            }
+        }
+        if (terrainActive) {
+            style = decoder->resolveContourStyle(source.name, viewState.getZoom(), ContourTileDataSource::getDivisorLadder());
+        }
+
+        std::vector<ContourClass> classes;
+        if (terrainActive && style.shaderCapable) {
+            classes.reserve(style.classes.size());
+            for (const mvt::ContourLineClass& styleClass : style.classes) {
+                ContourClass contourClass;
+                contourClass.interval = styleClass.divisor;
+                contourClass.color = Color(styleClass.color.value());
+                contourClass.halfWidth = styleClass.width * 0.5f;
+                classes.push_back(contourClass);
+            }
+        } else if (terrainActive && !style.rejectReason.empty() && style.rejectReason != _contourRejectReason) {
+            Log::Infof("CompositeVectorTileLayer: '%s' contours stay traced geometry: %s",
+                       source.name.c_str(), style.rejectReason.c_str());
+        }
+        _contourRejectReason = style.rejectReason;
+
+        // The traced geometry and the painted bands are the same lines: exactly one of them draws.
+        // With the bands on, the source only has to emit the label stubs the text rules need.
+        childLayer->setTerrainContourPaint(classes);
+        contourSource->setLabelStubsEnabled(!classes.empty());
+    }
+
     bool CompositeVectorTileLayer::renderComposite(float deltaSeconds, BillboardSorter& billboardSorter, const ViewState& viewState, bool terrain) {
         auto decoder = std::dynamic_pointer_cast<MBVectorTileDecoder>(getTileDecoder());
 
@@ -839,6 +914,7 @@ namespace carto {
                 continue;
             }
             bool visible = true;
+            applyContourPaint(*source, decoder, viewState);
             // Raster/hillshade children are gated by their config symbolizer's zoom/nuti visibility.
             // Vector children have no config symbolizer (they are styled by normal line/text rules,
             // which the child's own decode already zoom-filters), so they always draw.

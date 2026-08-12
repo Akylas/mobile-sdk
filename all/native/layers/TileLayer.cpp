@@ -1033,6 +1033,41 @@ namespace carto {
         _tileRenderer->setTerrainPaintTiles(tileIds);
     }
 
+    void TileLayer::setTerrainContourPaint(const std::vector<ContourClass>& classes) {
+        // Re-applied every frame, not only on a change: the vt renderer is created lazily and a
+        // value pushed before it existed would be lost, with the paint silently never drawing.
+        bool changed = (classes != _contourPaintClasses);
+        _contourPaintClasses = classes;
+        _tileRenderer->setContourClasses(_contourPaintClasses);
+        // The paint carries nothing but the contours: opacity 0 makes the shading it would
+        // otherwise compute transparent, and the bands composite over it. alwaysSurface keeps it
+        // a screen-resolution pass whatever the fills do with the drape.
+        _tileRenderer->setTerrainPaint(!_contourPaintClasses.empty(), false, 1.0f, false, false, 0.0f, 0.0f,
+                                       contourPaintFingerprint(), true);
+        if (changed) {
+            redraw();
+        }
+    }
+
+    bool TileLayer::isTerrainContourPaintActive() const {
+        return !_contourPaintClasses.empty();
+    }
+
+    std::size_t TileLayer::contourPaintFingerprint() const {
+        // A paint has no per-tile fingerprint: its appearance rides the drape stack signature, so
+        // every value the bands are drawn with has to land in here (see drapeStackSignature).
+        std::size_t fingerprint = 0;
+        auto mix = [&fingerprint](std::size_t value) {
+            fingerprint ^= value + 0x9e3779b9 + (fingerprint << 6) + (fingerprint >> 2);
+        };
+        for (const ContourClass& contourClass : _contourPaintClasses) {
+            mix(std::hash<float>()(contourClass.interval));
+            mix(std::hash<float>()(contourClass.halfWidth));
+            mix(static_cast<std::size_t>(contourClass.color.getARGB()));
+        }
+        return fingerprint;
+    }
+
     std::size_t TileLayer::drapeStackSignature() const {
         return static_cast<std::size_t>(reinterpret_cast<std::uintptr_t>(this));
     }

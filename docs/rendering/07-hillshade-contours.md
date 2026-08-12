@@ -102,6 +102,50 @@ setters — those only reach a stand-alone layer. The style properties are
 `hillshade-contour-interval`, `hillshade-contour-width`, `hillshade-contour-color`
 ([09-composite-layer.md](09-composite-layer.md)).
 
+### Contours from the style, painted per fragment (opt-in, and not yet worth it)
+
+`mvt::resolveContourStyle` reads the `#contour` layer's LINE rules and answers with one class per
+elevation divisor — `{divisor, colour × opacity, width}` — evaluated at the current view zoom and
+nuti parameter state, or with `shaderCapable = false` and a reason. `CompositeVectorTileLayer::
+applyContourPaint` then either paints those classes (`ContourClass`, `TileLayer::
+setTerrainContourPaint`, source switched to `setLabelStubsEnabled` so the labels stay real
+features) or leaves the traced geometry alone. Everything the shader cannot reproduce falls back:
+a dash, an offset, an arrow, casing, a filter on a field other than `div`/`stub`, a line property
+that reads the feature.
+
+Four things this got wrong first, all worth remembering:
+
+- **A `#contour` layer carries more than lines.** Its `ContourConfigSymbolizer` configures the
+  source and draws nothing, and its text rules are the labels — both have to be skipped, not
+  treated as "something the shader cannot draw".
+- **`Rule::getReferencedSymbolizerFields` is per RULE.** A contour rule usually carries the text
+  symbolizer beside the line one, so it reports `ele` from `text-name: [ele]+' m'` and rejects a
+  line that reads nothing. Ask the line symbolizer's own properties, and ignore `view::zoom`,
+  `nuti::` and `zoom`, which the resolver evaluates itself.
+- **"The last matching rule wins" is wrong.** A style whose base rule is `line-width: 0` with the
+  real widths in nested `[div>=N]` blocks resolves to width 0 for every class that way. Every
+  matching rule paints in order and a zero-width one paints nothing, so the class is the last match
+  that would actually draw a line.
+- **`setLabelStubsEnabled` notified tiles-changed even when the value was unchanged.** Called once
+  a frame by this decision, that threw away every contour tile *and* every elevation grid
+  (`ElevationManager` listens on the same source) every frame.
+
+**It is opt-in (`adb shell setprop debug.carto.shadercontours 1`) because it is currently SLOWER
+than the geometry it replaces.** Crosscall, city camera, interleaved pairs:
+
+| | fps | GPU layers | geom draws | geom indices | surface draws |
+|---|---|---|---|---|---|
+| traced geometry | 12.0 / 11.8 | 21 ms | 612 | 22.0M | 265 |
+| painted per fragment | 9.2 / 9.1 | **56 ms** | 272 | 10.1M | **582** |
+
+Half the geometry, and a third slower. The paint is an **extra full-cover surface pass**, and its
+fragment shader reconstructs the DEM (a nine-tap stencil) and runs the hillshade lighting before it
+gets to the bands. Tangram pays none of that because their contours are a block inside the earth
+draw that runs anyway (`res/scenes/hillshade.yaml`), not a pass on top. **The fix is to fold the
+bands into the terrain ground draw** — one pass, no extra fragments — and only then make it the
+default. Until that lands the traced path stays, and the machinery above is exercised with the
+property.
+
 ## Which contours a traced tile carries, and which of them are drawn
 
 Two separate decisions, and confusing them empties the map.

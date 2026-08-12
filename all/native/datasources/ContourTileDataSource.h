@@ -44,6 +44,13 @@ namespace carto {
     class ContourTileDataSource : public TileDataSource {
     public:
         /**
+         * The elevation divisors a contour feature can carry ('div'), coarsest last. They are the
+         * classes a style writes rules for, and what a per-fragment contour renderer draws bands
+         * for - see computeDiv, which picks the largest of them that divides the elevation.
+         */
+        static const std::vector<float>& getDivisorLadder();
+
+        /**
          * Constructs a ContourTileDataSource object.
          * @param dataSource The RGB-encoded elevation data source to generate contours from.
          * @param elevationDecoder The decoder used to convert RGB pixels to elevation. If null,

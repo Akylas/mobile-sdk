@@ -8,6 +8,7 @@
 #define _CARTO_TILERENDERER_H_
 
 #include "graphics/Color.h"
+#include "renderers/ContourClass.h"
 #include "components/StyleEnvironment.h"
 #include "graphics/ViewState.h"
 #include "renderers/utils/GLResource.h"
@@ -45,17 +46,6 @@ namespace carto {
     
     class TileRenderer {
     public:
-        /**
-         * One elevation class of the contour lines drawn per fragment: the lines whose height is
-         * a multiple of 'interval', in this colour and width. A style layer resolves to a list of
-         * them (mvt::resolveContourStyle); a HillshadeRasterTileLayer configures a single one.
-         */
-        struct ContourClass {
-            float interval = 0.0f;   // metres between the lines of the class
-            Color color;             // straight colour, opacity in the alpha channel
-            float halfWidth = 0.0f;  // half stroke width, screen pixels
-        };
-
         TileRenderer();
         virtual ~TileRenderer();
     
@@ -155,7 +145,10 @@ namespace carto {
         // textures survive a parameter change.
         // The terrain tiles a paint draws itself on when there is no drape to bake into.
         void setTerrainPaintTiles(const std::vector<vt::TileId>& tileIds);
-        void setTerrainPaint(bool enabled, bool fullDetail, float heightScale, bool exaggerateHeightScale, bool legacyHeightScale, float contrast, float opacity, std::size_t fingerprint);
+        // 'alwaysSurface' draws the paint as a terrain surface pass at this layer's place in the
+        // order even when the fills are draped, and keeps it out of the bake - what a hairline
+        // needs (see vt::GLTileRenderer::TerrainPaint::alwaysSurface).
+        void setTerrainPaint(bool enabled, bool fullDetail, float heightScale, bool exaggerateHeightScale, bool legacyHeightScale, float contrast, float opacity, std::size_t fingerprint, bool alwaysSurface = false);
 
         bool onDrawFrame(float deltaSeconds, const ViewState& viewState);
         bool onDrawFrame3D(float deltaSeconds, const ViewState& viewState);

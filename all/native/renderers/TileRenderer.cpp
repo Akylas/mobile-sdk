@@ -499,7 +499,7 @@ namespace carto {
         }
     }
 
-    void TileRenderer::setTerrainPaint(bool enabled, bool fullDetail, float heightScale, bool exaggerateHeightScale, bool legacyHeightScale, float contrast, float opacity, std::size_t fingerprint) {
+    void TileRenderer::setTerrainPaint(bool enabled, bool fullDetail, float heightScale, bool exaggerateHeightScale, bool legacyHeightScale, float contrast, float opacity, std::size_t fingerprint, bool alwaysSurface) {
         std::lock_guard<std::mutex> lock(_mutex);
 
         _terrainPaintEnabled = enabled;
@@ -513,6 +513,7 @@ namespace carto {
             paint.contrast = contrast;
             paint.opacity = opacity;
             paint.fingerprint = fingerprint;
+            paint.alwaysSurface = alwaysSurface;
             tileRenderer->setTerrainPaint(paint);
             tileRenderer->setTerrainPaintOnGround(isTerrainPaintOnGroundForced());
             tileRenderer->setTerrainDemTaps(terrainDemTaps());

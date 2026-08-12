@@ -19,6 +19,7 @@
 namespace carto {
     class TileDataSource;
     class VectorTileDecoder;
+    class MBVectorTileDecoder;
     class ElevationDecoder;
     namespace mvt { struct ResolvedLayerConfig; }
 
@@ -197,6 +198,13 @@ namespace carto {
             bool maxOverzoomLevelSet = false;
             int maxOverzoomLevel = 0;
         };
+
+        // Picks the shader contours over the traced ones for a contour slot when the style's line
+        // rules can be painted as elevation bands, and keeps the source's label stubs in step.
+        static bool shaderContoursAllowed();
+        void applyContourPaint(const ExternalSource& source, const std::shared_ptr<MBVectorTileDecoder>& decoder, const ViewState& viewState);
+        std::string _contourRejectReason; // logged once, on change
+
 
         // One ordered draw step after the layer's own group-0 render: either an external
         // raster/hillshade child, or an internal VectorTileLayer rendering a later style-layer
