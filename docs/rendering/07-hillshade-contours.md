@@ -148,6 +148,34 @@ band costs `fract()` and `fwidth()` on a height the vertex stage already compute
 fetch at all. Note where the cost moved: the layer pass drops 21 → 15 ms with the contour geometry
 gone, the surface pass rises 4 → 19 ms, and the frame still wins.
 
+**Where the remaining cost is, and how to remove it.** Split measured with the block compiled but
+the class count at zero: the varying and the derivatives are **~1 ms**, everything else is the
+per-class work — 2.2 ms per class per frame originally, **1.6 ms** after the three optimisations
+(count compiled in so the loop unrolls, `1/interval` as a uniform because a per-fragment divide is
+several times a multiply, coverage in `mediump` with the branch as a `mix`). It is still **linear in
+the number of classes**, so a style with more of them pays more.
+
+**The way to make it independent of the count is a level LUT, and it is the next step.** Every
+divisor in play is a multiple of the finest one, so the lines of *every* class sit at multiples of
+that base interval:
+
+```
+levelF = e * u_contourInvBase;          // e = vTerrainMeters
+level  = floor(levelF + 0.5);           // nearest base level
+distPx = abs(e - level * u_contourBase) * pxPerMetre;
+idx    = mod(level, u_contourLutSize);  // which class owns that level
+vec4 c = texture2D(u_contourLut, vec2((idx + 0.5) / u_contourLutSize, 0.25));   // rgb + alpha
+float halfWidth = texture2D(u_contourLut, vec2((idx + 0.5) / u_contourLutSize, 0.75)).r;
+```
+
+Two fetches and no loop, so **two classes and ten cost the same** — tangram's cost without
+tangram's two-band limit. The LUT is `lcm(intervals) / base` texels wide (20 for
+`50·100·250·500·1000`, 100 when a 10 m class is in play), `NEAREST` filtered, two rows, rebuilt only
+when the resolved classes change — a zoom band or a nuti parameter, so rarely. Which class owns a
+level is decided on the CPU while building it (the coarsest divisor that divides the level wins),
+which is also where the "coarsest match wins" rule stops costing anything per fragment. Keep the
+unrolled path as the fallback for a style whose `lcm/base` exceeds the texture width cap.
+
 Still opt-in: the gain is real but modest, and the lines are not pixel-identical to the traced
 ones. Worth re-measuring at a mountain camera, where the contour geometry is much denser than in a
 valley, before making it the default.
