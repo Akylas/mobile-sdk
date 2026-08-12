@@ -45,6 +45,17 @@ namespace carto {
     
     class TileRenderer {
     public:
+        /**
+         * One elevation class of the contour lines drawn per fragment: the lines whose height is
+         * a multiple of 'interval', in this colour and width. A style layer resolves to a list of
+         * them (mvt::resolveContourStyle); a HillshadeRasterTileLayer configures a single one.
+         */
+        struct ContourClass {
+            float interval = 0.0f;   // metres between the lines of the class
+            Color color;             // straight colour, opacity in the alpha channel
+            float halfWidth = 0.0f;  // half stroke width, screen pixels
+        };
+
         TileRenderer();
         virtual ~TileRenderer();
     
@@ -69,6 +80,14 @@ namespace carto {
         void setNormalMapContourInterval(float interval);
         void setNormalMapContourColor(const Color& color);
         void setNormalMapContourWidth(float width);
+        /**
+         * Sets the contour classes drawn per fragment, finest interval first. An empty list falls
+         * back to the single class the setNormalMapContour* values describe. Called every frame by
+         * the layer that owns the contours, because a class is the style's line rule evaluated at
+         * the current zoom and nuti parameter state.
+         */
+        void setContourClasses(const std::vector<ContourClass>& classes);
+        static constexpr std::size_t MAX_CONTOUR_CLASSES = 6; // CONTOUR_CLASSES in GLTileRendererShaders.h
         void setNormalIlluminationMapRotationEnabled(bool enabled);
         void setNormalIlluminationDirection(MapVec direction);
         void setHillshadeMethod(int method);
@@ -160,6 +179,8 @@ namespace carto {
         struct LabelOcclusionState;
 
         bool initializeRenderer();
+        // Pushes the contour classes (or the single layer-configured one) into the shader.
+        void uploadContourClasses(unsigned int shaderProgram) const;
         bool isPlanarTerrainMode() const;
         bool isPlanarProjectionMode() const;
         // Tangram-model measurement switch, read once from debug.carto.depthshift (Android only).
@@ -223,6 +244,10 @@ namespace carto {
         float _normalMapContourInterval = 0.0f; // meters; <= 0 disables contour lines
         Color _normalMapContourColor;
         float _normalMapContourWidth = 0.75f; // contour half-width in screen pixels
+        // Style-driven contour classes (one per elevation divisor, finest first). When this is
+        // non-empty it REPLACES the three values above: they are the single-class case a
+        // HillshadeRasterTileLayer configures by hand, and the shader only knows the classes.
+        std::vector<ContourClass> _contourClasses;
         std::optional<std::regex> _rendererLayerFilter;
         std::optional<std::regex> _clickHandlerLayerFilter;
 

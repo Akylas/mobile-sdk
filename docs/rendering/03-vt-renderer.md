@@ -204,6 +204,14 @@ reason.
 
 ## Lines over terrain
 
+**A line is never draped.** Roads, contours, any hairline: they are drawn as geometry on the terrain
+(or, for contours, computed per screen fragment in the paint's surface pass), and never baked into a
+drape texture. The drape is one fixed-resolution texture per tile resampled onto the surface, so a
+baked line is magnified into a soft band close up and aliased into mush at a grazing angle — the
+stretched, blurry look. Fills survive that and are what the drape is for
+(`TerrainOptions.DrapeFillsEnabled` on, `DrapeLinesEnabled` off; see
+[07-hillshade-contours.md](07-hillshade-contours.md#never-bake-a-line-into-the-drape--a-contour-or-a-road)).
+
 A line is a chain of quads whose width is an offset along a per-vertex binormal, and three things
 about that offset are easy to get wrong. All three were, and the symptoms all looked like terrain or
 depth bugs rather than line bugs.

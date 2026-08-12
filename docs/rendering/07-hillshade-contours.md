@@ -73,8 +73,26 @@ port described in [04-terrain.md](04-terrain.md#the-elevation-texture).
 
 Drawn as a fragment block on the terrain draw, from the same DEM: distance to the nearest contour in
 metres divided by the per-pixel elevation change (`fwidth`), giving a screen-width anti-aliased line
-(`u_contourInterval`, `u_contourWidth`, `u_contourColor`). Measured **free**: 7.25 fps without
-contours against 7.57 with.
+(`u_contourIntervals`, `u_contourHalfWidths`, `u_contourColors`, `u_contourClassCount` — one class
+per elevation divisor, the coarsest match winning, which is what a `#contour [div=N]` style says).
+
+### NEVER bake a line into the drape — a contour or a road
+
+The block is compiled **only into the paint's SURFACE pass** (`PAINT_SURFACE`), never into the drape
+bake, and that is deliberate. The drape is one texture per tile at a fixed resolution, mapped onto
+the surface afterwards, so anything baked into it is resampled: magnified into a soft band where the
+tile is close and large on screen, minified into aliasing (or mipmap mush) at a grazing angle. A fill
+survives that; a hairline does not. It is the same reason `TerrainOptions.DrapeLinesEnabled` is off
+by default — fills are draped, lines are not. If a contour or a road ever looks stretched or blurry
+on a slope, this is the first thing to check.
+
+The consequence is that a contour paint has to draw as a surface even when the fills are draped, at
+its own place in the layer order — not be folded into the bake with them.
+
+**Measurement warning.** The old "contours measured free: 7.25 fps without against 7.57 with" line
+was taken with the drape ON, where this block is not compiled at all: it compared two frames that
+both had no contours in them. Any number for per-fragment contours has to come from a run whose
+screenshot shows the lines.
 
 Turning them on for a layer that would otherwise fall back to its own DEM tile set moved render
 tiles 494 → 216 and `layers` 18.4 → 16.1 ms.

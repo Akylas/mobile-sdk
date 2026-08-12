@@ -181,6 +181,58 @@ namespace carto {
         std::lock_guard<std::mutex> lock(_mutex);
         _normalMapContourWidth = width;
     }
+    void TileRenderer::setContourClasses(const std::vector<ContourClass>& classes) {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _contourClasses = classes;
+        if (_contourClasses.size() > MAX_CONTOUR_CLASSES) {
+            // Finest first, and the fine ones are the ones that merge into a wash when there are
+            // too many of them - so an over-long list loses its finest classes, not its index lines.
+            _contourClasses.erase(_contourClasses.begin(), _contourClasses.begin() + (_contourClasses.size() - MAX_CONTOUR_CLASSES));
+        }
+    }
+    void TileRenderer::uploadContourClasses(unsigned int shaderProgram) const {
+        std::array<float, MAX_CONTOUR_CLASSES * 4> colors = { };
+        std::array<float, MAX_CONTOUR_CLASSES> intervals = { };
+        std::array<float, MAX_CONTOUR_CLASSES> halfWidths = { };
+        std::size_t count = 0;
+        auto add = [&](float interval, const Color& color, float halfWidth) {
+            if (!(interval > 0.0f) || !(halfWidth > 0.0f) || color.getA() == 0 || count >= MAX_CONTOUR_CLASSES) {
+                return;
+            }
+            colors[count * 4 + 0] = color.getR() / 255.0f;
+            colors[count * 4 + 1] = color.getG() / 255.0f;
+            colors[count * 4 + 2] = color.getB() / 255.0f;
+            colors[count * 4 + 3] = color.getA() / 255.0f;
+            intervals[count] = interval;
+            halfWidths[count] = halfWidth;
+            count++;
+        };
+        if (_contourClasses.empty()) {
+            add(_normalMapContourInterval, _normalMapContourColor, _normalMapContourWidth);
+        } else {
+            for (const ContourClass& contourClass : _contourClasses) {
+                add(contourClass.interval, contourClass.color, contourClass.halfWidth);
+            }
+        }
+        // getUniformLoc returns 0 for a uniform the compiler dropped, and 0 is a valid location.
+        GLint colorsLoc = glGetUniformLocation(shaderProgram, "u_contourColors");
+        GLint intervalsLoc = glGetUniformLocation(shaderProgram, "u_contourIntervals");
+        GLint halfWidthsLoc = glGetUniformLocation(shaderProgram, "u_contourHalfWidths");
+        GLint countLoc = glGetUniformLocation(shaderProgram, "u_contourClassCount");
+        if (colorsLoc >= 0) {
+            glUniform4fv(colorsLoc, static_cast<GLsizei>(MAX_CONTOUR_CLASSES), colors.data());
+        }
+        if (intervalsLoc >= 0) {
+            glUniform1fv(intervalsLoc, static_cast<GLsizei>(MAX_CONTOUR_CLASSES), intervals.data());
+        }
+        if (halfWidthsLoc >= 0) {
+            glUniform1fv(halfWidthsLoc, static_cast<GLsizei>(MAX_CONTOUR_CLASSES), halfWidths.data());
+        }
+        if (countLoc >= 0) {
+            glUniform1f(countLoc, static_cast<float>(count));
+        }
+    }
+
     void TileRenderer::setNormalIlluminationDirection(MapVec direction) {
         std::lock_guard<std::mutex> lock(_mutex);
         _normalIlluminationDirection = direction;
@@ -1394,9 +1446,7 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
                     glUniform1f(glGetUniformLocation(shaderProgram, "u_elevationEncoded"), _normalMapElevationEncoded ? 1.0f : 0.0f);
                     glUniform2f(glGetUniformLocation(shaderProgram, "u_elevationDecode"), vt::NormalMapBuilder::ELEVATION_SCALE, vt::NormalMapBuilder::ELEVATION_OFFSET);
                     glUniform1f(glGetUniformLocation(shaderProgram, "u_contrast"), _hillshadeIntensity);
-                    glUniform4f(glGetUniformLocation(shaderProgram, "u_contourColor"), _normalMapContourColor.getR() / 255.0f, _normalMapContourColor.getG() / 255.0f, _normalMapContourColor.getB() / 255.0f, _normalMapContourColor.getA() / 255.0f);
-                    glUniform1f(glGetUniformLocation(shaderProgram, "u_contourInterval"), _normalMapContourInterval);
-                    glUniform1f(glGetUniformLocation(shaderProgram, "u_contourWidth"), _normalMapContourWidth);
+                    uploadContourClasses(shaderProgram);
                     // Current fractional map zoom, for per-zoom custom normal-map shaders (getMapZoom()).
                     glUniform1f(glGetUniformLocation(shaderProgram, "u_zoom"), viewState.zoom);
             });
