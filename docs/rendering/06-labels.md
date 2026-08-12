@@ -111,15 +111,25 @@ What changes, and only for this orientation:
   on screen — and only once, after both text passes, since a halo copy would just draw it twice.
   Sampling the cell's interior matters: the outer texels blend into the atlas padding under linear
   filtering, which thins the line and fades its ends.
-- **A callout has to be clamped to the screen.** Every other label is evidence of its own
-  visibility; this one is drawn where it is not anchored, so the culler caps the lift a constant
-  `SCREEN_EDGE_MARGIN` short of the top edge. The margin is a constant on purpose: it also caps a
-  label the band placed correctly, and a margin proportional to the label's own height then pushes
-  long names further down than short ones — the row stops being a row. A summit already high in the
-  frame has no room left above it, and its name is the one worth keeping, so the lift is **pulled
-  back down** to that cap rather than hidden (its leader line shortens to nothing with it).
+- **A callout has to fit on the screen ABOVE its feature, or it is dropped.** Every other label is
+  evidence of its own visibility; this one is drawn where it is not anchored, so the culler measures
+  the lift against a constant `SCREEN_EDGE_MARGIN` short of the top edge. The margin is a constant
+  on purpose: it also caps a label the band placed correctly, and a margin proportional to the
+  label's own height then pushes long names further down than short ones — the row stops being a
+  row. A summit already so high in the frame that its name does not fit above it **loses the name**;
+  the rows never descend below `text-callout-offset` either.
+  Pulling the lift back down to the cap instead (what this did before) put the label BELOW its own
+  summit: off the band the style asks for, and at a negative lift with no leader line at all — which
+  is what a panorama looked like whenever the ridges sat high in the frame.
 - Rotation (`text-orientation`) stays with the CALLOUT placement instead of downgrading to POINT —
   angled names over a horizon is the whole look.
+- **The grazing-view gate does not apply** (`Label::isSurfaceFacingView`). Every other orientation
+  is laid out against the surface it is anchored on and is dropped once the view meets that surface
+  edge-on (`MIN_BILLBOARD_VIEW_NORMAL_DOTPRODUCT`, 0.1 — no labels at all below ~6° of tilt). A
+  callout faces the camera and is lifted along the camera up axis, so the angle says nothing about
+  whether it can be read, and a panorama — tilt near 0, or negative when the camera looks above the
+  horizon — is that view by definition. Before this, a peak-finder view lost every name as soon as
+  it was levelled at the ridges.
 
 **Which point of the label is anchored.** Two style properties, both naming a point of the label's
 own box — `center`, `left`, `right`, `top`, `bottom`, `top-left`, `top-right`, `bottom-left`,
@@ -351,7 +361,13 @@ rectangle with its own colour, corner radius, padding and border:
   same cell drawn bigger in another colour.
 - Both plates are part of what the label covers, so `calculatePlatedBBox` grows the envelope by
   their padding and border — the culler tests what is actually drawn, and a callout's leader line
-  ends outside the plate rather than inside it.
+  ends outside the plate rather than inside it. The box is in **glyph units**, so the padding is
+  converted with `1 / size` and not with the world-units-per-pixel `scale / size` the drawn plate
+  uses (`appendPlate` adds it after multiplying the box by `scale`). Getting that wrong grows the
+  padding by a further factor of `scale` — tens to hundreds for a callout, which keeps its pixel
+  size by taking `scale` off the projection: labels then reserve far more screen than they cover
+  (a panorama loses half its names to collisions) and the leader line stops short of the plate by
+  that same amount.
 - Each colour is one slot in the label batch, like the halo (`LabelBatchParameters::MAX_PARAMETERS`
   is 16; a style using both plates with borders takes 4 of them plus text, halo, secondary and icon).
 
