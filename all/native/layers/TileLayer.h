@@ -423,7 +423,11 @@ namespace carto {
         // EVERY tile of the shared drape and reports none of them. The owner needs both facts - a
         // stack of nothing but such layers has to be given the terrain's own cover, and every tile
         // of that cover must expect this layer's content or a tile baked without it looks finished.
-        virtual bool paintsEveryDrapeTile() const { return _contourPaintClasses.empty() ? false : true; }
+        // Contour classes are NOT this: they are composited into the surface pass and bake nothing,
+        // so a layer carrying them is still an ordinary tile layer. Claiming otherwise took its
+        // tiles out of the completeness mask and re-baked the whole drape every frame - measured on
+        // a Crosscall, 96 bakes per interval against 21 and 31.4M indices against 15.4M.
+        virtual bool paintsEveryDrapeTile() const { return false; }
         // The terrain cover a paint layer draws itself on when nothing bakes it. Ignored by
         // layers that are not paints.
         virtual void setTerrainPaintTiles(const std::vector<vt::TileId>& tileIds);
@@ -434,11 +438,10 @@ namespace carto {
          * (mvt::resolveContourStyle). An empty list turns it off, which is what a style the
          * shader cannot express falls back to.
          *
-         * The paint always draws as a SURFACE pass, at this layer's place in the order, and is
+         * The bands are composited into the surface pass that draws the ground anyway and are
          * never baked into the drape - a contour is a hairline and a bake resamples it.
          */
         void setTerrainContourPaint(const std::vector<ContourClass>& classes);
-        bool isTerrainContourPaintActive() const;
         const std::vector<ContourClass>& getTerrainContourClasses() const { return _contourPaintClasses; }
         /**
          * Pushes contour classes to THIS layer's renderer without adopting them: the bands are
@@ -446,7 +449,6 @@ namespace carto {
          * style they came from.
          */
         void setContourBandsForSurface(const std::vector<ContourClass>& classes);
-        std::size_t contourPaintFingerprint() const;
 
         bool prepareTerrainDrapeFrame(float deltaSeconds, const ViewState& viewState);
         void setExternalDrapeTarget(bool enabled);

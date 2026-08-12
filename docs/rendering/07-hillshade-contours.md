@@ -206,8 +206,33 @@ Two things the bands got wrong against the traced lines, both fixed with them:
   thresholds are chosen, not ported: tangram has no equivalent, its contours are per raster tile
   and take the tile's zoom.
 
-Still opt-in. What is left before it can be the default: the index lines are lighter than the
-traced ones close up, and the cost has only been measured at one camera.
+**A band-carrying layer is NOT a terrain paint.** `paintsEveryDrapeTile()` returned true whenever a
+layer had contour classes — correct when the bands were baked into the drape, wrong since they moved
+into the surface pass, where they bake nothing. It took the layer's tiles out of the drape
+completeness mask, so the whole drape re-baked every frame: measured against the packaged style,
+**96 bakes per interval against 21, 31.4M geometry indices against 15.4M**, 10.8 fps against ~17.
+It is the first thing to check when the bands are slower than the geometry they replace.
+
+With the app's own packaged style, after that fix, the bands win — Crosscall, 25 s scripted zoom
+(`--es anim zoom`), two interleaved pairs:
+
+| | avg frame | fps |
+|---|---|---|
+| traced geometry | 96.3 / 97.4 ms | 10.38 / 10.26 |
+| shader bands | **93.1 / 94.0 ms** | **10.64 / 10.74** |
+
+**Measure this on a scripted camera, never on a static one.** A rich style at a static camera never
+settles here — frame rate swings 9 to 24 fps second to second for three minutes in BOTH arms, and
+two static runs "showed" a 4 fps regression that a repeatable sweep says is a 3 ms/frame gain. The
+same trap invalidates the per-interval `RenderStats` counters: they are sums per SECOND, so the
+faster arm reports more draws and more indices for the same scene. Divide by the frame count in the
+same interval, or compare nothing.
+
+To check the traced geometry really is gone, mute the bands (`debug.carto.contourmute 1`) and look:
+the contour lines must vanish and their labels must stay.
+
+Still opt-in. What is left: the index lines are lighter than the traced ones close up, and the win
+is small enough that it has only been shown at one camera on one device.
 
 ## Which contours a traced tile carries, and which of them are drawn
 

@@ -1051,25 +1051,6 @@ namespace carto {
         _tileRenderer->setContourClasses(classes);
     }
 
-    bool TileLayer::isTerrainContourPaintActive() const {
-        return !_contourPaintClasses.empty();
-    }
-
-    std::size_t TileLayer::contourPaintFingerprint() const {
-        // A paint has no per-tile fingerprint: its appearance rides the drape stack signature, so
-        // every value the bands are drawn with has to land in here (see drapeStackSignature).
-        std::size_t fingerprint = 0;
-        auto mix = [&fingerprint](std::size_t value) {
-            fingerprint ^= value + 0x9e3779b9 + (fingerprint << 6) + (fingerprint >> 2);
-        };
-        for (const ContourClass& contourClass : _contourPaintClasses) {
-            mix(std::hash<float>()(contourClass.interval));
-            mix(std::hash<float>()(contourClass.halfWidth));
-            mix(static_cast<std::size_t>(contourClass.color.getARGB()));
-        }
-        return fingerprint;
-    }
-
     std::size_t TileLayer::drapeStackSignature() const {
         return static_cast<std::size_t>(reinterpret_cast<std::uintptr_t>(this));
     }
