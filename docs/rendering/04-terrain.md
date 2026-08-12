@@ -216,6 +216,43 @@ bound from throwing the map somewhere else:
 under the touch, `_gestureAnchorHeight`), not sea level: in the mountains the two are hundreds of
 metres, and at a low tilt kilometres of ray, apart.
 
+### OPEN: everything drawn at the wrong scale after a close approach (2026-08-13)
+
+**Symptom, from the device.** In 3D, zoom very close to the terrain, pan, then zoom out: the map
+sticks in a state where everything is blurry and oversized, and stays that way while zooming out.
+Enough movement clears it. Switching to 2D shows what it really is — labels, shields, peak icons and
+line widths are all drawn **enormous**, several times their size for the zoom on screen. The blue
+`VectorLayer` route line goes huge and blurry with them. Reported as "blurry", but it is a SCALE
+fault, not a resolution one.
+
+**Why stale tiles are ruled out.** A stand-in tile blurs the map and leaves text, icons and shields
+at their proper size. Here the text is the most wrong thing on screen.
+
+**The one input that produces all of it.** `ViewState::getNormalizedResolution()`
+(`2 * tileDrawSize * dpi/160`) becomes `_fullResolution` in `GLTileRenderer`, and from it come the
+line width table (`renderTileGeometry`), the glyph SDF scale and antialias ramp, the halo, and the em
+size that picks the raster from the 16/28/40 ladder. Label size itself is `sizeFunc(viewState)` on
+the view zoom. A stale or wrong view zoom / resolution therefore reproduces every part of the
+picture at once — including the blur, since a glyph rastered for a small em and drawn huge IS blurry,
+and so is a line whose width unit is wrong.
+
+**Prime suspect: the camera-clearance clamp above** (the path #77 touched), because that is exactly
+what "zoom very close to the terrain" exercises, and "unblocks after moving enough" is what a state
+that only refreshes on a large camera change looks like.
+
+**Start here, in this order:**
+
+1. Reproduce in the demo WITH the overlay (drop `--es ui false`) and read the `z=` it prints while
+   the screen is wrong. Overlay z sane + content drawn far larger = the camera is fine and the
+   RENDER view state is stale. That single reading splits the search in half and costs one run.
+2. `ViewState` — whether the clamp writes back `_zoom` and `_normalizedResolution` consistently, or
+   leaves one of them holding the pinned-camera value.
+3. `MapRenderer` -> `TileRenderer::setViewState` — whether a frame during the clamp early-returns and
+   leaves `_fullResolution` from the previous state.
+
+**Not this**: the sag tesselation above. Both arms measured identical through a scripted zoom
+sequence (edge energy 17.4/24.7/17.2/25.0 against 18.0/24.8/17.8/24.8), and the report predates it.
+
 ## The surface shader
 
 `TerrainOptions::setSurfaceShaderSource` lets the application paint the terrain surface itself. It
