@@ -96,6 +96,57 @@ The GPU is not the limit: `PROF GPU` with content puts the layers at 29–43 ms 
 So the lever is **fewer draws and fewer layers**, which is [07-hillshade-contours.md](07-hillshade-contours.md)
 and [09-composite-layer.md](09-composite-layer.md), not micro-optimisation.
 
+### A city pans slower than a mountain, and it is fragments
+
+Same build, same camera settings (z16.22, tilt 26), panning north — Grenoble against the
+Saint-Eynard ridge, on a Crosscall:
+
+| | fps | CPU frame | GPU total | GPU layers | draws/frame | indices/frame |
+|---|---|---|---|---|---|---|
+| city | 12.0–13.7 | 34 ms | 33 ms | **21 ms** | 48 | 1.65M |
+| mountain | 18.2–19.6 | 31 ms | 18 ms | **9 ms** | 35–48 | 1.3–1.6M |
+
+The CPU frame is the same and the draw/index counts match in the closest pair, so the 2.4× is
+**per-fragment**: dense city content covers the whole screen where the mountain view is mostly
+terrain surface. Of it, **contours are 45%** — `--es contour false` takes the city from 12.1 to
+17.6 fps (repeated, interleaved), GPU layers 21.3 → 13.6 ms, render tiles 805 → 380 and draws
+602 → 430 per interval, because the `#contour` slot is a second tile set drawn over the first.
+
+## Starting up in terrain mode
+
+Measured on a Crosscall at the demo's default camera (Grenoble, z16.22, terrain + contours, warm
+caches), with temporary probes in `TileLayer::FetchTaskBase::run`, `PersistentCacheTileDataSource::
+loadTile`, `ElevationManager::loadTileGrid` and `VectorTileLayer::FetchTask::loadTile`. The vector
+tiles were never the cost: 66 decodes, 5–6 s of thread time. Elevation was, three times over.
+
+| per startup | before | after |
+|---|---|---|
+| DEM HTTP requests | 79–94, of which **15 could only fail** | **0–1** |
+| DEM grid decodes | 1525 loads of 167 distinct tiles (32 s) | 157 of 157 (3.1 s) |
+| 90% of the content on screen | 6.4–7.6 s | **4.3–4.4 s** |
+
+1. **The elevation grid LRU held 85 tiles and the view needed 167** — a byte budget behaving as a
+   tile budget the DEM raster size decides. Fixed in [04-terrain.md](04-terrain.md#elevation-data).
+2. **The on-disk tile cache defaults to 50 MB and one terrain view's DEM pyramid does not fit.**
+   Two consecutive starts at the *same* camera missed on **different** tiles (their miss sets did
+   not intersect): the cache was evicting exactly what the next start needed, so ~65 tiles were
+   re-downloaded every time at 400–800 ms each. This is an app-side setting —
+   `PersistentCacheTileDataSource::setCapacity`; the demo now asks for 600 MB for the DEM and
+   200 MB per other source (`DemoConfig.DEM_PERSISTENT_CACHE_MB`, `--es demCacheMb`).
+3. **The element elevation warm-up sampled the view envelope**, whose corners are off the DEM in
+   terrain mode: 15 guaranteed 404s per startup. See
+   [12-vector-elements.md](12-vector-elements.md#terrain-interaction).
+
+What is left, in order: **contour tile generation** (44 child fetches, 6–22 s of thread time — the
+`#contour` slot is a whole second tile set, which is what [07-hillshade-contours.md](07-hillshade-contours.md)
+would remove by computing contours in the terrain fragment shader), the network itself, and the
+decode pool (`Options::setTileThreadPoolSize`, default **1**; tangram runs 2). Raising the pool was
+measured as no win *while* the network dominated — retake it now that it does not.
+
+Unrelated but on the same path: the first `loadTile` on a persistent cache runs `loadTileInfo`, a
+full-table scan of the cache DB, on the tile thread — **1.4 s** on the first (cold page cache) run
+of a 52 MB DB.
+
 ## Style load and tile decode (off the render thread, but in front of the user)
 
 Measured on a Crosscall HLTE556N with the demo's bundled style project (`--es style assets`:
