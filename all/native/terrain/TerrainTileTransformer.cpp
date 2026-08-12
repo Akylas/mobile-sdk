@@ -52,6 +52,24 @@ namespace carto {
         return relief;
     }
 
+    // Maximum chord sag a draped line may keep, in METRES - the same currency as the depth
+    // clearance that lifts these lines (uDepthClearance, see 04-terrain.md), so the two agree on
+    // what "close enough to the ground" means. 0 = shipped behaviour (lattice / threshold).
+    //   adb shell setprop debug.carto.linesag 2
+    static float lineSagToleranceMeters() {
+        static const float tolerance = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            if (__system_property_get("debug.carto.linesag", property) > 0) {
+                float value = static_cast<float>(std::atof(property));
+                if (value > 0.0f) {
+                    return value;
+                }
+            }
+            return 0.0f;
+        }();
+        return tolerance;
+    }
+
     static float lineThresholdScale() {
         static const float scale = [] {
             char property[PROP_VALUE_MAX] = { 0 };
@@ -80,6 +98,10 @@ namespace carto {
         return scale;
     }
 #else
+    static float lineSagToleranceMeters() {
+        return 0.0f;
+    }
+
     static float latticeReliefThreshold() {
         return 0.0f;
     }
@@ -93,7 +115,7 @@ namespace carto {
     }
 #endif
 
-    TerrainTileTransformer::TerrainVertexTransformer::TerrainVertexTransformer(const vt::TileId& tileId, double scale, std::shared_ptr<ElevationTileGrid> grid, float exaggeration, float divideThreshold, float lineDivideThreshold, float latticeCell) :
+    TerrainTileTransformer::TerrainVertexTransformer::TerrainVertexTransformer(const vt::TileId& tileId, double scale, std::shared_ptr<ElevationTileGrid> grid, float exaggeration, float divideThreshold, float lineDivideThreshold, float latticeCell, float sagToleranceMeters) :
         _tileId(tileId),
         _scale(scale),
         _grid(std::move(grid)),
@@ -108,6 +130,19 @@ namespace carto {
         _tileScaleInternal = zoomScale * _scale;
         _tileScaleMeters = EARTH_CIRCUMFERENCE * zoomScale;
         _localFromInternal = (1 << tileId.zoom) / _scale;
+
+        if (sagToleranceMeters > 0.0f) {
+            // The tolerance is given in METRES because that is what the depth clearance lifting
+            // these lines is worth (see 04-terrain.md); heights here are tile-local, so convert
+            // once at the tile centre - the latitude factor varies by a fraction of a percent
+            // across one tile.
+            _sagToleranceLocal = calculateHeight(cglib::vec2<float>(0.5f, 0.5f), sagToleranceMeters);
+            // The DEM cannot describe relief finer than its own texel, so cutting below it only
+            // resamples the same interpolated slope.
+            if (_grid && _grid->getWidth() > 1) {
+                _sagMinSegmentMeters = static_cast<float>(_tileScaleMeters / _grid->getWidth());
+            }
+        }
     }
 
     cglib::vec3<float> TerrainTileTransformer::TerrainVertexTransformer::calculatePoint(const cglib::vec2<float>& pos) const {
@@ -145,10 +180,15 @@ namespace carto {
                 // sub-segment then lies IN a triangle of the surface, so it follows the surface
                 // exactly rather than approximately - with fewer vertices than the fraction-of-a-cell
                 // halving needed to keep the chord sag under the (zero) painter-order depth slack.
+                float dist = cglib::length(pos1 - pos0) * static_cast<float>(_tileScaleMeters);
+                if (_sagToleranceLocal > 0.0f) {
+                    // Cut by the sag the terrain actually has, not by the tile's cell count.
+                    tesselateSegmentBySag(pos0, pos1, calculateLocalHeight(pos0), calculateLocalHeight(pos1), dist, 0, tesselatedPoints);
+                    continue;
+                }
                 if (_latticeCell > 0 && tesselateSegmentOnLattice(pos0, pos1, tesselatedPoints)) {
                     continue;
                 }
-                float dist = cglib::length(pos1 - pos0) * static_cast<float>(_tileScaleMeters);
                 tesselateSegment(pos0, pos1, dist, _lineDivideThreshold, tesselatedPoints);
             }
         }
@@ -258,6 +298,21 @@ namespace carto {
         else {
             points.append(pos1);
         }
+    }
+
+    void TerrainTileTransformer::TerrainVertexTransformer::tesselateSegmentBySag(const cglib::vec2<float>& pos0, const cglib::vec2<float>& pos1, double h0, double h1, float dist, int depth, vt::VertexArray<cglib::vec2<float>>& points) const {
+        if (depth < MAX_SAG_SPLIT_DEPTH && dist > _sagMinSegmentMeters) {
+            cglib::vec2<float> posM = (pos0 + pos1) * 0.5f;
+            double hM = calculateLocalHeight(posM);
+            // How far the terrain leaves the straight chord at its midpoint. Recursing on both
+            // halves keeps this a bound on the WHOLE sub-segment, not only on its centre.
+            if (std::abs(hM - (h0 + h1) * 0.5) > _sagToleranceLocal) {
+                tesselateSegmentBySag(pos0, posM, h0, hM, dist * 0.5f, depth + 1, points);
+                tesselateSegmentBySag(posM, pos1, hM, h1, dist * 0.5f, depth + 1, points);
+                return;
+            }
+        }
+        points.append(pos1);
     }
 
     void TerrainTileTransformer::TerrainVertexTransformer::tesselateTriangle(std::size_t i0, std::size_t i1, std::size_t i2, float dist01, float dist02, float dist12, vt::VertexArray<cglib::vec2<float>>& coords, vt::VertexArray<cglib::vec2<float>>& texCoords, vt::VertexArray<std::size_t>& indices) const {
@@ -469,6 +524,6 @@ namespace carto {
             }
         }
 
-        return std::make_shared<TerrainVertexTransformer>(tileId, _scale, std::move(grid), _elevationManager->getExaggeration(), divideThreshold, lineDivideThreshold, latticeCell);
+        return std::make_shared<TerrainVertexTransformer>(tileId, _scale, std::move(grid), _elevationManager->getExaggeration(), divideThreshold, lineDivideThreshold, latticeCell, lineSagToleranceMeters());
     }
 }

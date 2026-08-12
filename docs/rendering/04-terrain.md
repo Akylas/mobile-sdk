@@ -333,8 +333,35 @@ is exactly what a chord over relief needs.
 
 What blocks using it is that `setTerrainLineClearance` is **one global value**, so it has to cover
 the worst tile on screen — which is why the code notes that un-subdivided lines need a lift so large
-it "shines everything through". The sag a chord can have is bounded by the tile's OWN height range,
-so the clearance belongs per tile: centimetres on a valley floor, metres on a cliff. The renderer
-already sets it per draw, and the relief is already read per tile in
-`TerrainTileTransformer::createTileVertexTransformer`. That change buys the full 2x rather than the
-28% the relief gate gets, and it is the tangram model rather than a subdivision rule of our own.
+it "shines everything through".
+
+### Cutting a line by its sag instead of by the tile's cell count
+
+`debug.carto.linesag <metres>` (`tesselateSegmentBySag`, 0 = shipped) splits a segment only where the
+terrain under it actually leaves the chord, recursively, until the residual sag is under the
+tolerance — expressed in METRES so it is the same currency as the depth clearance that lifts these
+lines. It replaces both the lattice split and the fixed threshold.
+
+**The insight is that sag measures curvature, not slope.** A road running along a constant slope
+chords perfectly: its sag is zero and it needs no cut at all. Only a break in slope needs one. The
+lattice, which cuts at every cell edge and diagonal, was therefore paying about 4x the geometry the
+terrain's shape actually asks for.
+
+Crosscall, the app's style, 25 s scripted pan, `linesag 2`:
+
+| | fps | GPU `layers` | indices / interval |
+|---|---|---|---|
+| city, shipped | 6.61 | 51.0 ms | 19.2M |
+| city, sag 2 m | **13.42** | **21.0 ms** | 9.96M |
+| mountain, shipped | 12.76 | 23.6 ms | 17.7M |
+| mountain, sag 2 m | **21.12** | **11.1 ms** | 8.3M |
+
+The mountain gains MORE than the city in relative terms, which is the point: relief does not imply
+curvature. 2 m and 10 m give the same geometry — the tolerance is not what binds at these zooms —
+while 0.01 m against 0.5 m does differ (3.43M against 3.39M indices), so the splitter is live and
+tracks the tolerance.
+
+Checked on screen at 45.244172/5.760595 z13.6 t45 and z11 t60: roads, tracks, trails and contours
+land identically with and without it. The GeoJSON route line is broken at z11 in BOTH arms — that is
+the open route-following issue, not this. Still opt-in: what it has not had is a slow pan across a
+convex break at low zoom, which is the shape that produced cracks before.
