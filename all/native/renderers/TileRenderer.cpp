@@ -196,6 +196,13 @@ namespace carto {
                 bands.push_back(band);
             }
             tileRenderer->setContourBands(bands);
+#ifdef __ANDROID__
+            static const bool muted = [] {
+                char property[PROP_VALUE_MAX] = { 0 };
+                return __system_property_get("debug.carto.contourmute", property) > 0 && std::atoi(property) != 0;
+            }();
+            tileRenderer->setContourBandsMuted(muted);
+#endif
         }
         if (_contourClasses.size() > MAX_CONTOUR_CLASSES) {
             // Finest first, and the fine ones are the ones that merge into a wash when there are
