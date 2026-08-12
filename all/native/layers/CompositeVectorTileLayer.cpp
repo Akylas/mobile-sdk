@@ -12,6 +12,7 @@
 #include "core/MapRange.h"
 #include "core/MapVec.h"
 #include "components/Exceptions.h"
+#include "utils/Const.h"
 #include "utils/Log.h"
 
 #include <algorithm>
@@ -871,12 +872,24 @@ namespace carto {
 
         std::vector<ContourClass> classes;
         if (terrainActive && style.shaderCapable) {
+            // A style width is in unscaled-DPI units and reaches device pixels through three steps
+            // of the traced path, so the bands take the same three or they draw the same style
+            // thinner than the geometry they replace (measured 3.2x on a 288-dpi 1648-high screen).
+            // The steps are, in order: the width table of GLTileRenderer::renderTileGeometry, the
+            // half-unit AA margin lineVsh puts on every line, and lineFsh's uAntialiasScale.
+            float normResolution = viewState.getNormalizedResolution();
+            float tileSize = 256.0f; // what the decoder builds its tiles at, and what vt divides by
+            if (auto settings = decoder->getSymbolizerContextSettings()) {
+                tileSize = settings->getTileSize();
+            }
+            float pixelsPerUnit = (normResolution > 0.0f ? std::max(1.0f, viewState.getHeight() / normResolution) : 1.0f);
             classes.reserve(style.classes.size());
             for (const mvt::ContourLineClass& styleClass : style.classes) {
                 ContourClass contourClass;
                 contourClass.interval = styleClass.divisor;
                 contourClass.color = Color(styleClass.color.value());
-                contourClass.halfWidth = styleClass.width * 0.5f;
+                float units = 0.25f * normResolution * styleClass.width / tileSize;
+                contourClass.halfWidth = (units > 0.0f ? (units - 1.0f) * 0.5f + 1.0f : 0.0f) * pixelsPerUnit;
                 classes.push_back(contourClass);
             }
         } else if (terrainActive && !style.rejectReason.empty() && style.rejectReason != _contourRejectReason) {

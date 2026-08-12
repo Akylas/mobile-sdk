@@ -155,30 +155,59 @@ per-class work — 2.2 ms per class per frame originally, **1.6 ms** after the t
 several times a multiply, coverage in `mediump` with the branch as a `mix`). It is still **linear in
 the number of classes**, so a style with more of them pays more.
 
-**The way to make it independent of the count is a level LUT, and it is the next step.** Every
-divisor in play is a multiple of the finest one, so the lines of *every* class sit at multiples of
-that base interval:
+**The level LUT removes the count from the cost** (`CONTOUR_LUT`, `GLTileRenderer::
+buildContourLut`). Every divisor in play is a multiple of the finest one, so the lines of *every*
+class sit at multiples of that base interval, and one index — the nearest base level — names the
+class the fragment belongs to:
 
 ```
-levelF = e * u_contourInvBase;          // e = vTerrainMeters
-level  = floor(levelF + 0.5);           // nearest base level
-distPx = abs(e - level * u_contourBase) * pxPerMetre;
-idx    = mod(level, u_contourLutSize);  // which class owns that level
-vec4 c = texture2D(u_contourLut, vec2((idx + 0.5) / u_contourLutSize, 0.25));   // rgb + alpha
-float halfWidth = texture2D(u_contourLut, vec2((idx + 0.5) / u_contourLutSize, 0.75)).r;
+level    = floor(e * u_contourLutParams.x + 0.5);              // e = vTerrainMeters, x = 1/base
+distPx   = abs(e - level * u_contourLutParams.y) * pxPerMetre; // y = base
+u        = fract(level * u_contourLutParams.z) + 0.5 * u_contourLutParams.z;  // z = 1/size
+vec4 cls = texture2D(u_contourLut, vec2(u, 0.25));  // rgb + opacity
+vec4 row = texture2D(u_contourLut, vec2(u, 0.75));  // r = half-width, g = interval
 ```
 
-Two fetches and no loop, so **two classes and ten cost the same** — tangram's cost without
-tangram's two-band limit. The LUT is `lcm(intervals) / base` texels wide (20 for
-`50·100·250·500·1000`, 100 when a 10 m class is in play), `NEAREST` filtered, two rows, rebuilt only
-when the resolved classes change — a zoom band or a nuti parameter, so rarely. Which class owns a
-level is decided on the CPU while building it (the coarsest divisor that divides the level wins),
-which is also where the "coarsest match wins" rule stops costing anything per fragment. Keep the
-unrolled path as the fallback for a style whose `lcm/base` exceeds the texture width cap.
+`fract(level / size)` is the level index modulo the table width, so the width never has to be a
+uniform. The table is `lcm(intervals) / base` texels wide (20 for the demo's
+`50·100·200·250·500·1000` at z13.6, 100 when a 10 m class is in play, cap 256), `NEAREST`, two
+rows, and is rebuilt only when the resolved classes actually change — the layer re-applies them
+every frame, so `setContourBands` compares before rebuilding or it re-uploads the texture 60 times
+a second. Which class owns a level is decided on the CPU while building it (the coarsest divisor
+that divides the level wins), which is where the "coarsest match wins" rule stops costing anything
+per fragment. The unrolled loop stays as the fallback for a style whose intervals are not multiples
+of the finest one (`20·50` alone has no common base under the cap).
 
-Still opt-in: the gain is real but modest, and the lines are not pixel-identical to the traced
-ones. Worth re-measuring at a mountain camera, where the contour geometry is much denser than in a
-valley, before making it the default.
+Measured on the Crosscall, mountain camera 45.244172/5.760595 z13.6 t35, six classes, two
+interleaved pairs — the same binary with `buildContourLut` forced to bail is the other arm:
+
+| | GPU surface pass | fps |
+|---|---|---|
+| unrolled loop, 6 classes | 18.9 / 18.6 ms | 18.4 / 18.5 |
+| level LUT | **13.3 / 10.1 ms** | **20.0 / 20.0** |
+
+The two LUT arms differ by 3 ms of device drift and the loop arms by 0.3, so read the direction and
+the size, not the third digit: the six-class cost collapses to roughly what one class used to cost,
+and a style with twelve classes would now measure the same.
+
+Two things the bands got wrong against the traced lines, both fixed with them:
+
+- **A style width is in unscaled-DPI units and reaches device pixels through three steps**, so
+  taking it as pixels drew the same style 3.2× too thin on a 288-dpi 1648-high screen. The steps,
+  in order, are the width table of `renderTileGeometry` (`0.25 · normalizedResolution · width /
+  tileSize`), the half-unit AA margin `lineVsh` puts on every line (`(units - 1) · 0.5 + 1`), and
+  `lineFsh`'s `uAntialiasScale` (`screenHeight / normalizedResolution`). `applyContourPaint` walks
+  the same three. The band's coverage ramp is `clamp(halfWidth - distPx, 0, 1)` for the same
+  reason — that is `lineFsh`'s ramp, one device pixel wide.
+- **One class set covers the whole screen**, where the traced path gets its distance LOD for free
+  from the divisor ladder picking a coarser set a zoom down. Without that, the far half of a tilted
+  view is a solid wash of merged lines. Each class now fades out where its own spacing drops below
+  a few pixels (`smoothstep(2, 5, spacingPx)`, the interval carried in the LUT's second row) — the
+  thresholds are chosen, not ported: tangram has no equivalent, its contours are per raster tile
+  and take the tile's zoom.
+
+Still opt-in. What is left before it can be the default: the index lines are lighter than the
+traced ones close up, and the cost has only been measured at one camera.
 
 ## Which contours a traced tile carries, and which of them are drawn
 
