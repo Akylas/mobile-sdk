@@ -19,6 +19,17 @@
 namespace carto {
 
     static const std::size_t DEFAULT_CACHE_CAPACITY = 64 * 1024 * 1024;
+    // Grids the cache must hold whatever the source resolution is. A fixed byte budget is really a
+    // tile budget the DEM raster size decides: a 512x512 RGB source is 768 KB per grid, so 64 MB
+    // is 85 grids - while one terrain view asked for 122-167 distinct grids (the cover pyramid,
+    // TileLayer::TERRAIN_COVER_TILE_BUDGET tiles collapsing onto ~160 DEM tiles once clamped, plus
+    // the contour source's finer tiles and the border prefetch). Every grid past the limit evicted
+    // one still in use and was decoded again on the next pass. Measured on a Crosscall at the demo
+    // camera, per startup: 85 grids = 1525 loads of 167 tiles and 32 s of WEBP decode, 128 grids =
+    // 189 loads of 157, 192 grids = 157 loads of 157 and 3.1 s of decode.
+    // An app that cannot spend the memory (144 MB here, 36 MB for a 256x256 source) sets its own
+    // number with TerrainOptions::setElevationCacheCapacity, which then wins over this rule.
+    static const std::size_t MIN_CACHED_GRIDS = 192;
     static const int FAILED_TILE_TTL_MILLISECONDS = 30 * 1000;
     static const int MAX_ANCESTOR_SEARCH_DEPTH = 8;
     static const std::size_t MAX_PREFETCH_QUEUE_SIZE = 64;
@@ -141,6 +152,7 @@ namespace carto {
 
     void ElevationManager::setCacheCapacity(std::size_t capacityInBytes) {
         std::lock_guard<std::mutex> lock(_mutex);
+        _gridCacheCapacityFixed = true;
         _gridCache.resize(capacityInBytes);
     }
 
@@ -316,6 +328,16 @@ namespace carto {
         {
             std::lock_guard<std::mutex> lock(_mutex);
             if (grid) {
+                // Grow the budget to the source's own grid size before inserting, so the cache is
+                // a tile count rather than a byte count the raster resolution decides (see
+                // MIN_CACHED_GRIDS). Only ever grows, and a caller that set its own capacity keeps it.
+                std::size_t minCapacity = grid->getDataSize() * MIN_CACHED_GRIDS;
+                if (!_gridCacheCapacityFixed && _gridCache.capacity() < minCapacity) {
+                    Log::Infof("ElevationManager: elevation grid cache %d -> %d MB (%d grids of %d KB)",
+                               static_cast<int>(_gridCache.capacity() >> 20), static_cast<int>(minCapacity >> 20),
+                               static_cast<int>(MIN_CACHED_GRIDS), static_cast<int>(grid->getDataSize() >> 10));
+                    _gridCache.resize(minCapacity);
+                }
                 _gridCache.put(grid->getTile().getTileId(), grid, grid->getDataSize());
                 if (grid->getTile() != tile) {
                     // Loaded an ancestor (replace-with-parent); also mark the requested tile as resolved via ancestor
