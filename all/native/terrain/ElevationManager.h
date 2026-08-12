@@ -258,6 +258,7 @@ namespace carto {
         mutable unsigned int _changeLogFirstVersion = 1; // earliest version still covered by the log
 
         mutable cache::timed_lru_cache<long long, std::shared_ptr<ElevationTileGrid> > _gridCache;
+        bool _gridCacheCapacityFixed = false; // set through setCacheCapacity: the app's number wins over the grid-count rule
         mutable std::map<long long, std::shared_future<std::shared_ptr<ElevationTileGrid> > > _pendingLoads; // single-flight de-duplication of concurrent loads
         mutable std::mutex _mutex;
 

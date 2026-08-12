@@ -683,20 +683,30 @@ namespace carto {
             return false;
         }
 
-        // Warm up the elevation grid cache over the visible area (this runs on a background
+        // Warm up the elevation grid cache where the elements ARE (this runs on a background
         // thread and may block on IO): element draw data is then built with complete heights
         // in one pass, avoiding transient half-draped geometry (e.g. near-vertical line
         // segments between vertices with and without loaded elevation data).
+        // Sampling the visible ENVELOPE instead is what this used to do, and in terrain mode the
+        // envelope reaches the view distance: its corners are hundreds of km away, off the DEM
+        // coverage, so every fetch task blocked on ~15 elevation tile requests that could only
+        // fail (measured on a Crosscall: 15 failing HTTP round trips per startup, re-issued
+        // whenever the failure markers expired).
         if (auto options = layer->getOptions()) {
             if (auto terrainOptions = options->getTerrainOptions()) {
                 if (terrainOptions->isEnabled() && !isCanceled()) {
                     const std::shared_ptr<ElevationManager>& elevationManager = terrainOptions->getElevationManager();
-                    const MapBounds& bounds = cullState->getEnvelope().getBounds();
-                    for (int yi = 0; yi <= 3; yi++) {
-                        for (int xi = 0; xi <= 3; xi++) {
-                            double x = bounds.getMin().getX() + (bounds.getMax().getX() - bounds.getMin().getX()) * xi / 3.0;
-                            double y = bounds.getMin().getY() + (bounds.getMax().getY() - bounds.getMin().getY()) * yi / 3.0;
-                            elevationManager->getElevationMeters(x, y, ElevationManager::LoadMode::ALLOW_LOAD);
+                    std::shared_ptr<Projection> projection = layer->_dataSource->getProjection();
+                    for (const std::shared_ptr<VectorElement>& element : vectorData->getElements()) {
+                        if (isCanceled()) {
+                            break;
+                        }
+                        MapBounds bounds = element->getBounds();
+                        for (int i = 0; i < 4; i++) {
+                            MapPos pos((i & 1) ? bounds.getMax().getX() : bounds.getMin().getX(),
+                                       (i & 2) ? bounds.getMax().getY() : bounds.getMin().getY());
+                            MapPos internalPos = projection->toInternal(pos);
+                            elevationManager->getElevationMeters(internalPos.getX(), internalPos.getY(), ElevationManager::LoadMode::ALLOW_LOAD);
                         }
                     }
                 }
