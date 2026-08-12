@@ -78,7 +78,8 @@ per elevation divisor, the coarsest match winning, which is what a `#contour [di
 
 ### NEVER bake a line into the drape — a contour or a road
 
-The block is compiled **only into the paint's SURFACE pass** (`PAINT_SURFACE`), never into the drape
+The block is compiled into passes that draw **screen fragments** — the paint's surface pass
+(`PAINT_SURFACE`) and the ground/drape surface draw (`CONTOUR_BANDS`) — and never into the drape
 bake, and that is deliberate. The drape is one texture per tile at a fixed resolution, mapped onto
 the surface afterwards, so anything baked into it is resampled: magnified into a soft band where the
 tile is close and large on screen, minified into aliasing (or mipmap mush) at a grazing angle. A fill
@@ -86,8 +87,8 @@ survives that; a hairline does not. It is the same reason `TerrainOptions.DrapeL
 by default — fills are draped, lines are not. If a contour or a road ever looks stretched or blurry
 on a slope, this is the first thing to check.
 
-The consequence is that a contour paint has to draw as a surface even when the fills are draped, at
-its own place in the layer order — not be folded into the bake with them.
+The consequence is that contours have to be drawn by a surface pass even when the fills are draped —
+not folded into the bake with them.
 
 **Measurement warning.** The old "contours measured free: 7.25 fps without against 7.57 with" line
 was taken with the drape ON, where this block is not compiled at all: it compared two frames that
@@ -130,21 +131,26 @@ Four things this got wrong first, all worth remembering:
   a frame by this decision, that threw away every contour tile *and* every elevation grid
   (`ElevationManager` listens on the same source) every frame.
 
-**It is opt-in (`adb shell setprop debug.carto.shadercontours 1`) because it is currently SLOWER
-than the geometry it replaces.** Crosscall, city camera, interleaved pairs:
+**Where the bands are drawn decides whether this pays at all.** Crosscall, city camera, interleaved
+pairs, `adb shell setprop debug.carto.shadercontours 1`:
 
-| | fps | GPU layers | geom draws | geom indices | surface draws |
-|---|---|---|---|---|---|
-| traced geometry | 12.0 / 11.8 | 21 ms | 612 | 22.0M | 265 |
-| painted per fragment | 9.2 / 9.1 | **56 ms** | 272 | 10.1M | **582** |
+| | fps | GPU total | GPU layers | GPU drape | geom draws | geom indices |
+|---|---|---|---|---|---|---|
+| traced geometry | 12.2 / 12.1 | 33 ms | 21 ms | 4 ms | 636 | 22.6M |
+| bands in a paint PASS of their own | 9.2 / 9.1 | 68 ms | 56 ms | 5 ms | 272 | 10.1M |
+| bands in the GROUND draw | **13.1 / 13.3** | 39 ms | 15 ms | 19 ms | 384 | 14.7M |
 
-Half the geometry, and a third slower. The paint is an **extra full-cover surface pass**, and its
-fragment shader reconstructs the DEM (a nine-tap stencil) and runs the hillshade lighting before it
-gets to the bands. Tangram pays none of that because their contours are a block inside the earth
-draw that runs anyway (`res/scenes/hillshade.yaml`), not a pass on top. **The fix is to fold the
-bands into the terrain ground draw** — one pass, no extra fragments — and only then make it the
-default. Until that lands the traced path stays, and the machinery above is exercised with the
-property.
+A pass of its own is a third SLOWER than the geometry it replaces, with half the geometry: it is an
+extra full-cover surface pass whose fragment shader reconstructs the DEM (a nine-tap stencil) and
+runs the hillshade lighting before it gets to the bands. Composited into the ground/drape surface
+pass that already runs — tangram's arrangement — the same bands are **+8%** instead, because the
+band costs `fract()` and `fwidth()` on a height the vertex stage already computed and no texture
+fetch at all. Note where the cost moved: the layer pass drops 21 → 15 ms with the contour geometry
+gone, the surface pass rises 4 → 19 ms, and the frame still wins.
+
+Still opt-in: the gain is real but modest, and the lines are not pixel-identical to the traced
+ones. Worth re-measuring at a mountain camera, where the contour geometry is much denser than in a
+valley, before making it the default.
 
 ## Which contours a traced tile carries, and which of them are drawn
 
