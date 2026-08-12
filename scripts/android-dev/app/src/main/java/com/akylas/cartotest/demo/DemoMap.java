@@ -1125,7 +1125,9 @@ public class DemoMap {
         if (cachedVector == null) {
             HTTPTileDataSource source = new HTTPTileDataSource(DemoConfig.VECTOR_MIN_ZOOM, DemoConfig.VECTOR_MAX_ZOOM, DemoConfig.VECTOR_URL);
             source.setHTTPHeaders(userAgentHeaders());
-            cachedVector = new PersistentCacheTileDataSource(source, cacheDbPath(DemoConfig.VECTOR_CACHE_DB));
+            PersistentCacheTileDataSource cache = new PersistentCacheTileDataSource(source, cacheDbPath(DemoConfig.VECTOR_CACHE_DB));
+            cache.setCapacity(DemoConfig.PERSISTENT_CACHE_MB * 1024L * 1024L);
+            cachedVector = cache;
         }
         return cachedVector;
     }
@@ -1138,7 +1140,9 @@ public class DemoMap {
         if (cachedDem == null) {
             HTTPTileDataSource source = new HTTPTileDataSource(DemoConfig.DEM_MIN_ZOOM, DemoConfig.DEM_MAX_ZOOM, DemoConfig.DEM_URL);
             source.setEncoding(DemoConfig.DEM_ENCODING);
-            cachedDem = new PersistentCacheTileDataSource(source, cacheDbPath(DemoConfig.DEM_CACHE_DB));
+            PersistentCacheTileDataSource cache = new PersistentCacheTileDataSource(source, cacheDbPath(DemoConfig.DEM_CACHE_DB));
+            cache.setCapacity(DemoConfig.DEM_PERSISTENT_CACHE_MB * 1024L * 1024L);
+            cachedDem = cache;
         }
         return cachedDem;
     }
@@ -1147,7 +1151,9 @@ public class DemoMap {
         if (cachedRaster == null) {
             HTTPTileDataSource source = new HTTPTileDataSource(DemoConfig.RASTER_MIN_ZOOM, DemoConfig.RASTER_MAX_ZOOM, DemoConfig.RASTER_URL);
             source.setHTTPHeaders(userAgentHeaders());
-            cachedRaster = new PersistentCacheTileDataSource(source, cacheDbPath(DemoConfig.RASTER_CACHE_DB));
+            PersistentCacheTileDataSource cache = new PersistentCacheTileDataSource(source, cacheDbPath(DemoConfig.RASTER_CACHE_DB));
+            cache.setCapacity(DemoConfig.PERSISTENT_CACHE_MB * 1024L * 1024L);
+            cachedRaster = cache;
         }
         return cachedRaster;
     }
@@ -1157,7 +1163,9 @@ public class DemoMap {
         if (cachedContourTiles == null) {
             HTTPTileDataSource source = new HTTPTileDataSource(DemoConfig.CONTOUR_TILES_MIN_ZOOM, DemoConfig.CONTOUR_TILES_MAX_ZOOM, DemoConfig.CONTOUR_TILES_URL);
             source.setHTTPHeaders(userAgentHeaders());
-            cachedContourTiles = new PersistentCacheTileDataSource(source, cacheDbPath(DemoConfig.CONTOUR_TILES_CACHE_DB));
+            PersistentCacheTileDataSource cache = new PersistentCacheTileDataSource(source, cacheDbPath(DemoConfig.CONTOUR_TILES_CACHE_DB));
+            cache.setCapacity(DemoConfig.PERSISTENT_CACHE_MB * 1024L * 1024L);
+            cachedContourTiles = cache;
         }
         return cachedContourTiles;
     }

@@ -116,6 +116,16 @@ public final class DemoConfig {
     // TILE SOURCES
     // =============================================================================================
 
+    /** On-disk cache per tile source, MB (PersistentCacheTileDataSource.setCapacity).
+     *  '--es cacheMb 100'. */
+    public static int PERSISTENT_CACHE_MB = 200;
+    /** Same for the DEM, which needs far more of it: one terrain view asks for a whole pyramid of
+     *  elevation tiles, and at the SDK default of 50 MB it does not fit. Measured on the Crosscall
+     *  at the default camera, terrain on: 64-70 DEM tiles re-downloaded on EVERY start (25-50 s of
+     *  network), and two consecutive starts missed on DIFFERENT tiles - the cache was evicting
+     *  exactly what the next start needed. '--es demCacheMb 200'. */
+    public static int DEM_PERSISTENT_CACHE_MB = 600;
+
     /** Master vector tile source of the base map. */
     public static String VECTOR_URL = "https://tiles.akylas.fr/data/france/{z}/{x}/{y}.pbf";
     public static int VECTOR_MIN_ZOOM = 0;
@@ -842,6 +852,8 @@ public final class DemoConfig {
         STYLE_DIR_NAME = DemoCfg.cfgStr("styleDir", STYLE_DIR_NAME);
         STYLE_ZIP_NAME = DemoCfg.cfgStr("styleZip", STYLE_ZIP_NAME);
         STYLE_ASSETS_PATH = DemoCfg.cfgStr("styleAssets", STYLE_ASSETS_PATH);
+        PERSISTENT_CACHE_MB = DemoCfg.cfgInt("cacheMb", PERSISTENT_CACHE_MB);
+        DEM_PERSISTENT_CACHE_MB = DemoCfg.cfgInt("demCacheMb", DEM_PERSISTENT_CACHE_MB);
 
         // camera
         START_LON = DemoCfg.cfgFloat("lon", (float) START_LON);
