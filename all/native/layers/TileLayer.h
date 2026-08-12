@@ -439,6 +439,13 @@ namespace carto {
          */
         void setTerrainContourPaint(const std::vector<ContourClass>& classes);
         bool isTerrainContourPaintActive() const;
+        const std::vector<ContourClass>& getTerrainContourClasses() const { return _contourPaintClasses; }
+        /**
+         * Pushes contour classes to THIS layer's renderer without adopting them: the bands are
+         * composited by whichever layer draws the terrain surface, which is not the layer whose
+         * style they came from.
+         */
+        void setContourBandsForSurface(const std::vector<ContourClass>& classes);
         std::size_t contourPaintFingerprint() const;
 
         bool prepareTerrainDrapeFrame(float deltaSeconds, const ViewState& viewState);

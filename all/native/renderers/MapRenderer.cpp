@@ -2277,6 +2277,16 @@ namespace carto {
                                 break;
                             }
                         }
+                        {
+                            std::vector<ContourClass> contourBands;
+                            for (const std::shared_ptr<TileLayer>& tileLayer : groundLayers) {
+                                if (!tileLayer->getTerrainContourClasses().empty()) {
+                                    contourBands = tileLayer->getTerrainContourClasses();
+                                    break;
+                                }
+                            }
+                            groundDrawer->setContourBandsForSurface(contourBands);
+                        }
                         int groundDraws = groundDrawer->renderTerrainGround(groundColor);
                         FRAME_PROF_ADD(drapeMs, profGroundStart);
                         FRAME_PROF_GPU_END();
@@ -2896,6 +2906,18 @@ namespace carto {
                     glDepthFunc(GL_LEQUAL);
                     glDepthMask(GL_TRUE);
                     glDisable(GL_CULL_FACE); // displaced surfaces can face away near ridge crests
+                    // The contour bands belong to the layer whose STYLE they came from, but they
+                    // are composited by the layer that draws the surface - hand them over.
+                    {
+                        std::vector<ContourClass> contourBands;
+                        for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
+                            if (!tileLayer->getTerrainContourClasses().empty()) {
+                                contourBands = tileLayer->getTerrainContourClasses();
+                                break;
+                            }
+                        }
+                        drapeLayers.front()->setContourBandsForSurface(contourBands);
+                    }
                     for (auto it = drapedTiles.begin(); it != drapedTiles.end(); it++) {
                         // Every drape tile gets a surface, always. The surface is the terrain's
                         // only depth writer, so a tile skipped because its bake has not landed

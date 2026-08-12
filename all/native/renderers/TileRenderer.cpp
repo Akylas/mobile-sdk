@@ -184,6 +184,19 @@ namespace carto {
     void TileRenderer::setContourClasses(const std::vector<ContourClass>& classes) {
         std::lock_guard<std::mutex> lock(_mutex);
         _contourClasses = classes;
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            std::vector<vt::GLTileRenderer::ContourBand> bands;
+            bands.reserve(classes.size());
+            for (const ContourClass& contourClass : classes) {
+                vt::GLTileRenderer::ContourBand band;
+                band.interval = contourClass.interval;
+                band.color = vt::Color(contourClass.color.getR() / 255.0f, contourClass.color.getG() / 255.0f,
+                                       contourClass.color.getB() / 255.0f, contourClass.color.getA() / 255.0f);
+                band.halfWidth = contourClass.halfWidth;
+                bands.push_back(band);
+            }
+            tileRenderer->setContourBands(bands);
+        }
         if (_contourClasses.size() > MAX_CONTOUR_CLASSES) {
             // Finest first, and the fine ones are the ones that merge into a wash when there are
             // too many of them - so an over-long list loses its finest classes, not its index lines.

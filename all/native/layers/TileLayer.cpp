@@ -1038,15 +1038,17 @@ namespace carto {
         // value pushed before it existed would be lost, with the paint silently never drawing.
         bool changed = (classes != _contourPaintClasses);
         _contourPaintClasses = classes;
+        // The bands are composited into the ground/drape surface pass that already runs, which is
+        // where tangram computes them too - an extra pass of their own measured a third SLOWER
+        // than the traced geometry they replace (docs/rendering/07-hillshade-contours.md).
         _tileRenderer->setContourClasses(_contourPaintClasses);
-        // The paint carries nothing but the contours: opacity 0 makes the shading it would
-        // otherwise compute transparent, and the bands composite over it. alwaysSurface keeps it
-        // a screen-resolution pass whatever the fills do with the drape.
-        _tileRenderer->setTerrainPaint(!_contourPaintClasses.empty(), false, 1.0f, false, false, 0.0f, 0.0f,
-                                       contourPaintFingerprint(), true);
         if (changed) {
             redraw();
         }
+    }
+
+    void TileLayer::setContourBandsForSurface(const std::vector<ContourClass>& classes) {
+        _tileRenderer->setContourClasses(classes);
     }
 
     bool TileLayer::isTerrainContourPaintActive() const {
