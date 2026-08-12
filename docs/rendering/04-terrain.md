@@ -287,3 +287,54 @@ falls linearly with the sub-segment length.
 
 Not fixed here: without the regular grid the sag is only *reduced*, never zero. Turning on
 regular-grid mode is what removes it, and that is a larger change ([05-depth-model.md](05-depth-model.md)).
+
+### What that subdivision costs over a city
+
+**Line subdivision is the single reason panning over a city is slow.** Crosscall, the app's own
+style, a 25 s scripted pan at 45.188/5.724 z15 t45, interleaved:
+
+| | fps | GPU `layers` | geometry indices / frame |
+|---|---|---|---|
+| shipped | 6.6 | 51.3 ms | 2.90M |
+| 3D buildings off | 6.6 | 50.7 ms | — |
+| **area** subdivision off entirely | 6.7 | 50.6 ms | 2.83M |
+| **lines** at source density | **13.5** | **20.9 ms** | 0.74M |
+| terrain off altogether | 21.7 | 11.8 ms | 0.72M |
+
+Fills are innocent: turning area subdivision off changes nothing, because fills are draped and baked
+once. Lines are never draped — they are drawn as terrain geometry every frame — and a city is mostly
+lines. In regular-grid mode the **lattice split** does the cutting, at every cell edge and diagonal:
+about 64 cuts per tile crossing at z15 with `meshResolution` 64, per road.
+
+Two things this reveals:
+
+- **The split runs whatever the relief.** The only flatness gate is `FLAT_HEIGHT_RANGE_EPSILON`
+  (0.001 m), so a valley tile is cut exactly like a cliff to protect against a fold it cannot have.
+  `debug.carto.latticerelief <metres>` skips the split under a given relief: the city goes 6.61 →
+  7.57 fps (`layers` 51.3 → 36.9 ms) at 200 m, and adding `debug.carto.linethreshold 8` on those
+  tiles reaches **8.43 fps / 32.5 ms**. The mountain camera does not move (11.4–12.0 fps) — the gate
+  never fires there, which is the point.
+- **`debug.carto.linethreshold` alone does nothing** in regular-grid mode: the lattice split is tried
+  first and returns, so the threshold is only a fallback for segments spanning very many cells. Any
+  measurement of line cost has to go through the lattice, not the threshold.
+
+The remaining gap to source density (8.4 against 13.5) is the tiles that legitimately have relief —
+the mountains standing in the far half of a tilted city view. They are cut as finely as if they were
+under the camera, because subdivision cost is per tile and **independent of the tile's size on
+screen**.
+
+### Where this should go: pay in depth, not in vertices
+
+Tangram does not subdivide at all. `res/scenes/terrain-3d.yaml` displaces every vertex in the vertex
+shader and pays for the chord with depth instead — `depth_shift = -0.02*u_proj[2][3]`, larger near
+the camera where the chord error is. We already ported that shift, and we already have the better
+tool for a line: `uDepthClearance`, a clearance worth the same number of METRES at any range, which
+is exactly what a chord over relief needs.
+
+What blocks using it is that `setTerrainLineClearance` is **one global value**, so it has to cover
+the worst tile on screen — which is why the code notes that un-subdivided lines need a lift so large
+it "shines everything through". The sag a chord can have is bounded by the tile's OWN height range,
+so the clearance belongs per tile: centimetres on a valley floor, metres on a cliff. The renderer
+already sets it per draw, and the relief is already read per tile in
+`TerrainTileTransformer::createTileVertexTransformer`. That change buys the full 2x rather than the
+28% the relief gate gets, and it is the tangram model rather than a subdivision rule of our own.

@@ -29,6 +29,43 @@ namespace carto {
     //   adb shell setprop debug.carto.areathreshold 4
     static constexpr float AREA_THRESHOLD_CELLS = 2.0f;
 #ifdef __ANDROID__
+    // The same measurement switch for LINES. Lines are the expensive half over a city - the fills
+    // are draped and baked once, the lines are drawn as terrain geometry every frame - and their
+    // threshold is a fraction of the mesh cell whatever relief the tile actually has.
+    //   adb shell setprop debug.carto.linethreshold 4
+    // Relief (metres of height range in the tile) under which the LATTICE split is skipped. The
+    // split exists to stop a segment chording across a surface cell's anti-diagonal fold; the fold
+    // is a fraction of the tile's relief, so on a valley floor it protects against nothing and
+    // still cuts every line at every cell edge and diagonal. 0 = shipped behaviour (always split).
+    //   adb shell setprop debug.carto.latticerelief 50
+    static float latticeReliefThreshold() {
+        static const float relief = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            if (__system_property_get("debug.carto.latticerelief", property) > 0) {
+                float value = static_cast<float>(std::atof(property));
+                if (value >= 0.0f) {
+                    return value;
+                }
+            }
+            return 0.0f;
+        }();
+        return relief;
+    }
+
+    static float lineThresholdScale() {
+        static const float scale = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            if (__system_property_get("debug.carto.linethreshold", property) > 0) {
+                float value = static_cast<float>(std::atof(property));
+                if (value > 0.0f) {
+                    return value;
+                }
+            }
+            return 1.0f;
+        }();
+        return scale;
+    }
+
     static float areaThresholdScale() {
         static const float scale = [] {
             char property[PROP_VALUE_MAX] = { 0 };
@@ -43,6 +80,14 @@ namespace carto {
         return scale;
     }
 #else
+    static float latticeReliefThreshold() {
+        return 0.0f;
+    }
+
+    static float lineThresholdScale() {
+        return 1.0f;
+    }
+
     static float areaThresholdScale() {
         return AREA_THRESHOLD_CELLS;
     }
@@ -401,8 +446,11 @@ namespace carto {
                 // boundaries, which removes the chord sag entirely - so the threshold only has to
                 // bound the segment length at one cell (it is what the lattice split falls back
                 // to for segments spanning very many cells).
-                lineDivideThreshold = _sourceDensityLines ? std::numeric_limits<float>::infinity() : static_cast<float>(threshold);
-                latticeCell = _sourceDensityLines ? 0.0f : static_cast<float>(1.0 / _meshResolution);
+                lineDivideThreshold = _sourceDensityLines ? std::numeric_limits<float>::infinity() : static_cast<float>(threshold * lineThresholdScale());
+                // A tile whose relief cannot fold a cell enough to matter does not need the split
+                // (see latticeReliefThreshold): it then falls back to the plain threshold below.
+                bool latticeWorthIt = (grid->getMaxHeight() - grid->getMinHeight()) >= latticeReliefThreshold();
+                latticeCell = (_sourceDensityLines || !latticeWorthIt) ? 0.0f : static_cast<float>(1.0 / _meshResolution);
             } else {
                 // No point in subdividing FILLS finer than the elevation grid resolution
                 double gridInternalWidth = grid->getInternalBounds().getMax().getX() - grid->getInternalBounds().getMin().getX();
@@ -417,7 +465,7 @@ namespace carto {
                 // DETAIL exists; the sag is against the surface MESH, so it is the wrong bound.
                 // Lines are 1D, so cutting them finer costs a fraction of what the same factor
                 // would cost on a fill.
-                lineDivideThreshold = static_cast<float>(threshold / LINE_SUBDIVISION_FACTOR);
+                lineDivideThreshold = static_cast<float>(threshold / LINE_SUBDIVISION_FACTOR * lineThresholdScale());
             }
         }
 
