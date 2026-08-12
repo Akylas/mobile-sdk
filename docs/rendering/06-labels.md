@@ -440,6 +440,17 @@ zoom filter.
   laid along a line the whole way — still track their line at the ridge camera.
   What remains is genuine volume: a changed DEM tile at z12 intersects every label tile beneath it,
   so "targeted" still means most of the screen.
+- **Halo width is measured in antialias ramps, not in glyph texels.** `labelFsh` shifts the
+  coverage ramp outward by the halo, and the ramp is one screen pixel of signed distance, so a halo
+  reaching the renderer in screen pixels (`HALO_PIXELS_PER_UNIT`) is as wide as the style asks
+  whatever raster the label landed on. It used to be converted with the glyph's RENDER size
+  instead — harmless while every glyph was rastered at 27 texels, wrong the moment the raster ladder
+  (16/28/40, see [10-performance.md](10-performance.md)) made that size depend on the label. The
+  factor is `renderSize / (renderSize - spread)`: **3.0** on the smallest raster against **1.2** on
+  the largest, so one `text-halo-radius` drew a halo two and a half times wider on a small label
+  than on a large one, and up to **five times** what the single-raster build drew — a soft white
+  glow instead of an outline, reported as "halo huge at radius 2, fine at 1". If halos ever look
+  wrong again, check that term before the style.
 - **Vertex data.** Glyph quads are rebuilt from scratch for every visible label every frame and
   uploaded as one batch (`labelVertexBuildNs`, `labelBatchNs`). A GPU-billboard path would remove
   the per-frame world transform (`labelTransformNs`) — it is on the backlog, not implemented.
