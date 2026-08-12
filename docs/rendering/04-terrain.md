@@ -12,6 +12,16 @@ with a `LoadMode` (`CACHED_ONLY` never blocks). Every consumer — the mesh, lab
 placement, billboard occlusion — must go through it, or two parts of the frame disagree about where
 the ground is.
 
+**The grid cache is a tile count, not a byte budget.** A grid is the source raster (768 KB for a
+512×512 RGB DEM, 192 KB for a 256×256 one), so a fixed 64 MB meant 85 grids for one source and 340
+for another. One terrain view needs 122–167 of them — the cover pyramid, the contour source's finer
+tiles, the border prefetch — and every grid past the limit evicted one still in use, which was then
+decoded again on the next pass: **1525 loads of 167 distinct tiles, 32 s of WEBP decode per
+startup** on a Crosscall. The cache now grows on the first decoded grid to hold `MIN_CACHED_GRIDS`
+(192) of them, i.e. 144 MB for a 512² source and 36 MB for a 256² one; 192 was the first value where
+loads equalled distinct tiles (128 still re-decoded ~20%). `TerrainOptions::setElevationCacheCapacity`
+still wins over the rule, for an app that cannot spend the memory.
+
 `setSurfaceResolution` caps the elevation level to what the mesh can express (roughly one texel per
 half surface cell), which costs about two zoom levels of detail. That cap is right for geometry and
 wrong for per-fragment shading, which is why the terrain paint can opt out of it
