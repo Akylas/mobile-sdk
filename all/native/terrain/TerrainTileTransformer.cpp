@@ -29,16 +29,9 @@ namespace carto {
     //   adb shell setprop debug.carto.areathreshold 4
     static constexpr float AREA_THRESHOLD_CELLS = 2.0f;
 
-    // How far a draped line may chord away from the terrain, in METRES. A draped line is lifted
-    // DEFAULT_LINE_CLEARANCE_METERS (25) off the surface, so a sag an order of magnitude under that
-    // cannot be seen, and it stays well inside the surface mesh's own chord error.
-    // Measured on device over a 25 s pan, packaged style, against the lattice split it replaces
-    // (city 5.724/45.188 z15 t45, mountain 5.760595/45.244172 z13.6 t45):
-    //   city     7.5 -> 13.8 fps, 2.37M -> 0.70M geometry indices per frame, draws unchanged
-    //   mountain 11   -> 17.8 fps, 1.31M -> 0.37M
-    // 0.5, 1, 2 and 4 metres all measured the same at both cameras - the win is cutting by the sag
-    // the terrain HAS rather than by the tile's cell count, not the tolerance - so this is picked
-    // for margin, not for speed.
+    // How far a draped line may chord away from the terrain, in METRES. Chosen for margin, not for
+    // speed: 0.5-4 m all measure the same, and a draped line is lifted 25 m off the surface anyway
+    // (DEFAULT_LINE_CLEARANCE_METERS). Numbers in docs/rendering/04-terrain.md.
     static constexpr float DEFAULT_LINE_SAG_METERS = 2.0f;
 #ifdef __ANDROID__
     // The same measurement switch for LINES. Lines are the expensive half over a city - the fills

@@ -214,16 +214,11 @@ namespace carto {
          */
         bool isDrapeLinesEnabled() const;
         /**
-         * Enables or disables draping of vt tile lines (roads) in addition to fills (only has
-         * effect when DrapeFillsEnabled is also true). When enabled, tile lines are baked into the
-         * per-tile drape texture and follow the terrain exactly (no leak, no cracks) - but they are
-         * texture-rasterized, so they are softer than sharp displaced geometry and their width is
-         * approximate. When disabled, lines stay sharp displaced geometry drawn on top of the drape
-         * surface, which is what a city pan pays for: drawing them as terrain geometry every frame
-         * measured 13.4-15.2 fps against 26.8-27.7 draped on an Adreno 610, the whole difference
-         * being the triangles submitted per frame.
-         * Layers matching NoDrapeLayerFilter stay sharp whatever this is set to - by default the
-         * contours, which are the one thing the drape's resolution visibly costs.
+         * Enables or disables draping of vt tile lines in addition to fills (needs DrapeFillsEnabled).
+         * Draped lines are baked into the per-tile texture: they follow the terrain exactly and cost
+         * no per-frame geometry (a city pan runs at twice the frame rate), but they resolve at the
+         * drape resolution rather than the screen's. Layers matching NoDrapeLayerFilter stay sharp
+         * either way. See docs/rendering/04-terrain.md.
          * @param enabled True to drape tile lines too, false to keep them as sharp geometry.
          */
         void setDrapeLinesEnabled(bool enabled);
@@ -235,13 +230,10 @@ namespace carto {
          */
         std::string getNoDrapeLayerFilter() const;
         /**
-         * Sets which style layers must NOT be baked into the terrain drape texture, as a regular
-         * expression matched against the vt layer name (which comes from the style's own rule
-         * names). Matching layers are drawn live in the 3D pass at screen resolution instead, and
-         * exactly once. The drape resolves content at the drape texture's resolution and a slope
-         * then magnifies it: fills and road casings survive that, hairline content does not - which
-         * is why contours are excluded by default. Inert while lines are not draped at all, since
-         * undraped lines already draw live.
+         * Sets which style layers must NOT be baked into the drape texture, as a regular expression
+         * over the vt layer name (which comes from the style's own rule names). They are drawn live
+         * in the 3D pass at screen resolution instead. Hairline content is what the drape resolution
+         * costs, hence contours by default.
          * @param filter The regular expression, or an empty string to drape everything.
          */
         void setNoDrapeLayerFilter(const std::string& filter);

@@ -809,10 +809,8 @@ namespace carto {
         // source density / subdivided to match it.
         bool drapeLines = drapeFills && activeTerrainOptions && activeTerrainOptions->isDrapeLinesEnabled();
         tileRenderer->setTerrainDrapeFills(drapeFills, drapeLines);
-        // ...except the style layers the application wants kept sharp (contours by default): those
-        // are drawn live in the 3D pass instead, exactly once. The prop overrides the option, so a
-        // run can be A/B'd without rebuilding ('none' drapes everything).
-        //   adb shell setprop debug.carto.nodrapelayers "^contour.*"
+        // ...except the layers the application keeps sharp (contours by default), drawn live instead.
+        //   adb shell setprop debug.carto.nodrapelayers "^contour.*" ("none" drapes everything)
         tileRenderer->setNoDrapeLayerFilter(noDrapeLayerFilter(
             activeTerrainOptions ? activeTerrainOptions->getNoDrapeLayerFilter() : std::string()));
         tileRenderer->setTerrainDrapeResolution(resolveDrapeResolution(activeTerrainOptions ? activeTerrainOptions->getDrapeResolution() : 0, viewState, _options.lock()));
