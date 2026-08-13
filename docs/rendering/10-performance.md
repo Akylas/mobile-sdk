@@ -33,7 +33,7 @@ adb install -r -t app/build/outputs/apk/debug/app-debug.apk
 |---|---|---|
 | `PROF` | CPU ms per frame section: `sky prelude prepare cover drape layers layers3D billboards` | `sky` is mostly the swap wait, not work. Not comparable across apps. |
 | `PROF GPU` | the same sections on the GPU (`GL_EXT_disjoint_timer_query`) | Android only; off with `setprop debug.carto.gputimer 0` |
-| `RenderStats` | draws, indices, render tiles, style layers, surfaces, label and prep timings, tile-surface builds | per one-second interval, deltas |
+| `RenderStats` | draws, indices, render tiles, style layers, surfaces, label and prep timings, tile-surface builds | per one-second interval, deltas — **divide by the `PROF` frame count** of that interval, a faster build prints bigger counters |
 | `simpleperf` | an actual CPU profile of the render thread | see below — this is what finds things the timers cannot |
 
 ### Profiling the render thread
@@ -59,6 +59,16 @@ is the one whose call graph starts at `MapRenderer::onDrawFrame`.
   spread over one-second windows. A comparison against a number taken earlier is worthless.
 - **Emulator fps is meaningless.** Emulator runs are for *counters* (draws, indices, render tiles) and
   for functional checks.
+- **`RenderStats` counters are sums over the one-second interval, not per-frame values.** A build
+  that renders the same scene FASTER therefore prints MORE draws and MORE indices, because it got
+  through more frames. Always divide by the frame count of the same interval — the `PROF` line
+  right next to it starts with `%d frames in %.0f ms`. Comparing two arms on the raw
+  `geomIndices=` cost a wrong conclusion in August 2026 (the faster arm looked like it was
+  submitting more geometry).
+- **A static camera never settles here.** With a rich style, a parked camera swings 9–24 fps for
+  minutes (tile arrival, drape bakes, label placement, elevation fetches), so "leave it still and
+  read the number" is not a measurement. Drive a scripted move — `--es anim pan` — for anything you
+  intend to believe; it also makes the two arms traverse the same tiles.
 - **The camera decides what you measure.** The slow case is panning **north into the mountains**
   (`--es animLatDelta 0.06`) with contours and hillshade. Panning east over the valley is cheap.
   Tilt matters as much: at tilt 85 most of the screen is sky. Tilt 90 is straight down, so a
