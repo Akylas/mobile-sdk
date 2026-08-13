@@ -432,6 +432,81 @@ overhead ~30%, so read the shares, not the absolutes):
 
 So the CartoCSS/expression machinery is **~18% of a decode** — geometry building is the cost.
 
+### Three cuts to the loop glue — measured, and worth nothing
+
+Three output-identical cuts to the per-style setup in `mapnikvt` were built and measured together.
+**They do not move tile decode.** One was kept for tidiness, two were reverted; the measurement is
+worth more than any of them, because it says the per-style setup is not where the glue cost is.
+
+**Result.** Crosscall, default city camera (Grenoble z16.22 tilt 26), `--es style assets`, warm
+persistent tile cache so every tile decodes from disk, `RelWithDebInfo` arm64, temporary probe
+around `reader.readTile` in `MBVectorTileDecoder::decodeTile`, mean over the first 64 decodes of a
+run. **Five interleaved pairs from two prebuilt APKs, no rebuild inside a pair:**
+
+| pair | before | after | Δ |
+|---|---|---|---|
+| 1 | 154.06 | 151.26 | −2.80 |
+| 2 | 151.18 | 153.25 | +2.07 |
+| 3 | 155.49 | 153.11 | −2.38 |
+| 4 | 150.23 | 156.00 | +5.77 |
+| 5 | 152.42 | 138.83 | −13.59 |
+| mean | 152.68 | 150.49 | **−2.19 ms (−1.4%)** |
+
+Paired-delta sd is 7.3 ms and two pairs of five favour the old code, so −1.4% is noise. Decode count
+was 64 in every run, before and after — the changes alter no output.
+
+**Two sequential series said −3.2% and that was drift.** Three runs of one build then three of the
+other gave 152.94 → 148.00 with no overlap between the two ranges, which reads as a clean win and is
+not one; it did not survive interleaving. This is the trap the top of this page describes, and it
+cost a wrong conclusion here. Never A/B this device in series.
+
+**Why nothing moved — the useful part.** A counter over the same run: **67.1 styles per tile, of
+which 32.5 skip on the absent layer, 10.3 on the zoom prefilter, and 24.4 actually build.** So the
+skip fires on nearly half of all styles and still buys under half a millisecond of a 150 ms decode:
+building a `TileLayerBuilder`, gathering field sets and calling `buildTileLayer()` for a layer with
+no features costs on the order of **10 µs**. The "67 layer builders per tile" in the section split
+above is therefore misleading as a cost attribution — the builders that cost anything are the **24
+that have features**, and the glue is inside `processLayer`'s per-feature loop, not in the per-style
+setup around it. Anything aimed at the 22% has to go there.
+
+Nothing downstream should be planned as though the 22% had shrunk.
+
+**Kept: a layer the tile does not carry is skipped whole.** `TileReader::readTile` built a
+`vt::TileLayerBuilder` and called `buildTileLayer()` for every style that survived the zoom
+prefilter, then discovered the layer was absent when `createFeatureIterator` returned null — the
+style's field sets were gathered first, for nothing. The bundled style has 67 styles over 23 layers
+and a z16 city tile carries far fewer, so most of that work produced an empty layer that was then
+dropped. `TileReader::hasLayer` (a `_layerMap` lookup in `MBVTFeatureDecoder`, virtual so
+`TorqueTileReader` keeps answering yes) is now asked once per layer, before anything is built.
+
+The one case that must still be built is a style with a **comp-op**: `GLTileRenderer` renders an
+empty layer when `isEmptyBlendRequired(compOp)` ([GLTileRenderer.cpp:2587](../../libs-carto/vt/src/vt/GLTileRenderer.cpp)),
+so dropping it would change the frame. The skip is therefore `!layerPresent && !style->getCompOp()`.
+
+**Reverted: one feature-data cache per field set, for the current layer.** `createLayerFeatureIterator`
+holds its two caches in one slot each, keyed by a string: the layer name for geometry, the layer name
+plus every field name for feature data. A key that does not match throws the cache away.
+
+The geometry one was **already fine, and the first read of it was wrong**: `readTile` iterates
+`for layer { for style }` and `CartoCSSMapLoader` builds exactly one `mvt::Layer` per layer name
+with the attachments as its consecutive styles ([CartoCSSMapLoader.cpp:365](../../libs-carto/cartocss/src/cartocss/CartoCSSMapLoader.cpp)),
+so a layer's styles never interleave with another layer's and the single slot is discarded exactly
+when the loop leaves the layer. Nothing to win there.
+
+The feature-data one does thrash, but only *within* a layer: `#road`, `#road::casing` and
+`#road::labels` are consecutive styles asking for different field sets, so each attachment drops the
+layer's `FeatureData` and the next one rebuilds all of it. Holding one cache per field set against
+the current layer fixes that and measured nothing, so it was reverted rather than carried — it also
+keeps several caches alive per layer instead of one, which raises peak decode memory for no return.
+
+**Reverted: the per-feature field-set probes as a byte lookup.** `MBVTFeatureIterator::getFeatureData`
+filters tags with `fields->find(key)` — a `std::set<std::string>` probe per tag per feature, run
+twice per feature because the reader asks once with the filter fields and once with the symbolizer
+fields. Note for anyone tempted to delete those probes as redundant: the iterator's `_keyFieldMap`
+does **not** imply membership, it is built from the *union* of the two sets and each call narrows it
+further. Resolving each set once into a `char` mask over the key indices works and measured nothing,
+so the complexity was not kept.
+
 ### The compiled map is cached
 
 A compiled `mvt::Map` is read-only, and a decoder's parameter values live in its own store, so the
