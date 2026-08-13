@@ -93,15 +93,6 @@ namespace pmtiles {
     uint64_t zxyToTileId(int z, int x, int y);
 
     /**
-     * Convert PMTiles TileID to tile coordinates (z, x, y) using inverse Hilbert curve.
-     * @param tileId TileID to convert
-     * @param z Output zoom level
-     * @param x Output tile X coordinate
-     * @param y Output tile Y coordinate
-     */
-    void tileIdToZxy(uint64_t tileId, int& z, int& x, int& y);
-
-    /**
      * Find a tile entry in a directory.
      * @param directory Directory entries to search
      * @param tileId TileID to find

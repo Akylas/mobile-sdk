@@ -333,45 +333,6 @@ namespace pmtiles {
         return baseTileId + d;
     }
 
-    void tileIdToZxy(uint64_t tileId, int& z, int& x, int& y) {
-        if (tileId == 0) {
-            z = 0;
-            x = 0;
-            y = 0;
-            return;
-        }
-        
-        // Find zoom level
-        uint64_t acc = 0;
-        z = 0;
-        while (acc + (1ULL << (z * 2)) <= tileId) {
-            acc += (1ULL << (z * 2));
-            z++;
-        }
-        
-        // Get position within zoom level
-        uint64_t d = tileId - acc;
-        
-        // Inverse Hilbert curve
-        int n = 1 << z;
-        int rx, ry, s;
-        int tx = 0;
-        int ty = 0;
-        uint64_t t = d;
-        
-        for (s = 1; s < n; s *= 2) {
-            rx = 1 & (t / 2);
-            ry = 1 & (t ^ rx);
-            rotateQuadrant(s, tx, ty, rx, ry);
-            tx += s * rx;
-            ty += s * ry;
-            t /= 4;
-        }
-        
-        x = tx;
-        y = ty;
-    }
-
     bool findTileEntry(const std::vector<DirectoryEntry>& directory, uint64_t tileId, DirectoryEntry& outEntry) {
         for (const auto& entry : directory) {
             if (entry.runLength == 0) {

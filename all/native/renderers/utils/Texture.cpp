@@ -11,14 +11,6 @@ namespace carto {
     Texture::~Texture() {
     }
     
-    bool Texture::isMipmaps() const {
-        return _mipmaps;
-    }
-    
-    bool Texture::isRepeat() const {
-        return _repeat;
-    }
-        
     std::size_t Texture::getSize() const {
         return _sizeInBytes;
     }

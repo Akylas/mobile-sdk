@@ -339,12 +339,6 @@ namespace carto {
         return 0;
     }
 
-    bool TileRenderer::isDrapeEnabled() const {
-        std::lock_guard<std::mutex> lock(_mutex);
-
-        return _externalDrapeTarget;
-    }
-
     void TileRenderer::collectDrapeTiles(std::map<vt::TileId, std::size_t>& drapeTiles) const {
         std::lock_guard<std::mutex> lock(_mutex);
 
@@ -1182,29 +1176,6 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
 #else
         return DEFAULT_PAINT_DETAIL_LEVELS;
 #endif
-    }
-
-    bool TileRenderer::isTerrainPaintFullDetailAllowed() {
-#ifdef __ANDROID__
-        static const bool allowed = [] {
-            char property[PROP_VALUE_MAX] = { 0 };
-            return !(__system_property_get("debug.carto.paintdetail", property) > 0 && property[0] == '0');
-        }();
-        return allowed;
-#else
-        return true;
-#endif
-    }
-
-    bool TileRenderer::isPlanarTerrainMode() const {
-        if (auto options = _options.lock()) {
-            if (options->getRenderProjectionMode() == RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
-                if (auto terrainOptions = options->getTerrainOptions()) {
-                    return terrainOptions->isEnabled();
-                }
-            }
-        }
-        return false;
     }
 
     bool TileRenderer::isPlanarProjectionMode() const {

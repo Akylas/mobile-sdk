@@ -20,9 +20,7 @@ namespace carto {
     public:
         virtual ~Texture();
         
-        bool isMipmaps() const;
         
-        bool isRepeat() const;
         
         std::size_t getSize() const;
         

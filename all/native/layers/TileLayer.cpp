@@ -942,13 +942,6 @@ namespace carto {
         return childTileCount;
     }
     
-    MapBounds TileLayer::calculateInternalTileBounds(const MapTile& tile) const {
-        MapBounds tileBoundsProj = calculateMapTileBounds(tile);
-        MapPos tilePos0 = _dataSource->getProjection()->toInternal(tileBoundsProj.getMin());
-        MapPos tilePos1 = _dataSource->getProjection()->toInternal(tileBoundsProj.getMax());
-        return MapBounds(MapPos(std::min(tilePos0.getX(), tilePos1.getX()), std::min(-tilePos0.getY(), -tilePos1.getY())), MapPos(std::max(tilePos0.getX(), tilePos1.getX()), std::max(-tilePos0.getY(), -tilePos1.getY())));
-    }
-
     std::shared_ptr<vt::TileTransformer> TileLayer::getTileTransformer() const {
         return _tileRenderer->getTileTransformer();
     }

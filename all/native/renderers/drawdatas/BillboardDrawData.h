@@ -91,7 +91,6 @@ namespace carto {
         double getCameraPlaneZoomDistance() const;
         void setCameraPlaneZoomDistance(double cameraPlaneDistance);
     
-        double getScreenBottomDistance() const;
         void setScreenBottomDistance(double screenBottomDistance);
     
         const std::weak_ptr<BillboardRenderer>& getRenderer() const;
