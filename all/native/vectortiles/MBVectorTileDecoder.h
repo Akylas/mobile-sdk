@@ -25,7 +25,7 @@
 namespace carto {
     namespace mvt {
         class Map;
-        class MBVTFeatureDecoder;
+        class LayerFeatureDecoder;
         class SymbolizerContext;
         class Logger;
     }
@@ -33,7 +33,30 @@ namespace carto {
     class AssetPackage;
     class CompiledStyleSet;
     class CartoCSSStyleSet;
-    
+
+    namespace TileFormat {
+        /**
+         * Supported binary vector tile formats.
+         */
+        enum TileFormat {
+            /**
+             * Detect the format from the tile data. The two are unambiguous in practice, but set the
+             * format explicitly when the source is known - it skips the check and cannot be fooled.
+             */
+            TILE_FORMAT_AUTO,
+            /**
+             * MapBox Vector Tile, the protobuf format.
+             */
+            TILE_FORMAT_MVT,
+            /**
+             * MapLibre Tile, the columnar format. Smaller tiles and faster decoding, but the whole
+             * tile is decoded at once - MVT decodes only the layers and attributes the style asks for.
+             */
+            TILE_FORMAT_MLT
+        };
+    }
+
+
     /**
      * Decoder for vector tiles in MapBox format.
      */
@@ -173,6 +196,18 @@ namespace carto {
         void setCartoCSSLayerNamesIgnored(bool ignore);
 
         /**
+         * Returns the binary format the tiles are decoded as.
+         * @return The tile format. Default is MVT.
+         */
+        TileFormat::TileFormat getTileFormat() const;
+        /**
+         * Sets the binary format the tiles are decoded as. The two formats are not distinguishable
+         * from the tile data, so the source has to say which it serves.
+         * @param format The tile format.
+         */
+        void setTileFormat(TileFormat::TileFormat format);
+
+        /**
          * Returns the vector tile 'layer name override'. If empty, actual layer names are used.
          * @return The 'layer name override'.
          */
@@ -220,6 +255,7 @@ namespace carto {
         
         const std::shared_ptr<mvt::Logger> _logger;
         float _pixelScale;
+        TileFormat::TileFormat _tileFormat;
         bool _featureIdOverride;
         bool _cartoCSSLayerNamesIgnored;
         std::string _layerNameOverride;
@@ -240,7 +276,11 @@ namespace carto {
         std::shared_ptr<const mvt::SymbolizerContext::Settings> _symbolizerContextSettings;
         std::map<std::pair<std::string, std::shared_ptr<AssetPackage> >, std::shared_ptr<const mvt::SymbolizerContext> > _assetPackageSymbolizerContexts;
 
-        mutable std::pair<std::shared_ptr<BinaryData>, std::shared_ptr<mvt::MBVTFeatureDecoder> > _cachedFeatureDecoder;
+        std::shared_ptr<mvt::LayerFeatureDecoder> createFeatureDecoder(const std::shared_ptr<BinaryData>& tileData) const;
+        // The one built for the last decodeFeature(s) call, reused while the caller walks one tile
+        std::shared_ptr<mvt::LayerFeatureDecoder> getCachedFeatureDecoder(const std::shared_ptr<BinaryData>& tileData) const;
+
+        mutable std::pair<std::shared_ptr<BinaryData>, std::shared_ptr<mvt::LayerFeatureDecoder> > _cachedFeatureDecoder;
     
         mutable std::mutex _mutex;
     };

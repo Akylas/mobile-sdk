@@ -63,8 +63,9 @@ Compiled alone for arm64 at `-Oz` without LTO (so: an upper bound, before `--gc-
 | everything else (7 files) | 34.5 KB |
 
 Half of it is FastPFOR's unrolled 32x32 pack/unpack table, and the *pack* half of that is
-encode-only, so the linked cost should land well under the 254 KB. Nothing references the decoder
-yet, so today it links to zero.
+encode-only, so the linked cost should land well under the 254 KB. It is reached from
+`MBVectorTileDecoder` once an app sets `TILE_FORMAT_MLT`, but the code is unconditionally linked —
+`--gc-sections` cannot drop it. Gating the subproject behind a profile flag is still open.
 
 ## Two mechanisms worth knowing
 
