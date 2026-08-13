@@ -130,6 +130,33 @@ unchanged and 3.4× fewer geometry indices per frame. It is the shipped path now
 (`debug.carto.linesag 0` restores the old split), so any city number taken before 2026-08-13 is
 measuring a frame that no longer exists — retake rather than compare.
 
+### What the city frame is bound by, and the five things that were not it
+
+After the sag fix the city pan sits at 13.4–15.2 fps: a 66–71 ms frame against a 41–48 ms CPU frame
+and a 33 ms GPU frame. `sky` (21.5 ms of the CPU frame) is the swap wait, so real CPU work is
+~20 ms — the frame is **GPU-bound**, and shrinking the surface proves it is per-fragment:
+at 0.76× the pixels (`adb shell wm size 720x1440`, reset with `wm size reset`) GPU `layers` scales
+0.79×, i.e. linear in pixel count.
+
+Everything knocked out one at a time, on the same pan, changed **nothing** (GPU `layers`, ms):
+baseline 20.8–24.1 · contours off 21.6–23.6 · 3D buildings off 22.0–23.8 · hillshade off 21.3–22.9 ·
+fog + shadows off 22.5–23.8 · the per-fragment tile-clip `discard` compiled out 20.6–23.0 · blending
+off with content depth writes on 22.0–24.3. Two of those deserve a note, because each killed a
+plausible theory: the shader comment claiming `GL_STENCIL_BITS = 0` is stale (this device reports
+**stencil bits 8**), and blending is free on this tile-based GPU, so "opaque without blending" buys
+nothing while the draw order gives the depth test nothing to reject.
+
+The answer was the base map layer as a whole — with it off, `layers` is 0.0 ms and the GPU frame is
+9.4 ms at 43 fps — and inside it, the **undraped lines**. Draping them takes the city to 26.8 fps
+with `layers` at 0.3 ms; the numbers and the resolution trade are in
+[04-terrain.md](04-terrain.md#draping-the-lines-and-keeping-contours-out-of-it).
+
+Two method points from that hunt. Toggling one slot of a **composite** layer (`--es contour false`)
+moves a sliver of one layer, not a layer — it is not a way to price a subsystem. And the old
+"contours are 45% of the city frame" figure was taken at z16.22 panning north into the ridge, where
+contour lines exist; on the valley floor at z15 they cost nothing measurable. A camera is part of a
+measurement, not a detail of it.
+
 ## Starting up in terrain mode
 
 Measured on a Crosscall at the demo's default camera (Grenoble, z16.22, terrain + contours, warm

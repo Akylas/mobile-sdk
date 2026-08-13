@@ -33,6 +33,7 @@
 #include <vt/NormalMapBuilder.h>
 
 #include <cmath>
+#include <cstring>
 #include <unordered_map>
 
 #include <cglib/mat.h>
@@ -592,6 +593,11 @@ namespace carto {
         tileRenderer->setLayerBlendingSpeed(_layerBlendingSpeed);
         tileRenderer->setLabelBlendingSpeed(_labelBlendingSpeed);
         tileRenderer->setRendererLayerFilter(_rendererLayerFilter);
+        // Style layers that must not be flattened into the drape texture. The drape resolves
+        // content at its own resolution and a slope magnifies it, which fills and casings survive
+        // and hairline content (contours) does not - so those stay live in the 3D pass.
+        //   adb shell setprop debug.carto.nodrapelayers '^contour(::.*)?$'
+        tileRenderer->setNoDrapeLayerFilter(noDrapeLayerFilter());
 
         // Terrain state: enable depth-based terrain rendering and rebuild tile surfaces
         // when the elevation data changes (new DEM tiles, exaggeration change). The rebuild
@@ -1155,6 +1161,31 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
         return 0.0f;
 #endif
     }
+
+#ifdef __ANDROID__
+    std::optional<std::regex> TileRenderer::noDrapeLayerFilter() {
+        static const std::optional<std::regex> filter = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            if (__system_property_get("debug.carto.nodrapelayers", property) > 0 && property[0]) {
+                if (std::strcmp(property, "none") == 0) {
+                    return std::optional<std::regex>(); // drape everything the geometry type allows
+                }
+                try {
+                    return std::optional<std::regex>(std::regex(property));
+                } catch (const std::exception& ex) {
+                    Log::Errorf("TileRenderer::noDrapeLayerFilter: bad pattern '%s': %s", property, ex.what());
+                }
+            }
+            return std::optional<std::regex>(std::regex(DEFAULT_NO_DRAPE_LAYERS));
+        }();
+        return filter;
+    }
+#else
+    std::optional<std::regex> TileRenderer::noDrapeLayerFilter() {
+        static const std::optional<std::regex> filter{std::regex(DEFAULT_NO_DRAPE_LAYERS)};
+        return filter;
+    }
+#endif
 
 #ifdef __ANDROID__
     float TileRenderer::terrainLineClearanceMeters() {

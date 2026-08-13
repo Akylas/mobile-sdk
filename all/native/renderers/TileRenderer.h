@@ -106,6 +106,14 @@ namespace carto {
         static int resolveDrapeResolution(int setting, const ViewState& viewState, const std::shared_ptr<Options>& options);
         // Metres a draped line is drawn in front of the ground (see GLTileRenderer::setTerrainLineClearance).
         static float terrainLineClearanceMeters();
+        // Style layers kept out of the drape bake and drawn live instead
+        // (debug.carto.nodrapelayers, "none" to drape everything; see
+        // GLTileRenderer::setNoDrapeLayerFilter).
+        static std::optional<std::regex> noDrapeLayerFilter();
+        // Contours are the one thing the drape's resolution visibly costs: they are hairline and a
+        // slope magnifies the texture, so they smear where fills and road casings survive intact.
+        // Inert until lines are draped at all - undraped lines already draw live.
+        static constexpr const char* DEFAULT_NO_DRAPE_LAYERS = "^contour.*";
         static constexpr float DEFAULT_LINE_CLEARANCE_METERS = 25.0f;
         // The drape cache clamps to the same range (TerrainDrapeCache::setResolution).
         static constexpr int MIN_DRAPE_RESOLUTION = 128;

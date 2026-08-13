@@ -444,3 +444,39 @@ Checked on screen at 45.244172/5.760595 z13.6 t45, z11 t60, and — the check th
 it became the default — a slow 30 s pan across the ridge at z11.5 t60 with vector elements on: the
 two arms are indistinguishable, no line sinking into a crest. The GeoJSON route line is broken at
 z11 in BOTH arms — that is the open route-following issue, not this.
+
+### Draping the lines, and keeping contours out of it
+
+Cutting a line better does not change what a line *costs to shade*. With the sag split in place the
+city is still fragment-bound, and the whole of it is the lines: draping them
+(`TerrainOptions::DrapeLines`, `--es drapeLines true`) bakes them into the per-tile drape texture
+once instead of drawing them as terrain geometry every frame, and the frame collapses.
+
+Crosscall, packaged style, 25 s pan at the city camera (5.724/45.188 z15 t45):
+
+| | fps | CPU frame | GPU total | GPU `layers` |
+|---|---|---|---|---|
+| lines as geometry (default) | 13.4–15.2 | 45 ms | 32.4–34.9 | 20.8–24.1 |
+| `drape false` (nothing draped) | 12.0–13.3 | 51–59 ms | 37.3–37.6 | 28.2–28.4 |
+| **`drapeLines true`** | **26.8–27.7** | 31 ms | 11.9–12.1 | **0.3** |
+| `drapeLines true`, drape resolution 2048 | 24.3–26.4 | — | 13.4–14.3 | 0.3 |
+| base map layer off (the floor) | 43 | — | 9.4 | 0.0 |
+
+Draped lines land within 2.5 ms of the no-basemap floor. The cost is resolution: the bake resolves
+at the drape texture's size and a slope then magnifies it. Fills and road casings survive that;
+**contours do not** — they are hairline, and they smear.
+
+Hence `GLTileRenderer::setNoDrapeLayerFilter`: style layers matching it stay OUT of the bake and are
+drawn live in the 3D pass at screen resolution, exactly once (the same predicate gates the bake loop,
+`hasDrapeableContent` and the 3D-pass skip). The default is `^contour.*`
+(`TileRenderer::DEFAULT_NO_DRAPE_LAYERS`, override with `adb shell setprop
+debug.carto.nodrapelayers <regex>`, or `none` to drape everything). It is **inert until lines are
+draped at all**, because undraped lines already draw live.
+
+What it costs, same runs: the city does not notice (26.8–27.7 → 22.8–26.8 fps, GPU `layers`
+0.3 → 0.7 ms — there are barely any contour lines on a valley floor), the mountain pays for what it
+draws (32.9–42.1 → 24.2–31.3 fps at z13.6 t45), and is still far above the 17–21 it had with
+nothing draped.
+
+Note the filter matches the **vt layer name**, which comes from the style's own rule names — a style
+that calls its contour rules something else needs its own pattern.
