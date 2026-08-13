@@ -374,6 +374,29 @@ joins a map — so every startup paid the ~0.5 s twice. Split into `updateSymbol
 (fonts, bitmap/stroke/glyph maps, settings), the second pass is **~100–130 ms**. `addFallbackFont`
 took the same path. `setCartoCSSLayerNamesIgnored` genuinely changes compilation and still reloads.
 
+**…and that second pass then cost 133 ms for nothing.** Two things were being redone that a pixel
+scale cannot change:
+
+- `setPixelScale` cleared the whole `_assetPackageSymbolizerContexts` entry, so the style's fonts
+  were decoded again — **75 ms for the 15 fonts** of the bundled project (1.1 MB of woff2) plus
+  27 ms for the system fallback. Only the **stroke and glyph maps** hold anything rasterized at a
+  pixel scale; the font and bitmap managers do not. `resetSymbolizerContextRasterMaps` now replaces
+  those two and keeps the managers.
+- `mvt::resolveLiveNutiParameters` ran on every `updateSymbolizerContext` — **38 ms** on the
+  23-layer style — although it is a property of the compiled map alone. It moved next to
+  `_map`'s assignment, with `getSelectionParameter`.
+
+Measured on the Crosscall, three interleaved pairs, the whole `setPixelScale` call: **133.5–133.9 →
+0.5 ms**, spread under 0.5 ms. It does *not* show up end to end — surface-created → first tile
+request varies by ±150 ms on this device, which swamps it — so this is CPU removed from the startup
+path, not a startup number.
+
+Where the rest of a cold style load goes today (same device, bundled `assets` project, 23 layers):
+parse + compile + translate **251 ms**, first symbolizer context **143 ms** (of which 75 ms is
+fonts). The largest untouched item is the eager font load: every font in the package is decoded at
+load whether the style uses it or not, and `FontManager` already has a lazy loader hook for the
+system fonts.
+
 **Decoding a tile: 120–150 ms mean, ~0.5 s worst** at a z16 city camera. Section split (probe
 overhead ~30%, so read the shares, not the absolutes):
 
@@ -530,6 +553,7 @@ a feature-id vertex attribute in `vt` and shader support — not done.
 | an off-screen, already-anchored label defers its re-anchor | 1.60 → 1.70 fps — small, most dirty labels do hold a placement |
 | label lines tesselated for reading, not for painting (no lattice split, surface-cell step) | **1.75 → 2.10 fps**, `prepare` 157 → 72 ms |
 | `setPixelScale` rebuilds only the symbolizer context, not the compiled map | startup style cost 2 × 0.5–0.7 s → one load plus a ~0.1 s context rebuild |
+| `setPixelScale` keeps the fonts and bitmaps, drops only the rasterized maps; live-parameter classification moved to where the map changes | the whole call **133.5–133.9 → 0.5 ms**, interleaved ×3 |
 | CartoCSS compile: per-zoom predicate memo, field-bucketed property insert, interned field ids | compile 264 → 157 ms, `buildMap` 362 → 261 ms (23-layer style, device) |
 | CartoCSS compile: skip a zoom whose predicate results repeat, reuse the trial property set | compile 157 → 129 ms, `buildMap` → 220 ms |
 | CartoCSS compile: field and predicate bitmasks on the property set, evaluate each property once | compile 175.4 → 117.4 ms paired (same style, later and bigger than the rows above) |
