@@ -792,6 +792,7 @@ namespace carto {
             contentDepthShift = TERRAIN_TANGRAM_DEPTH_SHIFT;
         }
         tileRenderer->setTerrainContentDepthShift(contentDepthShift);
+        tileRenderer->setLabelBatchCaching(getLabelBatchCaching());
         // Metre-constant clearance for draped LINES over the shared ground (see applyDepthBias in
         // vt). A line chords over the relief between its own vertices; under a ground that writes
         // depth that sag is what cuts roads and contours into fragments. The quantity is metres of
@@ -1158,6 +1159,22 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
         return depthShift;
 #else
         return 0.0f;
+#endif
+    }
+
+    bool TileRenderer::getLabelBatchCaching() {
+#ifdef __ANDROID__
+        //   adb shell setprop debug.carto.labelcache 0   (rebuild the 3D label batches every frame)
+        static const bool enabled = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            if (__system_property_get("debug.carto.labelcache", property) > 0) {
+                return std::atoi(property) != 0;
+            }
+            return true;
+        }();
+        return enabled;
+#else
+        return true;
 #endif
     }
 

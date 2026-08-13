@@ -519,10 +519,50 @@ because the key moved), this rules out the source side entirely: the timed regio
 **writing into the batch arrays**, and copying N cached entries writes exactly the bytes the loop
 wrote. No cache of what goes into the batch can win.
 
-So the only remaining lever is not writing the batch at all: quantize the anchor, keep the arrays
-and their GL buffers across frames, and re-upload solely when the label set, placements, opacities
-or style slots change — for which step 1 has now removed the blocker. Everything cheaper than that
-has been measured and does not work.
+**Step 3, the batch kept across frames, is done — and there was a second view dependency the plan
+above missed.** `Label::setupCoordinateSystem` snaps the anchor to a quarter of the screen pixel
+grid (that is what keeps glyphs at a stable subpixel phase), and it did so by projecting the anchor
+with the view-projection and inverting it back. So the anchor moved on every camera translation
+whatever the scale did — and it cost a **4x4 double inverse per label per frame**, on the culler
+thread too. Both are fixed: `ViewState` now carries `viewProjMatrix`/`invViewProjMatrix`, and for
+the shader-cancel modes `labelVsh` does the snap itself on `anchorClip.xy` against
+`uLabelScreenSize`. The CPU anchor is then `placement->position − viewState.labelOrigin`, where
+`labelOrigin` is latched and only re-based once the camera has moved `LABEL_ORIGIN_LATCH_DISTANCE`
+(256 internal units, ~10 km); the residual rides in the label matrix, which already carried a
+translate. The culler keeps `viewState.origin` — its envelopes are camera-relative by construction.
+
+What survives a frame, then, is the whole 3D pass: `GLTileRenderer::LabelBatchCache` holds one
+`PersistentLabelBatch` per batch (its VBOs, its parameter tables, and the label matrix without the
+camera), and a hit re-issues the draws with new uniforms only. Validity is two counters, not a
+per-label scan:
+
+- `Label::getDrawGeneration()` — bumped by placement, layout and elevation changes, and by a label
+  appearing or disappearing. Only 3D-orientation labels bump it, and only while they are actually
+  drawn: measured over one city pan, **4184 re-anchors of unplaced labels against 24 of visible
+  ones**, so an unguarded counter is stale every frame for work no batch ever held.
+- `Label::getOpacityGeneration()` — a fade in progress. It does not invalidate: the batch keeps a
+  CPU copy of its attribs plus each label's vertex range, and `patchLabelBatchOpacities` rewrites
+  one byte per glyph of the labels that moved and `glBufferSubData`s the dirty span.
+
+Plus the view: `zoom`, `rotation`, `tilt` and `planarProjection` are baked into the buffers (the
+glyph scale, and the style functions that read `view::`). Everything else the camera does —
+position, **focus distance**, screen size — only reaches uniforms. That last one mattered: over
+terrain `focusDistance` changes on every frame, and while it was in the test the cache never once
+hit.
+
+**Measured** (Crosscall, assets style, 5.724/45.188 z15 t45, scripted pan, `debug.carto.labelcache`
+A/B): `pass3D labels3DMs` **67–76 → 25–33 ms/interval**, labels rebuilt 3900 → 1900 per interval,
+~200 batches a second replayed and ~80 patched. **Frame rate: unchanged** — three interleaved
+rounds gave medians 26.4/26.0/25.6 fps with the cache against 26.4/25.8/25.8 without. The pass is
+~1.5 ms of a ~38 ms frame, and this bench's run-to-run spread is larger than that. Screenshot diff
+against the cache off is 1.38% where two runs with it ON differ by 1.06% — no systematic shift.
+
+So it removes the work it was designed to remove and buys no frames at this camera. The label cost
+that is left is **2D**: `labels2DMs` is 48–94 ms/interval, dominated by `LINE` layout
+(`lineMs` 28 of `buildMs` 44), which follows the projected line and cannot be kept — see
+`updateLineVertexData`. Note also that only a style using `text-placement: nutibillboard` puts
+labels in the 3D pass at all; with the demo's inline style the 3D pass is 1.2 ms/interval and this
+whole mechanism measures nothing.
 
 ## Against tangram
 
