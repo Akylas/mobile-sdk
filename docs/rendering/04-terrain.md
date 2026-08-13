@@ -216,42 +216,75 @@ bound from throwing the map somewhere else:
 under the touch, `_gestureAnchorHeight`), not sea level: in the mountains the two are hundreds of
 metres, and at a low tilt kilometres of ray, apart.
 
-### OPEN: everything drawn at the wrong scale after a close approach (2026-08-13)
+### The zoom pivot sank the focus, and everything was drawn at the wrong scale (fixed 2026-08-13)
 
-**Symptom, from the device.** In 3D, zoom very close to the terrain, pan, then zoom out: the map
-sticks in a state where everything is blurry and oversized, and stays that way while zooming out.
-Enough movement clears it. Switching to 2D shows what it really is — labels, shields, peak icons and
-line widths are all drawn **enormous**, several times their size for the zoom on screen. The blue
-`VectorLayer` route line goes huge and blurry with them. Reported as "blurry", but it is a SCALE
-fault, not a resolution one.
+**Symptom.** In 3D, zoom very close to the terrain, pan, then pinch back out: the map sticks in a
+state where everything is blurry and oversized, and stays that way while zooming out. Enough
+movement clears it. In 2D the same state shows labels, shields, peak icons and line widths several
+times too large for the zoom on screen, the `VectorLayer` route line with them. Reported as
+"blurry", but it is a SCALE fault, not a resolution one. Only ever reproduced with a real style
+(the packaged one) — an inline style whose widths and sizes are constants shows almost nothing,
+because the fault is in what the zoom-dependent style functions are evaluated at.
 
-**Why stale tiles are ruled out.** A stand-in tile blurs the map and leaves text, icons and shields
-at their proper size. Here the text is the most wrong thing on screen.
+**Cause.** `CameraZoomEvent::calculate` shifted the map about the pivot with the **full 3D**
+offset `pivot − focus` (`ProjectionSurface::calculateTranslateMatrix`), and the pinch pivot carries
+the terrain height under the finger (`TouchHandler::calculatePivotPos` → `_gestureAnchorHeight`).
+Every zoom-*out* about a pivot above the focus therefore pushed the focus DOWN by
+`(pivotZ − focusZ)·(scale − 1)`. Close to a slope that is a few hundred metres per gesture, and it
+accumulates.
 
-**The one input that produces all of it.** `ViewState::getNormalizedResolution()`
-(`2 * tileDrawSize * dpi/160`) becomes `_fullResolution` in `GLTileRenderer`, and from it come the
-line width table (`renderTileGeometry`), the glyph SDF scale and antialias ramp, the halo, and the em
-size that picks the raster from the 16/28/40 ladder. Label size itself is `sizeFunc(viewState)` on
-the view zoom. A stale or wrong view zoom / resolution therefore reproduces every part of the
-picture at once — including the blur, since a glyph rastered for a small em and drawn huge IS blurry,
-and so is a line whose width unit is wrong.
+The focus height is not cosmetic: `dist(camera, focus)` is the distance the whole zoom scale is
+calibrated on (`_zoom0Distance / 2^zoom`, [Near and far planes](#near-and-far-planes) above). With
+the focus below the ground, that distance stops describing the distance to what is on screen — so
+the tile walk asks for a zoom several levels too coarse (the blur) while every zoom-dependent width
+and label size is evaluated for that same far-out zoom (the oversizing), against terrain that is
+actually a tenth as far away.
 
-**Prime suspect: the camera-clearance clamp above** (the path #77 touched), because that is exactly
-what "zoom very close to the terrain" exercises, and "unblocks after moving enough" is what a state
-that only refreshes on a large camera change looks like.
+**The fix** is tangram's model verbatim: the pivot moves the map **along the surface only**. Their
+pinch correction is a ground translate in x/y (`View::translate`, `core/src/view/view.cpp:258`) and
+their view height is derived from the zoom, so a pivot on a mountain cannot move the view point up
+or down. `CameraZoomEvent` now forces the pivot to the focus's own height before building the
+shift, which means it can no longer change the focus height in any mode — including the lifted
+viewpoints of free roam and the peak finder, which set that height deliberately (and which the old
+code could silently drag back down to the ground).
 
-**Start here, in this order:**
+The visible trade is theirs too: pinching with a finger on a summit holds the point at the *focus
+height* under the finger, so a high point drifts slightly on screen during the pinch.
 
-1. Reproduce in the demo WITH the overlay (drop `--es ui false`) and read the `z=` it prints while
-   the screen is wrong. Overlay z sane + content drawn far larger = the camera is fine and the
-   RENDER view state is stale. That single reading splits the search in half and costs one run.
-2. `ViewState` — whether the clamp writes back `_zoom` and `_normalizedResolution` consistently, or
-   leaves one of them holding the pinned-camera value.
-3. `MapRenderer` -> `TileRenderer::setViewState` — whether a frame during the clamp early-returns and
-   leaves `_fullResolution` from the previous state.
+**How it was found, in numbers.** A probe on `dist(camera, focus)` against `zoom0Distance / 2^zoom`,
+printed once a second next to the focus and camera heights, during the gesture on the device:
 
-**Not this**: the sag tesselation above. Both arms measured identical through a scripted zoom
-sequence (edge energy 17.4/24.7/17.2/25.0 against 18.0/24.8/17.8/24.8), and the report predates it.
+```
+zoom=12.15 dist=589   ratio=1.0000  focusZ=-218  camZ=76.5
+zoom=11.06 dist=1259  ratio=1.0000  focusZ=-501  camZ=128.1   <- label depth to the terrain: 115
+```
+
+`ratio` staying at 1.0000 is what makes this readable: the invariant the SDK maintains was intact
+the whole time — the camera distance did match the zoom. What was broken is the *unwritten* second
+invariant, that the focus is on the ground you are looking at. The 1259 against a terrain depth of
+115 is the entire bug.
+
+Two things this rules out, both of which cost a round: the camera-clearance clamp (it was active
+and correct — `maxTerrainZoom` tracked the zoom throughout), and the sag tesselation above (both
+arms measured identical through a scripted zoom sequence — edge energy 17.4/24.7/17.2/25.0 against
+18.0/24.8/17.8/24.8 — and the report predates it). A scripted `setZoom` sequence never reproduces
+it either: it zooms about the focus, so there is no pivot to sink anything. The demo's
+`--es anim approach` (dive, pan, pull out) is that sequence, and its clean run is what pointed at
+the pivot.
+
+**Labels partly hid it.** `Label::calculateTerrainScaleFactor` rescales a label by
+`depth / focusDistance` to cancel the perspective divide, and that ratio cancels exactly this error
+too (it read 0.09 while the fault was worst). Geometry, fills and vector elements have no such
+cancel, which is why lines looked worse than text at first and why the 2D screenshot — where the
+cancel is near 1 — was the clearer evidence.
+
+**Residual, not fixed here.** Even with the focus where the app put it, on a z=0 plane under a
+1000 m ridge the focus still sits below the ground, so `dist` still overstates the distance to what
+is on screen — the same error, milder and always on. Tangram's answer is to derive the render zoom
+from the terrain depth at the screen centre (`m_zoom` from `m_elevationManager->getDepth(centre)`,
+clamped to `[m_baseZoom, m_maxZoom]`, `core/src/view/view.cpp:403-415`). Porting that redefines what
+`getZoom()` means for tiles, styles and labels alike, so it is its own change — see
+[11-tangram-diff.md](11-tangram-diff.md#the-zoom-is-calibrated-on-the-focus-not-on-the-terrain).
 
 ## The surface shader
 
