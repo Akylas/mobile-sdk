@@ -19,6 +19,14 @@ Use `git submodule` to resolve source-level dependencies:
 git submodule update --init --remote --recursive
 ```
 
+Only `cpp/` is used out of `libs-external/mlt/mlt` (maplibre-tile-spec); its `test/` fixtures are
+142 MB. The submodule is marked shallow, but a plain init still fetches those blobs — restrict it
+once and the checkout drops to about 1 MB:
+
+```
+git -C libs-external/mlt/mlt sparse-checkout set cpp
+```
+
 Download and set up 'boost' library:
 
 ```

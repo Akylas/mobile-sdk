@@ -119,7 +119,7 @@ endif(WIN32)
 
 # Subprojects
 set(SDK_CARTO_SUBPROJECTS vt mapnikvt mbvtbuilder cartocss nml)
-set(SDK_EXTERNAL_SUBPROJECTS botan pugixml bidi freetype harfbuzz brotli zstd miniz libjpeg libpng libwebp tess2 pvrt rg_etc1)
+set(SDK_EXTERNAL_SUBPROJECTS botan pugixml bidi freetype harfbuzz brotli zstd miniz libjpeg libpng libwebp tess2 pvrt rg_etc1 mlt)
 
 if(WIN32)
   list(APPEND SDK_EXTERNAL_SUBPROJECTS "zlib")

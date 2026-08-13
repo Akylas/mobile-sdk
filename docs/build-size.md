@@ -46,6 +46,26 @@ Sections, and `.text` ownership by symbol attribution:
 ~5%, boost ~4%, freetype/sqlite/harfbuzz ~2% each. **vt + mapnikvt + cartocss together are 3.2%** —
 the renderer is not where the size is.
 
+## What the MLT decoder costs
+
+`libs-external/mlt` builds the decoder half of maplibre-tile-spec's C++ implementation — 9 source
+files plus FastPFOR's `bitpacking.cpp`. The encoder is not built, so `fsst`, `earcut` and
+`nlohmann/json` never enter the tree and none of that repo's own submodules need checking out.
+
+Compiled alone for arm64 at `-Oz` without LTO (so: an upper bound, before `--gc-sections` and
+`--icf=all` see it), `.text`+`.rodata`+`.data` sum to **254 KB**:
+
+| object | size |
+|---|---|
+| `vendor/fastpfor/bitpacking.cpp` | 131.5 KB |
+| `decoder.cpp` | 67.9 KB |
+| `decode/int.cpp` | 20.0 KB |
+| everything else (7 files) | 34.5 KB |
+
+Half of it is FastPFOR's unrolled 32x32 pack/unpack table, and the *pack* half of that is
+encode-only, so the linked cost should land well under the 254 KB. Nothing references the decoder
+yet, so today it links to zero.
+
 ## Two mechanisms worth knowing
 
 **`--gc-sections` cannot drop a translation unit that has a namespace-scope static.** `.init_array`
