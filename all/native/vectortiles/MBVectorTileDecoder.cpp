@@ -32,8 +32,10 @@
 #include <mapnikvt/Value.h>
 #include <mapnikvt/SymbolizerParser.h>
 #include <mapnikvt/SymbolizerContext.h>
+#include <mapnikvt/CompressionUtils.h>
 #include <mapnikvt/MBVTFeatureDecoder.h>
-#include <mapnikvt/MBVTTileReader.h>
+#include <mapnikvt/MLTFeatureDecoder.h>
+#include <mapnikvt/LayerTileReader.h>
 #include <mapnikvt/MapParser.h>
 #include <mapnikvt/NutiParameterResolver.h>
 #include <cartocss/CartoCSSMapLoader.h>
@@ -42,6 +44,7 @@
 
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/case_conv.hpp>
 
 namespace carto {
 
@@ -167,6 +170,7 @@ namespace carto {
     MBVectorTileDecoder::MBVectorTileDecoder(const std::shared_ptr<CompiledStyleSet>& compiledStyleSet) :
         _logger(std::make_shared<MVTLogger>("MBVectorTileDecoder")),
         _pixelScale(1.0f),
+        _tileFormat(TileFormat::TILE_FORMAT_AUTO),
         _featureIdOverride(false),
         _cartoCSSLayerNamesIgnored(false),
         _layerNameOverride(),
@@ -189,6 +193,7 @@ namespace carto {
     MBVectorTileDecoder::MBVectorTileDecoder(const std::shared_ptr<CartoCSSStyleSet>& cartoCSSStyleSet) :
         _logger(std::make_shared<MVTLogger>("MBVectorTileDecoder")),
         _pixelScale(1.0f),
+        _tileFormat(TileFormat::TILE_FORMAT_AUTO),
         _featureIdOverride(false),
         _cartoCSSLayerNamesIgnored(false),
         _layerNameOverride(),
@@ -541,6 +546,36 @@ namespace carto {
         notifyDecoderChanged();
     }
         
+    TileFormat::TileFormat MBVectorTileDecoder::parseTileFormat(const std::string& format) {
+        std::string value = boost::algorithm::to_lower_copy(format);
+        if (value.find("maplibre") != std::string::npos || value.find("mlt") != std::string::npos) {
+            return TileFormat::TILE_FORMAT_MLT;
+        }
+        // 'pbf' is NOT taken as proof of MVT: MapLibre's own demotiles declare format 'pbf' with
+        // encoding 'mlt'. Anything short of an explicit MVT media type falls through to detection.
+        if (value.find("mapbox-vector") != std::string::npos || value == "mvt") {
+            return TileFormat::TILE_FORMAT_MVT;
+        }
+        return TileFormat::TILE_FORMAT_AUTO;
+    }
+
+    TileFormat::TileFormat MBVectorTileDecoder::getTileFormat() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        return _tileFormat;
+    }
+
+    void MBVectorTileDecoder::setTileFormat(TileFormat::TileFormat format) {
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            if (_tileFormat == format) {
+                return;
+            }
+            _tileFormat = format;
+            _cachedFeatureDecoder = std::make_pair(std::shared_ptr<BinaryData>(), std::shared_ptr<mvt::LayerFeatureDecoder>());
+        }
+        notifyDecoderChanged();
+    }
+
     bool MBVectorTileDecoder::isCartoCSSLayerNamesIgnored() const {
         std::lock_guard<std::mutex> lock(_mutex);
         return _cartoCSSLayerNamesIgnored;
@@ -616,6 +651,43 @@ namespace carto {
         return Const::MAX_SUPPORTED_ZOOM_LEVEL;
     }
 
+    std::shared_ptr<mvt::LayerFeatureDecoder> MBVectorTileDecoder::createFeatureDecoder(const std::shared_ptr<BinaryData>& tileData) const {
+        TileFormat::TileFormat tileFormat;
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            tileFormat = _tileFormat;
+        }
+
+        // Inflate here rather than in the decoders: detection needs the plain bytes, and the
+        // decoder's own header check then costs nothing.
+        const std::vector<unsigned char>& rawData = *tileData->getDataPtr();
+        std::vector<unsigned char> inflatedData;
+        const std::vector<unsigned char>& data = mvt::compression::inflate_tile(rawData.empty() ? nullptr : rawData.data(), rawData.size(), inflatedData) ? inflatedData : rawData;
+
+        if (tileFormat == TileFormat::TILE_FORMAT_AUTO) {
+            tileFormat = mvt::MLTFeatureDecoder::isTileData(data.data(), data.size()) ? TileFormat::TILE_FORMAT_MLT : TileFormat::TILE_FORMAT_MVT;
+        }
+        if (tileFormat == TileFormat::TILE_FORMAT_MLT) {
+            return std::make_shared<mvt::MLTFeatureDecoder>(data, _logger);
+        }
+        return std::make_shared<mvt::MBVTFeatureDecoder>(data, _logger);
+    }
+
+    std::shared_ptr<mvt::LayerFeatureDecoder> MBVectorTileDecoder::getCachedFeatureDecoder(const std::shared_ptr<BinaryData>& tileData) const {
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            if (_cachedFeatureDecoder.first == tileData) {
+                return _cachedFeatureDecoder.second;
+            }
+        }
+        std::shared_ptr<mvt::LayerFeatureDecoder> decoder = createFeatureDecoder(tileData);
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            _cachedFeatureDecoder = std::make_pair(tileData, decoder);
+        }
+        return decoder;
+    }
+
     std::shared_ptr<VectorTileFeature> MBVectorTileDecoder::decodeFeature(long long id, const vt::TileId& tile, const std::shared_ptr<BinaryData>& tileData, const MapBounds& tileBounds) const {
         if (!tileData) {
             Log::Warn("MBVectorTileDecoder::decodeFeature: Null tile data");
@@ -623,18 +695,7 @@ namespace carto {
         }
 
         try {
-            std::shared_ptr<mvt::MBVTFeatureDecoder> decoder;
-            {
-                std::unique_lock<std::mutex> lock(_mutex);
-                if (_cachedFeatureDecoder.first != tileData) {
-                    lock.unlock();
-                    decoder = std::make_shared<mvt::MBVTFeatureDecoder>(*tileData->getDataPtr(), _logger);
-                    lock.lock();
-                    _cachedFeatureDecoder = std::make_pair(tileData, decoder);
-                } else {
-                    decoder = _cachedFeatureDecoder.second;
-                }
-            }
+            std::shared_ptr<mvt::LayerFeatureDecoder> decoder = getCachedFeatureDecoder(tileData);
 
             std::string mvtLayerName;
             mvt::Feature mvtFeature;
@@ -680,18 +741,7 @@ namespace carto {
 
         std::vector<std::shared_ptr<VectorTileFeature> > tileFeatures;
         try {
-            std::shared_ptr<mvt::MBVTFeatureDecoder> decoder;
-            {
-                std::unique_lock<std::mutex> lock(_mutex);
-                if (_cachedFeatureDecoder.first != tileData) {
-                    lock.unlock();
-                    decoder = std::make_shared<mvt::MBVTFeatureDecoder>(*tileData->getDataPtr(), _logger);
-                    lock.lock();
-                    _cachedFeatureDecoder = std::make_pair(tileData, decoder);
-                } else {
-                    decoder = _cachedFeatureDecoder.second;
-                }
-            }
+            std::shared_ptr<mvt::LayerFeatureDecoder> decoder = getCachedFeatureDecoder(tileData);
             std::vector<std::string> layers = decoder->getLayerNames();
             if (onlyLayers.size() > 0) {
                 std::vector<std::string> result;
@@ -746,11 +796,11 @@ namespace carto {
         }
     
         try {
-            mvt::MBVTFeatureDecoder decoder(*tileData->getDataPtr(), _logger);
-            decoder.setTransform(calculateTileTransform(tile, targetTile));
-            decoder.setFeatureIdOverride(featureIdOverride, MapTile(tile.x, tile.y, tile.zoom, 0).getTileId());
-            
-            mvt::MBVTTileReader reader(map, tileTransformer, *symbolizerContext, decoder, _logger);
+            std::shared_ptr<mvt::LayerFeatureDecoder> decoder = createFeatureDecoder(tileData);
+            decoder->setTransform(calculateTileTransform(tile, targetTile));
+            decoder->setFeatureIdOverride(featureIdOverride, MapTile(tile.x, tile.y, tile.zoom, 0).getTileId());
+
+            mvt::LayerTileReader reader(map, tileTransformer, *symbolizerContext, *decoder, _logger);
             reader.setLayerNameOverride(layerNameOverride);
 
             if (std::shared_ptr<vt::Tile> tile = reader.readTile(targetTile)) {

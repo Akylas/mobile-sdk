@@ -11,7 +11,7 @@ Valhalla routing, custom label rules, PMTiles, ...).
 | `all/native/` | Core SDK C++ (layers, renderers, datasources, projections, ui, vectortiles...) |
 | `all/modules/` | SWIG interface files (`*.i`) — public API surface, mirrors `all/native` |
 | `libs-carto/` | **git submodule** (farfromrefug/mobile-carto-libs): `vt` (GL vector-tile renderer), `mapnikvt`, `cartocss`, `geocoding`, `sgre`/`osrm` routing, `nml` |
-| `libs-external/` | **git submodule** (Akylas/mobile-external-libs): third-party deps (cglib, freetype, harfbuzz, ...). `boost` is expected as a symlink here (see BUILDING.md) |
+| `libs-external/` | **git submodule** (Akylas/mobile-external-libs): third-party deps (cglib, freetype, harfbuzz, `mlt` = maplibre-tile-spec, decoder only, ...). `boost` is expected as a symlink here (see BUILDING.md) |
 | `android/`, `ios/`, `dotnet/`, `winphone/` | Platform glue code |
 | `scripts/` | Build scripts (`build-android.py`, `build-ios.py`, `swigpp-*.py`, CMake in `scripts/build/`) |
 
@@ -162,7 +162,7 @@ gradle build already runs ninja through AGP and now picks up ccache too (`-Pccac
 For fast iteration on the vt renderer, a syntax/type check is enough:
 
 ```sh
-clang++ -fsyntax-only -std=c++17 \
+clang++ -fsyntax-only -std=c++20 \
   -I libs-carto/vt/src -I libs-external/cglib -I libs-external/stdext \
   -I libs-external/angle-metal/include \
   -I <dir-with-boost-or-stub> \

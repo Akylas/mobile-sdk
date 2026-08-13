@@ -91,6 +91,15 @@ namespace carto {
         virtual std::string getEncoding() const;
 
         /**
+         * Reads one entry of the source's own metadata, when it has any - the MBTiles or PMTiles
+         * metadata table, for instance. Sources that carry none return an empty string, as do keys
+         * they do not define.
+         * @param key The metadata key, as named by the container's specification.
+         * @return The value, or empty string if the source does not provide it.
+         */
+        virtual std::string getMetaData(const std::string& key) const;
+
+        /**
          * Returns the extent of the tiles in this data source.
          * The bounds are in coordinate system of the projection of the data source.
          * @return The extent of the data source.

@@ -60,7 +60,7 @@ namespace carto {
          * @param key The metadata key to retrieve (e.g., "name", "description", "attribution").
          * @return The metadata value as a string, or empty string if not found.
          */
-        std::string getMetaData(const std::string& key) const;
+        virtual std::string getMetaData(const std::string& key) const;
 
         virtual int getMinZoom() const;
 
