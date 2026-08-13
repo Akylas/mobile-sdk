@@ -202,7 +202,7 @@ namespace carto {
         glViewport(0, 0, job.width, job.height);
 
         // Clear to 'sky': maximum depth, zero coverage - the same encoding the synchronous
-        // path writes, so getDepthW reads both the same way.
+        // path writes, so both are sampled the same way.
         glClearColor(1.0f, 1.0f, 1.0f, 0.0f);
         glDepthMask(GL_TRUE);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -229,6 +229,7 @@ namespace carto {
         result->width = job.width;
         result->height = job.height;
         result->far = job.far;
+        result->mvpMatrix = job.mvpMatrix;
         result->data.resize(static_cast<std::size_t>(job.width) * job.height * 4);
         glReadPixels(0, 0, job.width, job.height, GL_RGBA, GL_UNSIGNED_BYTE, result->data.data());
         return result;

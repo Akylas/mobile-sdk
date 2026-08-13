@@ -457,6 +457,7 @@ namespace carto {
         job.width = bufferWidth;
         job.height = bufferHeight;
         job.far = viewState.getFar();
+        job.mvpMatrix = mvpMatrix;
         job.items.reserve(tileMeshes.size());
         for (const auto& tileMesh : tileMeshes) {
             const std::shared_ptr<TileMesh>& mesh = tileMesh.second;
@@ -535,6 +536,7 @@ namespace carto {
         newDepthData->width = bufferWidth;
         newDepthData->height = bufferHeight;
         newDepthData->far = viewState.getFar();
+        newDepthData->mvpMatrix = mvpMatrix;
         {
             std::lock_guard<std::mutex> lock(_depthMutex);
             _depthDataSnapshot = std::move(newDepthData);
@@ -545,24 +547,53 @@ namespace carto {
         return true;
     }
 
-    float TerrainRenderer::getDepthW(float screenX, float screenY) const {
+    float TerrainRenderer::sampleDepthW(const TerrainDepthBuffer& depthData, int x, int y) {
+        if (x < 0 || y < 0 || x >= depthData.width || y >= depthData.height) {
+            return std::numeric_limits<float>::max();
+        }
+        // The framebuffer rows start at the bottom of the screen; screen y grows downwards
+        const std::uint8_t* ptr = &depthData.data[(static_cast<std::size_t>(depthData.height - 1 - y) * depthData.width + x) * 4];
+        if (ptr[3] == 0) {
+            return std::numeric_limits<float>::max(); // sky pixel (zero coverage)
+        }
+        float depth = ptr[0] / 255.0f + ptr[1] / 65025.0f + ptr[2] / 16581375.0f;
+        return depth * depthData.far;
+    }
+
+    bool TerrainRenderer::isOccludedByTerrain(const cglib::vec3<double>& pos, float tolerance) const {
         std::shared_ptr<const TerrainDepthBuffer> depthData;
         {
             std::lock_guard<std::mutex> lock(_depthMutex);
             depthData = _depthDataSnapshot;
         }
-        if (!depthData || depthData->width < 1 || depthData->height < 1) {
-            return std::numeric_limits<float>::max();
+        if (!depthData || depthData->width < 1 || depthData->height < 1 || depthData->mvpMatrix == cglib::mat4x4<double>::zero()) {
+            return false;
         }
-        int x = std::min(std::max(static_cast<int>(screenX) / BUFFER_DOWNSCALE, 0), depthData->width - 1);
-        int y = std::min(std::max(static_cast<int>(screenY) / BUFFER_DOWNSCALE, 0), depthData->height - 1);
-        // The framebuffer rows start at the bottom of the screen; screen y grows downwards
-        const std::uint8_t* ptr = &depthData->data[(static_cast<std::size_t>(depthData->height - 1 - y) * depthData->width + x) * 4];
-        if (ptr[3] == 0) {
-            return std::numeric_limits<float>::max(); // sky pixel (zero coverage)
+
+        cglib::vec4<double> clipPos = cglib::transform(cglib::vec4<double>(pos(0), pos(1), pos(2), 1), depthData->mvpMatrix);
+        if (clipPos(3) <= 0) {
+            return false;
         }
-        float depth = ptr[0] / 255.0f + ptr[1] / 65025.0f + ptr[2] / 16581375.0f;
-        return depth * depthData->far;
+        int x = static_cast<int>((clipPos(0) / clipPos(3) * 0.5 + 0.5) * depthData->width);
+        int y = static_cast<int>((0.5 - clipPos(1) / clipPos(3) * 0.5) * depthData->height);
+        float depthW = sampleDepthW(*depthData, x, y);
+        if (depthW == std::numeric_limits<float>::max()) {
+            return false; // sky, or moved outside what this buffer covers
+        }
+        // Farthest terrain depth around the position rather than the depth of its own pixel:
+        // labels drawn on the ground sit exactly ON the terrain, the depth buffer is read back
+        // downscaled, and on a slope the neighbouring pixel can be a good deal nearer - so an
+        // exact comparison makes a label's own ground occlude it, differently on every frame,
+        // which is what made labels blink while panning.
+        for (int i = 0; i < 4; i++) {
+            int dx = (i & 1 ? OCCLUSION_SAMPLE_OFFSET : -OCCLUSION_SAMPLE_OFFSET);
+            int dy = (i & 2 ? OCCLUSION_SAMPLE_OFFSET : -OCCLUSION_SAMPLE_OFFSET);
+            float neighbourDepthW = sampleDepthW(*depthData, x + dx, y + dy);
+            if (neighbourDepthW < std::numeric_limits<float>::max()) {
+                depthW = std::max(depthW, neighbourDepthW);
+            }
+        }
+        return static_cast<float>(clipPos(3)) > depthW * tolerance;
     }
 
     void TerrainRenderer::collectVisibleTiles(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, std::vector<MapTile>& tiles) const {
