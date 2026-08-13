@@ -495,10 +495,22 @@ a pan, and the batch becomes reusable.
 
 The order to do it in, then: (1) move the perspective cancel into `labelVsh`, keeping
 `calculateTerrainScaleFactor` on the CPU **for the culler's envelopes only** (collision is decided in
-screen space and must not change); (2) quantize the batch anchor; (3) keep the batch arrays and GL
-buffers across frames, invalidated by the label set, placements, opacities, style slots and the
-anchor. Each step is separately measurable — (1) alone should show `transformMs` collapse. Nothing
-here is implemented.
+screen space and must not change); (2) cache the offsets, which step 1 has made view-independent;
+(3) quantize the batch anchor and keep the batch arrays and GL buffers across frames, invalidated by
+the label set, placements, opacities, style slots and the anchor.
+
+**Step 1 is done.** `Label::CAMERA_AXIS_DEPTH_OFFSET` (attribs[3] = 2) tells `labelVsh` to scale the
+offset by `clamp(anchorClip.w * uLabelDepthScale, 0.05, 8.0)` — clip `w` is the view depth the CPU
+factor was a ratio of, and `uLabelDepthScale` is 1 / camera-to-focus distance. The CPU then emits
+offsets divided by that factor, so what is in the buffer depends on the zoom and the style, not on
+where the camera is. It applies to `BILLBOARD_3D` and `LINE_BILLBOARD_3D` under a planar projection;
+callouts keep the CPU factor (their lift and shift are measured against the same scale), and `LINE`
+labels are view-dependent by construction.
+
+It changes no frame rate on its own — 27.0–27.5 fps against a 27.1 baseline, and the per-glyph loop
+still runs — which is the expected result: it is the enabler, not the win. One known cosmetic
+consequence to watch: label plates still take the CPU factor, which is quantized to ~1.09% steps
+where the shader's is exact, so a plate can be up to ~1% off its text.
 
 ## Against tangram
 
