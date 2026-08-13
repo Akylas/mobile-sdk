@@ -46,6 +46,10 @@ namespace carto {
         return encoding;
     }
 
+    std::string CacheTileDataSource::getMetaData(const std::string& key) const {
+        return _dataSource->getMetaData(key);
+    }
+
     void CacheTileDataSource::applyCacheTileMetadata(const std::shared_ptr<TileData>& tileData, const MapTile& tile) const {
         if (!tileData) {
             return;

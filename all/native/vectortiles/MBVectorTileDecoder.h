@@ -208,6 +208,17 @@ namespace carto {
         void setTileFormat(TileFormat::TileFormat format);
 
         /**
+         * Maps a container's declared format or encoding - an MBTiles or PMTiles metadata value, a
+         * TileJSON media type - onto a tile format. Matching is case-insensitive and by substring,
+         * because generators spell this differently ('mvt',
+         * 'application/vnd.maplibre-vector-tile'). 'pbf' is inconclusive rather than MVT, since
+         * MapLibre's tilesets keep format at 'pbf' and declare MLT through encoding instead.
+         * @param format The declared format or encoding string.
+         * @return The tile format, or TILE_FORMAT_AUTO when the string says nothing conclusive.
+         */
+        static TileFormat::TileFormat parseTileFormat(const std::string& format);
+
+        /**
          * Returns the vector tile 'layer name override'. If empty, actual layer names are used.
          * @return The 'layer name override'.
          */

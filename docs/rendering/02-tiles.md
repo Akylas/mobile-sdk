@@ -214,6 +214,22 @@ format explicitly when the source is known and none of that matters.
 MapLibre itself does not detect: its style spec puts `encoding: mvt|mlt` on the source, defaulting
 to `mvt`. `TILE_FORMAT_MVT`/`TILE_FORMAT_MLT` are the equivalent, for a source that declares.
 
+**A declaring source wins over detection.** `TileDataSource::getMetaData(key)` reads the container's
+own metadata — the MBTiles/PMTiles table — and returns empty for sources that carry none. The
+`VectorTileLayer` constructor asks the source for `encoding`, then `format`, runs them through
+`MBVectorTileDecoder::parseTileFormat`, and pins the decoder when either is conclusive; a decoder
+the app already set explicitly is left alone. The wrapper sources (`Cache`, `Contour`, `Ordered`,
+`Combined`) forward the lookup the way they forward `getEncoding`.
+
+`parseTileFormat` matches case-insensitively by substring, because generators spell this
+differently. **`pbf` is deliberately inconclusive**: MapLibre's own demotiles declare
+`"format": "pbf"` with `"encoding": "mlt"`, so treating `pbf` as proof of MVT would force the wrong
+decoder on a tileset detection gets right. Only an explicit `mvt` / `…mapbox-vector…` pins MVT;
+`maplibre` or `mlt` anywhere pins MLT; everything else falls through to the framing check.
+
+Note this pins one format per decoder. A decoder shared between layers whose sources differ in
+format should be left on `TILE_FORMAT_AUTO`, which costs 1-19 ns a tile.
+
 Detection needs uncompressed bytes, so `MBVectorTileDecoder::createFeatureDecoder` inflates first
 and hands the plain buffer to whichever decoder it picks — the decoder's own `inflate_tile` then
 only re-checks three magic bytes.

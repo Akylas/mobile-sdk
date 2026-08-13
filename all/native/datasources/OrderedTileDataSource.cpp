@@ -44,6 +44,11 @@ namespace carto {
         bounds.expandToContain(_dataSource2->getDataExtent());
         return bounds;
     }
+
+    std::string OrderedTileDataSource::getMetaData(const std::string& key) const {
+        std::string value = _dataSource1->getMetaData(key);
+        return value.empty() ? _dataSource2->getMetaData(key) : value;
+    }
     
     std::shared_ptr<TileData> OrderedTileDataSource::loadTile(const MapTile& mapTile) {
         std::shared_ptr<TileData> result1, result2;

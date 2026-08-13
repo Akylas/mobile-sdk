@@ -44,6 +44,7 @@
 
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/case_conv.hpp>
 
 namespace carto {
 
@@ -545,6 +546,19 @@ namespace carto {
         notifyDecoderChanged();
     }
         
+    TileFormat::TileFormat MBVectorTileDecoder::parseTileFormat(const std::string& format) {
+        std::string value = boost::algorithm::to_lower_copy(format);
+        if (value.find("maplibre") != std::string::npos || value.find("mlt") != std::string::npos) {
+            return TileFormat::TILE_FORMAT_MLT;
+        }
+        // 'pbf' is NOT taken as proof of MVT: MapLibre's own demotiles declare format 'pbf' with
+        // encoding 'mlt'. Anything short of an explicit MVT media type falls through to detection.
+        if (value.find("mapbox-vector") != std::string::npos || value == "mvt") {
+            return TileFormat::TILE_FORMAT_MVT;
+        }
+        return TileFormat::TILE_FORMAT_AUTO;
+    }
+
     TileFormat::TileFormat MBVectorTileDecoder::getTileFormat() const {
         std::lock_guard<std::mutex> lock(_mutex);
         return _tileFormat;
