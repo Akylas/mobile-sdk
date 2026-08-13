@@ -172,7 +172,7 @@ public final class DemoConfig {
 
     /** Tile decode threads (Options.setTileThreadPoolSize). The SDK default is 1; tangram-ng
      *  runs 2 (SceneOptions::numTileWorkers). Raise it to get tiles on screen sooner. */
-    public static int TILE_THREAD_POOL_SIZE = 1;
+    public static int TILE_THREAD_POOL_SIZE = 2;
     /** Screen size a tile may cover before the next zoom level is used, as a factor on tangram's
      *  rule (a 2x2 block of nominal tiles). 1 = their rule; larger keeps tiles coarser at a tilt
      *  (fewer tiles, fewer far labels); 0 refines everything to the camera zoom.
