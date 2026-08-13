@@ -21,9 +21,6 @@ namespace carto {
         int getWidth() const;
         int getHeight() const;
 
-        bool isColor() const;
-        bool isDepth() const;
-        bool isStencil() const;
 
         GLuint getFBOId() const;
         GLuint getColorTexId() const;

@@ -91,32 +91,19 @@ namespace carto {
     
         cglib::vec3<double> targetPos = focusPos;
         if (_useTarget) {
-            // The pivot moves the map ALONG the surface only. Tangram's pinch correction is a
-            // ground translate in x/y (View::translate) and their view height is derived from the
-            // zoom, so a pivot on a mountain cannot move the view point up or down. Taking the
-            // full 3D offset here dragged the focus down by (pivotZ - focusZ) on every zoom out -
-            // the pinch pivot carries the terrain height under the finger - and a close approach
-            // followed by a few zoom-outs sank it hundreds of metres below the ground. The focus
-            // height is not cosmetic: dist(camera, focus) is what the zoom is calibrated on, so
-            // once the focus is below the ground the zoom stops describing the distance to what
-            // is on screen, and the map is drawn with the tiles (blurry), line widths and label
-            // sizes of a zoom far further out.
+            // The pivot moves the map ALONG the surface only, like tangram's View::translate: the
+            // full 3D offset drags the focus down by the terrain height under the finger on every
+            // zoom out, and dist(camera, focus) is what the zoom is calibrated on.
+            // See docs/rendering/04-terrain.md, "The zoom pivot sank the focus".
             MapPos targetMapPos = _targetPos;
             targetMapPos.setZ(projectionSurface->calculateMapPos(focusPos).getZ());
             targetPos = projectionSurface->calculatePosition(targetMapPos);
         }
     
-        // Bound the zoom by the terrain clearance here, at the single point every zoom
-        // path funnels through (pinch, double-tap animation, kinetic fling, API calls).
-        // Clamping the REQUESTED zoom makes the gesture come to rest against the terrain;
-        // letting it through and correcting the camera afterwards makes the two fight
-        // every frame, which is what made zooming jump back and forth.
-        // The terrain bound STOPS a zoom in; it never drives a zoom OUT from here. Clamping a
-        // zoom-in request to below the current zoom - which happens whenever the camera is already
-        // inside the clearance shell - scales the map about the PIVOT, and with the pivot under the
-        // fingers that throws the map sideways: the pinch that jumps somewhere else. Getting back
-        // onto the shell is MapRenderer's per-frame correction, which zooms about the focus and so
-        // moves nothing sideways.
+        // Bound the REQUESTED zoom here, the one point every zoom path funnels through - correcting
+        // the camera afterwards makes the two fight. The bound only STOPS a zoom in: driving a zoom
+        // out from here scales about the PIVOT and throws the map sideways. Getting back onto the
+        // shell is MapRenderer's per-frame correction, which zooms about the focus.
         MapRange zoomRange = options.getZoomRange();
         float maxZoom = std::min(zoomRange.getMax(), std::max(viewState.getTerrainMaxZoom(), viewState.getZoom()));
         float zoom = GeneralUtils::Clamp(viewState.getZoom() + _zoomDelta, viewState.getMinZoom(), maxZoom);

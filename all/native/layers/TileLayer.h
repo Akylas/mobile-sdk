@@ -392,8 +392,6 @@ namespace carto {
         virtual void calculateRayIntersectedElements(const cglib::ray3<double>& ray, const ViewState& viewState, std::vector<RayIntersectedElement>& results) const;
         virtual bool processClick(const ClickInfo& clickInfo, const RayIntersectedElement& intersectedElement, const ViewState& viewState) const;
 
-        MapBounds calculateInternalTileBounds(const MapTile& mapTile) const;
-
         std::shared_ptr<vt::TileTransformer> getTileTransformer() const;
         void resetTileTransformer();
 
@@ -532,7 +530,6 @@ namespace carto {
         bool _terrainEnabled = false;
         int _terrainMeshResolution = 0;
         int _terrainMinZoom = 0;
-        bool _terrainRegularGrid = false;
         bool _terrainSourceDensity = false;
         bool _terrainSourceDensityLines = false;
         float _terrainViewDistanceFactor = 0.0f; // last TerrainOptions view distance factor a cull ran with

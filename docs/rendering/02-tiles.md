@@ -50,7 +50,12 @@ Three terrain-specific details, each of which was a bug once:
 
 - **The LOD area is taken at surface level, not from the elevation-expanded bbox.** Otherwise
   subdivision decisions change as elevation streams in, and the visible tile set (and with it tile
-  and DEM fetching) churns forever.
+  and DEM fetching) churns forever. "Surface level" is the elevation **at the screen centre**
+  (`_lodElevation`), tangram's choice too (`View::getTileScreenArea`, "use elevation at center of
+  screen"): one value for the whole cull, so it moves with the camera and not with the tile.
+  Measuring a mountain tile as if it lay at sea level puts it further away and makes it smaller, so
+  it stays coarse exactly where the terrain is high and steep — blurred hillshade, a blunt depth
+  occluder that ridges leak through, and a wide LOD spread that tears at tile borders.
 - **Target tiles may exceed the data source's max zoom** in terrain mode
   (`_terrainOverzoomTargets`, fed by the existing overzoom machinery). A z12 DEM-derived hillshade
   under a z15 camera otherwise renders surfaces many times coarser than the base map's, and those
@@ -138,7 +143,23 @@ displaced surface, and the constant clip-space `depth_shift` has to cover that c
 
 Lines are **not** subdivided by density: they are cut exactly where they cross a surface-lattice
 line (`x = k·cell`, `y = k·cell`, `x + y = k·cell` in tile uv), so every sub-segment lies inside one
-surface triangle. Exact, fewer vertices, and no depth slack needed.
+surface triangle. Exact, fewer vertices, and no depth slack needed. Tangram displaces line vertices
+in the shader instead and subdivides nothing; that costs **13× the index throughput** here, and a
+coarse or proxy tile's roads chord straight across the terrain until the finer tile arrives — the
+"roads go straight when zooming out" report.
+
+**Fills are subdivided even when draping is on**, and that is deliberate. Draping bakes fills flat,
+so their subdivision is wasted work for a draped tile — but draping is decided **per tile at render
+time** while the density is decided **globally at decode time**. An un-subdivided fill that then
+does not get draped sags below the surface and leaves the bare background colour (the "landcover
+holes"), and tiles fall through the drape cover constantly: the cover is capped at the camera zoom
+and a hillshade contributes its DEM-limited zoom, so render tiles finer than the cover are normal.
+Suppressing those tiles instead was tried — the map becomes a stretched coarse drape. The
+subdivision is not what costs: emulator, `meshResolution` 128, drape on, scripted 3-level zoom gives
+median 58–60 fps and the same worst-case bake spike either way.
+
+The decode-time density flags must match between `TileLayer::calculateDrawData` and
+`resetTileTransformer`, or tiles decoded for the other mode stay in the cache forever.
 
 ## Where tiles come from
 

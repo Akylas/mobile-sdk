@@ -80,6 +80,23 @@ Two implementation notes: it uses `glGetUniformLocation` with `>= 0` guards (see
 [03-vt-renderer.md](03-vt-renderer.md#shaders)), and it draws from a **client-side array**, so any
 renderer that leaves a `GL_ARRAY_BUFFER` bound makes the sky quad fly off screen.
 
+Two more, both about not painting what is covered anyway:
+
+- **The quad starts at the horizon**, not at the bottom of the screen — everything below is ground,
+  background plane or terrain, all drawn over the sky, and at a tilt that is half the screen of pure
+  overdraw. Tangram's sky mesh spans the top half and is translated onto the horizon the same way
+  (`core/src/util/skyManager.cpp`). A generous margin is kept below it because the fog band fades
+  downwards from the skyline by an amount that is not a straight function of the horizon. The clip
+  applies only when the horizon is what bounds the ground; when the terrain path draws the sky
+  although the flat horizon says it is not visible (a peak exposing it), the quad stays full screen.
+- **The haze starts fading at an elevation angle, not at zero.** Fading from the mathematical
+  horizon is right on a flat map, where the skyline *is* the horizon. In the mountains the skyline
+  is a ridge, and a ridge stands well above the horizon once the camera is near it: the fog then
+  stops at an angle the sky above is already clear at, and hazy ground meets clean sky along the
+  silhouette — the "fog does not reach the sky when zoomed in" report, which appears with zoom
+  because the angle to a ridge grows as you approach while the horizon stays at zero. The reference
+  angle is the highest terrain the view can hold, seen at the distance the fog saturates at.
+
 ## Fog and the background plane
 
 Fog is applied by the vt shaders (ground, content, paint) from `setFog(color, startDistance,

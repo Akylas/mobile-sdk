@@ -81,7 +81,6 @@ mapView.options.terrainOptions = terrain
 let dem = NTMemoryCacheTileDataSource(dataSource: httpDem)
 let terrain = NTTerrainOptions(dataSource: dem)
 terrain?.setEnabled(true)
-terrain?.setPainterOrderDepthEnabled(true)
 terrain?.setDrapeFillsEnabled(true)
 terrain?.setMeshResolution(64)
 mapView.getOptions()?.setTerrainOptions(terrain)
@@ -100,11 +99,8 @@ mapView.getOptions()?.setTerrainOptions(terrain)
 | `Enabled` | `true` | When off, the map renders flat but the DEM stays attached. |
 | `Exaggeration` | `1.0` | Height multiplier. Changing it re-tesselates loaded tiles (costly). |
 | `MeshResolution` | `32` | Grid cells per tile edge, clamped `2..256`. Limited by DEM resolution. |
-| `PainterOrderDepthEnabled` | `false` | Recommended depth model; content draws in painter order over a true-depth surface. |
 | `DrapeFillsEnabled` | `false` | Render-to-texture fill/background draping. |
 | `DrapeLinesEnabled` | `false` | Optionally drape tile lines too (softer, zero-cost hug). |
-| `ElementTerrainSlack` | — | Painter-order clearance for vector elements (routes). Tune if route lines leak. |
-| `RegularGridEnabled` | `false` | Shared regular grid (tangram-style, faster) vs adaptive tesselation (crack-free). GPU-draping/planar only. |
 | `BackgroundColor` | — | Fill color drawn before tiles (works even with zero tile layers). |
 | `BackgroundBitmapEnabled` | `false` | Drape `Options.getBackgroundBitmap()` over the terrain (world-anchored, repeats). |
 | `MinZoom` / `CameraClearance` / `CameraClampDuration` | — | Camera behavior near/inside slopes. |
@@ -113,7 +109,6 @@ mapView.getOptions()?.setTerrainOptions(terrain)
 Recommended configuration:
 
 ```java
-terrainOptions.setPainterOrderDepthEnabled(true);
 terrainOptions.setDrapeFillsEnabled(true);
 terrainOptions.setMeshResolution(64);
 ```
@@ -134,8 +129,8 @@ val many: DoubleVector = terrain.getElevations(mapPosVector) // batched
   (no full flush), removes most of the fast-zoom render-thread stall.
 - Prefer `meshResolution = 64` as a good quality/cost balance; go higher only if you see terraced
   slopes at close range.
-- `RegularGridEnabled = true` removes per-tile CPU tesselation (fastest) but can show thin cracks
-  where adjacent tiles differ in zoom level.
+- The shared regular grid and the painter-order depth model are always on where the GPU supports
+  vertex texture fetch; there is no per-tile CPU tesselation to pay for there.
 
 ## Known limitation
 

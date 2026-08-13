@@ -10,15 +10,9 @@
 namespace carto {
 
     const std::size_t TerrainDrapeCache::MAX_POOLED_TEXTURES = 32;
-    // Tiles are NOT dropped the moment they leave the visible cover. A zoom or a pan walks the
-    // cover back and forth over the same tiles, and re-acquiring means re-baking every layer of
-    // every tile - the cost that made zooming stall. Keeping a generation of tiles alive turns
-    // that into a cache hit.
-    // A BYTE budget, not a tile count: a drape texture is resolution^2 x RGBA, so the same 160 entries
-// are 10 MB at 128 and 640 MB at 1024 - and the count was the only cap, which is how the cache came
-// to ask for hundreds of megabytes on a high-DPI screen. The count is derived from the budget per
-// resolution, with a floor so a large resolution still caches a usable cover instead of re-baking
-// every frame.
+    // Keep a generation of tiles past the visible cover: a zoom or pan walks back over the same
+    // tiles and re-acquiring means re-baking every layer of each. A BYTE budget, not a tile count -
+    // 160 entries are 10 MB at 128 and 640 MB at 1024. docs/rendering/04-terrain.md.
 const std::size_t TerrainDrapeCache::MAX_BYTES = 96 * 1024 * 1024;
 const std::size_t TerrainDrapeCache::MIN_ENTRIES = 24;
 const std::size_t TerrainDrapeCache::MAX_ENTRIES = 160;

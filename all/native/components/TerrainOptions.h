@@ -143,23 +143,6 @@ namespace carto {
         void setMeshResolution(int meshResolution);
 
         /**
-         * Returns whether terrain surfaces use a shared regular grid.
-         * @return True if a shared regular grid mesh is used, false for per-tile adaptive tesselation. The default is false.
-         */
-        bool isRegularGridEnabled() const;
-        /**
-         * Enables or disables the shared regular grid terrain surface mode. When enabled, a single
-         * regular MeshResolution x MeshResolution grid is built once and reused for every tile
-         * (tangram-style GPU draping), eliminating per-tile surface tesselation - faster, but
-         * adjacent tiles at different zoom levels may show thin cracks at their shared edges. When
-         * disabled, per-tile adaptive (red-green) tesselation is used, which is crack-free across
-         * zoom levels at the cost of per-tile CPU work. Only takes effect in GPU draping mode
-         * (vertex texture fetch supported, planar projection).
-         * @param regularGridEnabled True to use the shared regular grid, false for adaptive tesselation.
-         */
-        void setRegularGridEnabled(bool regularGridEnabled);
-
-        /**
          * Returns whether cross-LOD tile edge stitching is enabled.
          * @return True if grid surface edges follow a coarser neighbour's lattice. The default is true.
          */
@@ -169,27 +152,11 @@ namespace carto {
          * different zoom levels interpolate the elevation between differently spaced grid
          * vertices along their shared edge, which opens a thin crack. When enabled, the finer
          * tile chords across the coarser neighbour's grid nodes on that edge, so both tiles
-         * describe the same edge. Only takes effect together with the regular grid surface mode
-         * (adaptive tesselation matches its borders to the neighbours already) and needs an even
-         * MeshResolution. Costs one uniform per tile - no extra geometry.
+         * describe the same edge. Needs an even MeshResolution, and only takes effect in GPU
+         * draping mode. Costs one uniform per tile - no extra geometry.
          * @param enabled True to snap grid surface edges to a coarser neighbour's grid.
          */
         void setTileEdgeStitchingEnabled(bool enabled);
-
-        /**
-         * Returns whether the painter-order terrain depth model is used.
-         * @return True if painter-order depth is used, false for the surface-occluder model. The default is true.
-         */
-        bool isPainterOrderDepthEnabled() const;
-        /**
-         * Enables or disables the tangram-style painter-order terrain depth model. When enabled, the
-         * terrain surface is the bottom painter layer and draped content is separated by a fixed
-         * per-layer clip-space delta instead of being depth-tested against a surface pre-pass occluder,
-         * which removes the distance-growing depth slack (no see-through band). Implies (and forces)
-         * RegularGridEnabled. Only takes effect in GPU draping mode (vertex texture fetch, planar).
-         * @param painterOrderDepthEnabled True to use painter-order depth, false for the occluder model.
-         */
-        void setPainterOrderDepthEnabled(bool painterOrderDepthEnabled);
 
         /**
          * Returns whether polygon fills are draped as a render-to-texture surface.
@@ -203,7 +170,7 @@ namespace carto {
          * fills become the surface's texture they follow the terrain exactly - no chord sag, so no holes,
          * no see-through, and no depth slack - at flat-render (2D) fill cost. Lines/contours and labels are
          * unaffected (still drawn as sharp geometry on top). Only native (non-overzoomed) fills are draped.
-         * Requires RegularGridEnabled or PainterOrderDepthEnabled and GPU draping mode (planar).
+         * Requires GPU draping mode (vertex texture fetch, planar projection).
          * @param enabled True to drape fills as a texture, false to draw them as geometry.
          */
         void setDrapeFillsEnabled(bool enabled);
@@ -237,22 +204,6 @@ namespace carto {
          * @param filter The regular expression, or an empty string to drape everything.
          */
         void setNoDrapeLayerFilter(const std::string& filter);
-
-        /**
-         * Returns the painter-order clearance slack applied to draped vector elements.
-         * @return The element terrain slack in clip units. The default is 2.
-         */
-        float getElementTerrainSlack() const;
-        /**
-         * Sets the painter-order clearance slack for draped VectorLayer elements (lines, polygons),
-         * in the same clip units as the internal terrain slack (scaled by tile size, projection depth
-         * and mesh resolution so it tracks the grid cell size). Only used when PainterOrderDepthEnabled
-         * is true. Elements are not lattice-clamped onto the grid surface like tile content, so at low
-         * zoom the coarse grid pokes through them (cracks); increase this until the cracks disappear.
-         * Decrease it if elements behind a ridge shine through. Typical range 0..12.
-         * @param slack The new element terrain slack in clip units (clamped to 0..64).
-         */
-        void setElementTerrainSlack(float slack);
 
         /**
          * Returns the minimum tile zoom level with 3D terrain.
@@ -629,12 +580,9 @@ namespace carto {
 
         std::atomic<bool> _enabled;
         std::atomic<int> _meshResolution;
-        std::atomic<bool> _regularGridEnabled;
         std::atomic<bool> _tileEdgeStitchingEnabled;
-        std::atomic<bool> _painterOrderDepthEnabled;
         std::atomic<bool> _drapeFillsEnabled;
         std::atomic<bool> _drapeLinesEnabled;
-        std::atomic<float> _elementTerrainSlack;
         std::atomic<int> _drapeResolution;
         std::atomic<int> _minZoom;
         std::atomic<int> _maxTileZoomOffset;

@@ -74,7 +74,7 @@ namespace carto {
             double _localFromInternal;
         };
 
-        TerrainTileTransformer(float scale, const std::shared_ptr<ElevationManager>& elevationManager, int meshResolution, int minZoom, bool regularGrid, bool sourceDensity, bool sourceDensityLines);
+        TerrainTileTransformer(float scale, const std::shared_ptr<ElevationManager>& elevationManager, int meshResolution, int minZoom, bool sourceDensity, bool sourceDensityLines);
         virtual ~TerrainTileTransformer() = default;
 
         std::shared_ptr<ElevationManager> getElevationManager() const { return _elevationManager; }
@@ -100,10 +100,6 @@ namespace carto {
         // crossings - the crossing list would cost more than it saves.
         static constexpr int MAX_LATTICE_SPLITS_PER_SEGMENT = 64;
 
-        // How much finer than the surface mesh cell a LINE is cut when there is no regular grid to
-        // cut it against exactly. The residual sag falls linearly with the sub-segment length.
-        static constexpr float LINE_SUBDIVISION_FACTOR = 4.0f;
-
         // Recursion guard for the sag-driven line split: 2^10 sub-segments is far past anything a
         // real DEM asks for, and it bounds the work a pathological cliff can demand.
         static constexpr int MAX_SAG_SPLIT_DEPTH = 10;
@@ -112,7 +108,6 @@ namespace carto {
         const std::shared_ptr<ElevationManager> _elevationManager;
         const int _meshResolution;
         const int _minZoom; // tiles below this zoom level are rendered flat
-        const bool _regularGrid; // shared regular-grid surface mode: subdivide draped geometry to one grid cell (follow the shared grid surface), no DEM-texel floor
         const bool _sourceDensity; // source-density (tangram) mode: do not subdivide draped fills; GPU-displace at source density + lifting depth slack
         const bool _sourceDensityLines; // also skip line subdivision (draped lines are baked flat)
     };

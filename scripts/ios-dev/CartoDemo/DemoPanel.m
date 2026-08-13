@@ -191,7 +191,6 @@ typedef NS_ENUM(NSInteger, DemoEntryKind) {
             [DemoEntry toggle:@"stitch" label:@"tile edge stitching" apply:terrain],
             [DemoEntry toggle:@"seamlessEdges" label:@"seamless tile edges" apply:terrain],
             [DemoEntry toggle:@"prefetch" label:@"elevation prefetch" apply:terrain],
-            [DemoEntry toggle:@"painterDepth" label:@"painter-order depth" apply:terrain],
             [DemoEntry toggle:@"occlusion" label:@"billboard occlusion" apply:terrain],
             [DemoEntry toggle:@"backgroundBitmap" label:@"background bitmap" apply:terrain],
         ]],

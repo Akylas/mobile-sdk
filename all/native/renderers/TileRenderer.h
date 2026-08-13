@@ -119,7 +119,6 @@ namespace carto {
         // is about to need back. The resolution is lowered until that many fit the cache budget.
         static constexpr std::size_t DRAPE_WORKING_SET = 64;
         int renderTerrainGround(const Color& color);
-        bool isDrapeEnabled() const;
         void collectDrapeTiles(std::map<vt::TileId, std::size_t>& drapeTiles) const;
         int bakeDrapeTile(const vt::TileId& tileId);
         int renderDrapedSurface(const vt::TileId& tileId, unsigned int drapeTexture, float uvOffsetX, float uvOffsetY, float uvScale);
@@ -165,7 +164,6 @@ namespace carto {
         struct LabelOcclusionState;
 
         bool initializeRenderer();
-        bool isPlanarTerrainMode() const;
         bool isPlanarProjectionMode() const;
         // Tangram-model measurement switch, read once from debug.carto.depthshift (Android only).
         static float getTerrainContentDepthShift();
@@ -174,9 +172,6 @@ namespace carto {
         // It is a per-step separation between coplanar style layers, not a budget to spread over
         // the stack: scaling it by the ordinal span was this fork's, and ten times their pull is
         // what let far content over a near ridge (see the shift's use in onDrawFrame).
-        // Measurement override for the paint's DEM level: debug.carto.paintdetail 0 forces the
-        // mesh level, whatever the layer asks for. Read once (Android only).
-        static bool isTerrainPaintFullDetailAllowed();
         // Elevation levels the shading texture resolves BEYOND the standard rule
         // (ElevationManager::clampTileZoom, which is tangram's: the tile's own zoom, adjusted by
         // the elevation source's zoom bias). 0 means the shading and the geometry read the SAME

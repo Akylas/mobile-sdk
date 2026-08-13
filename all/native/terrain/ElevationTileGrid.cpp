@@ -129,27 +129,12 @@ namespace carto {
         // a full-texel height step (tens of meters on a slope) at the tile border.
         double texelX = (_internalBounds.getMax().getX() - _internalBounds.getMin().getX()) / _width;
         double texelY = (_internalBounds.getMax().getY() - _internalBounds.getMin().getY()) / _height;
-        // EDGE BOX FILTER. A coarser neighbour's height field is the 2^k x 2^k average of this
-        // level's (mapterhorn and every other overview pyramid downsamples that way), so along a
-        // shared edge it only ever interpolates those averages while this tile interpolates its
-        // own full-detail texels. Border backfill alone does not close that: this side meets the
-        // border at (own texel + neighbour average) / 2 while the neighbour meets it at
-        // (neighbour average + own average) / 2, and the difference - half the local high-frequency
-        // detail - is the dotted speckle line along LOD-ring borders.
-        // Averaging THIS tile's outermost texel row/column over the neighbour's texel footprint
-        // removes that term: both sides then meet the border on the same average. What is left is
-        // an eighth of the difference between the neighbour's texel and this tile's average over
-        // it - the border texel is itself an interpolation of the coarse field, not one of its
-        // texels - so the seam is reduced rather than eliminated. Only the outermost row/column is
-        // touched, and only towards a coarser neighbour: everything else keeps full DEM detail.
-        // Groups are found geographically rather than assumed to be a power of two, so an unaligned
-        // or non-quadtree neighbour degrades to a no-op instead of a shift.
-        // In the steady state this rarely fires: the elevation level cap usually gives two render
-        // tiles of different zoom the SAME DEM level (see ElevationManager::clampTileZoom), and the
-        // lattice mismatch that remains at a LOD ring is what TileEdgeStitchingEnabled handles.
-        // It does fire while tiles stream in, when a tile is still standing on an ancestor grid.
-        // alongY: the edge runs north-south (west/east edge), so texel ROWS are grouped and
-        // fixedIndex is the column; otherwise columns are grouped and fixedIndex is the row.
+        // EDGE BOX FILTER. A coarser neighbour interpolates 2^k averages along a shared edge while
+        // this tile interpolates its own texels; backfill alone leaves half the local detail as a
+        // dotted speckle line. Averaging this tile's outermost row/column over the neighbour's
+        // footprint makes both sides meet on the same value. Only towards a coarser neighbour, and
+        // groups are found geographically so an unaligned one degrades to a no-op.
+        // alongY: the edge runs north-south, so texel ROWS are grouped and fixedIndex is the column.
         auto edgeFilter = [&, this](const std::shared_ptr<ElevationTileGrid>& neighbour, bool alongY, int fixedIndex) -> std::vector<float> {
             std::vector<float> result;
             if (!neighbour || sameLevel(neighbour) || neighbour->_width < 1 || neighbour->_height < 1) {

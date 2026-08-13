@@ -15,18 +15,6 @@ namespace carto {
         return _height;
     }
     
-    bool FrameBuffer::isColor() const {
-        return _depth;
-    }
-    
-    bool FrameBuffer::isDepth() const {
-        return _depth;
-    }
-    
-    bool FrameBuffer::isStencil() const {
-        return _stencil;
-    }
-
     GLuint FrameBuffer::getFBOId() const {
         return _fboId;
     }
