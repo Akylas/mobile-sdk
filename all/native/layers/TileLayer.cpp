@@ -309,7 +309,6 @@ namespace carto {
             bool terrainEnabled = terrainOptions && terrainOptions->isEnabled();
             int terrainMeshResolution = terrainOptions ? terrainOptions->getMeshResolution() : 0;
             int terrainMinZoom = terrainOptions ? terrainOptions->getMinZoom() : 0;
-            bool terrainRegularGrid = terrainOptions && (terrainOptions->isRegularGridEnabled() || terrainOptions->isPainterOrderDepthEnabled());
             // Draped fills are baked FLAT into the drape texture, so their terrain subdivision is
             // wasted work - and the subdivided fill VBOs are uploaded on the render thread, which
             // stalls fast zooms. Draping fills therefore implies source-density (no fill
@@ -351,14 +350,13 @@ namespace carto {
             // calculateLocalHeight returns 0). Comparing it here dropped every tile in the cache
             // for a value only the GPU reads, so ramping it - the terrain 'expand' animation -
             // re-decoded the whole map every frame.
-            if (_terrainOptions.lock() != terrainOptions || _terrainEnabled != terrainEnabled || _terrainMeshResolution != terrainMeshResolution || _terrainMinZoom != terrainMinZoom || _terrainRegularGrid != terrainRegularGrid || _terrainSourceDensity != terrainSourceDensity || _terrainSourceDensityLines != terrainSourceDensityLines) {
+            if (_terrainOptions.lock() != terrainOptions || _terrainEnabled != terrainEnabled || _terrainMeshResolution != terrainMeshResolution || _terrainMinZoom != terrainMinZoom || _terrainSourceDensity != terrainSourceDensity || _terrainSourceDensityLines != terrainSourceDensityLines) {
                 clearTileCaches(true);
                 resetTileTransformer();
                 _terrainOptions = terrainOptions;
                 _terrainEnabled = terrainEnabled;
                 _terrainMeshResolution = terrainMeshResolution;
                 _terrainMinZoom = terrainMinZoom;
-                _terrainRegularGrid = terrainRegularGrid;
                 _terrainSourceDensity = terrainSourceDensity;
                 _terrainSourceDensityLines = terrainSourceDensityLines;
             }
@@ -1124,7 +1122,7 @@ namespace carto {
                     // MUST match what calculateDrawData compares against, or tiles decoded for the
                     // other mode stay in the cache forever.
                     bool tangramContent = !terrainOptions->isDrapeFillsEnabled();
-                    tileTransformer = std::make_shared<TerrainTileTransformer>(static_cast<float>(Const::WORLD_SIZE), terrainOptions->getElevationManager(), terrainOptions->getMeshResolution(), terrainOptions->getMinZoom(), terrainOptions->isRegularGridEnabled() || terrainOptions->isPainterOrderDepthEnabled(), isAreaSourceDensityForced(), tangramContent || terrainOptions->isDrapeLinesEnabled() || isLineSourceDensityForced());
+                    tileTransformer = std::make_shared<TerrainTileTransformer>(static_cast<float>(Const::WORLD_SIZE), terrainOptions->getElevationManager(), terrainOptions->getMeshResolution(), terrainOptions->getMinZoom(), isAreaSourceDensityForced(), tangramContent || terrainOptions->isDrapeLinesEnabled() || isLineSourceDensityForced());
                 }
             }
         }

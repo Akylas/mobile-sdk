@@ -532,7 +532,6 @@ namespace carto {
         bool _terrainEnabled = false;
         int _terrainMeshResolution = 0;
         int _terrainMinZoom = 0;
-        bool _terrainRegularGrid = false;
         bool _terrainSourceDensity = false;
         bool _terrainSourceDensityLines = false;
         float _terrainViewDistanceFactor = 0.0f; // last TerrainOptions view distance factor a cull ran with

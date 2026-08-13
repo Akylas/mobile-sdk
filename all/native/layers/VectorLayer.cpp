@@ -170,78 +170,21 @@ namespace carto {
                 mapRenderer->setZBuffering(true);
             }
 
-            // In terrain mode, draped 2D elements sit exactly on the terrain surface and
-            // would z-fight the terrain depth pre-pass. Pull them slightly towards the
-            // viewer (slope-scaled) while the terrain pre-pass is pushed slightly away.
-            bool terrainDepthOffset = false;
+            // Painter-order terrain: elements sit at (bilinear height + world lift) and are drawn
+            // with GL_LEQUAL and ZERO bias, like the lattice-clamped tile content - they pass at/above
+            // the surface and are occluded behind a ridge. Any forward bias leaks through at distance.
             bool terrainPainterOrder = false;
-            float elementDepthBias = 0.0f;
-            float elementDepthBiasClip = 0.0f;
             if (auto options = getOptions()) {
                 if (options->getRenderProjectionMode() == RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
                     if (auto terrainOptions = options->getTerrainOptions()) {
-                        if (terrainOptions->isEnabled() && terrainOptions->isPainterOrderDepthEnabled()) {
-                            // Painter-order + true-depth terrain occluder: elements are drawn with
-                            // GL_LEQUAL and ZERO forward bias, exactly like the lattice-clamped tile
-                            // content. Elements sit at (bilinear height + small world lift), so they
-                            // pass the depth test where they are at/above the surface and are
-                            // occluded (fail) behind a near ridge. A forward clip bias is what let
-                            // the whole element line shine through terrain at distance - drop it.
-                            // Residual concave cracks are cleared by the world-space height lift
-                            // (TerrainProjectionSurface), which does not grow with distance so it
-                            // can not leak over ridges.
-                            terrainPainterOrder = true;
-                            elementDepthBias = 0.0f;
-                            elementDepthBiasClip = 0.0f;
-                        } else if (terrainOptions->isEnabled()) {
-                            terrainDepthOffset = true;
-                            // Element heights are the same bilinear elevation samples the GPU
-                            // draping shader renders (plus the small height lift), so only a
-                            // small constant separation is needed - a few tile-layer depth
-                            // deltas keep elements above the draped tile content. A large bias
-                            // would make elements visible through terrain ridges at distance
-                            // (the eye-space tolerance of a clip-space bias grows with z^2).
-                            elementDepthBias = 2.0f / 524288.0f;
-                            // Distance-proportional slack (mirrors the vt renderer's
-                            // TERRAIN_DEPTH_CLIP_SLACK): elements follow the full-resolution
-                            // height field while the rendered surface is the drawn LOD's
-                            // coarse mesh, whose deviation from it grows with the visible
-                            // tile cell size - i.e. with zoom-out and with distance (coarser
-                            // LOD rings), which a clip-constant shift (eye-distance
-                            // proportional) tracks. Scaled by the focus-zoom tile size and
-                            // the projection depth coefficient |m22| (near-top-down views
-                            // compress the depth range).
-                            float tileSize = static_cast<float>(Const::WORLD_SIZE / std::pow(2.0, std::floor(viewState.getZoom())));
-                            float projScaleZ = static_cast<float>(std::abs(viewState.getProjectionMat()(2, 2)));
-                            // Quadratic slack law anchored at zoom 11 tiles (mirrors the vt
-                            // renderer): the mesh interpolation error is curvature limited and
-                            // shrinks ~quadratically with the cell size, and excess slack lets
-                            // elements bleed through ridge crests.
-                            float refTileSize = static_cast<float>(Const::WORLD_SIZE / 2048.0);
-                            float slackScale = tileSize * std::min(4.0f, tileSize / refTileSize);
-                            // Elements are subdivided to ~the elevation texel size and
-                            // sample the full-resolution height field, so their deviation
-                            // from the rendered surfaces is dominated by the SURFACE cell
-                            // error - which shrinks quadratically with the terrain mesh
-                            // resolution (mirrors the vt renderer slack scaling; requires
-                            // the terrain-mode overzoomed target tiles so that the LAST
-                            // tile layer's surfaces are actually that fine near the camera).
-                            float resolutionRatio = 32.0f / std::max(32, terrainOptions->getMeshResolution());
-                            elementDepthBiasClip = 12.0f * 0.001f * slackScale * projScaleZ * resolutionRatio * resolutionRatio;
-                        }
+                        terrainPainterOrder = terrainOptions->isEnabled();
                     }
                 }
             }
-            _lineRenderer->setDepthBias(elementDepthBias, elementDepthBiasClip);
-            _pointRenderer->setDepthBias(elementDepthBias, elementDepthBiasClip);
-            _polygonRenderer->setDepthBias(elementDepthBias, elementDepthBiasClip);
-            _geometryCollectionRenderer->setDepthBias(elementDepthBias, elementDepthBiasClip);
-            if (terrainDepthOffset) {
-                // constant-only: a slope-scaled pull would let elements far behind a ridge
-                // jump in front of the written terrain depth at grazing angles
-                glEnable(GL_POLYGON_OFFSET_FILL);
-                glPolygonOffset(0.0f, -2.0f);
-            }
+            _lineRenderer->setDepthBias(0.0f, 0.0f);
+            _pointRenderer->setDepthBias(0.0f, 0.0f);
+            _polygonRenderer->setDepthBias(0.0f, 0.0f);
+            _geometryCollectionRenderer->setDepthBias(0.0f, 0.0f);
             if (terrainPainterOrder) {
                 // Coincident-with-surface content: pass at equal depth, occlude behind ridges.
                 glDepthFunc(GL_LEQUAL);
@@ -254,11 +197,6 @@ namespace carto {
             _polygonRenderer->onDrawFrame(deltaSeconds, viewState);
             if (terrainPainterOrder) {
                 glDepthFunc(GL_LESS);
-            }
-
-            if (terrainDepthOffset) {
-                glDisable(GL_POLYGON_OFFSET_FILL);
-                glPolygonOffset(0.0f, 0.0f);
             }
 
             _polygon3DRenderer->onDrawFrame(deltaSeconds, viewState);

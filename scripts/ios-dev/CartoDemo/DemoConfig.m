@@ -58,7 +58,6 @@ static NSMutableDictionary *sValues = nil;
         @"exaggeration":        @1.0f,
         @"meshResolution":      @64,
         @"clearance":           @60.0f,
-        @"painterDepth":        @YES,
         @"drape":               @YES,
         @"drapeLines":          @NO,
         @"drapeResolution":     @0,

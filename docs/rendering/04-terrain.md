@@ -79,7 +79,8 @@ grid's own samples and patch borders as small `glTexSubImage2D` strips.
 
 ## Surfaces
 
-Two mechanisms exist; **regular-grid mode is what runs**:
+Two mechanisms exist; **regular-grid mode is what runs**, and it is no longer optional — the
+adaptive path is only reached on a GPU without vertex texture fetch (no elevation texture provider):
 
 - **Shared regular grid** (`TileSurfaceBuilder::buildRegularGridSurface`): ONE unit grid of
   `TerrainOptions::MeshResolution` cells, built once, drawn for every tile with the tile's own
@@ -356,29 +357,25 @@ read-back.
 Not affected: billboards and vector elements decide occlusion by ray-marching the elevation grids
 from the current camera (`BillboardPlacementWorker`), which is self-consistent already.
 
-## Draped lines sagging into the terrain (no regular grid)
+## Draped lines sagging into the terrain (historical)
 
 Symptom: lines do not sit on the surface — a route reads as sunk into a ridge or floating over it,
 worst at low zoom, straightening as you zoom in, at any tilt.
 
-`TerrainTileTransformer` has two line-subdivision paths, and only one of them is exact:
+`TerrainTileTransformer` used to have two line-subdivision paths, and only one of them was exact.
+The lattice one — cut each segment exactly where it leaves a surface triangle
+(`tesselateSegmentOnLattice`), so every sub-segment lies *in* one triangle — is now the only one.
+The other halved segments until shorter than a threshold, and a sub-segment one mesh cell long
+still chords across the cell's diagonal fold and sags below it.
 
-- **regular-grid mode** (`TerrainOptions::setRegularGridEnabled`, **off by default**) cuts each
-  segment exactly where it leaves a surface triangle (`tesselateSegmentOnLattice`), so every
-  sub-segment lies *in* one triangle and follows the surface exactly;
-- **without it** there is no lattice to cut against, so segments are only halved until shorter than
-  a threshold. A sub-segment one mesh cell long still chords across the cell's diagonal fold and
-  sags below it.
+The bug there was `lineDivideThreshold = divideThreshold`: lines shared the fill threshold
+**including its DEM-texel floor** (`max(tileMeters / meshResolution, demTexelMeters)`). That floor
+answers "how much elevation detail exists", which is the right bound for a fill but the wrong one
+for the sag — the sag is against the surface **mesh**, not the DEM. Since the threshold is
+proportional to the tile, the error scaled with tile size, hence better on every zoom in.
 
-The bug was that this second path used `lineDivideThreshold = divideThreshold`, i.e. lines shared the
-fill threshold **including its DEM-texel floor** (`max(tileMeters / meshResolution, demTexelMeters)`).
-That floor answers "how much elevation detail exists", which is the right bound for a fill but the
-wrong one for the sag: the sag is against the surface **mesh**, not the DEM. Since the threshold is
-proportional to the tile, the error scaled with tile size — hence better on every zoom in.
-
-Lines are now cut `LINE_SUBDIVISION_FACTOR` (4) times finer than the mesh cell, with no texel floor.
-Lines are 1D, so the same factor costs a fraction of what it would on a fill, and the residual sag
-falls linearly with the sub-segment length.
+Kept as a record because the same reasoning applies to anything else measured against the surface:
+bound it by the mesh cell, not by the data resolution.
 
 Not fixed here: without the regular grid the sag is only *reduced*, never zero. Turning on
 regular-grid mode is what removes it, and that is a larger change ([05-depth-model.md](05-depth-model.md)).

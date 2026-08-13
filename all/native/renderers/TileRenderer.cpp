@@ -754,18 +754,14 @@ namespace carto {
             terrainSlackScale = resolutionRatio * resolutionRatio;
         }
         tileRenderer->setTerrainSlackScale(terrainSlackScale);
-        // Painter-order depth model (tangram-style): the surface is the bottom painter
-        // layer and content is separated by a per-layer clip delta (no occluder, no slack).
-        // Implies the shared regular grid. Only in GPU draping mode.
-        bool painterOrder = terrainMode && activeTerrainOptions && activeTerrainOptions->isPainterOrderDepthEnabled() && (bool) terrainTextureProvider;
-        // Shared regular grid surfaces (tangram-style): one grid built once and reused for
-        // every tile, instead of per-tile adaptive tesselation. Only in GPU draping mode.
+        // Tangram's model: one shared grid surface reused for every tile, and painter-order depth
+        // on top of it (the surface is the bottom painter layer, no occluder pre-pass, no slack).
+        // Needs GPU draping - a GPU without vertex texture fetch falls back to adaptive tesselation.
+        bool regularGrid = terrainMode && activeTerrainOptions && (bool) terrainTextureProvider;
+        tileRenderer->setTerrainRegularGrid(regularGrid, activeTerrainOptions ? activeTerrainOptions->getMeshResolution() : 0);
         // Maplibre-style RTT draping. It requires the shared regular grid: the drape UV is the
         // grid's tile-local [0,1] vertex position, which only the regular grid provides.
-        bool drapeFills = terrainMode && activeTerrainOptions && activeTerrainOptions->isDrapeFillsEnabled() && (bool) terrainTextureProvider;
-        bool regularGrid = painterOrder || drapeFills || (terrainMode && activeTerrainOptions && activeTerrainOptions->isRegularGridEnabled() && (bool) terrainTextureProvider);
-        tileRenderer->setTerrainRegularGrid(regularGrid, activeTerrainOptions ? activeTerrainOptions->getMeshResolution() : 0);
-        tileRenderer->setTerrainPainterOrder(painterOrder);
+        bool drapeFills = regularGrid && activeTerrainOptions->isDrapeFillsEnabled();
         // Tangram's content depth shift. polygon.vs/polyline.vs set `depth_shift = 0.0` and leave
         // it "to allow blocks to modify" - and their 3D TERRAIN scene is one of the blocks that
         // does: res/scenes/terrain-3d.yaml sets `depth_shift = -0.02*u_proj[2][3]`, which with

@@ -19,13 +19,10 @@ namespace carto {
         _elevationManager(dataSource ? std::make_shared<ElevationManager>(dataSource, elevationDecoder) : std::shared_ptr<ElevationManager>()),
         _enabled(true),
         _meshResolution(32),
-        _regularGridEnabled(false),
         _tileEdgeStitchingEnabled(true),
-        _painterOrderDepthEnabled(true),
         _drapeFillsEnabled(true),
         _drapeLinesEnabled(true),
         _drapeResolution(0),
-        _elementTerrainSlack(2.0f),
         _minZoom(5),
         _maxTileZoomOffset(100),
         _backgroundColorARGB(0),
@@ -119,16 +116,6 @@ namespace carto {
         }
     }
 
-    bool TerrainOptions::isRegularGridEnabled() const {
-        return _regularGridEnabled.load();
-    }
-
-    void TerrainOptions::setRegularGridEnabled(bool regularGridEnabled) {
-        if (_regularGridEnabled.exchange(regularGridEnabled) != regularGridEnabled) {
-            notifyOptionChanged("RegularGridEnabled");
-        }
-    }
-
     bool TerrainOptions::isTileEdgeStitchingEnabled() const {
         return _tileEdgeStitchingEnabled.load();
     }
@@ -136,16 +123,6 @@ namespace carto {
     void TerrainOptions::setTileEdgeStitchingEnabled(bool enabled) {
         if (_tileEdgeStitchingEnabled.exchange(enabled) != enabled) {
             notifyOptionChanged("TileEdgeStitchingEnabled");
-        }
-    }
-
-    bool TerrainOptions::isPainterOrderDepthEnabled() const {
-        return _painterOrderDepthEnabled.load();
-    }
-
-    void TerrainOptions::setPainterOrderDepthEnabled(bool painterOrderDepthEnabled) {
-        if (_painterOrderDepthEnabled.exchange(painterOrderDepthEnabled) != painterOrderDepthEnabled) {
-            notifyOptionChanged("PainterOrderDepthEnabled");
         }
     }
 
@@ -182,17 +159,6 @@ namespace carto {
     void TerrainOptions::setDrapeLinesEnabled(bool enabled) {
         if (_drapeLinesEnabled.exchange(enabled) != enabled) {
             notifyOptionChanged("DrapeLinesEnabled");
-        }
-    }
-
-    float TerrainOptions::getElementTerrainSlack() const {
-        return _elementTerrainSlack.load();
-    }
-
-    void TerrainOptions::setElementTerrainSlack(float slack) {
-        float clamped = std::min(64.0f, std::max(0.0f, slack));
-        if (_elementTerrainSlack.exchange(clamped) != clamped) {
-            notifyOptionChanged("ElementTerrainSlack");
         }
     }
 
