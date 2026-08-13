@@ -26,6 +26,13 @@ existing code keeps working. Highlights added by the fork:
 - 🎚️ **[Composite Vector Tile Layer](/docs/features/composite-vector-tile-layer)** — weave external raster / hillshade / vector sources into one CartoCSS style.
 - 🌄 **[Advanced hillshade](/docs/features/hillshade)** and **[custom raster shaders](/docs/features/custom-raster-shaders)**.
 - 🧩 **[PMTiles](/docs/features/pmtiles)** support (local and HTTP).
+- 🌅 **[Sky, sun and shadows](/docs/features/sky-sun-shadows)** — one directional light and a shader sky shared by ground, terrain and fog.
+- 🌙 **[Objects in the sky](/docs/features/celestial-objects)** — sun, moon, stars or an aircraft, plus a free-roam camera that can look up at them.
+- 🖌️ **[Post-processing effects](/docs/features/post-processing)** — full-screen shaders with access to the terrain depth (the peak-finder look).
+- 🏷️ **[Shields, font icons and callout labels](/docs/features/label-styling)** — names that take the free side of their icon, SDF icon glyphs, plates, panorama callouts.
+- 🎨 **[Live style parameters](/docs/features/style-parameters)** — change a colour, or the selected feature, without re-decoding a single tile.
+- 📐 **[GeoJSON vector tiling](/docs/features/geojson-vector-tiles)** — app data tiled through a geojson-vt pyramid and styled with CartoCSS.
+- ➡️ **[Navigation maneuver arrows](/docs/features/maneuver-arrows)** — cut from the route, drawn as a line with an arrow head.
 - 🧭 Embedded **Valhalla** routing, exposed as a standalone routing library too.
 
 ## What's in the box

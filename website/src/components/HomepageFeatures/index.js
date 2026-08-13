@@ -49,6 +49,54 @@ const NewFeatures = [
     to: '/docs/features/hillshade',
     body: 'Multiple hillshade algorithms (GDAL, Igor, multidirectional), exaggeration and custom raster shaders.',
   },
+  {
+    icon: '🌅',
+    title: 'Sky, Sun & Shadows',
+    to: '/docs/features/sky-sun-shadows',
+    body: 'One directional light and a shader sky shared by ground, terrain and fog — with a replaceable sky shader.',
+  },
+  {
+    icon: '🌙',
+    title: 'Objects in the Sky',
+    to: '/docs/features/celestial-objects',
+    body: 'Sun, moon, stars or an aircraft anchored by direction, plus a free-roam camera that can look above the horizon.',
+  },
+  {
+    icon: '🖌️',
+    title: 'Post-processing',
+    to: '/docs/features/post-processing',
+    body: 'Full-screen fragment shaders with access to the terrain depth — the peak-finder relief look is one.',
+  },
+  {
+    icon: '🏷️',
+    title: 'Shields & Font Icons',
+    to: '/docs/features/label-styling',
+    body: 'Names that take the free side of their icon, SDF icon glyphs, rounded plates and panorama callout labels.',
+  },
+  {
+    icon: '🎨',
+    title: 'Live Style Parameters',
+    to: '/docs/features/style-parameters',
+    body: 'Change a colour, a table or the selected feature and get a repaint instead of a re-decode of every tile.',
+  },
+  {
+    icon: '📐',
+    title: 'GeoJSON Vector Tiling',
+    to: '/docs/features/geojson-vector-tiles',
+    body: 'App data tiled through a geojson-vt pyramid and styled with CartoCSS — 3.3× faster on long lines.',
+  },
+  {
+    icon: '➡️',
+    title: 'Maneuver Arrows',
+    to: '/docs/features/maneuver-arrows',
+    body: 'Turn arrows cut from the route and drawn as a line with an arrow head — no marker, no bitmap.',
+  },
+  {
+    icon: '🧩',
+    title: 'PMTiles',
+    to: '/docs/features/pmtiles',
+    body: 'Single-file tile pyramids (PMTiles v3), local or over HTTP, anywhere a TileDataSource is expected.',
+  },
 ];
 
 function Card({icon, title, body, to, isNew}) {
