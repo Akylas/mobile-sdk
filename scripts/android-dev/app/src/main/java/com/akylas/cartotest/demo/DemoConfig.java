@@ -781,8 +781,10 @@ public final class DemoConfig {
     /** Metres beyond which a summit is not labelled at all; 0 = no limit. */
     public static float PEAKS_MAX_DISTANCE = 120000;
     /** Scripted camera move so animation artifacts can be captured with adb screenrecord:
-     *  "" | zoom | pan | rotate | zoomseq. */
+     *  "" | zoom | pan | rotate | zoomseq | approach. */
     public static String ANIM = "";
+    /** 'approach': the zoom the close approach dives to before panning and pulling back out. */
+    public static float ANIM_APPROACH_ZOOM = 17.5f;
     public static float ANIM_DELAY_MS = 12000;
     public static float ANIM_DURATION_S = 8;
     public static float ANIM_ZOOM_DELTA = 3;
@@ -1117,6 +1119,7 @@ public final class DemoConfig {
         ANIM_ROTATION = DemoCfg.cfgFloat("animRotation", ANIM_ROTATION);
         ANIM_ZOOM_OUT = DemoCfg.cfgFloat("animZoomOut", ANIM_ZOOM_OUT);
         ANIM_SETTLE_MS = DemoCfg.cfgFloat("animSettle", ANIM_SETTLE_MS);
+        ANIM_APPROACH_ZOOM = DemoCfg.cfgFloat("animApproachZoom", ANIM_APPROACH_ZOOM);
     }
 
     /**
