@@ -191,6 +191,16 @@ masked clear per layer, no extra geometry and no extra pass.
   stencil size (`maskStencilBits` vs `stencilBits`). Tying it to the masks is how it silently did
   nothing in exactly the configuration — 3D terrain — where it was wanted.
 - The masks occupy the low bits, so it stands down past 128 target tiles in a frame.
+- **Nothing clears the paint bit when the layer is done**, so every layer after it must compare
+  without it. The per-tile mask test is `GL_EQUAL(stencilValue, mask)`, and with `mask` at 255 that
+  test also demands a zero paint bit — so a layer drawn after a translucent one was rejected in
+  exactly the shape the translucent one had painted. Visible in 2D only: in terrain mode
+  `maskStencilBits` is 0, and the teardown then disables the stencil test outright, which is why the
+  same frame was correct with terrain on. Reported as "casings drawn over the roads at z13–15": the
+  road *fills* were the layer being punched out, leaving the casing under them. The mask is
+  `255 & ~SINGLE_BLEND_STENCIL_BIT` for every layer but the single-blend one itself, where the paint
+  bit IS the rejection. Reproduced at 5.719581/45.186110 z14.60 tilt 90 (top-down), `--es style
+  assets --es terrain false`.
 
 **The trade-off is antialias seams.** The first fragment to reach a pixel owns it, and if that
 fragment was a partial-coverage edge pixel the neighbour can no longer fill it in — faint lighter
