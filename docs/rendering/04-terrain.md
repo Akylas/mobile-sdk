@@ -468,10 +468,15 @@ at the drape texture's size and a slope then magnifies it. Fills and road casing
 
 Hence `GLTileRenderer::setNoDrapeLayerFilter`: style layers matching it stay OUT of the bake and are
 drawn live in the 3D pass at screen resolution, exactly once (the same predicate gates the bake loop,
-`hasDrapeableContent` and the 3D-pass skip). The default is `^contour.*`
-(`TileRenderer::DEFAULT_NO_DRAPE_LAYERS`, override with `adb shell setprop
-debug.carto.nodrapelayers <regex>`, or `none` to drape everything). It is **inert until lines are
-draped at all**, because undraped lines already draw live.
+`hasDrapeableContent` and the 3D-pass skip). The application sets it through
+**`TerrainOptions::NoDrapeLayerFilter`**, a regex over vt layer names, defaulting to `^contour.*`;
+an empty string drapes everything the geometry type allows, and `adb shell setprop
+debug.carto.nodrapelayers <regex>` (or `none`) overrides it for an A/B without rebuilding.
+
+**Both defaults changed on 2026-08-13**: `DrapeLinesEnabled` is now **true**, with contours exempt.
+Verified on device with no props and no intent extras — city pan 26.0–27.2 fps, GPU total 11.8–12.6
+ms, `layers` 0.8 ms. An application that wants the old behaviour sets `DrapeLinesEnabled` false;
+one that wants everything flattened sets `NoDrapeLayerFilter` to "".
 
 What it costs, same runs: the city does not notice (26.8–27.7 → 22.8–26.8 fps, GPU `layers`
 0.3 → 0.7 ms — there are barely any contour lines on a valley floor), the mountain pays for what it

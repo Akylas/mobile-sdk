@@ -208,7 +208,10 @@ public final class DemoConfig {
      *  pan with contours and hillshade: 12.9 fps against 10.5 with fills as geometry (bake +1.7 ms,
      *  geometry submission -3.8 ms). '--es drape false' goes back for an A/B. */
     public static boolean TERRAIN_DRAPE_FILLS = true;
-    public static boolean TERRAIN_DRAPE_LINES = false;
+    /** Lines too, which is what a city pan pays for: 13.4-15.2 fps as geometry against 26.8-27.7
+     *  draped (Crosscall, packaged style, 5.724/45.188 z15 t45). Contours stay sharp - see
+     *  TerrainOptions.NoDrapeLayerFilter. '--es drapeLines false' goes back for an A/B. */
+    public static boolean TERRAIN_DRAPE_LINES = true;
     public static int TERRAIN_DRAPE_RESOLUTION = 0;
     /** Stitch neighbouring DEM tiles so ridges do not appear at tile borders. */
     public static boolean TERRAIN_TILE_EDGE_STITCHING = true;

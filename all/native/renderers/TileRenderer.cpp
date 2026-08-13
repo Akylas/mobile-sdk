@@ -593,11 +593,6 @@ namespace carto {
         tileRenderer->setLayerBlendingSpeed(_layerBlendingSpeed);
         tileRenderer->setLabelBlendingSpeed(_labelBlendingSpeed);
         tileRenderer->setRendererLayerFilter(_rendererLayerFilter);
-        // Style layers that must not be flattened into the drape texture. The drape resolves
-        // content at its own resolution and a slope magnifies it, which fills and casings survive
-        // and hairline content (contours) does not - so those stay live in the 3D pass.
-        //   adb shell setprop debug.carto.nodrapelayers '^contour(::.*)?$'
-        tileRenderer->setNoDrapeLayerFilter(noDrapeLayerFilter());
 
         // Terrain state: enable depth-based terrain rendering and rebuild tile surfaces
         // when the elevation data changes (new DEM tiles, exaggeration change). The rebuild
@@ -814,6 +809,12 @@ namespace carto {
         // source density / subdivided to match it.
         bool drapeLines = drapeFills && activeTerrainOptions && activeTerrainOptions->isDrapeLinesEnabled();
         tileRenderer->setTerrainDrapeFills(drapeFills, drapeLines);
+        // ...except the style layers the application wants kept sharp (contours by default): those
+        // are drawn live in the 3D pass instead, exactly once. The prop overrides the option, so a
+        // run can be A/B'd without rebuilding ('none' drapes everything).
+        //   adb shell setprop debug.carto.nodrapelayers "^contour.*"
+        tileRenderer->setNoDrapeLayerFilter(noDrapeLayerFilter(
+            activeTerrainOptions ? activeTerrainOptions->getNoDrapeLayerFilter() : std::string()));
         tileRenderer->setTerrainDrapeResolution(resolveDrapeResolution(activeTerrainOptions ? activeTerrainOptions->getDrapeResolution() : 0, viewState, _options.lock()));
         // Sun lighting of the draped surface. Once every 2D layer is baked into the drape
         // texture the surface is the only lit ground geometry in the scene, so the whole map
@@ -1162,30 +1163,33 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
 #endif
     }
 
+    std::optional<std::regex> TileRenderer::noDrapeLayerFilter(const std::string& optionFilter) {
+        std::string pattern = optionFilter;
 #ifdef __ANDROID__
-    std::optional<std::regex> TileRenderer::noDrapeLayerFilter() {
-        static const std::optional<std::regex> filter = [] {
-            char property[PROP_VALUE_MAX] = { 0 };
-            if (__system_property_get("debug.carto.nodrapelayers", property) > 0 && property[0]) {
-                if (std::strcmp(property, "none") == 0) {
-                    return std::optional<std::regex>(); // drape everything the geometry type allows
-                }
-                try {
-                    return std::optional<std::regex>(std::regex(property));
-                } catch (const std::exception& ex) {
-                    Log::Errorf("TileRenderer::noDrapeLayerFilter: bad pattern '%s': %s", property, ex.what());
-                }
-            }
-            return std::optional<std::regex>(std::regex(DEFAULT_NO_DRAPE_LAYERS));
-        }();
-        return filter;
-    }
-#else
-    std::optional<std::regex> TileRenderer::noDrapeLayerFilter() {
-        static const std::optional<std::regex> filter{std::regex(DEFAULT_NO_DRAPE_LAYERS)};
-        return filter;
-    }
+        char property[PROP_VALUE_MAX] = { 0 };
+        if (__system_property_get("debug.carto.nodrapelayers", property) > 0 && property[0]) {
+            pattern = (std::strcmp(property, "none") == 0 ? std::string() : property);
+        }
 #endif
+        // Compiling a regex per frame is not free, and this changes about never.
+        static std::string cachedPattern;
+        static std::optional<std::regex> cachedFilter;
+        static bool cacheValid = false;
+        if (cacheValid && cachedPattern == pattern) {
+            return cachedFilter;
+        }
+        cachedPattern = pattern;
+        cachedFilter.reset();
+        if (!pattern.empty()) {
+            try {
+                cachedFilter = std::regex(pattern);
+            } catch (const std::exception& ex) {
+                Log::Errorf("TileRenderer::noDrapeLayerFilter: bad pattern '%s': %s", pattern.c_str(), ex.what());
+            }
+        }
+        cacheValid = true;
+        return cachedFilter;
+    }
 
 #ifdef __ANDROID__
     float TileRenderer::terrainLineClearanceMeters() {
