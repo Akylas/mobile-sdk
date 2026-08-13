@@ -600,10 +600,9 @@ namespace carto {
             }
             _pixelScale = pixelScale;
             // The glyph render size is picked from it when a tile is decoded, so the glyph/stroke
-            // maps have to go. The compiled map does not depend on it - reloading the style here
-            // cost a full parse + compile (~0.5 s for a 23-layer style) on every layer that joins
-            // a map, which is where this fires.
-            _assetPackageSymbolizerContexts.clear();
+            // maps have to go - but only those. Dropping the whole context reloaded the style's
+            // fonts too (~134 ms of a cold start, and this fires when a layer joins a map).
+            resetSymbolizerContextRasterMaps();
             updateSymbolizerContext();
         }
         notifyDecoderChanged();
@@ -853,8 +852,27 @@ namespace carto {
         _styleAssetPackage = assetPackage;
         _map = map;
         _mapSettings = std::make_shared<mvt::Map::Settings>(_map->getSettings());
+        // Both are properties of the compiled map alone, and classifying the parameters is ~38 ms
+        // on a 23-layer style - updateSymbolizerContext also runs when only the pixel scale or a
+        // fallback font changed, and the map is the same one there.
+        _liveParameters = mvt::resolveLiveNutiParameters(*_map);
+        _selectionParameter = _map->getSelectionParameter() ? _map->getSelectionParameter()->name : std::string();
 
         updateSymbolizerContext();
+    }
+
+    void MBVectorTileDecoder::resetSymbolizerContextRasterMaps() {
+        // The stroke and glyph maps hold output rasterized at one pixel scale; the font and bitmap
+        // managers hold the decoded fonts and bitmaps, which do not depend on it.
+        for (auto it = _assetPackageSymbolizerContexts.begin(); it != _assetPackageSymbolizerContexts.end(); it++) {
+            const std::shared_ptr<const mvt::SymbolizerContext>& symbolizerContext = it->second;
+            if (!symbolizerContext) {
+                continue;
+            }
+            auto strokeMap = std::make_shared<vt::StrokeMap>(STROKEMAP_SIZE, STROKEMAP_SIZE);
+            auto glyphMap = std::make_shared<vt::GlyphMap>(GLYPHMAP_SIZE, GLYPHMAP_SIZE);
+            it->second = std::make_shared<mvt::SymbolizerContext>(symbolizerContext->getBitmapManager(), symbolizerContext->getFontManager(), strokeMap, glyphMap, symbolizerContext->getSettings());
+        }
     }
 
     void MBVectorTileDecoder::updateSymbolizerContext() {
@@ -880,9 +898,22 @@ namespace carto {
 
                 for (const std::string& assetName : assetPackage->getAssetNames()) {
                     if (assetName.size() > fontPrefix.size() && assetName.substr(0, fontPrefix.size()) == fontPrefix) {
-                        if (std::shared_ptr<BinaryData> fontData = assetPackage->loadAsset(assetName)) {
-                            fontManager->loadFontData(*fontData->getDataPtr());
+                        // Deferred: reading a font's name means decompressing it, and a style
+                        // packs far more fonts than it uses - the bundled one carries 15 and asks
+                        // for 4. The hint is the file name, which is what a font is normally
+                        // called; a style whose files say otherwise still resolves, by the sweep
+                        // in FontManager, and only pays for it then.
+                        std::string hintName = FileUtils::GetFileName(assetName);
+                        std::size_t extPos = hintName.rfind('.');
+                        if (extPos != std::string::npos) {
+                            hintName = hintName.substr(0, extPos);
                         }
+                        fontManager->addPendingFontData(hintName, [assetPackage, assetName]() {
+                            if (std::shared_ptr<BinaryData> fontData = assetPackage->loadAsset(assetName)) {
+                                return *fontData->getDataPtr();
+                            }
+                            return std::vector<unsigned char>();
+                        });
                     }
                 }
             }
@@ -939,8 +970,6 @@ namespace carto {
             _parameterStore = std::make_shared<mvt::NutiParameterStore>();
         }
         updateParameterStore();
-        _liveParameters = mvt::resolveLiveNutiParameters(*_map);
-        _selectionParameter = _map->getSelectionParameter() ? _map->getSelectionParameter()->name : std::string();
         updateSelectionState();
 
         _symbolizerContextSettings = std::make_shared<mvt::SymbolizerContext::Settings>(symbolizerContext->getSettings().getTileSize(), _parameterStore, symbolizerContext->getSettings().getFallbackFont(), _pixelScale, _selectionState);

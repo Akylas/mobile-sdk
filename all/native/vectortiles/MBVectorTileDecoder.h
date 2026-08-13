@@ -204,6 +204,8 @@ namespace carto {
     protected:
         void updateCurrentStyleSet(const std::variant<std::shared_ptr<CompiledStyleSet>, std::shared_ptr<CartoCSSStyleSet> >& styleSet);
         void updateSymbolizerContext();
+        // Drops what a pixel-scale change invalidates, and only that - see setPixelScale.
+        void resetSymbolizerContextRasterMaps();
         void updateParameterStore();
         void updateSelectionState();
         bool setStyleParameterInternal(const std::string& param, const std::string& value);
