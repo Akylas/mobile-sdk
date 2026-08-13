@@ -162,7 +162,7 @@ gradle build already runs ninja through AGP and now picks up ccache too (`-Pccac
 For fast iteration on the vt renderer, a syntax/type check is enough:
 
 ```sh
-clang++ -fsyntax-only -std=c++17 \
+clang++ -fsyntax-only -std=c++20 \
   -I libs-carto/vt/src -I libs-external/cglib -I libs-external/stdext \
   -I libs-external/angle-metal/include \
   -I <dir-with-boost-or-stub> \

@@ -79,7 +79,7 @@ No test framework exists in this repo (`package.json` has no real `test` script)
 
 - **Syntax/type check every touched translation unit** — the mandatory gate for any C++ change:
   ```sh
-  clang++ -fsyntax-only -std=c++17 -I all/native -I libs-carto/vt/src -I libs-carto/mapnikvt/src \
+  clang++ -fsyntax-only -std=c++20 -I all/native -I libs-carto/vt/src -I libs-carto/mapnikvt/src \
     -I libs-carto/cartocss/src -I libs-carto/nml/src -I libs-external/cglib -I libs-external/stdext \
     -I libs-external/boost -I libs-external/picojson -I libs-external/pbf -I libs-external/tinyformat \
     -I libs-external/utf8/source -I libs-external/angle-metal/include <file>.cpp
