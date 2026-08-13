@@ -472,10 +472,33 @@ zoom filter.
   batch writes the same bytes the loop did, so a source-side cache cannot win if the cost is the
   batch write.
 
-  What is left is the batch itself: give the vertex data a **quantized** anchor (absolute world
-  coordinates do not survive float32 — `WORLD_SIZE` is 2²⁰, so ~2 m of jitter at the world edge)
-  and keep it in a persistent buffer, re-uploading only when the label set, placements, scales or
-  opacities change. Not implemented.
+  What is left is the batch itself — and it has a prerequisite that has to come first.
+
+### A persistent label batch, and what blocks it
+
+The batch can only be kept across frames if nothing in it changes. Two things do:
+
+- **The anchor**, `placement->position − viewState.origin`, moves with the camera. Solvable: quantize
+  the origin to a grid and put it in `labelBatchParams.labelMatrix` (which already carries a
+  `translate`). Absolute world coordinates are not an option — `WORLD_SIZE` is 2²⁰, so float32
+  jitters ~2 m at the world edge, which is why the camera-relative form exists.
+- **The scale**, and this is the real blocker. `offsets` hold `cachedVertex * scale`, and `scale`
+  carries `calculateTerrainScaleFactor` = `depth / focusDistance`, quantized to ~1.09% steps. At z15
+  the view is ~1 km wide and a pan moves ~0.5 km/s, so a label 500 m out changes depth by ~18 m per
+  frame ≈ 3.6% — past the quantum. **Most labels change scale on most panned frames.**
+
+So a persistent buffer, or any cache of the scaled offsets, rebuilds constantly — which is what the
+reverted experiment above measured. The prerequisite is to stop scaling on the CPU: the perspective
+cancel is a division by view depth, and the vertex shader can do it from `gl_Position.w`, which is
+tangram's screen-space label model. CPU offsets then hold glyph units × zoom scale, constant through
+a pan, and the batch becomes reusable.
+
+The order to do it in, then: (1) move the perspective cancel into `labelVsh`, keeping
+`calculateTerrainScaleFactor` on the CPU **for the culler's envelopes only** (collision is decided in
+screen space and must not change); (2) quantize the batch anchor; (3) keep the batch arrays and GL
+buffers across frames, invalidated by the label set, placements, opacities, style slots and the
+anchor. Each step is separately measurable — (1) alone should show `transformMs` collapse. Nothing
+here is implemented.
 
 ## Against tangram
 
