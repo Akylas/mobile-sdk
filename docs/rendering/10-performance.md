@@ -122,6 +122,14 @@ terrain surface. Of it, **contours are 45%** — `--es contour false` takes the 
 17.6 fps (repeated, interleaved), GPU layers 21.3 → 13.6 ms, render tiles 805 → 380 and draws
 602 → 430 per interval, because the `#contour` slot is a second tile set drawn over the first.
 
+That was measured before the line tesselation was fixed, and the fix moved the city more than
+anything on this page: cutting a draped line by its **sag** instead of by the tile's cell count
+([04-terrain.md](04-terrain.md#cutting-a-line-by-its-sag-instead-of-by-the-tiles-cell-count)) took
+the city pan from 7.5 to 13.8 fps and the mountain pan from ~11 to ~17.8, with the draw count
+unchanged and 3.4× fewer geometry indices per frame. It is the shipped path now
+(`debug.carto.linesag 0` restores the old split), so any city number taken before 2026-08-13 is
+measuring a frame that no longer exists — retake rather than compare.
+
 ## Starting up in terrain mode
 
 Measured on a Crosscall at the demo's default camera (Grenoble, z16.22, terrain + contours, warm

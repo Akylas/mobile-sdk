@@ -407,31 +407,40 @@ it "shines everything through".
 
 ### Cutting a line by its sag instead of by the tile's cell count
 
-`debug.carto.linesag <metres>` (`tesselateSegmentBySag`, 0 = shipped) splits a segment only where the
-terrain under it actually leaves the chord, recursively, until the residual sag is under the
-tolerance — expressed in METRES so it is the same currency as the depth clearance that lifts these
-lines. It replaces both the lattice split and the fixed threshold.
+`tesselateSegmentBySag` splits a segment only where the terrain under it actually leaves the chord,
+recursively, until the residual sag is under a tolerance — expressed in METRES so it is the same
+currency as the depth clearance that lifts these lines. It replaces both the lattice split and the
+fixed threshold, and it is **the shipped path** since 2026-08-13:
+`DEFAULT_LINE_SAG_METERS = 2`, with `debug.carto.linesag <metres>` as the override and
+`debug.carto.linesag 0` going back to the old lattice split for an A/B.
 
 **The insight is that sag measures curvature, not slope.** A road running along a constant slope
 chords perfectly: its sag is zero and it needs no cut at all. Only a break in slope needs one. The
 lattice, which cuts at every cell edge and diagonal, was therefore paying about 4x the geometry the
 terrain's shape actually asks for.
 
-Crosscall, the app's style, 25 s scripted pan, `linesag 2`:
+Crosscall, the app's packaged style, 25 s scripted `--es anim pan`, three interleaved pairs.
+Per-frame counts, not per interval — `RenderStats` sums over the log interval, so the faster arm
+prints bigger totals ([10-performance.md](10-performance.md#getting-a-trustworthy-number)):
 
-| | fps | GPU `layers` | indices / interval |
+| | fps (3 runs) | geometry indices / frame | draws / frame |
 |---|---|---|---|
-| city, shipped | 6.61 | 51.0 ms | 19.2M |
-| city, sag 2 m | **13.42** | **21.0 ms** | 9.96M |
-| mountain, shipped | 12.76 | 23.6 ms | 17.7M |
-| mountain, sag 2 m | **21.12** | **11.1 ms** | 8.3M |
+| city z15 t45, lattice | 7.4 / 7.5 / 7.6 | 2.37M | 210 |
+| city z15 t45, **sag 2 m** | **13.4 / 14.1 / 13.8** | **0.70M** | 213 |
+| mountain z13.6 t45, lattice | 10.8–13.7 | 1.31M | 140 |
+| mountain z13.6 t45, **sag 2 m** | **17.0–21.3** | **0.37M** | 140 |
 
-The mountain gains MORE than the city in relative terms, which is the point: relief does not imply
-curvature. 2 m and 10 m give the same geometry — the tolerance is not what binds at these zooms —
-while 0.01 m against 0.5 m does differ (3.43M against 3.39M indices), so the splitter is live and
-tracks the tolerance.
+Same draw count, 3.4x less geometry: the win is in what gets tesselated, not in what gets submitted.
+The mountain gains as much as the city, which is the point — relief does not imply curvature.
 
-Checked on screen at 45.244172/5.760595 z13.6 t45 and z11 t60: roads, tracks, trails and contours
-land identically with and without it. The GeoJSON route line is broken at z11 in BOTH arms — that is
-the open route-following issue, not this. Still opt-in: what it has not had is a slow pan across a
-convex break at low zoom, which is the shape that produced cracks before.
+**The tolerance is not what binds.** 0.5, 1, 2 and 4 m measure the same at both cameras (all within
+the run-to-run spread, 0.37–0.70M indices/frame), so the value is chosen for margin: a draped line is
+already lifted `DEFAULT_LINE_CLEARANCE_METERS` = 25 m off the surface, and 2 m is an order of
+magnitude under that as well as well inside the surface mesh's own chord error. At a far tighter
+setting the splitter does keep tracking (0.01 m against 0.5 m differs, 3.43M against 3.39M indices),
+so it is live, not saturated.
+
+Checked on screen at 45.244172/5.760595 z13.6 t45, z11 t60, and — the check that was missing before
+it became the default — a slow 30 s pan across the ridge at z11.5 t60 with vector elements on: the
+two arms are indistinguishable, no line sinking into a crest. The GeoJSON route line is broken at
+z11 in BOTH arms — that is the open route-following issue, not this.
