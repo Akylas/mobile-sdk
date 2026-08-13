@@ -621,15 +621,9 @@ namespace carto {
             return false;
         }
 
-        // Warm up the elevation grid cache where the elements ARE (this runs on a background
-        // thread and may block on IO): element draw data is then built with complete heights
-        // in one pass, avoiding transient half-draped geometry (e.g. near-vertical line
-        // segments between vertices with and without loaded elevation data).
-        // Sampling the visible ENVELOPE instead is what this used to do, and in terrain mode the
-        // envelope reaches the view distance: its corners are hundreds of km away, off the DEM
-        // coverage, so every fetch task blocked on ~15 elevation tile requests that could only
-        // fail (measured on a Crosscall: 15 failing HTTP round trips per startup, re-issued
-        // whenever the failure markers expired).
+        // Warm the elevation cache where the ELEMENTS are, not over the visible envelope: in
+        // terrain mode the envelope corners are hundreds of km out, off the DEM, and every fetch
+        // task blocked on ~15 elevation requests that could only fail.
         if (auto options = layer->getOptions()) {
             if (auto terrainOptions = options->getTerrainOptions()) {
                 if (terrainOptions->isEnabled() && !isCanceled()) {

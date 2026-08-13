@@ -309,47 +309,15 @@ namespace carto {
             bool terrainEnabled = terrainOptions && terrainOptions->isEnabled();
             int terrainMeshResolution = terrainOptions ? terrainOptions->getMeshResolution() : 0;
             int terrainMinZoom = terrainOptions ? terrainOptions->getMinZoom() : 0;
-            // Draped fills are baked FLAT into the drape texture, so their terrain subdivision is
-            // wasted work - and the subdivided fill VBOs are uploaded on the render thread, which
-            // stalls fast zooms. Draping fills therefore implies source-density (no fill
-            // subdivision), exactly like the tangram source-density mode.
-            // ...but draping is decided PER TILE at render time, while source-density is decided
-            // GLOBALLY here at decode time. An un-subdivided fill that then does NOT get draped is
-            // a few large flat triangles chorded across the terrain: it sags below the surface,
-            // fails the depth test and leaves the bare background colour - the documented
-            // "landcover holes". Tiles fall through constantly, not just transiently: the drape
-            // cover is capped at the camera zoom and a hillshade contributes its DEM-limited zoom,
-            // so render tiles finer than the cover are normal - and they can not be suppressed
-            // instead (tried: the map becomes a stretched coarse drape). So: always subdivide.
-            // Measured on the emulator, meshResolution 128, drape on, scripted 3-level zoom:
-            // median 58-60 fps and the same worst-case bake spike either way, i.e. the
-            // subdivision is not what costs.
-            // This value MUST match what resetTileTransformer() passes, or a change to it silently
-            // keeps tiles decoded for the other mode.
-            // Tangram's content model for LINES: no terrain subdivision, every vertex displaced in
-            // the vertex shader, and the depth model (per-style-layer ordinal, content writing
-            // depth) doing the rest. The cost is real - measured at 13x the index throughput - and
-            // a coarse or proxy tile's roads chord straight across the terrain until the tile for
-            // the new zoom arrives, which is the "roads go straight when zooming out" report.
-            // AREA fills do NOT follow it, and this is the one place the reference cannot be
-            // copied: tangram has no un-subdivided fill above a ground-hugging draw, because in a
-            // terrain scene their base map is a RASTER sampled inside the ground draw
-            // (res/scenes/hillshade.yaml, `base_color = sampleRaster(0)`), not vector polygons.
-            // An un-subdivided fill floats above the surface by its chord error - tens to hundreds
-            // of metres across a tile - and every ground-shaped draw stacked after it (the
-            // hillshade raster, contours, imagery, all of which draw on the ground's own mesh) is
-            // depth-rejected under it. One ordinal step buys 0.02 clip units, metres at a low
-            // camera, so no ordering recovers it. Subdividing the fill to the ground lattice is
-            // what makes it coincident, and coincident is what lets a raster sit at ANY level.
+            // Fills stay subdivided even under draping, because draping is decided per tile at
+            // render time and this density globally at decode time - see docs/rendering/02-tiles.md.
+            // MUST match what resetTileTransformer() passes, or tiles decoded for the other mode
+            // stay in the cache forever.
             bool terrainTangramContent = terrainEnabled && terrainOptions && !terrainOptions->isDrapeFillsEnabled();
             bool terrainSourceDensity = isAreaSourceDensityForced();
             bool terrainSourceDensityLines = terrainTangramContent || (terrainOptions && terrainOptions->isDrapeLinesEnabled()) || isLineSourceDensityForced();
-            // NOT the exaggeration: it never reaches the decode. Heights are replaced in the vertex
-            // shader from the elevation texture, whose metersToInternal already carries it
-            // (TerrainVertexTransformer stores an exaggeration it does not use, and
-            // calculateLocalHeight returns 0). Comparing it here dropped every tile in the cache
-            // for a value only the GPU reads, so ramping it - the terrain 'expand' animation -
-            // re-decoded the whole map every frame.
+            // NOT the exaggeration: only the GPU reads it (via the elevation texture's
+            // metersToInternal), so comparing it here re-decoded the whole map on every 'expand' frame.
             if (_terrainOptions.lock() != terrainOptions || _terrainEnabled != terrainEnabled || _terrainMeshResolution != terrainMeshResolution || _terrainMinZoom != terrainMinZoom || _terrainSourceDensity != terrainSourceDensity || _terrainSourceDensityLines != terrainSourceDensityLines) {
                 clearTileCaches(true);
                 resetTileTransformer();
@@ -670,15 +638,8 @@ namespace carto {
             }
         }
 
-        // SAFEGUARD: a coarsening floor and a view distance are set independently, and multiplied
-        // they decide how much ground has to be paved in tiles no coarser than that floor. The two
-        // that look reasonable apart can be ruinous together - a 170 km view with a floor 3 levels
-        // under the camera measured 550 tiles against 50, every one of them fetched, decoded,
-        // draped and re-baked, which reads as a map that loads for minutes and blinks a tile at a
-        // time. The floor exists to keep far tiles usable as depth occluders, so it is relaxed
-        // rather than the view shortened: whatever the app asked for, allow enough coarsening that
-        // the covered ground fits in TERRAIN_COVER_TILE_BUDGET tiles. The screen-area rule below
-        // then coarsens the horizon on its own; this only stops the floor from forbidding it.
+        // A coarsening floor and a view distance are set independently and multiply into the tile
+        // count; relax the floor rather than shorten the view (docs/rendering/02-tiles.md).
         if (_terrainMinTileZoom > 0 && _maxVisibleDistance > 0) {
             // Tiles across the covered ground, worst case (a square of side 2 * distance):
             //     (2 * distance / tileWidth)^2 <= budget,   tileWidth = WORLD_SIZE / 2^zoom
@@ -693,21 +654,8 @@ namespace carto {
             }
         }
 
-        // Tangram's LOD threshold (TileManager::updateTileSets): a tile is refined while its
-        // projected SCREEN AREA is at least that of a 2x2 block of nominal tiles - so refinement
-        // stops when a tile covers between one and two tile sizes on screen, which is the same
-        // density in the near field as the distance rule it replaces, and far coarser at a grazing
-        // angle where a tile's screen area collapses but its DISTANCE barely grows. That grazing
-        // band is where a near-horizontal view used to spend hundreds of tiles, each carrying a
-        // full set of labels for a few pixels of screen.
-        // Tangram projects the tile corners at the terrain elevation AT THE SCREEN CENTRE, not at
-        // sea level ("use elevation at center of screen (used to calc m_zoom) for tile bottom",
-        // View::getTileScreenArea). Measuring a mountain tile as if it lay at sea level puts it
-        // further from the camera and makes it smaller, so it stays coarse exactly where the
-        // terrain is high and steep - which is where a coarse tile hurts most: blurred hillshade,
-        // a blunt depth occluder that steep ridges leak through, and a wide LOD spread that tears
-        // at tile borders. One value for the whole cull, so it moves with the camera and not with
-        // the tile, and the visible set does not churn as elevation streams in.
+        // Screen-centre elevation for the whole cull, like tangram's View::getTileScreenArea - it
+        // moves with the camera, not with the tile (docs/rendering/02-tiles.md, the LOD rule).
         _lodElevation = 0;
         if (auto options = getOptions()) {
             if (auto terrainOptions = options->getTerrainOptions()) {
@@ -787,17 +735,9 @@ namespace carto {
         }
         bool inVisibleFrustum = visibleFrustum.inside(tileBounds);
 
-        // Map tile is visible, calculate distance using camera plane.
-        // Important: with terrain, the LOD center is calculated at surface level (not from
-        // the elevation-expanded bounding box) so that subdivision decisions do not change
-        // as elevation tiles get loaded - otherwise the visible tile set (and tile/elevation
-        // fetching) would keep churning while elevation data streams in.
-        // Tangram's rule (View::getTileScreenArea): project the tile's four corners and compare
-        // the SCREEN AREA they enclose against the threshold. Taken at surface level, not from the
-        // elevation-expanded bounding box, so subdivision decisions do not change as elevation
-        // tiles get loaded - otherwise the visible tile set (and tile/elevation fetching) would
-        // keep churning while elevation data streams in. A tile that crosses the camera plane has
-        // no meaningful projected area and is always subdivided, as it is there.
+        // Tangram's rule (View::getTileScreenArea): project the four corners at surface level and
+        // compare the area they enclose. A tile crossing the camera plane has no meaningful
+        // projected area and is always subdivided.
         const cglib::mat4x4<double>& mvpMat = viewState.getModelviewProjectionMat();
         cglib::mat4x4<double> tileMat = tileTransformer->calculateTileMatrix(vtTileId, 1.0f);
         double screenArea = std::numeric_limits<double>::infinity();

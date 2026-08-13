@@ -13,19 +13,9 @@
 
 namespace carto {
 
-    // Measurement switch for what AREA subdivision has to cost. Fills subdivide to exactly one
-    // surface grid cell so every sub-vertex lands on the grid; this multiplies that cell size, so
-    // indices fall as 1/N^2 while the chord error grows as N^2. Tangram has no constant to copy
-    // here - they do not subdivide at all - so the usable value is whatever the depth budget can
-    // still clear, and that is a measurement, not a derivation.
-    // Measured on device, north pan into the terrain, 45.244172/5.760595 z13.2:
-    //   1 cell = 16.6 fps and 158k geometry indices per render tile
-    //   2 cells = 20.6 fps and 48k      <- shipped
-    //   4 cells = 21.2 fps and 19k
-    // Two cells takes most of the frame rate back for half the chord error of four, and at
-    // 45.244172/5.760595 z13.2 t26 neither shows the floating-fill patches that source density
-    // does - the depth budget clears what is left. Four was clean too at that camera and is one
-    // setprop away if the frame ever needs it.
+    // Surface cells a fill subdivides to: indices fall as 1/N^2, chord error grows as N^2, and the
+    // usable value is whatever the depth budget still clears - a measurement, not a derivation
+    // (the ladder is in docs/rendering/02-tiles.md).
     //   adb shell setprop debug.carto.areathreshold 4
     static constexpr float AREA_THRESHOLD_CELLS = 2.0f;
 
@@ -34,14 +24,11 @@ namespace carto {
     // (DEFAULT_LINE_CLEARANCE_METERS). Numbers in docs/rendering/04-terrain.md.
     static constexpr float DEFAULT_LINE_SAG_METERS = 2.0f;
 #ifdef __ANDROID__
-    // The same measurement switch for LINES. Lines are the expensive half over a city - the fills
-    // are draped and baked once, the lines are drawn as terrain geometry every frame - and their
-    // threshold is a fraction of the mesh cell whatever relief the tile actually has.
+    // The same for LINES - the expensive half over a city, since they are drawn as terrain geometry
+    // every frame while the fills are baked once.
     //   adb shell setprop debug.carto.linethreshold 4
-    // Relief (metres of height range in the tile) under which the LATTICE split is skipped. The
-    // split exists to stop a segment chording across a surface cell's anti-diagonal fold; the fold
-    // is a fraction of the tile's relief, so on a valley floor it protects against nothing and
-    // still cuts every line at every cell edge and diagonal. 0 = shipped behaviour (always split).
+    // Relief (metres in the tile) under which the LATTICE split is skipped: the cell fold it guards
+    // against is a fraction of the relief, so on a valley floor it protects against nothing.
     //   adb shell setprop debug.carto.latticerelief 50
     static float latticeReliefThreshold() {
         static const float relief = [] {

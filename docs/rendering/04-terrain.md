@@ -27,6 +27,18 @@ half surface cell), which costs about two zoom levels of detail. That cap is rig
 wrong for per-fragment shading, which is why the terrain paint can opt out of it
 ([07-hillshade-contours.md](07-hillshade-contours.md#the-dem-level)).
 
+**Which DEM tile a render tile uses** is tangram's rule verbatim
+(`RasterSource::addRasterTask`): `subTileID = tileId.zoomBiasAdjusted(zoomDiff).withMaxSourceZoom(maxZoom)`
+— the render tile's own z/x/y adjusted by the source's zoom bias (one level per doubling of tile
+size, since a 512-texel tile at z−1 has a 256-texel tile at z's density), capped by the source's max
+zoom. Nothing else: no cap against what the mesh can express, and no detail dial on top. Those were
+this fork's, and they are what made the hillshade blurry.
+
+`clampTileZoom` is deliberately **not idempotent** — it drops the bias on every call. Applying it to
+an already-resolved elevation tile (`getTileGrid` on a `getDataTile` result, or on a neighbour of
+one) costs another level per hop, which is why the elevation-tile entry points call
+`clampDataTileZoom` instead.
+
 ### CPU height queries
 
 `getDisplayHeight`/`getElevationMeters` are point queries, and their callers are dense: the label
@@ -153,6 +165,71 @@ A cover leaf whose DEM has not arrived walks up to the coarsest **loaded** ances
 there once (duplicates collapsed). Drawing it flat instead makes every tile flash in the bare ground
 colour during a zoom. Tiles that stand in carry a proxy depth; live tiles carry zero, however coarse
 they are — see [05-depth-model.md](05-depth-model.md#proxy-depth).
+
+A tile with **no** elevation anywhere in its ancestry draws nothing at all. A false ground at sea
+level next to displaced tiles is a slab of map hanging in space, and it writes depth, so it hides
+what is behind it. Zooming out is when that happens wholesale: the elevation cache holds the finer
+grids of the previous generation and its lookup only ever walks *up*, so every new coarse tile
+misses until its own DEM tile loads. When *nothing* has elevation (cold start, or ground the DEM
+does not cover) the scene is flat and internally consistent, so the flat draw stays.
+
+### Normalizing the cover to a quadtree partition
+
+The collected set is a **union across layers**, and layers do not agree on a zoom level — a
+hillshade capped by its DEM max zoom yields coarser tiles than a vector tile layer. Drawing a
+surface for every tile in that union stacks a coarse surface and the finer ones covering the same
+ground, and they fight. `collectTerrainCover` normalizes to a single non-overlapping cover, keeping
+the **finest** tile for any ground area; coarser layers still reach it through the ancestor sub-rect
+bake.
+
+Dropping a coarse tile outright is wrong — a single fine tile inside it covers 1/4ⁿ of its ground
+and the rest would have no surface at all, which reads as a hole. So a coarse tile that *contains* a
+finer one is replaced by its four children, recursively, giving a true quadtree partition.
+
+**Split only where a finer collected tile actually sits inside.** Splitting every subtree down to
+one global level looks stable on paper, but a layer showing a coarse proxy — one z6 tile standing in
+for the whole view while its data loads — is then chopped into hundreds of leaves, most of them
+off-screen ground nobody asked for: measured, **16 collected tiles became 127 leaves**. That is
+fatal rather than wasteful, because every leaf takes a drape cache entry: two such covers exceed the
+cache and the eviction pass drops the *entire* previous generation, which is what both the seed and
+the stand-in read from. The symptom is `seeded 0, blank 16` and a screen of flat fills.
+
+### The drape cache: budget, seeding, and completeness
+
+`TerrainDrapeCache` keeps a generation of tiles alive past the visible cover, because a zoom or a
+pan walks the cover back and forth over the same tiles and re-acquiring means re-baking every layer
+of every tile. Its cap is a **byte** budget, not a tile count: a drape texture is `resolution² ×
+RGBA`, so the same 160 entries are 10 MB at 128 and 640 MB at 1024 — the count alone is how the
+cache came to ask for hundreds of megabytes on a high-DPI screen. The tile count is derived from the
+budget per resolution, with a floor so a large resolution still caches a usable cover.
+
+Three things then keep the bakes off the critical path:
+
+- **A per-frame bake budget.** A bake re-renders every layer of a tile into a full-resolution
+  texture (~16 ms at 1024), so an unbounded loop over a churning cover is a per-frame re-render of
+  the whole map. Three classes, not two: a tile with *nothing* is a visible hole and is baked almost
+  freely; a tile standing in on an ancestor shows the right ground at half the sharpness; a merely
+  out-of-date tile already shows something plausible and can wait. An integer zoom step renames the
+  whole cover at once, which is exactly the second class. Raising the budget to bake a renamed cover
+  in one frame was measured on device: worst frame **128 ms → 300 ms**, with no visible difference
+  in the stand-ins it was meant to remove.
+- **Seeding.** A tile entering the cover has no texture and until its bake is budgeted it can only
+  be a flat fill — the white sheet over the terrain on every zoom out. But the cache already holds
+  this ground: the finer tiles it replaces, or a coarser one covering it. Copying those into the new
+  texture is a few textured quads, and the tile shows the map from the frame it appears. Seeds are
+  never *sources* (`findBaked` returns baked entries only), so nothing degrades through repeated
+  copying.
+- **Completeness, not just "has a texture".** A zoom out reaches the new coarse tiles raster-first —
+  the hillshade decodes in one step while the vector tiles still have a style pass to run — so the
+  first bake holds the hillshade and the background and nothing else. By a "has a texture" rule that
+  replaces the previous generation still on screen, and the map turns into bare relief for the half
+  second the vector layers need. That is **the flash**. A tile counts as usable only when every
+  layer that has something for it is in it.
+
+Stand-ins from the previous generation are pushed **after** the tile's own entry, not before: the
+surfaces coincide and the later draw wins, so pushed first they are buried under the fill they were
+meant to replace — the whole screen going white for a moment on every zoom out. Several levels deep,
+because one gesture crosses several zooms.
 
 ## Near and far planes
 

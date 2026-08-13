@@ -162,15 +162,8 @@ namespace carto {
         ResolvedLighting lighting = resolveLighting(lightOptions, StyleEnvironment());
         ResolvedFog fog = resolveFog(_options.getTerrainOptions(), StyleEnvironment(), lighting);
         float fogBlend = fog.active() ? static_cast<float>(skyOptions->getFogBlend() * Const::DEG_TO_RAD) : 0.0f;
-        // Where the haze STARTS fading, as an elevation angle. Fading from zero - the mathematical
-        // horizon - is right on a flat map, where the skyline IS the horizon. In the mountains the
-        // skyline is the ridge, and a ridge stands well above the horizon once the camera is close
-        // to it: the fog then stops at an angle the sky above is already clear at, and the hazy
-        // ground meets clean sky along the silhouette. That is the "fog does not reach the sky when
-        // zoomed in" report - it appears with zoom because the angle to a ridge grows as you
-        // approach it while the horizon stays at zero.
-        // The reference angle is the highest terrain the view can hold, seen at the distance the
-        // fog saturates at: beyond that the ground is fog colour anyway, so the sky has to be too.
+        // Haze starts fading at the angle of the highest terrain the view can hold, not at the
+        // mathematical horizon - see docs/rendering/08-lighting-sky-fog.md.
         float fogHorizonSetting = skyOptions->getFogHorizon();
         float fogHorizon = (fogHorizonSetting > 0 ? static_cast<float>(fogHorizonSetting * Const::DEG_TO_RAD) : 0.0f);
         if (fogBlend > 0.0f && fogHorizonSetting < 0) {
@@ -249,16 +242,9 @@ namespace carto {
             glUniform1f(_u_fogHorizon, fogHorizon);
         }
 
-        // The quad starts AT THE HORIZON, not at the bottom of the screen: everything below it is
-        // ground, background plane or terrain, all drawn over the sky anyway, so shading it is pure
-        // overdraw - at a tilted camera that is half the screen. Tangram's sky mesh spans the top
-        // half and is translated onto the horizon the same way (core/src/util/skyManager.cpp).
-        // The margin below the horizon is for what the sky shader deliberately paints there: the
-        // fog band fades from the skyline downwards, and its extent is not a straight function of
-        // the horizon, so this keeps a generous strip rather than computing it.
-        // The clip is only applied when the horizon is what bounds the ground; when the terrain
-        // path draws the sky although the flat horizon says it is not visible (a peak exposing it),
-        // the estimate does not apply and the quad stays full screen.
+        // Start the quad at the horizon plus a margin for the fog band - everything below is drawn
+        // over anyway (docs/rendering/08-lighting-sky-fog.md). Not applied when the terrain path
+        // draws the sky although the flat horizon says it is not visible.
         float quadBottom = -1.0f;
         if (viewState.isSkyVisible() && isHorizonClipEnabled()) {
             quadBottom = std::max(-1.0f, viewState.getSkyHorizonNDC() - SKY_HORIZON_MARGIN);

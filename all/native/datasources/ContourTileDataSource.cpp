@@ -723,22 +723,10 @@ namespace carto {
     }
 
     double ContourTileDataSource::getIntervalForZoom(int zoom) const {
-        // The interval is what the tile CARRIES, not what is drawn: every contour also carries
-        // 'div' (its largest nice divisor), so the style decides per camera zoom which ones show -
-        // the way the pre-baked tileset is filtered. That split matters twice:
-        //
-        //  - COVERAGE. Keying the drawn set on the tile zoom emptied the map as soon as it was
-        //    zoomed out, and emptied the far half of any tilted frame, since those tiles are z6-z9:
-        //    at 50x the base a mountain carries two or three lines while the hillshade drawn from
-        //    the same DEM stays fully detailed.
-        //  - CONTINUITY. The rungs must NEST - each interval a multiple of the finer one - or a
-        //    line stops dead at the tile border: 200m and 500m share no elevation, so a z10 tile's
-        //    600m line had nothing to meet in the z9 tile beside it. 10 | 50 | 100 does nest.
-        //
-        // The remaining zoom dependency is cost, not style: a low-zoom tile covers a huge area, and
-        // its DEM is sampled too coarsely to place a 10m line meaningfully anyway. Which rungs are
-        // worth their cost depends on the style that draws them, so they are the app's to set
-        // (setIntervalMultiplier); the defaults below are only a starting point.
+        // What the tile CARRIES, not what is drawn - the style filters on 'div' per camera zoom.
+        // A cost rule, and the rungs must NEST or a line stops dead at a tile border.
+        // See docs/rendering/07-hillshade-contours.md; the defaults are a starting point, the app
+        // sets its own with setIntervalMultiplier.
         return _baseInterval * getIntervalMultiplier(zoom);
     }
 
@@ -863,17 +851,10 @@ namespace carto {
                 return std::shared_ptr<TileData>();
         }
 
-        // Subsample the DEM before tracing: full 256x256 tracing produces far more vertices than
-        // 100/50/10 m contours need, and every extra vertex is re-simplified, uploaded and draped
-        // over the 3D terrain mesh each frame. Trace on an at-most 'resolution'-per-side grid.
-        // The nodes are spread evenly INCLUDING both endpoints (pixel 0 and fullW-1), so grid node 0
-        // maps to the tile's west/south edge and node W-1/H-1 to the east/north edge. That makes
-        // adjacent contour tiles share their boundary samples and meet without holes.
-        // 0 = the DEM's own resolution, which is what a contour drawn OVER 3D TERRAIN needs: the
-        // surface is displaced by every texel of this same tile, so a line traced on a subsampled
-        // grid follows a height field the ground does not have and cuts through the spurs and
-        // gullies between its samples (at 96 over a 512-texel tile that is an 18 m grid against a
-        // 6.7 m one at zoom 14 - metres of mismatch on a slope).
+        // Trace on an at-most 'resolution'-per-side grid; 0 = the DEM's own, which is what a
+        // contour over 3D TERRAIN needs (a subsampled grid follows a height field the displaced
+        // ground does not have and cuts through spurs). Nodes include BOTH endpoints, so adjacent
+        // tiles share their boundary samples and meet without holes.
         int resolutionSetting = getResolutionForZoom(zoom); // per-zoom override, else Resolution
         int resolution = (resolutionSetting > 0 ? std::max(8, resolutionSetting) : std::max(fullW, fullH));
         int W = std::min(fullW, resolution);
