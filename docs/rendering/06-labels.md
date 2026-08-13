@@ -499,7 +499,8 @@ screen space and must not change); (2) cache the offsets, which step 1 has made 
 (3) quantize the batch anchor and keep the batch arrays and GL buffers across frames, invalidated by
 the label set, placements, opacities, style slots and the anchor.
 
-**Step 1 is done.** `Label::CAMERA_AXIS_DEPTH_OFFSET` (attribs[3] = 2) tells `labelVsh` to scale the
+**Step 1 was done, then reverted with step 3** (see [Reverted](#reverted-labels-jump-in-the-sky) at
+the end of this section). `Label::CAMERA_AXIS_DEPTH_OFFSET` (attribs[3] = 2) told `labelVsh` to scale the
 offset by `clamp(anchorClip.w * uLabelDepthScale, 0.05, 8.0)` — clip `w` is the view depth the CPU
 factor was a ratio of, and `uLabelDepthScale` is 1 / camera-to-focus distance. The CPU then emits
 offsets divided by that factor, so what is in the buffer depends on the zoom and the style, not on
@@ -519,8 +520,8 @@ because the key moved), this rules out the source side entirely: the timed regio
 **writing into the batch arrays**, and copying N cached entries writes exactly the bytes the loop
 wrote. No cache of what goes into the batch can win.
 
-**Step 3, the batch kept across frames, is done — and there was a second view dependency the plan
-above missed.** `Label::setupCoordinateSystem` snaps the anchor to a quarter of the screen pixel
+**Step 3, the batch kept across frames, was done and is now reverted — and there was a second view
+dependency the plan above missed.** `Label::setupCoordinateSystem` snaps the anchor to a quarter of the screen pixel
 grid (that is what keeps glyphs at a stable subpixel phase), and it did so by projecting the anchor
 with the view-projection and inverting it back. So the anchor moved on every camera translation
 whatever the scale did — and it cost a **4x4 double inverse per label per frame**, on the culler
@@ -563,6 +564,27 @@ that is left is **2D**: `labels2DMs` is 48–94 ms/interval, dominated by `LINE`
 `updateLineVertexData`. Note also that only a style using `text-placement: nutibillboard` puts
 labels in the 3D pass at all; with the demo's inline style the 3D pass is 1.2 ms/interval and this
 whole mechanism measures nothing.
+
+### Reverted: labels jump in the sky
+
+Steps 1 and 3 shipped as mobile-sdk #83 / libs-carto #41 and were **reverted the same day**:
+reported on device (iOS, city camera) as labels jumping out of position, in 2D as well as 3D. Since
+the measured gain was zero frames, there was nothing to weigh against it. What the code review found,
+for whoever retries this:
+
+- **The generation is snapshotted too late.** `renderFrame` sets
+  `_labelBatchCache.generation = Label::getDrawGeneration()` *after* the batch is built. The culler
+  runs on its own thread and bumps that counter during the build, so a placement change landing
+  mid-build is swallowed and the batch stays stale until some unrelated label changes it. Snapshot
+  before the loop.
+- **Plates froze while their text kept scaling.** Glyphs went out as `CAMERA_AXIS_DEPTH_OFFSET` and
+  are rescaled by the shader every frame; `appendLabelPlates` emits `CAMERA_AXIS_OFFSET` with the
+  build-time `calculateTerrainScaleFactor` baked in. Within one frame that is the ~1% quantum step 1
+  documented, but in a *kept* batch the plate scale never updates at all while the text does, over
+  the whole 0.05–8 factor range. Plates have to move to the shader mode too, which means the callout
+  lift and shift (measured against the same scale) move with them.
+
+Neither is proven to be the reported jump — no repro was captured before the revert.
 
 ## Against tangram
 
