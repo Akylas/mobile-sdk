@@ -451,9 +451,31 @@ zoom filter.
   than on a large one, and up to **five times** what the single-raster build drew — a soft white
   glow instead of an outline, reported as "halo huge at radius 2, fine at 1". If halos ever look
   wrong again, check that term before the style.
-- **Vertex data.** Glyph quads are rebuilt from scratch for every visible label every frame and
-  uploaded as one batch (`labelVertexBuildNs`, `labelBatchNs`). A GPU-billboard path would remove
-  the per-frame world transform (`labelTransformNs`) — it is on the backlog, not implemented.
+- **Vertex data.** The glyph layout is already cached per label (`_cachedVertices`, `_cachedValid`)
+  and the shader already expands the billboard from `offsets` + `uLabelAxisX/Y`. What runs every
+  frame is re-emitting the **batch**: the anchor is camera-relative
+  (`placement->position − viewState.origin`), so every vertex changes as soon as the camera moves.
+
+  Measured on the city pan with draping on (Crosscall, 5.724/45.188 z15 t45, 27 fps, 28 frames per
+  interval): `pass3D labels3D` 82.9 ms/interval (2.96 ms/frame), `labels2D` 46.3 (1.65),
+  `buildMs` 45.7 (1.63), `batchMs` 21.6 (0.77), 3693 labels rebuilt (132/frame). The build splits
+  placement 4.4 / line 10.3 / transform 10.8 / attrib 13.9 ms per interval. That is ~4.6 ms of a
+  31.6 ms CPU frame, against a 37 ms wall frame and the 33.3 ms two-vsync boundary — the right size
+  to matter, which is why it was tried.
+
+  **Caching the two per-glyph loops does NOT help** (tried 2026-08-13, reverted): keeping the scaled
+  `offsets` and the per-frame `attribs` per label, keyed on scale / camera axes / style slots /
+  opacity, measured 26.6–27.4 fps against 27.1, with `transformMs` and `attribMs` unchanged. Two
+  reasons, and the first is visible in the code: `scale` carries
+  `calculateTerrainScaleFactor` = `depth / focusDistance`, which changes past its 1% quantum for
+  most labels on every panned frame, so the cache misses; and copying N cached entries into the
+  batch writes the same bytes the loop did, so a source-side cache cannot win if the cost is the
+  batch write.
+
+  What is left is the batch itself: give the vertex data a **quantized** anchor (absolute world
+  coordinates do not survive float32 — `WORLD_SIZE` is 2²⁰, so ~2 m of jitter at the world edge)
+  and keep it in a persistent buffer, re-uploading only when the label set, placements, scales or
+  opacities change. Not implemented.
 
 ## Against tangram
 
