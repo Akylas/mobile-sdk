@@ -166,17 +166,20 @@ namespace carto {
                        (maskNs - lastMaskNs) / 1.0e6, (drapeNs - lastDrapeNs) / 1.0e6);
             lastMaskNs = maskNs; lastDrapeNs = drapeNs;
 
-            static long long lastLabelBuild = 0, lastLabelBatch = 0, lastLabelVerts = 0, lastLineLayouts = 0;
+            static long long lastLabelBuild = 0, lastLabelBatch = 0, lastLabelVerts = 0, lastLineLayouts = 0, lastLabelReplays = 0, lastLabelPatches = 0;
             long long labelBuild = RenderStats::labelVertexBuildNs.load();
             long long labelBatch = RenderStats::labelBatchNs.load();
             long long labelVerts = RenderStats::labelsDrawnVertices.load();
             long long lineLayouts = RenderStats::lineLayoutBuilds.load();
-            Log::Infof("RenderStats: labels built=%lld lineLayouts=%lld buildMs=%.1f batchMs=%.1f (per interval)",
+            long long labelReplays = RenderStats::labelBatchesReplayed.load();
+            long long labelPatches = RenderStats::labelBatchesPatched.load();
+            Log::Infof("RenderStats: labels built=%lld lineLayouts=%lld buildMs=%.1f batchMs=%.1f replayedBatches=%lld patchedBatches=%lld (per interval)",
                        labelVerts - lastLabelVerts, lineLayouts - lastLineLayouts,
                        (labelBuild - lastLabelBuild) / 1.0e6,
-                       (labelBatch - lastLabelBatch) / 1.0e6);
+                       (labelBatch - lastLabelBatch) / 1.0e6,
+                       labelReplays - lastLabelReplays, labelPatches - lastLabelPatches);
             lastLabelBuild = labelBuild; lastLabelBatch = labelBatch; lastLabelVerts = labelVerts;
-            lastLineLayouts = lineLayouts;
+            lastLineLayouts = lineLayouts; lastLabelReplays = labelReplays; lastLabelPatches = labelPatches;
 
             static long long lastPrep[4] = { 0 }, lastLabelSplit[2] = { 0 }, lastLabelXf = 0, lastLabelAttr = 0;
             const long long prep[4] = {

@@ -245,9 +245,32 @@ tiles were never the cost: 66 decodes, 5–6 s of thread time. Elevation was, th
 
 What is left, in order: **contour tile generation** (44 child fetches, 6–22 s of thread time — the
 `#contour` slot is a whole second tile set, which is what [07-hillshade-contours.md](07-hillshade-contours.md)
-would remove by computing contours in the terrain fragment shader), the network itself, and the
-decode pool (`Options::setTileThreadPoolSize`, default **1**; tangram runs 2). Raising the pool was
-measured as no win *while* the network dominated — retake it now that it does not.
+would remove by computing contours in the terrain fragment shader) and the network itself.
+
+**The decode pool changes almost nothing here.** `Options::setTileThreadPoolSize` retaken
+2026-08-13 now that the network no longer dominates — interleaved pairs, `--es tilePool 1|2`, warm
+caches, city camera:
+
+| | 3D | 2D (`--es terrain false`) |
+|---|---|---|
+| tiles decoded | 25 either way | 22 either way |
+| first→last decode, pool 1 | 2.98 / 3.20 s | 2.68 / 2.59 s |
+| first→last decode, pool 2 | 3.26 / 2.93 s | **2.22 / 2.17 s** |
+| pan fps, pool 1 | 26.7 median | 20.1–22.9 |
+| pan fps, pool 2 | 26.8 median | 19.8–22.8 |
+
+The pan is identical in both modes. Decode finishes at the same moment in 3D — 25 tiles land within
+~3 s of the first, paced by fetch and cache I/O rather than CPU, so a second thread has nothing to
+win — while in 2D, where the frame leaves more CPU over, it finishes ~18% sooner (2 of 2 pairs).
+Either setting is defensible; **1 remains the default** because the gain is confined to the load
+phase in 2D.
+
+Two metrics to avoid here, both of which produced a wrong answer first time round: fps measured
+*while tiles stream* (it conflates "did less work" with "ran faster" — the arm that gets more
+content on screen scores worse), and fps on a **static camera** after loading, which never settles
+([Getting a trustworthy number](#getting-a-trustworthy-number)). An earlier version of this section
+claimed pool 2 costs ~15% of the frame rate on that basis; time-to-content and a scripted pan do
+not support it.
 
 Unrelated but on the same path: the first `loadTile` on a persistent cache runs `loadTileInfo`, a
 full-table scan of the cache DB, on the tile thread — **1.4 s** on the first (cold page cache) run

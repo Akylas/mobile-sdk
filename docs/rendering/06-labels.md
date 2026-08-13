@@ -451,9 +451,118 @@ zoom filter.
   than on a large one, and up to **five times** what the single-raster build drew — a soft white
   glow instead of an outline, reported as "halo huge at radius 2, fine at 1". If halos ever look
   wrong again, check that term before the style.
-- **Vertex data.** Glyph quads are rebuilt from scratch for every visible label every frame and
-  uploaded as one batch (`labelVertexBuildNs`, `labelBatchNs`). A GPU-billboard path would remove
-  the per-frame world transform (`labelTransformNs`) — it is on the backlog, not implemented.
+- **Vertex data.** The glyph layout is already cached per label (`_cachedVertices`, `_cachedValid`)
+  and the shader already expands the billboard from `offsets` + `uLabelAxisX/Y`. What runs every
+  frame is re-emitting the **batch**: the anchor is camera-relative
+  (`placement->position − viewState.origin`), so every vertex changes as soon as the camera moves.
+
+  Measured on the city pan with draping on (Crosscall, 5.724/45.188 z15 t45, 27 fps, 28 frames per
+  interval): `pass3D labels3D` 82.9 ms/interval (2.96 ms/frame), `labels2D` 46.3 (1.65),
+  `buildMs` 45.7 (1.63), `batchMs` 21.6 (0.77), 3693 labels rebuilt (132/frame). The build splits
+  placement 4.4 / line 10.3 / transform 10.8 / attrib 13.9 ms per interval. That is ~4.6 ms of a
+  31.6 ms CPU frame, against a 37 ms wall frame and the 33.3 ms two-vsync boundary — the right size
+  to matter, which is why it was tried.
+
+  **Caching the two per-glyph loops does NOT help** (tried 2026-08-13, reverted): keeping the scaled
+  `offsets` and the per-frame `attribs` per label, keyed on scale / camera axes / style slots /
+  opacity, measured 26.6–27.4 fps against 27.1, with `transformMs` and `attribMs` unchanged. Two
+  reasons, and the first is visible in the code: `scale` carries
+  `calculateTerrainScaleFactor` = `depth / focusDistance`, which changes past its 1% quantum for
+  most labels on every panned frame, so the cache misses; and copying N cached entries into the
+  batch writes the same bytes the loop did, so a source-side cache cannot win if the cost is the
+  batch write.
+
+  What is left is the batch itself — and it has a prerequisite that has to come first.
+
+### A persistent label batch, and what blocks it
+
+The batch can only be kept across frames if nothing in it changes. Two things do:
+
+- **The anchor**, `placement->position − viewState.origin`, moves with the camera. Solvable: quantize
+  the origin to a grid and put it in `labelBatchParams.labelMatrix` (which already carries a
+  `translate`). Absolute world coordinates are not an option — `WORLD_SIZE` is 2²⁰, so float32
+  jitters ~2 m at the world edge, which is why the camera-relative form exists.
+- **The scale**, and this is the real blocker. `offsets` hold `cachedVertex * scale`, and `scale`
+  carries `calculateTerrainScaleFactor` = `depth / focusDistance`, quantized to ~1.09% steps. At z15
+  the view is ~1 km wide and a pan moves ~0.5 km/s, so a label 500 m out changes depth by ~18 m per
+  frame ≈ 3.6% — past the quantum. **Most labels change scale on most panned frames.**
+
+So a persistent buffer, or any cache of the scaled offsets, rebuilds constantly — which is what the
+reverted experiment above measured. The prerequisite is to stop scaling on the CPU: the perspective
+cancel is a division by view depth, and the vertex shader can do it from `gl_Position.w`, which is
+tangram's screen-space label model. CPU offsets then hold glyph units × zoom scale, constant through
+a pan, and the batch becomes reusable.
+
+The order to do it in, then: (1) move the perspective cancel into `labelVsh`, keeping
+`calculateTerrainScaleFactor` on the CPU **for the culler's envelopes only** (collision is decided in
+screen space and must not change); (2) cache the offsets, which step 1 has made view-independent;
+(3) quantize the batch anchor and keep the batch arrays and GL buffers across frames, invalidated by
+the label set, placements, opacities, style slots and the anchor.
+
+**Step 1 is done.** `Label::CAMERA_AXIS_DEPTH_OFFSET` (attribs[3] = 2) tells `labelVsh` to scale the
+offset by `clamp(anchorClip.w * uLabelDepthScale, 0.05, 8.0)` — clip `w` is the view depth the CPU
+factor was a ratio of, and `uLabelDepthScale` is 1 / camera-to-focus distance. The CPU then emits
+offsets divided by that factor, so what is in the buffer depends on the zoom and the style, not on
+where the camera is. It applies to `BILLBOARD_3D` and `LINE_BILLBOARD_3D` under a planar projection;
+callouts keep the CPU factor (their lift and shift are measured against the same scale), and `LINE`
+labels are view-dependent by construction.
+
+It changes no frame rate on its own — 27.0–27.5 fps against a 27.1 baseline, and the per-glyph loop
+still runs — which is the expected result: it is the enabler, not the win. Device-checked: label
+sizes hold through tilt and pan. One cosmetic consequence: label plates still take the CPU factor,
+which is quantized to ~1.09% steps where the shader's is exact, so a plate can sit ~1% off its text.
+
+**Step 2 then measured nothing, and that settles the mechanism.** With the offsets now
+view-independent, caching them per label gave `transformMs` 10.3–11.4 ms/interval against a 9.6–10.8
+baseline and 24.9–27.0 fps against 27.1 — reverted. Together with the first attempt (which missed
+because the key moved), this rules out the source side entirely: the timed region is dominated by
+**writing into the batch arrays**, and copying N cached entries writes exactly the bytes the loop
+wrote. No cache of what goes into the batch can win.
+
+**Step 3, the batch kept across frames, is done — and there was a second view dependency the plan
+above missed.** `Label::setupCoordinateSystem` snaps the anchor to a quarter of the screen pixel
+grid (that is what keeps glyphs at a stable subpixel phase), and it did so by projecting the anchor
+with the view-projection and inverting it back. So the anchor moved on every camera translation
+whatever the scale did — and it cost a **4x4 double inverse per label per frame**, on the culler
+thread too. Both are fixed: `ViewState` now carries `viewProjMatrix`/`invViewProjMatrix`, and for
+the shader-cancel modes `labelVsh` does the snap itself on `anchorClip.xy` against
+`uLabelScreenSize`. The CPU anchor is then `placement->position − viewState.labelOrigin`, where
+`labelOrigin` is latched and only re-based once the camera has moved `LABEL_ORIGIN_LATCH_DISTANCE`
+(256 internal units, ~10 km); the residual rides in the label matrix, which already carried a
+translate. The culler keeps `viewState.origin` — its envelopes are camera-relative by construction.
+
+What survives a frame, then, is the whole 3D pass: `GLTileRenderer::LabelBatchCache` holds one
+`PersistentLabelBatch` per batch (its VBOs, its parameter tables, and the label matrix without the
+camera), and a hit re-issues the draws with new uniforms only. Validity is two counters, not a
+per-label scan:
+
+- `Label::getDrawGeneration()` — bumped by placement, layout and elevation changes, and by a label
+  appearing or disappearing. Only 3D-orientation labels bump it, and only while they are actually
+  drawn: measured over one city pan, **4184 re-anchors of unplaced labels against 24 of visible
+  ones**, so an unguarded counter is stale every frame for work no batch ever held.
+- `Label::getOpacityGeneration()` — a fade in progress. It does not invalidate: the batch keeps a
+  CPU copy of its attribs plus each label's vertex range, and `patchLabelBatchOpacities` rewrites
+  one byte per glyph of the labels that moved and `glBufferSubData`s the dirty span.
+
+Plus the view: `zoom`, `rotation`, `tilt` and `planarProjection` are baked into the buffers (the
+glyph scale, and the style functions that read `view::`). Everything else the camera does —
+position, **focus distance**, screen size — only reaches uniforms. That last one mattered: over
+terrain `focusDistance` changes on every frame, and while it was in the test the cache never once
+hit.
+
+**Measured** (Crosscall, assets style, 5.724/45.188 z15 t45, scripted pan, `debug.carto.labelcache`
+A/B): `pass3D labels3DMs` **67–76 → 25–33 ms/interval**, labels rebuilt 3900 → 1900 per interval,
+~200 batches a second replayed and ~80 patched. **Frame rate: unchanged** — three interleaved
+rounds gave medians 26.4/26.0/25.6 fps with the cache against 26.4/25.8/25.8 without. The pass is
+~1.5 ms of a ~38 ms frame, and this bench's run-to-run spread is larger than that. Screenshot diff
+against the cache off is 1.38% where two runs with it ON differ by 1.06% — no systematic shift.
+
+So it removes the work it was designed to remove and buys no frames at this camera. The label cost
+that is left is **2D**: `labels2DMs` is 48–94 ms/interval, dominated by `LINE` layout
+(`lineMs` 28 of `buildMs` 44), which follows the projected line and cannot be kept — see
+`updateLineVertexData`. Note also that only a style using `text-placement: nutibillboard` puts
+labels in the 3D pass at all; with the demo's inline style the 3D pass is 1.2 ms/interval and this
+whole mechanism measures nothing.
 
 ## Against tangram
 

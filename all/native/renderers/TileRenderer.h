@@ -169,6 +169,8 @@ namespace carto {
         bool isPlanarProjectionMode() const;
         // Tangram-model measurement switch, read once from debug.carto.depthshift (Android only).
         static float getTerrainContentDepthShift();
+        // Measurement switch for the kept 3D label batches, debug.carto.labelcache (Android only).
+        static bool getLabelBatchCaching();
         // tangram res/scenes/terrain-3d.yaml: depth_shift = -0.02*u_proj[2][3], and [2][3] is -1.
         static constexpr float TERRAIN_TANGRAM_DEPTH_SHIFT = 0.02f;
         // It is a per-step separation between coplanar style layers, not a budget to spread over
