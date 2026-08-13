@@ -393,9 +393,28 @@ path, not a startup number.
 
 Where the rest of a cold style load goes today (same device, bundled `assets` project, 23 layers):
 parse + compile + translate **251 ms**, first symbolizer context **143 ms** (of which 75 ms is
-fonts). The largest untouched item is the eager font load: every font in the package is decoded at
-load whether the style uses it or not, and `FontManager` already has a lazy loader hook for the
-system fonts.
+fonts).
+
+**The style's fonts are decoded when they are asked for, not when it loads.** Registering a font
+means reading its name table, and a **woff2 has to be decompressed to be read at all** — measured
+per font on the Crosscall, and the cost tracks the compression, not the typeface: `osm.ttf`
+(69 KB, plain TTF) **0.1 ms**, a 26 KB woff2 **1.1 ms**, a 180 KB woff2 **11.4 ms**. The bundled
+project packs 15 fonts and asks for **4** (DIN Pro Medium / Medium Italic / Bold, and `osm` for the
+icon glyphs; `Arial` resolves to the system Roboto), so 10 were decompressed for nothing — and the
+four NotoSans among them are 43 ms of the 62.
+
+`FontManager::addPendingFontData` takes a font plus a **hint name** — the file name — and decodes it
+only when a request normalizes to that hint (`DINPro-MediumItalic.woff2` ↔ `DIN Pro Medium Italic`,
+the same normalization `SystemFontUtils` uses for `/system/fonts`). A request matching no hint falls
+to the `FontDataLoader`, and only then sweeps every font still pending and registers the names they
+really carry — so a package whose file names disagree with its font names resolves exactly as eager
+loading did, once. **Symbolizer context 98 → 27 ms**, three interleaved pairs.
+
+The order matters and cost a round: with the sweep *before* the loader, resolving the default
+fallback font — `Arial`, which no style package carries — swept all 15 on every context build and
+the change measured exactly nothing. The one behaviour difference left: a name the `FontDataLoader`
+also answers now resolves from there rather than from a package font whose *file* name did not
+match. Eagerly loaded fonts always won that; hinted ones still do.
 
 **Decoding a tile: 120–150 ms mean, ~0.5 s worst** at a z16 city camera. Section split (probe
 overhead ~30%, so read the shares, not the absolutes):
@@ -554,6 +573,7 @@ a feature-id vertex attribute in `vt` and shader support — not done.
 | label lines tesselated for reading, not for painting (no lattice split, surface-cell step) | **1.75 → 2.10 fps**, `prepare` 157 → 72 ms |
 | `setPixelScale` rebuilds only the symbolizer context, not the compiled map | startup style cost 2 × 0.5–0.7 s → one load plus a ~0.1 s context rebuild |
 | `setPixelScale` keeps the fonts and bitmaps, drops only the rasterized maps; live-parameter classification moved to where the map changes | the whole call **133.5–133.9 → 0.5 ms**, interleaved ×3 |
+| a style's fonts are decoded on first use, matched by file name (the bundled project packs 15 and asks for 4) | symbolizer context **98 → 27 ms**, interleaved ×3 |
 | CartoCSS compile: per-zoom predicate memo, field-bucketed property insert, interned field ids | compile 264 → 157 ms, `buildMap` 362 → 261 ms (23-layer style, device) |
 | CartoCSS compile: skip a zoom whose predicate results repeat, reuse the trial property set | compile 157 → 129 ms, `buildMap` → 220 ms |
 | CartoCSS compile: field and predicate bitmasks on the property set, evaluate each property once | compile 175.4 → 117.4 ms paired (same style, later and bigger than the rows above) |

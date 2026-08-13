@@ -898,9 +898,22 @@ namespace carto {
 
                 for (const std::string& assetName : assetPackage->getAssetNames()) {
                     if (assetName.size() > fontPrefix.size() && assetName.substr(0, fontPrefix.size()) == fontPrefix) {
-                        if (std::shared_ptr<BinaryData> fontData = assetPackage->loadAsset(assetName)) {
-                            fontManager->loadFontData(*fontData->getDataPtr());
+                        // Deferred: reading a font's name means decompressing it, and a style
+                        // packs far more fonts than it uses - the bundled one carries 15 and asks
+                        // for 4. The hint is the file name, which is what a font is normally
+                        // called; a style whose files say otherwise still resolves, by the sweep
+                        // in FontManager, and only pays for it then.
+                        std::string hintName = FileUtils::GetFileName(assetName);
+                        std::size_t extPos = hintName.rfind('.');
+                        if (extPos != std::string::npos) {
+                            hintName = hintName.substr(0, extPos);
                         }
+                        fontManager->addPendingFontData(hintName, [assetPackage, assetName]() {
+                            if (std::shared_ptr<BinaryData> fontData = assetPackage->loadAsset(assetName)) {
+                                return *fontData->getDataPtr();
+                            }
+                            return std::vector<unsigned char>();
+                        });
                     }
                 }
             }
