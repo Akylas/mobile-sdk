@@ -197,8 +197,6 @@ public final class DemoConfig {
      *  short of the surface; 30 lets you get close enough to judge mesh and hillshade detail.
      *  '--es clearance N' (0 disables the clamp entirely - you can then fly through the ground). */
     public static float TERRAIN_CAMERA_CLEARANCE = 60.0f;
-    /** Painter-order depth model (per-tile-layer depth domain). Keep on unless debugging depth. */
-    public static boolean TERRAIN_PAINTER_ORDER_DEPTH = true;
     /** Render fills through an offscreen drape pass instead of displacing their geometry.
      *  ON, and it is both the correct and the fast choice - this is tangram's arrangement, where the
      *  ground draw samples a texture (`base_color = sampleRaster(0)`, res/scenes/hillshade.yaml)
@@ -876,7 +874,6 @@ public final class DemoConfig {
         TERRAIN_EXAGGERATION = DemoCfg.cfgFloat("exaggeration", TERRAIN_EXAGGERATION);
         TERRAIN_ANIM_MS = (long) DemoCfg.cfgFloat("terrainAnimMs", TERRAIN_ANIM_MS);
         TERRAIN_MESH_RESOLUTION = DemoCfg.cfgInt("meshResolution", TERRAIN_MESH_RESOLUTION);
-        TERRAIN_PAINTER_ORDER_DEPTH = DemoCfg.cfgBool("painterDepth", TERRAIN_PAINTER_ORDER_DEPTH);
         TERRAIN_DRAPE_FILLS = DemoCfg.cfgBool("drape", TERRAIN_DRAPE_FILLS);
         TERRAIN_DRAPE_LINES = DemoCfg.cfgBool("drapeLines", TERRAIN_DRAPE_LINES);
         TERRAIN_DRAPE_RESOLUTION = DemoCfg.cfgInt("drapeResolution", TERRAIN_DRAPE_RESOLUTION);

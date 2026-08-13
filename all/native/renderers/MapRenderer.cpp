@@ -1462,17 +1462,8 @@ namespace carto {
             }
         }
         lighting = resolveLighting(_options->getLightOptions(), styleEnvironment);
-        // The SHADOW sun, which is not always the lighting sun. A shadow is as long as
-        // the caster is tall divided by tan(altitude): at 9 degrees a 700 m hill throws
-        // 4.4 km and a 2 km massif 13 km. Two things break there, both measured. The
-        // light box is stretched along the light by that same relief/tan(altitude), so
-        // the whole cascade ladder goes coarse (31/53/62 m texels at z12.3 tilt 60,
-        // against 11 m with the box bounded) - and shadows that long need casters from
-        // far outside the drawn cover, so what does reach the screen is a flat grey
-        // wash that appears and disappears as the cover changes with the zoom.
-        // Flooring the altitude for the shadow pass ALONE caps the shadow length at
-        // ~3.7x the relief and keeps the texels usable, while N.L lighting keeps the
-        // true sun - so a low sun still reads as a low sun, without the wash.
+        // Floor the sun altitude for the SHADOW pass alone: a lower sun stretches the light box
+        // past the drawn cover and the cascades go coarse (docs/rendering/08-lighting-sky-fog.md).
         cglib::vec3<float> shadowSunDir = lighting.sunDir;
         {
             static const float MIN_SHADOW_SUN_SIN = 0.2588f; // sin(15 degrees)
@@ -1587,19 +1578,10 @@ namespace carto {
                     }
                 }
                 if (boxesValid) {
-                    // The caster pass draws the whole terrain a second time, so it is
-                    // worth as much as the on-screen draw - and on a still view it
-                    // produces the same texture every frame. The light box is snapped
-                    // to a world-anchored texel lattice, so its matrix repeats exactly
-                    // while the camera moves inside one step: recompute only when that
-                    // matrix, the caster set or the tile content actually changed.
-                    // The age cap picks up elevation that streamed in without either.
-                    // An extrusion that is still growing into place changes the
-                    // caster geometry without changing the tile list, so a cached map
-                    // would hold the shadow of a building that is not that shape yet.
-                    // Tracked by how far the geometry has MOVED, not by whether it is
-                    // moving: a fade is tens of frames and a caster pass per frame of
-                    // it is what makes tiles crawl into view.
+                    // The caster pass costs as much as the on-screen draw, and the snapped light
+                    // matrix repeats while the camera moves inside one texel step - so recompute
+                    // only on a real change. A growing extrusion changes the geometry without
+                    // changing the tile list, so track how far it has MOVED, not that it moves.
                     float fadeSignature = 0.0f;
                     for (const std::shared_ptr<TileLayer>& tileLayer : tileLayers) {
                         fadeSignature = std::max(fadeSignature, tileLayer->shadowCasterFadeSignature());
@@ -1785,20 +1767,9 @@ namespace carto {
             }
         }
 
-        // The collected set is a UNION across layers, and layers do not agree on a
-        // zoom level - a hillshade limited by its DEM max zoom yields coarser tiles
-        // than a vector tile layer. Drawing a surface for every tile in that union
-        // would stack a coarse surface and the finer ones covering the same ground on
-        // top of each other, and they fight. Normalize to a single non-overlapping
-        // cover, keeping the FINEST tile for any given ground area; coarser layers
-        // still contribute to it through the ancestor sub-rect bake.
-        // Dropping a coarse tile outright is wrong: a single fine tile inside it covers
-        // 1/4^n of its ground, and the rest would then have no surface at all - the
-        // terrain there falls back to whatever is behind (the layer's flat background
-        // plane), which reads as a hole. Split instead: a coarse tile that contains a
-        // finer one is replaced by its four children, recursively, so the result is a
-        // true quadtree partition. Leaves that are descendants of a coarse tile carry
-        // its content through the sub-rect bake.
+        // Normalize the per-layer union to a non-overlapping quadtree partition, keeping the
+        // finest tile for any ground - overlapping surfaces of different tesselations fight.
+        // See docs/rendering/04-terrain.md, "Normalizing the cover to a quadtree partition".
         std::vector<vt::TileId> pending;
         for (auto it = collectedTiles.begin(); it != collectedTiles.end(); it++) {
             bool hasCoarserTile = false;
@@ -1827,17 +1798,8 @@ namespace carto {
         // background plane, which is the "tiles blink white" report. The cap is not about textures.
         int viewZoomCap = static_cast<int>(std::ceil(viewState.getZoom())) + 1;
         coverZoom = std::min(maxCollectedZoom, std::max(viewZoomCap, minTopZoom));
-        // Split a tile ONLY where a finer collected tile actually sits inside it.
-        // Splitting every subtree down to one global level looks stable on paper, but
-        // a layer that is showing a coarse proxy - one z6 tile standing in for the
-        // whole view while its data loads - was then chopped into hundreds of leaves,
-        // most of them off-screen ground nothing asked for. Measured: 16 collected
-        // tiles became 127 leaves. That is fatal rather than merely wasteful, because
-        // every leaf acquires a cache entry: two such covers exceed the cache and the
-        // eviction pass drops the ENTIRE previous generation, which is what the seed
-        // and the stand-in both read from. Hence 'seeded 0, blank 16' with a screen
-        // of flat fills. Where there is no finer content, one coarse surface is not
-        // just cheaper, it is the same picture.
+        // Split ONLY where a finer collected tile sits inside: splitting whole subtrees to one
+        // level made 16 tiles into 127 leaves and blew the drape cache (04-terrain.md).
         std::vector<vt::TileId> tops = pending;
         auto buildLeaves = [&](int zoomLimit) {
             leaves.clear();
@@ -1907,18 +1869,10 @@ namespace carto {
                             depthWriteAssigned = depthWriteAssigned || depthWrite;
                         }
                     }
-                    // Terrain base fill, rendered GLOBALLY before all tile layers: this
-                    // way it shows through translucent tile layer content (e.g. a
-                    // semi-transparent vector tile style or a hillshade layer)
-                    // regardless of the layer stacking order, and guarantees the terrain
-                    // is always painted with a solid base. When enabled, the map
-                    // background bitmap is draped over the terrain instead of the solid
-                    // color. With a depth-write tile layer, the fill is COLOR-ONLY (its
-                    // depth is discarded): the tile layer surface pre-passes provide the
-                    // terrain depth with their own meshes, and any kept fill depth would
-                    // clip the differently-tesselated tile content in triangle-shaped
-                    // patches. Without one, the fill (or the depth-only pre-pass) is the
-                    // terrain depth source for element/billboard occlusion.
+                    // Terrain base fill, before all tile layers so it shows through translucent
+                    // content whatever the stacking order. COLOR-ONLY under a depth-writing tile
+                    // layer - kept fill depth clips the differently-tesselated content in patches;
+                    // without one it is the depth source for element/billboard occlusion.
                     bool depthSourceRendered = false;
                     {
                         if (!_terrainRenderer) {
@@ -1989,21 +1943,11 @@ namespace carto {
                         }
                     }
 
-                    // Camera terrain-following. The clearance is expressed as a BOUND on the
-                    // zoom (ViewState::setTerrainCameraReference -> getTerrainMaxZoom), which every
-                    // zoom path clamps against, rather than as a corrective zoom-out issued
-                    // after the camera has already broken through. A corrective event fights
-                    // whatever is driving the camera down - the pinch gesture, the double-tap
-                    // zoom animation, a kinetic fling - so the camera oscillates for as long as
-                    // the gesture lasts, and an animation that keeps its absolute target snaps
-                    // back to it on its final tick (the "double tap jumps back" symptom). As a
-                    // bound, the gesture simply comes to rest against the terrain.
-                    // A correction is still needed for the paths that change the camera height
-                    // WITHOUT going through a zoom event - panning into a hillside, tilting, or
-                    // new elevation tiles raising the ground under a stationary camera. Like
-                    // tangram (View::updateMatrices), that correction is strictly
-                    // one-directional (it only ever zooms out, never back in) and lands exactly
-                    // on the clearance shell, so it cannot oscillate.
+                    // The clearance is a BOUND on the zoom, not a corrective event - a correction
+                    // fights whatever drives the camera down and oscillates. This per-frame
+                    // correction covers only the paths that change height without a zoom event
+                    // (pan into a hillside, tilt, elevation arriving) and, like tangram's
+                    // View::updateMatrices, only ever zooms OUT. See docs/rendering/04-terrain.md.
                     float cameraClearance = terrainOptions->getCameraClearance();
                     float clampDuration = terrainOptions->getCameraClampDuration();
                     if (cameraClearance > 0) {
@@ -2015,16 +1959,9 @@ namespace carto {
                             std::lock_guard<std::recursive_mutex> lock(_mutex);
                             _viewState.setTerrainCameraReference(terrainZ, minCameraZ);
                         }
-                        // The correction has to LAND on the shell, and it has to have a dead band.
-                        // Zooming out scales the camera-to-focus vector, so the camera height it
-                        // reaches is focusZ + (cameraZ - focusZ) * scale - not cameraZ * scale.
-                        // Scaling by minCameraZ/cameraZ (which ignores the focus height) always
-                        // lands SHORT of the shell whenever the focus is above sea level, so the
-                        // next frame is still below it and issues another correction: the camera
-                        // creeps towards the shell for ever and every frame requests a redraw, so
-                        // a completely still 3D map never stops rendering. Solving for the scale
-                        // that reaches the shell exactly, plus a dead band, ends the sequence
-                        // after one correction.
+                        // Solve for the scale that LANDS on the shell: zooming out scales the
+                        // camera-to-focus vector, so minCameraZ/cameraZ lands short whenever the
+                        // focus is above sea level and the map never stops correcting (or drawing).
                         double focusZ = viewState.getFocusPos()(2);
                         double deadBand = 0.005 * cameraClearance * elevationManager->getDisplayScale(cameraPos(1));
                         // At the bottom of the zoom range there is no correction left to make, and
@@ -2182,16 +2119,9 @@ namespace carto {
                             groundStandingIn = std::move(standingIn);
                         }
 
-                        // Tangram's proxy depth for the ground, their formula
-                        // (core/src/tile/tileManager.cpp):
-                        //     setProxyDepth(m_proxyCounter > 0 ? std::max(maxVisS - tileId.s, 1) : 0)
-                        // The `m_proxyCounter > 0` is a GUARD, and it is the whole point: the depth
-                        // applies ONLY to a tile drawn in place of one that has no data of its own.
-                        // A legitimately coarse tile of a mixed-LOD cover is a live tile and takes
-                        // ZERO however far it is - give it a depth and 48 units per level pushes
-                        // most of a tilted view's far field back by clip units, taking the hillshade
-                        // paint (which carries the same push) behind the ground it shades: far
-                        // hillshade missing, blinking as the cover's deepest level moves.
+                        // Tangram's proxy depth (tileManager.cpp). The `m_proxyCounter > 0` guard is
+                        // the point: only a stand-in gets a depth, a live coarse tile takes zero.
+                        // See docs/rendering/05-depth-model.md, "Proxy depth".
                         int groundCoverZoom = 0;
                         for (const vt::TileId& tileId : groundTileIds) {
                             groundCoverZoom = std::max(groundCoverZoom, tileId.zoom);
@@ -2218,23 +2148,10 @@ namespace carto {
                             }
                         }
 
-                        // Number the stack in DRAW order, one range per layer: tangram separates
-                        // style layers in depth by their order in one global list, and our stack is
-                        // several renderers - a composite's children included. The stride leaves
-                        // room for a layer's own style layers before the next layer starts.
-                        // Numbered DENSELY, as a running sum of what each layer actually drew last
-                        // frame - not a fixed stride. The ordinal feeds a constant-NDC pull whose
-                        // eye tolerance grows as distance^2, so its TOTAL is what decides whether
-                        // far content leaks over a near ridge; rounds 45-56 saw that start in the
-                        // low hundreds, and a stride of 32 per layer reaches it with five layers.
-                        // A style layer count is tens. One frame of lag in the counts is harmless:
-                        // they only have to be consistent, not current.
-                        // Starting at ONE, not zero: the ground is a numbered draw in the same list
-                        // and it is the bottom of it. Tangram draws the terrain raster at the earth
-                        // layer's `order` (res/scenes/hillshade.yaml, `order: global.earth_order`)
-                        // and every content layer sits above it - so content at ordinal 0 would
-                        // share the ground's term exactly and have no clearance over ground it
-                        // chords across, which is the bottom style layer of the first layer.
+                        // One dense ordinal range per layer, in draw order, starting at 1 (ordinal 0
+                        // is the ground). Dense because the TOTAL span sets the leak threshold, so a
+                        // fixed stride reaches it within a few layers. A frame of lag in the counts
+                        // is harmless - they only have to be consistent. docs/rendering/05-depth-model.md.
                         int ordinalBase = 1;
                         for (const std::shared_ptr<TileLayer>& tileLayer : groundLayers) {
                             tileLayer->setExternalDrapeTarget(false);
@@ -2379,16 +2296,10 @@ namespace carto {
                                 if (it->second == 0) {
                                     continue; // reported for the cover, but nothing drapeable in it
                                 }
-                                // Only contributors the bake will actually draw: its own tile, or a
-                                // COARSER one covering it. GLTileRenderer::bakeDrapeTile skips
-                                // render tiles FINER than the terrain tile on purpose (they are the
-                                // generation being replaced, and minifying them into a sub-rect
-                                // turns the drape into aliasing noise), so counting them here made
-                                // the leaf permanently incomplete: its own bake could never satisfy
-                                // a layer whose only contribution was a finer tile. The stand-in
-                                // path then kept drawing that layer's PREVIOUS, finer textures over
-                                // the leaf for as long as they stayed cached - which is the patch of
-                                // stale z11 map (satellite, roads) that survives a zoom out to z10.
+                                // Only what bakeDrapeTile will actually draw - its own tile or a
+                                // COARSER one. Counting finer tiles (which it skips on purpose) made
+                                // the leaf permanently incomplete, so stand-ins kept a patch of stale
+                                // finer map alive across a zoom out.
                                 if (it->first == tileId || coversTile(it->first, tileId)) {
                                     layerMask |= static_cast<std::size_t>(1) << i;
                                     break;
@@ -2497,24 +2408,10 @@ namespace carto {
                     // to know whether THIS frame produced new tile content, not whether any frame
                     // ever did.
                     int bakedThisFrame = 0;
-                    // Baking a tile re-renders every layer of it into a full-resolution texture,
-                    // so an unbounded loop over a churning tile cover is a per-frame re-render of
-                    // the whole map - which is what made panning and zooming stall. Bake a few
-                    // tiles per frame; the rest keep whatever they have (an older picture, or a
-                    // flat fill if they have nothing yet) and catch up over the next frames.
-                    // Two budgets, because the two cases are not equally urgent. A tile that can
-                    // show nothing at all is a visible hole, so those are baked almost freely; a
-                    // tile that is merely out of date already shows something plausible, so a
-                    // couple per frame is enough and the cost stays off the critical path.
-                    // Three classes, not two, because "has no texture of its own" covers two very
-                    // different pictures: a tile standing in on an ancestor shows the right ground
-                    // at half the sharpness, while a tile with no stand-in at all shows a flat
-                    // fill - a hole. An integer zoom step renames the whole cover at once, so the
-                    // second class is exactly what has to be cleared fast.
-                    // Raising this to bake a whole renamed cover in one frame was measured on
-                    // device: worst frame 128 ms -> 300 ms, with no visible difference in the
-                    // stand-ins it was meant to remove. A bake is ~16 ms per tile at 1024, so the
-                    // budget IS the frame time here; keep it low and let the cover catch up.
+                    // Per-frame bake budget, three urgency classes (hole / stand-in / merely
+                    // stale). A bake is ~16 ms at 1024, so the budget IS the frame time - raising it
+                    // to clear a renamed cover in one frame measured 128 ms -> 300 ms worst frame.
+                    // docs/rendering/04-terrain.md, "The drape cache".
                     static const int DRAPE_BAKE_BUDGET_BLANK = 8;
                     static const int DRAPE_BAKE_BUDGET_STANDIN = 3;
                     // A tile MISSING A WHOLE LAYER is a fourth case, and it is not the mild one the
@@ -2545,37 +2442,19 @@ namespace carto {
                     struct BakeRequest { vt::TileId tileId; std::size_t fingerprint; std::size_t drapedIndex; };
                     std::vector<BakeRequest> blankTiles, standInTiles, partialTiles, staleTiles, restackTiles;
 
-                    // A tile whose DEM has not been decoded yet is drawn FLAT, at sea level.
-                    // Next to tiles that ARE displaced that is a slab of map hanging in space
-                    // below the terrain - out of place vertically, in the right place on the
-                    // ground, which is exactly what it looks like. Zooming out is when it
-                    // happens wholesale: the elevation cache holds the FINER grids of the
-                    // previous generation and its lookup only ever walks UP to ancestors, so
-                    // every new coarse tile misses until its own DEM tile loads.
-                    // Stand on the previous generation's tiles there instead - they still have
-                    // their elevation - and if there is nothing to stand in with, draw nothing.
-                    // No terrain known for that ground is the honest answer; a false ground at
-                    // zero is not, and it also writes depth, so it hides what is behind it.
-                    // When NOTHING has elevation (cold start, or ground the DEM does not cover)
-                    // the whole scene is flat and internally consistent, so the flat draw stays.
-                    // Already resolved above, where the paint's per-tile expectation was decided.
+                    // No elevation for this tile: stand on the previous generation rather than draw
+                    // it flat at sea level, and draw nothing if there is no stand-in - a false
+                    // ground writes depth and hides what is behind it. Flat stays only when NOTHING
+                    // has elevation. See docs/rendering/04-terrain.md, "Stand-ins".
                     int displacedLeaves = 0;
                     for (auto it = drapeTiles.begin(); it != drapeTiles.end(); it++) {
                         displacedLeaves += leafElevation[it->first] ? 1 : 0;
                     }
                     bool sceneDisplaced = displacedLeaves > 0;
 
-                    // SEEDING. A tile that has just entered the cover has no texture, and until its
-                    // bake is budgeted in it can only be shown as a flat fill - which is the white
-                    // sheet over the terrain on every zoom out, and the reason the map appears to
-                    // be rebuilt from nothing each time. But the cache already holds this ground:
-                    // the finer tiles this one replaces (zooming out) or a coarser one covering it
-                    // (zooming in). Copy them into the new texture straight away - a few textured
-                    // quads, nothing like the cost of a bake - and the tile is showing the map from
-                    // the frame it appears. Its real bake then replaces the seed when it lands, and
-                    // because it is a bake of the same ground the swap is invisible.
-                    // Seeds are never SOURCES (findBaked returns baked entries only), so nothing
-                    // degrades through repeated copying.
+                    // SEEDING: copy the cached tiles covering this ground into the new texture (a
+                    // few quads, not a bake) so it shows the map from the frame it appears. Seeds
+                    // are never sources, so nothing degrades through repeated copying.
                     static const int DRAPE_SEED_BUDGET = 16;
                     int seedBudget = DRAPE_SEED_BUDGET;
                     int seededTiles = 0;
@@ -2648,15 +2527,9 @@ namespace carto {
                             hasContent = true;
                         }
                         bool baked = _terrainDrapeCache->isBaked(it->first, 0);
-                        // "Has a texture" is not "shows the map". A zoom out reaches the new
-                        // coarse tiles raster-first - the hillshade decodes in one step while the
-                        // vector tiles still have a style pass to run - so the first bake of a
-                        // tile holds the hillshade and the background fill and nothing else.
-                        // Baked, cached, and by the old rule good enough to replace the previous
-                        // generation still on screen: the whole map turns into bare relief for
-                        // the half-second it takes the vector layers to catch up. That is the
-                        // flash. A tile counts as usable only when every layer that has
-                        // something for it is actually IN it.
+                        // "Has a texture" is not "shows the map": the first bake after a zoom out
+                        // holds only the raster layers, and replacing the previous generation with
+                        // that is THE flash. Usable = every layer that has something is in it.
                         std::size_t wantedMask = drapeTileLayerMasks[it->first];
                         std::size_t bakedMask = _terrainDrapeCache->bakedLayerMask(it->first, 0);
                         bool complete = baked && (wantedMask & ~bakedMask) == 0;
@@ -2710,18 +2583,10 @@ namespace carto {
                         // is skipped has no ancestor draw at all, so it still needs them.
                         bool showsAncestor = !hasContent && draped.texture != 0 && !skipSurface;
                         if (((!complete && !showsStandIn) || skipSurface) && !showsAncestor) {
-                            // Zooming OUT there is no baked ancestor - the cached tiles are the
-                            // finer ones underneath. Draw those over the top: same meshes, same
-                            // depth, so the ground shows real content instead of a flat fill.
-                            // Also for a tile that IS baked but only partly: the previous
-                            // generation underneath is a complete picture of the same ground, and
-                            // it stays until this tile's own bake is finished.
-                            // They MUST come after this tile's own entry, not before it: the
-                            // surfaces coincide and the later draw wins, so pushed first they
-                            // were buried under the fill they were meant to replace - which is
-                            // the whole screen turning white for a moment on every zoom out.
-                            // Several levels deep, because one gesture crosses several zooms and
-                            // the cache then holds tiles two or three levels finer than this one.
+                            // Zooming out the cached tiles are the FINER ones underneath; draw them
+                            // over the top, several levels deep. They must come AFTER this tile's own
+                            // entry - the surfaces coincide and the later draw wins, so pushed first
+                            // they are buried under the fill they replace (the white screen).
                             std::function<void(const vt::TileId&, int)> drawBakedDescendants = [&](const vt::TileId& tileId, int depth) {
                                 for (int dy = 0; dy < 2; dy++) {
                                     for (int dx = 0; dx < 2; dx++) {
@@ -2787,15 +2652,9 @@ namespace carto {
                         std::size_t bakedFingerprint = request.fingerprint;
                         for (std::size_t i = 0; i < drapeLayers.size() && i < sizeof(std::size_t) * 8; i++) {
                             if (drapeLayers[i]->paintsEveryDrapeTile() && (bakedMask & (static_cast<std::size_t>(1) << i)) == 0) {
-                                // ONLY when the paint should have been able to paint this tile: its
-                                // elevation is decoded and the texture merely was not uploaded yet,
-                                // which the next frame fixes. A tile with no elevation at all - a
-                                // coarse cached ancestor, ground the DEM does not cover - can NEVER
-                                // be painted, and marking THAT one never-matching left it stale for
-                                // ever: re-baked forever, one per frame, each bake swapping its
-                                // texture and asking for another frame. Elevation ARRIVING is
-                                // already covered without this, because the wanted fingerprint
-                                // folds in 'paintable' per tile.
+                                // ONLY when the paint could have painted this tile and the texture
+                                // merely was not uploaded yet. A tile that can NEVER be painted would
+                                // otherwise stay stale for ever, re-baked one per frame.
                                 auto leafElevationIt = leafElevation.find(request.tileId);
                                 if (leafElevationIt != leafElevation.end() && leafElevationIt->second) {
                                     bakedFingerprint = ~request.fingerprint;

@@ -790,7 +790,6 @@ static const DemoFeature LAYER_ORDER[] = {
     [_terrainOptions setExaggeration:[DemoConfig floatFor:@"exaggeration"]];
     [_terrainOptions setMeshResolution:[DemoConfig intFor:@"meshResolution"]];
     [_terrainOptions setCameraClearance:[DemoConfig floatFor:@"clearance"]];
-    [_terrainOptions setPainterOrderDepthEnabled:[DemoConfig boolFor:@"painterDepth"]];
     [_terrainOptions setDrapeFillsEnabled:[DemoConfig boolFor:@"drape"]];
     [_terrainOptions setDrapeLinesEnabled:[DemoConfig boolFor:@"drapeLines"]];
     [_terrainOptions setDrapeResolution:[DemoConfig intFor:@"drapeResolution"]];

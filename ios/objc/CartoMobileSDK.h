@@ -220,12 +220,6 @@
 #endif
 #endif
 
-#ifdef _CARTO_NMLMODELLODTREE_SUPPORT
-#import "NTOnlineNMLModelLODTreeDataSource.h"
-#import "NTOfflineNMLModelLODTreeDataSource.h"
-#import "NTNMLModelLODTreeLayer.h"
-#endif
-
 #ifdef _CARTO_EDITABLE_SUPPORT
 #import "NTEditableVectorLayer.h"
 #import "NTVectorEditEventListener.h"
@@ -236,13 +230,6 @@
 #import "NTWKTGeometryWriter.h"
 #import "NTWKBGeometryReader.h"
 #import "NTWKBGeometryWriter.h"
-#endif
-
-#ifdef _CARTO_GDAL_SUPPORT
-#import "NTOGRVectorDataSource.h"
-#import "NTGDALRasterTileDataSource.h"
-#import "NTStyleSelector.h"
-#import "NTStyleSelectorBuilder.h"
 #endif
 
 #endif

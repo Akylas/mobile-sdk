@@ -19,16 +19,9 @@
 namespace carto {
 
     static const std::size_t DEFAULT_CACHE_CAPACITY = 64 * 1024 * 1024;
-    // Grids the cache must hold whatever the source resolution is. A fixed byte budget is really a
-    // tile budget the DEM raster size decides: a 512x512 RGB source is 768 KB per grid, so 64 MB
-    // is 85 grids - while one terrain view asked for 122-167 distinct grids (the cover pyramid,
-    // TileLayer::TERRAIN_COVER_TILE_BUDGET tiles collapsing onto ~160 DEM tiles once clamped, plus
-    // the contour source's finer tiles and the border prefetch). Every grid past the limit evicted
-    // one still in use and was decoded again on the next pass. Measured on a Crosscall at the demo
-    // camera, per startup: 85 grids = 1525 loads of 167 tiles and 32 s of WEBP decode, 128 grids =
-    // 189 loads of 157, 192 grids = 157 loads of 157 and 3.1 s of decode.
-    // An app that cannot spend the memory (144 MB here, 36 MB for a 256x256 source) sets its own
-    // number with TerrainOptions::setElevationCacheCapacity, which then wins over this rule.
+    // A grid COUNT, not a byte budget - one terrain view needs 122-167 distinct grids whatever the
+    // source resolution, and every grid past the limit evicts one still in use.
+    // See docs/rendering/04-terrain.md for the measured ladder.
     static const std::size_t MIN_CACHED_GRIDS = 192;
     static const int FAILED_TILE_TTL_MILLISECONDS = 30 * 1000;
     static const int MAX_ANCESTOR_SEARCH_DEPTH = 8;
@@ -228,21 +221,11 @@ namespace carto {
             return std::shared_ptr<ElevationTileGrid>();
         }
 
-        // Dense point queries - label re-anchoring walks every vertex of every label, the
-        // terrain raycast marches a ray - ask for the same tile thousands of times in a row,
-        // and every one of them takes the cache mutex and walks the ancestor chain. Remember
-        // the last resolved (tile -> grid) per thread: grids are immutable and every
-        // elevation change bumps the version, so a memo of the same version is the same
-        // answer the walk below would produce. LOAD_EXACT is excluded on purpose - it must
-        // not be satisfied by a grid resolved through the ancestor search.
-        // The MODE is part of the key. CACHED_ONLY accepts a cached ANCESTOR as a stand-in while
-        // ALLOW_LOAD loads the tile itself, so the two resolve the same tile to different grids
-        // while a level is still streaming in. Without the mode here, whichever query ran first on
-        // this thread answered the other one: a CACHED_ONLY lookup would memoise a coarse ancestor
-        // and hand it to the next ALLOW_LOAD caller. Two consumers of the same ground then disagree
-        // about its height by the LOD chord error - metres on flat ground, tens of metres on
-        // relief - which is what made the terrain shadow map and the surface that reads it drift
-        // apart after a zoom change, shadowing the ground and the buildings with their own depth.
+        // Per-thread memo of the last resolved (tile -> grid); grids are immutable and every change
+        // bumps the version. LOAD_EXACT is excluded - it must not be satisfied through the ancestor
+        // search - and the MODE is part of the key, because CACHED_ONLY accepts a coarse ancestor
+        // while ALLOW_LOAD loads the tile: sharing them makes two consumers of the same ground
+        // disagree by the LOD chord error (the shadow map drifting off its own surface).
         struct GridMemo {
             unsigned long long instanceId = 0;
             unsigned int version = 0;
@@ -346,15 +329,10 @@ namespace carto {
                 float maxSeen = _maxSeenElevation.load();
                 while (grid->getMaxHeight() > maxSeen && !_maxSeenElevation.compare_exchange_weak(maxSeen, grid->getMaxHeight())) { }
 
-                // Record WHICH tile changed, not just that something did. Consumers with
-                // per-tile derived data can then rebuild only the affected tiles. Bump the
-                // version under the same lock as the cache insert, so a consumer that sees
-                // the new version also sees the grid and a matching log entry.
-                // The DATA version moves with it: a decoded tile IS new elevation data, and a
-                // consumer telling a scale-only change apart from a data change compares the
-                // two. While this only moved for whole-data-set changes, every tile load read
-                // as scale-only, which takes the blanket invalidation path - a whole screen of
-                // label anchors resampled per arriving tile instead of those over that tile.
+                // Record WHICH tile changed, under the same lock as the insert, so a consumer that
+                // sees the new version sees the grid and the log entry. The DATA version moves too:
+                // a decoded tile IS new data, and standing still made every load read as scale-only
+                // (the blanket invalidation). See docs/rendering/04-terrain.md, the two versions.
                 _dataVersion++;
                 unsigned int version = _version.fetch_add(1) + 1;
                 _changeLog.emplace_back(version, grid->getTile());
@@ -690,19 +668,10 @@ namespace carto {
     }
 
     MapTile ElevationManager::clampTileZoom(const MapTile& mapTile) const {
-        // Tangram's rule, verbatim (RasterSource::addRasterTask):
-        //     subTileID = tileId.zoomBiasAdjusted(zoomDiff).withMaxSourceZoom(maxZoom);
-        // the elevation tile is the render tile's OWN z/x/y, adjusted by the elevation source's
-        // ZOOM BIAS - one level per doubling of its tile size, because a 512-texel tile at z-1
-        // has the same texel density as a 256-texel tile at z - and capped by the source's own
-        // maximum zoom. Nothing else: no cap against what the surface mesh can express, and no
-        // detail dial on top of it. Those were this fork's, and they are what made the hillshade
-        // blurry - the mesh resolution decides how finely the GROUND is tesselated, not how much
-        // relief the per-fragment shading may resolve.
-        // NOTE: this maps a RENDER tile to its elevation tile and is deliberately NOT idempotent -
-        // it drops the bias on every call. Applying it to an elevation tile again (getTileGrid on a
-        // getDataTile result, or on a neighbour of one) costs another level each hop, which is why
-        // the elevation-tile entry points use clampDataTileZoom instead.
+        // Tangram's rule verbatim (RasterSource::addRasterTask): the render tile's own z/x/y,
+        // adjusted by the source's zoom bias and capped by its max zoom - nothing else.
+        // Deliberately NOT idempotent: applying it to an elevation tile again costs another level
+        // per hop, so those entry points use clampDataTileZoom. docs/rendering/04-terrain.md.
         MapTile tile = mapTile;
         for (int size = _gridSizeHint.load(); size > DEM_TEXELS_PER_TILE_UNIT && tile.getZoom() > 0; size /= 2) {
             tile = tile.getParent();

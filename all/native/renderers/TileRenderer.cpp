@@ -339,12 +339,6 @@ namespace carto {
         return 0;
     }
 
-    bool TileRenderer::isDrapeEnabled() const {
-        std::lock_guard<std::mutex> lock(_mutex);
-
-        return _externalDrapeTarget;
-    }
-
     void TileRenderer::collectDrapeTiles(std::map<vt::TileId, std::size_t>& drapeTiles) const {
         std::lock_guard<std::mutex> lock(_mutex);
 
@@ -469,18 +463,13 @@ namespace carto {
         }
     }
 
-    // Measurement switch for tangram's arrangement: the paint drawn AS the ground, one draw per
-    // tile at the bottom of the order, instead of as its layer's own surface over the ground fill.
-    // Cheaper by one full-surface draw per tile, but it puts the shading under every ground-shaped
-    // fill - which only looks right when those fills are translucent (tangram's earth style) or
-    // when nothing ground-shaped is drawn below the paint's layer.
-    //   adb shell setprop debug.carto.groundpaint 1
-    // Texture fetches per terrain vertex: 16 (lattice clamp) / 4 (manual bilinear) / 1 (one
-    // hardware-filtered fetch, tangram's terrain vertex). Vertex texture fetch is expensive on
-    // mobile GPUs and this is 16x what the reference does, so it is the first suspect whenever the
-    // frame sits in the swap wait.
-    //   adb shell setprop debug.carto.demtaps 4
-    // debug.carto.tilebg 1 restores the per-layer per-tile background meshes tangram does not have.
+    // Measurement switches, all off by default:
+    //   debug.carto.groundpaint 1  paint drawn AS the ground (tangram) - one draw per tile cheaper,
+    //                              but the shading goes under every ground-shaped fill
+    //   debug.carto.demtaps 4      elevation fetches per terrain vertex (16 lattice clamp / 4
+    //                              manual bilinear / 1 hardware-filtered, tangram's) - first
+    //                              suspect whenever the frame sits in the swap wait
+    //   debug.carto.tilebg 1       per-layer per-tile background meshes tangram does not have
 #ifdef __ANDROID__
     bool TileRenderer::isTerrainTileBackgroundsForced() {
         static const bool forced = [] {
@@ -617,20 +606,10 @@ namespace carto {
                         unsigned int elevationVersion = elevationManager->getVersion();
                         if (elevationVersion != _elevationVersion) {
                             auto now = std::chrono::steady_clock::now();
-                            // The elevation version is global but a decoded elevation tile only
-                            // changes the surfaces over that tile. Rebuilding every visible
-                            // surface for it re-tesselates and re-uploads the whole screen -
-                            // repeatedly, while the initial elevation stream is running, with
-                            // nothing on most of it actually changing. Ask which tiles changed
-                            // and drop only those; the global reset stays as the fallback for
-                            // whole-data-set changes (data source change, exaggeration) and for
-                            // change-log overflow.
-                            // A scale-only change (the exaggeration, e.g. a terrain 'expand'
-                            // animation) leaves the DATA version alone. The surfaces are built
-                            // flat and displaced on the GPU, so none of them is stale - only the
-                            // CPU-side label anchors are. Rebuilding every visible surface for it
-                            // re-tesselated and re-uploaded the whole screen twice a second while
-                            // the ramp ran, which is what made the labels stutter through it.
+                            // Drop only the surfaces over the tiles that changed; the global reset
+                            // is the fallback for whole-data-set changes and change-log overflow.
+                            // A scale-only change (an exaggeration ramp) leaves the DATA version
+                            // alone - the surfaces displace on the GPU, only label anchors go stale.
                             unsigned int elevationDataVersion = elevationManager->getDataVersion();
                             bool scaleOnly = (_elevationDataVersion != 0 && elevationDataVersion == _elevationDataVersion);
                             _elevationDataVersion = elevationDataVersion;
@@ -705,15 +684,9 @@ namespace carto {
                     }
                 }
                 if (_elevationTextureCache) {
-                    // A paint renderer's only consumer of the elevation texture is the shading,
-                    // which is per fragment: it resolves relief the mesh cannot, so its cache can
-                    // ignore the mesh's level cap (which costs two zoom levels - at high zoom, all
-                    // the relief there is). Each level back is 4x the elevation texture working set,
-                    // so it is a dial, not a flag (DEFAULT_PAINT_DETAIL_LEVELS, and on Android:
+                    // The paint reads the elevation texture per FRAGMENT, so it may ignore the
+                    // mesh's level cap. A dial, not a flag - each level back is 4x the working set.
                     //   adb shell setprop debug.carto.paintdetail 0|1|2   (2 = the source's own level)
-                    // Tangram pays nothing here because it binds the source raster as-is and
-                    // extrapolates edges in the shader; ours is CPU re-encoded per DEM tile with a
-                    // border ring taken from 8 neighbours.
                     _elevationTextureCache->setDetailLevels(_terrainPaintEnabled && _terrainPaintFullDetail ? terrainPaintDetailLevels() : 0);
                     _elevationTextureCache->beginFrame();
                     std::shared_ptr<ElevationTextureCache> elevationTextureCache = _elevationTextureCache;
@@ -754,38 +727,18 @@ namespace carto {
             terrainSlackScale = resolutionRatio * resolutionRatio;
         }
         tileRenderer->setTerrainSlackScale(terrainSlackScale);
-        // Painter-order depth model (tangram-style): the surface is the bottom painter
-        // layer and content is separated by a per-layer clip delta (no occluder, no slack).
-        // Implies the shared regular grid. Only in GPU draping mode.
-        bool painterOrder = terrainMode && activeTerrainOptions && activeTerrainOptions->isPainterOrderDepthEnabled() && (bool) terrainTextureProvider;
-        // Shared regular grid surfaces (tangram-style): one grid built once and reused for
-        // every tile, instead of per-tile adaptive tesselation. Only in GPU draping mode.
+        // Tangram's model: one shared grid surface reused for every tile, and painter-order depth
+        // on top of it (the surface is the bottom painter layer, no occluder pre-pass, no slack).
+        // Needs GPU draping - a GPU without vertex texture fetch falls back to adaptive tesselation.
+        bool regularGrid = terrainMode && activeTerrainOptions && (bool) terrainTextureProvider;
+        tileRenderer->setTerrainRegularGrid(regularGrid, activeTerrainOptions ? activeTerrainOptions->getMeshResolution() : 0);
         // Maplibre-style RTT draping. It requires the shared regular grid: the drape UV is the
         // grid's tile-local [0,1] vertex position, which only the regular grid provides.
-        bool drapeFills = terrainMode && activeTerrainOptions && activeTerrainOptions->isDrapeFillsEnabled() && (bool) terrainTextureProvider;
-        bool regularGrid = painterOrder || drapeFills || (terrainMode && activeTerrainOptions && activeTerrainOptions->isRegularGridEnabled() && (bool) terrainTextureProvider);
-        tileRenderer->setTerrainRegularGrid(regularGrid, activeTerrainOptions ? activeTerrainOptions->getMeshResolution() : 0);
-        tileRenderer->setTerrainPainterOrder(painterOrder);
-        // Tangram's content depth shift. polygon.vs/polyline.vs set `depth_shift = 0.0` and leave
-        // it "to allow blocks to modify" - and their 3D TERRAIN scene is one of the blocks that
-        // does: res/scenes/terrain-3d.yaml sets `depth_shift = -0.02*u_proj[2][3]`, which with
-        // glm::perspective's [2][3] = -1 is a flat 0.02. So it is part of the terrain depth model,
-        // not an experiment, and it is what keeps un-subdivided content from sinking into the
-        // ground it chords over. Overridable for measurement:
-        //   adb shell setprop debug.carto.depthshift <value>
-        // Their constant, verbatim and unscaled. It was scaled up here for a while, to spend across
-        // our dense ordinal rank the same total (~1.86 clip units) that their 1..93 scene order
-        // spends at 0.02 - which put ~0.2 on every style layer, ten times their pull, and that is
-        // what let far content over a near ridge: the pull's eye tolerance grows as distance^2 over
-        // the near plane, so at a high zoom over close terrain it was worth tens of metres
-        // (measured at 45.198902/5.722113 z16.78 t26: paths and contours of the lower slope drawn
-        // across the face in front of them; at 0.02 they stop at the crest).
-        // The scaling confused two jobs. This shift separates COPLANAR STYLE LAYERS, and one step
-        // is all that needs - it is not a budget to spend. Giving an un-subdivided AREA FILL room
-        // to clear the surface it chords over is the other job, and it belongs to the geometry, not
-        // to the layer count: GLTileRenderer gives fills their own tesselation-sized slack under a
-        // shared ground. Tangram never needs that second part - their terrain base map is a raster
-        // inside the ground draw, so no vector fill ever chords over their terrain.
+        bool drapeFills = regularGrid && activeTerrainOptions->isDrapeFillsEnabled();
+        // Tangram's content depth shift (res/scenes/terrain-3d.yaml, a flat 0.02), verbatim and
+        // unscaled: it separates COPLANAR STYLE LAYERS, one step each - it is not a budget to spend,
+        // and scaling it up is what let far content over a near ridge. An un-subdivided fill gets
+        // its clearance from the geometry-sized slack instead. docs/rendering/05-depth-model.md.
         //   adb shell setprop debug.carto.depthshift <value>   (measurement override)
         float contentDepthShift = getTerrainContentDepthShift();
         if (_terrainGroundActive && contentDepthShift == 0.0f) {
@@ -1223,29 +1176,6 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
 #else
         return DEFAULT_PAINT_DETAIL_LEVELS;
 #endif
-    }
-
-    bool TileRenderer::isTerrainPaintFullDetailAllowed() {
-#ifdef __ANDROID__
-        static const bool allowed = [] {
-            char property[PROP_VALUE_MAX] = { 0 };
-            return !(__system_property_get("debug.carto.paintdetail", property) > 0 && property[0] == '0');
-        }();
-        return allowed;
-#else
-        return true;
-#endif
-    }
-
-    bool TileRenderer::isPlanarTerrainMode() const {
-        if (auto options = _options.lock()) {
-            if (options->getRenderProjectionMode() == RenderProjectionMode::RENDER_PROJECTION_MODE_PLANAR) {
-                if (auto terrainOptions = options->getTerrainOptions()) {
-                    return terrainOptions->isEnabled();
-                }
-            }
-        }
-        return false;
     }
 
     bool TileRenderer::isPlanarProjectionMode() const {

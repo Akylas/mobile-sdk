@@ -794,16 +794,9 @@ namespace carto {
         near = std::max(Const::MIN_NEAR, near) * 0.8f;
         far  = std::max(Const::MIN_NEAR, far)  * 1.1f;
 
-        // In terrain mode, floor the near plane at a fraction of the camera's height, the way
-        // tangram does (view.cpp: `float near = m_pos.z / 50.0;`). Taking it from the nearest
-        // visible ground point - which is what the loop above does - puts it at centimetres when
-        // the camera sits close to a slope, and a far/near ratio of 10^4-10^6 makes NDC depth so
-        // non-linear that a constant-NDC bias is worth hundreds of metres at range. That is the
-        // mechanism behind every see-through round on this branch, and it is why tangram can
-        // separate style layers by ordinals of up to ~1200 and write depth from all of them:
-        // their ratio is a few hundred, fixed.
-        // The FAR plane is theirs too - see calculateViewDistance, which is also what the tile
-        // walk stops at, so the view and the tiles fetched for it always agree.
+        // Floor the near plane at camera height / 50, tangram's `near = m_pos.z / 50.0`: taken from
+        // the nearest visible ground it reaches centimetres against a slope, and that far/near ratio
+        // is the mechanism behind every see-through. docs/rendering/04-terrain.md.
         double viewDistance = calculateViewDistance(options);
         // Tangram's near is a fiftieth of the camera's distance to what it looks at, and their
         // camera is held a distance away from the TERRAIN (view.cpp: the depth at the screen
@@ -860,34 +853,17 @@ namespace carto {
     }
 
     double ViewState::calculateCameraDistance() const {
-        // Tangram's m_pos.z, which both their near and their far plane are built on:
-        //     m_pos.z = exp2(-m_baseZoom) * worldToCameraHeight;   // a function of ZOOM alone
-        //     m_eye   = rotate(vec3(0, 0, m_pos.z));  at = (0,0,0);
-        // so it is the distance from the camera to the FOCUS, and their comment right above it is
-        // "using non-zero elevation for camera reference creates all kinds of problems". Taking
-        // the camera's height above sea level instead - which is what this did - makes the whole
-        // depth budget a function of the terrain: over a valley the near plane collapses and the
-        // far/near ratio explodes, which is what content seen through a ridge is made of; over a
-        // high plateau it does the opposite and clips the ground away.
-        // ViewState keeps dist(camera, focus) == zoom0Distance / 2^zoom, so this IS their
-        // zoom-derived quantity, terrain or no terrain.
+        // Tangram's m_pos.z: the distance to the FOCUS, a function of zoom alone ("using non-zero
+        // elevation for camera reference creates all kinds of problems"). The camera's height above
+        // sea level instead makes the whole depth budget a function of the terrain.
         return cglib::length(_cameraPos - _focusPos);
     }
 
     double ViewState::calculateViewDistance(const Options& options) const {
-        // Tangram's rule, verbatim (core/src/view/view.cpp):
-        //     far = 2. * m_pos.z / std::max(0.f, std::cos(m_pitch + 0.5f * fovy));
-        //     far = std::min(far, maxTileDistance);
-        // with maxTileDistance = worldTileSize * invLodFunc(MAX_LOD + 1), invLodFunc(d) = 2^d - 1
-        // and MAX_LOD 6, i.e. 127 tile widths at the current zoom. The cosine term alone goes to
-        // infinity as the view approaches the horizon, so the tile-count cap is what actually
-        // bounds a near-horizontal view - and it is what keeps a whole horizon of coarse tiles,
-        // each with its own labels, out of the frame.
-        // Deriving the far plane from the visible ground instead makes it much deeper, and the
-        // depth model is calibrated on the far/near RATIO, not on either plane - so a deeper far
-        // spends the NDC precision that the per-layer separation needs.
-        // The factor scales the result: 1 is their rule exactly, and 0 falls back to the
-        // ground-derived view distance (no cap at all).
+        // Tangram's rule verbatim (view.cpp): 2*m_pos.z / cos(pitch + fovy/2), capped at 127 tile
+        // widths (MAX_LOD 6). The cosine alone goes to infinity near the horizon, so the tile-count
+        // cap is what bounds a near-horizontal view. The factor scales it: 1 is their rule, 0 falls
+        // back to the ground-derived view distance.
         float factor = 1.0f;
         if (std::shared_ptr<TerrainOptions> terrainOptions = options.getTerrainOptions()) {
             // An absolute distance takes over completely: the point of it is that the ground

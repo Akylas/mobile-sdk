@@ -13,19 +13,9 @@
 
 namespace carto {
 
-    // Measurement switch for what AREA subdivision has to cost. Fills subdivide to exactly one
-    // surface grid cell so every sub-vertex lands on the grid; this multiplies that cell size, so
-    // indices fall as 1/N^2 while the chord error grows as N^2. Tangram has no constant to copy
-    // here - they do not subdivide at all - so the usable value is whatever the depth budget can
-    // still clear, and that is a measurement, not a derivation.
-    // Measured on device, north pan into the terrain, 45.244172/5.760595 z13.2:
-    //   1 cell = 16.6 fps and 158k geometry indices per render tile
-    //   2 cells = 20.6 fps and 48k      <- shipped
-    //   4 cells = 21.2 fps and 19k
-    // Two cells takes most of the frame rate back for half the chord error of four, and at
-    // 45.244172/5.760595 z13.2 t26 neither shows the floating-fill patches that source density
-    // does - the depth budget clears what is left. Four was clean too at that camera and is one
-    // setprop away if the frame ever needs it.
+    // Surface cells a fill subdivides to: indices fall as 1/N^2, chord error grows as N^2, and the
+    // usable value is whatever the depth budget still clears - a measurement, not a derivation
+    // (the ladder is in docs/rendering/02-tiles.md).
     //   adb shell setprop debug.carto.areathreshold 4
     static constexpr float AREA_THRESHOLD_CELLS = 2.0f;
 
@@ -34,14 +24,11 @@ namespace carto {
     // (DEFAULT_LINE_CLEARANCE_METERS). Numbers in docs/rendering/04-terrain.md.
     static constexpr float DEFAULT_LINE_SAG_METERS = 2.0f;
 #ifdef __ANDROID__
-    // The same measurement switch for LINES. Lines are the expensive half over a city - the fills
-    // are draped and baked once, the lines are drawn as terrain geometry every frame - and their
-    // threshold is a fraction of the mesh cell whatever relief the tile actually has.
+    // The same for LINES - the expensive half over a city, since they are drawn as terrain geometry
+    // every frame while the fills are baked once.
     //   adb shell setprop debug.carto.linethreshold 4
-    // Relief (metres of height range in the tile) under which the LATTICE split is skipped. The
-    // split exists to stop a segment chording across a surface cell's anti-diagonal fold; the fold
-    // is a fraction of the tile's relief, so on a valley floor it protects against nothing and
-    // still cuts every line at every cell edge and diagonal. 0 = shipped behaviour (always split).
+    // Relief (metres in the tile) under which the LATTICE split is skipped: the cell fold it guards
+    // against is a fraction of the relief, so on a valley floor it protects against nothing.
     //   adb shell setprop debug.carto.latticerelief 50
     static float latticeReliefThreshold() {
         static const float relief = [] {
@@ -404,12 +391,11 @@ namespace carto {
         }
     }
 
-    TerrainTileTransformer::TerrainTileTransformer(float scale, const std::shared_ptr<ElevationManager>& elevationManager, int meshResolution, int minZoom, bool regularGrid, bool sourceDensity, bool sourceDensityLines) :
+    TerrainTileTransformer::TerrainTileTransformer(float scale, const std::shared_ptr<ElevationManager>& elevationManager, int meshResolution, int minZoom, bool sourceDensity, bool sourceDensityLines) :
         _scale(scale),
         _elevationManager(elevationManager),
         _meshResolution(std::max(1, meshResolution)),
         _minZoom(minZoom),
-        _regularGrid(regularGrid),
         _sourceDensity(sourceDensity),
         _sourceDensityLines(sourceDensityLines)
     {
@@ -472,62 +458,18 @@ namespace carto {
             double tileScaleMeters = EARTH_CIRCUMFERENCE / (1 << tileId.zoom);
             double threshold = tileScaleMeters / _meshResolution;
 
-            if (_regularGrid) {
-                // Regular-grid surface mode: the reference surface is a shared grid of
-                // _meshResolution cells built in the renderer, and it is used as a depth
-                // pre-pass occluder. Draped geometry must therefore still follow that
-                // surface: a fill left at its source density would be a few large flat
-                // triangles that sag below the bulging grid surface over convex terrain and
-                // get depth-occluded (landcover holes). Subdivide to exactly one grid cell
-                // so every sub-vertex lattice-clamps onto the grid surface; the shared grid
-                // (no per-tile red-green tesselation) and the lattice clamp are the wins.
-                // Do NOT clamp to the DEM texel size here: the grid, not the DEM, is the
-                // surface geometry the draped content is tested against.
-                //
-                // One cell puts every draped VERTEX on the grid surface (lattice clamp), but
-                // the straight SEGMENT between two vertices in different cell triangles chords
-                // across the cell's anti-diagonal fold and sags below it. Under painter-order
-                // (zero depth slack) that sag is depth-occluded -> draped LINES crack over
-                // convex terrain, worst at low zoom where the cell / fold amplitude is largest.
-                // Raising _meshResolution shrinks the fold but costs O(res^2) in the shared grid
-                // AND subdivides fills the same amount. Instead subdivide only the LINES finer
-                // than the grid (cheap, 1D); the sag falls linearly with the sub-segment length
-                // at no surface-grid cost. Fills stay at one cell (their sag is bounded there).
-                //
-                // Source-density (tangram) mode targets the expensive part - the fills (a full
-                // tile fill red-green splits to ~meshResolution^2 triangles). It skips FILL
-                // subdivision (source density, lifted by a per-draw fill slack in the renderer)
-                // but KEEPS line subdivision: lines are cheap (1D) and MUST follow the terrain
-                // closely (contours lie exactly on the surface - un-subdivided they need a huge
-                // lift slack that shines everything through). So only the fill threshold goes to
-                // infinity here; the line threshold is unchanged.
-                divideThreshold = _sourceDensity ? std::numeric_limits<float>::infinity() : static_cast<float>(threshold * areaThresholdScale());
-                // Draped lines are baked flat too, so skip their subdivision as well.
-                // Otherwise the lattice split below cuts lines exactly at the surface triangle
-                // boundaries, which removes the chord sag entirely - so the threshold only has to
-                // bound the segment length at one cell (it is what the lattice split falls back
-                // to for segments spanning very many cells).
-                lineDivideThreshold = _sourceDensityLines ? std::numeric_limits<float>::infinity() : static_cast<float>(threshold * lineThresholdScale());
-                // A tile whose relief cannot fold a cell enough to matter does not need the split
-                // (see latticeReliefThreshold): it then falls back to the plain threshold below.
-                bool latticeWorthIt = (grid->getMaxHeight() - grid->getMinHeight()) >= latticeReliefThreshold();
-                latticeCell = (_sourceDensityLines || !latticeWorthIt) ? 0.0f : static_cast<float>(1.0 / _meshResolution);
-            } else {
-                // No point in subdividing FILLS finer than the elevation grid resolution
-                double gridInternalWidth = grid->getInternalBounds().getMax().getX() - grid->getInternalBounds().getMin().getX();
-                double demTexelMeters = gridInternalWidth / grid->getWidth() * EARTH_CIRCUMFERENCE / _scale;
-                divideThreshold = static_cast<float>(std::max(threshold, demTexelMeters));
-                // Lines are cut finer, and the DEM-texel floor deliberately does NOT apply to them.
-                // Without the regular grid there is no lattice to cut against, so a sub-segment one
-                // mesh cell long still chords across the cell's diagonal fold and sags below the
-                // surface - the same sag the regular-grid branch above describes, and the reason a
-                // route reads as sunk into a ridge at low zoom and straightens as you zoom in (the
-                // threshold is proportional to the tile). The floor is about how much elevation
-                // DETAIL exists; the sag is against the surface MESH, so it is the wrong bound.
-                // Lines are 1D, so cutting them finer costs a fraction of what the same factor
-                // would cost on a fill.
-                lineDivideThreshold = static_cast<float>(threshold / LINE_SUBDIVISION_FACTOR * lineThresholdScale());
-            }
+            // The reference surface is the renderer's shared _meshResolution grid, so subdivide to
+            // one grid cell: every sub-vertex then lattice-clamps onto it and cannot sag through.
+            // Not to the DEM texel size - the grid, not the DEM, is what the depth test compares to.
+            // Source-density (tangram) mode drops FILL subdivision only: fills are the expensive
+            // side (~meshResolution^2 triangles per tile) and a per-draw slack lifts them, while
+            // lines are 1D and must stay on the surface (contours lie exactly on it).
+            divideThreshold = _sourceDensity ? std::numeric_limits<float>::infinity() : static_cast<float>(threshold * areaThresholdScale());
+            lineDivideThreshold = _sourceDensityLines ? std::numeric_limits<float>::infinity() : static_cast<float>(threshold * lineThresholdScale());
+            // The lattice split cuts lines at the cell triangle boundaries, killing the chord sag
+            // across a cell's fold. Skipped when the relief cannot fold a cell enough to matter.
+            bool latticeWorthIt = (grid->getMaxHeight() - grid->getMinHeight()) >= latticeReliefThreshold();
+            latticeCell = (_sourceDensityLines || !latticeWorthIt) ? 0.0f : static_cast<float>(1.0 / _meshResolution);
         }
 
         return std::make_shared<TerrainVertexTransformer>(tileId, _scale, std::move(grid), _elevationManager->getExaggeration(), divideThreshold, lineDivideThreshold, latticeCell, lineSagToleranceMeters());
