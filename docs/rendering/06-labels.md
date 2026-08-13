@@ -508,9 +508,21 @@ callouts keep the CPU factor (their lift and shift are measured against the same
 labels are view-dependent by construction.
 
 It changes no frame rate on its own — 27.0–27.5 fps against a 27.1 baseline, and the per-glyph loop
-still runs — which is the expected result: it is the enabler, not the win. One known cosmetic
-consequence to watch: label plates still take the CPU factor, which is quantized to ~1.09% steps
-where the shader's is exact, so a plate can be up to ~1% off its text.
+still runs — which is the expected result: it is the enabler, not the win. Device-checked: label
+sizes hold through tilt and pan. One cosmetic consequence: label plates still take the CPU factor,
+which is quantized to ~1.09% steps where the shader's is exact, so a plate can sit ~1% off its text.
+
+**Step 2 then measured nothing, and that settles the mechanism.** With the offsets now
+view-independent, caching them per label gave `transformMs` 10.3–11.4 ms/interval against a 9.6–10.8
+baseline and 24.9–27.0 fps against 27.1 — reverted. Together with the first attempt (which missed
+because the key moved), this rules out the source side entirely: the timed region is dominated by
+**writing into the batch arrays**, and copying N cached entries writes exactly the bytes the loop
+wrote. No cache of what goes into the batch can win.
+
+So the only remaining lever is not writing the batch at all: quantize the anchor, keep the arrays
+and their GL buffers across frames, and re-upload solely when the label set, placements, opacities
+or style slots change — for which step 1 has now removed the blocker. Everything cheaper than that
+has been measured and does not work.
 
 ## Against tangram
 
