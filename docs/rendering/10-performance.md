@@ -157,6 +157,67 @@ moves a sliver of one layer, not a layer — it is not a way to price a subsyste
 contour lines exist; on the valley floor at z15 they cost nothing measurable. A camera is part of a
 measurement, not a detail of it.
 
+### The undraped line cost is TRIANGLES, not pixels and not shading
+
+The natural reading of the resolution test above is "fragment-bound". It is wrong, and one more
+experiment says so: **halving every line width changes nothing** (`layers` 20.3–21.7 ms). Neither
+does anything else that makes a fragment cheaper — see the table above, plus round-join fans cut
+from 5 triangles to 1 (13.6–15.5 fps, same indices/frame) and the DEM vertex taps cut from 4 to a
+single hardware-filtered fetch (`debug.carto.demtaps 1`, `layers` 22.3–23.3 ms).
+
+What moves it, every time, is the triangle count. Shrinking the framebuffer also shrinks **binning**
+work, which is per-primitive on a tiler, so that test could not separate fill from binning. Long
+thin road quads crossing many screen bins are the worst shape for this GPU, which is why the sag
+split (3.4× fewer indices) and draping (no per-frame triangles at all) are the only two things that
+have ever moved this camera.
+
+The relationship is sub-linear, which bounds what geometry work can buy. Douglas-Peucker over the
+source vertices before tesselation (the `simplify` mapnik property is parsed and never applied —
+`TileReader.cpp:170`) measures:
+
+| line simplification | indices / frame | fps |
+|---|---|---|
+| none | 0.50–0.70M | 13.4–15.2 |
+| ~¼ pixel | 0.44–0.47M | 14.9–16.0 |
+| ~2.5 pixels (visibly lossy) | 0.28M | 16.8–18.3 |
+
+Halving the triangles buys ~25%; removing them (drape) buys ~90%. At a tolerance anyone would ship,
+simplification is worth half a frame per second — not a lever. **Draping is.**
+
+## Against tangram-ng, on the same device and camera
+
+Run back to back on the Crosscall at Grenoble 5.724/45.188 z15 tilt 45, their demo patched to that
+camera with 3D terrain and contours enabled (`BENCH_MODE` in their `MainActivity`). Measured with
+the **cross-app** instrument this page insists on — SurfaceFlinger `averageFPS` of the
+`SurfaceView[...](BLAST)` layer — under an identical scripted 20-swipe pan:
+
+| | totalFrames | averageFPS |
+|---|---|---|
+| tangram-ng, 3D terrain + contours | 241 | **13.6** |
+| this fork, undraped lines | 224 | **12.7** |
+| this fork, `drapeLines true` | 271 | **15.3** |
+
+**Tangram is not faster here.** It is within a frame per second of our undraped path and behind our
+draped one, and it does not reach 30 fps on this device either. Its cost sits somewhere else: their
+own `FrameInfo` puts `renderTerrainDepth` at 37–43 ms of a 66–70 ms frame — a terrain depth pre-pass
+is most of their frame, where ours is line geometry.
+
+Read the two instruments separately, and never mix them: their in-app `_Frame` (14–15 fps) and our
+`PROF` (13.7–15.2 undraped, 26.8–27.7 draped) each measure their own render loop, while
+`averageFPS` counts frames actually presented over a window that includes the gaps between scripted
+swipes — both apps render on demand, so it compresses everything toward the gesture rate. The
+ranking is the same under both; the magnitudes are not comparable across them.
+
+Not a controlled A/B either way: their scene is OSM Bright + AscendMaps against our packaged style,
+so content density differs, and their run carries their debug overlay (which calls `GL::finish`).
+It is enough to retire "tangram is smooth, we are not" as a premise for city work; where they still
+lead is a question to settle per mechanism, not per frame rate.
+
+Two bugs found in their tree while setting this up, both still open there: `MapController.DebugFlag`
+lists a `TILE_INFOS` that C++ dropped (`map.h:533`), so every Java flag from index 3 on is off by
+one; and on Android `ElevationManager::offscreenWorker` is never created, so their terrain depth
+pass logs an error every frame and takes a fallback path.
+
 ## Starting up in terrain mode
 
 Measured on a Crosscall at the demo's default camera (Grenoble, z16.22, terrain + contours, warm
