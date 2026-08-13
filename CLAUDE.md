@@ -88,7 +88,8 @@ adb shell am start -n com.akylas.cartotest/.MainActivity --es ui false --es drap
   extra, so most experiments need no rebuild: `lon lat zoom tilt rotation`, `drape drapeLines
   drapeResolution meshResolution exaggeration`, `fog fogStart fogDistance viewDistance`,
   `hs sat satZoom contour bld3d stitch`, `daycycle sunHour sunAzimuth sunAltitude shadow`,
-  `ui false` (hide the panel), `anim zoom|zoomseq`.
+  `ui false` (hide the panel), `anim zoom|pan|rotate|zoomseq|approach` (`approach` = dive close,
+  pan along the slope, pull back out — the terrain close-approach repro shape).
 - Relief / peak-finder look: `reliefSurface true` (shaded terrain surface, only visible where no
   tile layer paints - pair it with `--es map false --es hillshade false`), `peakfinder true` (the
   outline effect, `peakfinderDelay` ms), `reliefDark`, `reliefWidth reliefHorizonBoost

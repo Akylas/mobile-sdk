@@ -33,7 +33,7 @@ adb install -r -t app/build/outputs/apk/debug/app-debug.apk
 |---|---|---|
 | `PROF` | CPU ms per frame section: `sky prelude prepare cover drape layers layers3D billboards` | `sky` is mostly the swap wait, not work. Not comparable across apps. |
 | `PROF GPU` | the same sections on the GPU (`GL_EXT_disjoint_timer_query`) | Android only; off with `setprop debug.carto.gputimer 0` |
-| `RenderStats` | draws, indices, render tiles, style layers, surfaces, label and prep timings, tile-surface builds | per one-second interval, deltas |
+| `RenderStats` | draws, indices, render tiles, style layers, surfaces, label and prep timings, tile-surface builds | per one-second interval, deltas — **divide by the `PROF` frame count** of that interval, a faster build prints bigger counters |
 | `simpleperf` | an actual CPU profile of the render thread | see below — this is what finds things the timers cannot |
 
 ### Profiling the render thread
@@ -59,6 +59,16 @@ is the one whose call graph starts at `MapRenderer::onDrawFrame`.
   spread over one-second windows. A comparison against a number taken earlier is worthless.
 - **Emulator fps is meaningless.** Emulator runs are for *counters* (draws, indices, render tiles) and
   for functional checks.
+- **`RenderStats` counters are sums over the one-second interval, not per-frame values.** A build
+  that renders the same scene FASTER therefore prints MORE draws and MORE indices, because it got
+  through more frames. Always divide by the frame count of the same interval — the `PROF` line
+  right next to it starts with `%d frames in %.0f ms`. Comparing two arms on the raw
+  `geomIndices=` cost a wrong conclusion in August 2026 (the faster arm looked like it was
+  submitting more geometry).
+- **A static camera never settles here.** With a rich style, a parked camera swings 9–24 fps for
+  minutes (tile arrival, drape bakes, label placement, elevation fetches), so "leave it still and
+  read the number" is not a measurement. Drive a scripted move — `--es anim pan` — for anything you
+  intend to believe; it also makes the two arms traverse the same tiles.
 - **The camera decides what you measure.** The slow case is panning **north into the mountains**
   (`--es animLatDelta 0.06`) with contours and hillshade. Panning east over the valley is cheap.
   Tilt matters as much: at tilt 85 most of the screen is sky. Tilt 90 is straight down, so a
@@ -111,6 +121,102 @@ The CPU frame is the same and the draw/index counts match in the closest pair, s
 terrain surface. Of it, **contours are 45%** — `--es contour false` takes the city from 12.1 to
 17.6 fps (repeated, interleaved), GPU layers 21.3 → 13.6 ms, render tiles 805 → 380 and draws
 602 → 430 per interval, because the `#contour` slot is a second tile set drawn over the first.
+
+That was measured before the line tesselation was fixed, and the fix moved the city more than
+anything on this page: cutting a draped line by its **sag** instead of by the tile's cell count
+([04-terrain.md](04-terrain.md#cutting-a-line-by-its-sag-instead-of-by-the-tiles-cell-count)) took
+the city pan from 7.5 to 13.8 fps and the mountain pan from ~11 to ~17.8, with the draw count
+unchanged and 3.4× fewer geometry indices per frame. It is the shipped path now
+(`debug.carto.linesag 0` restores the old split), so any city number taken before 2026-08-13 is
+measuring a frame that no longer exists — retake rather than compare.
+
+### What the city frame is bound by, and the five things that were not it
+
+After the sag fix the city pan sits at 13.4–15.2 fps: a 66–71 ms frame against a 41–48 ms CPU frame
+and a 33 ms GPU frame. `sky` (21.5 ms of the CPU frame) is the swap wait, so real CPU work is
+~20 ms — the frame is **GPU-bound**, and shrinking the surface proves it is per-fragment:
+at 0.76× the pixels (`adb shell wm size 720x1440`, reset with `wm size reset`) GPU `layers` scales
+0.79×, i.e. linear in pixel count.
+
+Everything knocked out one at a time, on the same pan, changed **nothing** (GPU `layers`, ms):
+baseline 20.8–24.1 · contours off 21.6–23.6 · 3D buildings off 22.0–23.8 · hillshade off 21.3–22.9 ·
+fog + shadows off 22.5–23.8 · the per-fragment tile-clip `discard` compiled out 20.6–23.0 · blending
+off with content depth writes on 22.0–24.3. Two of those deserve a note, because each killed a
+plausible theory: the shader comment claiming `GL_STENCIL_BITS = 0` is stale (this device reports
+**stencil bits 8**), and blending is free on this tile-based GPU, so "opaque without blending" buys
+nothing while the draw order gives the depth test nothing to reject.
+
+The answer was the base map layer as a whole — with it off, `layers` is 0.0 ms and the GPU frame is
+9.4 ms at 43 fps — and inside it, the **undraped lines**. Draping them takes the city to 26.8 fps
+with `layers` at 0.3 ms; the numbers and the resolution trade are in
+[04-terrain.md](04-terrain.md#draping-the-lines-and-keeping-contours-out-of-it).
+
+Two method points from that hunt. Toggling one slot of a **composite** layer (`--es contour false`)
+moves a sliver of one layer, not a layer — it is not a way to price a subsystem. And the old
+"contours are 45% of the city frame" figure was taken at z16.22 panning north into the ridge, where
+contour lines exist; on the valley floor at z15 they cost nothing measurable. A camera is part of a
+measurement, not a detail of it.
+
+### The undraped line cost is TRIANGLES, not pixels and not shading
+
+The natural reading of the resolution test above is "fragment-bound". It is wrong, and one more
+experiment says so: **halving every line width changes nothing** (`layers` 20.3–21.7 ms). Neither
+does anything else that makes a fragment cheaper — see the table above, plus round-join fans cut
+from 5 triangles to 1 (13.6–15.5 fps, same indices/frame) and the DEM vertex taps cut from 4 to a
+single hardware-filtered fetch (`debug.carto.demtaps 1`, `layers` 22.3–23.3 ms).
+
+What moves it, every time, is the triangle count. Shrinking the framebuffer also shrinks **binning**
+work, which is per-primitive on a tiler, so that test could not separate fill from binning. Long
+thin road quads crossing many screen bins are the worst shape for this GPU, which is why the sag
+split (3.4× fewer indices) and draping (no per-frame triangles at all) are the only two things that
+have ever moved this camera.
+
+The relationship is sub-linear, which bounds what geometry work can buy. Douglas-Peucker over the
+source vertices before tesselation (the `simplify` mapnik property is parsed and never applied —
+`TileReader.cpp:170`) measures:
+
+| line simplification | indices / frame | fps |
+|---|---|---|
+| none | 0.50–0.70M | 13.4–15.2 |
+| ~¼ pixel | 0.44–0.47M | 14.9–16.0 |
+| ~2.5 pixels (visibly lossy) | 0.28M | 16.8–18.3 |
+
+Halving the triangles buys ~25%; removing them (drape) buys ~90%. At a tolerance anyone would ship,
+simplification is worth half a frame per second — not a lever. **Draping is.**
+
+## Against tangram-ng, on the same device and camera
+
+Run back to back on the Crosscall at Grenoble 5.724/45.188 z15 tilt 45, their demo patched to that
+camera with 3D terrain and contours enabled (`BENCH_MODE` in their `MainActivity`). Measured with
+the **cross-app** instrument this page insists on — SurfaceFlinger `averageFPS` of the
+`SurfaceView[...](BLAST)` layer — under an identical scripted 20-swipe pan:
+
+| | totalFrames | averageFPS |
+|---|---|---|
+| tangram-ng, 3D terrain + contours | 241 | **13.6** |
+| this fork, undraped lines | 224 | **12.7** |
+| this fork, `drapeLines true` | 271 | **15.3** |
+
+**Tangram is not faster here.** It is within a frame per second of our undraped path and behind our
+draped one, and it does not reach 30 fps on this device either. Its cost sits somewhere else: their
+own `FrameInfo` puts `renderTerrainDepth` at 37–43 ms of a 66–70 ms frame — a terrain depth pre-pass
+is most of their frame, where ours is line geometry.
+
+Read the two instruments separately, and never mix them: their in-app `_Frame` (14–15 fps) and our
+`PROF` (13.7–15.2 undraped, 26.8–27.7 draped) each measure their own render loop, while
+`averageFPS` counts frames actually presented over a window that includes the gaps between scripted
+swipes — both apps render on demand, so it compresses everything toward the gesture rate. The
+ranking is the same under both; the magnitudes are not comparable across them.
+
+Not a controlled A/B either way: their scene is OSM Bright + AscendMaps against our packaged style,
+so content density differs, and their run carries their debug overlay (which calls `GL::finish`).
+It is enough to retire "tangram is smooth, we are not" as a premise for city work; where they still
+lead is a question to settle per mechanism, not per frame rate.
+
+Two bugs found in their tree while setting this up, both still open there: `MapController.DebugFlag`
+lists a `TILE_INFOS` that C++ dropped (`map.h:533`), so every Java flag from index 3 on is off by
+one; and on Android `ElevationManager::offscreenWorker` is never created, so their terrain depth
+pass logs an error every frame and takes a fallback path.
 
 ## Starting up in terrain mode
 

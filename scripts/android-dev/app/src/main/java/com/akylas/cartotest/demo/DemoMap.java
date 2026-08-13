@@ -1682,6 +1682,16 @@ public class DemoMap {
                     handler.postDelayed(new Runnable() { public void run() { Log.i("zoomseq", "step1 out " + zoomOut); mapView.setZoom(zoomOut, 0); } }, 0);
                     handler.postDelayed(new Runnable() { public void run() { Log.i("zoomseq", "step2 in " + zoomIn); mapView.setZoom(zoomIn, 0); } }, (long) settle);
                     handler.postDelayed(new Runnable() { public void run() { Log.i("zoomseq", "step3 out " + zoomOut); mapView.setZoom(zoomOut, 0); } }, (long) (2 * settle));
+                } else if ("approach".equals(anim)) {
+                    // The wrong-scale repro shape: dive close enough for the terrain camera
+                    // clearance to engage, pan along the slope, then pull back out.
+                    final float close = DemoConfig.ANIM_APPROACH_ZOOM;
+                    final float back = DemoConfig.ANIM_ZOOM_OUT;
+                    final float settle = DemoConfig.ANIM_SETTLE_MS;
+                    final MapPos panTo = proj.fromWgs84(new MapPos(DemoConfig.START_LON + DemoConfig.ANIM_LON_DELTA, DemoConfig.START_LAT + DemoConfig.ANIM_LAT_DELTA));
+                    handler.postDelayed(new Runnable() { public void run() { Log.i("approach", "step1 close " + close); mapView.setZoom(close, duration); } }, 0);
+                    handler.postDelayed(new Runnable() { public void run() { Log.i("approach", "step2 pan"); mapView.setFocusPos(panTo, duration); } }, (long) settle);
+                    handler.postDelayed(new Runnable() { public void run() { Log.i("approach", "step3 out " + back); mapView.setZoom(back, duration); } }, (long) (2 * settle));
                 }
             }
         }, (long) DemoConfig.ANIM_DELAY_MS);

@@ -33,6 +33,7 @@
 #include <vt/NormalMapBuilder.h>
 
 #include <cmath>
+#include <cstring>
 #include <unordered_map>
 
 #include <cglib/mat.h>
@@ -808,6 +809,10 @@ namespace carto {
         // source density / subdivided to match it.
         bool drapeLines = drapeFills && activeTerrainOptions && activeTerrainOptions->isDrapeLinesEnabled();
         tileRenderer->setTerrainDrapeFills(drapeFills, drapeLines);
+        // ...except the layers the application keeps sharp (contours by default), drawn live instead.
+        //   adb shell setprop debug.carto.nodrapelayers "^contour.*" ("none" drapes everything)
+        tileRenderer->setNoDrapeLayerFilter(noDrapeLayerFilter(
+            activeTerrainOptions ? activeTerrainOptions->getNoDrapeLayerFilter() : std::string()));
         tileRenderer->setTerrainDrapeResolution(resolveDrapeResolution(activeTerrainOptions ? activeTerrainOptions->getDrapeResolution() : 0, viewState, _options.lock()));
         // Sun lighting of the draped surface. Once every 2D layer is baked into the drape
         // texture the surface is the only lit ground geometry in the scene, so the whole map
@@ -1154,6 +1159,34 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
 #else
         return 0.0f;
 #endif
+    }
+
+    std::optional<std::regex> TileRenderer::noDrapeLayerFilter(const std::string& optionFilter) {
+        std::string pattern = optionFilter;
+#ifdef __ANDROID__
+        char property[PROP_VALUE_MAX] = { 0 };
+        if (__system_property_get("debug.carto.nodrapelayers", property) > 0 && property[0]) {
+            pattern = (std::strcmp(property, "none") == 0 ? std::string() : property);
+        }
+#endif
+        // Compiling a regex per frame is not free, and this changes about never.
+        static std::string cachedPattern;
+        static std::optional<std::regex> cachedFilter;
+        static bool cacheValid = false;
+        if (cacheValid && cachedPattern == pattern) {
+            return cachedFilter;
+        }
+        cachedPattern = pattern;
+        cachedFilter.reset();
+        if (!pattern.empty()) {
+            try {
+                cachedFilter = std::regex(pattern);
+            } catch (const std::exception& ex) {
+                Log::Errorf("TileRenderer::noDrapeLayerFilter: bad pattern '%s': %s", pattern.c_str(), ex.what());
+            }
+        }
+        cacheValid = true;
+        return cachedFilter;
     }
 
 #ifdef __ANDROID__

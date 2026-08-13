@@ -216,6 +216,76 @@ bound from throwing the map somewhere else:
 under the touch, `_gestureAnchorHeight`), not sea level: in the mountains the two are hundreds of
 metres, and at a low tilt kilometres of ray, apart.
 
+### The zoom pivot sank the focus, and everything was drawn at the wrong scale (fixed 2026-08-13)
+
+**Symptom.** In 3D, zoom very close to the terrain, pan, then pinch back out: the map sticks in a
+state where everything is blurry and oversized, and stays that way while zooming out. Enough
+movement clears it. In 2D the same state shows labels, shields, peak icons and line widths several
+times too large for the zoom on screen, the `VectorLayer` route line with them. Reported as
+"blurry", but it is a SCALE fault, not a resolution one. Only ever reproduced with a real style
+(the packaged one) — an inline style whose widths and sizes are constants shows almost nothing,
+because the fault is in what the zoom-dependent style functions are evaluated at.
+
+**Cause.** `CameraZoomEvent::calculate` shifted the map about the pivot with the **full 3D**
+offset `pivot − focus` (`ProjectionSurface::calculateTranslateMatrix`), and the pinch pivot carries
+the terrain height under the finger (`TouchHandler::calculatePivotPos` → `_gestureAnchorHeight`).
+Every zoom-*out* about a pivot above the focus therefore pushed the focus DOWN by
+`(pivotZ − focusZ)·(scale − 1)`. Close to a slope that is a few hundred metres per gesture, and it
+accumulates.
+
+The focus height is not cosmetic: `dist(camera, focus)` is the distance the whole zoom scale is
+calibrated on (`_zoom0Distance / 2^zoom`, [Near and far planes](#near-and-far-planes) above). With
+the focus below the ground, that distance stops describing the distance to what is on screen — so
+the tile walk asks for a zoom several levels too coarse (the blur) while every zoom-dependent width
+and label size is evaluated for that same far-out zoom (the oversizing), against terrain that is
+actually a tenth as far away.
+
+**The fix** is tangram's model verbatim: the pivot moves the map **along the surface only**. Their
+pinch correction is a ground translate in x/y (`View::translate`, `core/src/view/view.cpp:258`) and
+their view height is derived from the zoom, so a pivot on a mountain cannot move the view point up
+or down. `CameraZoomEvent` now forces the pivot to the focus's own height before building the
+shift, which means it can no longer change the focus height in any mode — including the lifted
+viewpoints of free roam and the peak finder, which set that height deliberately (and which the old
+code could silently drag back down to the ground).
+
+The visible trade is theirs too: pinching with a finger on a summit holds the point at the *focus
+height* under the finger, so a high point drifts slightly on screen during the pinch.
+
+**How it was found, in numbers.** A probe on `dist(camera, focus)` against `zoom0Distance / 2^zoom`,
+printed once a second next to the focus and camera heights, during the gesture on the device:
+
+```
+zoom=12.15 dist=589   ratio=1.0000  focusZ=-218  camZ=76.5
+zoom=11.06 dist=1259  ratio=1.0000  focusZ=-501  camZ=128.1   <- label depth to the terrain: 115
+```
+
+`ratio` staying at 1.0000 is what makes this readable: the invariant the SDK maintains was intact
+the whole time — the camera distance did match the zoom. What was broken is the *unwritten* second
+invariant, that the focus is on the ground you are looking at. The 1259 against a terrain depth of
+115 is the entire bug.
+
+Two things this rules out, both of which cost a round: the camera-clearance clamp (it was active
+and correct — `maxTerrainZoom` tracked the zoom throughout), and the sag tesselation above (both
+arms measured identical through a scripted zoom sequence — edge energy 17.4/24.7/17.2/25.0 against
+18.0/24.8/17.8/24.8 — and the report predates it). A scripted `setZoom` sequence never reproduces
+it either: it zooms about the focus, so there is no pivot to sink anything. The demo's
+`--es anim approach` (dive, pan, pull out) is that sequence, and its clean run is what pointed at
+the pivot.
+
+**Labels partly hid it.** `Label::calculateTerrainScaleFactor` rescales a label by
+`depth / focusDistance` to cancel the perspective divide, and that ratio cancels exactly this error
+too (it read 0.09 while the fault was worst). Geometry, fills and vector elements have no such
+cancel, which is why lines looked worse than text at first and why the 2D screenshot — where the
+cancel is near 1 — was the clearer evidence.
+
+**Residual, not fixed here.** Even with the focus where the app put it, on a z=0 plane under a
+1000 m ridge the focus still sits below the ground, so `dist` still overstates the distance to what
+is on screen — the same error, milder and always on. Tangram's answer is to derive the render zoom
+from the terrain depth at the screen centre (`m_zoom` from `m_elevationManager->getDepth(centre)`,
+clamped to `[m_baseZoom, m_maxZoom]`, `core/src/view/view.cpp:403-415`). Porting that redefines what
+`getZoom()` means for tiles, styles and labels alike, so it is its own change — see
+[11-tangram-diff.md](11-tangram-diff.md#the-zoom-is-calibrated-on-the-focus-not-on-the-terrain).
+
 ## The surface shader
 
 `TerrainOptions::setSurfaceShaderSource` lets the application paint the terrain surface itself. It
@@ -287,3 +357,131 @@ falls linearly with the sub-segment length.
 
 Not fixed here: without the regular grid the sag is only *reduced*, never zero. Turning on
 regular-grid mode is what removes it, and that is a larger change ([05-depth-model.md](05-depth-model.md)).
+
+### What that subdivision costs over a city
+
+**Line subdivision is the single reason panning over a city is slow.** Crosscall, the app's own
+style, a 25 s scripted pan at 45.188/5.724 z15 t45, interleaved:
+
+| | fps | GPU `layers` | geometry indices / frame |
+|---|---|---|---|
+| shipped | 6.6 | 51.3 ms | 2.90M |
+| 3D buildings off | 6.6 | 50.7 ms | — |
+| **area** subdivision off entirely | 6.7 | 50.6 ms | 2.83M |
+| **lines** at source density | **13.5** | **20.9 ms** | 0.74M |
+| terrain off altogether | 21.7 | 11.8 ms | 0.72M |
+
+Fills are innocent: turning area subdivision off changes nothing, because fills are draped and baked
+once. Lines are never draped — they are drawn as terrain geometry every frame — and a city is mostly
+lines. In regular-grid mode the **lattice split** does the cutting, at every cell edge and diagonal:
+about 64 cuts per tile crossing at z15 with `meshResolution` 64, per road.
+
+Two things this reveals:
+
+- **The split runs whatever the relief.** The only flatness gate is `FLAT_HEIGHT_RANGE_EPSILON`
+  (0.001 m), so a valley tile is cut exactly like a cliff to protect against a fold it cannot have.
+  `debug.carto.latticerelief <metres>` skips the split under a given relief: the city goes 6.61 →
+  7.57 fps (`layers` 51.3 → 36.9 ms) at 200 m, and adding `debug.carto.linethreshold 8` on those
+  tiles reaches **8.43 fps / 32.5 ms**. The mountain camera does not move (11.4–12.0 fps) — the gate
+  never fires there, which is the point.
+- **`debug.carto.linethreshold` alone does nothing** in regular-grid mode: the lattice split is tried
+  first and returns, so the threshold is only a fallback for segments spanning very many cells. Any
+  measurement of line cost has to go through the lattice, not the threshold.
+
+The remaining gap to source density (8.4 against 13.5) is the tiles that legitimately have relief —
+the mountains standing in the far half of a tilted city view. They are cut as finely as if they were
+under the camera, because subdivision cost is per tile and **independent of the tile's size on
+screen**.
+
+### Where this should go: pay in depth, not in vertices
+
+Tangram does not subdivide at all. `res/scenes/terrain-3d.yaml` displaces every vertex in the vertex
+shader and pays for the chord with depth instead — `depth_shift = -0.02*u_proj[2][3]`, larger near
+the camera where the chord error is. We already ported that shift, and we already have the better
+tool for a line: `uDepthClearance`, a clearance worth the same number of METRES at any range, which
+is exactly what a chord over relief needs.
+
+What blocks using it is that `setTerrainLineClearance` is **one global value**, so it has to cover
+the worst tile on screen — which is why the code notes that un-subdivided lines need a lift so large
+it "shines everything through".
+
+### Cutting a line by its sag instead of by the tile's cell count
+
+`tesselateSegmentBySag` splits a segment only where the terrain under it actually leaves the chord,
+recursively, until the residual sag is under a tolerance — expressed in METRES so it is the same
+currency as the depth clearance that lifts these lines. It replaces both the lattice split and the
+fixed threshold, and it is **the shipped path** since 2026-08-13:
+`DEFAULT_LINE_SAG_METERS = 2`, with `debug.carto.linesag <metres>` as the override and
+`debug.carto.linesag 0` going back to the old lattice split for an A/B.
+
+**The insight is that sag measures curvature, not slope.** A road running along a constant slope
+chords perfectly: its sag is zero and it needs no cut at all. Only a break in slope needs one. The
+lattice, which cuts at every cell edge and diagonal, was therefore paying about 4x the geometry the
+terrain's shape actually asks for.
+
+Crosscall, the app's packaged style, 25 s scripted `--es anim pan`, three interleaved pairs.
+Per-frame counts, not per interval — `RenderStats` sums over the log interval, so the faster arm
+prints bigger totals ([10-performance.md](10-performance.md#getting-a-trustworthy-number)):
+
+| | fps (3 runs) | geometry indices / frame | draws / frame |
+|---|---|---|---|
+| city z15 t45, lattice | 7.4 / 7.5 / 7.6 | 2.37M | 210 |
+| city z15 t45, **sag 2 m** | **13.4 / 14.1 / 13.8** | **0.70M** | 213 |
+| mountain z13.6 t45, lattice | 10.8–13.7 | 1.31M | 140 |
+| mountain z13.6 t45, **sag 2 m** | **17.0–21.3** | **0.37M** | 140 |
+
+Same draw count, 3.4x less geometry: the win is in what gets tesselated, not in what gets submitted.
+The mountain gains as much as the city, which is the point — relief does not imply curvature.
+
+**The tolerance is not what binds.** 0.5, 1, 2 and 4 m measure the same at both cameras (all within
+the run-to-run spread, 0.37–0.70M indices/frame), so the value is chosen for margin: a draped line is
+already lifted `DEFAULT_LINE_CLEARANCE_METERS` = 25 m off the surface, and 2 m is an order of
+magnitude under that as well as well inside the surface mesh's own chord error. At a far tighter
+setting the splitter does keep tracking (0.01 m against 0.5 m differs, 3.43M against 3.39M indices),
+so it is live, not saturated.
+
+Checked on screen at 45.244172/5.760595 z13.6 t45, z11 t60, and — the check that was missing before
+it became the default — a slow 30 s pan across the ridge at z11.5 t60 with vector elements on: the
+two arms are indistinguishable, no line sinking into a crest. The GeoJSON route line is broken at
+z11 in BOTH arms — that is the open route-following issue, not this.
+
+### Draping the lines, and keeping contours out of it
+
+Cutting a line better does not change what a line *costs to shade*. With the sag split in place the
+city is still fragment-bound, and the whole of it is the lines: draping them
+(`TerrainOptions::DrapeLines`, `--es drapeLines true`) bakes them into the per-tile drape texture
+once instead of drawing them as terrain geometry every frame, and the frame collapses.
+
+Crosscall, packaged style, 25 s pan at the city camera (5.724/45.188 z15 t45):
+
+| | fps | CPU frame | GPU total | GPU `layers` |
+|---|---|---|---|---|
+| lines as geometry (default) | 13.4–15.2 | 45 ms | 32.4–34.9 | 20.8–24.1 |
+| `drape false` (nothing draped) | 12.0–13.3 | 51–59 ms | 37.3–37.6 | 28.2–28.4 |
+| **`drapeLines true`** | **26.8–27.7** | 31 ms | 11.9–12.1 | **0.3** |
+| `drapeLines true`, drape resolution 2048 | 24.3–26.4 | — | 13.4–14.3 | 0.3 |
+| base map layer off (the floor) | 43 | — | 9.4 | 0.0 |
+
+Draped lines land within 2.5 ms of the no-basemap floor. The cost is resolution: the bake resolves
+at the drape texture's size and a slope then magnifies it. Fills and road casings survive that;
+**contours do not** — they are hairline, and they smear.
+
+Hence `GLTileRenderer::setNoDrapeLayerFilter`: style layers matching it stay OUT of the bake and are
+drawn live in the 3D pass at screen resolution, exactly once (the same predicate gates the bake loop,
+`hasDrapeableContent` and the 3D-pass skip). The application sets it through
+**`TerrainOptions::NoDrapeLayerFilter`**, a regex over vt layer names, defaulting to `^contour.*`;
+an empty string drapes everything the geometry type allows, and `adb shell setprop
+debug.carto.nodrapelayers <regex>` (or `none`) overrides it for an A/B without rebuilding.
+
+**Both defaults changed on 2026-08-13**: `DrapeLinesEnabled` is now **true**, with contours exempt.
+Verified on device with no props and no intent extras — city pan 26.0–27.2 fps, GPU total 11.8–12.6
+ms, `layers` 0.8 ms. An application that wants the old behaviour sets `DrapeLinesEnabled` false;
+one that wants everything flattened sets `NoDrapeLayerFilter` to "".
+
+What it costs, same runs: the city does not notice (26.8–27.7 → 22.8–26.8 fps, GPU `layers`
+0.3 → 0.7 ms — there are barely any contour lines on a valley floor), the mountain pays for what it
+draws (32.9–42.1 → 24.2–31.3 fps at z13.6 t45), and is still far above the 17–21 it had with
+nothing draped.
+
+Note the filter matches the **vt layer name**, which comes from the style's own rule names — a style
+that calls its contour rules something else needs its own pattern.

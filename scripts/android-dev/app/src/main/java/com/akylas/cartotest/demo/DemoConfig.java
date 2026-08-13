@@ -208,7 +208,10 @@ public final class DemoConfig {
      *  pan with contours and hillshade: 12.9 fps against 10.5 with fills as geometry (bake +1.7 ms,
      *  geometry submission -3.8 ms). '--es drape false' goes back for an A/B. */
     public static boolean TERRAIN_DRAPE_FILLS = true;
-    public static boolean TERRAIN_DRAPE_LINES = false;
+    /** Lines too, which is what a city pan pays for: 13.4-15.2 fps as geometry against 26.8-27.7
+     *  draped (Crosscall, packaged style, 5.724/45.188 z15 t45). Contours stay sharp - see
+     *  TerrainOptions.NoDrapeLayerFilter. '--es drapeLines false' goes back for an A/B. */
+    public static boolean TERRAIN_DRAPE_LINES = true;
     public static int TERRAIN_DRAPE_RESOLUTION = 0;
     /** Stitch neighbouring DEM tiles so ridges do not appear at tile borders. */
     public static boolean TERRAIN_TILE_EDGE_STITCHING = true;
@@ -781,8 +784,10 @@ public final class DemoConfig {
     /** Metres beyond which a summit is not labelled at all; 0 = no limit. */
     public static float PEAKS_MAX_DISTANCE = 120000;
     /** Scripted camera move so animation artifacts can be captured with adb screenrecord:
-     *  "" | zoom | pan | rotate | zoomseq. */
+     *  "" | zoom | pan | rotate | zoomseq | approach. */
     public static String ANIM = "";
+    /** 'approach': the zoom the close approach dives to before panning and pulling back out. */
+    public static float ANIM_APPROACH_ZOOM = 17.5f;
     public static float ANIM_DELAY_MS = 12000;
     public static float ANIM_DURATION_S = 8;
     public static float ANIM_ZOOM_DELTA = 3;
@@ -1117,6 +1122,7 @@ public final class DemoConfig {
         ANIM_ROTATION = DemoCfg.cfgFloat("animRotation", ANIM_ROTATION);
         ANIM_ZOOM_OUT = DemoCfg.cfgFloat("animZoomOut", ANIM_ZOOM_OUT);
         ANIM_SETTLE_MS = DemoCfg.cfgFloat("animSettle", ANIM_SETTLE_MS);
+        ANIM_APPROACH_ZOOM = DemoCfg.cfgFloat("animApproachZoom", ANIM_APPROACH_ZOOM);
     }
 
     /**

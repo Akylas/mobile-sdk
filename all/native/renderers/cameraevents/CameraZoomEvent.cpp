@@ -91,7 +91,19 @@ namespace carto {
     
         cglib::vec3<double> targetPos = focusPos;
         if (_useTarget) {
-            targetPos = projectionSurface->calculatePosition(_targetPos);
+            // The pivot moves the map ALONG the surface only. Tangram's pinch correction is a
+            // ground translate in x/y (View::translate) and their view height is derived from the
+            // zoom, so a pivot on a mountain cannot move the view point up or down. Taking the
+            // full 3D offset here dragged the focus down by (pivotZ - focusZ) on every zoom out -
+            // the pinch pivot carries the terrain height under the finger - and a close approach
+            // followed by a few zoom-outs sank it hundreds of metres below the ground. The focus
+            // height is not cosmetic: dist(camera, focus) is what the zoom is calibrated on, so
+            // once the focus is below the ground the zoom stops describing the distance to what
+            // is on screen, and the map is drawn with the tiles (blurry), line widths and label
+            // sizes of a zoom far further out.
+            MapPos targetMapPos = _targetPos;
+            targetMapPos.setZ(projectionSurface->calculateMapPos(focusPos).getZ());
+            targetPos = projectionSurface->calculatePosition(targetMapPos);
         }
     
         // Bound the zoom by the terrain clearance here, at the single point every zoom

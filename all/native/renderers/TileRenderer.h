@@ -106,6 +106,11 @@ namespace carto {
         static int resolveDrapeResolution(int setting, const ViewState& viewState, const std::shared_ptr<Options>& options);
         // Metres a draped line is drawn in front of the ground (see GLTileRenderer::setTerrainLineClearance).
         static float terrainLineClearanceMeters();
+        // Style layers kept out of the drape bake and drawn live instead: the application's
+        // TerrainOptions::NoDrapeLayerFilter, overridden by debug.carto.nodrapelayers ("none" to
+        // drape everything). Compiled once per distinct pattern. See
+        // GLTileRenderer::setNoDrapeLayerFilter.
+        static std::optional<std::regex> noDrapeLayerFilter(const std::string& optionFilter);
         static constexpr float DEFAULT_LINE_CLEARANCE_METERS = 25.0f;
         // The drape cache clamps to the same range (TerrainDrapeCache::setResolution).
         static constexpr int MIN_DRAPE_RESOLUTION = 128;

@@ -34,6 +34,7 @@
 %attribute(carto::TerrainOptions, bool, DrapeFillsEnabled, isDrapeFillsEnabled, setDrapeFillsEnabled)
 %attribute(carto::TerrainOptions, bool, DrapeLinesEnabled, isDrapeLinesEnabled, setDrapeLinesEnabled)
 %attribute(carto::TerrainOptions, int, DrapeResolution, getDrapeResolution, setDrapeResolution)
+%attributestring(carto::TerrainOptions, std::string, NoDrapeLayerFilter, getNoDrapeLayerFilter, setNoDrapeLayerFilter)
 %attribute(carto::TerrainOptions, float, ElementTerrainSlack, getElementTerrainSlack, setElementTerrainSlack)
 %attribute(carto::TerrainOptions, int, MinZoom, getMinZoom, setMinZoom)
 %attribute(carto::TerrainOptions, int, MaxTileZoomOffset, getMaxTileZoomOffset, setMaxTileZoomOffset)

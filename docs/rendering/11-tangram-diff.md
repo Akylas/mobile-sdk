@@ -17,6 +17,8 @@ and *still different*, the latter with the reason it is not simply copied.
 | near plane | `m_pos.z / 50` (`core/src/view/view.cpp:452`), with the camera held a distance from the TERRAIN | `min(focus distance, height over the terrain under the camera) / 50` — their rule against our clearance model ([04](04-terrain.md#near-and-far-planes)) | **ported with a difference** |
 | pinch / rotate gesture | scale and angle from the platform gesture detector, i.e. the SCREEN (`core/src/util/inputHandler.cpp`) | same; the pan stays world-anchored and is capped below tilt 15 by their `getTranslation` guard ([04](04-terrain.md#the-camera-against-the-terrain)) | **ported** |
 | camera against the terrain | zoom-out push from the depth at the screen centre, eye lifted to elevation + 2 m (`core/src/view/view.cpp:404`) | clearance over the ground under the camera, as a zoom bound plus a per-frame correction | **different** |
+| what the zoom measures | distance to the terrain at the screen centre (`m_zoom`, `view.cpp:403`); the view height is derived from the zoom, never free | distance to the focus, whose height the application owns (free roam, panorama) | **different — see below** |
+| zoom pivot | 2D ground translate (`View::translate`, `view.cpp:258`) | same: the pivot shifts the map along the surface only ([04](04-terrain.md#the-zoom-pivot-sank-the-focus-and-everything-was-drawn-at-the-wrong-scale-fixed-2026-08-13)) | **ported** |
 | per-layer depth pre-pass, stencil tile masks | none anywhere in `core/src` | none (shared ground) | **ported** |
 | map background | the framebuffer clear colour (`core/src/map.cpp`) | global terrain base fill before all layers; no per-tile background meshes | **ported** |
 | contour labels | generated from the elevation texture, no contour geometry (`core/src/style/contourTextStyle.cpp`) | label stubs in `ContourTileDataSource`, same algorithm | **ported** ([07](07-hillshade-contours.md)) |
@@ -73,6 +75,30 @@ the name cannot win or lose a slot independently — "icon placed, name dropped"
 no equivalent because CartoCSS centres every line within the block already, so alignment only moves
 the block and one glyph run covers all sides. See
 [06-labels.md](06-labels.md#anchored-shields-the-name-takes-a-free-side-fork-specific).
+
+### The zoom is calibrated on the focus, not on the terrain
+
+Their view has no free viewpoint height: `m_pos.z` is derived from the zoom
+(`m_pos.z = exp2(-m_baseZoom) · worldToCameraHeight`), and the zoom the tiles and styles actually
+see is taken from the **depth to the terrain at the screen centre** —
+`m_zoom = clamp(-log2(viewZ / worldToCameraHeight), m_baseZoom, m_maxZoom)` with `viewZ` from the
+elevation manager's depth read-back (`core/src/view/view.cpp:398-415`). So their zoom always means
+"how far away is what I am looking at", whatever the terrain under the camera does.
+
+Ours calibrates on `dist(camera, focus)` and lets the focus keep its own height — deliberately, so
+an application can lift the viewpoint (free roam, the peak finder panorama). Over a ridge with the
+focus on the z=0 plane, that distance overstates the distance to the visible ground, and content is
+drawn slightly too coarse and too large.
+
+One half of the gap is already closed: their pivot correction is a **2D ground translate**
+(`View::translate`, `view.cpp:258`), and ours now shifts the pivot along the surface only for the
+same reason — taking the full 3D offset let a pinch on a slope sink the focus hundreds of metres and
+turned the mild error into a gross one
+([04-terrain.md](04-terrain.md#the-zoom-pivot-sank-the-focus-and-everything-was-drawn-at-the-wrong-scale-fixed-2026-08-13)).
+The other half — deriving the render zoom from the terrain depth — is not ported: it changes what
+`getZoom()` means for the tile walk, every zoom-dependent style function and every label size at
+once, and it needs the screen-centre depth every frame (we have the terrain depth buffer, but it is
+read back for billboard occlusion on its own schedule).
 
 ### Draped fills (the old path) are being removed, not maintained
 

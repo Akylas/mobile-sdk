@@ -7,6 +7,8 @@
 
 namespace carto {
 
+    const std::string TerrainOptions::DEFAULT_NO_DRAPE_LAYER_FILTER = "^contour.*";
+
     TerrainOptions::TerrainOptions(const std::shared_ptr<TileDataSource>& dataSource) :
         TerrainOptions(dataSource, std::shared_ptr<ElevationDecoder>())
     {
@@ -21,7 +23,7 @@ namespace carto {
         _tileEdgeStitchingEnabled(true),
         _painterOrderDepthEnabled(true),
         _drapeFillsEnabled(true),
-        _drapeLinesEnabled(false),
+        _drapeLinesEnabled(true),
         _drapeResolution(0),
         _elementTerrainSlack(2.0f),
         _minZoom(5),
@@ -39,6 +41,7 @@ namespace carto {
         _viewDistanceFactor(1.0f),
         _viewDistance(0.0f),
         _maxTileZoomCoarsening(3),
+        _noDrapeLayerFilter(DEFAULT_NO_DRAPE_LAYER_FILTER),
         _surfaceShaderSource(),
         _surfaceParameters(),
         _surfaceColorParameters(),
@@ -158,6 +161,22 @@ namespace carto {
 
     bool TerrainOptions::isDrapeLinesEnabled() const {
         return _drapeLinesEnabled.load();
+    }
+
+    std::string TerrainOptions::getNoDrapeLayerFilter() const {
+        std::lock_guard<std::mutex> lock(_noDrapeMutex);
+        return _noDrapeLayerFilter;
+    }
+
+    void TerrainOptions::setNoDrapeLayerFilter(const std::string& filter) {
+        {
+            std::lock_guard<std::mutex> lock(_noDrapeMutex);
+            if (_noDrapeLayerFilter == filter) {
+                return;
+            }
+            _noDrapeLayerFilter = filter;
+        }
+        notifyOptionChanged("NoDrapeLayerFilter");
     }
 
     void TerrainOptions::setDrapeLinesEnabled(bool enabled) {

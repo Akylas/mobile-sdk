@@ -29,7 +29,7 @@ namespace carto {
     public:
         class TerrainVertexTransformer final : public VertexTransformer {
         public:
-            TerrainVertexTransformer(const vt::TileId& tileId, double scale, std::shared_ptr<ElevationTileGrid> grid, float exaggeration, float divideThreshold, float lineDivideThreshold, float latticeCell);
+            TerrainVertexTransformer(const vt::TileId& tileId, double scale, std::shared_ptr<ElevationTileGrid> grid, float exaggeration, float divideThreshold, float lineDivideThreshold, float latticeCell, float sagToleranceMeters);
             virtual ~TerrainVertexTransformer() = default;
 
             virtual cglib::vec3<float> calculatePoint(const cglib::vec2<float>& pos) const override;
@@ -47,6 +47,11 @@ namespace carto {
             double calculateMercatorCosine(double internalY) const;
 
             void tesselateSegment(const cglib::vec2<float>& pos0, const cglib::vec2<float>& pos1, float dist, float threshold, vt::VertexArray<cglib::vec2<float>>& points) const;
+            // Splits a segment only where the terrain UNDER it actually leaves the chord, until the
+            // residual sag is under the tolerance. A cut costs one elevation sample, so a line over
+            // a valley floor is not cut at all while one over a cliff is cut where the cliff is -
+            // unlike the lattice, whose cost is the tile's cell count whatever the relief.
+            void tesselateSegmentBySag(const cglib::vec2<float>& pos0, const cglib::vec2<float>& pos1, double h0, double h1, float dist, int depth, vt::VertexArray<cglib::vec2<float>>& points) const;
             // Splits a segment where it crosses the surface grid's cell edges and the diagonal
             // each cell is split along, so that every resulting sub-segment lies inside ONE
             // surface triangle. Returns false when the segment spans too many cells to be worth
@@ -61,6 +66,8 @@ namespace carto {
             const float _divideThreshold; // triangle subdivision, EPSG3857 meters; infinity disables subdivision
             const float _lineDivideThreshold; // line subdivision, EPSG3857 meters; finer than the triangle threshold in regular-grid mode
             const float _latticeCell; // surface grid cell size in tile-local units; 0 outside regular-grid mode
+            float _sagToleranceLocal = 0.0f; // max chord sag in tile-local height units; 0 disables sag subdivision
+            float _sagMinSegmentMeters = 0.0f; // never cut below the elevation data's own resolution
             cglib::vec2<double> _tileOffsetInternal; // internal coordinates of the tile origin (min x, min y)
             double _tileScaleInternal;
             double _tileScaleMeters;
@@ -96,6 +103,10 @@ namespace carto {
         // How much finer than the surface mesh cell a LINE is cut when there is no regular grid to
         // cut it against exactly. The residual sag falls linearly with the sub-segment length.
         static constexpr float LINE_SUBDIVISION_FACTOR = 4.0f;
+
+        // Recursion guard for the sag-driven line split: 2^10 sub-segments is far past anything a
+        // real DEM asks for, and it bounds the work a pathological cliff can demand.
+        static constexpr int MAX_SAG_SPLIT_DEPTH = 10;
 
         const double _scale;
         const std::shared_ptr<ElevationManager> _elevationManager;

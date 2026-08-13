@@ -28,7 +28,68 @@ namespace carto {
     // setprop away if the frame ever needs it.
     //   adb shell setprop debug.carto.areathreshold 4
     static constexpr float AREA_THRESHOLD_CELLS = 2.0f;
+
+    // How far a draped line may chord away from the terrain, in METRES. Chosen for margin, not for
+    // speed: 0.5-4 m all measure the same, and a draped line is lifted 25 m off the surface anyway
+    // (DEFAULT_LINE_CLEARANCE_METERS). Numbers in docs/rendering/04-terrain.md.
+    static constexpr float DEFAULT_LINE_SAG_METERS = 2.0f;
 #ifdef __ANDROID__
+    // The same measurement switch for LINES. Lines are the expensive half over a city - the fills
+    // are draped and baked once, the lines are drawn as terrain geometry every frame - and their
+    // threshold is a fraction of the mesh cell whatever relief the tile actually has.
+    //   adb shell setprop debug.carto.linethreshold 4
+    // Relief (metres of height range in the tile) under which the LATTICE split is skipped. The
+    // split exists to stop a segment chording across a surface cell's anti-diagonal fold; the fold
+    // is a fraction of the tile's relief, so on a valley floor it protects against nothing and
+    // still cuts every line at every cell edge and diagonal. 0 = shipped behaviour (always split).
+    //   adb shell setprop debug.carto.latticerelief 50
+    static float latticeReliefThreshold() {
+        static const float relief = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            if (__system_property_get("debug.carto.latticerelief", property) > 0) {
+                float value = static_cast<float>(std::atof(property));
+                if (value >= 0.0f) {
+                    return value;
+                }
+            }
+            return 0.0f;
+        }();
+        return relief;
+    }
+
+    // Maximum chord sag a draped line may keep, in METRES - the same currency as the depth
+    // clearance that lifts these lines (uDepthClearance, see 04-terrain.md), so the two agree on
+    // what "close enough to the ground" means. 0 goes back to the old lattice / threshold split,
+    // which is how the two are A/B'd:
+    //   adb shell setprop debug.carto.linesag 0
+    static float lineSagToleranceMeters() {
+        static const float tolerance = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            if (__system_property_get("debug.carto.linesag", property) > 0) {
+                float value = static_cast<float>(std::atof(property));
+                if (value >= 0.0f) {
+                    return value;
+                }
+            }
+            return DEFAULT_LINE_SAG_METERS;
+        }();
+        return tolerance;
+    }
+
+    static float lineThresholdScale() {
+        static const float scale = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            if (__system_property_get("debug.carto.linethreshold", property) > 0) {
+                float value = static_cast<float>(std::atof(property));
+                if (value > 0.0f) {
+                    return value;
+                }
+            }
+            return 1.0f;
+        }();
+        return scale;
+    }
+
     static float areaThresholdScale() {
         static const float scale = [] {
             char property[PROP_VALUE_MAX] = { 0 };
@@ -43,12 +104,24 @@ namespace carto {
         return scale;
     }
 #else
+    static float lineSagToleranceMeters() {
+        return DEFAULT_LINE_SAG_METERS;
+    }
+
+    static float latticeReliefThreshold() {
+        return 0.0f;
+    }
+
+    static float lineThresholdScale() {
+        return 1.0f;
+    }
+
     static float areaThresholdScale() {
         return AREA_THRESHOLD_CELLS;
     }
 #endif
 
-    TerrainTileTransformer::TerrainVertexTransformer::TerrainVertexTransformer(const vt::TileId& tileId, double scale, std::shared_ptr<ElevationTileGrid> grid, float exaggeration, float divideThreshold, float lineDivideThreshold, float latticeCell) :
+    TerrainTileTransformer::TerrainVertexTransformer::TerrainVertexTransformer(const vt::TileId& tileId, double scale, std::shared_ptr<ElevationTileGrid> grid, float exaggeration, float divideThreshold, float lineDivideThreshold, float latticeCell, float sagToleranceMeters) :
         _tileId(tileId),
         _scale(scale),
         _grid(std::move(grid)),
@@ -63,6 +136,19 @@ namespace carto {
         _tileScaleInternal = zoomScale * _scale;
         _tileScaleMeters = EARTH_CIRCUMFERENCE * zoomScale;
         _localFromInternal = (1 << tileId.zoom) / _scale;
+
+        if (sagToleranceMeters > 0.0f) {
+            // The tolerance is given in METRES because that is what the depth clearance lifting
+            // these lines is worth (see 04-terrain.md); heights here are tile-local, so convert
+            // once at the tile centre - the latitude factor varies by a fraction of a percent
+            // across one tile.
+            _sagToleranceLocal = calculateHeight(cglib::vec2<float>(0.5f, 0.5f), sagToleranceMeters);
+            // The DEM cannot describe relief finer than its own texel, so cutting below it only
+            // resamples the same interpolated slope.
+            if (_grid && _grid->getWidth() > 1) {
+                _sagMinSegmentMeters = static_cast<float>(_tileScaleMeters / _grid->getWidth());
+            }
+        }
     }
 
     cglib::vec3<float> TerrainTileTransformer::TerrainVertexTransformer::calculatePoint(const cglib::vec2<float>& pos) const {
@@ -100,10 +186,15 @@ namespace carto {
                 // sub-segment then lies IN a triangle of the surface, so it follows the surface
                 // exactly rather than approximately - with fewer vertices than the fraction-of-a-cell
                 // halving needed to keep the chord sag under the (zero) painter-order depth slack.
+                float dist = cglib::length(pos1 - pos0) * static_cast<float>(_tileScaleMeters);
+                if (_sagToleranceLocal > 0.0f) {
+                    // Cut by the sag the terrain actually has, not by the tile's cell count.
+                    tesselateSegmentBySag(pos0, pos1, calculateLocalHeight(pos0), calculateLocalHeight(pos1), dist, 0, tesselatedPoints);
+                    continue;
+                }
                 if (_latticeCell > 0 && tesselateSegmentOnLattice(pos0, pos1, tesselatedPoints)) {
                     continue;
                 }
-                float dist = cglib::length(pos1 - pos0) * static_cast<float>(_tileScaleMeters);
                 tesselateSegment(pos0, pos1, dist, _lineDivideThreshold, tesselatedPoints);
             }
         }
@@ -213,6 +304,21 @@ namespace carto {
         else {
             points.append(pos1);
         }
+    }
+
+    void TerrainTileTransformer::TerrainVertexTransformer::tesselateSegmentBySag(const cglib::vec2<float>& pos0, const cglib::vec2<float>& pos1, double h0, double h1, float dist, int depth, vt::VertexArray<cglib::vec2<float>>& points) const {
+        if (depth < MAX_SAG_SPLIT_DEPTH && dist > _sagMinSegmentMeters) {
+            cglib::vec2<float> posM = (pos0 + pos1) * 0.5f;
+            double hM = calculateLocalHeight(posM);
+            // How far the terrain leaves the straight chord at its midpoint. Recursing on both
+            // halves keeps this a bound on the WHOLE sub-segment, not only on its centre.
+            if (std::abs(hM - (h0 + h1) * 0.5) > _sagToleranceLocal) {
+                tesselateSegmentBySag(pos0, posM, h0, hM, dist * 0.5f, depth + 1, points);
+                tesselateSegmentBySag(posM, pos1, hM, h1, dist * 0.5f, depth + 1, points);
+                return;
+            }
+        }
+        points.append(pos1);
     }
 
     void TerrainTileTransformer::TerrainVertexTransformer::tesselateTriangle(std::size_t i0, std::size_t i1, std::size_t i2, float dist01, float dist02, float dist12, vt::VertexArray<cglib::vec2<float>>& coords, vt::VertexArray<cglib::vec2<float>>& texCoords, vt::VertexArray<std::size_t>& indices) const {
@@ -401,8 +507,11 @@ namespace carto {
                 // boundaries, which removes the chord sag entirely - so the threshold only has to
                 // bound the segment length at one cell (it is what the lattice split falls back
                 // to for segments spanning very many cells).
-                lineDivideThreshold = _sourceDensityLines ? std::numeric_limits<float>::infinity() : static_cast<float>(threshold);
-                latticeCell = _sourceDensityLines ? 0.0f : static_cast<float>(1.0 / _meshResolution);
+                lineDivideThreshold = _sourceDensityLines ? std::numeric_limits<float>::infinity() : static_cast<float>(threshold * lineThresholdScale());
+                // A tile whose relief cannot fold a cell enough to matter does not need the split
+                // (see latticeReliefThreshold): it then falls back to the plain threshold below.
+                bool latticeWorthIt = (grid->getMaxHeight() - grid->getMinHeight()) >= latticeReliefThreshold();
+                latticeCell = (_sourceDensityLines || !latticeWorthIt) ? 0.0f : static_cast<float>(1.0 / _meshResolution);
             } else {
                 // No point in subdividing FILLS finer than the elevation grid resolution
                 double gridInternalWidth = grid->getInternalBounds().getMax().getX() - grid->getInternalBounds().getMin().getX();
@@ -417,10 +526,10 @@ namespace carto {
                 // DETAIL exists; the sag is against the surface MESH, so it is the wrong bound.
                 // Lines are 1D, so cutting them finer costs a fraction of what the same factor
                 // would cost on a fill.
-                lineDivideThreshold = static_cast<float>(threshold / LINE_SUBDIVISION_FACTOR);
+                lineDivideThreshold = static_cast<float>(threshold / LINE_SUBDIVISION_FACTOR * lineThresholdScale());
             }
         }
 
-        return std::make_shared<TerrainVertexTransformer>(tileId, _scale, std::move(grid), _elevationManager->getExaggeration(), divideThreshold, lineDivideThreshold, latticeCell);
+        return std::make_shared<TerrainVertexTransformer>(tileId, _scale, std::move(grid), _elevationManager->getExaggeration(), divideThreshold, lineDivideThreshold, latticeCell, lineSagToleranceMeters());
     }
 }
