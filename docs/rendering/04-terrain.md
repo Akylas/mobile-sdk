@@ -329,7 +329,32 @@ it runs on `TerrainDepthWorker`: its own thread, its own EGL context, deliberate
 Two GL contexts still share one GPU, so the submit interval matters more than the work:
 every frame 13.2 fps, 250 ms 14.3, **500 ms 14.9** (13.7 synchronous). Tangram does the same thing
 with a shared context and never waits on it.
-</content>
+
+### Query with the buffer's camera, not the frame's
+
+Symptom: labels that should be visible fade out and come back while **zooming**, in 3D only, at any
+camera (reported at 45.188/5.719 z13.18 t30 r-15). 2D never shows it because
+`TileRenderer::updateLabelOcclusionTest` returns early when terrain is off — 2D runs no occlusion
+test at all.
+
+The buffer lags the camera by design (`DEPTH_SUBMIT_MOVING_INTERVAL` = 500 ms while moving, plus
+worker latency), and the test used to project the label with the **current frame's** MVP and compare
+that distance against it. Zooming out moves the camera farther than the 1 % tolerance floor
+(`MIN_OCCLUSION_TOLERANCE`) inside those 500 ms, so every anchor reads as behind the terrain,
+`updateLabel` fades it to 0, and the next read-back brings it back. Zooming in inverts the same
+mismatch through screen drift: the anchor samples a pixel the old camera had something else at —
+and `getDepthW` **clamped** out-of-range coordinates to the border pixel, so a label leaving the old
+frustum read a border ridge instead of failing open.
+
+`TerrainDepthBuffer` now carries the `mvpMatrix` it was rendered with, and
+`TerrainRenderer::isOccludedByTerrain` projects with that matrix, samples in buffer pixels, and
+fails open (not occluded) for a position behind that camera or outside its viewport. Staleness then
+only makes the answer **late**, never inverted, which is what the throttle assumed all along. The
+query also takes the snapshot once instead of per sample, so the five taps cannot straddle a
+read-back.
+
+Not affected: billboards and vector elements decide occlusion by ray-marching the elevation grids
+from the current camera (`BillboardPlacementWorker`), which is self-consistent already.
 
 ## Draped lines sagging into the terrain (no regular grid)
 

@@ -407,7 +407,9 @@ zoom filter.
 ## On the GL thread
 
 - **Fades.** `updateLabel` moves opacity toward `visible ? 1 : 0`; invisible-but-fading labels stay
-  rendered until they reach 0.
+  rendered until they reach 0. Over terrain it also fades a label out when its anchor is behind a
+  ridge — a stale occlusion buffer queried with the wrong camera is what made labels blink while
+  zooming, see [04-terrain.md](04-terrain.md#query-with-the-buffers-camera-not-the-frames).
 - **Terrain anchoring.** Label geometry is built flat at decode time, so a label must be re-anchored
   onto the terrain: once when it is new, and afterwards only when the elevation under one of its
   tiles changed. `invalidateLabelElevation(tileIds)` marks exactly those; the blanket version exists

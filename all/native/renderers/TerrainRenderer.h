@@ -121,11 +121,17 @@ namespace carto {
         bool isDepthBufferStale() const { return _depthStale; }
 
         /**
-         * Returns the linear eye depth (view w, internal units) of the terrain at the
-         * given screen position from the last updateDepthBuffer call. Returns a huge
-         * value for sky pixels or when no depth data is available.
+         * True when the given world position is behind the terrain, by more than the given
+         * relative depth tolerance (1 = no slack).
+         *
+         * The position is projected with the camera the depth buffer was RENDERED from, not
+         * with the current one: the buffer lags a moving camera by up to the submit interval,
+         * so a current-camera distance compared against it reads every label as occluded while
+         * zooming out. Projecting with the buffer's own matrix makes the answer merely late.
+         * Fails open (not occluded) when there is no data, or when the position falls behind
+         * that camera or outside its viewport.
          */
-        float getDepthW(float screenX, float screenY) const;
+        bool isOccludedByTerrain(const cglib::vec3<double>& pos, float tolerance) const;
 
         /**
          * The terrain tile cover for this camera - the tiles the surface would be drawn from.
@@ -157,6 +163,7 @@ namespace carto {
         static constexpr int MAX_MESH_GRID_SIZE = 96; // grid cells per tile edge, upper bound
         static constexpr int MAX_CACHED_MESHES = 160;
         static constexpr int DEPTH_TEXTURE_MESH_RESOLUTION = 32; // mesh cap for the occlusion depth texture
+        static constexpr int OCCLUSION_SAMPLE_OFFSET = 4; // buffer pixels sampled around a queried position
 
         static const std::string TERRAIN_DEPTH_VERTEX_SHADER;
         static const std::string TERRAIN_DEPTH_FRAGMENT_SHADER;
@@ -188,6 +195,9 @@ namespace carto {
         std::shared_ptr<TileMesh> buildTileMesh(const MapTile& tile, const std::shared_ptr<ElevationTileGrid>& grid, const std::shared_ptr<ElevationManager>& elevationManager, int gridSize) const;
         int calculateMeshGridSize(const MapTile& tile, const std::shared_ptr<ElevationTileGrid>& grid, int meshResolution) const;
         cglib::mat4x4<double> calculateTileMatrix(const MapTile& tile) const;
+        // Linear eye depth (view w, internal units) of the terrain at a buffer pixel. Returns a
+        // huge value for sky pixels and for pixels outside the buffer.
+        static float sampleDepthW(const TerrainDepthBuffer& depthData, int x, int y);
 
         std::shared_ptr<FrameBuffer> _frameBuffer;
         std::shared_ptr<Shader> _shader;

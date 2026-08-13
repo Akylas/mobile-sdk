@@ -30,6 +30,10 @@ namespace carto {
         int width = 0;
         int height = 0;
         float far = 0;
+        // The camera this was rendered from. An occlusion query must project with THIS matrix,
+        // not the current frame's: the buffer lags a moving camera by up to the submit interval,
+        // and comparing a current-camera distance against it inverts the answer while zooming.
+        cglib::mat4x4<double> mvpMatrix = cglib::mat4x4<double>::zero();
     };
 
     /**
@@ -66,6 +70,7 @@ namespace carto {
             int width = 0;
             int height = 0;
             float far = 0;
+            cglib::mat4x4<double> mvpMatrix = cglib::mat4x4<double>::zero(); // carried into the result
             std::vector<DrawItem> items;
         };
 
