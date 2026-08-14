@@ -16,6 +16,14 @@ Table parameters and the repaint paths were added in PRs
 [`docs/style-parameters.md`](https://github.com/Akylas/mobile-sdk/blob/master/docs/style-parameters.md).
 :::
 
+<figure class="docs-figure">
+
+![One route highlighted by a style parameter](/img/features/style-parameter-selection.jpg)
+
+<figcaption>The demo's selection bench: 12 routes from one GeoJSON source, one of them selected. Setting <code>selected_id</code> changes its colour and width with a repaint — no tile is decoded again.</figcaption>
+
+</figure>
+
 ## Declaring and setting
 
 ```json
