@@ -45,14 +45,18 @@ namespace carto {
          */
         unsigned int getTexture();
         /**
-         * Binds the framebuffer and clears it to "infinitely far". Returns false if unavailable.
+         * Binds the framebuffer, clearing every page to "infinitely far" when clearAll is set.
+         * Returns false if unavailable.
          */
-        bool beginPass();
+        bool beginPass(bool clearAll);
         /**
-         * Restricts drawing to one cascade's page. Must be called after beginPass, which clears
-         * every page at once.
+         * Restricts drawing (and clearing) to one cascade's page. Must be called after beginPass.
          */
         void setCascadeViewport(int cascade);
+        /**
+         * Clears the current cascade's page alone, for a pass that refreshes only some of them.
+         */
+        void clearCascade();
         /**
          * Restores the previous framebuffer and viewport.
          */

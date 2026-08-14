@@ -112,7 +112,7 @@ namespace carto {
         return createResources() ? _texture : 0;
     }
 
-    bool TerrainShadowMap::beginPass() {
+    bool TerrainShadowMap::beginPass(bool clearAll) {
         if (!createResources()) {
             return false;
         }
@@ -133,16 +133,28 @@ namespace carto {
         glPolygonOffset(1.0f, 2.0f);
         // White = depth 1 = nothing in the way, which is what an untouched texel must mean.
         glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        if (clearAll) {
+            glDisable(GL_SCISSOR_TEST);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        }
         return true;
     }
 
     void TerrainShadowMap::setCascadeViewport(int cascade) {
         int index = std::min(_cascades - 1, std::max(0, cascade));
         glViewport(index * _size, 0, _size, _size);
+        // Scissored as well as viewported: the pages are refreshed independently, so a clear for
+        // one of them must not blank the ones being reused.
+        glScissor(index * _size, 0, _size, _size);
+        glEnable(GL_SCISSOR_TEST);
+    }
+
+    void TerrainShadowMap::clearCascade() {
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
 
     void TerrainShadowMap::endPass(unsigned int previousFrameBuffer, int viewportWidth, int viewportHeight) {
+        glDisable(GL_SCISSOR_TEST);
         glDisable(GL_POLYGON_OFFSET_FILL);
         glPolygonOffset(0.0f, 0.0f);
         glBindFramebuffer(GL_FRAMEBUFFER, previousFrameBuffer);

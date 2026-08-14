@@ -52,10 +52,63 @@ Design points, each measured:
   grey wash that appears and disappears with the cover. The **shadow pass alone** floors the sun
   altitude at 15°, keeping the azimuth, which caps shadow length at ~3.7× the relief. N·L lighting
   keeps the true sun, so a low sun still reads as a low sun.
-- **Caster margin.** Casters are taken from the cover plus a ring of neighbours: a mountain just off
-  screen still throws its shadow into the view, and without the margin its shadow vanishes as you
-  zoom in and it leaves the visible set.
-- The map is **snapped and cached** so a stationary camera does not re-render it.
+- **Caster margin.** Casters are taken from the cover plus a ring of neighbours (`shadowCasterMargin`
+  tiles): a mountain just off screen still throws its shadow into the view, and without the margin
+  its shadow vanishes as you zoom in and it leaves the visible set.
+- **The caster set has to stay a partition of the ground.** The cover is a quadtree partition, but the
+  ring is generated at each cover tile's own zoom and the cover mixes zooms (up to
+  `TerrainMaxTileZoomCoarsening` levels), so the ring around a coarse tile lands on top of the fine
+  tiles beside it. Two casters over the same ground at different DEM levels disagree by tens of
+  metres, the shallower one wins the depth test, and the receiver — which uses the fine level — ends
+  up in the shadow of *its own ground*. On screen: blocky, roughly axis-aligned dark patches that do
+  not follow the sun azimuth, appearing from about tilt 60 (SDK convention, 90 = top down) and growing
+  as the view flattens, because a flatter view mixes more zooms. `MapRenderer::applyTerrainShadows`
+  therefore **subdivides** an overlapping ring candidate against what is already taken, finest zoom
+  first, instead of dropping it — dropping would leave the ground outside the finer tiles with no
+  caster. Measured (emulator, Grenoble z13 tilt 30, sun 30°/135°, 3 × 1024): 47.6% of the flat valley
+  wrongly darkened before, 4.1% after — the same as with no ring at all (`shadowMargin 0`), which is
+  the floor. Ruled out on the way: bias (`shadowBias 10` → 42.5%), map resolution (4096 → 52.1%,
+  *worse*), cascade count (1 cascade → 36.5%). None of them is the mechanism.
+- A tile with **no elevation yet casts nothing**: drawn flat it is a sea-level plane, which is not the
+  terrain it stands for, and a receiver without elevation takes no shadow either.
+- The map is **snapped and cached** so a stationary camera does not re-render it. The cache is **per
+  page**: each cascade's box is snapped to its own lattice, and the outer page — which holds most of
+  the casters — keeps its matrix over far more camera movement than the near one. A page that is not
+  refreshed keeps the matrix it was drawn with, so the uniforms are taken from what the pages hold,
+  not from this frame's fit. Refreshing only the changed pages needs a scissored clear
+  (`TerrainShadowMap::clearCascade`).
+- **The per-cascade caster cull is exact.** The sides are snapped *before* the casters are culled
+  against them, so the cull uses the final box and a one-texel margin; culling against the unsnapped
+  box needed a 20% slop, which on the outer cascade is kilometres of ground. Cost of the pass on the
+  emulator, panning at z13 tilt 30: 287 tile draws / 1.3 ms per pass → 120 / 0.6 ms with the exact
+  cull → 70 / 0.5 ms with per-page refresh, and passes now redraw one page instead of three.
+
+### Where the shadow cost actually is
+
+Measured on the Crosscall (Adreno 610, `-PprofileRender`, Grenoble z13 tilt 30, 3 × 1024, swipe-panned).
+GPU `drape` section, which contains the caster pass and the terrain surface draws:
+
+| Configuration | GPU drape | Note |
+|---|---|---|
+| `shadow 0` | 14.5–17.0 ms | shadow path not compiled in |
+| `shadow 0.6` | 46.7–51.1 ms | ~33 ms for the feature, half the frame |
+| `shadow 0.02` | 43.9–51.8 ms | shader runs, shadow invisible — **same cost** |
+| `shadowCascades 1` | 42.9–46.3 ms | one page, 76 caster draws instead of 102 |
+| one PCF tap instead of nine | 36.5–46.3 ms | |
+| `meshResolution 16` (vs 64) | 28.1–30.7 ms on, 7.3–7.9 off | feature cost 21 ms instead of 33 |
+
+So the caster pass is about **4 ms** of the 33 and the rest is the **receiver**: the taps are worth
+~6 ms and the remainder is per-vertex and per-fragment overhead that scales with the terrain mesh —
+one shadow matrix per vertex and one highp vec3 varying per cascade. Optimising the caster pass
+further (fewer tiles, coarser caster mesh, cheaper pages) is therefore not where the frame is.
+
+The lookup is now **compiled for the cascade count in use** (`GLTileRenderer::shadowReceiverFlags`,
+`SHADOW_CASCADES_2/3/4`); it used to declare four matrices and four varyings whatever the count.
+Measured on the same scene: at one cascade 44.3 → 37 ms of drape, i.e. **~2.3 ms per cascade per
+frame**, so ~2 ms at the default 3 — real, but inside the run-to-run spread. The remaining ~26 ms is
+the single-cascade base cost. Getting that down means selecting the cascade in the fragment stage
+from view distance, so the vertex stage applies one matrix and interpolates one varying whatever the
+cascade count — not yet done.
 
 **Current state: cast shadows are switched OFF on the shared ground.**
 `applyTerrainShadows(..., castShadows = false, ...)` — the light, the boxes and the caster pass are

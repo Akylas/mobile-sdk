@@ -294,7 +294,9 @@ namespace carto {
         float _shadowMapFadeSignature = 0.0f;
         std::array<cglib::mat4x4<double>, 4> _shadowMapViewProjs;
         std::array<float, 4> _shadowMapBiases = { };
-        std::vector<vt::TileId> _shadowMapCasterTiles;
+        // Per cascade: the pages are refreshed independently, and the outer one - which holds most
+        // of the casters - keeps its box over far more camera movement than the near one.
+        std::array<std::vector<vt::TileId>, 4> _shadowMapCasterTiles;
 
         unsigned int _layersElevationVersion = 0;
         std::optional<std::chrono::steady_clock::time_point> _lastElevationRefreshTime;
