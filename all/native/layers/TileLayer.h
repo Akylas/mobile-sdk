@@ -447,6 +447,8 @@ namespace carto {
         float shadowCasterFadeSignature() const;
         int renderShadowCasters(const std::vector<vt::TileId>& tileIds, const cglib::mat4x4<double>& lightViewProj, bool castGround);
         void setTerrainShadowMap(unsigned int texture, int mapSize, int cascades, const std::array<float, 4>& depthBiases, float strength, float softness, const std::array<cglib::mat4x4<double>, 4>& lightViewProjs);
+        void setTerrainShadowMask(unsigned int texture, float invScreenWidth, float invScreenHeight);
+        int renderTerrainShadowMask(const std::vector<vt::TileId>& tileIds);
         void setTerrainSunLighting(bool enabled, const cglib::vec3<float>& sunDir, const Color& sunColor, float sunIntensity, float ambientIntensity);
 
     protected:

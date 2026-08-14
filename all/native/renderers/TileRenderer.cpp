@@ -410,6 +410,23 @@ namespace carto {
         return 0;
     }
 
+    void TileRenderer::setTerrainShadowMask(unsigned int texture, float invScreenWidth, float invScreenHeight) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            tileRenderer->setTerrainShadowMask(static_cast<GLuint>(texture), invScreenWidth, invScreenHeight);
+        }
+    }
+
+    int TileRenderer::renderTerrainShadowMask(const std::vector<vt::TileId>& tileIds) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            return tileRenderer->renderTerrainShadowMask(tileIds);
+        }
+        return 0;
+    }
+
     void TileRenderer::setTerrainShadowMap(unsigned int texture, int mapSize, int cascades, const std::array<float, 4>& depthBiases, float strength, float softness, const std::array<cglib::mat4x4<double>, 4>& lightViewProjs) {
         std::lock_guard<std::mutex> lock(_mutex);
 
@@ -1358,7 +1375,14 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
         uniform vec3 u_viewDir;
         uniform vec2 u_sunParams; // x = sun intensity (0 = legacy lighting), y = ambient
         vec4 applyLighting(lowp vec4 color, mediump vec3 normal, highp_opt float height, bool sideVertex) {
-            lowp vec3 baseColor = sideVertex ? color.rgb * (1.0 - 0.5 / (1.0 + height * height)) : color.rgb;
+            // Ambient occlusion where a wall meets the ground: that corner is shadowed by the ground
+            // and by the building's own footprint whatever the sun does, and it is the cue that
+            // makes an extrusion stand on the terrain instead of floating over it - the shadow map
+            // cannot resolve it, its texels are metres wide. This lighting runs PER VERTEX, so the
+            // shape of the falloff is irrelevant: only the value at the base ring and at the roof
+            // survive, and the wall carries the linear interpolation between them. What the cue is
+            // worth is therefore the base value alone.
+            lowp vec3 baseColor = sideVertex ? color.rgb * (1.0 - 0.65 / (1.0 + height * height)) : color.rgb;
             if (u_sunParams.x > 0.0) {
                 // Sun lighting: roofs AND walls answer to the light. The legacy path lit roofs by
                 // the VIEW direction, so from above - where roofs are most of what you see - the

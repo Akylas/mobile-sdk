@@ -31,6 +31,7 @@
 #include "renderers/TerrainRenderer.h"
 #include "renderers/utils/TerrainDrapeCache.h"
 #include "renderers/utils/TerrainShadowMap.h"
+#include "renderers/utils/TerrainShadowMaskBuffer.h"
 
 #include <chrono>
 #include <set>
@@ -1040,6 +1041,7 @@ namespace carto {
         // recreated context would otherwise draw into and sample from stale names.
         _terrainDrapeCache.reset();
         _terrainShadowMap.reset();
+        _terrainShadowMaskBuffer.reset();
         _shadowMapValid = false;
 
         // Notify renderers about the event
@@ -1421,6 +1423,10 @@ namespace carto {
     // A cached shadow map is refreshed at least this often anyway: elevation tiles can stream in
     // without changing the light box or the caster tile list, and a shadow cast by data that has
     // since arrived would otherwise never appear.
+    // Screen divisor for the terrain shadow mask. A terrain shadow edge is a penumbra, so a
+    // quarter of the screen resolution is not visible in the result - measured against a half:
+    // the mask pass 14-16 ms -> 8-9 ms, and 8.5 -> 9.6 fps.
+    static const int SHADOW_MASK_DIVISOR = 4;
     static const int SHADOW_MAP_MAX_AGE = 30;
     // Frames between two refreshes driven by newly arrived tile content.
     static const int SHADOW_MAP_CONTENT_INTERVAL = 4;
@@ -1525,18 +1531,66 @@ namespace carto {
                 std::vector<vt::TileId> casterTileIds = coverTileIds;
                 int casterMargin = lighting.shadowCasterMargin;
                 if (casterMargin > 0) {
-                    std::set<std::pair<int, std::pair<int, int> > > seen;
+                    // The caster set must stay a PARTITION of the ground, like the cover it extends.
+                    // A margin ring is generated at its own cover tile's zoom and the cover mixes
+                    // zooms, so the ring around a coarse cover tile lands on top of the fine tiles
+                    // next to it. Two casters over the same ground at different DEM levels disagree
+                    // by tens of metres, the shallower one wins the depth test, and the receiver -
+                    // which uses the fine level - is then in the shadow of its own ground: blocky
+                    // patches that grow with the tilt, because a tilted cover mixes more zooms.
+                    // An overlapping candidate is SUBDIVIDED rather than dropped, so the ground it
+                    // covers outside the finer tiles keeps a caster.
+                    using TileKey = std::pair<int, std::pair<int, int> >;
+                    auto keyOf = [](const vt::TileId& tileId) { return TileKey(tileId.zoom, { tileId.x, tileId.y }); };
+                    std::set<TileKey> taken, takenAncestors;
+                    int maxCoverZoom = 0;
+                    auto take = [&](const vt::TileId& tileId) {
+                        taken.insert(keyOf(tileId));
+                        for (int zoom = tileId.zoom - 1; zoom >= 0; zoom--) {
+                            int shift = tileId.zoom - zoom;
+                            takenAncestors.insert(TileKey(zoom, { tileId.x >> shift, tileId.y >> shift }));
+                        }
+                    };
                     for (const vt::TileId& tileId : coverTileIds) {
-                        seen.insert({ tileId.zoom, { tileId.x, tileId.y } });
+                        take(tileId);
+                        maxCoverZoom = std::max(maxCoverZoom, tileId.zoom);
                     }
+                    // Finest first: a coarse candidate then splits against the fine tiles already
+                    // taken, instead of claiming their ground and being split by nothing.
+                    std::vector<vt::TileId> candidates;
                     for (const vt::TileId& tileId : coverTileIds) {
                         for (int dy = -casterMargin; dy <= casterMargin; dy++) {
                             for (int dx = -casterMargin; dx <= casterMargin; dx++) {
-                                vt::TileId neighbour(tileId.zoom, tileId.x + dx, tileId.y + dy);
-                                if (seen.insert({ neighbour.zoom, { neighbour.x, neighbour.y } }).second) {
-                                    casterTileIds.push_back(neighbour);
-                                }
+                                candidates.emplace_back(tileId.zoom, tileId.x + dx, tileId.y + dy);
                             }
+                        }
+                    }
+                    std::stable_sort(candidates.begin(), candidates.end(), [](const vt::TileId& a, const vt::TileId& b) { return a.zoom > b.zoom; });
+                    std::vector<vt::TileId> pending;
+                    for (const vt::TileId& candidate : candidates) {
+                        pending.assign(1, candidate);
+                        while (!pending.empty()) {
+                            vt::TileId tileId = pending.back();
+                            pending.pop_back();
+                            if (taken.count(keyOf(tileId)) > 0) {
+                                continue;
+                            }
+                            bool insideTaken = false;
+                            for (int zoom = tileId.zoom - 1; zoom >= 0 && !insideTaken; zoom--) {
+                                int shift = tileId.zoom - zoom;
+                                insideTaken = taken.count(TileKey(zoom, { tileId.x >> shift, tileId.y >> shift })) > 0;
+                            }
+                            if (insideTaken) {
+                                continue; // something finer or equal already casts over this ground
+                            }
+                            if (takenAncestors.count(keyOf(tileId)) > 0 && tileId.zoom < maxCoverZoom) {
+                                for (int corner = 0; corner < 4; corner++) {
+                                    pending.emplace_back(tileId.zoom + 1, tileId.x * 2 + (corner & 1), tileId.y * 2 + (corner >> 1));
+                                }
+                                continue;
+                            }
+                            take(tileId);
+                            casterTileIds.push_back(tileId);
                         }
                     }
                 }
@@ -1586,36 +1640,50 @@ namespace carto {
                     for (const std::shared_ptr<TileLayer>& tileLayer : tileLayers) {
                         fadeSignature = std::max(fadeSignature, tileLayer->shadowCasterFadeSignature());
                     }
-                    bool refresh = !_shadowMapValid
+                    // The atlas layout itself changed: every page has to be redrawn.
+                    bool refreshAll = !_shadowMapValid
                         || _shadowMapSize != _terrainShadowMap->getSize()
-                        || _shadowMapCascades != cascades
-                        || _shadowMapCasterTiles != casterTileIds;
-                    for (int cascade = 0; cascade < cascades && !refresh; cascade++) {
-                        refresh = !(_shadowMapViewProjs[cascade] == lightViewProjs[cascade]);
-                    }
+                        || _shadowMapCascades != cascades;
                     _shadowMapAge++;
                     // Content-driven refreshes are RATIONED, camera-driven ones are
                     // not. A shadow left behind by a moving camera is in the wrong
                     // place and unmissable; a building whose shadow is a step behind
                     // its own growth is not.
-                    if (!refresh && std::abs(fadeSignature - _shadowMapFadeSignature) > SHADOW_MAP_FADE_STEP) {
-                        refresh = true;
+                    if (!refreshAll && std::abs(fadeSignature - _shadowMapFadeSignature) > SHADOW_MAP_FADE_STEP) {
+                        refreshAll = true;
                     }
-                    if (!refresh && contentChanged && _shadowMapAge >= SHADOW_MAP_CONTENT_INTERVAL) {
-                        refresh = true;
+                    if (!refreshAll && contentChanged && _shadowMapAge >= SHADOW_MAP_CONTENT_INTERVAL) {
+                        refreshAll = true;
                     }
-                    if (!refresh && _shadowMapAge >= SHADOW_MAP_MAX_AGE) {
-                        refresh = true;
+                    if (!refreshAll && _shadowMapAge >= SHADOW_MAP_MAX_AGE) {
+                        refreshAll = true;
                     }
-                    if (refresh) {
-                        _shadowMapValid = false;
+                    // Otherwise it is per PAGE: each cascade's box is snapped to its own lattice,
+                    // and the outer one - which holds most of the casters, since its box covers the
+                    // whole view - keeps its matrix over far more camera movement than the near one.
+                    // Redrawing all three because the near box stepped was most of the pass cost.
+                    std::array<bool, TerrainShadowMap::MAX_CASCADES> refreshCascade = { };
+                    bool refreshAny = false;
+                    for (int cascade = 0; cascade < cascades; cascade++) {
+                        refreshCascade[cascade] = refreshAll
+                            || !(_shadowMapViewProjs[cascade] == lightViewProjs[cascade])
+                            || _shadowMapCasterTiles[cascade] != cascadeCasterTiles[cascade];
+                        refreshAny = refreshAny || refreshCascade[cascade];
+                    }
+                    if (refreshAny) {
                         std::chrono::steady_clock::time_point shadowStart = std::chrono::steady_clock::now();
-                        if (_terrainShadowMap->beginPass()) {
+                        FRAME_PROF_GPU_BEGIN(SECTION_SHADOWCAST);
+                        if (_terrainShadowMap->beginPass(refreshAll)) {
                             for (int cascade = 0; cascade < cascades; cascade++) {
-                                // The cascades are pages of one texture, so the pass
-                                // is cleared once and each cascade draws into its own
-                                // viewport.
+                                if (!refreshCascade[cascade]) {
+                                    continue;
+                                }
+                                // The cascades are pages of one texture, so each one draws into its
+                                // own viewport, and a page redrawn on its own clears just itself.
                                 _terrainShadowMap->setCascadeViewport(cascade);
+                                if (!refreshAll) {
+                                    _terrainShadowMap->clearCascade();
+                                }
                                 // EVERY drape layer casts, not just the first. The terrain
                                 // surface is shared, but 3D extrusions belong to whichever
                                 // layer holds them - in a composite that is a later style
@@ -1632,24 +1700,31 @@ namespace carto {
                                     // only this tells them apart.
                                     shadowExtrusionDraws += draws - (castGround ? static_cast<int>(cascadeCasterTiles[cascade].size()) : 0);
                                 }
+                                _shadowMapViewProjs[cascade] = lightViewProjs[cascade];
+                                _shadowMapBiases[cascade] = shadowBiases[cascade];
+                                _shadowMapCasterTiles[cascade] = cascadeCasterTiles[cascade];
+                                shadowCasterDraws += static_cast<int>(cascadeCasterTiles[cascade].size());
                             }
                             _terrainShadowMap->endPass(prevFBO, viewState.getWidth(), viewState.getHeight());
+                            FRAME_PROF_GPU_END();
                             shadowMsSum += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - shadowStart).count();
                             _shadowMapValid = true;
-                            _shadowMapViewProjs = lightViewProjs;
-                            _shadowMapBiases = shadowBiases;
-                            _shadowMapCasterTiles = casterTileIds;
                             _shadowMapSize = _terrainShadowMap->getSize();
                             _shadowMapCascades = cascades;
                             _shadowMapFadeSignature = fadeSignature;
                             _shadowMapAge = 0;
-                            for (int cascade = 0; cascade < cascades; cascade++) {
-                                shadowCasterDraws += static_cast<int>(cascadeCasterTiles[cascade].size());
-                            }
                             shadowPasses++;
+                        } else {
+                            FRAME_PROF_GPU_END();
+                            _shadowMapValid = false;
                         }
                     }
                     if (_shadowMapValid) {
+                        // The matrices the PAGES were drawn with, not this frame's fit: a page that
+                        // did not need refreshing holds the box it was rendered with, and sampling
+                        // it with a newer matrix would slide every shadow in it.
+                        lightViewProjs = _shadowMapViewProjs;
+                        shadowBiases = _shadowMapBiases;
                         shadowTexture = _terrainShadowMap->getTexture();
                         shadowMapSize = _terrainShadowMap->getSize();
                         shadowCascades = cascades;
@@ -1698,6 +1773,40 @@ namespace carto {
             // frame's sun, so toggling the light did nothing until something else
             // happened to force another frame.
             tileLayer->setTerrainSunLighting(lighting.terrainLightingEnabled, lighting.sunDir, lighting.sunColor, lighting.sunIntensity, lighting.ambientIntensity);
+        }
+        // Resolve the terrain's shadow ONCE per screen pixel, at a fraction of the screen
+        // resolution, so the surface
+        // draws - the drape, and the paint over it - each cost one texture fetch instead of a
+        // cascade choice, a matrix, derivatives and four taps over the whole screen.
+        unsigned int maskTexture = 0;
+        float invWidth = 0.0f, invHeight = 0.0f;
+        if (shadowTexture != 0 && viewState.getWidth() > 0 && viewState.getHeight() > 0) {
+            if (!_terrainShadowMaskBuffer) {
+                _terrainShadowMaskBuffer = std::make_unique<TerrainShadowMaskBuffer>();
+            }
+            _terrainShadowMaskBuffer->setSize(viewState.getWidth(), viewState.getHeight(), SHADOW_MASK_DIVISOR);
+            FRAME_PROF_GPU_BEGIN(SECTION_SHADOWMASK);
+            if (_terrainShadowMaskBuffer->beginPass()) {
+                // The mask is produced by the FIRST layer alone: the surface is shared, so every
+                // layer would draw the same geometry into it.
+                int maskDraws = tileLayers.front()->renderTerrainShadowMask(coverTileIds);
+                _terrainShadowMaskBuffer->endPass(prevFBO, viewState.getWidth(), viewState.getHeight());
+                maskTexture = _terrainShadowMaskBuffer->getTexture();
+                {
+                    static int probe = 0;
+                    if ((probe++ % 121) == 120) {
+                        Log::Infof("PROBE mask: texture %u, %d x %d, draws %d, cover %d", maskTexture, _terrainShadowMaskBuffer->getWidth(), _terrainShadowMaskBuffer->getHeight(), maskDraws, static_cast<int>(coverTileIds.size()));
+                    }
+                }
+                // Screen pixels -> mask uv. The scale is the SCREEN size, not the mask's, because
+                // it maps gl_FragCoord of the full-resolution draw that samples it.
+                invWidth = 1.0f / viewState.getWidth();
+                invHeight = 1.0f / viewState.getHeight();
+            }
+            FRAME_PROF_GPU_END();
+        }
+        for (const std::shared_ptr<TileLayer>& tileLayer : tileLayers) {
+            tileLayer->setTerrainShadowMask(maskTexture, invWidth, invHeight);
         }
     }
 
