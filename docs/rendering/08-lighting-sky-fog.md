@@ -125,6 +125,31 @@ frame time 33–54 ms → 25–35 ms. The same detach was added to `TerrainShado
 mask off, it changes nothing (40–41 ms) — it is the mask that needs it. `MapRenderer` already
 documents the same trap for the drape bake.
 
+### How far shadows reach
+
+The shadowed ground is bounded by what the map can **represent**, not only by what the view can see:
+the outer cascade's texel is its extent over the resolution, so shadowing 50 km through a 1024 page
+gives texels wider than the ridges casting into them - a grey wash. `calculateShadowViewProj` caps
+the range at `TARGET_SHADOW_TEXEL_METERS x mapSize` (10 m x the page, so ~10 km at 1024), on top of
+the existing relief-and-view heuristic.
+
+This is what makes shadows hold up as the view flattens; measured on the Crosscall at z14, per
+cascade, with the caster tile count:
+
+| tilt | before | after |
+|---|---|---|
+| 90 | 7.2 / 10.7 / 14.3 m, 162 tiles | unchanged - the cap does not bind |
+| 45 | 5.4 / 14.3 / 28.7 m, 242 tiles | 3.9 / 9.0 / 19.1 m, 176 tiles |
+| 30 | 3.3 / 13.1 / 52.6 m, 205 tiles | 1.3 / 2.7 / 10.7 m, 121 tiles |
+
+Sharper *and* cheaper, because a shorter range is also fewer caster tiles: 9.3 -> 10.6 fps at tilt 30.
+A city view at z16 is untouched (the view-based term is already smaller there). Nothing is visibly
+lost in the distance - past that range the shadows were texels tens of metres wide, and the last
+cascade already fades out over its outer margin.
+
+Shadows are **present at every tilt** from 90 down to 5 (the demo clamps at 30; `--es freeRoam look`
+opens the range): `shadows ACTIVE`, boxes fitted, no dropouts.
+
 ### What did not work
 
 Kept out on measurement, so the next person does not re-try them:
