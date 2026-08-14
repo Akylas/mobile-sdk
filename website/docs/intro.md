@@ -33,6 +33,7 @@ existing code keeps working. Highlights added by the fork:
 - 🎨 **[Live style parameters](/docs/features/style-parameters)** — change a colour, or the selected feature, without re-decoding a single tile.
 - 📐 **[GeoJSON vector tiling](/docs/features/geojson-vector-tiles)** — app data tiled through a geojson-vt pyramid and styled with CartoCSS.
 - ➡️ **[Navigation maneuver arrows](/docs/features/maneuver-arrows)** — cut from the route, drawn as a line with an arrow head.
+- 🧱 **[MapLibre Tiles (MLT)](/docs/features/maplibre-tiles)** — the columnar vector-tile format, read by the same decoder and styled the same way.
 - 🧭 Embedded **Valhalla** routing, exposed as a standalone routing library too.
 
 ## What's in the box

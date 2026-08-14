@@ -38,6 +38,7 @@ CARTO Mobile SDK is an open, multi-platform framework for visualizing maps and p
 * Shield anchors, SDF font icons, label plates and panorama callout labels
 * Live style parameters, including a feature selection that repaints instead of re-decoding
 * GeoJSON tiled through a geojson-vt pyramid, and navigation maneuver arrows built from a route
+* MapLibre Tiles (MLT) alongside MVT, in the same decoder and the same styles
 * PMTiles (local and HTTP)
 
 ## Requirements

@@ -92,6 +92,12 @@ const NewFeatures = [
     body: 'Turn arrows cut from the route and drawn as a line with an arrow head — no marker, no bitmap.',
   },
   {
+    icon: '🧱',
+    title: 'MapLibre Tiles',
+    to: '/docs/features/maplibre-tiles',
+    body: 'Read MLT as well as MVT — same decoder, same CartoCSS, format taken from the source or detected per tile.',
+  },
+  {
     icon: '🧩',
     title: 'PMTiles',
     to: '/docs/features/pmtiles',
