@@ -150,6 +150,26 @@ cascade already fades out over its outer margin.
 Shadows are **present at every tilt** from 90 down to 5 (the demo clamps at 30; `--es freeRoam look`
 opens the range): `shadows ACTIVE`, boxes fitted, no dropouts.
 
+## Buildings
+
+`TileRenderer::LIGHTING_SHADER_3D` lights extrusions, and it is installed **per vertex**
+(`LightingShader(true, ...)`). That has a consequence worth knowing before touching it: any function
+of height in there only reaches the screen through the values at the base ring and at the roof - the
+wall carries the linear interpolation between them, whatever curve the formula draws. A falloff
+"over the first metre" is therefore a full-height ramp on screen, and the only thing that changes the
+look is the endpoint value.
+
+The ambient term at the foot of a wall (`1 - 0.65/(1 + h*h)`) is the cue that makes an extrusion
+stand on the terrain rather than float over it: that corner is occluded by the ground and by the
+building's own footprint whatever the sun does, and the shadow map cannot resolve it - its texels are
+metres wide. Measured luminance down a wall on the device: 206 at the roof, 100 at the foot (124 with
+the previous 0.5, which read as too light).
+
+Contact darkening on the GROUND around a footprint is the other half and is not implemented: the
+ground does not know where the buildings are. It would need either screen-space AO over the scene
+depth (too expensive on an Adreno 610, where the whole 3D pass is ~9 ms) or a halo drawn by the
+style, which is a styling decision rather than an engine one.
+
 ### What did not work
 
 Kept out on measurement, so the next person does not re-try them:
