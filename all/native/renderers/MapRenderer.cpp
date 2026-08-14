@@ -1423,9 +1423,10 @@ namespace carto {
     // A cached shadow map is refreshed at least this often anyway: elevation tiles can stream in
     // without changing the light box or the caster tile list, and a shadow cast by data that has
     // since arrived would otherwise never appear.
-    // Screen divisor for the terrain shadow mask. A shadow edge is a penumbra, so half resolution
-    // is not visible in the result - and it is a quarter of the fragments.
-    static const int SHADOW_MASK_DIVISOR = 2;
+    // Screen divisor for the terrain shadow mask. A terrain shadow edge is a penumbra, so a
+    // quarter of the screen resolution is not visible in the result - measured against a half:
+    // the mask pass 14-16 ms -> 8-9 ms, and 8.5 -> 9.6 fps.
+    static const int SHADOW_MASK_DIVISOR = 4;
     static const int SHADOW_MAP_MAX_AGE = 30;
     // Frames between two refreshes driven by newly arrived tile content.
     static const int SHADOW_MAP_CONTENT_INTERVAL = 4;
@@ -1773,7 +1774,8 @@ namespace carto {
             // happened to force another frame.
             tileLayer->setTerrainSunLighting(lighting.terrainLightingEnabled, lighting.sunDir, lighting.sunColor, lighting.sunIntensity, lighting.ambientIntensity);
         }
-        // Resolve the terrain's shadow ONCE per screen pixel, at half resolution, so the surface
+        // Resolve the terrain's shadow ONCE per screen pixel, at a fraction of the screen
+        // resolution, so the surface
         // draws - the drape, and the paint over it - each cost one texture fetch instead of a
         // cascade choice, a matrix, derivatives and four taps over the whole screen.
         unsigned int maskTexture = 0;

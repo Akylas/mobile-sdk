@@ -14,8 +14,8 @@ namespace carto {
      *
      * The shadow lookup is the most expensive thing a shadowed fragment does, and the terrain
      * covers the whole screen - twice over where a paint is drawn on the drape. Resolving it once
-     * per screen pixel, at half resolution, turns every one of those draws into a single texture
-     * fetch. Half resolution costs nothing visually: a shadow edge is a penumbra anyway.
+     * per screen pixel, at a fraction of the resolution, turns every one of those draws into a
+     * single fetch. The reduced resolution costs nothing visually: a shadow edge is a penumbra.
      *
      * GL thread only.
      */

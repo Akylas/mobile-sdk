@@ -107,12 +107,14 @@ further (fewer tiles, coarser caster mesh, cheaper pages) is therefore not where
 `TerrainShadowMaskBuffer` (all/native/renderers/utils/) + `SHADOW_MASK_OUT` / `SHADOW_MASK_IN`.
 
 The terrain surface covers the whole screen, and where a paint is drawn on the drape it covers it
-twice, so the lookup ran once per covering draw per pixel. It is now resolved **once, at half
+twice, so the lookup ran once per covering draw per pixel. It is now resolved **once, at a quarter of the screen
 resolution**: the same surface tiles are drawn into a half-size target with a fragment shader that
 stops at the shadow value (`renderTerrainShadowMask`, the fill path with `SHADOW_MASK_OUT`), and the
 real surface draws sample it by `gl_FragCoord.xy * uShadowMaskScale` — one fetch, no cascade choice,
-no matrices, no varyings, no taps. Half resolution is invisible in the result: a shadow edge is a
-penumbra, and the mask is sampled `GL_LINEAR`. 3D extrusions and undraped lines keep the analytic
+no matrices, no varyings, no taps. The reduced resolution is invisible in the result: a terrain
+shadow edge is a penumbra, and the mask is sampled `GL_LINEAR`. A quarter against a half costs
+nothing visible and is worth 14-16 ms -> 8-9 ms of mask pass, 8.5 -> 9.6 fps (with the profiler's
+own sections in both, which cost about 3 fps themselves). 3D extrusions and undraped lines keep the analytic
 path — they are not the terrain surface, so the mask does not hold their shadow.
 
 **Detach the mask texture from its framebuffer before anything samples it.** This is what makes the
