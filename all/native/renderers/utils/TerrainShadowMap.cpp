@@ -117,6 +117,10 @@ namespace carto {
             return false;
         }
         glBindFramebuffer(GL_FRAMEBUFFER, _frameBuffer);
+        // Re-attached per pass; endPass detaches it. A texture left attached to a framebuffer is
+        // still a render target, and sampling one in the same frame - which every shadowed draw
+        // does - is undefined and serialises on this driver.
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, _texture, 0);
         glViewport(0, 0, _size * _cascades, _size);
         glDisable(GL_BLEND);
         glDisable(GL_STENCIL_TEST);
@@ -155,6 +159,7 @@ namespace carto {
 
     void TerrainShadowMap::endPass(unsigned int previousFrameBuffer, int viewportWidth, int viewportHeight) {
         glDisable(GL_SCISSOR_TEST);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0); // see beginPass
         glDisable(GL_POLYGON_OFFSET_FILL);
         glPolygonOffset(0.0f, 0.0f);
         glBindFramebuffer(GL_FRAMEBUFFER, previousFrameBuffer);

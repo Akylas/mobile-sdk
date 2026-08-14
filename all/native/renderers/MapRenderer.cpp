@@ -31,6 +31,7 @@
 #include "renderers/TerrainRenderer.h"
 #include "renderers/utils/TerrainDrapeCache.h"
 #include "renderers/utils/TerrainShadowMap.h"
+#include "renderers/utils/TerrainShadowMaskBuffer.h"
 
 #include <chrono>
 #include <set>
@@ -1040,6 +1041,7 @@ namespace carto {
         // recreated context would otherwise draw into and sample from stale names.
         _terrainDrapeCache.reset();
         _terrainShadowMap.reset();
+        _terrainShadowMaskBuffer.reset();
         _shadowMapValid = false;
 
         // Notify renderers about the event
@@ -1421,6 +1423,9 @@ namespace carto {
     // A cached shadow map is refreshed at least this often anyway: elevation tiles can stream in
     // without changing the light box or the caster tile list, and a shadow cast by data that has
     // since arrived would otherwise never appear.
+    // Screen divisor for the terrain shadow mask. A shadow edge is a penumbra, so half resolution
+    // is not visible in the result - and it is a quarter of the fragments.
+    static const int SHADOW_MASK_DIVISOR = 2;
     static const int SHADOW_MAP_MAX_AGE = 30;
     // Frames between two refreshes driven by newly arrived tile content.
     static const int SHADOW_MAP_CONTENT_INTERVAL = 4;
@@ -1666,6 +1671,7 @@ namespace carto {
                     }
                     if (refreshAny) {
                         std::chrono::steady_clock::time_point shadowStart = std::chrono::steady_clock::now();
+                        FRAME_PROF_GPU_BEGIN(SECTION_SHADOWCAST);
                         if (_terrainShadowMap->beginPass(refreshAll)) {
                             for (int cascade = 0; cascade < cascades; cascade++) {
                                 if (!refreshCascade[cascade]) {
@@ -1699,6 +1705,7 @@ namespace carto {
                                 shadowCasterDraws += static_cast<int>(cascadeCasterTiles[cascade].size());
                             }
                             _terrainShadowMap->endPass(prevFBO, viewState.getWidth(), viewState.getHeight());
+                            FRAME_PROF_GPU_END();
                             shadowMsSum += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - shadowStart).count();
                             _shadowMapValid = true;
                             _shadowMapSize = _terrainShadowMap->getSize();
@@ -1707,6 +1714,7 @@ namespace carto {
                             _shadowMapAge = 0;
                             shadowPasses++;
                         } else {
+                            FRAME_PROF_GPU_END();
                             _shadowMapValid = false;
                         }
                     }
@@ -1764,6 +1772,39 @@ namespace carto {
             // frame's sun, so toggling the light did nothing until something else
             // happened to force another frame.
             tileLayer->setTerrainSunLighting(lighting.terrainLightingEnabled, lighting.sunDir, lighting.sunColor, lighting.sunIntensity, lighting.ambientIntensity);
+        }
+        // Resolve the terrain's shadow ONCE per screen pixel, at half resolution, so the surface
+        // draws - the drape, and the paint over it - each cost one texture fetch instead of a
+        // cascade choice, a matrix, derivatives and four taps over the whole screen.
+        unsigned int maskTexture = 0;
+        float invWidth = 0.0f, invHeight = 0.0f;
+        if (shadowTexture != 0 && viewState.getWidth() > 0 && viewState.getHeight() > 0) {
+            if (!_terrainShadowMaskBuffer) {
+                _terrainShadowMaskBuffer = std::make_unique<TerrainShadowMaskBuffer>();
+            }
+            _terrainShadowMaskBuffer->setSize(viewState.getWidth(), viewState.getHeight(), SHADOW_MASK_DIVISOR);
+            FRAME_PROF_GPU_BEGIN(SECTION_SHADOWMASK);
+            if (_terrainShadowMaskBuffer->beginPass()) {
+                // The mask is produced by the FIRST layer alone: the surface is shared, so every
+                // layer would draw the same geometry into it.
+                int maskDraws = tileLayers.front()->renderTerrainShadowMask(coverTileIds);
+                _terrainShadowMaskBuffer->endPass(prevFBO, viewState.getWidth(), viewState.getHeight());
+                maskTexture = _terrainShadowMaskBuffer->getTexture();
+                {
+                    static int probe = 0;
+                    if ((probe++ % 121) == 120) {
+                        Log::Infof("PROBE mask: texture %u, %d x %d, draws %d, cover %d", maskTexture, _terrainShadowMaskBuffer->getWidth(), _terrainShadowMaskBuffer->getHeight(), maskDraws, static_cast<int>(coverTileIds.size()));
+                    }
+                }
+                // Screen pixels -> mask uv. The scale is the SCREEN size, not the mask's, because
+                // it maps gl_FragCoord of the full-resolution draw that samples it.
+                invWidth = 1.0f / viewState.getWidth();
+                invHeight = 1.0f / viewState.getHeight();
+            }
+            FRAME_PROF_GPU_END();
+        }
+        for (const std::shared_ptr<TileLayer>& tileLayer : tileLayers) {
+            tileLayer->setTerrainShadowMask(maskTexture, invWidth, invHeight);
         }
     }
 

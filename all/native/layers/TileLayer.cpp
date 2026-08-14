@@ -1028,6 +1028,19 @@ namespace carto {
         return _tileRenderer->renderShadowCasters(tileIds, lightViewProj, castGround);
     }
 
+    void TileLayer::setTerrainShadowMask(unsigned int texture, float invScreenWidth, float invScreenHeight) {
+        if (_tileRenderer) {
+            _tileRenderer->setTerrainShadowMask(texture, invScreenWidth, invScreenHeight);
+        }
+    }
+
+    int TileLayer::renderTerrainShadowMask(const std::vector<vt::TileId>& tileIds) {
+        if (_tileRenderer) {
+            return _tileRenderer->renderTerrainShadowMask(tileIds);
+        }
+        return 0;
+    }
+
     void TileLayer::setTerrainShadowMap(unsigned int texture, int mapSize, int cascades, const std::array<float, 4>& depthBiases, float strength, float softness, const std::array<cglib::mat4x4<double>, 4>& lightViewProjs) {
         _tileRenderer->setTerrainShadowMap(texture, mapSize, cascades, depthBiases, strength, softness, lightViewProjs);
     }

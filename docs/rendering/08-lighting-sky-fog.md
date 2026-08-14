@@ -102,7 +102,44 @@ So the caster pass is about **4 ms** of the 33 and the rest is the **receiver**:
 one shadow matrix per vertex and one highp vec3 varying per cascade. Optimising the caster pass
 further (fewer tiles, coarser caster mesh, cheaper pages) is therefore not where the frame is.
 
-The lookup is now **compiled for the cascade count in use** (`GLTileRenderer::shadowReceiverFlags`,
+### The screen-space shadow mask
+
+`TerrainShadowMaskBuffer` (all/native/renderers/utils/) + `SHADOW_MASK_OUT` / `SHADOW_MASK_IN`.
+
+The terrain surface covers the whole screen, and where a paint is drawn on the drape it covers it
+twice, so the lookup ran once per covering draw per pixel. It is now resolved **once, at half
+resolution**: the same surface tiles are drawn into a half-size target with a fragment shader that
+stops at the shadow value (`renderTerrainShadowMask`, the fill path with `SHADOW_MASK_OUT`), and the
+real surface draws sample it by `gl_FragCoord.xy * uShadowMaskScale` — one fetch, no cascade choice,
+no matrices, no varyings, no taps. Half resolution is invisible in the result: a shadow edge is a
+penumbra, and the mask is sampled `GL_LINEAR`. 3D extrusions and undraped lines keep the analytic
+path — they are not the terrain surface, so the mask does not hold their shadow.
+
+**Detach the mask texture from its framebuffer before anything samples it.** This is what makes the
+mask pay at all: attached, it is still a render target, sampling it in the same frame is undefined,
+and this driver serialises every draw that reads it. Measured on the Crosscall, terrain z13 tilt 30,
+GPU drape section: 38–49 ms analytic, 37–45 ms with the mask still attached, **23–27 ms detached**;
+frame time 33–54 ms → 25–35 ms. The same detach was added to `TerrainShadowMap`; on its own, with the
+mask off, it changes nothing (40–41 ms) — it is the mask that needs it. `MapRenderer` already
+documents the same trap for the drape bake.
+
+### What did not work
+
+Kept out on measurement, so the next person does not re-try them:
+
+- **Fragment-side cascade selection** (one `vShadowLocal` varying, one matrix applied per fragment,
+  cascade picked from `gl_FragCoord.w` against the split distances). Correct, and *slower*: these
+  scenes are fragment-bound, so moving a mat4 out of the vertex stage costs more than the two
+  varyings it saves. City 3D pass 10.3–11.1 → 13.1–13.8 ms.
+- **Extrusions only in the near cascades**, and a **coarser caster mesh for the outer cascades**.
+  Neither moved the frame: with *zero* caster draws the pass still showed up to 60 ms of GPU-section
+  time in a city frame, so its cost is not the geometry.
+- That last number is also a warning about the tool: a GPU section absorbs the GPU's idle time, and
+  in the city the frame is not GPU-bound — the CPU frame time is flat (33–63 ms) across every one of
+  these builds. Read `PROF GPU` sections against the CPU frame time before believing a regression.
+  The open question in a city view is what makes it CPU-bound, not the shadow pass.
+
+The lookup is also **compiled for the cascade count in use** (`GLTileRenderer::shadowReceiverFlags`,
 `SHADOW_CASCADES_2/3/4`); it used to declare four matrices and four varyings whatever the count.
 Measured on the same scene: at one cascade 44.3 → 37 ms of drape, i.e. **~2.3 ms per cascade per
 frame**, so ~2 ms at the default 3 — real, but inside the run-to-run spread. The remaining ~26 ms is

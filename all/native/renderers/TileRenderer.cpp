@@ -410,6 +410,23 @@ namespace carto {
         return 0;
     }
 
+    void TileRenderer::setTerrainShadowMask(unsigned int texture, float invScreenWidth, float invScreenHeight) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            tileRenderer->setTerrainShadowMask(static_cast<GLuint>(texture), invScreenWidth, invScreenHeight);
+        }
+    }
+
+    int TileRenderer::renderTerrainShadowMask(const std::vector<vt::TileId>& tileIds) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            return tileRenderer->renderTerrainShadowMask(tileIds);
+        }
+        return 0;
+    }
+
     void TileRenderer::setTerrainShadowMap(unsigned int texture, int mapSize, int cascades, const std::array<float, 4>& depthBiases, float strength, float softness, const std::array<cglib::mat4x4<double>, 4>& lightViewProjs) {
         std::lock_guard<std::mutex> lock(_mutex);
 

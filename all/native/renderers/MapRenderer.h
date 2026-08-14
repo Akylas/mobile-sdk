@@ -52,6 +52,7 @@ namespace carto {
     class TileLayer;
     class TerrainDrapeCache;
     class TerrainShadowMap;
+    class TerrainShadowMaskBuffer;
     class ThreadWorker;
     class CullWorker;
     class VTLabelPlacementWorker;
@@ -287,6 +288,7 @@ namespace carto {
         // Camera pose the last drape-bake pass ran against, to tell a moving frame from a
         // still one (see the bake time budget in onDrawFrame).
         cglib::mat4x4<double> _drapeBakeLastMVPMatrix = cglib::mat4x4<double>::identity();
+        std::unique_ptr<TerrainShadowMaskBuffer> _terrainShadowMaskBuffer;
         bool _shadowMapValid = false;
         int _shadowMapSize = 0;
         int _shadowMapCascades = 0;
