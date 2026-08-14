@@ -75,6 +75,16 @@ geocoding, routing and offline support, but resulting binaries are about 40% sma
 ## Building process
 Be patient - full build will take 1+ hours. You can speed it up by limiting architectures and platforms where it is built.
 
+The Android-family scripts (`build-android.py`, `build-routing-android.py`, `build-xamarin.py`) pick
+**ninja** over make and prefix the compiler with **ccache**, both auto-detected and both opt-out
+(`--ninja none`, `--ccache none`). Ninja comes from `PATH`, otherwise from the newest
+`$ANDROID_HOME/cmake/*/bin/ninja`. Switching generator clears the affected `build/<target>-<abi>`
+directory — CMake refuses to reconfigure a Makefiles tree as Ninja. Raise the cache before the first
+run — `ccache --max-size 30G` — because one ABI writes ~1 GB of objects and the 5 GB default makes
+the four ABIs evict each other. Measured on one arm64 Release build with a warm private cache:
+**13.8 s** against 70.9 s cold. Where the binary size and the build time actually go is measured in
+[`docs/build-size.md`](docs/build-size.md).
+
 Go to 'scripts' library where the actual build scripts are located:
 
 ```
