@@ -157,5 +157,9 @@ namespace carto {
         return _encoding;
     }
 
+    std::string TileDataSource::getMetaData(const std::string& key) const {
+        return std::string();
+    }
+
 }
 

@@ -67,8 +67,7 @@ val demSource = MemoryCacheTileDataSource(
 // 2. Build terrain options. The decoder is resolved from the "encoding" metadata.
 val terrain = TerrainOptions(demSource).apply {
     isEnabled = true
-    painterOrderDepthEnabled = true   // recommended depth model
-    drapeFillsEnabled = true          // render-to-texture fill draping
+    isDrapeFillsEnabled = true        // render-to-texture fill draping (default on)
     meshResolution = 64               // grid cells per tile edge (2..256)
     exaggeration = 1.0f               // 1.0 = true-to-scale
 }
@@ -99,18 +98,26 @@ mapView.getOptions()?.setTerrainOptions(terrain)
 | `Enabled` | `true` | When off, the map renders flat but the DEM stays attached. |
 | `Exaggeration` | `1.0` | Height multiplier. Changing it re-tesselates loaded tiles (costly). |
 | `MeshResolution` | `32` | Grid cells per tile edge, clamped `2..256`. Limited by DEM resolution. |
-| `DrapeFillsEnabled` | `false` | Render-to-texture fill/background draping. |
-| `DrapeLinesEnabled` | `false` | Optionally drape tile lines too (softer, zero-cost hug). |
-| `BackgroundColor` | — | Fill color drawn before tiles (works even with zero tile layers). |
+| `DrapeFillsEnabled` | `true` | Render-to-texture fill/background draping. |
+| `DrapeLinesEnabled` | `true` | Drape tile lines too (softer, zero-cost hug). |
+| `DrapeResolution` | `0` | Drape texture size; `0` = derived from the tile size. |
+| `NoDrapeLayerFilter` | — | Layer-name pattern kept out of the drape (sharp geometry). |
+| `SeamlessTileEdgesEnabled` | `true` | Backfill the 1-texel DEM border from the neighbour level — removes the ridge at tile borders. |
+| `ElevationPrefetchEnabled` | `true` | Also request the neighbours of every visible terrain tile. |
+| `TileEdgeStitchingEnabled` | `true` | Stitch the mesh across tiles of different levels. |
+| `BackgroundColor` | transparent | Fill color drawn before tiles (works even with zero tile layers). |
 | `BackgroundBitmapEnabled` | `false` | Drape `Options.getBackgroundBitmap()` over the terrain (world-anchored, repeats). |
-| `MinZoom` / `CameraClearance` / `CameraClampDuration` | — | Camera behavior near/inside slopes. |
-| `ElevationCacheCapacity` | — | LRU capacity for the elevation-texture cache. |
+| `FogColor` / `FogStartDistance` / `FogDistance` | transparent / `0` / `0` | Metres. Transparent colour or distance 0 = no fog. |
+| `ViewDistanceFactor` / `ViewDistance` | `1.0` / `0` | Where the ground ends; `ViewDistance` overrides in metres. |
+| `MaxTileZoomCoarsening` | `3` | How much coarser far tiles may get. |
+| `BillboardOcclusionEnabled` / `…Tolerance` | `true` / `0.02` | Hide markers and popups behind a ridge. |
+| `SurfaceShaderSource` | — | Replace the terrain surface shader ([post-processing](/docs/features/post-processing)). |
+| `MinZoom` / `DepthBias` | `5` / `0.0002` | LOD floor and depth slack for draped geometry. |
 
 Recommended configuration:
 
 ```java
-terrainOptions.setDrapeFillsEnabled(true);
-terrainOptions.setMeshResolution(64);
+terrainOptions.setMeshResolution(64);   // the defaults already drape fills and lines
 ```
 
 ## Querying elevation

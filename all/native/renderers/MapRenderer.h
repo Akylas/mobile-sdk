@@ -52,6 +52,7 @@ namespace carto {
     class TileLayer;
     class TerrainDrapeCache;
     class TerrainShadowMap;
+    class TerrainShadowMaskBuffer;
     class ThreadWorker;
     class CullWorker;
     class VTLabelPlacementWorker;
@@ -287,6 +288,7 @@ namespace carto {
         // Camera pose the last drape-bake pass ran against, to tell a moving frame from a
         // still one (see the bake time budget in onDrawFrame).
         cglib::mat4x4<double> _drapeBakeLastMVPMatrix = cglib::mat4x4<double>::identity();
+        std::unique_ptr<TerrainShadowMaskBuffer> _terrainShadowMaskBuffer;
         bool _shadowMapValid = false;
         int _shadowMapSize = 0;
         int _shadowMapCascades = 0;
@@ -294,7 +296,9 @@ namespace carto {
         float _shadowMapFadeSignature = 0.0f;
         std::array<cglib::mat4x4<double>, 4> _shadowMapViewProjs;
         std::array<float, 4> _shadowMapBiases = { };
-        std::vector<vt::TileId> _shadowMapCasterTiles;
+        // Per cascade: the pages are refreshed independently, and the outer one - which holds most
+        // of the casters - keeps its box over far more camera movement than the near one.
+        std::array<std::vector<vt::TileId>, 4> _shadowMapCasterTiles;
 
         unsigned int _layersElevationVersion = 0;
         std::optional<std::chrono::steady_clock::time_point> _lastElevationRefreshTime;

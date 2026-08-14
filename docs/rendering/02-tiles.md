@@ -172,6 +172,86 @@ Standard sources (HTTP, MBTiles, PMTiles, assets) plus two of interest here:
   into `ElevationTileGrid`s held by `ElevationManager` ([04-terrain.md](04-terrain.md)).
 </content>
 
+## Two binary formats: MVT and MLT
+
+`MBVectorTileDecoder` reads either. `setTileFormat` takes `TILE_FORMAT_AUTO` (the default),
+`TILE_FORMAT_MVT` or `TILE_FORMAT_MLT`. Everything downstream of the decode — CartoCSS,
+symbolizers, nuti parameters, the `vt::Tile` — is shared; only the bytes-to-features step differs.
+
+```
+MBVectorTileDecoder ─ createFeatureDecoder() ─┬─ MBVTFeatureDecoder  (protobuf, pbf.hpp)
+                                              └─ MLTFeatureDecoder   (libs-external/mlt)
+                                                        │
+                             LayerFeatureDecoder ───────┘  ← what LayerTileReader reads
+```
+
+`LayerFeatureDecoder` is the seam: it owns the tile-to-target transform, the clip box and the
+feature-id override, and declares the four layer operations (`getLayerNames`, `hasLayer`,
+`createLayerFeatureIterator`, `findFeature`). `LayerTileReader` — formerly `MBVTTileReader` — reads
+through it, so it serves both formats unchanged. `TorqueFeatureDecoder` stays on the plain
+`FeatureDecoder` base: its features are addressed by frame, not by layer.
+
+### Detecting the format
+
+There is no magic number, but the two are separable by **framing**. An MLT tile is a sequence of
+`(varint layer length, varint layer tag, body)` that has to tile the buffer exactly, and the layer
+tag is 1 or 2. MVT is protobuf — its first byte is `0x1A` (field 3, wire type 2) and it does not
+fit that shape. `MLTFeatureDecoder::isTileData` runs that check; `TILE_FORMAT_AUTO` calls it.
+
+Measured against maplibre-tile-spec's own fixture corpus — 663 `.mlt` and 134 `.mvt`, the same
+OpenMapTiles and Bing tiles in both formats plus the synthetic set:
+
+| rule | MLT detected | MVT false positives |
+|---|---|---|
+| framing, layer tag = 1 | 654/663 | 0/134 |
+| framing, layer tag ∈ {1,2} | **663/663** | **0/134** |
+
+The 9 tag-1 misses are `test/synthetic/0x02/`, an experimental layer tag `mlt::Decoder` skips
+anyway. Note what the corpus does *not* cover: every `.mvt` in it comes from one encoder family, so
+an exotic MVT producer — leading extension fields, say — has not been tested against this. Set the
+format explicitly when the source is known and none of that matters.
+
+MapLibre itself does not detect: its style spec puts `encoding: mvt|mlt` on the source, defaulting
+to `mvt`. `TILE_FORMAT_MVT`/`TILE_FORMAT_MLT` are the equivalent, for a source that declares.
+
+**A declaring source wins over detection.** `TileDataSource::getMetaData(key)` reads the container's
+own metadata — the MBTiles/PMTiles table — and returns empty for sources that carry none. The
+`VectorTileLayer` constructor asks the source for `encoding`, then `format`, runs them through
+`MBVectorTileDecoder::parseTileFormat`, and pins the decoder when either is conclusive; a decoder
+the app already set explicitly is left alone. The wrapper sources (`Cache`, `Contour`, `Ordered`,
+`Combined`) forward the lookup the way they forward `getEncoding`.
+
+`parseTileFormat` matches case-insensitively by substring, because generators spell this
+differently. **`pbf` is deliberately inconclusive**: MapLibre's own demotiles declare
+`"format": "pbf"` with `"encoding": "mlt"`, so treating `pbf` as proof of MVT would force the wrong
+decoder on a tileset detection gets right. Only an explicit `mvt` / `…mapbox-vector…` pins MVT;
+`maplibre` or `mlt` anywhere pins MLT; everything else falls through to the framing check.
+
+Note this pins one format per decoder. A decoder shared between layers whose sources differ in
+format should be left on `TILE_FORMAT_AUTO`, which costs 1-19 ns a tile.
+
+Detection needs uncompressed bytes, so `MBVectorTileDecoder::createFeatureDecoder` inflates first
+and hands the plain buffer to whichever decoder it picks — the decoder's own `inflate_tile` then
+only re-checks three magic bytes.
+
+Behaviour differences worth knowing:
+
+- **MLT decodes the whole tile.** `mlt::Decoder::decode` returns every layer and every property
+  column; the format has no lazy path and its C++ API takes no layer filter. MVT decodes per layer,
+  on demand, and only the attributes the style asked for (`fields`). On an OpenMapTiles schema with
+  a `name:*` column per language that is a real difference, and it has not been benchmarked yet.
+- **No FeatureData cache on the MLT side.** `MBVTFeatureDecoder` dedups identical attribute sets by
+  their tag-index vector; MLT properties are columnar and carry no equivalent key, so each feature
+  gets its own `FeatureData`. The geometry cache (keyed by feature index) is kept for both.
+- **Buffer features are clipped identically.** MLT `place` features in the OMT fixtures reach
+  ±8000 on a 4096 extent; both decoders drop what falls outside the clip box, so the same features
+  survive.
+- Pre-tessellated triangles (`mlt::geometry::Geometry::getTriangles`) are **ignored** — vt still
+  tessellates with tess2. Wiring them through would skip that work and is the obvious next win.
+
+The decoder library itself is vendored decoder-only; what it costs in bytes is in
+[../build-size.md](../build-size.md).
+
 ## GeoJSON tiles: the on-demand pyramid
 
 `GeoJSONVectorTileDataSource` cuts MVT out of an in-memory GeoJSON layer through

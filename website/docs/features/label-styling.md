@@ -1,0 +1,148 @@
+---
+title: Labels, Shields & Font Icons
+sidebar_position: 10
+---
+
+# Labels, Shields and Font Icons
+
+CartoCSS label properties the fork added: a name that takes the free side of its icon, SDF font
+icons, rounded plates behind text and icon, callout labels for peaks, and per-label distance limits.
+
+:::info Fork feature
+Added in PRs [#57](https://github.com/Akylas/mobile-sdk/pull/57) and
+[#56](https://github.com/Akylas/mobile-sdk/pull/56), with the renderer half in
+`farfromrefug/mobile-carto-libs`. Everything here is style syntax — no API call is needed.
+Technical notes: [`docs/rendering/06-labels.md`](https://github.com/Akylas/mobile-sdk/blob/master/docs/rendering/06-labels.md).
+:::
+
+<figure class="docs-figure">
+
+![POI names placed on the free side of font icons](/img/features/shield-labels.jpg)
+
+<figcaption>~2300 live POI labels: each name takes the first free side of its icon, and falls back to the icon alone where nothing fits (<code>shield-text-optional</code>). Icons are single SDF glyphs of an icon font.</figcaption>
+
+</figure>
+
+## Anchored shields: the name takes a free side
+
+A shield is one label whose glyph run is `[icon] [text]`; only the text moves.
+
+```css
+#poi {
+  shield-name: [name];
+  shield-file: url(shields/place.svg);       /* a bitmap icon, as before */
+  /* AND/OR a font icon: the string holds the icon face's own character (a PUA codepoint, e.g. U+E990) */
+  shield-icon-name: '<icon character>';
+  shield-icon-face-name: 'osm';
+  shield-icon-size: 15;
+  shield-icon-fill: #b5651d;
+  shield-anchors: 'right,left,top,bottom';   /* sides, in preference order */
+  shield-text-optional: true;                /* no side free -> draw the icon alone */
+  shield-text-dx: 2;                         /* gap from the icon, MIRRORED per side */
+  shield-text-horizontal-alignment: 'auto';  /* justify wrapped lines with the chosen side */
+}
+```
+
+- The culler tries the side the label already holds, then the style's order, and takes the first
+  free one — keeping the current side is what stops names swapping sides under a moving camera.
+- The text is placed against the icon's **edge**, so `dx`/`dy` become a gap pushed away from the
+  icon and the style does not have to mirror its own alignment.
+- `shield-text-optional` costs one more layout variant, not a second label.
+- Placement re-runs when the camera zooms by a quarter of a level (it used to run only on tile-set
+  changes, so zooming in never gave a fallen-back name its text back).
+- Insertion is greedy: a name may take the space a lower-ranked neighbour's icon needed, and that
+  icon is hidden. `shield-placement-priority` is the lever over who wins; a bigger `shield-size`
+  sorts earlier among equal priorities.
+
+A style without `shield-anchors` builds no variants and takes exactly the old path. With every POI
+anchored (~2300 labels, 4 sides + icon-only) a placement pass measured **20.8 ms against 16.3 ms**
+unset, and frame time moved by under 1 ms.
+
+## Font icons
+
+`shield-icon-name` is a run of glyphs from an icon face, drawn before the text with its own colour
+and size. They are **SDF like the text**, so they stay sharp at any zoom and cost one atlas cell
+each — not a bitmap. A shield may carry both: `shield-file` is the first prefix glyph and the icon
+run follows it, side by side.
+
+If a style packages no font at all, labels no longer fail: the SDK falls back to the **system
+fonts** (`/system/fonts` on Android, CoreText on iOS/macOS, DirectWrite on UWP), with `Arial` mapped
+to the platform default. Style-packaged fonts always keep precedence.
+
+## Plates behind the text and the icon
+
+```css
+#road_label {
+  text-background-fill: #ffffff;
+  text-background-opacity: 0.85;
+  text-background-radius: 3;
+  text-background-padding-x: 4;
+  text-background-padding-y: 2;
+  text-background-border-fill: #444444;
+  text-background-border-width: 1;
+}
+```
+
+The same properties exist as `shield-background-*` (behind the text) and `shield-icon-background-*`
+(behind the icon run). A plate is 3-sliced from one cached atlas cell, and the border is the same
+cell drawn one width larger behind the fill — no shader, no second texture. Plates are part of what
+the label covers, so the culler tests the plated box.
+
+Measured with a plate behind name **and** icon on ~2100 labels: about **+1 ms per frame**, no change
+in draw-call count. A screen of road shields — tens, not thousands — is far below the noise.
+
+## Callout labels
+
+A panorama has hundreds of summits inside a few degrees of the horizon, all wanting the same band of
+pixels. `text-placement: nuticallout` lifts the name off its anchor in **screen pixels** and joins it
+back with a leader line; a name that loses its row steps to the next one instead of being hidden.
+
+```css
+#mountain_peak {
+  text-name: [name];
+  text-secondary-name: [ele] + 'm';           /* one label, two type sizes */
+  text-secondary-scale: 0.62;
+  text-placement: nuticallout;
+  text-callout-screen-anchor: 0.25;           /* band, as a fraction of screen height from the top */
+  text-callout-step: -18;                     /* pixels per row; negative stacks DOWNWARDS */
+  text-callout-max-rows: 6;
+  text-callout-line-anchor: bottom-left;      /* the point held over the summit */
+  text-callout-align: top-right;              /* the point put on the band line */
+  text-callout-persist: 2;                    /* passes a visible name may fail before it hides */
+  text-min-distance: 20;
+  text-placement-priority: [ele];             /* the higher summit claims the row … */
+  text-rank: 0 - [view::distance]/100;        /* … and the nearer of two equals wins it */
+}
+```
+
+- `view::distance` is metres from the camera to the label, evaluated per label per placement pass
+  and **added to the priority**. It is defined in this expression only, and it never changes how a
+  label looks — only which of two colliding labels keeps its slot.
+- Write `0 - x`, not `-x`: a leading minus in front of a field parses as the literal string `"-"`
+  and the declaration silently fails.
+- A callout must fit on the screen **above** its feature or it loses its name — a summit already
+  high in the frame has nowhere to put one.
+- Unlike every other orientation, a callout is not dropped when the view meets the surface edge-on,
+  which is what makes it work at a near-zero or negative tilt.
+
+## Distance limits
+
+Cut labels that are too far to be useful (metres; `0`, the default, means no limit):
+
+```css
+#transportation_name { text-max-distance: 2000; }
+#poi                 { marker-max-distance: 800; }
+#shield              { shield-max-distance: 1500; }
+```
+
+## Sharpness
+
+Glyph rasters follow a ladder (16 / 28 / 40 px) and the SDF is coverage-based (FreeType's `bsdf`),
+which is what removed the blurred stems and the holes at stem/shoulder joins that an outline-based
+SDF produced. Nothing to configure — but it is why label appearance changed relative to older
+builds of this fork.
+
+## See also
+
+- [Composite Vector Tile Layer](/docs/features/composite-vector-tile-layer) — where a label group sits in the draw order.
+- [Live Style Parameters](/docs/features/style-parameters) — change label colours without re-decoding tiles.

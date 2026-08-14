@@ -63,6 +63,8 @@ namespace carto {
             SECTION_LAYERS,
             SECTION_LAYERS3D,
             SECTION_BILLBOARDS,
+            SECTION_SHADOWCAST,  // the shadow map's caster pass
+            SECTION_SHADOWMASK,  // the screen-space terrain shadow mask
             SECTION_COUNT
         };
 

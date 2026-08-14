@@ -128,6 +128,8 @@ namespace carto {
         float shadowCasterFadeSignature() const;
         int renderShadowCasters(const std::vector<vt::TileId>& tileIds, const cglib::mat4x4<double>& lightViewProj, bool castGround);
         void setTerrainShadowMap(unsigned int texture, int mapSize, int cascades, const std::array<float, 4>& depthBiases, float strength, float softness, const std::array<cglib::mat4x4<double>, 4>& lightViewProjs);
+        void setTerrainShadowMask(unsigned int texture, float invScreenWidth, float invScreenHeight);
+        int renderTerrainShadowMask(const std::vector<vt::TileId>& tileIds);
         // Pushed by the owner BEFORE the shared terrain surface is drawn. onDrawFrame sets the same
         // state, but it runs after that draw, so the surface would light itself with the PREVIOUS
         // frame's sun - invisible while the map redrew continuously, and a change that appears not

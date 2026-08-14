@@ -13,7 +13,7 @@ loading the rest. Every page states its scope at the top and links out rather th
 |---|---|
 | anything at all, first time | this page, then [01-frame.md](01-frame.md) |
 | frame order, threads, what runs where, redraw requests | [01-frame.md](01-frame.md) |
-| which tiles are chosen, LOD, fetching, decoding, caches | [02-tiles.md](02-tiles.md) |
+| which tiles are chosen, LOD, fetching, decoding (MVT and MLT), caches | [02-tiles.md](02-tiles.md) |
 | the GL draw path, style layers, draw counts, shaders | [03-vt-renderer.md](03-vt-renderer.md) |
 | 3D terrain: elevation data, surfaces, the ground pass | [04-terrain.md](04-terrain.md) |
 | z-fighting, see-through, content sinking into the ground | [05-depth-model.md](05-depth-model.md) |
