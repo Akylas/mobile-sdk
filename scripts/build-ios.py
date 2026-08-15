@@ -12,6 +12,8 @@ SDK_VERSION = "4.4.9"
 
 FRAMEWORK_NAME="MassifMaps"
 REPO_URL="https://github.com/massif-maps/MassifMaps"
+# Objective-C class prefix — must match the %rename in swigpp-objc.py.
+CLASS_PREFIX="MSF"
 
 def getFinalBuildDir(target, arch=None):
   return getBuildDir(('%s_metal' % target) if args.metalangle else target, arch)
@@ -30,14 +32,14 @@ def updateUmbrellaHeader(filename, defines):
   with open(filename, 'r') as f:
     lines = f.readlines()
     for i in range(0, len(lines)):
-      match = re.search('^\s*#import\s+"(.*)".*', lines[i].rstrip('\n'))
+      match = re.search(r'^\s*#import\s+"(.*)".*', lines[i].rstrip('\n'))
       if match:
         headerFilename = match.group(1).split('/')[-1]
-        if not headerFilename.startswith('NT'):
-          headerFilename = 'NT%s' % headerFilename
+        if not headerFilename.startswith(CLASS_PREFIX):
+          headerFilename = '%s%s' % (CLASS_PREFIX, headerFilename)
         lines[i] = '#import <%s/%s>\n' % (FRAMEWORK_NAME , headerFilename)
     for i in range(0, len(lines)):
-      if re.search('^\s*#define\s+.*$', lines[i].rstrip('\n')):
+      if re.search(r'^\s*#define\s+.*$', lines[i].rstrip('\n')):
         break
     lines = lines[:i+1] + ['\n'] + ['#define %s\n' % define for define in defines.split(';') if define] + lines[i+1:]
   with open(filename, 'w') as f:
@@ -65,7 +67,7 @@ def updatePublicHeader(filename):
     for i in range(0, len(lines)):
       if lines[i].find('extern "C"') != -1:
         externCMode = True
-      match = re.search('^\s*#import\s+"(.*)".*', lines[i].rstrip('\n'))
+      match = re.search(r'^\s*#import\s+"(.*)".*', lines[i].rstrip('\n'))
       if match:
         headerFilename = match.group(1)
         if externCMode:
@@ -112,7 +114,7 @@ def copyHeaders(args, baseDir, outputDir):
       extraHeaders += ['%s/libs-external/angle-metal/include/' + extraHeader]
   for extraHeader in extraHeaders:
     dirpath, filename = (extraHeader % baseDir).rsplit('/', 1)
-    destFilename = filename if filename.startswith('MGL') else 'NT%s' % filename
+    destFilename = filename if filename.startswith('MGL') else '%s%s' % (CLASS_PREFIX, filename)
     publicHeaders.append(destFilename)
     if not copyfile(os.path.join(dirpath, filename), '%s/%s' % (destDir, destFilename)):
       return False  
@@ -148,7 +150,7 @@ def copyXCFrameworkHeaders(args, baseDir, outputDir):
       extraHeaders += ['%s/libs-external/angle-metal/include/' + extraHeader]
   for extraHeader in extraHeaders:
     dirpath, filename = (extraHeader % baseDir).rsplit('/', 1)
-    destFilename = filename if filename.startswith('MGL') else 'NT%s' % filename
+    destFilename = filename if filename.startswith('MGL') else '%s%s' % (CLASS_PREFIX, filename)
     publicHeaders.append(destFilename)
     if not copyfile(os.path.join(dirpath, filename), '%s/%s' % (destDir, destFilename)):
       return False  
@@ -237,7 +239,8 @@ def buildIOSFramework(args, baseArchs, outputDir=None):
   if not copyfile('%s/scripts/ios/Info.plist' % baseDir, outputInfoPlist):
       return False
   # change version name in info.plist
-  replaceInFile(outputInfoPlist, '(?P<key>CFBundleShortVersionString</key>[\n\t\s]*<string>)([\d\.]+)(</string>)', '\1%s\3' % args.buildversion)
+  # \g<n> (not \n) — the version starts with a digit, which \1 would swallow into an invalid group ref.
+  replaceInFile(outputInfoPlist, r'(?P<key>CFBundleShortVersionString</key>[\n\t\s]*<string>)([\d\.]+)(</string>)', r'\g<1>%s\g<3>' % args.buildversion)
 
   if args.sharedlib:
     if not execute('install_name_tool', frameworkDir,

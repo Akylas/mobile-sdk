@@ -261,12 +261,12 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
   include_linenum = None
   for line in lines_in:
     # Rename module
-    match = re.search('^\s*(%module(?:[(].*[)]|)\s+)([^\s]*)\s*$', line)
+    match = re.search(r'^\s*(%module(?:[(].*[)]|)\s+)([^\s]*)\s*$', line)
     if match:
       line = '%s%sModule' % (match.group(1), match.group(2))
 
     # Language-specific method modifiers
-    match = re.search('^\s*%(java|cs|objc)methodmodifiers\s+(\S+)\s+"([^"]*)".*$', line)
+    match = re.search(r'^\s*%(java|cs|objc)methodmodifiers\s+(\S+)\s+"([^"]*)".*$', line)
     if match:
       lang = match.group(1)
       methodName = match.group(2)
@@ -276,7 +276,7 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
       method_modifiers[methodName] = modifier
 
     # Language-specific rename declarations
-    match = re.search('^\s*!(java|cs|objc)_rename(.*)$', line)
+    match = re.search(r'^\s*!(java|cs|objc)_rename(.*)$', line)
     if match:
       lang = match.group(1)
       if lang != 'cs':
@@ -284,7 +284,7 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
       line = '%%rename%s' % match.group(2)
 
     # Polymorphic read-write attribute
-    match = re.search('^\s*!(static|)attributestring_polymorphic\s*[(]([^,]*),([^,]*),([^,]*),([^,]*),([^)]*)[)].*', line)
+    match = re.search(r'^\s*!(static|)attributestring_polymorphic\s*[(]([^,]*),([^,]*),([^,]*),([^,]*),([^)]*)[)].*', line)
     if match:
       className = match.group(2).strip()
       csNamespace = 'Massif.%s' % getNamespace(match.group(3).strip())
@@ -299,7 +299,7 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
       continue
 
     # Polymorphic read-only attribute
-    match = re.search('^\s*!(static|)attributestring_polymorphic\s*[(]([^,]*),([^,]*),([^,]*),([^)]*)[)].*', line)
+    match = re.search(r'^\s*!(static|)attributestring_polymorphic\s*[(]([^,]*),([^,]*),([^,]*),([^)]*)[)].*', line)
     if match:
       className = match.group(2).strip()
       csNamespace = 'Massif.%s' % getNamespace(match.group(3).strip())
@@ -314,7 +314,7 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
       continue
 
     # Detect enum directive
-    match = re.search('^\s*!enum\s*[(]([^)]*)[)].*$', line)
+    match = re.search(r'^\s*!enum\s*[(]([^)]*)[)].*$', line)
     if match:
       enumName = match.group(1).strip()
       args = { 'ENUMNAME': match.group(1).strip() }
@@ -322,7 +322,7 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
       continue
 
     # Detect value_type directive
-    match = re.search('^\s*!value_type\s*[(]([^)]*),([^)]*)[)].*$', line)
+    match = re.search(r'^\s*!value_type\s*[(]([^)]*),([^)]*)[)].*$', line)
     if match:
       className = match.group(1).strip()
       csClass = match.group(2).strip().split(".")[-1]
@@ -331,7 +331,7 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
       continue
 
     # Detect shared_ptr directive
-    match = re.search('^\s*!shared_ptr\s*[(]([^)]*),([^)]*)[)].*$', line)
+    match = re.search(r'^\s*!shared_ptr\s*[(]([^)]*),([^)]*)[)].*$', line)
     if match:
       className = match.group(1).strip()
       csClass = match.group(2).strip().split(".")[-1]
@@ -340,7 +340,7 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
       continue
 
     # Polymorphic shared_ptr
-    match = re.search('^\s*!polymorphic_shared_ptr\s*[(]([^,]*),([^)]*)[)].*', line)
+    match = re.search(r'^\s*!polymorphic_shared_ptr\s*[(]([^,]*),([^)]*)[)].*', line)
     if match:
       className = match.group(1).strip()
       csNamespace = 'Massif.%s' % getNamespace(match.group(2).strip())
@@ -353,7 +353,7 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
       continue
 
     # Value-template
-    match = re.search('^\s*!value_template\s*[(]([^)]*),([^)]*)[)].*$', line)
+    match = re.search(r'^\s*!value_template\s*[(]([^)]*),([^)]*)[)].*$', line)
     if match:
       className = match.group(1).strip()
       csClass = match.group(2).strip().split(".")[-1]
@@ -362,7 +362,7 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
       continue
 
     # Imports
-    match = re.search('^\s*!(proxy|java|cs|objc)_imports\s*[(]([^)]*)[)](.*)$', line)
+    match = re.search(r'^\s*!(proxy|java|cs|objc)_imports\s*[(]([^)]*)[)](.*)$', line)
     if match:
       lang = match.group(1)
       parts = [part.strip() for part in match.group(2).split(",")]
@@ -378,7 +378,7 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
         imports_linenum = len(lines_out)
 
     # Standard equals
-    match = re.search('^\s*!standard_equals\s*[(]([^)]*)[)].*', line)
+    match = re.search(r'^\s*!standard_equals\s*[(]([^)]*)[)].*', line)
     if match:
       className = match.group(1).strip()
       args = { 'CLASSNAME': match.group(1).strip() }
@@ -389,7 +389,7 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
       continue
 
     # Custom equals
-    match = re.search('^\s*!custom_equals\s*[(]([^)]*)[)].*', line)
+    match = re.search(r'^\s*!custom_equals\s*[(]([^)]*)[)].*', line)
     if match:
       className = match.group(1).strip()
       args = { 'CLASSNAME': match.group(1).strip() }
@@ -400,7 +400,7 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
       continue
 
     # Custom toString
-    match = re.search('^\s*!custom_tostring\s*[(]([^)]*)[)].*', line)
+    match = re.search(r'^\s*!custom_tostring\s*[(]([^)]*)[)].*', line)
     if match:
       className = match.group(1).strip()
       args = { 'CLASSNAME': match.group(1).strip() }
@@ -408,7 +408,7 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
       continue
 
     # cscode import
-    match = re.search('^\s*%typemap[(]cscode[)]\s*(.*)\s*%{(.*)%}', line)
+    match = re.search(r'^\s*%typemap[(]cscode[)]\s*(.*)\s*%{(.*)%}', line)
     if match:
       className = match.group(1).strip()
       code = class_code.get(className, [])
@@ -417,12 +417,12 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
       continue
 
     # Includes
-    match = re.search('^\s*%include\s+(.*)$', line)
+    match = re.search(r'^\s*%include\s+(.*)$', line)
     if match:
       include_linenum = len(lines_out)
 
     # Rename all methods to CapCase, add this before including C++ code
-    match = re.search('^\s*%include\s+"(.*)".*$', line)
+    match = re.search(r'^\s*%include\s+"(.*)".*$', line)
     if match:
       includeName = match.group(1)
       if includeName != "NutiSwig.i":

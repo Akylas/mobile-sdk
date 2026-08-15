@@ -88,8 +88,8 @@ const config = {
             label: 'API Reference',
             position: 'left',
             items: [
-              {label: 'Android (Javadoc)', href: 'pathname:///mobile-sdk/api/android/'},
-              {label: 'iOS (Jazzy)', href: 'pathname:///mobile-sdk/api/ios/'},
+              {label: 'Android (Javadoc)', href: 'pathname:///MassifMaps/api/android/'},
+              {label: 'iOS (Jazzy)', href: 'pathname:///MassifMaps/api/ios/'},
             ],
           },
           {
@@ -118,8 +118,8 @@ const config = {
           {
             title: 'API',
             items: [
-              {label: 'Android API', href: 'pathname:///mobile-sdk/api/android/'},
-              {label: 'iOS API', href: 'pathname:///mobile-sdk/api/ios/'},
+              {label: 'Android API', href: 'pathname:///MassifMaps/api/android/'},
+              {label: 'iOS API', href: 'pathname:///MassifMaps/api/ios/'},
             ],
           },
           {
