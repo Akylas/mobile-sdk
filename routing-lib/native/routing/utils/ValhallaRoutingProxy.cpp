@@ -17,7 +17,6 @@
 #include <valhalla/midgard/constants.h>
 #include <valhalla/midgard/encoded.h>
 #include <valhalla/midgard/pointll.h>
-#include <valhalla/baldr/pathlocation.h>
 #include <valhalla/baldr/directededge.h>
 #include <valhalla/baldr/datetime.h>
 #include <valhalla/loki/search.h>

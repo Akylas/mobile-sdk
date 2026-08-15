@@ -56,8 +56,7 @@ endif()
 
 if(APPLE)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fobjc-arc -fmodules -fvisibility=hidden -ffunction-sections -fdata-sections")
-  # date v3.0.4 hardcodes std::uncaught_exception() on __APPLE__, and C++20 removed it
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fobjc-arc -fmodules -stdlib=libc++ -std=c++20 -D_LIBCPP_ENABLE_CXX20_REMOVED_UNCAUGHT_EXCEPTION -ftemplate-depth=1024 -fexceptions -frtti -fvisibility=hidden -fvisibility-inlines-hidden -ffunction-sections -fdata-sections -fno-aligned-allocation -Wno-unqualified-std-cast-call -Wno-shorten-64-to-32")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fobjc-arc -fmodules -stdlib=libc++ -std=c++20 -ftemplate-depth=1024 -fexceptions -frtti -fvisibility=hidden -fvisibility-inlines-hidden -ffunction-sections -fdata-sections -fno-aligned-allocation -Wno-unqualified-std-cast-call -Wno-shorten-64-to-32")
   set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -Oz")
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Oz")
   set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -ObjC")
@@ -143,7 +142,8 @@ if(INCLUDE_SQLITE)
 endif(INCLUDE_SQLITE)
 
 if(INCLUDE_VALHALLA)
-  list(APPEND SDK_EXTERNAL_SUBPROJECTS "date" "protobuf" "valhalla")
+  # date is headers only now (valhalla/third_party/date); tz comes from valhalla's tz_alt.cpp
+  list(APPEND SDK_EXTERNAL_SUBPROJECTS "protobuf" "valhalla")
   # ValhallaRoutingProxy only calls route(), trace_attributes() and narrate(), so the matrix,
   # isochrone, locate, height, expansion, status and optimized-route actions are dead weight in the
   # SDK. Declared here so this default wins over the ON default in the valhalla subproject.

@@ -69,7 +69,9 @@ endif(APPLE)
 
 # External subprojects required by routing-lib
 # (same mechanism as scripts/build/CMakeLists.txt)
-set(ROUTING_EXTERNAL_SUBPROJECTS sqlite sqlite3pp zstd date protobuf valhalla)
+# date is headers only now (valhalla/third_party/date); its tz implementation comes from
+# valhalla's own src/baldr/tz_alt.cpp, which embeds the IANA database.
+set(ROUTING_EXTERNAL_SUBPROJECTS sqlite sqlite3pp zstd protobuf valhalla)
 
 # CallRaw currently serves the same endpoints as the SDK - route, trace_route, trace_attributes,
 # centroid - so the matrix, isochrone, locate, height, expansion, status and optimized-route
