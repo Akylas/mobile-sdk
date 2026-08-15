@@ -86,7 +86,7 @@ jobs:
       - uses: maxim-lobanov/setup-xcode@7f352e61cbe8130c957c3bc898c4fb025784ea1e
         if: matrix.variant == 'ios'
         with:
-          xcode-version: 16.4
+          xcode-version: latest-stable
 
       - name: Setup cmake
         uses: jwlawson/actions-setup-cmake@v2
@@ -300,7 +300,7 @@ jobs:
       - uses: maxim-lobanov/setup-xcode@7f352e61cbe8130c957c3bc898c4fb025784ea1e
         if: matrix.variant == 'ios'
         with:
-          xcode-version: 16.4
+          xcode-version: latest-stable
 
       - name: Setup cmake
         uses: jwlawson/actions-setup-cmake@v2
