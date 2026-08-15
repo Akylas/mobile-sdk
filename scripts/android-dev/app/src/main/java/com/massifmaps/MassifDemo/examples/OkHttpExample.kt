@@ -1,10 +1,10 @@
-package com.massifmaps.routing.examples
+package com.massifmaps.valhalla.examples
 
-import com.massifmaps.routing.LatLon
-import com.massifmaps.routing.RouteMatchingRequest
-import com.massifmaps.routing.RoutingRequest
-import com.massifmaps.routing.ValhallaOnlineRoutingService
-import com.massifmaps.routing.ValhallaRoutingService
+import com.massifmaps.valhalla.LatLon
+import com.massifmaps.valhalla.RouteMatchingRequest
+import com.massifmaps.valhalla.RoutingRequest
+import com.massifmaps.valhalla.ValhallaOnlineRoutingService
+import com.massifmaps.valhalla.ValhallaRoutingService
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request

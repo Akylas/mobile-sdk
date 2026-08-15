@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The demo screen is built in code (see com.massifmaps.test.demo.DemoPanel), so this layout only
+  The demo screen is built in code (see com.massifmaps.MassifDemo.demo.DemoPanel), so this layout only
   holds the map and the small camera readout. Every control lives in the panel behind the gear
   button, which DemoPanel adds to the ConstraintLayout below at runtime.
 -->

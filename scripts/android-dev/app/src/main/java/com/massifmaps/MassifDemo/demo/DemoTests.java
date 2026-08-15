@@ -1,14 +1,14 @@
-package com.massifmaps.test.demo;
+package com.massifmaps.MassifDemo.demo;
 
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import android.widget.Toast;
 
-import com.massifmaps.routing.LatLon;
-import com.massifmaps.routing.RoutingRequest;
-import com.massifmaps.routing.ValhallaOnlineRoutingService;
-import com.massifmaps.routing.ValhallaRoutingService;
+import com.massifmaps.valhalla.LatLon;
+import com.massifmaps.valhalla.RoutingRequest;
+import com.massifmaps.valhalla.ValhallaOnlineRoutingService;
+import com.massifmaps.valhalla.ValhallaRoutingService;
 import com.massifmaps.core.MapBounds;
 import com.massifmaps.core.MapPos;
 import com.massifmaps.core.MapPosVector;
@@ -410,8 +410,8 @@ public final class DemoTests {
      *   bench-many-routes.geojson  5000 short routes / 165k points - MANY OBJECTS (per-tile scan)
      *   bench-long-routes.geojson  8 routes of 100-250 km / 300k points - LONG LINES (re-clipping)
      *
-     *   adb shell am start -n com.massifmaps.test/.MainActivity --es ui false --es geojsonBench many
-     *   adb shell am start -n com.massifmaps.test/.MainActivity --es ui false --es geojsonBench long
+     *   adb shell am start -n com.massifmaps.MassifDemo/.MainActivity --es ui false --es geojsonBench many
+     *   adb shell am start -n com.massifmaps.MassifDemo/.MainActivity --es ui false --es geojsonBench long
      *
      * A file of the same name under the data directory wins over the asset, so another dataset can
      * be tried with a push and no rebuild.

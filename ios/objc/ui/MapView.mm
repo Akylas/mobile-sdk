@@ -37,7 +37,7 @@ static const int NATIVE_NO_COORDINATE = -1;
         massif::IOSUtils::InitializeLog();
 
         // Because iOS uses static library, we must explicitly refer to all polymorphic classes created via reflection; otherwise linking may leave them from the build
-        initNTPolymorphicClasses();
+        initMSFPolymorphicClasses();
     }
 }
 

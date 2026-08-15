@@ -10,7 +10,7 @@
  * identically for both demos - and makes the override pass automatic: any key with a default
  * here can be set with '-key value' at launch, no per-knob plumbing.
  *
- *   xcrun simctl launch <device> com.massifmaps.test -zoom 14 -hillshade true -style inline
+ *   xcrun simctl launch <device> com.massifmaps.MassifDemo -zoom 14 -hillshade true -style inline
  *
  * Read with the typed accessors; write with set*, which is what the panel does before calling
  * back into a DemoMap apply* method.

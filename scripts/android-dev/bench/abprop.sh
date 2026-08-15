@@ -6,9 +6,9 @@ adb shell setprop debug.massif.linesourcedensity "$LSD"
 adb shell setprop debug.massif.depthshift "$SHIFT"
 # Area subdivision, off by default = the shipped behaviour. ASD=1 measures what it costs.
 adb shell setprop debug.massif.areasourcedensity "${ASD:-0}"
-adb shell am force-stop com.massifmaps.test >/dev/null 2>&1
+adb shell am force-stop com.massifmaps.MassifDemo >/dev/null 2>&1
 adb shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1
-adb shell am start -n com.massifmaps.test/.MainActivity --es ui false \
+adb shell am start -n com.massifmaps.MassifDemo/.MainActivity --es ui false \
   --es base plain --es style inline --es hs false --es contour false --es elements false --es labels false \
   --es anim pan --es animDelay 40000 --es animDuration 25 --es animLonDelta 0.05 \
   "$@" >/dev/null 2>&1

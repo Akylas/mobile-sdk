@@ -53,7 +53,7 @@
     [options setSeamlessPanning:YES];
     [options setRotatable:YES];
     [options setTiltRange:[[MSFMapRange alloc] initWithMin:30 max:90]];
-    [options setPanningMode:NT_PANNING_MODE_STICKY];
+    [options setPanningMode:MSF_PANNING_MODE_STICKY];
 
     self.demo = [[DemoMap alloc] initWithMapView:self.mapView];
     [self.demo build];

@@ -1,4 +1,4 @@
-package com.massifmaps.test;
+package com.massifmaps.MassifDemo;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.WindowCompat;
@@ -6,8 +6,8 @@ import androidx.core.view.WindowCompat;
 import android.os.Bundle;
 import android.util.Log;
 
-import com.massifmaps.test.ui.main.MainFragment;
-import com.massifmaps.test.ui.main.SecondFragment;
+import com.massifmaps.MassifDemo.ui.main.MainFragment;
+import com.massifmaps.MassifDemo.ui.main.SecondFragment;
 
 public class MainActivity extends AppCompatActivity {
     private final String TAG = "MainActivity";

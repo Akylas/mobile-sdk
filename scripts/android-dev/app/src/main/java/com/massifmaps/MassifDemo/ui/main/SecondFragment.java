@@ -1,4 +1,4 @@
-package com.massifmaps.test.ui.main;
+package com.massifmaps.MassifDemo.ui.main;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
@@ -21,11 +21,11 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.fragment.app.Fragment;
 
-import com.massifmaps.test.R;
-import com.massifmaps.test.demo.DemoCfg;
-import com.massifmaps.test.demo.DemoConfig;
-import com.massifmaps.test.demo.DemoMap;
-import com.massifmaps.test.demo.DemoPanel;
+import com.massifmaps.MassifDemo.R;
+import com.massifmaps.MassifDemo.demo.DemoCfg;
+import com.massifmaps.MassifDemo.demo.DemoConfig;
+import com.massifmaps.MassifDemo.demo.DemoMap;
+import com.massifmaps.MassifDemo.demo.DemoPanel;
 import com.massifmaps.components.Options;
 import com.massifmaps.components.PanningMode;
 import com.massifmaps.core.MapPos;
@@ -43,9 +43,9 @@ import java.nio.file.Paths;
  * listener) and nothing else.
  *
  * WHAT THE DEMO SHOWS lives in three places:
- *   - com.massifmaps.test.demo.DemoConfig : all defaults, one static field per knob;
- *   - com.massifmaps.test.demo.DemoMap    : builds the map from that config, applies changes;
- *   - com.massifmaps.test.demo.DemoPanel  : the on-screen panel that edits the config live.
+ *   - com.massifmaps.MassifDemo.demo.DemoConfig : all defaults, one static field per knob;
+ *   - com.massifmaps.MassifDemo.demo.DemoMap    : builds the map from that config, applies changes;
+ *   - com.massifmaps.MassifDemo.demo.DemoPanel  : the on-screen panel that edits the config live.
  *
  * There are no separate "examples" any more: every layer (base map, hillshade, contours,
  * satellite, hypsometric tint, test elements, offline routes) is an independent switch, and the

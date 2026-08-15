@@ -1,4 +1,4 @@
-package com.massifmaps.test.demo;
+package com.massifmaps.MassifDemo.demo;
 
 import android.content.Intent;
 
@@ -8,7 +8,7 @@ import android.content.Intent;
  * WHY THIS EXISTS (do not remove - AI agents and scripted runs depend on it):
  * every default in DemoConfig can be overridden from adb without rebuilding the app, e.g.
  *
- *   adb shell am start -n com.massifmaps.test/.MainActivity \
+ *   adb shell am start -n com.massifmaps.MassifDemo/.MainActivity \
  *       --es base composite --es style dir --es hs true --es contour true \
  *       --es zoom 14.7 --es tilt 60 --es lon 5.760595 --es lat 45.244172
  *

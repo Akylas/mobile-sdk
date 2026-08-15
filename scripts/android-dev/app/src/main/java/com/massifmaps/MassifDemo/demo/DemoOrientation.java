@@ -1,4 +1,4 @@
-package com.massifmaps.test.demo;
+package com.massifmaps.MassifDemo.demo;
 
 import android.content.Context;
 import android.hardware.Sensor;

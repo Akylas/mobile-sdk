@@ -104,10 +104,10 @@ dependencies {
 #### Basic usage (Kotlin)
 
 ```kotlin
-import com.massifmaps.routing.ValhallaRoutingService
-import com.massifmaps.routing.ValhallaOnlineRoutingService
-import com.massifmaps.routing.RoutingRequest
-import com.massifmaps.routing.LatLon
+import com.massifmaps.valhalla.ValhallaRoutingService
+import com.massifmaps.valhalla.ValhallaOnlineRoutingService
+import com.massifmaps.valhalla.RoutingRequest
+import com.massifmaps.valhalla.LatLon
 import okhttp3.OkHttpClient
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody

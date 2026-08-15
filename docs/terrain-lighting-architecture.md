@@ -250,7 +250,7 @@ draw per stack.
 `scripts/android-dev` now takes intent extras, so one build covers many configurations:
 
 ```
-adb shell am start -n com.massifmaps.test/.MainActivity \
+adb shell am start -n com.massifmaps.MassifDemo/.MainActivity \
     --es demo composite --es drape true --es sat false --es hs true \
     --es tilt 60 --es zoom 14.2 --es lon 5.760595 --es lat 45.244172 --es ui false
 ```

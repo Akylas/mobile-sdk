@@ -1,4 +1,4 @@
-package com.massifmaps.test.ui.main;
+package com.massifmaps.MassifDemo.ui.main;
 
 import androidx.lifecycle.ViewModelProviders;
 
@@ -15,7 +15,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 
-import com.massifmaps.test.R;
+import com.massifmaps.MassifDemo.R;
 import com.massifmaps.ui.MapView;
 
 public class MainFragment extends Fragment {

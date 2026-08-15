@@ -22,9 +22,6 @@ targets:
   MassifDemo:
     type: application
     platform: iOS
-    # Explicit, so the id matches the Android demo instead of following the target name
-    settings:
-      PRODUCT_BUNDLE_IDENTIFIER: com.massifmaps.test
     sources:
       - path: MassifDemo
     dependencies:

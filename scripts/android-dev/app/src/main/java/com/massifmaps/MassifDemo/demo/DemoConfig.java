@@ -1,4 +1,4 @@
-package com.massifmaps.test.demo;
+package com.massifmaps.MassifDemo.demo;
 
 /**
  * EVERY default of the demo app, in one place.

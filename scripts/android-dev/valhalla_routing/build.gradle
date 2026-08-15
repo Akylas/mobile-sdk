@@ -2,7 +2,7 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
 android {
-    namespace 'com.massifmaps.routing'
+    namespace 'com.massifmaps.valhalla'
     compileSdkVersion 36
 
     ndkVersion "27.3.13750724"

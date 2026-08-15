@@ -73,15 +73,15 @@ fast loop — not the full `build-android.py`:
 ```sh
 cd scripts/android-dev && ./gradlew :app:assembleDebug -x lint   # ~40 s incremental (native included)
 adb install -r -t app/build/outputs/apk/debug/app-debug.apk      # -t: the APK is test-only
-adb shell am force-stop com.massifmaps.test
-adb shell am start -n com.massifmaps.test/.MainActivity --es ui false --es drape false
+adb shell am force-stop com.massifmaps.MassifDemo
+adb shell am start -n com.massifmaps.MassifDemo/.MainActivity --es ui false --es drape false
 ```
 
 - Install from `app/build/outputs/apk/debug/`. `app/build/intermediates/apk/debug/` also holds
   an `app-debug.apk` and it is **stale** — installing it silently runs old code. Verify with
   `unzip -p <apk> classes*.dex | strings | grep <new symbol>` (the demo's Java lands in classes5.dex).
 - Tiles need **60-90 s** to settle before a screenshot means anything (network + persistent
-  cache + label placement). `pm clear com.massifmaps.test` resets camera/caches; without it the
+  cache + label placement). `pm clear com.massifmaps.MassifDemo` resets camera/caches; without it the
   persistent tile caches stay warm, which is usually what you want.
 - `--es demo terrain|project|composite` picks the configuration (default `composite`).
   Every knob in `applyTerrainConfig`/`applyCameraConfig`/`applySkyAndLightConfig` is an intent

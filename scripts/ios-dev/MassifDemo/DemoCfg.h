@@ -8,7 +8,7 @@
  * camera or a layer set can be described identically for both demos:
  *
  *   adb shell am start ... --es zoom 14 --es hillshade true
- *   xcrun simctl launch <device> com.massifmaps.test -zoom 14 -hillshade true
+ *   xcrun simctl launch <device> com.massifmaps.MassifDemo -zoom 14 -hillshade true
  */
 @interface DemoCfg : NSObject
 

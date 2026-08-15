@@ -1,4 +1,4 @@
-package com.massifmaps.test.ui.main;
+package com.massifmaps.MassifDemo.ui.main;
 
 import androidx.lifecycle.ViewModel;
 

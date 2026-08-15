@@ -1,4 +1,4 @@
-package com.massifmaps.test.demo;
+package com.massifmaps.MassifDemo.demo;
 
 import com.massifmaps.components.LightOptions;
 import com.massifmaps.components.SkyOptions;

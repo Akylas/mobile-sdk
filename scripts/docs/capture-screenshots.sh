@@ -18,7 +18,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 DEV="$ROOT/scripts/android-dev"
 OUT="$ROOT/website/static/img/features"
-APP_ID="${APP_ID:-com.massifmaps.test}"
+APP_ID="${APP_ID:-com.massifmaps.MassifDemo}"
 NAME="${1:-feature}"
 mkdir -p "$OUT"
 

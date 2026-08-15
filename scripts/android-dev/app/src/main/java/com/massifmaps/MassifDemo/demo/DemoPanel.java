@@ -1,4 +1,4 @@
-package com.massifmaps.test.demo;
+package com.massifmaps.MassifDemo.demo;
 
 import android.content.Context;
 import android.graphics.Color;
@@ -116,7 +116,7 @@ public final class DemoPanel {
 
         // The readout: bottom left, clear of the navigation bar. It is the view the layout already
         // holds (the fragment writes to it), moved and restyled.
-        final TextView readout = (TextView) parent.findViewById(com.massifmaps.test.R.id.zoomText);
+        final TextView readout = (TextView) parent.findViewById(com.massifmaps.MassifDemo.R.id.zoomText);
         if (readout != null) {
             readout.setTextColor(COLOR_TEXT);
             readout.setTextSize(12);

@@ -297,9 +297,11 @@ def transformSwigFile(sourcePath, outPath, moduleDirs, headerDirs):
     match = re.search('^\s*!polymorphic_shared_ptr\s*[(]([^,]*),([^)]*)[)].*', line)
     if match:
       className = match.group(1).strip()
-      objcClass = 'MSF%s' % match.group(2).strip().split(".")[-1]
+      rawClass = match.group(2).strip().split(".")[-1]
+      objcClass = 'MSF%s' % rawClass
       polymorphic_objcClasses.append(objcClass)
-      args = { 'CLASSNAME': match.group(1).strip(), 'TYPE': objcClass, 'RAWTYPE': objcClass[2:] }
+      # RAWTYPE is the unprefixed name: derive it, do not slice off a fixed prefix length
+      args = { 'CLASSNAME': match.group(1).strip(), 'TYPE': objcClass, 'RAWTYPE': rawClass }
       interface = class_interface.get(className, [])
       interface += applyTemplate(POLYMORPHIC_SHARED_PTR_INTERFACE_TEMPLATE, args)
       class_interface[className] = interface

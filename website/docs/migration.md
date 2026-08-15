@@ -71,6 +71,6 @@ These name data or upstream work, not this SDK:
 |---|---|
 | logcat tag `carto-mobile-sdk` | `massif` |
 | `adb shell setprop debug.massif.*` | `debug.massif.*` |
-| demo app `com.massifmaps.test` | `com.massifmaps.test` |
+| demo app `com.massifmaps.MassifDemo` | `com.massifmaps.MassifDemo` |
 | demo `--es style nuti` | `--es style project` (`--es demo nuti` still accepted) |
 | demo `--es nutiInterval` | `--es paramInterval` |

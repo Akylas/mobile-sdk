@@ -48,7 +48,7 @@ show is a layer you can turn on or off, and everything it can be configured with
 2. **Rebuild-free, at launch** — intent extras:
 
 ```bash
-adb shell am start -n com.massifmaps.test/.MainActivity --es base composite --es style dir --es hs true --es zoom 14.7 --es tilt 60 --es lon 5.760595 --es lat 45.244172
+adb shell am start -n com.massifmaps.MassifDemo/.MainActivity --es base composite --es style dir --es hs true --es zoom 14.7 --es tilt 60 --es lon 5.760595 --es lat 45.244172
 ```
 
 3. **Permanent** — edit the static fields at the top of `DemoConfig.java`.

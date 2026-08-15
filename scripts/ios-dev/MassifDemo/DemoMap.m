@@ -276,7 +276,7 @@ static const DemoFeature LAYER_ORDER[] = {
 
     MSFCompositeVectorTileLayer *layer =
         [[MSFCompositeVectorTileLayer alloc] initWithDataSource:[self vectorSource] decoder:_baseDecoder];
-    [layer setLabelRenderOrder:NT_VECTOR_TILE_RENDER_ORDER_LAST];
+    [layer setLabelRenderOrder:MSF_VECTOR_TILE_RENDER_ORDER_LAST];
     [layer setSinglePassRenderingEnabled:[DemoConfig boolFor:@"singlePass"]];
     [layer setTileCacheCapacity:cacheBytes];
     _compositeLayer = layer;
@@ -302,7 +302,7 @@ static const DemoFeature LAYER_ORDER[] = {
     if ([DemoConfig boolFor:@"hs"]) {
         [_compositeLayer addExternalDataSource:@"hillshade"
                                     dataSource:[self demSource]
-                                          type:NT_COMPOSITE_SOURCE_TYPE_HILLSHADE
+                                          type:MSF_COMPOSITE_SOURCE_TYPE_HILLSHADE
                               elevationDecoder:[self elevationDecoder]];
         if ([DemoConfig floatFor:@"hsBias"] != 0) {
             [_compositeLayer setExternalDataSourceZoomLevelBias:@"hillshade"
@@ -315,7 +315,7 @@ static const DemoFeature LAYER_ORDER[] = {
     if ([DemoConfig boolFor:@"sat"]) {
         [_compositeLayer addExternalDataSource:@"satellite"
                                     dataSource:[self rasterSource]
-                                          type:NT_COMPOSITE_SOURCE_TYPE_RASTER];
+                                          type:MSF_COMPOSITE_SOURCE_TYPE_RASTER];
     } else {
         [_compositeLayer removeExternalDataSource:@"satellite"];
     }
@@ -372,8 +372,8 @@ static const DemoFeature LAYER_ORDER[] = {
         [[MSFHillshadeRasterTileLayer alloc] initWithDataSource:[self demSource]
                                              elevationDecoder:[self elevationDecoder]];
     [layer setPreloading:YES];
-    [layer setTileSubstitutionPolicy:NT_TILE_SUBSTITUTION_POLICY_VISIBLE];
-    [layer setTileFilterMode:NT_RASTER_TILE_FILTER_MODE_BILINEAR];
+    [layer setTileSubstitutionPolicy:MSF_TILE_SUBSTITUTION_POLICY_VISIBLE];
+    [layer setTileFilterMode:MSF_RASTER_TILE_FILTER_MODE_BILINEAR];
     _hillshadeLayer = layer;
     [self applyHillshadeConfig];
     return layer;
@@ -410,11 +410,11 @@ static const DemoFeature LAYER_ORDER[] = {
 
 - (enum MSFHillshadeMethod)hillshadeMethod {
     NSString *name = [DemoConfig stringFor:@"hsMethod"];
-    if ([name isEqualToString:@"STANDARD"]) return NT_STANDARD;
-    if ([name isEqualToString:@"COMBINED"]) return NT_COMBINED;
-    if ([name isEqualToString:@"MULTIDIRECTIONAL"]) return NT_MULTIDIRECTIONAL;
-    if ([name isEqualToString:@"BASIC"]) return NT_BASIC;
-    return NT_IGOR;
+    if ([name isEqualToString:@"STANDARD"]) return MSF_STANDARD;
+    if ([name isEqualToString:@"COMBINED"]) return MSF_COMBINED;
+    if ([name isEqualToString:@"MULTIDIRECTIONAL"]) return MSF_MULTIDIRECTIONAL;
+    if ([name isEqualToString:@"BASIC"]) return MSF_BASIC;
+    return MSF_IGOR;
 }
 
 // --- other layers --------------------------------------------------------------------------------
@@ -457,7 +457,7 @@ static const DemoFeature LAYER_ORDER[] = {
         [[MSFCartoCSSStyleSet alloc] initWithCartoCSS:[DemoStyles peaksStyle]]];
     MSFVectorTileLayer *layer = [[MSFVectorTileLayer alloc] initWithDataSource:[self vectorSource]
                                                                      decoder:decoder];
-    [layer setLabelRenderOrder:NT_VECTOR_TILE_RENDER_ORDER_LAST];
+    [layer setLabelRenderOrder:MSF_VECTOR_TILE_RENDER_ORDER_LAST];
     // Out of the post-process pass: the relief effect reads the terrain depth but paints over the
     // whole frame, so a ridge line drawn after the names crosses them. Opting the layer out draws
     // it AFTER the effect has resolved, which is also what keeps the glyphs crisp - they are not
@@ -937,15 +937,15 @@ static const DemoFeature LAYER_ORDER[] = {
 }
 
 - (enum MSFPanningSpeedMode)panningSpeedMode:(NSString *)name {
-    if ([name isEqualToString:@"map"]) return NT_PANNING_SPEED_MODE_MAP;
-    if ([name isEqualToString:@"constant"]) return NT_PANNING_SPEED_MODE_CONSTANT;
-    return NT_PANNING_SPEED_MODE_ANCHORED;
+    if ([name isEqualToString:@"map"]) return MSF_PANNING_SPEED_MODE_MAP;
+    if ([name isEqualToString:@"constant"]) return MSF_PANNING_SPEED_MODE_CONSTANT;
+    return MSF_PANNING_SPEED_MODE_ANCHORED;
 }
 
 - (enum MSFFreeRoamMode)freeRoamMode:(NSString *)name {
-    if ([name isEqualToString:@"look"]) return NT_FREE_ROAM_MODE_LOOK;
-    if ([name isEqualToString:@"fps"]) return NT_FREE_ROAM_MODE_FIRST_PERSON;
-    return NT_FREE_ROAM_MODE_OFF;
+    if ([name isEqualToString:@"look"]) return MSF_FREE_ROAM_MODE_LOOK;
+    if ([name isEqualToString:@"fps"]) return MSF_FREE_ROAM_MODE_FIRST_PERSON;
+    return MSF_FREE_ROAM_MODE_OFF;
 }
 
 /**

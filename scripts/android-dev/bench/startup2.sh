@@ -2,10 +2,10 @@
 # Launch -> first drawn tile geometry, for a given style source. $1 = style
 ANDROID_SERIAL="${ANDROID_SERIAL:?set it to the device serial}"; export ANDROID_SERIAL
 S="$1"
-adb shell am force-stop com.massifmaps.test >/dev/null 2>&1
+adb shell am force-stop com.massifmaps.MassifDemo >/dev/null 2>&1
 adb shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1
 adb logcat -c
-adb shell am start -n com.massifmaps.test/.MainActivity --es ui false \
+adb shell am start -n com.massifmaps.MassifDemo/.MainActivity --es ui false \
   --es style "$S" --es contour false --es hs false --es elements false >/dev/null 2>&1
 sleep 70
 START=$(adb logcat -d -v time -s massif | grep "AttachJVM" | head -1 | awk '{print $2}')

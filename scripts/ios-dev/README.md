@@ -31,8 +31,8 @@ into `NSUserDefaults`. The key names are deliberately identical, so a camera or 
 the same for both demos:
 
 ```sh
-adb shell am start -n com.massifmaps.test/.MainActivity --es zoom 14 --es hillshade true
-xcrun simctl launch <device> com.massifmaps.test -zoom 14 -hillshade true
+adb shell am start -n com.massifmaps.MassifDemo/.MainActivity --es zoom 14 --es hillshade true
+xcrun simctl launch <device> com.massifmaps.MassifDemo -zoom 14 -hillshade true
 ```
 
 Supported today: `base`, `satellite`, `hillshade`, `terrain`, `lon`, `lat`, `zoom`, `tilt`,

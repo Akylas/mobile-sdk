@@ -831,7 +831,7 @@ them now.)
 ### 12.2 How to profile the render thread
 
 ```sh
-adb shell simpleperf record --app com.massifmaps.test -g -f 500 --duration 12 -o /data/local/tmp/perf.data
+adb shell simpleperf record --app com.massifmaps.MassifDemo -g -f 500 --duration 12 -o /data/local/tmp/perf.data
 adb pull /data/local/tmp/perf.data /tmp/perf.data
 ```
 
@@ -839,7 +839,7 @@ Symbols need the **unstripped** library, and `--symfs` matches by the dso's path
 tree has to mirror it:
 
 ```sh
-D='/tmp/symfs/data/app/~~<hash>==/com.massifmaps.test-<hash>==/lib/arm64'
+D='/tmp/symfs/data/app/~~<hash>==/com.massifmaps.MassifDemo-<hash>==/lib/arm64'
 mkdir -p "$D"
 cp scripts/android-dev/massif/build/intermediates/cxx/Debug/*/obj/arm64-v8a/libmassif.so "$D/"
 $NDK/simpleperf/bin/darwin/x86_64/simpleperf report -i /tmp/perf.data --symfs /tmp/symfs \

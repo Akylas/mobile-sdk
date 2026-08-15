@@ -1,4 +1,4 @@
-package com.massifmaps.routing
+package com.massifmaps.valhalla
 
 /**
  * Offline Valhalla routing service backed by MBTiles databases.
