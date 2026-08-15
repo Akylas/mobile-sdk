@@ -35,6 +35,8 @@ import com.massifmaps.vectortiles.MBVectorTileDecoder;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.util.HashMap;
+
 /**
  * The one-shot test cases the demo can RUN (as opposed to the layers it can SHOW): routing,
  * vector-tile search, GeoJSON geometry. Each is a panel button; none of them is part of the map
@@ -166,7 +168,7 @@ public final class DemoTests {
             public void run() {
                 try {
                     ValhallaOnlineRoutingService service = new ValhallaOnlineRoutingService(
-                            "https://valhalla.openstreetmap.de",
+                            "https://valhalla1.openstreetmap.de",
                             (url, body, headers) -> {
                                 try {
                                     java.net.URL netUrl = new java.net.URL(url);
@@ -184,6 +186,9 @@ public final class DemoTests {
                                 }
                             });
                     service.setProfile("pedestrian");
+                    HashMap headers = new HashMap();
+                    headers.put("X-Client-Id", "MassifMapsDemo");
+                    service.setHeaders(headers);
 
                     java.util.List<LatLon> points = new java.util.ArrayList<LatLon>();
                     points.add(new LatLon(45.1877, 5.7249));   // Place Grenette

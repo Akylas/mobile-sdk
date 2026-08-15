@@ -68,7 +68,7 @@ public final class DemoConfig {
     /** MBTiles used by the offline "routes" layer. */
     public static String ROUTES_MBTILES_NAME = "france/france_routes.mbtiles";
     /** Valhalla tiles used by the offline routing test action. */
-    public static String ROUTING_VTILES_NAME = "france/france.vtiles";
+    public static String ROUTING_VTILES_NAME = "rhone-alpes.vtiles";
 
     // =============================================================================================
     // WHICH LAYERS ARE ADDED (each one is independent and can be toggled live from the panel)
