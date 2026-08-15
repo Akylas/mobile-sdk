@@ -19,6 +19,50 @@ npm start          # dev server with hot reload at http://localhost:3000/MassifM
 npm run build      # production build into website/build
 ```
 
+## Standalone pages and their data {#pages}
+
+The non-doc pages (`/platforms`, `/roadmap`, `/sponsors`, `/community`, `/integrations`) are React
+pages under `website/src/pages/`. Their content is **not** in the JSX — each reads a plain data
+module in `website/src/data/`, so editing a page usually means editing one array:
+
+| Page | Data file | Edit it to… |
+|---|---|---|
+| `/platforms` | `src/data/platforms.js` | change a platform's status (`supported` / `planned` / `legacy`) or a row of the feature matrix |
+| `/sponsors` | `src/data/sponsors.js` | change tier prices, the contact address, or add a sponsor (logo in `static/img/sponsors/`) |
+| `/community` | `src/data/community.js` | change the issue/discussion entry points and the repo list |
+| `/integrations` | `src/data/integrations.js` | add a framework plugin |
+
+Backticked spans inside those strings render as `<code>` via `src/components/Ticked.js` — no other
+markdown is interpreted.
+
+## Roadmap page (GitHub issues) {#roadmap}
+
+`/roadmap` has no content of its own: `website/plugins/roadmap-issues/` fetches the issues labelled
+**`roadmap`** in `massif-maps/MassifMaps` **at build time** and exposes them as plugin global data.
+Each card takes the issue title, the first image in the body (markdown `![]()` or a raw `<img>`)
+and a teaser of the remaining text.
+
+Columns come from extra labels on the same issue, most-advanced first:
+
+| Issue labels | Column |
+|---|---|
+| `roadmap` + `status:in-progress` | In progress |
+| `roadmap` + `status:next` | Next up |
+| `roadmap` alone | Exploring |
+| `roadmap`, issue closed | Shipped |
+
+Because the fetch happens at build time, the page only refreshes when the site is rebuilt — the
+`schedule:` cron in `docs.yml` rebuilds it nightly. CI passes `GITHUB_TOKEN` to lift the anonymous
+60 req/h rate limit; a local `npm run build` works without one. When the API cannot be reached the
+build does **not** fail: it falls back to `src/data/roadmap-fallback.json` (refreshed on every
+successful build) and the page shows a "may be out of date" banner.
+
+Repo, label and column mapping are plugin options — override them in `docusaurus.config.js`:
+
+```js
+['./plugins/roadmap-issues', {owner: 'massif-maps', repo: 'MassifMaps', label: 'roadmap'}],
+```
+
 ## Migrated guides
 
 The conceptual guides under **Guides** are converted from the original CARTO Jekyll docs by

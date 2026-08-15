@@ -108,6 +108,38 @@
   color: #fff;
 }
 
+/* ---------- Homepage platform strip ---------- */
+.platformStrip {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+}
+.platformChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  background: var(--ifm-background-surface-color);
+  color: inherit;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.platformChip:hover {
+  text-decoration: none;
+  color: inherit;
+  transform: translateY(-2px);
+  border-color: var(--ifm-color-primary-lighter);
+}
+.platformChipIcon {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+.platformChipName {
+  font-weight: 600;
+}
+
 /* ---------- Feature cards ---------- */
 .featureSection {
   padding: 3.5rem 0;
@@ -160,4 +192,381 @@
   border-radius: 10px;
   border: 1px solid var(--ifm-color-emphasis-200);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+}
+
+/* ---------- Standalone pages (platforms / roadmap / sponsors / community) ---------- */
+.pageHeader {
+  padding: 3rem 0 2.5rem;
+  background: linear-gradient(135deg, var(--massif-hero-from) 0%, var(--massif-hero-to) 100%);
+  color: #fff;
+}
+.pageHeader h1 {
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  margin-bottom: 0.6rem;
+}
+.pageHeader p {
+  max-width: 760px;
+  margin: 0;
+  opacity: 0.95;
+}
+.pageHeader a,
+.pageHeader code {
+  color: #fff;
+}
+.pageHeader code {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.sectionLead {
+  color: var(--ifm-color-emphasis-700);
+  max-width: 760px;
+}
+
+.statusBadge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 2px 9px;
+  white-space: nowrap;
+}
+.statusSupported {
+  color: #fff;
+  background: #14915b;
+}
+.statusPlanned {
+  color: #fff;
+  background: var(--ifm-color-primary);
+}
+.statusLegacy {
+  color: var(--ifm-color-emphasis-800);
+  background: var(--ifm-color-emphasis-300);
+}
+
+/* ---------- Platforms ---------- */
+.platformCard {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+  border-radius: 14px;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  background: var(--ifm-background-surface-color);
+}
+.platformCardHead {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+.platformCardIcon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+.platformCardName {
+  font-weight: 700;
+  font-size: 1.2rem;
+  margin-right: auto;
+}
+.platformCardMeta {
+  margin: 0 0 0.9rem;
+  font-size: 0.88rem;
+}
+.platformCardMeta dt {
+  font-weight: 700;
+  color: var(--ifm-color-emphasis-600);
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+}
+.platformCardMeta dd {
+  margin: 0 0 0.6rem;
+}
+.platformCardNote {
+  color: var(--ifm-color-emphasis-700);
+  font-size: 0.92rem;
+  flex: 1;
+}
+.platformCardLinks {
+  display: flex;
+  gap: 1rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.matrixWrapper {
+  overflow-x: auto;
+}
+.matrixTable {
+  width: 100%;
+  display: table;
+  border-collapse: collapse;
+}
+.matrixTable th,
+.matrixTable td {
+  border: 1px solid var(--ifm-color-emphasis-200);
+  padding: 0.6rem 0.8rem;
+}
+.matrixTable thead th {
+  text-align: center;
+  background: var(--ifm-color-emphasis-100);
+}
+.matrixHeadIcon {
+  font-size: 1.2rem;
+}
+.matrixCell {
+  text-align: center;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+.matrixYes {
+  color: #14915b;
+}
+.matrixUnknown {
+  color: var(--ifm-color-warning-dark);
+}
+.matrixNo {
+  color: var(--ifm-color-emphasis-500);
+}
+.matrixLegend {
+  font-weight: 700;
+}
+
+/* ---------- Roadmap ---------- */
+.roadmapBoard {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  align-items: start;
+}
+.roadmapColumnTitle {
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--ifm-color-primary);
+}
+.roadmapColumnCount {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--ifm-color-emphasis-700);
+  background: var(--ifm-color-emphasis-200);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+.roadmapColumnEmpty {
+  color: var(--ifm-color-emphasis-600);
+  font-size: 0.9rem;
+}
+.roadmapCard {
+  display: block;
+  margin-bottom: 1rem;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  background: var(--ifm-background-surface-color);
+  color: inherit;
+  text-decoration: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.roadmapCard:hover {
+  text-decoration: none;
+  color: inherit;
+  transform: translateY(-3px);
+  box-shadow: 0 10px 26px rgba(3, 111, 226, 0.14);
+}
+.roadmapCardImage {
+  aspect-ratio: 16 / 9;
+  background: var(--ifm-color-emphasis-100);
+}
+.roadmapCardImage img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.roadmapCardBody {
+  padding: 1rem;
+}
+.roadmapCardTitle {
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+}
+.roadmapCardSummary {
+  font-size: 0.88rem;
+  color: var(--ifm-color-emphasis-700);
+  margin-bottom: 0.6rem;
+}
+.roadmapCardFooter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--ifm-color-emphasis-600);
+}
+.roadmapCardNumber {
+  font-weight: 700;
+}
+.roadmapCardLabel {
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 999px;
+  padding: 0 7px;
+}
+.roadmapEmpty,
+.sponsorWallEmpty {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  border: 2px dashed var(--ifm-color-emphasis-300);
+  border-radius: 14px;
+}
+.roadmapFootnote {
+  color: var(--ifm-color-emphasis-600);
+  font-size: 0.9rem;
+}
+
+/* ---------- Sponsors ---------- */
+.sponsorChannel,
+.communityCard,
+.integrationCard {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+  border-radius: 14px;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  background: var(--ifm-background-surface-color);
+}
+.sponsorChannel .button,
+.communityCard .button {
+  margin-top: auto;
+}
+.sponsorChannelSoon {
+  opacity: 0.7;
+}
+.sponsorChannelIcon,
+.communityCardIcon {
+  font-size: 1.8rem;
+  line-height: 1;
+  margin-bottom: 0.5rem;
+}
+
+.tierCard {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+  border-radius: 14px;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-top: 4px solid var(--tier-accent, var(--ifm-color-primary));
+  background: var(--ifm-background-surface-color);
+}
+.tierCardName {
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.85rem;
+  color: var(--tier-accent, var(--ifm-color-primary));
+}
+.tierCardAmount {
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin-bottom: 0.9rem;
+}
+.tierCardBenefits {
+  padding-left: 1.1rem;
+  font-size: 0.9rem;
+  color: var(--ifm-color-emphasis-700);
+  flex: 1;
+}
+.tierCardSponsors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.tierCardSponsors img {
+  max-height: 36px;
+}
+
+.sponsorWall {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2rem;
+}
+.sponsorLogo img {
+  max-height: 48px;
+}
+.sponsorLogo--platinum img {
+  max-height: 84px;
+}
+.sponsorLogo--gold img {
+  max-height: 64px;
+}
+
+.customWorkBox {
+  padding: 1.75rem;
+  border-radius: 14px;
+  background: var(--ifm-color-emphasis-100);
+  border: 1px solid var(--ifm-color-emphasis-200);
+}
+
+.badgeRow {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+.badgeRow code {
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Community ---------- */
+.repoBranch {
+  font-size: 0.85rem;
+  color: var(--ifm-color-emphasis-600);
+  margin-bottom: 0.5rem;
+}
+
+/* ---------- Integrations ---------- */
+.integrationCard {
+  margin-bottom: 1.5rem;
+}
+.integrationCardHead {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin-bottom: 0.75rem;
+}
+.integrationCardHead h3 {
+  margin: 0;
+}
+.integrationCardIcon {
+  font-size: 2rem;
+  line-height: 1;
+}
+.integrationCardHead .statusBadge {
+  margin-left: auto;
+}
+.integrationCardVersion {
+  font-size: 0.8rem;
+  color: var(--ifm-color-emphasis-600);
+}
+.integrationCardPlatforms,
+.integrationCardNote {
+  font-size: 0.88rem;
+  color: var(--ifm-color-emphasis-700);
+}
+.integrationCardLinks {
+  display: flex;
+  gap: 1rem;
+  font-weight: 600;
+  font-size: 0.9rem;
 }
