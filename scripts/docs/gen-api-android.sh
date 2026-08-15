@@ -66,4 +66,8 @@ javadoc \
   ${ANDROID_JAR:+-classpath "$ANDROID_JAR"} \
   @"$BUILD/sources.txt" || echo "   (javadoc reported warnings/unresolved externals — output still generated)"
 
+# javadoc gives up at 100 errors and writes nothing; without this the CI job stays
+# green and the published /api/android/ 404s.
+[ -f "$OUT/index.html" ] || { echo "javadoc produced no output — see the errors above."; exit 1; }
+
 echo "==> Android API reference at $OUT"
