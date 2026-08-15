@@ -31,6 +31,14 @@ it when `MapRenderer::billboardsChanged` has been set.
 `BillboardSorter` orders them back-to-front for correct alpha blending — billboards are drawn after
 the layer's geometry, in a pass of their own (`billboards` in `PROF`).
 
+## Text on a billboard
+
+`BalloonPopup`, `Text` and the popup buttons rasterize their text into a bitmap with `BitmapCanvas`,
+which is the **platform** text API (Android `Typeface`, iOS CoreText, UWP DirectWrite) — not the
+FreeType/HarfBuzz path the tile labels use. Their font names go through the same list syntax and the
+same system-font matching as a style's `text-face-name`; see
+[06-labels.md](06-labels.md#font-names-fork-specific).
+
 ## Terrain interaction
 
 Two mechanisms, and they are different things:

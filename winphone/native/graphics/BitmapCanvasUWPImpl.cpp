@@ -99,8 +99,10 @@ namespace massif {
         _strokeWidth = width;
     }
 
-    void BitmapCanvas::UWPImpl::setFont(const std::string& name, float size) {
+    void BitmapCanvas::UWPImpl::setFont(const std::string& familyName, const std::string& fileName, float size) {
         if (_dwriteFactory) {
+            // fileName is unused: a font DirectWrite has in its collection it can also name
+            std::string name = (familyName.empty() ? std::string("Segoe UI") : familyName);
             std::wstring wname;
             utf8::utf8to16(name.begin(), name.end(), std::back_inserter(wname));
             HRESULT hr = _dwriteFactory->CreateTextFormat(

@@ -7,6 +7,8 @@
 #include "utils/Log.h"
 
 #include <cmath>
+#include <map>
+#include <mutex>
 
 namespace massif {
 
@@ -103,10 +105,12 @@ namespace massif {
     struct BitmapCanvas::AndroidImpl::TypefaceClass {
         JNIUniqueGlobalRef<jclass> clazz;
         jmethodID create;
+        jmethodID createFromFile;
 
         explicit TypefaceClass(JNIEnv* jenv) {
             clazz = JNIUniqueGlobalRef<jclass>(jenv, jenv->NewGlobalRef(jenv->FindClass("android/graphics/Typeface")));
             create = jenv->GetStaticMethodID(clazz, "create", "(Ljava/lang/String;I)Landroid/graphics/Typeface;");
+            createFromFile = jenv->GetStaticMethodID(clazz, "createFromFile", "(Ljava/lang/String;)Landroid/graphics/Typeface;");
         }
     };
 
@@ -243,7 +247,7 @@ namespace massif {
         jenv->CallVoidMethod(_paintObject, GetPaintClass()->setStrokeWidth, (jfloat)width);
     }
 
-    void BitmapCanvas::AndroidImpl::setFont(const std::string& name, float size) {
+    void BitmapCanvas::AndroidImpl::setFont(const std::string& familyName, const std::string& fileName, float size) {
         JNIEnv* jenv = AndroidUtils::GetCurrentThreadJNIEnv();
         JNILocalFrame jframe(jenv, 32, "BitmapCanvas::AndroidImpl::setFont");
         if (!jframe.isValid()) {
@@ -251,10 +255,33 @@ namespace massif {
             return;
         }
 
-        jstring fontName = jenv->NewStringUTF(name.c_str());
-        jobject typefaceObject = jenv->CallStaticObjectMethod(GetTypefaceClass()->clazz, GetTypefaceClass()->create, fontName, (jint)0); // 0 = NORMAL
+        // A family keeps the per-script fallback chain; a file, which only the fonts Android has no
+        // family name for need, does not - so it is the second choice. Null family = the default font.
+        jobject typefaceObject = nullptr;
+        if (!familyName.empty() || fileName.empty()) {
+            jstring fontName = (familyName.empty() ? nullptr : jenv->NewStringUTF(familyName.c_str()));
+            typefaceObject = jenv->CallStaticObjectMethod(GetTypefaceClass()->clazz, GetTypefaceClass()->create, fontName, (jint)0); // 0 = NORMAL
+        }
+        else {
+            typefaceObject = GetFileTypeface(jenv, fileName);
+        }
         jenv->CallObjectMethod(_paintObject, GetPaintClass()->setTypeface, typefaceObject);
         jenv->CallVoidMethod(_paintObject, GetPaintClass()->setTextSize, (jfloat)size);
+    }
+
+    jobject BitmapCanvas::AndroidImpl::GetFileTypeface(JNIEnv* jenv, const std::string& fileName) {
+        // Typeface.createFromFile parses the file on every call, unlike Typeface.create
+        static std::mutex mutex;
+        static std::map<std::string, JNIUniqueGlobalRef<jobject>> typefaceCache;
+
+        std::lock_guard<std::mutex> lock(mutex);
+        auto it = typefaceCache.find(fileName);
+        if (it == typefaceCache.end()) {
+            JNIUniqueLocalRef<jstring> filePath(jenv, jenv->NewStringUTF(fileName.c_str()));
+            jobject typefaceObject = jenv->CallStaticObjectMethod(GetTypefaceClass()->clazz, GetTypefaceClass()->createFromFile, filePath.get());
+            it = typefaceCache.emplace(fileName, JNIUniqueGlobalRef<jobject>(jenv, jenv->NewGlobalRef(typefaceObject))).first;
+        }
+        return it->second.get();
     }
 
     void BitmapCanvas::AndroidImpl::pushClipRect(const ScreenBounds& clipRect) {

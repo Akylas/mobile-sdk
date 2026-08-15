@@ -968,9 +968,11 @@ namespace massif {
                 }
             }
 
-            // Fonts the style asks for but does not provide are loaded from the system
+            // Fonts the style asks for but does not provide are loaded from the system. Strictly:
+            // a name the device has no font for must fail here, or a font list ("Roboto, Helvetica
+            // Neue") would stop at its first entry with the default font on every platform.
             fontManager->setFontDataLoader([](const std::string& name) {
-                if (std::shared_ptr<BinaryData> fontData = SystemFontUtils::LoadFont(name)) {
+                if (std::shared_ptr<BinaryData> fontData = SystemFontUtils::LoadFont(name, false)) {
                     return *fontData->getDataPtr();
                 }
                 return std::vector<unsigned char>();
@@ -985,6 +987,13 @@ namespace massif {
             if (!fallbackFont) {
                 // Styles without any font (inline CartoCSS, for example) still need a font for their labels
                 fallbackFont = fontManager->getFont(DEFAULT_FALLBACK_FONT_NAME, fallbackFont);
+            }
+            if (!fallbackFont) {
+                // Nothing the strict loader can answer, so take the default system font directly
+                if (std::shared_ptr<BinaryData> fontData = SystemFontUtils::LoadFont(DEFAULT_FALLBACK_FONT_NAME, true)) {
+                    std::string fontName = fontManager->loadFontData(*fontData->getDataPtr());
+                    fallbackFont = fontManager->getFont(fontName, fallbackFont);
+                }
             }
             mvt::SymbolizerContext::Settings settings(DEFAULT_TILE_SIZE, std::make_shared<mvt::StyleParameterStore>(), fallbackFont, _pixelScale);
             symbolizerContext = std::make_shared<mvt::SymbolizerContext>(bitmapManager, fontManager, strokeMap, glyphMap, settings);

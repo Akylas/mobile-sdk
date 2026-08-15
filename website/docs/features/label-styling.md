@@ -69,6 +69,31 @@ If a style packages no font at all, labels no longer fail: the SDK falls back to
 fonts** (`/system/fonts` on Android, CoreText on iOS/macOS, DirectWrite on UWP), with `Arial` mapped
 to the platform default. Style-packaged fonts always keep precedence.
 
+## Font lists
+
+A face name is a CSS-like list, most preferred first, and an entry may say which platform it is for:
+
+```css
+#poi {
+  text-face-name: "Roboto, Helvetica Neue, sans-serif";              /* one string */
+  text-face-name: "android:Roboto", "ios:Helvetica Neue", "Arial";   /* or a CSS list */
+}
+```
+
+`android:`, `ios:`, `macos:` and `windows:` are the tags; an entry tagged for another platform is
+dropped, an untagged one is kept everywhere. The first name the device has a font for becomes the
+main font and the rest are its glyph fallbacks. Resolution is cached, so a list costs nothing per
+tile.
+
+The same list works for the font names of the **vector elements** — `BalloonPopupStyleBuilder`
+(title, description), `BalloonPopupButtonStyleBuilder` and `TextStyleBuilder` — which previously
+ignored any name the platform did not know verbatim:
+
+```java
+BalloonPopupStyleBuilder builder = new BalloonPopupStyleBuilder();
+builder.setTitleFontName("Roboto, Helvetica Neue, sans-serif");
+```
+
 ## Plates behind the text and the icon
 
 ```css

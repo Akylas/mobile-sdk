@@ -367,6 +367,9 @@ typedef NS_ENUM(NSInteger, DemoEntryKind) {
             [DemoEntry button:@"geojson bench: long routes" apply:^{
                 [DemoTests run:@"geojsonBench" demo:demo];
             }],
+            [DemoEntry button:@"popup font sampler" apply:^{
+                [DemoTests run:@"popupFonts" demo:demo];
+            }],
             [DemoEntry button:@"clear test layers" apply:^{
                 [DemoTests run:@"clear" demo:demo];
             }],

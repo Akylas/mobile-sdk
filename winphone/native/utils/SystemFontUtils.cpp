@@ -4,47 +4,97 @@
 
 #include <utf8.h>
 
+#include <map>
+#include <mutex>
 #include <string>
 #include <vector>
 
 #include <wrl/client.h>
 #include <dwrite.h>
 
+#include <vt/FontNames.h>
+
 namespace massif {
 
-    std::shared_ptr<BinaryData> SystemFontUtils::LoadFont(const std::string& name) {
+    namespace {
+
+        Microsoft::WRL::ComPtr<IDWriteFontCollection> getSystemFontCollection() {
+            using Microsoft::WRL::ComPtr;
+
+            ComPtr<IDWriteFactory> factory;
+            HRESULT hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), reinterpret_cast<IUnknown**>(factory.GetAddressOf()));
+            if (FAILED(hr)) {
+                Log::Error("SystemFontUtils: Failed to create DirectWrite factory");
+                return ComPtr<IDWriteFontCollection>();
+            }
+
+            ComPtr<IDWriteFontCollection> fontCollection;
+            hr = factory->GetSystemFontCollection(fontCollection.GetAddressOf());
+            if (FAILED(hr)) {
+                Log::Error("SystemFontUtils: Failed to get the system font collection");
+                return ComPtr<IDWriteFontCollection>();
+            }
+            return fontCollection;
+        }
+
+        bool findFamily(const Microsoft::WRL::ComPtr<IDWriteFontCollection>& fontCollection, const std::string& name, UINT32& familyIndex) {
+            std::wstring wname;
+            utf8::utf8to16(name.begin(), name.end(), std::back_inserter(wname));
+            BOOL familyExists = FALSE;
+            HRESULT hr = fontCollection->FindFamilyName(wname.c_str(), &familyIndex, &familyExists);
+            return SUCCEEDED(hr) && familyExists;
+        }
+
+    }
+
+    SystemFontUtils::FontMatch SystemFontUtils::MatchFont(const std::string& names) {
+        static std::mutex mutex;
+        static std::map<std::string, FontMatch> matchCache;
+
+        std::lock_guard<std::mutex> lock(mutex);
+        auto it = matchCache.find(names);
+        if (it != matchCache.end()) {
+            return it->second;
+        }
+
+        FontMatch match;
+        if (Microsoft::WRL::ComPtr<IDWriteFontCollection> fontCollection = getSystemFontCollection()) {
+            for (const std::string& name : vt::parseFontNames(names)) {
+                UINT32 familyIndex = 0;
+                if (findFamily(fontCollection, name, familyIndex)) {
+                    match.familyName = name;
+                    break;
+                }
+            }
+        }
+        matchCache[names] = match;
+        return match;
+    }
+
+    std::shared_ptr<BinaryData> SystemFontUtils::LoadFont(const std::string& name, bool allowFallback) {
         using Microsoft::WRL::ComPtr;
 
-        ComPtr<IDWriteFactory> factory;
-        HRESULT hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), reinterpret_cast<IUnknown**>(factory.GetAddressOf()));
-        if (FAILED(hr)) {
-            Log::Error("SystemFontUtils::LoadFont: Failed to create DirectWrite factory");
+        ComPtr<IDWriteFontCollection> fontCollection = getSystemFontCollection();
+        if (!fontCollection) {
             return std::shared_ptr<BinaryData>();
         }
 
-        ComPtr<IDWriteFontCollection> fontCollection;
-        hr = factory->GetSystemFontCollection(fontCollection.GetAddressOf());
-        if (FAILED(hr)) {
-            Log::Error("SystemFontUtils::LoadFont: Failed to get the system font collection");
-            return std::shared_ptr<BinaryData>();
-        }
-
-        std::wstring wname;
-        utf8::utf8to16(name.begin(), name.end(), std::back_inserter(wname));
         UINT32 familyIndex = 0;
-        BOOL familyExists = FALSE;
-        hr = fontCollection->FindFamilyName(wname.c_str(), &familyIndex, &familyExists);
-        if (FAILED(hr) || !familyExists) {
+        bool familyExists = findFamily(fontCollection, name, familyIndex);
+        if (!familyExists && allowFallback) {
             // Unresolved name, use the default system font
-            hr = fontCollection->FindFamilyName(L"Segoe UI", &familyIndex, &familyExists);
+            familyExists = findFamily(fontCollection, "Segoe UI", familyIndex);
         }
-        if (FAILED(hr) || !familyExists) {
-            Log::Errorf("SystemFontUtils::LoadFont: No system font for %s", name.c_str());
+        if (!familyExists) {
+            // Not an error without the fallback: the caller is walking a font list and tries the next name
+            if (allowFallback) {
+                Log::Errorf("SystemFontUtils::LoadFont: No system font for %s", name.c_str());
+            }
             return std::shared_ptr<BinaryData>();
         }
 
         ComPtr<IDWriteFontFamily> fontFamily;
-        hr = fontCollection->GetFontFamily(familyIndex, fontFamily.GetAddressOf());
+        HRESULT hr = fontCollection->GetFontFamily(familyIndex, fontFamily.GetAddressOf());
         if (FAILED(hr)) {
             Log::Errorf("SystemFontUtils::LoadFont: Failed to get the font family of %s", name.c_str());
             return std::shared_ptr<BinaryData>();

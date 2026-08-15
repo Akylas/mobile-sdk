@@ -142,6 +142,9 @@ static const DemoFeature LAYER_ORDER[] = {
         [self saveMapAppearance];
         [self enterStarSky];
     }
+    if ([DemoConfig stringFor:@"popupFonts"].length) {
+        [DemoTests run:@"popupFonts" demo:self]; // after applyCamera, so the popups land in view
+    }
     [self startScriptedAnimation];
 }
 
