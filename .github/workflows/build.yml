@@ -564,25 +564,6 @@ jobs:
           git tag ${{ github.event.inputs.version }}
           git push origin ${{ github.event.inputs.version }}
 
-  cleanup-release:
-    name: Delete draft release on failed/cancelled runs
-    runs-on: ubuntu-latest
-    needs: [create-release, build, build-routing, create-jitpack-swiftpackage-release]
-    # run only when the overall workflow failed or was cancelled
-    if: ${{ failure() || cancelled() }}
-    permissions:
-      contents: write
-    steps:
-      - name: Rollback draft release
-        uses: author/action-rollback@5e7dd5c4692af3cb62ee64875e62579b2fd857c0
-        with:
-          release_id: ${{ needs.create-release.outputs.RELEASE_UPLOAD_ID }}
-          tag: v${{ github.event.inputs.version }}
-          #  If the release does not exist but the tag does, setting this to true will remove the tag.
-          delete_orphan_tag: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   update-release:
     runs-on: ubuntu-latest
     needs: [create-release, build, build-routing, create-jitpack-swiftpackage-release]
@@ -668,3 +649,22 @@ jobs:
           replacebody: true
           prerelease: false
           draft: false
+
+  cleanup-release:
+    name: Delete draft release on failed/cancelled runs
+    runs-on: ubuntu-latest
+    needs: [create-release, build, build-routing, create-jitpack-swiftpackage-release, update-release]
+    # run only when the overall workflow failed or was cancelled
+    if: ${{ failure() || cancelled() }}
+    permissions:
+      contents: write
+    steps:
+      - name: Rollback draft release
+        uses: author/action-rollback@5e7dd5c4692af3cb62ee64875e62579b2fd857c0
+        with:
+          release_id: ${{ needs.create-release.outputs.RELEASE_UPLOAD_ID }}
+          tag: v${{ github.event.inputs.version }}
+          #  If the release does not exist but the tag does, setting this to true will remove the tag.
+          delete_orphan_tag: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
