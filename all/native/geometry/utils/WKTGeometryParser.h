@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_WKTGEOMETRYPARSER_H_
-#define _CARTO_WKTGEOMETRYPARSER_H_
+#ifndef _MASSIF_WKTGEOMETRYPARSER_H_
+#define _MASSIF_WKTGEOMETRYPARSER_H_
 
 #include "geometry/Geometry.h"
 #include "geometry/PointGeometry.h"
@@ -24,7 +24,7 @@
 #include <boost/spirit/include/qi.hpp>
 #include <boost/spirit/repository/include/qi_distinct.hpp>
 
-namespace carto {
+namespace massif {
     namespace WKTGeometryParserImpl {
         namespace phx = boost::phoenix;
         namespace qi = boost::spirit::qi;

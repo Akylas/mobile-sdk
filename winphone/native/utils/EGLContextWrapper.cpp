@@ -15,7 +15,7 @@ using namespace Windows::Foundation;
 using namespace Windows::Foundation::Collections;
 using namespace Windows::UI::Xaml::Controls;
 
-namespace carto {
+namespace massif {
 
     EGLContextWrapper::EGLContextWrapper() :
         _eglConfig(NULL),

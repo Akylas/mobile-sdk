@@ -4,12 +4,12 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_MAPEVENTLISTENER_H_
-#define _CARTO_MAPEVENTLISTENER_H_
+#ifndef _MASSIF_MAPEVENTLISTENER_H_
+#define _MASSIF_MAPEVENTLISTENER_H_
 
 #include <memory>
 
-namespace carto {
+namespace massif {
     class MapClickInfo;
     class MapInteractionInfo;
     

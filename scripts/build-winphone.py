@@ -23,12 +23,12 @@ def patchVcxprojFile(baseDir, fileName, patched1=False, patched2=False):
   linesOut = []
   for line in linesIn:
     if line.strip() == '<Import Project="$(VCTargetsPath)\\Microsoft.Cpp.targets" />' and not patched2:
-      with open('%s/scripts/winphone10/carto_mobile_sdk.vcxproj.patch2' % baseDir, 'rb') as f:
+      with open('%s/scripts/winphone10/massif.vcxproj.patch2' % baseDir, 'rb') as f:
         linesOut += f.readlines()
       patched2 = True
     linesOut.append(line)
     if line.strip() == '<Import Project="$(VCTargetsPath)\\Microsoft.Cpp.props" />' and not patched1:
-      with open('%s/scripts/winphone10/carto_mobile_sdk.vcxproj.patch1' % baseDir, 'rb') as f:
+      with open('%s/scripts/winphone10/massif.vcxproj.patch1' % baseDir, 'rb') as f:
         linesOut += f.readlines()
       patched1 = True
 
@@ -58,7 +58,7 @@ def buildWinPhoneNativeDLL(args, arch):
     '%s/scripts/build' % baseDir
   ]):
     return False
-  patchVcxprojFile(baseDir, '%s/carto_mobile_sdk.vcxproj' % buildDir)
+  patchVcxprojFile(baseDir, '%s/massif.vcxproj' % buildDir)
   return cmake(args, buildDir, [
     '--build', '.',
     '--parallel', str(os.cpu_count()),
@@ -71,12 +71,12 @@ def buildWinPhoneManagedDLL(args, arch):
 
   proxyFiles = os.listdir("%s/generated/winphone-csharp/proxies" % baseDir)
   proxies = "\n".join(['<Compile Include="%s\\generated\\winphone-csharp\\proxies\\%s"><Link>Proxies\%s</Link></Compile>' % (baseDir, proxyFile, proxyFile) for proxyFile in proxyFiles])
-  with open('%s/scripts/winphone10/CartoMobileSDK.WinPhone.csproj.template' % baseDir, 'r') as f:
+  with open('%s/scripts/winphone10/MassifMaps.WinPhone.csproj.template' % baseDir, 'r') as f:
     csProjFile = string.Template(f.read()).safe_substitute({ 'baseDir': baseDir, 'buildDir': buildDir, 'proxies': proxies })
-  with open('%s/CartoMobileSDK.WinPhone.csproj' % buildDir, 'w') as f:
+  with open('%s/MassifMaps.WinPhone.csproj' % buildDir, 'w') as f:
     f.write(csProjFile)
 
-  if not nuget(args, buildDir, 'restore', '%s/CartoMobileSDK.WinPhone.csproj' % buildDir):
+  if not nuget(args, buildDir, 'restore', '%s/MassifMaps.WinPhone.csproj' % buildDir):
     print("Failed to restore required nuget packages")
     return False
 
@@ -84,7 +84,7 @@ def buildWinPhoneManagedDLL(args, arch):
     '/t:Build',
     '/p:Configuration=%s' % args.configuration,
     '/p:ProcessorArchitecture=%s' % arch,
-    '%s/CartoMobileSDK.WinPhone.csproj' % buildDir
+    '%s/MassifMaps.WinPhone.csproj' % buildDir
   )
 
 def buildWinPhoneVSIX(args):
@@ -92,18 +92,18 @@ def buildWinPhoneVSIX(args):
   buildDir = getBuildDir('winphone_vsix10')
   distDir = getDistDir('winphone10')
 
-  with open('%s/scripts/winphone10-vsix/CartoMobileSDK.WinPhone.VSIX.csproj.template' % baseDir, 'r') as f:
+  with open('%s/scripts/winphone10-vsix/MassifMaps.WinPhone.VSIX.csproj.template' % baseDir, 'r') as f:
     csProjFile = string.Template(f.read()).safe_substitute({ 'baseDir': baseDir, 'buildDir': buildDir, 'configuration': args.configuration, 'nativeConfiguration': args.nativeconfiguration })
-  with open('%s/CartoMobileSDK.WinPhone.VSIX.csproj' % buildDir, 'w') as f:
+  with open('%s/MassifMaps.WinPhone.VSIX.csproj' % buildDir, 'w') as f:
     f.write(csProjFile)
 
   if not msbuild(args, buildDir,
     '/t:Build',
     '/p:Configuration=%s' % args.configuration,
-    '%s/CartoMobileSDK.WinPhone.VSIX.csproj' % buildDir
+    '%s/MassifMaps.WinPhone.VSIX.csproj' % buildDir
   ):
     return False
-  if not copyfile('%s/bin/%s/CartoMobileSDK.WinPhone.VSIX.vsix' % (buildDir, args.configuration), '%s/CartoMobileSDK.WinPhone10.VSIX.vsix' % distDir):
+  if not copyfile('%s/bin/%s/MassifMaps.WinPhone.VSIX.vsix' % (buildDir, args.configuration), '%s/MassifMaps.WinPhone10.VSIX.vsix' % distDir):
     return False
 
   print("VSIX output available in:\n%s" % distDir)
@@ -115,7 +115,7 @@ def buildWinPhoneNuget(args):
   distDir = getDistDir('winphone10')
   version = args.buildversion
 
-  with open('%s/scripts/nuget/CartoMobileSDK.WinPhone.nuspec.template' % baseDir, 'r') as f:
+  with open('%s/scripts/nuget/MassifMaps.WinPhone.nuspec.template' % baseDir, 'r') as f:
     nuspecFile = string.Template(f.read()).safe_substitute({
       'baseDir': baseDir,
       'buildDir': buildDir,
@@ -123,27 +123,27 @@ def buildWinPhoneNuget(args):
       'nativeConfiguration': args.nativeconfiguration,
       'version': version
     })
-  with open('%s/CartoMobileSDK.WinPhone.nuspec' % buildDir, 'w') as f:
+  with open('%s/MassifMaps.WinPhone.nuspec' % buildDir, 'w') as f:
     f.write(nuspecFile)
 
   # A hack to generate non-arch dependent assembly, this is nuget peculiarity
   arch = 'x86' if 'x86' in args.winphonearch else args.winphonearch[0]
-  if not copyfile('%s/../winphone_managed10-%s/bin/%s/CartoMobileSDK.WinPhone.dll' % (buildDir, arch, args.configuration), '%s/CartoMobileSDK.WinPhone.dll' % buildDir):
+  if not copyfile('%s/../winphone_managed10-%s/bin/%s/MassifMaps.WinPhone.dll' % (buildDir, arch, args.configuration), '%s/MassifMaps.WinPhone.dll' % buildDir):
     return False
   if not corflags(args, buildDir,
     '/32BITREQ-',
-    '%s/CartoMobileSDK.WinPhone.dll' % buildDir
+    '%s/MassifMaps.WinPhone.dll' % buildDir
   ):
     return False
 
   if not nuget(args, buildDir,
     'pack',
-    '%s/CartoMobileSDK.WinPhone.nuspec' % buildDir,
+    '%s/MassifMaps.WinPhone.nuspec' % buildDir,
     '-BasePath', '/'
   ):
     return False
 
-  if not copyfile('%s/CartoMobileSDK.UWP.%s.nupkg' % (buildDir, version), '%s/CartoMobileSDK.UWP.%s.nupkg' % (distDir, version)):
+  if not copyfile('%s/MassifMaps.UWP.%s.nupkg' % (buildDir, version), '%s/MassifMaps.UWP.%s.nupkg' % (distDir, version)):
     return False
 
   print("Nuget output available in:\n%s" % distDir)

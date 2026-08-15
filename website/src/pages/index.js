@@ -32,7 +32,7 @@ export default function Home() {
   return (
     <Layout
       title={`${siteConfig.title} — Documentation`}
-      description="Documentation for the Akylas CARTO Mobile SDK fork: installation, guides, feature docs and API reference for Android and iOS.">
+      description="Documentation for the Akylas Massif Maps fork: installation, guides, feature docs and API reference for Android and iOS.">
       <HomepageHeader />
       <main>
         <HomepageFeatures />

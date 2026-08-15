@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_CULLSTATE_H_
-#define _CARTO_CULLSTATE_H_
+#ifndef _MASSIF_CULLSTATE_H_
+#define _MASSIF_CULLSTATE_H_
 
 #include "core/MapEnvelope.h"
 #include "graphics/ViewState.h"
@@ -13,7 +13,7 @@
 #include <memory>
 #include <vector>
 
-namespace carto {
+namespace massif {
     class Projection;
 
     /**

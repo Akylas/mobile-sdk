@@ -1,6 +1,6 @@
 #include "VariantObjectBuilder.h"
 
-namespace carto {
+namespace massif {
 
     VariantObjectBuilder::VariantObjectBuilder() :
         _elementMap(),

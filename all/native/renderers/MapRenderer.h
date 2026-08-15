@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_MAPRENDERER_H_
-#define _CARTO_MAPRENDERER_H_
+#ifndef _MASSIF_MAPRENDERER_H_
+#define _MASSIF_MAPRENDERER_H_
 
 #include "core/MapPos.h"
 #include "core/MapVec.h"
@@ -32,7 +32,7 @@
 #include <vector>
 #include <map>
 
-namespace carto {
+namespace massif {
     class CameraPanEvent;
     class CameraRotationEvent;
     class CameraTiltEvent;
@@ -188,7 +188,7 @@ namespace carto {
         void unregisterOnChangeListener(const std::shared_ptr<OnChangeListener>& listener);
         
     private:
-        // debug.carto.background 0 drops the map background plane. Read once (Android only).
+        // debug.massif.background 0 drops the map background plane. Read once (Android only).
         static bool isBackgroundEnabled();
         class OptionsListener : public Options::OnChangeListener {
         public:

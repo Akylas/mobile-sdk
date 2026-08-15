@@ -6,7 +6,7 @@
 
 #include <vector>
 
-namespace carto {
+namespace massif {
     
     std::string FileUtils::GetFileName(const std::string& fullPath) {
         std::string::size_type pos = fullPath.find_last_of("/");

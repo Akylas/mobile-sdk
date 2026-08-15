@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_POLYGON3DDRAWDATA_H_
-#define _CARTO_POLYGON3DDRAWDATA_H_
+#ifndef _MASSIF_POLYGON3DDRAWDATA_H_
+#define _MASSIF_POLYGON3DDRAWDATA_H_
 
 #include "renderers/drawdatas/VectorElementDrawData.h"
 
@@ -15,7 +15,7 @@
 #include <cglib/vec.h>
 #include <cglib/bbox.h>
 
-namespace carto {
+namespace massif {
     class Polygon3D;
     class Polygon3DStyle;
     class Projection;

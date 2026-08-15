@@ -1,4 +1,4 @@
-#ifdef _CARTO_WKBT_SUPPORT
+#ifdef _MASSIF_WKBT_SUPPORT
 
 #include "WKTGeometryReader.h"
 #include "components/Exceptions.h"
@@ -19,7 +19,7 @@
 #include <stack>
 #include <stdexcept>
 
-namespace carto {
+namespace massif {
     
     WKTGeometryReader::WKTGeometryReader() {
     }

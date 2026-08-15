@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_COMPOSITEVECTORTILELAYER_H_
-#define _CARTO_COMPOSITEVECTORTILELAYER_H_
+#ifndef _MASSIF_COMPOSITEVECTORTILELAYER_H_
+#define _MASSIF_COMPOSITEVECTORTILELAYER_H_
 
 #include "layers/VectorTileLayer.h"
 
@@ -16,7 +16,7 @@
 #include <string>
 #include <vector>
 
-namespace carto {
+namespace massif {
     class TileDataSource;
     class VectorTileDecoder;
     class ElevationDecoder;
@@ -51,7 +51,7 @@ namespace carto {
      *
      * Each external source is placed at the position of a matching layer name in the style
      * project's "layers" array, and configured by a matching '#name { ... }' block in the
-     * CartoCSS (e.g. raster-opacity, hillshade-exaggeration), including zoom- and nuti-
+     * CartoCSS (e.g. raster-opacity, hillshade-exaggeration), including zoom- and style-parameter-
      * parameter-dependent expressions. Raster and hillshade sources are rendered as their
      * own draped child layers interleaved between the master style layers; merged vector
      * sources are folded into the master source and styled normally.

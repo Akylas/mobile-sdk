@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace carto {
+namespace massif {
 
     const int CelestialArc::CIRCLE_SEGMENTS = 180;
 

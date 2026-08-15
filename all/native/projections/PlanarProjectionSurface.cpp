@@ -1,7 +1,7 @@
 #include "PlanarProjectionSurface.h"
 #include "utils/Const.h"
 
-namespace carto {
+namespace massif {
     
     PlanarProjectionSurface::PlanarProjectionSurface() {
     }

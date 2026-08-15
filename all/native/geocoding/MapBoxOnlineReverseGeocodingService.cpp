@@ -1,4 +1,4 @@
-#if defined(_CARTO_GEOCODING_SUPPORT)
+#if defined(_MASSIF_GEOCODING_SUPPORT)
 
 #include "MapBoxOnlineReverseGeocodingService.h"
 #include "core/BinaryData.h"
@@ -11,7 +11,7 @@
 
 #include <boost/lexical_cast.hpp>
 
-namespace carto {
+namespace massif {
 
     MapBoxOnlineReverseGeocodingService::MapBoxOnlineReverseGeocodingService(const std::string& accessToken) :
         _accessToken(accessToken),

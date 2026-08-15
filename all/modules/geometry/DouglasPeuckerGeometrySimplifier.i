@@ -3,7 +3,7 @@
 
 %module DouglasPeuckerGeometrySimplifier
 
-!proxy_imports(carto::DouglasPeuckerGeometrySimplifier, geometry.Geometry, geometry.GeometrySimplifier, projections.Projection)
+!proxy_imports(massif::DouglasPeuckerGeometrySimplifier, geometry.Geometry, geometry.GeometrySimplifier, projections.Projection)
 
 %{
 #include "geometry/DouglasPeuckerGeometrySimplifier.h"
@@ -11,14 +11,14 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/MapPos.i"
 %import "geometry/GeometrySimplifier.i"
 
-!polymorphic_shared_ptr(carto::DouglasPeuckerGeometrySimplifier, geometry.DouglasPeuckerGeometrySimplifier)
+!polymorphic_shared_ptr(massif::DouglasPeuckerGeometrySimplifier, geometry.DouglasPeuckerGeometrySimplifier)
 
-%ignore carto::DouglasPeuckerGeometrySimplifier::simplify;
+%ignore massif::DouglasPeuckerGeometrySimplifier::simplify;
 
 %include "geometry/DouglasPeuckerGeometrySimplifier.h"
 

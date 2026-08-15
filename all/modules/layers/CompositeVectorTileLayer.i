@@ -3,7 +3,7 @@
 
 %module CompositeVectorTileLayer
 
-!proxy_imports(carto::CompositeVectorTileLayer, datasources.TileDataSource, layers.VectorTileLayer, vectortiles.VectorTileDecoder, rastertiles.ElevationDecoder, core.StringVector)
+!proxy_imports(massif::CompositeVectorTileLayer, datasources.TileDataSource, layers.VectorTileLayer, vectortiles.VectorTileDecoder, rastertiles.ElevationDecoder, core.StringVector)
 
 %{
 #include "layers/CompositeVectorTileLayer.h"
@@ -14,7 +14,7 @@
 %include <std_string.i>
 %include <std_vector.i>
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "layers/VectorTileLayer.i"
 %import "datasources/TileDataSource.i"
@@ -22,18 +22,18 @@
 %import "rastertiles/ElevationDecoder.i"
 %import "core/StringVector.i"
 
-!enum(carto::CompositeSourceType::CompositeSourceType)
-!polymorphic_shared_ptr(carto::CompositeVectorTileLayer, layers.CompositeVectorTileLayer)
+!enum(massif::CompositeSourceType::CompositeSourceType)
+!polymorphic_shared_ptr(massif::CompositeVectorTileLayer, layers.CompositeVectorTileLayer)
 
-%attribute(carto::CompositeVectorTileLayer, bool, SinglePassRenderingEnabled, isSinglePassRenderingEnabled, setSinglePassRenderingEnabled)
-%std_exceptions(carto::CompositeVectorTileLayer::CompositeVectorTileLayer)
-%std_exceptions(carto::CompositeVectorTileLayer::addExternalDataSource)
-%std_exceptions(carto::CompositeVectorTileLayer::addVectorDataSource)
-%std_exceptions(carto::CompositeVectorTileLayer::setExternalDataSourceZoomLevelBias)
-%std_exceptions(carto::CompositeVectorTileLayer::getExternalDataSourceZoomLevelBias)
-%std_exceptions(carto::CompositeVectorTileLayer::clearExternalDataSourceZoomLevelBias)
-%std_exceptions(carto::CompositeVectorTileLayer::setExternalDataSourceMaxOverzoomLevel)
-%std_exceptions(carto::CompositeVectorTileLayer::getExternalDataSourceMaxOverzoomLevel)
+%attribute(massif::CompositeVectorTileLayer, bool, SinglePassRenderingEnabled, isSinglePassRenderingEnabled, setSinglePassRenderingEnabled)
+%std_exceptions(massif::CompositeVectorTileLayer::CompositeVectorTileLayer)
+%std_exceptions(massif::CompositeVectorTileLayer::addExternalDataSource)
+%std_exceptions(massif::CompositeVectorTileLayer::addVectorDataSource)
+%std_exceptions(massif::CompositeVectorTileLayer::setExternalDataSourceZoomLevelBias)
+%std_exceptions(massif::CompositeVectorTileLayer::getExternalDataSourceZoomLevelBias)
+%std_exceptions(massif::CompositeVectorTileLayer::clearExternalDataSourceZoomLevelBias)
+%std_exceptions(massif::CompositeVectorTileLayer::setExternalDataSourceMaxOverzoomLevel)
+%std_exceptions(massif::CompositeVectorTileLayer::getExternalDataSourceMaxOverzoomLevel)
 
 %include "layers/CompositeVectorTileLayer.h"
 

@@ -3,7 +3,7 @@
 
 %module(directors="1") MergedMBVTTileDataSource
 
-!proxy_imports(carto::MergedMBVTTileDataSource, core.MapTile, core.MapBounds, core.StringMap, datasources.TileDataSource, datasources.components.TileData)
+!proxy_imports(massif::MergedMBVTTileDataSource, core.MapTile, core.MapBounds, core.StringMap, datasources.TileDataSource, datasources.components.TileData)
 
 %{
 #include "datasources/MergedMBVTTileDataSource.h"
@@ -13,15 +13,15 @@
 
 %include <std_shared_ptr.i>
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "datasources/TileDataSource.i"
 
-!polymorphic_shared_ptr(carto::MergedMBVTTileDataSource, datasources.MergedMBVTTileDataSource)
+!polymorphic_shared_ptr(massif::MergedMBVTTileDataSource, datasources.MergedMBVTTileDataSource)
 
-%std_exceptions(carto::MergedMBVTTileDataSource::MergedMBVTTileDataSource)
+%std_exceptions(massif::MergedMBVTTileDataSource::MergedMBVTTileDataSource)
 
-%feature("director") carto::MergedMBVTTileDataSource;
+%feature("director") massif::MergedMBVTTileDataSource;
 
 %include "datasources/MergedMBVTTileDataSource.h"
 

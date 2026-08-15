@@ -4,7 +4,7 @@
 
 #include <cmath>
 
-namespace carto {
+namespace massif {
 
     EPSG3857::EPSG3857() :
         Projection(MapBounds(MapPos(-Const::PI * EARTH_RADIUS, -Const::PI * EARTH_RADIUS), MapPos(Const::PI * EARTH_RADIUS, Const::PI * EARTH_RADIUS)))

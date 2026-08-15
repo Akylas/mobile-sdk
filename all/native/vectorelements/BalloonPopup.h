@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_BALLOONPOPUP_H_
-#define _CARTO_BALLOONPOPUP_H_
+#ifndef _MASSIF_BALLOONPOPUP_H_
+#define _MASSIF_BALLOONPOPUP_H_
 
 #include "core/ScreenBounds.h"
 #include "components/DirectorPtr.h"
@@ -13,7 +13,7 @@
 
 #include <memory>
 
-namespace carto {
+namespace massif {
     class BitmapCanvas;
     class BalloonPopupButton;
     class BalloonPopupEventListener;

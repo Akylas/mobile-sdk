@@ -4,7 +4,7 @@
 
 #include <cmath>
 
-namespace carto {
+namespace massif {
 
     CelestialObject::CelestialObject() :
         _mutex(),

@@ -9,10 +9,10 @@ CartoCSS label properties the fork added: a name that takes the free side of its
 icons, rounded plates behind text and icon, callout labels for peaks, and per-label distance limits.
 
 :::info Fork feature
-Added in PRs [#57](https://github.com/Akylas/mobile-sdk/pull/57) and
-[#56](https://github.com/Akylas/mobile-sdk/pull/56), with the renderer half in
-`farfromrefug/mobile-carto-libs`. Everything here is style syntax — no API call is needed.
-Technical notes: [`docs/rendering/06-labels.md`](https://github.com/Akylas/mobile-sdk/blob/master/docs/rendering/06-labels.md).
+Added in PRs [#57](https://github.com/massif-maps/MassifMaps/pull/57) and
+[#56](https://github.com/massif-maps/MassifMaps/pull/56), with the renderer half in
+`massif-maps/massif-maps-libs`. Everything here is style syntax — no API call is needed.
+Technical notes: [`docs/rendering/06-labels.md`](https://github.com/massif-maps/MassifMaps/blob/master/docs/rendering/06-labels.md).
 :::
 
 <figure class="docs-figure">
@@ -94,7 +94,7 @@ in draw-call count. A screen of road shields — tens, not thousands — is far 
 ## Callout labels
 
 A panorama has hundreds of summits inside a few degrees of the horizon, all wanting the same band of
-pixels. `text-placement: nuticallout` lifts the name off its anchor in **screen pixels** and joins it
+pixels. `text-placement: callout` lifts the name off its anchor in **screen pixels** and joins it
 back with a leader line; a name that loses its row steps to the next one instead of being hidden.
 
 ```css
@@ -102,7 +102,7 @@ back with a leader line; a name that loses its row steps to the next one instead
   text-name: [name];
   text-secondary-name: [ele] + 'm';           /* one label, two type sizes */
   text-secondary-scale: 0.62;
-  text-placement: nuticallout;
+  text-placement: callout;
   text-callout-screen-anchor: 0.25;           /* band, as a fraction of screen height from the top */
   text-callout-step: -18;                     /* pixels per row; negative stacks DOWNWARDS */
   text-callout-max-rows: 6;

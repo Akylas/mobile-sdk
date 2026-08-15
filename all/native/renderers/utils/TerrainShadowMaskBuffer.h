@@ -4,10 +4,10 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_TERRAINSHADOWMASKBUFFER_H_
-#define _CARTO_TERRAINSHADOWMASKBUFFER_H_
+#ifndef _MASSIF_TERRAINSHADOWMASKBUFFER_H_
+#define _MASSIF_TERRAINSHADOWMASKBUFFER_H_
 
-namespace carto {
+namespace massif {
 
     /**
      * Screen-space shadow mask for the terrain surface, at a fraction of the screen resolution.

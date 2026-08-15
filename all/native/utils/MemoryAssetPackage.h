@@ -4,15 +4,15 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_MEMORYASSETPACKAGE_H_
-#define _CARTO_MEMORYASSETPACKAGE_H_
+#ifndef _MASSIF_MEMORYASSETPACKAGE_H_
+#define _MASSIF_MEMORYASSETPACKAGE_H_
 
 #include "utils/AssetPackage.h"
 
 #include <map>
 #include <mutex>
 
-namespace carto {
+namespace massif {
 
     class MemoryAssetPackage : public AssetPackage {
     public:

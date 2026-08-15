@@ -3,7 +3,7 @@
 #include "styles/MarkerStyle.h"
 #include "vectorelements/Marker.h"
 
-namespace carto {
+namespace massif {
 
     MarkerDrawData::MarkerDrawData(const Marker& marker, const MarkerStyle& style, const Projection& projection, const std::shared_ptr<ProjectionSurface>& projectionSurface) :
         BillboardDrawData(marker,

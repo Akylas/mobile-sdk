@@ -3,7 +3,7 @@
 does and validate them with glslangValidator (ESSL 100)."""
 import re, subprocess, sys, os, tempfile
 
-SHADERS_H = "/Volumes/dev/carto/mobile-sdk/libs-carto/vt/src/vt/GLTileRendererShaders.h"
+SHADERS_H = "/Volumes/dev/carto/mobile-sdk/libs-massif/vt/src/vt/GLTileRendererShaders.h"
 TILERENDERER_CPP = "/Volumes/dev/carto/mobile-sdk/all/native/renderers/TileRenderer.cpp"
 
 def extract_strings(path):

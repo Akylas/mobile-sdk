@@ -3,7 +3,7 @@
 
 %module(directors="1") AssetPackage
 
-!proxy_imports(carto::AssetPackage, core.BinaryData, core.StringVector)
+!proxy_imports(massif::AssetPackage, core.BinaryData, core.StringVector)
 
 %{
 #include "utils/AssetPackage.h"
@@ -12,17 +12,17 @@
 
 %include <std_shared_ptr.i>
 %include <std_vector.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/BinaryData.i"
 %import "core/StringVector.i"
 
-!polymorphic_shared_ptr(carto::AssetPackage, utils.AssetPackage)
+!polymorphic_shared_ptr(massif::AssetPackage, utils.AssetPackage)
 
-%attributeval(carto::AssetPackage, %arg(std::vector<std::string>), AssetNames, getAssetNames)
-!standard_equals(carto::AssetPackage);
+%attributeval(massif::AssetPackage, %arg(std::vector<std::string>), AssetNames, getAssetNames)
+!standard_equals(massif::AssetPackage);
 
-%feature("director") carto::AssetPackage;
+%feature("director") massif::AssetPackage;
 
 %include "utils/AssetPackage.h"
 

@@ -1,6 +1,6 @@
 #include "TextStyleBuilder.h"
 
-namespace carto {
+namespace massif {
 
     TextStyleBuilder::TextStyleBuilder() :
         LabelStyleBuilder(),

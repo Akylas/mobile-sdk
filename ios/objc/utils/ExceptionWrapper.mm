@@ -1,6 +1,6 @@
 #import "ExceptionWrapper.h"
 
-@implementation NTExceptionWrapper
+@implementation MSFExceptionWrapper
 
 +(BOOL)catchException:(void(^)(void))tryBlock error:(__autoreleasing NSError**)error {
     @try {

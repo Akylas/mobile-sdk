@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_VECTORTILELAYER_H_
-#define _CARTO_VECTORTILELAYER_H_
+#ifndef _MASSIF_VECTORTILELAYER_H_
+#define _MASSIF_VECTORTILELAYER_H_
 
 #include "core/MapTile.h"
 #include "core/MapBounds.h"
@@ -24,7 +24,7 @@
 #include <vt/Tile.h>
 #include <mapnikvt/Properties.h>
 
-namespace carto {
+namespace massif {
     class TileDrawData;
     class VectorTileEventListener;
     class VTLabelPlacementWorker;

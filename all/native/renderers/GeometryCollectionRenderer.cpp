@@ -12,7 +12,7 @@
 
 #include <cglib/mat.h>
 
-namespace carto {
+namespace massif {
 
     GeometryCollectionRenderer::GeometryCollectionRenderer() :
         _elements(),

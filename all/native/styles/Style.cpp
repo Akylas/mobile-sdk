@@ -1,6 +1,6 @@
 #include "Style.h"
 
-namespace carto {
+namespace massif {
 
     Style::~Style() {
     }

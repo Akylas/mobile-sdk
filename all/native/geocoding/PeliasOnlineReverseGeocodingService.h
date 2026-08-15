@@ -4,18 +4,18 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_PELIASONLINEREVERSEGEOCODINGSERVICE_H_
-#define _CARTO_PELIASONLINEREVERSEGEOCODINGSERVICE_H_
+#ifndef _MASSIF_PELIASONLINEREVERSEGEOCODINGSERVICE_H_
+#define _MASSIF_PELIASONLINEREVERSEGEOCODINGSERVICE_H_
 
-#if defined(_CARTO_GEOCODING_SUPPORT)
+#if defined(_MASSIF_GEOCODING_SUPPORT)
 
 #include "geocoding/ReverseGeocodingService.h"
 
-namespace carto {
+namespace massif {
 
     /**
      * An online reverse geocoding service that uses Mapzen Pelias geocoder.
-     * As the class connects to an external (non-CARTO) service, this class is provided "as-is",   
+     * As the class connects to an external (non-Massif) service, this class is provided "as-is",   
      * future changes from the service provider may not be compatible with the implementation.
      * Geocoding and reverse geocoding perform network requests and must be executed in non-UI background thread.
      * Be sure to read the Terms and Conditions of your Pelias service provider to see if the

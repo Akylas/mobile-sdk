@@ -3,9 +3,9 @@
 
 %module WKTGeometryReader
 
-#ifdef _CARTO_WKBT_SUPPORT
+#ifdef _MASSIF_WKBT_SUPPORT
 
-!proxy_imports(carto::WKTGeometryReader, geometry.Geometry)
+!proxy_imports(massif::WKTGeometryReader, geometry.Geometry)
 
 %{
 #include "geometry/WKTGeometryReader.h"
@@ -15,11 +15,11 @@
 
 %include <std_shared_ptr.i>
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "geometry/Geometry.i"
 
-%std_exceptions(carto::WKTGeometryReader::readGeometry)
+%std_exceptions(massif::WKTGeometryReader::readGeometry)
 
 %include "geometry/WKTGeometryReader.h"
 

@@ -1,7 +1,7 @@
 #include "SphericalProjectionSurface.h"
 #include "utils/Const.h"
 
-namespace carto {
+namespace massif {
     
     SphericalProjectionSurface::SphericalProjectionSurface() {
     }

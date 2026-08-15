@@ -1,6 +1,6 @@
 #include "StyleBuilder.h"
 
-namespace carto {
+namespace massif {
     
     StyleBuilder::~StyleBuilder() {
     }

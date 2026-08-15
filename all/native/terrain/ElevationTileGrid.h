@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_ELEVATIONTILEGRID_H_
-#define _CARTO_ELEVATIONTILEGRID_H_
+#ifndef _MASSIF_ELEVATIONTILEGRID_H_
+#define _MASSIF_ELEVATIONTILEGRID_H_
 
 #include "core/MapTile.h"
 #include "core/MapBounds.h"
@@ -17,7 +17,7 @@
 #include <memory>
 #include <vector>
 
-namespace carto {
+namespace massif {
 
     /**
      * A single decoded DEM tile.

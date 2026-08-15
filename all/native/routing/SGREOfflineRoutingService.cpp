@@ -1,4 +1,4 @@
-#if defined(_CARTO_ROUTING_SUPPORT) && defined(_CARTO_OFFLINE_SUPPORT)
+#if defined(_MASSIF_ROUTING_SUPPORT) && defined(_MASSIF_OFFLINE_SUPPORT)
 
 #include "SGREOfflineRoutingService.h"
 #include "components/Exceptions.h"
@@ -18,7 +18,7 @@
 #include <sgre/Instruction.h>
 #include <sgre/RouteFinder.h>
 
-namespace carto {
+namespace massif {
 
     SGREOfflineRoutingService::SGREOfflineRoutingService(const Variant& geoJSON, const Variant& config) :
         RoutingService(),

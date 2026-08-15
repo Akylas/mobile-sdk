@@ -6,7 +6,7 @@
 
 #include <vt/Tile.h>
 
-namespace carto {
+namespace massif {
 
     TorqueTileLayer::TorqueTileLayer(const std::shared_ptr<TileDataSource>& dataSource, const std::shared_ptr<TorqueTileDecoder>& decoder) :
         VectorTileLayer(dataSource, decoder)

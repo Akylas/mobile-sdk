@@ -3,7 +3,7 @@
 
 %module Polygon3DStyle
 
-!proxy_imports(carto::Polygon3DStyle, graphics.Color, styles.Style)
+!proxy_imports(massif::Polygon3DStyle, graphics.Color, styles.Style)
 
 %{
 #include "styles/Polygon3DStyle.h"
@@ -11,15 +11,15 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "graphics/Color.i"
 %import "styles/Style.i"
 
-!polymorphic_shared_ptr(carto::Polygon3DStyle, styles.Polygon3DStyle)
+!polymorphic_shared_ptr(massif::Polygon3DStyle, styles.Polygon3DStyle)
 
-%attributeval(carto::Polygon3DStyle, carto::Color, SideColor, getSideColor)
-%ignore carto::Polygon3DStyle::Polygon3DStyle;
+%attributeval(massif::Polygon3DStyle, massif::Color, SideColor, getSideColor)
+%ignore massif::Polygon3DStyle::Polygon3DStyle;
 
 %include "styles/Polygon3DStyle.h"
 

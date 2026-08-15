@@ -1,6 +1,6 @@
 /**
- * CARTO Mobile SDK docs theme.
- * CARTO-inspired palette (blue primary, warm accent) with full dark-mode support.
+ * Massif Maps docs theme.
+ * Massif palette (blue primary, warm accent) with full dark-mode support.
  */
 
 :root {
@@ -19,9 +19,9 @@
 
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.08);
 
-  --carto-accent: #ff4f4f;
-  --carto-hero-from: #036fe2;
-  --carto-hero-to: #00c4b3;
+  --massif-accent: #ff4f4f;
+  --massif-hero-from: #036fe2;
+  --massif-hero-to: #00c4b3;
 }
 
 [data-theme='dark'] {
@@ -53,7 +53,7 @@
   overflow: hidden;
   padding: 5rem 0 4.5rem;
   color: #fff;
-  background: linear-gradient(135deg, var(--carto-hero-from) 0%, var(--carto-hero-to) 100%);
+  background: linear-gradient(135deg, var(--massif-hero-from) 0%, var(--massif-hero-to) 100%);
   text-align: center;
 }
 
@@ -89,13 +89,13 @@
 
 .button--hero {
   background: #fff;
-  color: var(--carto-hero-from);
+  color: var(--massif-hero-from);
   border: none;
   font-weight: 700;
 }
 .button--hero:hover {
   background: #f2f6ff;
-  color: var(--carto-hero-from);
+  color: var(--massif-hero-from);
 }
 .button--hero-outline {
   background: transparent;
@@ -148,7 +148,7 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: #fff;
-  background: var(--carto-accent);
+  background: var(--massif-accent);
   border-radius: 999px;
   padding: 1px 8px;
   margin-left: 0.5rem;

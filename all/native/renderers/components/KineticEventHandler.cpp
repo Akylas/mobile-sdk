@@ -10,7 +10,7 @@
 
 #include <numeric>
 
-namespace carto {
+namespace massif {
 
     KineticEventHandler::KineticEventHandler(MapRenderer& mapRenderer, Options& options) :
         _pan(false),

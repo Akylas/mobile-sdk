@@ -3,9 +3,9 @@
 
 %module BitmapUtils
 
-!proxy_imports(carto::BitmapUtils, graphics.Bitmap)
-!objc_imports(carto::BitmapUtils, <UIKit/UIKit.h>)
-!cs_imports(carto::BitmapUtils, UIKit)
+!proxy_imports(massif::BitmapUtils, graphics.Bitmap)
+!objc_imports(massif::BitmapUtils, <UIKit/UIKit.h>)
+!cs_imports(massif::BitmapUtils, UIKit)
 
 %{
 #include "utils/BitmapUtils.h"
@@ -14,7 +14,7 @@
 
 %include <std_shared_ptr.i>
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "graphics/Bitmap.i"
 
@@ -36,8 +36,8 @@
     $result = (__bridge_retained void*)$1;
 %}
 
-%std_exceptions(carto::BitmapUtils::CreateBitmapFromUIImage)
-%std_exceptions(carto::BitmapUtils::CreateUIImageFromBitmap)
+%std_exceptions(massif::BitmapUtils::CreateBitmapFromUIImage)
+%std_exceptions(massif::BitmapUtils::CreateUIImageFromBitmap)
 
 %include "utils/BitmapUtils.h"
 

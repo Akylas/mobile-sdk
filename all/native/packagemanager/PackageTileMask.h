@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_PACKAGETILEMASK_H_
-#define _CARTO_PACKAGETILEMASK_H_
+#ifndef _MASSIF_PACKAGETILEMASK_H_
+#define _MASSIF_PACKAGETILEMASK_H_
 
 #include "core/MapPos.h"
 #include "core/MapTile.h"
@@ -18,7 +18,7 @@
 #include <vector>
 #include <unordered_set>
 
-namespace carto {
+namespace massif {
     class Projection;
     class MultiPolygonGeometry;
 

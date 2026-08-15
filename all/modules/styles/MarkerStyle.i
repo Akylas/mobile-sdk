@@ -3,7 +3,7 @@
 
 %module MarkerStyle
 
-!proxy_imports(carto::MarkerStyle, graphics.Bitmap, graphics.Color, styles.BillboardStyle)
+!proxy_imports(massif::MarkerStyle, graphics.Bitmap, graphics.Color, styles.BillboardStyle)
 
 %{
 #include "styles/MarkerStyle.h"
@@ -11,21 +11,21 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "graphics/Bitmap.i"
 %import "styles/BillboardStyle.i"
 
-!polymorphic_shared_ptr(carto::MarkerStyle, styles.MarkerStyle)
+!polymorphic_shared_ptr(massif::MarkerStyle, styles.MarkerStyle)
 
-%attribute(carto::MarkerStyle, float, Size, getSize)
-%attribute(carto::MarkerStyle, float, ClickSize, getClickSize)
-%attribute(carto::MarkerStyle, carto::BillboardOrientation::BillboardOrientation, OrientationMode, getOrientationMode)
-%attribute(carto::MarkerStyle, carto::BillboardScaling::BillboardScaling, ScalingMode, getScalingMode)
-%attribute(carto::MarkerStyle, float, AnchorPointX, getAnchorPointX)
-%attribute(carto::MarkerStyle, float, AnchorPointY, getAnchorPointY)
-%attributestring(carto::MarkerStyle, std::shared_ptr<carto::Bitmap>, Bitmap, getBitmap)
-%ignore carto::MarkerStyle::MarkerStyle;
+%attribute(massif::MarkerStyle, float, Size, getSize)
+%attribute(massif::MarkerStyle, float, ClickSize, getClickSize)
+%attribute(massif::MarkerStyle, massif::BillboardOrientation::BillboardOrientation, OrientationMode, getOrientationMode)
+%attribute(massif::MarkerStyle, massif::BillboardScaling::BillboardScaling, ScalingMode, getScalingMode)
+%attribute(massif::MarkerStyle, float, AnchorPointX, getAnchorPointX)
+%attribute(massif::MarkerStyle, float, AnchorPointY, getAnchorPointY)
+%attributestring(massif::MarkerStyle, std::shared_ptr<massif::Bitmap>, Bitmap, getBitmap)
+%ignore massif::MarkerStyle::MarkerStyle;
 
 %include "styles/MarkerStyle.h"
 

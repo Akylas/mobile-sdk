@@ -1,4 +1,4 @@
-# CARTO Mobile SDK (Akylas fork)
+# Massif Maps (Akylas fork)
 
 C++ map SDK for Android / iOS / UWP (and desktop via the same native core). This is the
 Akylas/farfromrefug fork of CartoDB/mobile-sdk with many custom features (hillshade,
@@ -10,12 +10,12 @@ Valhalla routing, custom label rules, PMTiles, ...).
 |------|-----------|
 | `all/native/` | Core SDK C++ (layers, renderers, datasources, projections, ui, vectortiles...) |
 | `all/modules/` | SWIG interface files (`*.i`) — public API surface, mirrors `all/native` |
-| `libs-carto/` | **git submodule** (farfromrefug/mobile-carto-libs): `vt` (GL vector-tile renderer), `mapnikvt`, `cartocss`, `geocoding`, `sgre`/`osrm` routing, `nml` |
-| `libs-external/` | **git submodule** (Akylas/mobile-external-libs): third-party deps (cglib, freetype, harfbuzz, `mlt` = maplibre-tile-spec, decoder only, ...). `boost` is expected as a symlink here (see BUILDING.md) |
+| `libs-massif/` | **git submodule** (massif-maps/massif-maps-libs): `vt` (GL vector-tile renderer), `mapnikvt`, `cartocss`, `geocoding`, `sgre`/`osrm` routing, `nml` |
+| `libs-external/` | **git submodule** (massif-maps/massif-external-libs): third-party deps (cglib, freetype, harfbuzz, `mlt` = maplibre-tile-spec, decoder only, ...). `boost` is expected as a symlink here (see BUILDING.md) |
 | `android/`, `ios/`, `dotnet/`, `winphone/` | Platform glue code |
 | `scripts/` | Build scripts (`build-android.py`, `build-ios.py`, `swigpp-*.py`, CMake in `scripts/build/`) |
 
-**Submodule gotcha:** changes under `libs-carto/` or `libs-external/` must be committed
+**Submodule gotcha:** changes under `libs-massif/` or `libs-external/` must be committed
 inside the submodule (branch `develop`), then the submodule pointer updated in the main
 repo. Commit style is conventional-commits (`fix:`, `feat:`, `chore:`).
 
@@ -23,12 +23,12 @@ repo. Commit style is conventional-commits (`fix:`, `feat:`, `chore:`).
 
 `scripts/android-dev` is the live test bench. It is ONE composable demo, not a set of examples:
 
-| File (under `app/src/main/java/com/akylas/cartotest/`) | Role |
+| File (under `app/src/main/java/com/massif-maps/test/`) | Role |
 |---|---|
 | `demo/DemoConfig.java` | every default, one static field per knob + the intent-extra key map (`applyIntentOverrides`) |
 | `demo/DemoCfg.java` | `cfgBool/cfgFloat/cfgInt/cfgStr/cfgColor` intent readers (`--es key value`) |
 | `demo/DemoMap.java` | builds/updates the map: layer registry, shared sources, terrain/light/sky, camera |
-| `demo/DemoStyles.java` | style decoders (dir / zip / inline CartoCSS / nuti project) + demo shaders |
+| `demo/DemoStyles.java` | style decoders (dir / zip / inline CartoCSS / style project) + demo shaders |
 | `demo/DemoSky.java` | day-cycle sun/sky + generated sky shader |
 | `demo/DemoPanel.java` | on-screen panel — writes DemoConfig, then calls a `DemoMap.apply*()` |
 | `demo/DemoTests.java` | one-shot actions (routing, search, GeoJSON) |
@@ -36,7 +36,7 @@ repo. Commit style is conventional-commits (`fix:`, `feat:`, `chore:`).
 
 Layers (`base`, `satellite`, `hillshade`, `hypso`, `contour`, `contourTiles`, `routes`, `elements`) toggle live
 from the panel or with `--es <name> true|false`; the base map has `--es base plain|composite` and
-`--es style dir|zip|inline|nuti`. `dir` reads the style from a FOLDER via `DirAssetPackage`
+`--es style dir|zip|inline|project`. `dir` reads the style from a FOLDER via `DirAssetPackage`
 (`/sdcard/alpimaps_mbtiles/osm`), falling back to `osm.zip` then to inline CartoCSS.
 
 Change defaults in `DemoConfig` only — those fields are also what the panel mutates. These files
@@ -47,7 +47,7 @@ Comparing against older SDK code (A/B-ing a regression) takes three steps, not o
 
 ```sh
 git checkout <sha> -- all/                       # 1. old sources
-(cd libs-carto && git checkout <matching-sha>)   # 2. matching submodule commit
+(cd libs-massif && git checkout <matching-sha>)   # 2. matching submodule commit
 cd scripts && python3 swigpp-java.py --profile "standard+valhalla+geocoding+routing+packagemanager" \
   --swig /Volumes/dev/carto/mobile-swig/swig     # 3. regenerate wrappers, else the build fails
 ```
@@ -61,7 +61,7 @@ regenerate). SWIG is never run by gradle — any change to `all/modules/*.i` nee
 for the full profile, 256 for `standard`, 236 for `lite`), and the only way back is to run it again
 with the profile you develop against. Size per profile is in [`docs/build-size.md`](docs/build-size.md).
 
-`gh pr create` needs `--repo Akylas/mobile-sdk` (or `--repo farfromrefug/mobile-carto-libs`).
+`gh pr create` needs `--repo massif-maps/MassifMaps` (or `--repo massif-maps/massif-maps-libs`).
 Both repos are forks of the archived CartoDB originals, and without `--repo` gh targets the
 upstream and fails with "Repository was archived so is read-only".
 
@@ -73,17 +73,17 @@ fast loop — not the full `build-android.py`:
 ```sh
 cd scripts/android-dev && ./gradlew :app:assembleDebug -x lint   # ~40 s incremental (native included)
 adb install -r -t app/build/outputs/apk/debug/app-debug.apk      # -t: the APK is test-only
-adb shell am force-stop com.akylas.cartotest
-adb shell am start -n com.akylas.cartotest/.MainActivity --es ui false --es drape false
+adb shell am force-stop com.massifmaps.MassifDemo
+adb shell am start -n com.massifmaps.MassifDemo/.MainActivity --es ui false --es drape false
 ```
 
 - Install from `app/build/outputs/apk/debug/`. `app/build/intermediates/apk/debug/` also holds
   an `app-debug.apk` and it is **stale** — installing it silently runs old code. Verify with
   `unzip -p <apk> classes*.dex | strings | grep <new symbol>` (the demo's Java lands in classes5.dex).
 - Tiles need **60-90 s** to settle before a screenshot means anything (network + persistent
-  cache + label placement). `pm clear com.akylas.cartotest` resets camera/caches; without it the
+  cache + label placement). `pm clear com.massifmaps.MassifDemo` resets camera/caches; without it the
   persistent tile caches stay warm, which is usually what you want.
-- `--es demo terrain|nuti|composite` picks the configuration (default `composite`).
+- `--es demo terrain|project|composite` picks the configuration (default `composite`).
   Every knob in `applyTerrainConfig`/`applyCameraConfig`/`applySkyAndLightConfig` is an intent
   extra, so most experiments need no rebuild: `lon lat zoom tilt rotation`, `drape drapeLines
   drapeResolution meshResolution exaggeration`, `fog fogStart fogDistance viewDistance`,
@@ -116,7 +116,7 @@ adb shell am start -n com.akylas.cartotest/.MainActivity --es ui false --es drap
   separate the composite's children), `RasterTileLayer::FetchTask::loadTile` (why a tile is not
   stored), `ElevationTextureCache::getTexture` (render zoom → DEM grid zoom), and
   `GLTileRenderer::renderGeometry2D` for what is actually visible/blended per target zoom.
-- **vt has no logger** — use `__android_log_print(4, "carto-mobile-sdk", ...)` there. When
+- **vt has no logger** — use `__android_log_print(4, "massif", ...)` there. When
   throttling a probe with a frame counter shared by several renderer instances, use a **prime**
   modulus: `% 120` with 4 instances always logs the same one.
 - `Shader::getUniformLoc` returns **0** for a uniform the compiler dropped, and 0 is a valid
@@ -163,10 +163,10 @@ For fast iteration on the vt renderer, a syntax/type check is enough:
 
 ```sh
 clang++ -fsyntax-only -std=c++20 \
-  -I libs-carto/vt/src -I libs-external/cglib -I libs-external/stdext \
+  -I libs-massif/vt/src -I libs-external/cglib -I libs-external/stdext \
   -I libs-external/angle-metal/include \
   -I <dir-with-boost-or-stub> \
-  libs-carto/vt/src/vt/<file>.cpp
+  libs-massif/vt/src/vt/<file>.cpp
 ```
 
 boost is only used for `boost::math::constants::pi` in vt; a one-line stub header works
@@ -192,7 +192,7 @@ Data flow for a `VectorTileLayer`:
 1. `CullWorker` → `TileLayer::calculateDrawData` → visible tile set.
 2. `VectorTileLayer` decodes tiles (mapnikvt + cartocss) → `vt::Tile` with `TileLayer`s
    containing geometry + `TileLabel`s.
-3. `TileRenderer` (all/native) wraps `vt::GLTileRenderer` (libs-carto/vt) which does all
+3. `TileRenderer` (all/native) wraps `vt::GLTileRenderer` (libs-massif/vt) which does all
    GL work: `startFrame` → `renderGeometry` → `renderLabels` → `endFrame`.
 
 ### Label pipeline (the flicker-sensitive part)
@@ -236,7 +236,7 @@ relies on fresh caches / snapPlacement semantics).
   `MapBoxElevationDataDecoder` (RGB-encoded) and `TerrariumElevationDataDecoder`.
 - `all/native/layers/HillshadeRasterTileLayer.{h,cpp}`: consumes elevation tiles,
   has `getElevation(s)` queries; shading uses `vt::NormalMapBuilder`
-  (libs-carto/vt/src/vt/NormalMapBuilder.cpp).
+  (libs-massif/vt/src/vt/NormalMapBuilder.cpp).
 - Tile geometry/mesh generation: `vt::TileSurfaceBuilder` builds per-tile surface
   meshes; `vt::TileTransformer` (planar + spherical implementations in
   TileTransformer.cpp) abstracts tile-local → world transforms — 3D terrain would plug

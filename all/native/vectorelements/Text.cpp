@@ -9,7 +9,7 @@
 #include <cstdlib>
 #include <cmath>
 
-namespace carto {
+namespace massif {
     
     Text::Text(const std::shared_ptr<Billboard>& baseBillboard, const std::shared_ptr<TextStyle>& style, const std::string& text) :
         Label(baseBillboard, style),

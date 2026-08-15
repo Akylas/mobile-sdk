@@ -4,13 +4,13 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_MULTIPOINTGEOMETRY_H_
-#define _CARTO_MULTIPOINTGEOMETRY_H_
+#ifndef _MASSIF_MULTIPOINTGEOMETRY_H_
+#define _MASSIF_MULTIPOINTGEOMETRY_H_
 
 #include "geometry/MultiGeometry.h"
 #include "geometry/PointGeometry.h"
 
-namespace carto {
+namespace massif {
 
     /**
      * A multipoint container.

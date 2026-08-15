@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_CELESTIALEVENTLISTENER_H_
-#define _CARTO_CELESTIALEVENTLISTENER_H_
+#ifndef _MASSIF_CELESTIALEVENTLISTENER_H_
+#define _MASSIF_CELESTIALEVENTLISTENER_H_
 
 #include "ui/ClickInfo.h"
 
 #include <memory>
 
-namespace carto {
+namespace massif {
     class CelestialObject;
 
     /**

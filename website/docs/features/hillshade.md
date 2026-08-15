@@ -20,9 +20,9 @@ shader base class.
 ## Basic usage
 
 ```kotlin
-import com.carto.layers.HillshadeRasterTileLayer
-import com.carto.layers.HillshadeMethod
-import com.carto.datasources.HTTPTileDataSource
+import com.massifmaps.layers.HillshadeRasterTileLayer
+import com.massifmaps.layers.HillshadeMethod
+import com.massifmaps.datasources.HTTPTileDataSource
 
 val dem = HTTPTileDataSource(0, 12, "https://your.tiles/dem/{z}/{x}/{y}.png").apply {
     setMetaData("encoding", "terrarium")   // or "mapbox"

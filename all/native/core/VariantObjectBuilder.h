@@ -4,15 +4,15 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_VARIANTOBJECTBUILDER_H_
-#define _CARTO_VARIANTOBJECTBUILDER_H_
+#ifndef _MASSIF_VARIANTOBJECTBUILDER_H_
+#define _MASSIF_VARIANTOBJECTBUILDER_H_
 
 #include "core/Variant.h"
 
 #include <mutex>
 #include <map>
 
-namespace carto {
+namespace massif {
 
     /**
      * A helper class for building variant objects.

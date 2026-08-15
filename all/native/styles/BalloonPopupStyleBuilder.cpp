@@ -1,7 +1,7 @@
 #include "BalloonPopupStyleBuilder.h"
 #include "graphics/Bitmap.h"
 
-namespace carto {
+namespace massif {
 
     BalloonPopupStyleBuilder::BalloonPopupStyleBuilder() :
         _cornerRadius(3),

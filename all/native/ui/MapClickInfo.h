@@ -4,13 +4,13 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_MAPCLICKINFO_H_
-#define _CARTO_MAPCLICKINFO_H_
+#ifndef _MASSIF_MAPCLICKINFO_H_
+#define _MASSIF_MAPCLICKINFO_H_
 
 #include "core/MapPos.h"
 #include "ui/ClickInfo.h"
 
-namespace carto {
+namespace massif {
 
     /**
      * A container class that provides information about a click performed on

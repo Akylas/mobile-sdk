@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_SOLIDRENDERER_H_
-#define _CARTO_SOLIDRENDERER_H_
+#ifndef _MASSIF_SOLIDRENDERER_H_
+#define _MASSIF_SOLIDRENDERER_H_
 
 #include "graphics/Color.h"
 #include "renderers/utils/GLContext.h"
@@ -16,7 +16,7 @@
 
 #include <cglib/vec.h>
 
-namespace carto {
+namespace massif {
     class Bitmap;
     class Options;
     class MapRenderer;

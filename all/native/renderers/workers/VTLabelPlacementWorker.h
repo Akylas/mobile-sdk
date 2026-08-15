@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_VTLABELPLACEMENTWORKER_H_
-#define _CARTO_VTLABELPLACEMENTWORKER_H_
+#ifndef _MASSIF_VTLABELPLACEMENTWORKER_H_
+#define _MASSIF_VTLABELPLACEMENTWORKER_H_
 
 #include "components/ThreadWorker.h"
 
@@ -14,7 +14,7 @@
 #include <memory>
 #include <mutex>
 
-namespace carto {
+namespace massif {
     class Layer;
     class MapRenderer;
     

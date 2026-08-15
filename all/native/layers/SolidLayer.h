@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_SOLIDLAYER_H_
-#define _CARTO_SOLIDLAYER_H_
+#ifndef _MASSIF_SOLIDLAYER_H_
+#define _MASSIF_SOLIDLAYER_H_
 
 #include "core/MapEnvelope.h"
 #include "components/CancelableTask.h"
@@ -18,7 +18,7 @@
 #include <memory>
 #include <unordered_map>
 
-namespace carto {
+namespace massif {
     class CullState;
     class ViewState;
 

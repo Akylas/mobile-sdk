@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_GEOMETRYCOLLECTION_H_
-#define _CARTO_GEOMETRYCOLLECTION_H_
+#ifndef _MASSIF_GEOMETRYCOLLECTION_H_
+#define _MASSIF_GEOMETRYCOLLECTION_H_
 
 #include "vectorelements/VectorElement.h"
 
 #include <vector>
 
-namespace carto {
+namespace massif {
     class MultiGeometry;
     class GeometryCollectionDrawData;
     class GeometryCollectionStyle;

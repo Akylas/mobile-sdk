@@ -8,7 +8,7 @@
 #include "utils/Log.h"
 #include "utils/GeneralUtils.h"
 
-namespace carto {
+namespace massif {
 
     CameraPanEvent::CameraPanEvent() :
         _keepRotation(false),

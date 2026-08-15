@@ -7,7 +7,7 @@
 
 #include <algorithm>
 
-namespace carto {
+namespace massif {
 
     AndroidAssetPackage::AndroidAssetPackage(const std::string& basePath) :
         _basePath(FileUtils::NormalizePath(basePath)),

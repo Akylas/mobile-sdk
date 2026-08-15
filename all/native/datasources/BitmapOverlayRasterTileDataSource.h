@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_BITMAPOVERLAYRASTERTILEDATASOURCE_H_
-#define _CARTO_BITMAPOVERLAYRASTERTILEDATASOURCE_H_
+#ifndef _MASSIF_BITMAPOVERLAYRASTERTILEDATASOURCE_H_
+#define _MASSIF_BITMAPOVERLAYRASTERTILEDATASOURCE_H_
 
 #include "core/MapPos.h"
 #include "core/ScreenPos.h"
@@ -13,7 +13,7 @@
 
 #include <cglib/mat.h>
 
-namespace carto {
+namespace massif {
     class Bitmap;
     class Projection;
 

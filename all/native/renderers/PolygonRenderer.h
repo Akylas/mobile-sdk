@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_POLYGONRENDERER_H_
-#define _CARTO_POLYGONRENDERER_H_
+#ifndef _MASSIF_POLYGONRENDERER_H_
+#define _MASSIF_POLYGONRENDERER_H_
 
 #include "renderers/LineRenderer.h"
 
@@ -16,7 +16,7 @@
 
 #include <cglib/ray.h>
 
-namespace carto {
+namespace massif {
     class Bitmap;
     class LineDrawData;
     class Polygon;

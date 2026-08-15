@@ -3,9 +3,9 @@
 
 %module WKTGeometryWriter
 
-#ifdef _CARTO_WKBT_SUPPORT
+#ifdef _MASSIF_WKBT_SUPPORT
 
-!proxy_imports(carto::WKTGeometryWriter, geometry.Geometry)
+!proxy_imports(massif::WKTGeometryWriter, geometry.Geometry)
 
 %{
 #include "geometry/WKTGeometryWriter.h"
@@ -15,12 +15,12 @@
 
 %include <std_shared_ptr.i>
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "geometry/Geometry.i"
 
-%attribute(carto::WKTGeometryWriter, bool, Z, getZ, setZ)
-%std_exceptions(carto::WKTGeometryWriter::writeGeometry)
+%attribute(massif::WKTGeometryWriter, bool, Z, getZ, setZ)
+%std_exceptions(massif::WKTGeometryWriter::writeGeometry)
 
 %include "geometry/WKTGeometryWriter.h"
 

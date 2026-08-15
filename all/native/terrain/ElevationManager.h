@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_ELEVATIONMANAGER_H_
-#define _CARTO_ELEVATIONMANAGER_H_
+#ifndef _MASSIF_ELEVATIONMANAGER_H_
+#define _MASSIF_ELEVATIONMANAGER_H_
 
 #include "components/ElevationProvider.h"
 #include "core/MapPos.h"
@@ -25,7 +25,7 @@
 
 #include <stdext/timed_lru_cache.h>
 
-namespace carto {
+namespace massif {
     class TileDataSource;
     class ElevationDecoder;
     class ElevationTileGrid;

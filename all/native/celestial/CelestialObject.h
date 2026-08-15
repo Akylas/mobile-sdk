@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_CELESTIALOBJECT_H_
-#define _CARTO_CELESTIALOBJECT_H_
+#ifndef _MASSIF_CELESTIALOBJECT_H_
+#define _MASSIF_CELESTIALOBJECT_H_
 
 #include "core/MapPos.h"
 #include "core/Variant.h"
@@ -18,7 +18,7 @@
 
 #include <cglib/vec.h>
 
-namespace carto {
+namespace massif {
     class CelestialLayer;
 
     /**

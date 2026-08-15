@@ -9,7 +9,7 @@ sidebar_position: 5
 the general base class that [`HillshadeRasterTileLayer`](/docs/features/hillshade) specializes.
 
 :::info Fork feature
-Added in PR [#18](https://github.com/Akylas/mobile-sdk/pull/18).
+Added in PR [#18](https://github.com/massif-maps/MassifMaps/pull/18).
 :::
 
 ## What it does
@@ -26,8 +26,8 @@ per frame, with no CPU re-decode.
 ## Usage
 
 ```kotlin
-import com.carto.layers.CustomRasterTileLayer
-import com.carto.datasources.HTTPTileDataSource
+import com.massifmaps.layers.CustomRasterTileLayer
+import com.massifmaps.datasources.HTTPTileDataSource
 
 val source = HTTPTileDataSource(0, 19, "https://your.tiles/{z}/{x}/{y}.png")
 val layer = CustomRasterTileLayer(source)

@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_SHADER_H_
-#define _CARTO_SHADER_H_
+#ifndef _MASSIF_SHADER_H_
+#define _MASSIF_SHADER_H_
 
 #include "renderers/utils/GLResource.h"
 
@@ -13,7 +13,7 @@
 #include <string>
 #include <unordered_map>
 
-namespace carto {
+namespace massif {
 
     class Shader : public GLResource {
     public:

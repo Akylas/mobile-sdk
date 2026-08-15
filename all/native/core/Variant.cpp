@@ -2,7 +2,7 @@
 #include "components/Exceptions.h"
 #include "utils/Log.h"
 
-namespace carto {
+namespace massif {
 
     Variant::Variant() :
         _value()

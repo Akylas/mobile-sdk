@@ -1,4 +1,4 @@
-#ifdef _CARTO_SEARCH_SUPPORT
+#ifdef _MASSIF_SEARCH_SUPPORT
 
 #include "VectorElementSearchService.h"
 #include "core/MapEnvelope.h"
@@ -12,7 +12,7 @@
 #include "vectorelements/VectorElement.h"
 #include "utils/Log.h"
 
-namespace carto {
+namespace massif {
 
     VectorElementSearchService::VectorElementSearchService(const std::shared_ptr<VectorDataSource>& dataSource) :
         _dataSource(dataSource),

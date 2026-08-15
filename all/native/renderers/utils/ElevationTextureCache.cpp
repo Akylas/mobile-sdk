@@ -19,7 +19,7 @@
 #include <sys/system_properties.h>
 #endif
 
-namespace carto {
+namespace massif {
 
     // A Bitmap whose border strips can be rewritten after construction. The bitmap is what the
     // texture is rebuilt from when the GL context is lost, so a border patch that only reached the
@@ -51,11 +51,11 @@ namespace carto {
 
 #ifdef __ANDROID__
     // Patch a texture's border ring instead of re-encoding it whole when a neighbour lands.
-    // Off with: adb shell setprop debug.carto.demborderpatch 0
+    // Off with: adb shell setprop debug.massif.demborderpatch 0
     static bool isBorderPatchEnabled() {
         static const bool enabled = [] {
             char property[PROP_VALUE_MAX] = { 0 };
-            return !(__system_property_get("debug.carto.demborderpatch", property) > 0 && property[0] == '0');
+            return !(__system_property_get("debug.massif.demborderpatch", property) > 0 && property[0] == '0');
         }();
         return enabled;
     }
@@ -198,7 +198,7 @@ namespace carto {
             neighbourGrid(-1, 1), neighbourGrid(1, 1), neighbourGrid(-1, -1), neighbourGrid(1, -1)
         } };
 
-#if CARTO_VT_RENDER_STATS
+#if MASSIF_VT_RENDER_STATS
         vt::RenderStats::demTileZoomGap.store(mapTile.getZoom() - gridTile.getZoom());
 #endif
         gridTileOut = gridTile;
@@ -501,7 +501,7 @@ namespace carto {
         // and border refinements are patched into the ones already there.
         uploadReadyTextures();
         applyBorderPatches();
-#if CARTO_VT_RENDER_STATS
+#if MASSIF_VT_RENDER_STATS
         vt::RenderStats::demTexturesLive.store(static_cast<long long>(_cache.size()));
         vt::RenderStats::demTexturesResolved.store(static_cast<long long>(_frameResolved.size()));
 #endif

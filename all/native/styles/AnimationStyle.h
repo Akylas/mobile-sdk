@@ -4,10 +4,10 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_ANIMATIONSTYLE_H_
-#define _CARTO_ANIMATIONSTYLE_H_
+#ifndef _MASSIF_ANIMATIONSTYLE_H_
+#define _MASSIF_ANIMATIONSTYLE_H_
 
-namespace carto {
+namespace massif {
 
     namespace AnimationType {
         /**

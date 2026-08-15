@@ -3,7 +3,7 @@
 
 %module(directors="1") BitmapOverlayRasterTileDataSource
 
-!proxy_imports(carto::BitmapOverlayRasterTileDataSource, core.MapTile, core.MapPos, core.MapPosVector, core.MapBounds, core.ScreenPos, core.ScreenPosVector, core.ScreenPosVector, core.StringMap, datasources.TileDataSource, datasources.components.TileData, projections.Projection, graphics.Bitmap)
+!proxy_imports(massif::BitmapOverlayRasterTileDataSource, core.MapTile, core.MapPos, core.MapPosVector, core.MapBounds, core.ScreenPos, core.ScreenPosVector, core.ScreenPosVector, core.StringMap, datasources.TileDataSource, datasources.components.TileData, projections.Projection, graphics.Bitmap)
 
 %{
 #include "datasources/BitmapOverlayRasterTileDataSource.h"
@@ -12,7 +12,7 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/MapPos.i"
 %import "core/MapBounds.i"
@@ -23,11 +23,11 @@
 %import "projections/Projection.i"
 %import "graphics/Bitmap.i"
 
-!polymorphic_shared_ptr(carto::BitmapOverlayRasterTileDataSource, datasources.BitmapOverlayRasterTileDataSource)
+!polymorphic_shared_ptr(massif::BitmapOverlayRasterTileDataSource, datasources.BitmapOverlayRasterTileDataSource)
 
-%std_exceptions(carto::BitmapOverlayRasterTileDataSource::BitmapOverlayRasterTileDataSource)
+%std_exceptions(massif::BitmapOverlayRasterTileDataSource::BitmapOverlayRasterTileDataSource)
 
-%feature("director") carto::BitmapOverlayRasterTileDataSource;
+%feature("director") massif::BitmapOverlayRasterTileDataSource;
 
 %include "datasources/BitmapOverlayRasterTileDataSource.h"
 

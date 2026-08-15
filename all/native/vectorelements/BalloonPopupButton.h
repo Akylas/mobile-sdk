@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_BALLOONPOPUPBUTTON_H_
-#define _CARTO_BALLOONPOPUPBUTTON_H_
+#ifndef _MASSIF_BALLOONPOPUPBUTTON_H_
+#define _MASSIF_BALLOONPOPUPBUTTON_H_
 
 #include "core/Variant.h"
 
@@ -13,7 +13,7 @@
 #include <mutex>
 #include <string>
 
-namespace carto {
+namespace massif {
     class BalloonPopupButtonStyle;
 
     /**

@@ -4,7 +4,7 @@
 
 #include <algorithm>
 
-namespace carto {
+namespace massif {
 
     TerrainShadowMaskBuffer::TerrainShadowMaskBuffer() :
         _width(0),

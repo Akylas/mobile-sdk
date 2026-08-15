@@ -4,7 +4,7 @@
 
 #include <windows.h>
 
-namespace carto {
+namespace massif {
 
     void ThreadUtils::SetThreadPriority(ThreadPriority::ThreadPriority priority) {
         // Not really supported on Windows Phone

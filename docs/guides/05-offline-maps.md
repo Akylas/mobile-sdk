@@ -1,7 +1,16 @@
 ## Offline Maps
 
+:::warning Describes a removed API
+This guide came from the original CARTO documentation. The CARTO online services it
+uses are **not part of Massif Maps** — `CartoBaseMapStyle`, `CartoOfflineVectorTileLayer`, `CartoVectorTileLayer` and the hosted basemap, offline-package
+and routing endpoints behind them were dropped from the fork. The concepts still apply;
+the class names in these snippets do not. See [Migrating to Massif Maps](/docs/migration)
+and bring your own tile source and style.
+:::
 
-CARTO Mobile SDK supports several different types and levels of offline maps 
+
+
+Massif Maps supports several different types and levels of offline maps 
 
 * **Offline country-wide basemap** packages managed by CARTO, consumed using *PackageManager*
 * **Offline area basemap** packages (e.g. cities or other custom areas), also using *PackageManager*
@@ -92,13 +101,13 @@ This DataSource is used as "virtual datasource" - it you create it on top of ano
 
     // 1. Initialize a OSM raster data source from MapQuest Open Tiles
     NSString* url = @"http://ecn.t3.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=471&mkt=en-US";
-    NTHTTPTileDataSource* baseRasterTileDataSource = [[NTHTTPTileDataSource alloc] initWithMinZoom:1 maxZoom:19 baseURL: url];
+    MSFHTTPTileDataSource* baseRasterTileDataSource = [[MSFHTTPTileDataSource alloc] initWithMinZoom:1 maxZoom:19 baseURL: url];
 
     // 2. Create persistent cache for the given data source  
-    NTPersistentCacheTileDataSource* cachedDataSource = [[NTPersistentCacheTileDataSource alloc] initWithDataSource:baseRasterTileDataSource databasePath:[NTAssetUtils calculateWritablePath:@"mycache.db"]];
+    MSFPersistentCacheTileDataSource* cachedDataSource = [[MSFPersistentCacheTileDataSource alloc] initWithDataSource:baseRasterTileDataSource databasePath:[MSFAssetUtils calculateWritablePath:@"mycache.db"]];
 
     // 3. Initialize a raster layer with the previous data source
-    NTRasterTileLayer* baseLayer = [[NTRasterTileLayer alloc] initWithDataSource:cachedDataSource];
+    MSFRasterTileLayer* baseLayer = [[MSFRasterTileLayer alloc] initWithDataSource:cachedDataSource];
 
     // 4. Add the previous raster layer to the map
     [[self.mapView getLayers] add:baseLayer];
@@ -111,14 +120,14 @@ This DataSource is used as "virtual datasource" - it you create it on top of ano
 
     // 1. Create a Bing raster data source. Note: tiles start from level 1, there is no single root tile!
     let url = "http://ecn.t3.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=471&mkt=en-US"
-    let baseRasterTileDataSource = NTHTTPTileDataSource(minZoom: 1, maxZoom: 19, baseURL: url)
+    let baseRasterTileDataSource = MSFHTTPTileDataSource(minZoom: 1, maxZoom: 19, baseURL: url)
 
     // 2. Add persistent caching datasource, tiles will be stored locally on persistent storage
-    let path = NTAssetUtils.calculateWritablePath("mapcache.db")
-    let cachedDataSource = NTPersistentCacheTileDataSource(dataSource: baseRasterTileDataSource, databasePath: path)
+    let path = MSFAssetUtils.calculateWritablePath("mapcache.db")
+    let cachedDataSource = MSFPersistentCacheTileDataSource(dataSource: baseRasterTileDataSource, databasePath: path)
 
     // 3. Create layer and add to map
-    let baseLayer = NTRasterTileLayer(dataSource: cachedDataSource)
+    let baseLayer = MSFRasterTileLayer(dataSource: cachedDataSource)
 
     // 4. Add the previous raster layer to the map
     mapView?.getLayers()?.add(baseLayer)
@@ -150,7 +159,7 @@ This DataSource is used as "virtual datasource" - it you create it on top of ano
 
 ### Tile pre-downloading
 
-CARTO Mobile SDK also enables you to download needed map tiles from online to your device and keep them in your cache, indefinitely. The specified download location will always be available to you offline. Download is using persistent map cache `PersistentCacheTileDataSource`'s function `startDownloadArea` 
+Massif Maps also enables you to download needed map tiles from online to your device and keep them in your cache, indefinitely. The specified download location will always be available to you offline. Download is using persistent map cache `PersistentCacheTileDataSource`'s function `startDownloadArea` 
 
 **Note:** Most public map tile servers **do not allow** such bulk tile downloading, so this feature is meant to be used with your own server. Also check that the download would not be too big. You can check number of downloaded tiles with [tile count estimator](https://www.mapbox.com/help/offline-estimator/). We do not suggest let users to download larger areas than few thousand tiles.
 
@@ -263,7 +272,7 @@ CARTO Mobile SDK also enables you to download needed map tiles from online to yo
   <div id="tab-objectivec">
     {% highlight objc linenos %}
 
-    NTProjection* projection = [[mapView getOptions] getBaseProjection];
+    MSFProjection* projection = [[mapView getOptions] getBaseProjection];
         
     NSString* url = @"http://YOUR-SERVER/{z}/{x}/{y}.png";
         
@@ -273,14 +282,14 @@ CARTO Mobile SDK also enables you to download needed map tiles from online to yo
     NSString* path = [appSupportDir stringByAppendingString:@"/cache.db"];
         
     // Approximately downtown Washington DC
-    NTMapPos* min = [projection fromWgs84:[[NTMapPos alloc] initWithX:-77.08 y:38.85]];
-    NTMapPos* max = [projection fromWgs84:[[NTMapPos alloc] initWithX:-76.948 y:38.93]];
-    NTMapBounds* bounds = [[NTMapBounds alloc] initWithMin:min max:max];
+    MSFMapPos* min = [projection fromWgs84:[[MSFMapPos alloc] initWithX:-77.08 y:38.85]];
+    MSFMapPos* max = [projection fromWgs84:[[MSFMapPos alloc] initWithX:-76.948 y:38.93]];
+    MSFMapBounds* bounds = [[MSFMapBounds alloc] initWithMin:min max:max];
         
     // This source can be anything, even aero picture etc.,
     // using the most basic variant for this example
-    NTHTTPTileDataSource* source = [[NTHTTPTileDataSource alloc] initWithMinZoom:0 maxZoom:18 baseURL:url];
-    NTPersistentCacheTileDataSource* cache = [[NTPersistentCacheTileDataSource alloc] initWithDataSource:source databasePath:path];
+    MSFHTTPTileDataSource* source = [[MSFHTTPTileDataSource alloc] initWithMinZoom:0 maxZoom:18 baseURL:url];
+    MSFPersistentCacheTileDataSource* cache = [[MSFPersistentCacheTileDataSource alloc] initWithDataSource:source databasePath:path];
         
     // Only uses cached tiles, does not download any new tiles during zoom
     [cache setCacheOnlyMode:YES];
@@ -288,13 +297,13 @@ CARTO Mobile SDK also enables you to download needed map tiles from online to yo
     DownloadListener* listener = [[DownloadListener alloc] init];
     [cache startDownloadArea:bounds minZoom:0 maxZoom:10 tileDownloadListener:listener];
         
-    NTRasterTileLayer* layer = [[NTRasterTileLayer alloc] initWithDataSource:cache];
+    MSFRasterTileLayer* layer = [[MSFRasterTileLayer alloc] initWithDataSource:cache];
     [[mapView getLayers] add:layer];
 
     /*
      * DownloadListener implementation
      */
-    @interface DownloadListener : NTTileDownloadListener
+    @interface DownloadListener : MSFTileDownloadListener
 
     @end
 
@@ -324,14 +333,14 @@ CARTO Mobile SDK also enables you to download needed map tiles from online to yo
     let path = documentDir + "/cache.db"
         
     // Approximately downtown Washington DC
-    let min = projection?.fromWgs84(NTMapPos(x: -77.08, y: 38.85))
-    let max = projection?.fromWgs84(NTMapPos(x: -76.94, y: 38.93))
-    let bounds = NTMapBounds(min: min, max: max)
+    let min = projection?.fromWgs84(MSFMapPos(x: -77.08, y: 38.85))
+    let max = projection?.fromWgs84(MSFMapPos(x: -76.94, y: 38.93))
+    let bounds = MSFMapBounds(min: min, max: max)
         
     // This source can be anything, even aero picture etc.,
     // using the most basic variant for this example
-    let source = NTHTTPTileDataSource(minZoom: 0, maxZoom: 18, baseURL: url)
-    let cache = NTPersistentCacheTileDataSource(dataSource: source, databasePath: path)
+    let source = MSFHTTPTileDataSource(minZoom: 0, maxZoom: 18, baseURL: url)
+    let cache = MSFPersistentCacheTileDataSource(dataSource: source, databasePath: path)
         
     // Only uses cached tiles, does not download any new tiles during zoom
     cache?.setCacheOnlyMode(true)
@@ -339,14 +348,14 @@ CARTO Mobile SDK also enables you to download needed map tiles from online to yo
     let listener = DownloadListener()
     cache?.startDownloadArea(bounds, minZoom: 0, maxZoom: 10, tileDownloadListener: listener)
         
-    let layer = NTRasterTileLayer(dataSource: cache)
+    let layer = MSFRasterTileLayer(dataSource: cache)
         
     contentView.map.getLayers().add(layer)
 
     /*
      * DownloadListener implementation
      */
-    class DownloadListener : NTTileDownloadListener {
+    class DownloadListener : MSFTileDownloadListener {
         
         override func onDownloadProgress(_ progress: Float) {
         
@@ -453,8 +462,8 @@ You can use your favorite MBTiles file creator go convert your data to MBTiles, 
   <div id="tab-objectivec">
     {% highlight objc linenos %}
   
-    NTTileDataSource* tileDataSource = [[NTMBTilesTileDataSource alloc] initWithPath: @"MBTILES_FILE_FULL_PATH"];
-    NTRasterTileLayer* mbTilesLayer = [[NTRasterTileLayer alloc] initWithDataSource:tileDataSource];
+    MSFTileDataSource* tileDataSource = [[MSFMBTilesTileDataSource alloc] initWithPath: @"MBTILES_FILE_FULL_PATH"];
+    MSFRasterTileLayer* mbTilesLayer = [[MSFRasterTileLayer alloc] initWithDataSource:tileDataSource];
     
     [[mapView getLayers] add:mbTilesLayer];
 
@@ -464,8 +473,8 @@ You can use your favorite MBTiles file creator go convert your data to MBTiles, 
   <div id="tab-swift">
     {% highlight swift linenos %}
   
-    let tileDataSource = NTMBTilesTileDataSource(path: "MBTILES_FILE_FULL_PATH")
-    let mbTilesLayer = NTRasterTileLayer(dataSource: tileDataSource)
+    let tileDataSource = MSFMBTilesTileDataSource(path: "MBTILES_FILE_FULL_PATH")
+    let mbTilesLayer = MSFRasterTileLayer(dataSource: tileDataSource)
         
     mapView?.getLayers()?.add(mbTilesLayer)
 
@@ -544,11 +553,11 @@ In this sample we use mbtiles downloaded from openmaptiles.org, these are in [op
     {% highlight objc linenos %}
   
     NSString* path = [[NSBundle mainBundle] pathForResource:@"estonia" ofType:@"mbtiles"];
-    NTMBTilesTileDataSource* tileDataSource = [[NTMBTilesTileDataSource alloc] initWithPath:path];
+    MSFMBTilesTileDataSource* tileDataSource = [[MSFMBTilesTileDataSource alloc] initWithPath:path];
     
     // Create tile decoder based on Voyager style and VectorTileLayer
-    NTMBVectorTileDecoder* tileDecoder = [NTCartoVectorTileLayer createTileDecoder: NT_CARTO_BASEMAP_STYLE_VOYAGER];
-    NTVectorTileLayer* offlineLayer = [[NTVectorTileLayer alloc] initWithDataSource:tileDataSource decoder:tileDecoder];
+    MSFMBVectorTileDecoder* tileDecoder = [MSFCartoVectorTileLayer createTileDecoder: NT_CARTO_BASEMAP_STYLE_VOYAGER];
+    MSFVectorTileLayer* offlineLayer = [[MSFVectorTileLayer alloc] initWithDataSource:tileDataSource decoder:tileDecoder];
     
     [[mapView getLayers] add:offlineLayer];
 
@@ -558,11 +567,11 @@ In this sample we use mbtiles downloaded from openmaptiles.org, these are in [op
   <div id="tab-swift">
     {% highlight swift linenos %}
 
-    let tileDataSource = NTMBTilesTileDataSource(path: Bundle.main.path(forResource: "estonia", ofType: "mbtiles"))
+    let tileDataSource = MSFMBTilesTileDataSource(path: Bundle.main.path(forResource: "estonia", ofType: "mbtiles"))
     
     // Create tile decoder based on Voyager style and VectorTileLayer
-    let tileDecoder = NTCartoVectorTileLayer.createTileDecoder(CartoBaseMapStyle.CARTO_BASEMAP_STYLE_VOYAGER)
-    let offlineLayer = NTVectorTileLayer(tileDataSource, tileDecoder)
+    let tileDecoder = MSFCartoVectorTileLayer.createTileDecoder(CartoBaseMapStyle.CARTO_BASEMAP_STYLE_VOYAGER)
+    let offlineLayer = MSFVectorTileLayer(tileDataSource, tileDecoder)
     
     mapView?.layers?.add(offlineLayer)
 
@@ -726,9 +735,9 @@ The following example displays how you can load GeoJSON from bundled assets and 
     {% highlight objc linenos %}
 
     // Initialize a local vector data source
-    NTProjection* projection = [[self.mapView getOptions] getBaseProjection];
-    NTLocalVectorDataSource* source = [[NTLocalVectorDataSource alloc] initWithProjection:projection];
-    NTVectorLayer* layer = [[NTVectorLayer alloc] initWithDataSource:source];
+    MSFProjection* projection = [[self.mapView getOptions] getBaseProjection];
+    MSFLocalVectorDataSource* source = [[MSFLocalVectorDataSource alloc] initWithProjection:projection];
+    MSFVectorLayer* layer = [[MSFVectorLayer alloc] initWithDataSource:source];
     [[[self mapView] getLayers] add:layer];
         
     dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0ul);
@@ -738,20 +747,20 @@ The following example displays how you can load GeoJSON from bundled assets and 
         NSString* json = [NSString stringWithContentsOfFile:fullpath encoding:NSUTF8StringEncoding error:nil];
         
         // .geojson parsing
-        NTGeoJSONGeometryReader* geoJsonReader = [[NTGeoJSONGeometryReader alloc] init];
+        MSFGeoJSONGeometryReader* geoJsonReader = [[MSFGeoJSONGeometryReader alloc] init];
         [geoJsonReader setTargetProjection:projection];
         
-        NTFeatureCollection* features = [geoJsonReader readFeatureCollection:json];
+        MSFFeatureCollection* features = [geoJsonReader readFeatureCollection:json];
         
         // Initialize basic style, as it will later be overridden
-        NTMarkerStyle* style = [[[NTMarkerStyleBuilder alloc] init] buildStyle];
+        MSFMarkerStyle* style = [[[MSFMarkerStyleBuilder alloc] init] buildStyle];
         
-        NTVectorElementVector* elements = [[NTVectorElementVector alloc] init];
+        MSFVectorElementVector* elements = [[MSFVectorElementVector alloc] init];
         
         for (int i = 0; i < [features getFeatureCount]; i++) {
-            NTPointGeometry* geometry = (NTPointGeometry *)[[features getFeature:i] getGeometry];
+            MSFPointGeometry* geometry = (MSFPointGeometry *)[[features getFeature:i] getGeometry];
         
-            NTMarker* marker = [[NTMarker alloc] initWithGeometry:geometry style:style];
+            MSFMarker* marker = [[MSFMarker alloc] initWithGeometry:geometry style:style];
             [elements add:marker];
         }
         
@@ -766,8 +775,8 @@ The following example displays how you can load GeoJSON from bundled assets and 
     {% highlight swift linenos %}
 
     let projection = contentView.map.getOptions().getBaseProjection()
-    let source = NTLocalVectorDataSource(projection: projection)
-    let layer = NTVectorLayer(dataSource: source)
+    let source = MSFLocalVectorDataSource(projection: projection)
+    let layer = MSFVectorLayer(dataSource: source)
         
     contentView.map.getLayers().add(layer)
         
@@ -780,23 +789,23 @@ The following example displays how you can load GeoJSON from bundled assets and 
         }
         
         // Create default style
-        let mBuilder = NTMarkerStyleBuilder()
+        let mBuilder = MSFMarkerStyleBuilder()
         let style = mBuilder?.buildStyle()
         
         // Read GeoJSON, parse it using SDK GeoJSON parser
-        let reader = NTGeoJSONGeometryReader()
+        let reader = MSFGeoJSONGeometryReader()
         reader?.setTargetProjection(self.contentView.map.getOptions().getBaseProjection())
         
         let features = reader?.readFeatureCollection(json as String!)
         
-        let elements = NTVectorElementVector()
+        let elements = MSFVectorElementVector()
         let total = Int((features?.getFeatureCount())!)
         
         
         for i in stride(from: 0, to: total, by: 1) {
             // This data set features point geometry, however, it can also be LineGeometry or PolygonGeometry
-            let geometry = features?.getFeature(Int32(i)).getGeometry() as? NTPointGeometry
-            elements?.add(NTMarker(geometry: geometry, style: style))
+            let geometry = features?.getFeature(Int32(i)).getGeometry() as? MSFPointGeometry
+            elements?.add(MSFMarker(geometry: geometry, style: style))
         }
         
         DispatchQueue.main.async(execute: {
@@ -870,7 +879,7 @@ This method enables you to create two in one: optimized vector tiles and suitabl
 
   {% highlight java linenos %}
   
-        // Below "text-placement: nutibillboard;" does not work in BUILDER web, it is special placement for 3D mobile maps
+        // Below "text-placement: billboard;" does not work in BUILDER web, it is special placement for 3D mobile maps
         
         String cartoCss =
                 "#offlinepackages {\n" +
@@ -890,7 +899,7 @@ This method enables you to create two in one: optimized vector tiles and suitabl
                 "  text-halo-fill: #dee3e7;\n" +
                 "  text-dy: -10;\n" +
                 "  text-allow-overlap: false;\n" +
-                "  text-placement: nutibillboard;\n" +
+                "  text-placement: billboard;\n" +
                 "  text-placement-type: dummy;\n" +
                 "}";
 

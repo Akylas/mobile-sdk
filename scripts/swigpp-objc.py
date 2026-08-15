@@ -51,7 +51,7 @@ POLYMORPHIC_SHARED_PTR_TEMPLATE = SHARED_PTR_TEMPLATE + """
 %{
 #include "components/ClassRegistry.h"
 #include "components/Director.h"
-static carto::ClassRegistry::Entry $TYPE$RegistryEntry(typeid(const $CLASSNAME$&), "$RAWTYPE$");
+static massif::ClassRegistry::Entry $TYPE$RegistryEntry(typeid(const $CLASSNAME$&), "$RAWTYPE$");
 %}
 
 %extend $CLASSNAME$ {
@@ -60,7 +60,7 @@ static carto::ClassRegistry::Entry $TYPE$RegistryEntry(typeid(const $CLASSNAME$&
    * @return The class name of this object.
    */
   std::string swigGetClassName() const {
-    std::string className = carto::ClassRegistry::GetClassName(typeid(*$self));
+    std::string className = massif::ClassRegistry::GetClassName(typeid(*$self));
     if (className.empty()) {
       className = "$RAWTYPE$";
     }
@@ -72,7 +72,7 @@ static carto::ClassRegistry::Entry $TYPE$RegistryEntry(typeid(const $CLASSNAME$&
    * @return The pointer to the connected director object or null if director is not connected.
    */
   void* swigGetDirectorObject() const {
-    if (auto director = dynamic_cast<const carto::Director*>($self)) {
+    if (auto director = dynamic_cast<const massif::Director*>($self)) {
       return director->getDirectorObject();
     }
     return 0;
@@ -113,7 +113,7 @@ POLYMORPHIC_SHARED_PTR_CODE_TEMPLATE = """
     return ($TYPE$*)CFBridgingRelease(directorPtr);
   }
 
-  NSString* objClassName = [NSString stringWithFormat:@"NT%@", Objc_$RAWTYPE$_$TYPE$_swigGetClassName(cPtr)];
+  NSString* objClassName = [NSString stringWithFormat:@"MSF%@", Objc_$RAWTYPE$_$TYPE$_swigGetClassName(cPtr)];
   $TYPE$* objInstance = nil;
   @try {
     objInstance = [[NSClassFromString(objClassName) alloc] initWithCptr:cPtr swigOwnCObject:cMemoryOwn];
@@ -121,7 +121,7 @@ POLYMORPHIC_SHARED_PTR_CODE_TEMPLATE = """
   @catch (NSException* e) {
   }
   if (!objInstance) {
-    NSLog(@"Carto Mobile SDK: Could not instantiate class: %@", objClassName);
+    NSLog(@"Massif Maps: Could not instantiate class: %@", objClassName);
   }
   return objInstance;
 }
@@ -195,8 +195,8 @@ def fixProxyCode(fileName):
 
   lines_out = []
   for line in lines_in:
-    # Rename #import "XXX_proxy.h" -> #import "NTXXX.h" / same for #include
-    line = re.sub('#(import|include)\s+"(.*)_proxy.h"', '#\\1 "NT\\2.h"', line)
+    # Rename #import "XXX_proxy.h" -> #import "MSFXXX.h" / same for #include
+    line = re.sub('#(import|include)\s+"(.*)_proxy.h"', '#\\1 "MSF\\2.h"', line)
 
     # Add '@internal:nodoc:' comment above the special SWIG-wrapper lines
     hide = line.strip() in [
@@ -235,7 +235,7 @@ def transformSwigFile(sourcePath, outPath, moduleDirs, headerDirs):
   stl_wrapper = False
   for line in lines_in:
 
-    match = re.search(r'(?:^\s*(?:#ifdef )(_CARTO_[^\s]*_SUPPORT)$|(?:defined\((_CARTO_[^\s]*_SUPPORT)\)))', line)
+    match = re.search(r'(?:^\s*(?:#ifdef )(_MASSIF_[^\s]*_SUPPORT)$|(?:defined\((_MASSIF_[^\s]*_SUPPORT)\)))', line)
     if match:
       if(match.group(1) and not match.group(1) in argsDefines ):
         print("ignoredSourceFiles %s for define: %s" % (sourcePath, match.group(1)))
@@ -279,7 +279,7 @@ def transformSwigFile(sourcePath, outPath, moduleDirs, headerDirs):
     match = re.search('^\s*!value_type\s*[(]([^)]*),([^)]*)[)].*$', line)
     if match:
       className = match.group(1).strip()
-      objcClass = 'NT%s' % match.group(2).strip().split(".")[-1]
+      objcClass = 'MSF%s' % match.group(2).strip().split(".")[-1]
       args = { 'CLASSNAME': match.group(1).strip(), 'TYPE': objcClass }
       lines_out += applyTemplate(VALUE_TYPE_TEMPLATE, args)
       continue
@@ -288,7 +288,7 @@ def transformSwigFile(sourcePath, outPath, moduleDirs, headerDirs):
     match = re.search('^\s*!shared_ptr\s*[(]([^)]*),([^)]*)[)].*$', line)
     if match:
       className = match.group(1).strip()
-      objcClass = 'NT%s' % match.group(2).strip().split(".")[-1]
+      objcClass = 'MSF%s' % match.group(2).strip().split(".")[-1]
       args = { 'CLASSNAME': match.group(1).strip(), 'TYPE': objcClass }
       lines_out += applyTemplate(SHARED_PTR_TEMPLATE, args)
       continue
@@ -297,9 +297,11 @@ def transformSwigFile(sourcePath, outPath, moduleDirs, headerDirs):
     match = re.search('^\s*!polymorphic_shared_ptr\s*[(]([^,]*),([^)]*)[)].*', line)
     if match:
       className = match.group(1).strip()
-      objcClass = 'NT%s' % match.group(2).strip().split(".")[-1]
+      rawClass = match.group(2).strip().split(".")[-1]
+      objcClass = 'MSF%s' % rawClass
       polymorphic_objcClasses.append(objcClass)
-      args = { 'CLASSNAME': match.group(1).strip(), 'TYPE': objcClass, 'RAWTYPE': objcClass[2:] }
+      # RAWTYPE is the unprefixed name: derive it, do not slice off a fixed prefix length
+      args = { 'CLASSNAME': match.group(1).strip(), 'TYPE': objcClass, 'RAWTYPE': rawClass }
       interface = class_interface.get(className, [])
       interface += applyTemplate(POLYMORPHIC_SHARED_PTR_INTERFACE_TEMPLATE, args)
       class_interface[className] = interface
@@ -313,7 +315,7 @@ def transformSwigFile(sourcePath, outPath, moduleDirs, headerDirs):
     match = re.search('^\s*!value_template\s*[(]([^)]*),([^)]*)[)].*$', line)
     if match:
       className = match.group(1).strip()
-      objcClass = 'NT%s' % match.group(2).strip().split(".")[-1]
+      objcClass = 'MSF%s' % match.group(2).strip().split(".")[-1]
       args = { 'CLASSNAME': match.group(1).strip(), 'TYPE': objcClass }
       lines_out += applyTemplate(VALUE_TEMPLATE_TEMPLATE, args)
       continue
@@ -368,7 +370,7 @@ def transformSwigFile(sourcePath, outPath, moduleDirs, headerDirs):
             import_decls.append(part.split(".")[-1])
           else:
             class_decls.append(part.split(".")[-1])
-        class_imports[className] = class_imports.get(className, []) + ['#import "%s_proxy.h"' % decl for decl in import_decls] + ['@class NT%s;' % decl for decl in class_decls]
+        class_imports[className] = class_imports.get(className, []) + ['#import "%s_proxy.h"' % decl for decl in import_decls] + ['@class MSF%s;' % decl for decl in class_decls]
       elif lang == 'objc':
         class_imports[className] = class_imports.get(className, []) + ['#import %s' % part for part in parts[1:]]
       else:
@@ -392,14 +394,14 @@ def transformSwigFile(sourcePath, outPath, moduleDirs, headerDirs):
     if match:
       includeName = match.group(1)
       if not stl_wrapper and includeName != "NutiSwig.i":
-        # This is a huge hack: we will capitalize all method names starting with lower case letters. But we will do this only for carto:: classes
+        # This is a huge hack: we will capitalize all method names starting with lower case letters. But we will do this only for massif:: classes
         for n in range(ord('a'), ord('z') + 1):
           c = chr(n)
-          lines_out.append('%%rename("%%(regex:/::%s([^:]*)$/%s\\\\1/)s", fullname=1, regextarget=1, %%$isfunction) "^carto::.+::%s[^:]*$";' % (c.upper(), c, c.upper()))
-        lines_out.append('%rename("description", fullname=1, regextarget=1, %$isfunction)  "^carto::.+::toString()$";')
-        lines_out.append('%rename("NT%s", %$isclass) "";')
-        lines_out.append('%rename("NT%s", %$isenum) "";')
-        lines_out.append('%rename("NT_%s", %$isenumitem) "";')
+          lines_out.append('%%rename("%%(regex:/::%s([^:]*)$/%s\\\\1/)s", fullname=1, regextarget=1, %%$isfunction) "^massif::.+::%s[^:]*$";' % (c.upper(), c, c.upper()))
+        lines_out.append('%rename("description", fullname=1, regextarget=1, %$isfunction)  "^massif::.+::toString()$";')
+        lines_out.append('%rename("MSF%s", %$isclass) "";')
+        lines_out.append('%rename("MSF%s", %$isenum) "";')
+        lines_out.append('%rename("MSF_%s", %$isenumitem) "";')
         lines_out.append('')
 
     lines_out.append(line)
@@ -504,7 +506,7 @@ def buildSwigPackage(args, sourceDir, packageName):
     fileNameWithoutExt = fileName.split(".")[0]
     outPath = os.path.join(args.wrapperDir, fileNameWithoutExt) + "_wrap.mm"
     proxyDir = args.proxyDir
-    proxyCPath = os.path.join(proxyDir, "NT%s.mm" % fileNameWithoutExt)
+    proxyCPath = os.path.join(proxyDir, "MSF%s.mm" % fileNameWithoutExt)
     proxyHPath = proxyCPath[:-3] + ".h"
     if not os.path.isfile(sourcePath):
       continue
@@ -540,11 +542,11 @@ def buildSwigPackages(args, sourceDir, basePackageName):
   return True
 
 def buildPolymorphicReferences(args):
-  polymorphicHeaderPath = os.path.join(args.proxyDir, 'NTPolymorphicClasses.h')
+  polymorphicHeaderPath = os.path.join(args.proxyDir, 'MSFPolymorphicClasses.h')
   with open(polymorphicHeaderPath, 'w') as f:
     for objcClass in polymorphic_objcClasses:
       f.write('#import "%s.h"\n' % objcClass)
-    f.write('static void initNTPolymorphicClasses() {\n')
+    f.write('static void initMSFPolymorphicClasses() {\n')
     for objcClass in polymorphic_objcClasses:
       headerPath = os.path.join(args.proxyDir, '%s.h' % objcClass)
       with open(headerPath, 'r') as f2:
@@ -570,7 +572,7 @@ args.defines += ';' + getProfile(args.profile).get('defines', '')
 argsDefines = args.defines.split(";")
 
 if not checkExecutable(args.swig, '-help'):
-  print('Unable to find SWIG executable. Use --swig argument to specify its location. The supported version is available from https://github.com/cartodb/mobile-swig')
+  print('Unable to find SWIG executable. Use --swig argument to specify its location. The supported version is available from https://github.com/farfromrefug/mobile-swig')
   sys.exit(-1)
 
 if os.path.isdir(args.wrapperDir):

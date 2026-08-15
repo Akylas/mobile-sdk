@@ -11,8 +11,8 @@ far slopes), fill draping and fast zooming.
 :::info Fork feature
 3D terrain is an addition of the Akylas fork. It is configured through
 `TerrainOptions`, attached to the map via `Options.setTerrainOptions()`.
-See PR [#21](https://github.com/Akylas/mobile-sdk/pull/21) and the design notes in
-[`docs/terrain-3d-draping.md`](https://github.com/Akylas/mobile-sdk/blob/master/docs/terrain-3d-draping.md).
+See PR [#21](https://github.com/massif-maps/MassifMaps/pull/21) and the design notes in
+[`docs/terrain-3d-draping.md`](https://github.com/massif-maps/MassifMaps/blob/master/docs/terrain-3d-draping.md).
 :::
 
 <figure class="docs-figure">
@@ -52,9 +52,9 @@ elevation, and draws the map on top of it.
 ## Quick start
 
 ```kotlin
-import com.carto.components.TerrainOptions
-import com.carto.datasources.HTTPTileDataSource
-import com.carto.datasources.MemoryCacheTileDataSource
+import com.massifmaps.components.TerrainOptions
+import com.massifmaps.datasources.HTTPTileDataSource
+import com.massifmaps.datasources.MemoryCacheTileDataSource
 
 // 1. An RGB-elevation source (Terrarium or MapBox encoding).
 val demSource = MemoryCacheTileDataSource(
@@ -77,8 +77,8 @@ mapView.options.terrainOptions = terrain
 ```
 
 ```swift
-let dem = NTMemoryCacheTileDataSource(dataSource: httpDem)
-let terrain = NTTerrainOptions(dataSource: dem)
+let dem = MSFMemoryCacheTileDataSource(dataSource: httpDem)
+let terrain = MSFTerrainOptions(dataSource: dem)
 terrain?.setEnabled(true)
 terrain?.setDrapeFillsEnabled(true)
 terrain?.setMeshResolution(64)

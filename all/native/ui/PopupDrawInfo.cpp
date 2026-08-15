@@ -1,6 +1,6 @@
 #include "PopupDrawInfo.h"
 
-namespace carto {
+namespace massif {
 
     PopupDrawInfo::PopupDrawInfo(const ScreenPos& anchorScreenPos, const ScreenBounds& screenBounds, const std::shared_ptr<Popup>& popup, float dpToPX) :
         _anchorScreenPos(anchorScreenPos),

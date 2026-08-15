@@ -4,7 +4,7 @@
 #include "renderers/MapRenderer.h"
 #include "utils/Log.h"
 
-namespace carto {
+namespace massif {
 
     Layers::Layers(const std::shared_ptr<CancelableThreadPool>& envelopeThreadPool,
                    const std::shared_ptr<CancelableThreadPool>& tileThreadPool,

@@ -11,7 +11,7 @@ using namespace Windows::Foundation;
 using namespace Windows::System;
 using namespace Windows::System::Threading;
 
-namespace carto {
+namespace massif {
 
     void Task::operator()() {
         HANDLE eventHandle = ::CreateEventEx(NULL, NULL, CREATE_EVENT_MANUAL_RESET, EVENT_ALL_ACCESS);

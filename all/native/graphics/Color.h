@@ -4,12 +4,12 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_COLOR_H_
-#define _CARTO_COLOR_H_
+#ifndef _MASSIF_COLOR_H_
+#define _MASSIF_COLOR_H_
 
 #include <string>
 
-namespace carto {
+namespace massif {
 
     /**
      * A color represented in RGBA space, alpha is expected to be non-premultiplied.

@@ -1,4 +1,4 @@
-#if defined(_CARTO_ROUTING_SUPPORT) && defined(_CARTO_VALHALLA_ROUTING_SUPPORT) && defined(_CARTO_OFFLINE_SUPPORT)
+#if defined(_MASSIF_ROUTING_SUPPORT) && defined(_MASSIF_VALHALLA_ROUTING_SUPPORT) && defined(_MASSIF_OFFLINE_SUPPORT)
 
 #include "ValhallaOfflineRoutingService.h"
 #include "components/Exceptions.h"
@@ -10,7 +10,7 @@
 
 #include <sqlite3pp.h>
 
-namespace carto {
+namespace massif {
 
     ValhallaOfflineRoutingService::ValhallaOfflineRoutingService(const std::string& path) :
         _database(std::make_unique<sqlite3pp::database>()),

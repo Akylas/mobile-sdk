@@ -4,7 +4,7 @@
 
 #include <EGL/egl.h>
 
-namespace carto {
+namespace massif {
 
     bool GLContext::HasGLExtension(const char* extension) {
         std::lock_guard<std::recursive_mutex> lock(_Mutex);

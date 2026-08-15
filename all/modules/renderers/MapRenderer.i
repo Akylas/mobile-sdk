@@ -3,7 +3,7 @@
 
 %module MapRenderer
 
-!proxy_imports(carto::MapRenderer, core.MapPos, core.MapBounds, core.ScreenPos, graphics.ViewState, renderers.MapRendererListener, renderers.PostProcessEffect, renderers.RendererCaptureListener, renderers.RedrawRequestListener)
+!proxy_imports(massif::MapRenderer, core.MapPos, core.MapBounds, core.ScreenPos, graphics.ViewState, renderers.MapRendererListener, renderers.PostProcessEffect, renderers.RendererCaptureListener, renderers.RedrawRequestListener)
 
 %{
 #include "renderers/MapRenderer.h"
@@ -12,7 +12,7 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/MapPos.i"
 %import "core/MapBounds.i"
@@ -23,44 +23,44 @@
 %import "renderers/RendererCaptureListener.i"
 %import "renderers/RedrawRequestListener.i"
 
-!shared_ptr(carto::MapRenderer, renderers.MapRenderer)
+!shared_ptr(massif::MapRenderer, renderers.MapRenderer)
 
-%attributestring(carto::MapRenderer, std::shared_ptr<carto::MapRendererListener>, MapRendererListener, getMapRendererListener, setMapRendererListener)
-%std_exceptions(carto::MapRenderer::captureRendering)
-%ignore carto::MapRenderer::MapRenderer;
-%ignore carto::MapRenderer::init;
-%ignore carto::MapRenderer::deinit;
-%ignore carto::MapRenderer::getLayers;
-%ignore carto::MapRenderer::getGLResourceManager;
-%ignore carto::MapRenderer::getBillboardDrawDatas;
-%ignore carto::MapRenderer::getProjectionSurface;
-%ignore carto::MapRenderer::getAnimationHandler;
-%ignore carto::MapRenderer::getKineticEventHandler;
-%ignore carto::MapRenderer::getRedrawRequestListener;
-%ignore carto::MapRenderer::setRedrawRequestListener;
-%ignore carto::MapRenderer::calculateCameraEvent;
-%ignore carto::MapRenderer::moveToFitBounds;
-%ignore carto::MapRenderer::screenToWorld;
-%ignore carto::MapRenderer::worldToScreen;
-%ignore carto::MapRenderer::onSurfaceCreated;
-%ignore carto::MapRenderer::onSurfaceChanged;
-%ignore carto::MapRenderer::onDrawFrame;
-%ignore carto::MapRenderer::onSurfaceDestroyed;
-%ignore carto::MapRenderer::finishRendering;
-%ignore carto::MapRenderer::clearAndBindScreenFBO;
-%ignore carto::MapRenderer::blendAndUnbindScreenFBO;
-%ignore carto::MapRenderer::setZBuffering;
-%ignore carto::MapRenderer::calculateRayIntersectedElements;
-%ignore carto::MapRenderer::billboardsChanged;
-%ignore carto::MapRenderer::vtLabelsChanged;
-%ignore carto::MapRenderer::layerChanged;
-%ignore carto::MapRenderer::viewChanged;
-%ignore carto::MapRenderer::registerOnChangeListener;
-%ignore carto::MapRenderer::unregisterOnChangeListener;
-%ignore carto::MapRenderer::addRenderThreadCallback;
-%ignore carto::MapRenderer::getOptions;
+%attributestring(massif::MapRenderer, std::shared_ptr<massif::MapRendererListener>, MapRendererListener, getMapRendererListener, setMapRendererListener)
+%std_exceptions(massif::MapRenderer::captureRendering)
+%ignore massif::MapRenderer::MapRenderer;
+%ignore massif::MapRenderer::init;
+%ignore massif::MapRenderer::deinit;
+%ignore massif::MapRenderer::getLayers;
+%ignore massif::MapRenderer::getGLResourceManager;
+%ignore massif::MapRenderer::getBillboardDrawDatas;
+%ignore massif::MapRenderer::getProjectionSurface;
+%ignore massif::MapRenderer::getAnimationHandler;
+%ignore massif::MapRenderer::getKineticEventHandler;
+%ignore massif::MapRenderer::getRedrawRequestListener;
+%ignore massif::MapRenderer::setRedrawRequestListener;
+%ignore massif::MapRenderer::calculateCameraEvent;
+%ignore massif::MapRenderer::moveToFitBounds;
+%ignore massif::MapRenderer::screenToWorld;
+%ignore massif::MapRenderer::worldToScreen;
+%ignore massif::MapRenderer::onSurfaceCreated;
+%ignore massif::MapRenderer::onSurfaceChanged;
+%ignore massif::MapRenderer::onDrawFrame;
+%ignore massif::MapRenderer::onSurfaceDestroyed;
+%ignore massif::MapRenderer::finishRendering;
+%ignore massif::MapRenderer::clearAndBindScreenFBO;
+%ignore massif::MapRenderer::blendAndUnbindScreenFBO;
+%ignore massif::MapRenderer::setZBuffering;
+%ignore massif::MapRenderer::calculateRayIntersectedElements;
+%ignore massif::MapRenderer::billboardsChanged;
+%ignore massif::MapRenderer::vtLabelsChanged;
+%ignore massif::MapRenderer::layerChanged;
+%ignore massif::MapRenderer::viewChanged;
+%ignore massif::MapRenderer::registerOnChangeListener;
+%ignore massif::MapRenderer::unregisterOnChangeListener;
+%ignore massif::MapRenderer::addRenderThreadCallback;
+%ignore massif::MapRenderer::getOptions;
 
-!standard_equals(carto::MapRenderer);
+!standard_equals(massif::MapRenderer);
 
 %include "renderers/MapRenderer.h"
 

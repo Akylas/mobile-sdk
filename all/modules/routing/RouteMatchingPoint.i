@@ -3,32 +3,32 @@
 
 %module RouteMatchingPoint
 
-#ifdef _CARTO_ROUTING_SUPPORT
+#ifdef _MASSIF_ROUTING_SUPPORT
 
-!proxy_imports(carto::RouteMatchingPoint, core.MapPos)
+!proxy_imports(massif::RouteMatchingPoint, core.MapPos)
 
 %{
 #include "routing/RouteMatchingPoint.h"
 %}
 
 %include <std_vector.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/MapPos.i"
 
-!enum(carto::RouteMatchingPointType::RouteMatchingPointType)
-!value_type(carto::RouteMatchingPoint, routing.RouteMatchingPoint)
-!value_type(std::vector<carto::RouteMatchingPoint>, routing.RouteMatchingPointVector)
+!enum(massif::RouteMatchingPointType::RouteMatchingPointType)
+!value_type(massif::RouteMatchingPoint, routing.RouteMatchingPoint)
+!value_type(std::vector<massif::RouteMatchingPoint>, routing.RouteMatchingPointVector)
 
-%attributeval(carto::RouteMatchingPoint, carto::MapPos, Pos, getPos)
-%attribute(carto::RouteMatchingPoint, RouteMatchingPointType::RouteMatchingPointType, Type, getType)
-%attribute(carto::RouteMatchingPoint, int, EdgeIndex, getEdgeIndex)
-!standard_equals(carto::RouteMatchingPoint);
-!custom_tostring(carto::RouteMatchingPoint);
+%attributeval(massif::RouteMatchingPoint, massif::MapPos, Pos, getPos)
+%attribute(massif::RouteMatchingPoint, RouteMatchingPointType::RouteMatchingPointType, Type, getType)
+%attribute(massif::RouteMatchingPoint, int, EdgeIndex, getEdgeIndex)
+!standard_equals(massif::RouteMatchingPoint);
+!custom_tostring(massif::RouteMatchingPoint);
 
 %include "routing/RouteMatchingPoint.h"
 
-!value_template(std::vector<carto::RouteMatchingPoint>, routing.RouteMatchingPointVector);
+!value_template(std::vector<massif::RouteMatchingPoint>, routing.RouteMatchingPointVector);
 
 #endif
 

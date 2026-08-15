@@ -1,4 +1,4 @@
-#ifdef _CARTO_ROUTING_SUPPORT
+#ifdef _MASSIF_ROUTING_SUPPORT
 
 #include "ValhallaRoutingProxy.h"
 #include "assets/ValhallaDefaultConfig.h"
@@ -30,7 +30,7 @@
 
 #include <picojson/picojson.h>
 
-#ifdef _CARTO_VALHALLA_ROUTING_SUPPORT
+#ifdef _MASSIF_VALHALLA_ROUTING_SUPPORT
 #include <valhalla/meili/map_matcher.h>
 #include <valhalla/meili/map_matcher_factory.h>
 #include <valhalla/thor/worker.h>
@@ -163,7 +163,7 @@ namespace valhalla { namespace midgard {
 } }
 #endif
 
-namespace carto {
+namespace massif {
 
     std::shared_ptr<RouteMatchingResult> ValhallaRoutingProxy::MatchRoute(HTTPClient& httpClient, const std::string& baseURL, const std::string& profile, const std::shared_ptr<RouteMatchingRequest>& request, std::map<std::string, std::string>& headers) {
         std::map<std::string, std::string> params;
@@ -186,7 +186,7 @@ namespace carto {
     }
 
 
-#ifdef _CARTO_VALHALLA_ROUTING_SUPPORT
+#ifdef _MASSIF_VALHALLA_ROUTING_SUPPORT
     std::unordered_map<std::string, std::string> valhalla_locales;
     void ValhallaRoutingProxy::AddLocale(const std::string& key, const std::string& json) {
 
@@ -297,38 +297,38 @@ namespace carto {
         };
 
         static const std::unordered_map<int, RoutingAction::RoutingAction> maneuverTypes = {
-            { TripDirections_Maneuver_Type_kNone,             carto::RoutingAction::ROUTING_ACTION_NO_TURN },//NoTurn = 0,
-            { TripDirections_Maneuver_Type_kContinue,         carto::RoutingAction::ROUTING_ACTION_GO_STRAIGHT },//GoStraight,
-            { TripDirections_Maneuver_Type_kBecomes,          carto::RoutingAction::ROUTING_ACTION_GO_STRAIGHT },//GoStraight,
-            { TripDirections_Maneuver_Type_kRampStraight,     carto::RoutingAction::ROUTING_ACTION_GO_STRAIGHT },//GoStraight,
-            { TripDirections_Maneuver_Type_kStayStraight,     carto::RoutingAction::ROUTING_ACTION_GO_STRAIGHT },//GoStraight,
-            { TripDirections_Maneuver_Type_kMerge,            carto::RoutingAction::ROUTING_ACTION_GO_STRAIGHT },//GoStraight,
-            { TripDirections_Maneuver_Type_kMergeLeft,        carto::RoutingAction::ROUTING_ACTION_GO_STRAIGHT },//GoStraight,
-            { TripDirections_Maneuver_Type_kMergeRight,       carto::RoutingAction::ROUTING_ACTION_GO_STRAIGHT },//GoStraight,
-            { TripDirections_Maneuver_Type_kFerryEnter,       carto::RoutingAction::ROUTING_ACTION_ENTER_FERRY },//EnterFerry,
-            { TripDirections_Maneuver_Type_kFerryExit,        carto::RoutingAction::ROUTING_ACTION_LEAVE_FERRY },//LeaveFerry,
-            { TripDirections_Maneuver_Type_kSlightRight,      carto::RoutingAction::ROUTING_ACTION_TURN_RIGHT },//TurnSlightRight,
-            { TripDirections_Maneuver_Type_kRight,            carto::RoutingAction::ROUTING_ACTION_TURN_RIGHT },//TurnRight,
-            { TripDirections_Maneuver_Type_kRampRight,        carto::RoutingAction::ROUTING_ACTION_TURN_RIGHT },//TurnRight,
-            { TripDirections_Maneuver_Type_kExitRight,        carto::RoutingAction::ROUTING_ACTION_TURN_RIGHT },//TurnRight,
-            { TripDirections_Maneuver_Type_kStayRight,        carto::RoutingAction::ROUTING_ACTION_TURN_RIGHT },//TurnRight,
-            { TripDirections_Maneuver_Type_kSharpRight,       carto::RoutingAction::ROUTING_ACTION_TURN_RIGHT },//TurnSharpRight,
-            { TripDirections_Maneuver_Type_kUturnLeft,        carto::RoutingAction::ROUTING_ACTION_UTURN },//UTurn,
-            { TripDirections_Maneuver_Type_kUturnRight,       carto::RoutingAction::ROUTING_ACTION_UTURN },//UTurn,
-            { TripDirections_Maneuver_Type_kSharpLeft,        carto::RoutingAction::ROUTING_ACTION_TURN_LEFT },//TurnSharpLeft,
-            { TripDirections_Maneuver_Type_kLeft,             carto::RoutingAction::ROUTING_ACTION_TURN_LEFT },//TurnLeft,
-            { TripDirections_Maneuver_Type_kRampLeft,         carto::RoutingAction::ROUTING_ACTION_TURN_LEFT },//TurnLeft,
-            { TripDirections_Maneuver_Type_kExitLeft,         carto::RoutingAction::ROUTING_ACTION_TURN_LEFT },//TurnLeft,
-            { TripDirections_Maneuver_Type_kStayLeft,         carto::RoutingAction::ROUTING_ACTION_TURN_LEFT },//TurnLeft,
-            { TripDirections_Maneuver_Type_kSlightLeft,       carto::RoutingAction::ROUTING_ACTION_TURN_LEFT },//TurnSlightLeft,
-            { TripDirections_Maneuver_Type_kRoundaboutEnter,  carto::RoutingAction::ROUTING_ACTION_ENTER_ROUNDABOUT },//EnterRoundAbout,
-            { TripDirections_Maneuver_Type_kRoundaboutExit,   carto::RoutingAction::ROUTING_ACTION_LEAVE_ROUNDABOUT },//LeaveRoundAbout,
-            { TripDirections_Maneuver_Type_kStart,            carto::RoutingAction::ROUTING_ACTION_HEAD_ON },//StartAtEndOfStreet,
-            { TripDirections_Maneuver_Type_kStartRight,       carto::RoutingAction::ROUTING_ACTION_HEAD_ON },//StartAtEndOfStreet,
-            { TripDirections_Maneuver_Type_kStartLeft,        carto::RoutingAction::ROUTING_ACTION_HEAD_ON },//StartAtEndOfStreet,
-            { TripDirections_Maneuver_Type_kDestination,      carto::RoutingAction::ROUTING_ACTION_FINISH },//ReachedYourDestination,
-            { TripDirections_Maneuver_Type_kDestinationRight, carto::RoutingAction::ROUTING_ACTION_FINISH },//ReachedYourDestination,
-            { TripDirections_Maneuver_Type_kDestinationLeft,  carto::RoutingAction::ROUTING_ACTION_FINISH },//ReachedYourDestination,
+            { TripDirections_Maneuver_Type_kNone,             massif::RoutingAction::ROUTING_ACTION_NO_TURN },//NoTurn = 0,
+            { TripDirections_Maneuver_Type_kContinue,         massif::RoutingAction::ROUTING_ACTION_GO_STRAIGHT },//GoStraight,
+            { TripDirections_Maneuver_Type_kBecomes,          massif::RoutingAction::ROUTING_ACTION_GO_STRAIGHT },//GoStraight,
+            { TripDirections_Maneuver_Type_kRampStraight,     massif::RoutingAction::ROUTING_ACTION_GO_STRAIGHT },//GoStraight,
+            { TripDirections_Maneuver_Type_kStayStraight,     massif::RoutingAction::ROUTING_ACTION_GO_STRAIGHT },//GoStraight,
+            { TripDirections_Maneuver_Type_kMerge,            massif::RoutingAction::ROUTING_ACTION_GO_STRAIGHT },//GoStraight,
+            { TripDirections_Maneuver_Type_kMergeLeft,        massif::RoutingAction::ROUTING_ACTION_GO_STRAIGHT },//GoStraight,
+            { TripDirections_Maneuver_Type_kMergeRight,       massif::RoutingAction::ROUTING_ACTION_GO_STRAIGHT },//GoStraight,
+            { TripDirections_Maneuver_Type_kFerryEnter,       massif::RoutingAction::ROUTING_ACTION_ENTER_FERRY },//EnterFerry,
+            { TripDirections_Maneuver_Type_kFerryExit,        massif::RoutingAction::ROUTING_ACTION_LEAVE_FERRY },//LeaveFerry,
+            { TripDirections_Maneuver_Type_kSlightRight,      massif::RoutingAction::ROUTING_ACTION_TURN_RIGHT },//TurnSlightRight,
+            { TripDirections_Maneuver_Type_kRight,            massif::RoutingAction::ROUTING_ACTION_TURN_RIGHT },//TurnRight,
+            { TripDirections_Maneuver_Type_kRampRight,        massif::RoutingAction::ROUTING_ACTION_TURN_RIGHT },//TurnRight,
+            { TripDirections_Maneuver_Type_kExitRight,        massif::RoutingAction::ROUTING_ACTION_TURN_RIGHT },//TurnRight,
+            { TripDirections_Maneuver_Type_kStayRight,        massif::RoutingAction::ROUTING_ACTION_TURN_RIGHT },//TurnRight,
+            { TripDirections_Maneuver_Type_kSharpRight,       massif::RoutingAction::ROUTING_ACTION_TURN_RIGHT },//TurnSharpRight,
+            { TripDirections_Maneuver_Type_kUturnLeft,        massif::RoutingAction::ROUTING_ACTION_UTURN },//UTurn,
+            { TripDirections_Maneuver_Type_kUturnRight,       massif::RoutingAction::ROUTING_ACTION_UTURN },//UTurn,
+            { TripDirections_Maneuver_Type_kSharpLeft,        massif::RoutingAction::ROUTING_ACTION_TURN_LEFT },//TurnSharpLeft,
+            { TripDirections_Maneuver_Type_kLeft,             massif::RoutingAction::ROUTING_ACTION_TURN_LEFT },//TurnLeft,
+            { TripDirections_Maneuver_Type_kRampLeft,         massif::RoutingAction::ROUTING_ACTION_TURN_LEFT },//TurnLeft,
+            { TripDirections_Maneuver_Type_kExitLeft,         massif::RoutingAction::ROUTING_ACTION_TURN_LEFT },//TurnLeft,
+            { TripDirections_Maneuver_Type_kStayLeft,         massif::RoutingAction::ROUTING_ACTION_TURN_LEFT },//TurnLeft,
+            { TripDirections_Maneuver_Type_kSlightLeft,       massif::RoutingAction::ROUTING_ACTION_TURN_LEFT },//TurnSlightLeft,
+            { TripDirections_Maneuver_Type_kRoundaboutEnter,  massif::RoutingAction::ROUTING_ACTION_ENTER_ROUNDABOUT },//EnterRoundAbout,
+            { TripDirections_Maneuver_Type_kRoundaboutExit,   massif::RoutingAction::ROUTING_ACTION_LEAVE_ROUNDABOUT },//LeaveRoundAbout,
+            { TripDirections_Maneuver_Type_kStart,            massif::RoutingAction::ROUTING_ACTION_HEAD_ON },//StartAtEndOfStreet,
+            { TripDirections_Maneuver_Type_kStartRight,       massif::RoutingAction::ROUTING_ACTION_HEAD_ON },//StartAtEndOfStreet,
+            { TripDirections_Maneuver_Type_kStartLeft,        massif::RoutingAction::ROUTING_ACTION_HEAD_ON },//StartAtEndOfStreet,
+            { TripDirections_Maneuver_Type_kDestination,      massif::RoutingAction::ROUTING_ACTION_FINISH },//ReachedYourDestination,
+            { TripDirections_Maneuver_Type_kDestinationRight, massif::RoutingAction::ROUTING_ACTION_FINISH },//ReachedYourDestination,
+            { TripDirections_Maneuver_Type_kDestinationLeft,  massif::RoutingAction::ROUTING_ACTION_FINISH },//ReachedYourDestination,
             // NOTE: transit maneuvers are missing from this table
         };
 

@@ -4,7 +4,7 @@
 
 #include <cmath>
 
-namespace carto {
+namespace massif {
 
     MapTile TileUtils::CalculateMapTile(const MapPos& mapPos, int zoom, const std::shared_ptr<Projection>& proj) {
         double tileWidth = proj->getBounds().getDelta().getX() / (1 << zoom);

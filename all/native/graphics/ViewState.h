@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_VIEWSTATE_H_
-#define _CARTO_VIEWSTATE_H_
+#ifndef _MASSIF_VIEWSTATE_H_
+#define _MASSIF_VIEWSTATE_H_
 
 #include "core/MapRange.h"
 #include "components/Options.h"
@@ -14,7 +14,7 @@
 #include <cglib/mat.h>
 #include <cglib/frustum3.h>
 
-namespace carto {
+namespace massif {
     class ProjectionSurface;
         
     /**

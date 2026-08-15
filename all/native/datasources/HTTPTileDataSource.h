@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_HTTPTILEDATASOURCE_H_
-#define _CARTO_HTTPTILEDATASOURCE_H_
+#ifndef _MASSIF_HTTPTILEDATASOURCE_H_
+#define _MASSIF_HTTPTILEDATASOURCE_H_
 
 #include "datasources/TileDataSource.h"
 #include "datasources/components/PMTilesUtils.h"
@@ -17,7 +17,7 @@
 #include <vector>
 #include <mutex>
 
-namespace carto {
+namespace massif {
 
     /**
      * A tile data source that loads tiles using a HTTP connection.

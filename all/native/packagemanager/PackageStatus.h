@@ -4,12 +4,12 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_PACKAGESTATUS_H_
-#define _CARTO_PACKAGESTATUS_H_
+#ifndef _MASSIF_PACKAGESTATUS_H_
+#define _MASSIF_PACKAGESTATUS_H_
 
-#ifdef _CARTO_PACKAGEMANAGER_SUPPORT
+#ifdef _MASSIF_PACKAGEMANAGER_SUPPORT
 
-namespace carto {
+namespace massif {
     
     namespace PackageAction {
         /**

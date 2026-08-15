@@ -3,7 +3,7 @@
 
 %module BalloonPopupStyle
 
-!proxy_imports(carto::BalloonPopupStyle, graphics.Color, graphics.Bitmap, styles.PopupStyle)
+!proxy_imports(massif::BalloonPopupStyle, graphics.Color, graphics.Bitmap, styles.PopupStyle)
 
 %{
 #include "styles/BalloonPopupStyle.h"
@@ -11,45 +11,45 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "styles/PopupStyle.i"
 
-!value_type(carto::BalloonPopupMargins, styles.BalloonPopupMargins)
+!value_type(massif::BalloonPopupMargins, styles.BalloonPopupMargins)
 
-%attribute(carto::BalloonPopupMargins, int, Left, getLeft)
-%attribute(carto::BalloonPopupMargins, int, Right, getRight)
-%attribute(carto::BalloonPopupMargins, int, Top, getTop)
-%attribute(carto::BalloonPopupMargins, int, Bottom, getBottom)
+%attribute(massif::BalloonPopupMargins, int, Left, getLeft)
+%attribute(massif::BalloonPopupMargins, int, Right, getRight)
+%attribute(massif::BalloonPopupMargins, int, Top, getTop)
+%attribute(massif::BalloonPopupMargins, int, Bottom, getBottom)
 
-!polymorphic_shared_ptr(carto::BalloonPopupStyle, styles.BalloonPopupStyle)
+!polymorphic_shared_ptr(massif::BalloonPopupStyle, styles.BalloonPopupStyle)
 
-%attributeval(carto::BalloonPopupStyle, carto::Color, BackgroundColor, getBackgroundColor)
-%attribute(carto::BalloonPopupStyle, int, CornerRadius, getCornerRadius)
-%attributeval(carto::BalloonPopupStyle, carto::Color, LeftColor, getLeftColor)
-%attributestring(carto::BalloonPopupStyle, std::shared_ptr<carto::Bitmap>, LeftImage, getLeftImage)
-%attributeval(carto::BalloonPopupStyle, carto::BalloonPopupMargins, LeftMargins, getLeftMargins)
-%attributeval(carto::BalloonPopupStyle, carto::Color, RightColor, getRightColor)
-%attributestring(carto::BalloonPopupStyle, std::shared_ptr<carto::Bitmap>, RightImage, getRightImage)
-%attributeval(carto::BalloonPopupStyle, carto::BalloonPopupMargins, RightMargins, getRightMargins)
-%attributeval(carto::BalloonPopupStyle, carto::Color, TitleColor, getTitleColor)
-%attributestring(carto::BalloonPopupStyle, std::string, TitleFontName, getTitleFontName)
-%attributestring(carto::BalloonPopupStyle, std::string, TitleField, getTitleField)
-%attribute(carto::BalloonPopupStyle, int, TitleFontSize, getTitleFontSize)
-%attributeval(carto::BalloonPopupStyle, carto::BalloonPopupMargins, TitleMargins, getTitleMargins)
-%attribute(carto::BalloonPopupStyle, bool, TitleWrap, isTitleWrap)
-%attributeval(carto::BalloonPopupStyle, carto::Color, DescriptionColor, getDescriptionColor)
-%attributestring(carto::BalloonPopupStyle, std::string, DescriptionFontName, getDescriptionFontName)
-%attributestring(carto::BalloonPopupStyle, std::string, DescriptionField, getDescriptionField)
-%attribute(carto::BalloonPopupStyle, int, DescriptionFontSize, getDescriptionFontSize)
-%attributeval(carto::BalloonPopupStyle, carto::BalloonPopupMargins, DescriptionMargins, getDescriptionMargins)
-%attribute(carto::BalloonPopupStyle, bool, DescriptionWrap, isDescriptionWrap)
-%attributeval(carto::BalloonPopupStyle, carto::BalloonPopupMargins, ButtonMargins, getButtonMargins)
-%attributeval(carto::BalloonPopupStyle, carto::Color, StrokeColor, getStrokeColor)
-%attribute(carto::BalloonPopupStyle, int, StrokeWidth, getStrokeWidth)
-%attribute(carto::BalloonPopupStyle, int, TriangleWidth, getTriangleWidth)
-%attribute(carto::BalloonPopupStyle, int, TriangleHeight, getTriangleHeight)
-%ignore carto::BalloonPopupStyle::BalloonPopupStyle;
+%attributeval(massif::BalloonPopupStyle, massif::Color, BackgroundColor, getBackgroundColor)
+%attribute(massif::BalloonPopupStyle, int, CornerRadius, getCornerRadius)
+%attributeval(massif::BalloonPopupStyle, massif::Color, LeftColor, getLeftColor)
+%attributestring(massif::BalloonPopupStyle, std::shared_ptr<massif::Bitmap>, LeftImage, getLeftImage)
+%attributeval(massif::BalloonPopupStyle, massif::BalloonPopupMargins, LeftMargins, getLeftMargins)
+%attributeval(massif::BalloonPopupStyle, massif::Color, RightColor, getRightColor)
+%attributestring(massif::BalloonPopupStyle, std::shared_ptr<massif::Bitmap>, RightImage, getRightImage)
+%attributeval(massif::BalloonPopupStyle, massif::BalloonPopupMargins, RightMargins, getRightMargins)
+%attributeval(massif::BalloonPopupStyle, massif::Color, TitleColor, getTitleColor)
+%attributestring(massif::BalloonPopupStyle, std::string, TitleFontName, getTitleFontName)
+%attributestring(massif::BalloonPopupStyle, std::string, TitleField, getTitleField)
+%attribute(massif::BalloonPopupStyle, int, TitleFontSize, getTitleFontSize)
+%attributeval(massif::BalloonPopupStyle, massif::BalloonPopupMargins, TitleMargins, getTitleMargins)
+%attribute(massif::BalloonPopupStyle, bool, TitleWrap, isTitleWrap)
+%attributeval(massif::BalloonPopupStyle, massif::Color, DescriptionColor, getDescriptionColor)
+%attributestring(massif::BalloonPopupStyle, std::string, DescriptionFontName, getDescriptionFontName)
+%attributestring(massif::BalloonPopupStyle, std::string, DescriptionField, getDescriptionField)
+%attribute(massif::BalloonPopupStyle, int, DescriptionFontSize, getDescriptionFontSize)
+%attributeval(massif::BalloonPopupStyle, massif::BalloonPopupMargins, DescriptionMargins, getDescriptionMargins)
+%attribute(massif::BalloonPopupStyle, bool, DescriptionWrap, isDescriptionWrap)
+%attributeval(massif::BalloonPopupStyle, massif::BalloonPopupMargins, ButtonMargins, getButtonMargins)
+%attributeval(massif::BalloonPopupStyle, massif::Color, StrokeColor, getStrokeColor)
+%attribute(massif::BalloonPopupStyle, int, StrokeWidth, getStrokeWidth)
+%attribute(massif::BalloonPopupStyle, int, TriangleWidth, getTriangleWidth)
+%attribute(massif::BalloonPopupStyle, int, TriangleHeight, getTriangleHeight)
+%ignore massif::BalloonPopupStyle::BalloonPopupStyle;
 
 %include "styles/BalloonPopupStyle.h"
 

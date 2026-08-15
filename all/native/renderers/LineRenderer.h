@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_LINERENDERER_H_
-#define _CARTO_LINERENDERER_H_
+#ifndef _MASSIF_LINERENDERER_H_
+#define _MASSIF_LINERENDERER_H_
 
 #include "renderers/utils/GLContext.h"
 #include "renderers/utils/BitmapTextureCache.h"
@@ -17,7 +17,7 @@
 
 #include <cglib/ray.h>
 
-namespace carto {
+namespace massif {
     class Bitmap;
     class Line;
     class LineDrawData;

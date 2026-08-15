@@ -8,7 +8,7 @@
 #   - The SWIG fork executable. Point to it with $SWIG (default: `swig` on PATH).
 #   - jazzy:   gem install jazzy   (or `bundle`)
 #   - sourcekitten (pulled in by jazzy)
-#   - Submodules checked out (libs-carto, libs-external).
+#   - Submodules checked out (libs-massif, libs-external).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 SCRIPTS="$ROOT/scripts"
@@ -32,7 +32,7 @@ echo "==> Generating Objective-C proxies (profile: $PROFILE)"
     --moduledir "$BUILD/modules" )
 
 # Build an umbrella header that imports every generated public header.
-UMBRELLA="$BUILD/CartoMobileSDK.h"
+UMBRELLA="$BUILD/MassifMaps.h"
 : > "$UMBRELLA"
 find "$PROXY" -name 'NT*.h' | sort | while read -r h; do
   echo "#import \"$(basename "$h")\"" >> "$UMBRELLA"
@@ -47,9 +47,9 @@ jazzy \
   --objc \
   --umbrella-header "$UMBRELLA" \
   --framework-root "$PROXY" \
-  --module CartoMobileSDK \
+  --module MassifMaps \
   --module-version "${DOCS_VERSION:-master}" \
-  --title "CARTO Mobile SDK (Akylas fork) — iOS API" \
+  --title "Massif Maps — iOS API" \
   --output "$OUT" \
   || echo "   (jazzy reported warnings — output still generated)"
 

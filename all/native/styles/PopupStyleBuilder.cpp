@@ -1,7 +1,7 @@
 #include "PopupStyleBuilder.h"
 #include "styles/PopupStyle.h"
 
-namespace carto {
+namespace massif {
 
     PopupStyleBuilder::PopupStyleBuilder() :
         BillboardStyleBuilder()

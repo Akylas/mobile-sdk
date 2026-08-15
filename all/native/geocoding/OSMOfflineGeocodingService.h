@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_OSMOFFILINEGEOCODINGSERVICE_H_
-#define _CARTO_OSMOFFILINEGEOCODINGSERVICE_H_
+#ifndef _MASSIF_OSMOFFILINEGEOCODINGSERVICE_H_
+#define _MASSIF_OSMOFFILINEGEOCODINGSERVICE_H_
 
-#if defined(_CARTO_GEOCODING_SUPPORT) && defined(_CARTO_OFFLINE_SUPPORT)
+#if defined(_MASSIF_GEOCODING_SUPPORT) && defined(_MASSIF_OFFLINE_SUPPORT)
 
 #include "geocoding/GeocodingService.h"
 
-namespace carto {
+namespace massif {
     namespace geocoding {
         class Geocoder;
     }

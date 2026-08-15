@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_BITMAPFILTERTABLE_H_
-#define _CARTO_BITMAPFILTERTABLE_H_
+#ifndef _MASSIF_BITMAPFILTERTABLE_H_
+#define _MASSIF_BITMAPFILTERTABLE_H_
 
 #include "graphics/Bitmap.h"
 #include "utils/Log.h"
@@ -14,7 +14,7 @@
 
 #include <cglib/bbox.h>
 
-namespace carto {
+namespace massif {
 
     /**
      * Filter table using Elliptic Weighted Average filtering.

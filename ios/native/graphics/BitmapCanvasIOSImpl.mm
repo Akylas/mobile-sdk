@@ -7,7 +7,7 @@
 
 #import <Foundation/Foundation.h>
 
-namespace carto {
+namespace massif {
     
     BitmapCanvas::IOSImpl::IOSImpl(int width, int height) :
         _width(width),

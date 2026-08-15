@@ -4,10 +4,10 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_REDRAWREQUESTLISTENER_H_
-#define _CARTO_REDRAWREQUESTLISTENER_H_
+#ifndef _MASSIF_REDRAWREQUESTLISTENER_H_
+#define _MASSIF_REDRAWREQUESTLISTENER_H_
 
-namespace carto {
+namespace massif {
 
     /**
      * An internal listener class for notifying about screen redraw requests.

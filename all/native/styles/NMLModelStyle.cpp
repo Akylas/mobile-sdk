@@ -4,7 +4,7 @@
 
 #include <nml/Package.h>
 
-namespace carto {
+namespace massif {
 
     NMLModelStyle::NMLModelStyle(const Color& color,
                                  float attachAnchorPointX,

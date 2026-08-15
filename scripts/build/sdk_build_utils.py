@@ -8,7 +8,7 @@ import shutil
 import json
 
 SDK_VERSION = '5.0.0'
-REPO_URL="https://github.com/Akylas/mobile-sdk"
+REPO_URL="https://github.com/massif-maps/MassifMaps"
 
 def makedirs(dir):
   try:
@@ -171,16 +171,16 @@ def getVariant(profile):
   return profile.replace("standard+", "").replace("+", "_")
 
 def getAndroidAarDistName(version, profile):
-  return 'carto-mobile-sdk-android-%s-%s.aar' % (version, getVariant(profile))
+  return 'massif-android-%s-%s.aar' % (version, getVariant(profile))
 
 def getIOSZipDistName(version, profile):
-  return 'carto-mobile-sdk-ios-%s-%s.zip' % (version, getVariant(profile))
+  return 'massif-ios-%s-%s.zip' % (version, getVariant(profile))
 
 def getRoutingAndroidAarDistName(version):
-  return 'carto-routing-android-%s.aar' % version
+  return 'massif-routing-android-%s.aar' % version
 
 def getRoutingIOSZipDistName(version):
-  return 'carto-routing-ios-%s.zip' % version
+  return 'massif-routing-ios-%s.zip' % version
 
 def getBuildDir(target, arch=None):
   if arch is None:

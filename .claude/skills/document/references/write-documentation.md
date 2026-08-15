@@ -20,7 +20,7 @@ The default is **no comment**. Write one only when the code cannot carry the inf
 
 Never write: what the next line does, a restated function name, a changelog entry, a TODO with no owner, or a comment that will drift out of date the moment the code moves.
 
-Match the surrounding density: `all/native/` and `libs-carto/vt/` are sparsely commented. A block of prose in a hot render path is noise; one sharp sentence above the constant is the norm.
+Match the surrounding density: `all/native/` and `libs-massif/vt/` are sparsely commented. A block of prose in a hot render path is noise; one sharp sentence above the constant is the norm.
 
 ## Public API — SWIG `.i` doc comments
 

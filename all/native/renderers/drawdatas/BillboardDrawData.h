@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_BILLBOARDDRAWDATA_H_
-#define _CARTO_BILLBOARDDRAWDATA_H_
+#ifndef _MASSIF_BILLBOARDDRAWDATA_H_
+#define _MASSIF_BILLBOARDDRAWDATA_H_
 
 #include "styles/BillboardStyle.h"
 #include "renderers/drawdatas/VectorElementDrawData.h"
@@ -16,7 +16,7 @@
 
 #include <cglib/vec.h>
 
-namespace carto {
+namespace massif {
     class Bitmap;
     class Billboard;
     class BillboardRenderer;

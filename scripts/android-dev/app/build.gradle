@@ -1,12 +1,12 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace 'com.akylas.cartotest'
+    namespace 'com.massifmaps.MassifDemo'
     compileSdkVersion 36
 
     ndkVersion "27.3.13750724"
     defaultConfig {
-        applicationId "com.akylas.cartotest"
+        applicationId "com.massifmaps.MassifDemo"
         minSdkVersion 21
         targetSdkVersion 36
         versionCode 1
@@ -24,7 +24,7 @@ android {
 }
 
 dependencies {
-    implementation project(':carto_mobile_sdk')
+    implementation project(':massif')
     implementation project(':valhalla_routing')
     implementation 'androidx.appcompat:appcompat:1.7.1'
     implementation 'androidx.constraintlayout:constraintlayout:2.2.1'

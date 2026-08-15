@@ -4,12 +4,12 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_LOGEVENTLISTENER_H_
-#define _CARTO_LOGEVENTLISTENER_H_
+#ifndef _MASSIF_LOGEVENTLISTENER_H_
+#define _MASSIF_LOGEVENTLISTENER_H_
 
 #include <string>
 
-namespace carto {
+namespace massif {
     /**
      * Listener for events logged by the SDK.
      */

@@ -4,12 +4,12 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_CUSTOMPOPUPHANDLER_H_
-#define _CARTO_CUSTOMPOPUPHANDLER_H_
+#ifndef _MASSIF_CUSTOMPOPUPHANDLER_H_
+#define _MASSIF_CUSTOMPOPUPHANDLER_H_
 
 #include <memory>
 
-namespace carto {
+namespace massif {
     class Bitmap;
     class PopupDrawInfo;
     class PopupClickInfo;

@@ -3,7 +3,7 @@ title: Live Style Parameters
 sidebar_position: 11
 ---
 
-# Live Style Parameters (`nuti::`)
+# Live Style Parameters (`param::`)
 
 A style parameter is a value the **app** owns and the style reads. The fork adds table parameters,
 and — the point of this page — makes a colour-only change **repaint instead of re-decoding every
@@ -11,9 +11,9 @@ visible tile**.
 
 :::info Fork feature
 Table parameters and the repaint paths were added in PRs
-[#73](https://github.com/Akylas/mobile-sdk/pull/73) and
-[#76](https://github.com/Akylas/mobile-sdk/pull/76). Reference:
-[`docs/style-parameters.md`](https://github.com/Akylas/mobile-sdk/blob/master/docs/style-parameters.md).
+[#73](https://github.com/massif-maps/MassifMaps/pull/73) and
+[#76](https://github.com/massif-maps/MassifMaps/pull/76). Reference:
+[`docs/style-parameters.md`](https://github.com/massif-maps/MassifMaps/blob/master/docs/style-parameters.md).
 :::
 
 <figure class="docs-figure">
@@ -27,7 +27,7 @@ Table parameters and the repaint paths were added in PRs
 ## Declaring and setting
 
 ```json
-"nutiparameters": {
+"styleparameters": {
   "show_relief":  { "default": true },
   "lang":         { "default": "en" },
   "routes_type":  [0, 1, 2],
@@ -53,16 +53,16 @@ decoder.setJSONStyleParameters("{\"lang\":\"fr\"}");
 Scalars read like any other variable, in an expression or a filter:
 
 ```css
-#road['nuti::show_underground' = 1] { line-color: @underground_color; }
-#label { text-size: 12 / [nuti::_fontscale]; }
+#road['param::show_underground' = 1] { line-color: @underground_color; }
+#label { text-size: 12 / [param::_fontscale]; }
 ```
 
 Tables are read with `get` (plus `has` and `length`). One table parameter replaces one parameter per
 class, and the app can rewrite the whole table at once:
 
 ```css
-#poi     { marker-fill: get([nuti::poi_colors], [class], #888888); }
-#contour { line-width: get([nuti::widths], 0, 0.8); }
+#poi     { marker-fill: get([param::poi_colors], [class], #888888); }
+#contour { line-width: get([param::widths], 0, 0.8); }
 ```
 
 ```java
@@ -95,13 +95,13 @@ Highlighting the tapped road is "a parameter compared with a feature field", whi
 expensive case. A style can **ask** for it to be free:
 
 ```json
-"nutiparameters": {
+"styleparameters": {
   "selected_id": { "default": "", "selects": true }
 }
 ```
 
 ```css
-@is_selected: [nuti::selected_id] = [osmid] + '';
+@is_selected: [param::selected_id] = [osmid] + '';
 #routes {
   line-color: @is_selected ? #ff3b00 : #3388ff;
   line-width: 5 + (@is_selected ? 4 : 0);
@@ -120,7 +120,7 @@ The rules are narrow, and a style that breaks one falls back to the re-decode pa
 in the log naming the reason** — `selects` never fails silently:
 
 - only `line-color`, `line-opacity` and `line-width` of a **line** rule may read the parameter;
-- always as `[nuti::x] = <expression of feature fields>`, the same expression everywhere, and never
+- always as `[param::x] = <expression of feature fields>`, the same expression everywhere, and never
   together with another parameter in one property;
 - never in a **filter** — `when (…)::casing` decides whether the casing geometry *exists*, and no
   repaint can build geometry. Write the casing as a width and a colour instead of as a rule;
@@ -128,4 +128,4 @@ in the log naming the reason** — `selects` never fails silently:
 
 ## See also
 
-- [Composite Vector Tile Layer](/docs/features/composite-vector-tile-layer) — external sources configured from `nuti`-dependent expressions.
+- [Composite Vector Tile Layer](/docs/features/composite-vector-tile-layer) — external sources configured from `param::`-dependent expressions.

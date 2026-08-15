@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_MAPPOS_H_
-#define _CARTO_MAPPOS_H_
+#ifndef _MASSIF_MAPPOS_H_
+#define _MASSIF_MAPPOS_H_
 
 #include <string>
 #include <utility>
 #include <functional>
 
-namespace carto {
+namespace massif {
     class MapVec;
     
     /**
@@ -166,8 +166,8 @@ namespace carto {
 namespace std {
 
     template <>
-    struct hash<carto::MapPos> {
-        size_t operator ()(const carto::MapPos& pos) const {
+    struct hash<massif::MapPos> {
+        size_t operator ()(const massif::MapPos& pos) const {
             return static_cast<size_t>(pos.hash());
         }
     };

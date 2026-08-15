@@ -6,7 +6,7 @@
 
 #include <vector>
 
-namespace carto {
+namespace massif {
 
     SolidLayer::SolidLayer(const Color& color) :
         Layer(),

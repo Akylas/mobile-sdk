@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_POLYGONGEOMETRY_H_
-#define _CARTO_POLYGONGEOMETRY_H_
+#ifndef _MASSIF_POLYGONGEOMETRY_H_
+#define _MASSIF_POLYGONGEOMETRY_H_
 
 #include "geometry/Geometry.h"
 
 #include <vector>
 
-namespace carto {
+namespace massif {
 
     /**
      * Polygon geometry defined by an outer ring and optional multiple inner rings (holes).

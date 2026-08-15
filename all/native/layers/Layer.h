@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_LAYER_H_
-#define _CARTO_LAYER_H_
+#ifndef _MASSIF_LAYER_H_
+#define _MASSIF_LAYER_H_
 
 #include "core/ScreenPos.h"
 #include "core/MapRange.h"
@@ -23,7 +23,7 @@
 
 #include <cglib/ray.h>
 
-namespace carto {
+namespace massif {
     class Bitmap;
     class BillboardSorter;
     class DataSource;

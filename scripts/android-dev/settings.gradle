@@ -1,4 +1,4 @@
 rootProject.name='android-dev'
 include ':app'
-include ':carto_mobile_sdk'
+include ':massif'
 include ':valhalla_routing'

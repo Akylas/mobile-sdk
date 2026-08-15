@@ -3,30 +3,30 @@
 
 %module ScreenBounds
 
-!proxy_imports(carto::ScreenBounds, core.ScreenPos)
+!proxy_imports(massif::ScreenBounds, core.ScreenPos)
 
 %{
 #include "core/ScreenBounds.h"
 %}
 
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/ScreenPos.i"
 
-!value_type(carto::ScreenBounds, core.ScreenBounds)
+!value_type(massif::ScreenBounds, core.ScreenBounds)
 
-%attributeval(carto::ScreenBounds, carto::ScreenPos, Min, getMin)
-%attributeval(carto::ScreenBounds, carto::ScreenPos, Max, getMax)
-%attributeval(carto::ScreenBounds, carto::ScreenPos, Center, getCenter)
-!objc_rename(containsPos) carto::ScreenBounds::contains(const ScreenPos&) const;
-!objc_rename(containsBounds) carto::ScreenBounds::contains(const ScreenBounds&) const;
-%ignore carto::ScreenBounds::setBounds;
-%ignore carto::ScreenBounds::setMin;
-%ignore carto::ScreenBounds::setMax;
-%ignore carto::ScreenBounds::expandToContain;
-!custom_equals(carto::ScreenBounds);
-!custom_tostring(carto::ScreenBounds);
+%attributeval(massif::ScreenBounds, massif::ScreenPos, Min, getMin)
+%attributeval(massif::ScreenBounds, massif::ScreenPos, Max, getMax)
+%attributeval(massif::ScreenBounds, massif::ScreenPos, Center, getCenter)
+!objc_rename(containsPos) massif::ScreenBounds::contains(const ScreenPos&) const;
+!objc_rename(containsBounds) massif::ScreenBounds::contains(const ScreenBounds&) const;
+%ignore massif::ScreenBounds::setBounds;
+%ignore massif::ScreenBounds::setMin;
+%ignore massif::ScreenBounds::setMax;
+%ignore massif::ScreenBounds::expandToContain;
+!custom_equals(massif::ScreenBounds);
+!custom_tostring(massif::ScreenBounds);
 
 %include "core/ScreenBounds.h"
 

@@ -10,7 +10,7 @@
 #include <wrl/client.h>
 #include <dwrite.h>
 
-namespace carto {
+namespace massif {
 
     std::shared_ptr<BinaryData> SystemFontUtils::LoadFont(const std::string& name) {
         using Microsoft::WRL::ComPtr;

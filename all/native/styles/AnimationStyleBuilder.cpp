@@ -1,7 +1,7 @@
 #include "AnimationStyleBuilder.h"
 #include "styles/AnimationStyle.h"
 
-namespace carto {
+namespace massif {
 
     AnimationStyleBuilder::AnimationStyleBuilder() :
         _relativeSpeed(1.0f),

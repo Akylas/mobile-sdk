@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_DOUGLASPEUCKERGEOMETRYSIMPLIFIER_H_
-#define _CARTO_DOUGLASPEUCKERGEOMETRYSIMPLIFIER_H_
+#ifndef _MASSIF_DOUGLASPEUCKERGEOMETRYSIMPLIFIER_H_
+#define _MASSIF_DOUGLASPEUCKERGEOMETRYSIMPLIFIER_H_
 
 #include "geometry/GeometrySimplifier.h"
 
 #include <vector>
 
-namespace carto {
+namespace massif {
     class MapPos;
 
     /**

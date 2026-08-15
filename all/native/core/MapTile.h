@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_MAPTILE_H_
-#define _CARTO_MAPTILE_H_
+#ifndef _MASSIF_MAPTILE_H_
+#define _MASSIF_MAPTILE_H_
 
 #include <string>
 #include <utility>
 #include <functional>
 
-namespace carto {
+namespace massif {
 
     /**
      * An immutable map tile, used by tile layers for representing small pieces of map at different zoom levels and coordinates.
@@ -119,8 +119,8 @@ namespace carto {
 namespace std {
 
     template <>
-    struct hash<carto::MapTile> {
-        size_t operator() (const carto::MapTile& tile) const {
+    struct hash<massif::MapTile> {
+        size_t operator() (const massif::MapTile& tile) const {
             return static_cast<size_t>(tile.hash());
         }
     };

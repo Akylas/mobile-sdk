@@ -3,9 +3,9 @@
 
 %module(directors="1") ValhallaOnlineRoutingService
 
-#ifdef _CARTO_ROUTING_SUPPORT
+#ifdef _MASSIF_ROUTING_SUPPORT
 
-!proxy_imports(carto::ValhallaOnlineRoutingService, routing.RoutingService, routing.RoutingRequest, routing.RoutingResult, routing.RouteMatchingRequest, routing.RouteMatchingResult, core.StringMap)
+!proxy_imports(massif::ValhallaOnlineRoutingService, routing.RoutingService, routing.RoutingRequest, routing.RoutingResult, routing.RouteMatchingRequest, routing.RouteMatchingResult, core.StringMap)
 
 %{
 #include "routing/ValhallaOnlineRoutingService.h"
@@ -15,22 +15,22 @@
 
 %include <std_shared_ptr.i>
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 %include <std_map.i>
 
 %import "routing/RoutingService.i"
 %import "core/StringMap.i"
 
-!polymorphic_shared_ptr(carto::ValhallaOnlineRoutingService, routing.ValhallaOnlineRoutingService)
+!polymorphic_shared_ptr(massif::ValhallaOnlineRoutingService, routing.ValhallaOnlineRoutingService)
 
-%attributestring(carto::ValhallaOnlineRoutingService, std::string, CustomServiceURL, getCustomServiceURL, setCustomServiceURL)
+%attributestring(massif::ValhallaOnlineRoutingService, std::string, CustomServiceURL, getCustomServiceURL, setCustomServiceURL)
 
-%attribute(carto::ValhallaOnlineRoutingService, int, Timeout, getTimeout, setTimeout)
-%attributeval(carto::ValhallaOnlineRoutingService, %arg(std::map<std::string, std::string>), HTTPHeaders, getHTTPHeaders, setHTTPHeaders)
-%std_io_exceptions(carto::ValhallaOnlineRoutingService::matchRoute)
-%std_io_exceptions(carto::ValhallaOnlineRoutingService::calculateRoute)
+%attribute(massif::ValhallaOnlineRoutingService, int, Timeout, getTimeout, setTimeout)
+%attributeval(massif::ValhallaOnlineRoutingService, %arg(std::map<std::string, std::string>), HTTPHeaders, getHTTPHeaders, setHTTPHeaders)
+%std_io_exceptions(massif::ValhallaOnlineRoutingService::matchRoute)
+%std_io_exceptions(massif::ValhallaOnlineRoutingService::calculateRoute)
 
-%feature("director") carto::ValhallaOnlineRoutingService;
+%feature("director") massif::ValhallaOnlineRoutingService;
 
 %include "routing/ValhallaOnlineRoutingService.h"
 

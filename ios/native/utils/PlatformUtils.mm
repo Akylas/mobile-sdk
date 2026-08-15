@@ -5,7 +5,7 @@
 #import <UIKit/UIKit.h>
 #include <sys/utsname.h>
 
-namespace carto {
+namespace massif {
 
     PlatformType::PlatformType PlatformUtils::GetPlatformType() {
 #ifdef TARGET_XAMARIN

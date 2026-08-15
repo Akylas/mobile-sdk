@@ -3,7 +3,7 @@
 
 %module TileUtils
 
-!proxy_imports(carto::TileUtils, core.MapPos, core.MapBounds, core.MapTile, projections.Projection)
+!proxy_imports(massif::TileUtils, core.MapPos, core.MapBounds, core.MapTile, projections.Projection)
 
 %{
 #include "utils/TileUtils.h"

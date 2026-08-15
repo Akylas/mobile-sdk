@@ -3,7 +3,7 @@
 
 %module PopupDrawInfo
 
-!proxy_imports(carto::PopupDrawInfo, core.ScreenPos, core.ScreenBounds, vectorelements.Popup)
+!proxy_imports(massif::PopupDrawInfo, core.ScreenPos, core.ScreenBounds, vectorelements.Popup)
 
 %{
 #include "ui/PopupDrawInfo.h"
@@ -11,19 +11,19 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/ScreenPos.i"
 %import "core/ScreenBounds.i"
 %import "vectorelements/Popup.i"
 
-!shared_ptr(carto::PopupDrawInfo, ui.PopupDrawInfo)
+!shared_ptr(massif::PopupDrawInfo, ui.PopupDrawInfo)
 
-%attributeval(carto::PopupDrawInfo, carto::ScreenPos, AnchorScreenPos, getAnchorScreenPos)
-%attributeval(carto::PopupDrawInfo, carto::ScreenBounds, ScreenBounds, getScreenBounds)
-!attributestring_polymorphic(carto::PopupDrawInfo, vectorelements.Popup, Popup, getPopup)
-%attribute(carto::PopupDrawInfo, float, DPToPX, getDPToPX)
-!standard_equals(carto::PopupDrawInfo);
+%attributeval(massif::PopupDrawInfo, massif::ScreenPos, AnchorScreenPos, getAnchorScreenPos)
+%attributeval(massif::PopupDrawInfo, massif::ScreenBounds, ScreenBounds, getScreenBounds)
+!attributestring_polymorphic(massif::PopupDrawInfo, vectorelements.Popup, Popup, getPopup)
+%attribute(massif::PopupDrawInfo, float, DPToPX, getDPToPX)
+!standard_equals(massif::PopupDrawInfo);
 
 %include "ui/PopupDrawInfo.h"
 

@@ -3,7 +3,7 @@
 
 %module PointGeometry
 
-!proxy_imports(carto::PointGeometry, core.MapPos, geometry.Geometry)
+!proxy_imports(massif::PointGeometry, core.MapPos, geometry.Geometry)
 
 %{
 #include "geometry/PointGeometry.h"
@@ -12,18 +12,18 @@
 
 %include <std_shared_ptr.i>
 %include <std_vector.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/MapPos.i"
 %import "geometry/Geometry.i"
 
-!polymorphic_shared_ptr(carto::PointGeometry, geometry.PointGeometry)
-!value_type(std::vector<std::shared_ptr<carto::PointGeometry> >, geometry.PointGeometryVector)
+!polymorphic_shared_ptr(massif::PointGeometry, geometry.PointGeometry)
+!value_type(std::vector<std::shared_ptr<massif::PointGeometry> >, geometry.PointGeometryVector)
 
-%attributeval(carto::PointGeometry, carto::MapPos, Pos, getPos)
+%attributeval(massif::PointGeometry, massif::MapPos, Pos, getPos)
 
 %include "geometry/PointGeometry.h"
 
-!value_template(std::vector<std::shared_ptr<carto::PointGeometry> >, geometry.PointGeometryVector)
+!value_template(std::vector<std::shared_ptr<massif::PointGeometry> >, geometry.PointGeometryVector)
 
 #endif

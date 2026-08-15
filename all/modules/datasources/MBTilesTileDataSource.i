@@ -3,9 +3,9 @@
 
 %module(directors="1") MBTilesTileDataSource
 
-#ifdef _CARTO_OFFLINE_SUPPORT
+#ifdef _MASSIF_OFFLINE_SUPPORT
 
-!proxy_imports(carto::MBTilesTileDataSource, core.MapTile, core.MapBounds, core.StringMap, datasources.TileDataSource, datasources.components.TileData)
+!proxy_imports(massif::MBTilesTileDataSource, core.MapTile, core.MapBounds, core.StringMap, datasources.TileDataSource, datasources.components.TileData)
 
 %{
 #include "datasources/MBTilesTileDataSource.h"
@@ -15,19 +15,19 @@
 
 %include <std_shared_ptr.i>
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/MapTile.i"
 %import "core/StringMap.i"
 %import "datasources/TileDataSource.i"
 %import "datasources/components/TileData.i"
 
-!enum(carto::MBTilesScheme::MBTilesScheme)
-!polymorphic_shared_ptr(carto::MBTilesTileDataSource, datasources.MBTilesTileDataSource)
+!enum(massif::MBTilesScheme::MBTilesScheme)
+!polymorphic_shared_ptr(massif::MBTilesTileDataSource, datasources.MBTilesTileDataSource)
 
-%std_io_exceptions(carto::MBTilesTileDataSource::MBTilesTileDataSource)
+%std_io_exceptions(massif::MBTilesTileDataSource::MBTilesTileDataSource)
 
-%feature("director") carto::MBTilesTileDataSource;
+%feature("director") massif::MBTilesTileDataSource;
 
 %include "datasources/MBTilesTileDataSource.h"
 

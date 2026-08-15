@@ -4,16 +4,16 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_GEOCODINGRESULT_H_
-#define _CARTO_GEOCODINGRESULT_H_
+#ifndef _MASSIF_GEOCODINGRESULT_H_
+#define _MASSIF_GEOCODINGRESULT_H_
 
-#ifdef _CARTO_GEOCODING_SUPPORT
+#ifdef _MASSIF_GEOCODING_SUPPORT
 
 #include "geocoding/GeocodingAddress.h"
 
 #include <memory>
 
-namespace carto {
+namespace massif {
     class FeatureCollection;
     class Projection;
 

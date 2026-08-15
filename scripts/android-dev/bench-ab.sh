@@ -14,7 +14,7 @@ set -u
 DEVICE=${DEVICE:-$(adb devices | awk 'NR==2 {print $1}')}
 REPS=${REPS:-3}
 WINDOW=${WINDOW:-25}
-PKG=${PKG:-com.akylas.cartotest}
+PKG=${PKG:-com.massifmaps.MassifDemo}
 BASE=${BASE:---es map false --es contourLayer true --es hillshade true --es terrain true --es ui false --es lon 5.7606 --es lat 45.2440 --es zoom 10.5 --es tilt 45}
 A_LABEL=${A_LABEL:-A}
 B_LABEL=${B_LABEL:-B}

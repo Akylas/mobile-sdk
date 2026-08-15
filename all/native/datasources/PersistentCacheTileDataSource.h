@@ -4,10 +4,10 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_PERSISTENTCACHETILEDATASOURCE_H_
-#define _CARTO_PERSISTENTCACHETILEDATASOURCE_H_
+#ifndef _MASSIF_PERSISTENTCACHETILEDATASOURCE_H_
+#define _MASSIF_PERSISTENTCACHETILEDATASOURCE_H_
 
-#ifdef _CARTO_OFFLINE_SUPPORT
+#ifdef _MASSIF_OFFLINE_SUPPORT
 
 #include "core/MapBounds.h"
 #include "components/CancelableThreadPool.h"
@@ -25,7 +25,7 @@ namespace sqlite3pp {
     class database;
 }
 
-namespace carto {
+namespace massif {
     class TileDownloadListener;
 
     /**

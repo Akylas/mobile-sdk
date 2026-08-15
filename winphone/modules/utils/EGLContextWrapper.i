@@ -3,7 +3,7 @@
 
 %module EGLContextWrapper
 
-!proxy_imports(carto::EGLContextWrapper)
+!proxy_imports(massif::EGLContextWrapper)
 
 %{
 #include "utils/EGLContextWrapper.h"

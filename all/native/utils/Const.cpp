@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-namespace carto {
+namespace massif {
 
     const double Const::PI = 3.1415926535897932;
     const double Const::DEG_TO_RAD = 3.1415926535897932 / 180.0;

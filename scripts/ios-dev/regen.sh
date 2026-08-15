@@ -1,5 +1,5 @@
 #!/bin/sh
-# Regenerate CartoDemo.xcodeproj. Run this after adding a source file.
+# Regenerate MassifDemo.xcodeproj. Run this after adding a source file.
 #
 # The strip is not a one-off: CMake re-emits PBXBuildStyle (an Xcode 2 vestige that Xcode ignores
 # and XcodeGen's parser refuses) every time it reconfigures, which happens on any CMakeLists
@@ -8,7 +8,7 @@
 set -e
 cd "$(dirname "$0")"
 
-PBXPROJ=".sdkproj/carto_mobile_sdk.xcodeproj/project.pbxproj"
+PBXPROJ=".sdkproj/massif.xcodeproj/project.pbxproj"
 if [ ! -f "$PBXPROJ" ]; then
   echo "No SDK project at $PBXPROJ - run ./bootstrap.sh first" >&2
   exit 1

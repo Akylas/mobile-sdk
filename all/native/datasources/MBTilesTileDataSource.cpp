@@ -1,4 +1,4 @@
-#ifdef _CARTO_OFFLINE_SUPPORT
+#ifdef _MASSIF_OFFLINE_SUPPORT
 
 #include "MBTilesTileDataSource.h"
 #include "core/BinaryData.h"
@@ -13,7 +13,7 @@
 
 #include <sqlite3pp.h>
 
-namespace carto {
+namespace massif {
 
     MBTilesTileDataSource::MBTilesTileDataSource(const std::string& path) :
         TileDataSource(),

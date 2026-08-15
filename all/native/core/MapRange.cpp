@@ -3,7 +3,7 @@
 #include <limits>
 #include <sstream>
 
-namespace carto {
+namespace massif {
 
     MapRange::MapRange() :
         _min(std::numeric_limits<float>::infinity()),

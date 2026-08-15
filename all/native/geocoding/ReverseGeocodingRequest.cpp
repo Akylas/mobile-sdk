@@ -1,4 +1,4 @@
-#ifdef _CARTO_GEOCODING_SUPPORT
+#ifdef _MASSIF_GEOCODING_SUPPORT
 
 #include "ReverseGeocodingRequest.h"
 #include "components/Exceptions.h"
@@ -9,7 +9,7 @@
 
 #include <boost/algorithm/string.hpp>
 
-namespace carto {
+namespace massif {
 
     ReverseGeocodingRequest::ReverseGeocodingRequest(const std::shared_ptr<Projection>& projection, const MapPos& location) :
         _location(location),

@@ -9,14 +9,14 @@ description: MANDATORY skill for ALL commits. Must be used EVERY TIME before cre
 
 **BEFORE ANY git commit COMMAND:**
 
-1. **ALWAYS** run `git diff --staged` first to see changes. When the work spans submodules, do it per repo: `git -C libs-carto diff --staged`, `git -C libs-external diff --staged`.
+1. **ALWAYS** run `git diff --staged` first to see changes. When the work spans submodules, do it per repo: `git -C libs-massif diff --staged`, `git -C libs-external diff --staged`.
 2. **ALWAYS** analyze the staged changes thoroughly
 3. **ALWAYS** split the code changes into atomic commits, one per coherent / cohesive change. One change spanning several files (`all/native` layer + renderer + the SWIG `.i` + its generated wrapper) is ONE cohesive change — do not split it by file. Only split when changes are truly unrelated (e.g. a renderer fix + a demo-app knob + a docs update).
 4. **ALWAYS** run the checks relevant to the change before committing (this repo has **no test/lint/format scripts** — `package.json` has no real `test`):
    - **Syntax/type check every touched `.cpp`** — the cheap gate that catches most breakage without a 1h build:
      ```sh
-     clang++ -fsyntax-only -std=c++17 -I all/native -I libs-carto/vt/src -I libs-carto/mapnikvt/src \
-       -I libs-carto/cartocss/src -I libs-carto/nml/src -I libs-external/cglib -I libs-external/stdext \
+     clang++ -fsyntax-only -std=c++17 -I all/native -I libs-massif/vt/src -I libs-massif/mapnikvt/src \
+       -I libs-massif/cartocss/src -I libs-massif/nml/src -I libs-external/cglib -I libs-external/stdext \
        -I libs-external/boost -I libs-external/picojson -I libs-external/pbf -I libs-external/tinyformat \
        -I libs-external/utf8/source -I libs-external/angle-metal/include <file>.cpp
      ```
@@ -31,17 +31,17 @@ description: MANDATORY skill for ALL commits. Must be used EVERY TIME before cre
 
 ## Submodule commits — order matters
 
-`libs-carto` and `libs-external` are separate repos. A change in one is **two commits in two repos**, in this order:
+`libs-massif` and `libs-external` are separate repos. A change in one is **two commits in two repos**, in this order:
 
 1. **Commit inside the submodule first**, on its own branch (see [branch-check](../branch-check/SKILL.md)):
    ```sh
-   git -C libs-carto status -sb          # MUST NOT print "## HEAD (no branch)"
-   git -C libs-carto add <paths> && git -C libs-carto commit
+   git -C libs-massif status -sb          # MUST NOT print "## HEAD (no branch)"
+   git -C libs-massif add <paths> && git -C libs-massif commit
    ```
    A commit on a detached HEAD is lost work — check `status -sb` again after committing.
-2. **Then commit the pointer bump in the main repo.** The submodule path (`libs-carto`) shows up as a modified entry; stage it with the main-repo changes that need it, so `master` never points at a commit that doesn't build. Mention the submodule commit in the body:
+2. **Then commit the pointer bump in the main repo.** The submodule path (`libs-massif`) shows up as a modified entry; stage it with the main-repo changes that need it, so `master` never points at a commit that doesn't build. Mention the submodule commit in the body:
    ```
-   Requires libs-carto <short-sha> (vt: clamp elevation level per tile).
+   Requires libs-massif <short-sha> (vt: clamp elevation level per tile).
    ```
 3. Never stage `libs-external`'s stray nested pointers (`brotli/brotli`, `date/date`) — they are dirty for unrelated reasons.
 
@@ -55,7 +55,7 @@ User trust requires seeing the plan before execution. Always present the full co
 
 **For each commit (regular or fixup), present:**
 
-- The repo it lands in (main / `libs-carto` / `libs-external`)
+- The repo it lands in (main / `libs-massif` / `libs-external`)
 - The commit message (header + body if applicable)
 - The list of files included
 - If splitting into multiple commits: the full split plan (which files go in which commit, in what order)
@@ -71,7 +71,7 @@ Before creating a new commit, check whether the staged changes should be fixup'd
 
 **Process:**
 
-1. Run `git log master..HEAD --oneline` to list all commits on the branch since diverging from `master` (in a submodule: `git -C libs-carto log develop..HEAD --oneline`)
+1. Run `git log master..HEAD --oneline` to list all commits on the branch since diverging from `master` (in a submodule: `git -C libs-massif log develop..HEAD --oneline`)
 2. For each staged file, check `git log master..HEAD -- <file>` to see if it was modified in a recent branch commit
 3. If a staged change clearly amends or extends code from a previous commit (same file, nearby lines, related logic — e.g. fixing a bias constant introduced in a prior commit, adding a missing include for a recently added header), suggest fixup'ing into that commit
 4. Present the suggestion: "This change to `<file>` looks like it should be fixup'd into `<sha> <message>`. Want me to fixup instead of creating a new commit?"
@@ -121,7 +121,7 @@ ONLY add a body when the header alone isn't enough for a reviewer:
 1. Use the imperative present tense, same as the subject
 2. Explain WHAT changed only if the commit touches more than 3 files
 3. Explain WHY — the motivation, contrasted with previous behavior. For renderer work this is the load-bearing part: which camera/zoom reproduced it, and which mechanism (depth bias, tile zoom, label placement) was actually wrong.
-4. Note the paired submodule commit when there is one (`Requires libs-carto <sha> (…)`)
+4. Note the paired submodule commit when there is one (`Requires libs-massif <sha> (…)`)
 5. Keep every line under 100 characters
 
 ### Footer

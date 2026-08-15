@@ -1,7 +1,7 @@
 #include "RayIntersectedElement.h"
 #include "layers/Layer.h"
 
-namespace carto {
+namespace massif {
     
     RayIntersectedElement::~RayIntersectedElement() {
     }

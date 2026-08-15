@@ -4,13 +4,13 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_SCREENPOS_H_
-#define _CARTO_SCREENPOS_H_
+#ifndef _MASSIF_SCREENPOS_H_
+#define _MASSIF_SCREENPOS_H_
 
 #include <string>
 #include <cstddef>
 
-namespace carto {
+namespace massif {
     
     /**
      * A screen position defined by x,y floating point numbers.

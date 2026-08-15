@@ -4,10 +4,10 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_MBTILESTILEDATASOURCE_H_
-#define _CARTO_MBTILESTILEDATASOURCE_H_
+#ifndef _MASSIF_MBTILESTILEDATASOURCE_H_
+#define _MASSIF_MBTILESTILEDATASOURCE_H_
 
-#ifdef _CARTO_OFFLINE_SUPPORT
+#ifdef _MASSIF_OFFLINE_SUPPORT
 
 #include "datasources/TileDataSource.h"
 
@@ -19,7 +19,7 @@ namespace sqlite3pp {
     class database;
 }
     
-namespace carto {
+namespace massif {
     
     namespace MBTilesScheme {
         /**

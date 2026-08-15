@@ -7,7 +7,7 @@
 #include <iomanip>
 #include <functional>
 
-namespace carto {
+namespace massif {
     
     ScreenPos::ScreenPos() :
         _x(0), _y(0)

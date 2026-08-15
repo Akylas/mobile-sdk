@@ -1,11 +1,11 @@
-#ifdef _CARTO_ROUTING_SUPPORT
+#ifdef _MASSIF_ROUTING_SUPPORT
 
 #include "RouteMatchingResult.h"
 #include "components/Exceptions.h"
 
 #include <sstream>
 
-namespace carto {
+namespace massif {
 
     RouteMatchingResult::RouteMatchingResult(const std::shared_ptr<Projection>& projection, std::vector<RouteMatchingPoint> matchingPoints, std::vector<RouteMatchingEdge> matchingEdges, std::string rawResult) :
         _projection(projection),

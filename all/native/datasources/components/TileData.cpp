@@ -2,7 +2,7 @@
 #include "core/BinaryData.h"
 #include "core/Variant.h"
 
-namespace carto {
+namespace massif {
     
     TileData::TileData(const std::shared_ptr<BinaryData>& data) :
         _data(data), _expirationTime(), _replaceWithParent(false), _overzoom(false), _metadata(), _mutex()

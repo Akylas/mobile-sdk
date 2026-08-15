@@ -1,8 +1,8 @@
-[submodule "libs-carto"]
-	path = libs-carto
-	url = https://github.com/farfromrefug/mobile-carto-libs
+[submodule "libs-massif"]
+	path = libs-massif
+	url = https://github.com/massif-maps/massif-maps-libs
 	branch = develop
 [submodule "libs-external"]
 	path = libs-external
-	url = https://github.com/Akylas/mobile-external-libs
+	url = https://github.com/massif-maps/massif-external-libs
 	branch = develop

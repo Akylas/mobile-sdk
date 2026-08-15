@@ -1,7 +1,7 @@
 #include "ClassRegistry.h"
 #include "utils/Log.h"
 
-namespace carto {
+namespace massif {
 
     ClassRegistry::Entry::Entry(const std::type_info& typeInfo, const char* name) {
         ClassRegistry& registry = ClassRegistry::GetInstance();

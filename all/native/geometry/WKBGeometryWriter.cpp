@@ -1,4 +1,4 @@
-#ifdef _CARTO_WKBT_SUPPORT
+#ifdef _MASSIF_WKBT_SUPPORT
 
 #include "WKBGeometryWriter.h"
 #include "core/BinaryData.h"
@@ -16,7 +16,7 @@
 
 #include <stdexcept>
 
-namespace carto {
+namespace massif {
 
     WKBGeometryWriter::Stream::Stream() :
         _data(),

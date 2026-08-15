@@ -5,9 +5,9 @@
 
 %module ReverseGeocodingRequest
 
-#ifdef _CARTO_GEOCODING_SUPPORT
+#ifdef _MASSIF_GEOCODING_SUPPORT
 
-!proxy_imports(carto::ReverseGeocodingRequest, core.MapPos, core.Variant, projections.Projection)
+!proxy_imports(massif::ReverseGeocodingRequest, core.MapPos, core.Variant, projections.Projection)
 
 %{
 #include "geocoding/ReverseGeocodingRequest.h"
@@ -16,21 +16,21 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/MapPos.i"
 %import "core/Variant.i"
 %import "projections/Projection.i"
 
-!shared_ptr(carto::ReverseGeocodingRequest, geocoding.ReverseGeocodingRequest)
+!shared_ptr(massif::ReverseGeocodingRequest, geocoding.ReverseGeocodingRequest)
 
-%attributeval(carto::ReverseGeocodingRequest, carto::MapPos, Location, getLocation)
-%attribute(carto::ReverseGeocodingRequest, float, SearchRadius, getSearchRadius, setSearchRadius)
-%attributestring(carto::ReverseGeocodingRequest, std::shared_ptr<carto::Projection>, Projection, getProjection)
-%ignore carto::ReverseGeocodingRequest::getCustomParameters;
-%std_exceptions(carto::ReverseGeocodingRequest::ReverseGeocodingRequest)
-!standard_equals(carto::ReverseGeocodingRequest);
-!custom_tostring(carto::ReverseGeocodingRequest);
+%attributeval(massif::ReverseGeocodingRequest, massif::MapPos, Location, getLocation)
+%attribute(massif::ReverseGeocodingRequest, float, SearchRadius, getSearchRadius, setSearchRadius)
+%attributestring(massif::ReverseGeocodingRequest, std::shared_ptr<massif::Projection>, Projection, getProjection)
+%ignore massif::ReverseGeocodingRequest::getCustomParameters;
+%std_exceptions(massif::ReverseGeocodingRequest::ReverseGeocodingRequest)
+!standard_equals(massif::ReverseGeocodingRequest);
+!custom_tostring(massif::ReverseGeocodingRequest);
 
 %include "geocoding/ReverseGeocodingRequest.h"
 

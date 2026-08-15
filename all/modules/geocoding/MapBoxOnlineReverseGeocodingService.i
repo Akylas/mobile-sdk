@@ -6,9 +6,9 @@
 
 %module(directors="1") MapBoxOnlineReverseGeocodingService
 
-#if defined(_CARTO_GEOCODING_SUPPORT)
+#if defined(_MASSIF_GEOCODING_SUPPORT)
 
-!proxy_imports(carto::MapBoxOnlineReverseGeocodingService, geocoding.ReverseGeocodingService, geocoding.ReverseGeocodingRequest, geocoding.GeocodingResult, projections.Projection)
+!proxy_imports(massif::MapBoxOnlineReverseGeocodingService, geocoding.ReverseGeocodingService, geocoding.ReverseGeocodingRequest, geocoding.GeocodingResult, projections.Projection)
 
 %{
 #include "geocoding/MapBoxOnlineReverseGeocodingService.h"
@@ -18,18 +18,18 @@
 
 %include <std_shared_ptr.i>
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "geocoding/ReverseGeocodingService.i"
 %import "geocoding/ReverseGeocodingRequest.i"
 %import "geocoding/GeocodingResult.i"
 
-!polymorphic_shared_ptr(carto::MapBoxOnlineReverseGeocodingService, geocoding.MapBoxOnlineReverseGeocodingService)
+!polymorphic_shared_ptr(massif::MapBoxOnlineReverseGeocodingService, geocoding.MapBoxOnlineReverseGeocodingService)
 
-%attributestring(carto::MapBoxOnlineReverseGeocodingService, std::string, CustomServiceURL, getCustomServiceURL, setCustomServiceURL)
-%std_io_exceptions(carto::MapBoxOnlineReverseGeocodingService::calculateAddresses)
+%attributestring(massif::MapBoxOnlineReverseGeocodingService, std::string, CustomServiceURL, getCustomServiceURL, setCustomServiceURL)
+%std_io_exceptions(massif::MapBoxOnlineReverseGeocodingService::calculateAddresses)
 
-%feature("director") carto::MapBoxOnlineReverseGeocodingService;
+%feature("director") massif::MapBoxOnlineReverseGeocodingService;
 
 %include "geocoding/MapBoxOnlineReverseGeocodingService.h"
 

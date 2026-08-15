@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_JNILOCALFRAME_H_
-#define _CARTO_JNILOCALFRAME_H_
+#ifndef _MASSIF_JNILOCALFRAME_H_
+#define _MASSIF_JNILOCALFRAME_H_
 
 #include <jni.h>
 
 #include "utils/Log.h"
 
-namespace carto {
+namespace massif {
 
     struct JNILocalFrame {
         JNILocalFrame() = default;

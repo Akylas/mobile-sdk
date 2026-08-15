@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_BITMAPCANVASUWPIMPL_H_
-#define _CARTO_BITMAPCANVASUWPIMPL_H_
+#ifndef _MASSIF_BITMAPCANVASUWPIMPL_H_
+#define _MASSIF_BITMAPCANVASUWPIMPL_H_
 
 #include "graphics/BitmapCanvas.h"
 
@@ -16,7 +16,7 @@
 #include <dwrite.h>
 #include <dwrite_2.h>
 
-namespace carto {
+namespace massif {
 
     class BitmapCanvas::UWPImpl : public BitmapCanvas::Impl {
     public:

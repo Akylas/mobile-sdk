@@ -3,7 +3,7 @@
 
 %module RasterTileLayer
 
-!proxy_imports(carto::RasterTileLayer, datasources.TileDataSource, layers.TileLayer, layers.RasterTileEventListener)
+!proxy_imports(massif::RasterTileLayer, datasources.TileDataSource, layers.TileLayer, layers.RasterTileEventListener)
 
 %{
 #include "layers/RasterTileLayer.h"
@@ -12,23 +12,23 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "datasources/TileDataSource.i"
 %import "layers/RasterTileEventListener.i"
 %import "layers/TileLayer.i"
 
-!enum(carto::RasterTileFilterMode::RasterTileFilterMode)
-!polymorphic_shared_ptr(carto::RasterTileLayer, layers.RasterTileLayer)
+!enum(massif::RasterTileFilterMode::RasterTileFilterMode)
+!polymorphic_shared_ptr(massif::RasterTileLayer, layers.RasterTileLayer)
 
-%attribute(carto::RasterTileLayer, std::size_t, TextureCacheCapacity, getTextureCacheCapacity, setTextureCacheCapacity)
-%attribute(carto::RasterTileLayer, carto::RasterTileFilterMode::RasterTileFilterMode, TileFilterMode, getTileFilterMode, setTileFilterMode)
-%attribute(carto::RasterTileLayer, float, TileBlendingSpeed, getTileBlendingSpeed, setTileBlendingSpeed)
-!attributestring_polymorphic(carto::RasterTileLayer, layers.RasterTileEventListener, RasterTileEventListener, getRasterTileEventListener, setRasterTileEventListener)
-%std_exceptions(carto::RasterTileLayer::RasterTileLayer)
-%ignore carto::RasterTileLayer::FetchTask;
-%ignore carto::RasterTileLayer::getMinZoom;
-%ignore carto::RasterTileLayer::getMaxZoom;
+%attribute(massif::RasterTileLayer, std::size_t, TextureCacheCapacity, getTextureCacheCapacity, setTextureCacheCapacity)
+%attribute(massif::RasterTileLayer, massif::RasterTileFilterMode::RasterTileFilterMode, TileFilterMode, getTileFilterMode, setTileFilterMode)
+%attribute(massif::RasterTileLayer, float, TileBlendingSpeed, getTileBlendingSpeed, setTileBlendingSpeed)
+!attributestring_polymorphic(massif::RasterTileLayer, layers.RasterTileEventListener, RasterTileEventListener, getRasterTileEventListener, setRasterTileEventListener)
+%std_exceptions(massif::RasterTileLayer::RasterTileLayer)
+%ignore massif::RasterTileLayer::FetchTask;
+%ignore massif::RasterTileLayer::getMinZoom;
+%ignore massif::RasterTileLayer::getMaxZoom;
 
 %include "layers/RasterTileLayer.h"
 

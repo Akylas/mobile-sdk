@@ -4,7 +4,7 @@
 #include "graphics/Bitmap.h"
 #include "styles/MarkerStyle.h"
 
-namespace carto {
+namespace massif {
 
     MarkerStyleBuilder::MarkerStyleBuilder() :
         BillboardStyleBuilder(),

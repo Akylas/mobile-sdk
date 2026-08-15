@@ -3,7 +3,7 @@
 #include "utils/GeomUtils.h"
 #include "utils/Log.h"
 
-namespace carto {
+namespace massif {
 
     LineGeometry::LineGeometry(std::vector<MapPos> poses) :
         Geometry(),

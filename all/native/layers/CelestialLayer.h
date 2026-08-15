@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_CELESTIALLAYER_H_
-#define _CARTO_CELESTIALLAYER_H_
+#ifndef _MASSIF_CELESTIALLAYER_H_
+#define _MASSIF_CELESTIALLAYER_H_
 
 #include "components/DirectorPtr.h"
 #include "layers/Layer.h"
@@ -13,7 +13,7 @@
 #include <memory>
 #include <vector>
 
-namespace carto {
+namespace massif {
     class CelestialObject;
     class CelestialRenderer;
     class CelestialEventListener;

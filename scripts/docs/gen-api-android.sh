@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Generate the Android (Java) API reference (Javadoc) into website/static/api/android.
 #
-# Steps: run the SWIG Java proxy generator to emit the public com.carto.* Java
+# Steps: run the SWIG Java proxy generator to emit the public com.massifmaps.* Java
 # sources, then run `javadoc` over them. No native compile is needed — Javadoc only
 # reads the generated sources.
 #
@@ -9,7 +9,7 @@
 #   - The SWIG fork executable. Point to it with $SWIG (default: `swig` on PATH).
 #     Locally that is typically /Volumes/dev/carto/mobile-swig/swig.
 #   - A JDK (`javadoc` on PATH).
-#   - Submodules checked out (libs-carto, libs-external).
+#   - Submodules checked out (libs-massif, libs-external).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 SCRIPTS="$ROOT/scripts"
@@ -59,8 +59,8 @@ echo "   $COUNT public Java sources"
 # Unresolved Android-framework types are expected; -Xdoclint:none + continue past them.
 javadoc \
   -d "$OUT" \
-  -windowtitle "CARTO Mobile SDK — Android API" \
-  -doctitle "CARTO Mobile SDK (Akylas fork) — Android API" \
+  -windowtitle "Massif Maps — Android API" \
+  -doctitle "Massif Maps — Android API" \
   -notimestamp -quiet -Xdoclint:none \
   -sourcepath "$PROXY:$ROOT/android/java" \
   ${ANDROID_JAR:+-classpath "$ANDROID_JAR"} \

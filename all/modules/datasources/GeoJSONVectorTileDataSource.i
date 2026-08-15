@@ -3,7 +3,7 @@
 
 %module(directors="1") GeoJSONVectorTileDataSource
 
-!proxy_imports(carto::GeoJSONVectorTileDataSource, core.MapTile, core.MapBounds, core.Variant, datasources.TileDataSource, datasources.components.TileData, geometry.FeatureCollection, projections.Projection)
+!proxy_imports(massif::GeoJSONVectorTileDataSource, core.MapTile, core.MapBounds, core.Variant, datasources.TileDataSource, datasources.components.TileData, geometry.FeatureCollection, projections.Projection)
 
 %{
 #include "datasources/GeoJSONVectorTileDataSource.h"
@@ -13,7 +13,7 @@
 
 %include <std_shared_ptr.i>
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/MapTile.i"
 %import "core/Variant.i"
@@ -22,21 +22,21 @@
 %import "datasources/components/TileData.i"
 %import "projections/Projection.i"
 
-!polymorphic_shared_ptr(carto::GeoJSONVectorTileDataSource, datasources.GeoJSONVectorTileDataSource)
+!polymorphic_shared_ptr(massif::GeoJSONVectorTileDataSource, datasources.GeoJSONVectorTileDataSource)
 
-%attribute(carto::GeoJSONVectorTileDataSource, float, SimplifyTolerance, getSimplifyTolerance, setSimplifyTolerance)
-%attribute(carto::GeoJSONVectorTileDataSource, float, DefaultLayerBuffer, getDefaultLayerBuffer, setDefaultLayerBuffer)
-%std_io_exceptions(carto::GeoJSONVectorTileDataSource::createLayer)
-%std_io_exceptions(carto::GeoJSONVectorTileDataSource::setLayerGeoJSON)
-%std_io_exceptions(carto::GeoJSONVectorTileDataSource::setLayerGeoJSONString)
-%std_io_exceptions(carto::GeoJSONVectorTileDataSource::addGeoJSONFeature)
-%std_io_exceptions(carto::GeoJSONVectorTileDataSource::updateGeoJSONFeature)
-%std_io_exceptions(carto::GeoJSONVectorTileDataSource::addGeoJSONStringFeature)
-%std_io_exceptions(carto::GeoJSONVectorTileDataSource::updateGeoJSONStringFeature)
-%std_io_exceptions(carto::GeoJSONVectorTileDataSource::removeGeoJSONFeature)
-%std_io_exceptions(carto::GeoJSONVectorTileDataSource::setLayerFeatureCollection)
+%attribute(massif::GeoJSONVectorTileDataSource, float, SimplifyTolerance, getSimplifyTolerance, setSimplifyTolerance)
+%attribute(massif::GeoJSONVectorTileDataSource, float, DefaultLayerBuffer, getDefaultLayerBuffer, setDefaultLayerBuffer)
+%std_io_exceptions(massif::GeoJSONVectorTileDataSource::createLayer)
+%std_io_exceptions(massif::GeoJSONVectorTileDataSource::setLayerGeoJSON)
+%std_io_exceptions(massif::GeoJSONVectorTileDataSource::setLayerGeoJSONString)
+%std_io_exceptions(massif::GeoJSONVectorTileDataSource::addGeoJSONFeature)
+%std_io_exceptions(massif::GeoJSONVectorTileDataSource::updateGeoJSONFeature)
+%std_io_exceptions(massif::GeoJSONVectorTileDataSource::addGeoJSONStringFeature)
+%std_io_exceptions(massif::GeoJSONVectorTileDataSource::updateGeoJSONStringFeature)
+%std_io_exceptions(massif::GeoJSONVectorTileDataSource::removeGeoJSONFeature)
+%std_io_exceptions(massif::GeoJSONVectorTileDataSource::setLayerFeatureCollection)
 
-%feature("director") carto::GeoJSONVectorTileDataSource;
+%feature("director") massif::GeoJSONVectorTileDataSource;
 
 %include "datasources/GeoJSONVectorTileDataSource.h"
 

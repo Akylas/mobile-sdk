@@ -1,7 +1,7 @@
 #include "AndroidUtils.h"
 #include "utils/Log.h"
 
-namespace carto {
+namespace massif {
 
     void AndroidUtils::AttachJVM(JNIEnv* jenv) {
         std::lock_guard<std::mutex> lock(_Mutex);

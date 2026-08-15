@@ -7,7 +7,7 @@
 
 #include <algorithm>
 
-namespace carto {
+namespace massif {
 
     const std::size_t TerrainDrapeCache::MAX_POOLED_TEXTURES = 32;
     // Keep a generation of tiles past the visible cover: a zoom or pan walks back over the same
@@ -97,13 +97,13 @@ const std::size_t TerrainDrapeCache::MAX_ENTRIES = 160;
         }
     }
 
-    // Measurement switch for the mipmapped drape textures: debug.carto.drapemip 0 goes back to
+    // Measurement switch for the mipmapped drape textures: debug.massif.drapemip 0 goes back to
     // GL_LINEAR with no mipmap chain. Read once (Android only).
 #ifdef __ANDROID__
     bool TerrainDrapeCache::isMipmapEnabled() {
         static const bool enabled = [] {
             char property[PROP_VALUE_MAX] = { 0 };
-            return !(__system_property_get("debug.carto.drapemip", property) > 0 && property[0] == '0');
+            return !(__system_property_get("debug.massif.drapemip", property) > 0 && property[0] == '0');
         }();
         return enabled;
     }
@@ -225,13 +225,13 @@ const std::size_t TerrainDrapeCache::MAX_ENTRIES = 160;
         return _frameBuffer;
     }
 
-    // Measurement switch: debug.carto.drapebudget 0 caps the cache by tile COUNT again, as it did
+    // Measurement switch: debug.massif.drapebudget 0 caps the cache by tile COUNT again, as it did
     // before the budget existed. Read once (Android only).
 #ifdef __ANDROID__
     bool TerrainDrapeCache::isBudgetEnabled() {
         static const bool enabled = [] {
             char property[PROP_VALUE_MAX] = { 0 };
-            return !(__system_property_get("debug.carto.drapebudget", property) > 0 && property[0] == '0');
+            return !(__system_property_get("debug.massif.drapebudget", property) > 0 && property[0] == '0');
         }();
         return enabled;
     }

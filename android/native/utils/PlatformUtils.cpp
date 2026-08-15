@@ -2,7 +2,7 @@
 #include "utils/AndroidUtils.h"
 #include "utils/Log.h"
 
-namespace carto {
+namespace massif {
 
     PlatformType::PlatformType PlatformUtils::GetPlatformType() {
 #ifdef TARGET_XAMARIN

@@ -43,7 +43,7 @@
 
 #include <vector>
 
-namespace carto {
+namespace massif {
 
     VectorLayer::VectorLayer(const std::shared_ptr<VectorDataSource>& dataSource) :
         Layer(),

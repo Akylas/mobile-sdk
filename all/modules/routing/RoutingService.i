@@ -6,9 +6,9 @@
 
 %module(directors="1") RoutingService
 
-#ifdef _CARTO_ROUTING_SUPPORT
+#ifdef _MASSIF_ROUTING_SUPPORT
 
-!proxy_imports(carto::RoutingService, routing.RoutingRequest, routing.RoutingResult, routing.RouteMatchingRequest, routing.RouteMatchingResult)
+!proxy_imports(massif::RoutingService, routing.RoutingRequest, routing.RoutingResult, routing.RouteMatchingRequest, routing.RouteMatchingResult)
 
 %{
 #include "routing/RoutingService.h"
@@ -18,21 +18,21 @@
 
 %include <std_shared_ptr.i>
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "routing/RoutingRequest.i"
 %import "routing/RoutingResult.i"
 %import "routing/RouteMatchingRequest.i"
 %import "routing/RouteMatchingResult.i"
 
-!polymorphic_shared_ptr(carto::RoutingService, routing.RoutingService)
+!polymorphic_shared_ptr(massif::RoutingService, routing.RoutingService)
 
-%attributestring(carto::RoutingService, std::string, Profile, getProfile, setProfile)
-%std_exceptions(carto::RoutingService::setProfile)
-%std_io_exceptions(carto::RoutingService::matchRoute)
-%std_io_exceptions(carto::RoutingService::calculateRoute)
+%attributestring(massif::RoutingService, std::string, Profile, getProfile, setProfile)
+%std_exceptions(massif::RoutingService::setProfile)
+%std_io_exceptions(massif::RoutingService::matchRoute)
+%std_io_exceptions(massif::RoutingService::calculateRoute)
 
-%feature("director") carto::RoutingService;
+%feature("director") massif::RoutingService;
 
 %include "routing/RoutingService.h"
 

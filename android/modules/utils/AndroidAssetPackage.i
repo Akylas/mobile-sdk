@@ -3,7 +3,7 @@
 
 %module(directors="1") AndroidAssetPackage
 
-!proxy_imports(carto::AndroidAssetPackage, core.BinaryData, core.StringVector, utils.AssetPackage)
+!proxy_imports(massif::AndroidAssetPackage, core.BinaryData, core.StringVector, utils.AssetPackage)
 
 %{
 #include "utils/AndroidAssetPackage.h"
@@ -14,17 +14,17 @@
 %include <std_shared_ptr.i>
 %include <std_string.i>
 %include <std_vector.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/BinaryData.i"
 %import "core/StringVector.i"
 %import "utils/AssetPackage.i"
 
-!polymorphic_shared_ptr(carto::AndroidAssetPackage, utils.AndroidAssetPackage)
+!polymorphic_shared_ptr(massif::AndroidAssetPackage, utils.AndroidAssetPackage)
 
-%attributestring(carto::AndroidAssetPackage, std::string, BasePath, getBasePath)
-%attributeval(carto::AndroidAssetPackage, %arg(std::vector<std::string>), LocalAssetNames, getLocalAssetNames)
-%std_io_exceptions(carto::AndroidAssetPackage::AndroidAssetPackage)
+%attributestring(massif::AndroidAssetPackage, std::string, BasePath, getBasePath)
+%attributeval(massif::AndroidAssetPackage, %arg(std::vector<std::string>), LocalAssetNames, getLocalAssetNames)
+%std_io_exceptions(massif::AndroidAssetPackage::AndroidAssetPackage)
 
 %include "utils/AndroidAssetPackage.h"
 

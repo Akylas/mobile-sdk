@@ -37,7 +37,7 @@
 #include <iterator>
 #include <unordered_set>
 
-namespace carto {
+namespace massif {
     
     LocalVectorDataSource::LocalVectorDataSource(const std::shared_ptr<Projection>& projection) :
         VectorDataSource(projection),

@@ -1,5 +1,14 @@
 ## Map View 
 
+:::warning Describes a removed API
+This guide came from the original CARTO documentation. The CARTO online services it
+uses are **not part of Massif Maps** — `CartoOnlineVectorTileLayer` and the hosted basemap, offline-package
+and routing endpoints behind them were dropped from the fork. The concepts still apply;
+the class names in these snippets do not. See [Migrating to Massif Maps](/docs/migration)
+and bring your own tile source and style.
+:::
+
+
 CARTO SDK **MapView** is the central map object to be added to your application screen - Storyboard or Layout. Technically it is platform-specific, so some details could be different on different platforms, but in general it provides same features cross-platform.
 
 Following figure provides summary of MapView most used properties, methods and relationships with other SDK classes:
@@ -195,22 +204,22 @@ Create a new class called **MyMapEventListener** which implements MapEventListne
   </div>
   <div id="tab-objectivec">
     {% highlight objc linenos %}
-    @interface  MyMapEventListener : NTMapEventListener
+    @interface  MyMapEventListener : MSFMapEventListener
 
-    @property NTMapView* mapView;
-    @property NTLocalVectorDataSource* vectorDataSource;
+    @property MSFMapView* mapView;
+    @property MSFLocalVectorDataSource* vectorDataSource;
 
-    @property NTBalloonPopup* oldClickLabel;
+    @property MSFBalloonPopup* oldClickLabel;
 
-    -(void)setMapView:(NTMapView*)mapView vectorDataSource:(NTLocalVectorDataSource*)vectorDataSource;
+    -(void)setMapView:(MSFMapView*)mapView vectorDataSource:(MSFLocalVectorDataSource*)vectorDataSource;
     -(void)onMapMoved;
-    -(void)onMapClicked:(NTMapClickInfo*)mapClickInfo;
+    -(void)onMapClicked:(MSFMapClickInfo*)mapClickInfo;
 
     @end
 
     @implementation MyMapEventListener
 
-    -(void)setMapView:(NTMapView*)mapView vectorDataSource:(NTLocalVectorDataSource*)vectorDataSource
+    -(void)setMapView:(MSFMapView*)mapView vectorDataSource:(MSFLocalVectorDataSource*)vectorDataSource
     {
         self.mapView = mapView;
         self.vectorDataSource = vectorDataSource;
@@ -221,7 +230,7 @@ Create a new class called **MyMapEventListener** which implements MapEventListne
         // called very often, even just console logging can lag map movement animation
     }
 
-    -(void)onMapClicked:(NTMapClickInfo*)mapClickInfo
+    -(void)onMapClicked:(MSFMapClickInfo*)mapClickInfo
     {
         if (self.oldClickLabel != nil) {
             [self.vectorDataSource remove:self.oldClickLabel];
@@ -247,16 +256,16 @@ Create a new class called **MyMapEventListener** which implements MapEventListne
             clickMsg = @"Dual map click!";
         }
         
-        NTMapPos* clickPos = [mapClickInfo getClickPos];
-        NTMapPos* wgs84Clickpos = [[[_mapView getOptions] getBaseProjection] toWgs84:clickPos];
+        MSFMapPos* clickPos = [mapClickInfo getClickPos];
+        MSFMapPos* wgs84Clickpos = [[[_mapView getOptions] getBaseProjection] toWgs84:clickPos];
         
         NSString* description = [NSString stringWithFormat:@"%f, %f", [wgs84Clickpos getY], [wgs84Clickpos getX]];
         
-        NTBalloonPopupStyleBuilder* builder = [[NTBalloonPopupStyleBuilder alloc] init];
+        MSFBalloonPopupStyleBuilder* builder = [[MSFBalloonPopupStyleBuilder alloc] init];
         [builder setPlacementPriority:10];
-        NTBalloonPopupStyle* style = [builder buildStyle];
+        MSFBalloonPopupStyle* style = [builder buildStyle];
         
-        NTBalloonPopup* popup = [[NTBalloonPopup alloc] initWithPos:clickPos style:style title:clickMsg desc:description];
+        MSFBalloonPopup* popup = [[MSFBalloonPopup alloc] initWithPos:clickPos style:style title:clickMsg desc:description];
         
         [self.vectorDataSource add:popup];
         self.oldClickLabel = popup;
@@ -269,13 +278,13 @@ Create a new class called **MyMapEventListener** which implements MapEventListne
   <div id="tab-swift">
     {% highlight swift linenos %}
   
-    public class MyMapEventListener : NTMapEventListener {
-        var mapView: NTMapView?
-        var vectorDataSource: NTLocalVectorDataSource?
+    public class MyMapEventListener : MSFMapEventListener {
+        var mapView: MSFMapView?
+        var vectorDataSource: MSFLocalVectorDataSource?
 
-        var oldClickLabel: NTBalloonPopup?
+        var oldClickLabel: MSFBalloonPopup?
         
-        convenience init(mapView: NTMapView?, vectorDataSource: NTLocalVectorDataSource?) {
+        convenience init(mapView: MSFMapView?, vectorDataSource: MSFLocalVectorDataSource?) {
             
             self.init()
             
@@ -287,15 +296,15 @@ Create a new class called **MyMapEventListener** which implements MapEventListne
             
             // This is called every time the map moves, and we can calculate positions as such:
             
-            var topLeft = mapView?.screen(toMap: NTScreenPos(x: 0, y: 0))
+            var topLeft = mapView?.screen(toMap: MSFScreenPos(x: 0, y: 0))
             
             let width: Float = Float((mapView?.frame.width)!)
             let height: Float = Float((mapView?.frame.width)!)
             
-            var bottomRight = mapView?.screen(toMap: NTScreenPos(x: width, y: height))
+            var bottomRight = mapView?.screen(toMap: MSFScreenPos(x: width, y: height))
         }
         
-        public override func onMapClicked(_ mapClickInfo: NTMapClickInfo!) {
+        public override func onMapClicked(_ mapClickInfo: MSFMapClickInfo!) {
             
             // Remove old click label
             if (oldClickLabel != nil) {
@@ -305,7 +314,7 @@ Create a new class called **MyMapEventListener** which implements MapEventListne
             
             let clickPos = mapClickInfo?.getClickPos()
             
-            let styleBuilder = NTBalloonPopupStyleBuilder();
+            let styleBuilder = MSFBalloonPopupStyleBuilder();
             // Make sure this label is shown on top all other labels
             styleBuilder?.setPlacementPriority(10)
             let style = styleBuilder?.buildStyle()
@@ -314,20 +323,20 @@ Create a new class called **MyMapEventListener** which implements MapEventListne
             var clickMsg = ""
             let clickType = mapClickInfo?.getClickType()
             
-            if (clickType == NTClickType.CLICK_TYPE_SINGLE) {
+            if (clickType == MSFClickType.CLICK_TYPE_SINGLE) {
                 clickMsg = "Single map click!"
-            } else if (clickType == NTClickType.CLICK_TYPE_LONG) {
+            } else if (clickType == MSFClickType.CLICK_TYPE_LONG) {
                 clickMsg = "Long map click!"
-            } else if (clickType == NTClickType.CLICK_TYPE_DOUBLE) {
+            } else if (clickType == MSFClickType.CLICK_TYPE_DOUBLE) {
                 clickMsg = "Double map click!"
-            } else if (clickType == NTClickType.CLICK_TYPE_DUAL) {
+            } else if (clickType == MSFClickType.CLICK_TYPE_DUAL) {
                 clickMsg = "Dual map click!"
             }
             
             let wgs84Clickpos = mapView?.getOptions().getBaseProjection()?.toWgs84(clickPos)
             let msg = String(describing: wgs84Clickpos?.getY()) + String(describing: wgs84Clickpos?.getX())
             
-            let clickPopup = NTBalloonPopup(pos: clickPos, style: style, title: clickMsg, desc: msg)
+            let clickPopup = MSFBalloonPopup(pos: clickPos, style: style, title: clickMsg, desc: msg)
             
             vectorDataSource?.add(clickPopup)
             oldClickLabel = clickPopup

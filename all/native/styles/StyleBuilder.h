@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_STYLEBUILDER_H_
-#define _CARTO_STYLEBUILDER_H_
+#ifndef _MASSIF_STYLEBUILDER_H_
+#define _MASSIF_STYLEBUILDER_H_
 
 #include "graphics/Color.h"
 
 #include <mutex>
 
-namespace carto {
+namespace massif {
 
     /**
      * A base class for other StyleBuilder subclasses.

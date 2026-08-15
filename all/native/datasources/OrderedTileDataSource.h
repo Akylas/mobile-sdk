@@ -4,13 +4,13 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_ORDEREDTILEDATASOURCE_H_
-#define _CARTO_ORDEREDTILEDATASOURCE_H_
+#ifndef _MASSIF_ORDEREDTILEDATASOURCE_H_
+#define _MASSIF_ORDEREDTILEDATASOURCE_H_
 
 #include "datasources/TileDataSource.h"
 #include "components/DirectorPtr.h"
 
-namespace carto {
+namespace massif {
     
     /**
      * A tile data source that combines two data sources (usually offline and online).

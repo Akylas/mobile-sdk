@@ -5,7 +5,7 @@
 
 #include <memory>
 
-namespace carto {
+namespace massif {
     
     CombinedTileDataSource::CombinedTileDataSource(const std::shared_ptr<TileDataSource>& dataSource1, const std::shared_ptr<TileDataSource>& dataSource2, int zoomLevel) :
         TileDataSource(),

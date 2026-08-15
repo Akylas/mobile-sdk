@@ -3,9 +3,9 @@
 
 %module(directors="1") MultiValhallaOfflineRoutingService
 
-#if defined(_CARTO_ROUTING_SUPPORT) && defined(_CARTO_VALHALLA_ROUTING_SUPPORT)
+#if defined(_MASSIF_ROUTING_SUPPORT) && defined(_MASSIF_VALHALLA_ROUTING_SUPPORT)
 
-!proxy_imports(carto::MultiValhallaOfflineRoutingService, core.Variant, routing.RoutingService, routing.RoutingRequest, routing.RoutingResult, routing.RouteMatchingRequest, routing.RouteMatchingResult)
+!proxy_imports(massif::MultiValhallaOfflineRoutingService, core.Variant, routing.RoutingService, routing.RoutingRequest, routing.RoutingResult, routing.RouteMatchingRequest, routing.RouteMatchingResult)
 
 %{
 #include "routing/MultiValhallaOfflineRoutingService.h"
@@ -15,17 +15,17 @@
 
 %include <std_shared_ptr.i>
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/Variant.i"
 %import "routing/RoutingService.i"
 
-!polymorphic_shared_ptr(carto::MultiValhallaOfflineRoutingService, routing.MultiValhallaOfflineRoutingService)
+!polymorphic_shared_ptr(massif::MultiValhallaOfflineRoutingService, routing.MultiValhallaOfflineRoutingService)
 
-%std_io_exceptions(carto::MultiValhallaOfflineRoutingService::matchRoute)
-%std_io_exceptions(carto::MultiValhallaOfflineRoutingService::calculateRoute)
+%std_io_exceptions(massif::MultiValhallaOfflineRoutingService::matchRoute)
+%std_io_exceptions(massif::MultiValhallaOfflineRoutingService::calculateRoute)
 
-%feature("director") carto::MultiValhallaOfflineRoutingService;
+%feature("director") massif::MultiValhallaOfflineRoutingService;
 
 %include "routing/MultiValhallaOfflineRoutingService.h"
 

@@ -3,15 +3,15 @@ import {themes as prismThemes} from 'prism-react-renderer';
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: 'CARTO Mobile SDK',
+  title: 'Massif Maps',
   tagline: 'Open, multi-platform maps & location services for Android, iOS and UWP',
   favicon: 'img/favicon.svg',
 
-  url: 'https://akylas.github.io',
-  baseUrl: '/mobile-sdk/',
+  url: 'https://massif-maps.github.io',
+  baseUrl: '/MassifMaps/',
 
-  organizationName: 'Akylas',
-  projectName: 'mobile-sdk',
+  organizationName: 'massif-maps',
+  projectName: 'MassifMaps',
   deploymentBranch: 'gh-pages',
   trailingSlash: false,
 
@@ -38,7 +38,7 @@ const config = {
         docs: {
           sidebarPath: './sidebars.js',
           routeBasePath: 'docs',
-          editUrl: 'https://github.com/Akylas/mobile-sdk/edit/master/website/',
+          editUrl: 'https://github.com/massif-maps/MassifMaps/edit/master/website/',
           showLastUpdateTime: true,
         },
         blog: false,
@@ -71,9 +71,9 @@ const config = {
         respectPrefersColorScheme: true,
       },
       navbar: {
-        title: 'Mobile SDK',
+        title: 'Massif Maps',
         logo: {
-          alt: 'CARTO Mobile SDK',
+          alt: 'Massif Maps',
           src: 'img/logo.svg',
         },
         items: [
@@ -93,12 +93,12 @@ const config = {
             ],
           },
           {
-            href: 'https://github.com/Akylas/mobile-sdk/releases',
+            href: 'https://github.com/massif-maps/MassifMaps/releases',
             label: 'Releases',
             position: 'right',
           },
           {
-            href: 'https://github.com/Akylas/mobile-sdk',
+            href: 'https://github.com/massif-maps/MassifMaps',
             label: 'GitHub',
             position: 'right',
           },
@@ -125,13 +125,13 @@ const config = {
           {
             title: 'More',
             items: [
-              {label: 'GitHub', href: 'https://github.com/Akylas/mobile-sdk'},
-              {label: 'Releases', href: 'https://github.com/Akylas/mobile-sdk/releases'},
+              {label: 'GitHub', href: 'https://github.com/massif-maps/MassifMaps'},
+              {label: 'Releases', href: 'https://github.com/massif-maps/MassifMaps/releases'},
               {label: 'Original CARTO docs', href: 'https://cartodb.github.io/developers/mobile-sdk/'},
             ],
           },
         ],
-        copyright: `Copyright © ${new Date().getFullYear()} Akylas — maintained fork of CartoDB/mobile-sdk. Built with Docusaurus.`,
+        copyright: `Copyright © ${new Date().getFullYear()} Massif Maps — maintained fork of CartoDB/mobile-sdk. Built with Docusaurus.`,
       },
       prism: {
         theme: prismThemes.github,

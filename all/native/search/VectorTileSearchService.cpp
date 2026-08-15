@@ -1,4 +1,4 @@
-#ifdef _CARTO_SEARCH_SUPPORT
+#ifdef _MASSIF_SEARCH_SUPPORT
 
 #include "VectorTileSearchService.h"
 #include "components/Exceptions.h"
@@ -14,7 +14,7 @@
 
 #include <vt/TileId.h>
 
-namespace carto {
+namespace massif {
 
     VectorTileSearchService::VectorTileSearchService(const std::shared_ptr<TileDataSource>& dataSource, const std::shared_ptr<VectorTileDecoder>& tileDecoder) :
         _dataSource(dataSource),

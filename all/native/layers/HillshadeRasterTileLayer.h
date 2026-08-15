@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_HILLSHADERASTERTILELAYER_H_
-#define _CARTO_HILLSHADERASTERTILELAYER_H_
+#ifndef _MASSIF_HILLSHADERASTERTILELAYER_H_
+#define _MASSIF_HILLSHADERASTERTILELAYER_H_
 
 #include "graphics/Color.h"
 #include "components/DirectorPtr.h"
@@ -14,7 +14,7 @@
 
 #include <atomic>
 
-namespace carto {
+namespace massif {
     class ElevationManager;
 
     namespace HillshadeMethod {

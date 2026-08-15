@@ -1,4 +1,4 @@
-name: CartoDemo
+name: MassifDemo
 
 # Generated with 'xcodegen generate' by bootstrap.sh - do not open project.yml expecting the
 # .xcodeproj to follow; regenerate instead.
@@ -9,23 +9,23 @@ name: CartoDemo
 # scripts/android-dev, where gradle drives the native build through externalNativeBuild.
 
 options:
-  bundleIdPrefix: com.akylas
+  bundleIdPrefix: com.massifmaps
   deploymentTarget:
     iOS: "13.0"
   createIntermediateGroups: true
 
 projectReferences:
-  CartoSDK:
-    path: .sdkproj/carto_mobile_sdk.xcodeproj
+  Massif:
+    path: .sdkproj/massif.xcodeproj
 
 targets:
-  CartoDemo:
+  MassifDemo:
     type: application
     platform: iOS
     sources:
-      - path: CartoDemo
+      - path: MassifDemo
     dependencies:
-      - target: CartoSDK/carto_mobile_sdk
+      - target: Massif/massif
       - sdk: Foundation.framework
       - sdk: CoreGraphics.framework
       - sdk: CoreText.framework
@@ -39,7 +39,7 @@ targets:
       - sdk: CoreMotion.framework
       - sdk: libz.tbd
     info:
-      path: CartoDemo/Info.plist
+      path: MassifDemo/Info.plist
       properties:
         # The AR / star-sky modes; without these iOS kills the app on the first request.
         NSCameraUsageDescription: The AR and star-sky modes draw the map over the live camera.
@@ -49,10 +49,10 @@ targets:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        CFBundleDisplayName: CartoDemo
+        CFBundleDisplayName: MassifDemo
     settings:
       base:
-        # The umbrella ios/objc/CartoMobileSDK.h imports the NT* proxies by plain name and the two
+        # The umbrella ios/objc/MassifMaps.h imports the NT* proxies by plain name and the two
         # renamed headers (ui/MapView.h, utils/ExceptionWrapper.h) by relative path, so both roots
         # have to be searchable. build-ios.py copies and renames them instead; here we read them
         # where they are generated.
@@ -64,14 +64,14 @@ targets:
         # gates whole feature blocks on these.
         GCC_PREPROCESSOR_DEFINITIONS:
           - $(inherited)
-          - _CARTO_SEARCH_SUPPORT=1
-          - _CARTO_OFFLINE_SUPPORT=1
-          - _CARTO_EDITABLE_SUPPORT=1
-          - _CARTO_PACKAGEMANAGER_SUPPORT=1
-          - _CARTO_ROUTING_SUPPORT=1
-          - _CARTO_VALHALLA_ROUTING_SUPPORT=1
-          - _CARTO_GEOCODING_SUPPORT=1
-          - _CARTO_USE_METALANGLE=1
+          - _MASSIF_SEARCH_SUPPORT=1
+          - _MASSIF_OFFLINE_SUPPORT=1
+          - _MASSIF_EDITABLE_SUPPORT=1
+          - _MASSIF_PACKAGEMANAGER_SUPPORT=1
+          - _MASSIF_ROUTING_SUPPORT=1
+          - _MASSIF_VALHALLA_ROUTING_SUPPORT=1
+          - _MASSIF_GEOCODING_SUPPORT=1
+          - _MASSIF_USE_METALANGLE=1
         # -ObjC so the categories in the static SDK library are loaded. MetalANGLE is linked by
         # path rather than as a dependency: it is a bare .a, and a project reference does not carry
         # CMake's target_link_libraries through to the app.

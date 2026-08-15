@@ -12,7 +12,7 @@
 
 #include <algorithm>
 
-namespace carto {
+namespace massif {
 
     BillboardPlacementWorker::BillboardPlacementWorker() :
         _stop(false),

@@ -3,7 +3,7 @@
 
 %module CustomRasterTileLayer
 
-!proxy_imports(carto::CustomRasterTileLayer, datasources.TileDataSource, layers.RasterTileLayer)
+!proxy_imports(massif::CustomRasterTileLayer, datasources.TileDataSource, layers.RasterTileLayer)
 
 %{
 #include "layers/CustomRasterTileLayer.h"
@@ -13,15 +13,15 @@
 
 %include <std_shared_ptr.i>
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "datasources/TileDataSource.i"
 %import "layers/RasterTileLayer.i"
 
-!polymorphic_shared_ptr(carto::CustomRasterTileLayer, layers.CustomRasterTileLayer)
+!polymorphic_shared_ptr(massif::CustomRasterTileLayer, layers.CustomRasterTileLayer)
 
-%attributestring(carto::CustomRasterTileLayer, std::string, ShaderSource, getShaderSource, setShaderSource)
-%std_exceptions(carto::CustomRasterTileLayer::CustomRasterTileLayer)
+%attributestring(massif::CustomRasterTileLayer, std::string, ShaderSource, getShaderSource, setShaderSource)
+%std_exceptions(massif::CustomRasterTileLayer::CustomRasterTileLayer)
 
 %include "layers/CustomRasterTileLayer.h"
 

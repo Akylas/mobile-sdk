@@ -7,7 +7,7 @@
 # (tiles.mapterhorn.com) and a vector basemap (tiles.openfreemap.org) — so the
 # emulator only needs internet; no map data has to be pushed to the device.
 #
-# The native .so are prebuilt under carto_mobile_sdk/, so the app builds in seconds
+# The native .so are prebuilt under massif/, so the app builds in seconds
 # (no NDK compile). Requires a booted emulator / connected device (adb) and ffmpeg
 # for cropping/encoding.
 #
@@ -18,7 +18,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 DEV="$ROOT/scripts/android-dev"
 OUT="$ROOT/website/static/img/features"
-APP_ID="${APP_ID:-com.akylas.cartotest}"
+APP_ID="${APP_ID:-com.massifmaps.MassifDemo}"
 NAME="${1:-feature}"
 mkdir -p "$OUT"
 
@@ -71,5 +71,5 @@ fi
 echo "done. Review $OUT/ and point the feature doc's image/video at it."
 echo
 echo "Tip: for distinct feature shots, edit scripts/android-dev SecondFragment"
-echo "     (camera setFocusPos/setZoom/setTilt; CARTO tilt 90=top-down, low=horizon)"
+echo "     (camera setFocusPos/setZoom/setTilt; Massif tilt 90=top-down, low=horizon)"
 echo "     and comment addTerrainControls to hide the debug UI. Restore it after."

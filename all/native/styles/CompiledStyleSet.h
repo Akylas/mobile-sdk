@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_COMPILEDSTYLESET_H
-#define _CARTO_COMPILEDSTYLESET_H
+#ifndef _MASSIF_COMPILEDSTYLESET_H
+#define _MASSIF_COMPILEDSTYLESET_H
 
 #include <memory>
 #include <string>
 #include <vector>
 
-namespace carto {
+namespace massif {
     class AssetPackage;
 
     /**

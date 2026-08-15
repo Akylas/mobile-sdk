@@ -1,10 +1,10 @@
-#ifdef _CARTO_ROUTING_SUPPORT
+#ifdef _MASSIF_ROUTING_SUPPORT
 
 #include "RouteMatchingPoint.h"
 
 #include <sstream>
 
-namespace carto {
+namespace massif {
 
     RouteMatchingPoint::RouteMatchingPoint() :
         _pos(),

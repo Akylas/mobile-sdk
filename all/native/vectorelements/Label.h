@@ -4,12 +4,12 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_LABEL_H_
-#define _CARTO_LABEL_H_
+#ifndef _MASSIF_LABEL_H_
+#define _MASSIF_LABEL_H_
 
 #include "vectorelements/Billboard.h"
 
-namespace carto {
+namespace massif {
     class Bitmap;
     class LabelDrawData;
     class LabelStyle;

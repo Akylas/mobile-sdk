@@ -1,6 +1,6 @@
-﻿namespace Carto.Ui {
+﻿namespace Massif.Ui {
     using System;
-    using Carto.Renderers;
+    using Massif.Renderers;
 
     // WinPhone-specific implementation of RedrawRequestListener.
     internal class MapViewRedrawRequestListener : RedrawRequestListener {

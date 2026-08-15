@@ -3,7 +3,7 @@
         
 %module PopupStyleBuilder
 
-!proxy_imports(carto::PopupStyleBuilder, styles.BillboardStyleBuilder, styles.PopupStyle)
+!proxy_imports(massif::PopupStyleBuilder, styles.BillboardStyleBuilder, styles.PopupStyle)
 
 %{
 #include "styles/PopupStyleBuilder.h"
@@ -11,12 +11,12 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "styles/BillboardStyleBuilder.i"
 %import "styles/PopupStyle.i"
 
-!polymorphic_shared_ptr(carto::PopupStyleBuilder, styles.PopupStyleBuilder)
+!polymorphic_shared_ptr(massif::PopupStyleBuilder, styles.PopupStyleBuilder)
 
 %include "styles/PopupStyleBuilder.h"
 

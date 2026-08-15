@@ -223,7 +223,7 @@ namespace {
 
 }
 
-namespace carto {
+namespace massif {
 
     HTTPClient::WinSockImpl::WinSockImpl(bool log) :
         _log(log),

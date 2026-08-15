@@ -3,7 +3,7 @@
 
 %module AssetUtils
 
-!proxy_imports(carto::AssetUtils, core.BinaryData)
+!proxy_imports(massif::AssetUtils, core.BinaryData)
 
 %{
 #include "utils/AssetUtils.h"

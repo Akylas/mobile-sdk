@@ -3,7 +3,7 @@
 
 %module(directors="1") BalloonPopupEventListener
 
-!proxy_imports(carto::BalloonPopupEventListener, ui.BalloonPopupButtonClickInfo)
+!proxy_imports(massif::BalloonPopupEventListener, ui.BalloonPopupButtonClickInfo)
 
 %{
 #include "vectorelements/BalloonPopupEventListener.h"
@@ -11,13 +11,13 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "ui/BalloonPopupButtonClickInfo.i"
 
-!polymorphic_shared_ptr(carto::BalloonPopupEventListener, vectorelements.BalloonPopupEventListener)
+!polymorphic_shared_ptr(massif::BalloonPopupEventListener, vectorelements.BalloonPopupEventListener)
 
-%feature("director") carto::BalloonPopupEventListener;
+%feature("director") massif::BalloonPopupEventListener;
 
 %include "vectorelements/BalloonPopupEventListener.h"
 

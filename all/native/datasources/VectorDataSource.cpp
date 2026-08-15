@@ -8,7 +8,7 @@
 
 #include <algorithm>
 
-namespace carto {
+namespace massif {
     
     VectorDataSource::VectorDataSource(const std::shared_ptr<Projection>& projection) :
         _projection(projection),

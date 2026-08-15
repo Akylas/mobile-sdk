@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_WKTGEOMETRYGENERATOR_H_
-#define _CARTO_WKTGEOMETRYGENERATOR_H_
+#ifndef _MASSIF_WKTGEOMETRYGENERATOR_H_
+#define _MASSIF_WKTGEOMETRYGENERATOR_H_
 
 #include "geometry/Geometry.h"
 #include "geometry/PointGeometry.h"
@@ -23,7 +23,7 @@
 #include <boost/phoenix.hpp>
 #include <boost/spirit/include/karma.hpp>
 
-namespace carto {
+namespace massif {
     namespace WKTGeometryGeneratorImpl {
         namespace phx = boost::phoenix;
         namespace karma = boost::spirit::karma;

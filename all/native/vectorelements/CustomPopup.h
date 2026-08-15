@@ -4,15 +4,15 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_CUSTOMPOPUP_H_
-#define _CARTO_CUSTOMPOPUP_H_
+#ifndef _MASSIF_CUSTOMPOPUP_H_
+#define _MASSIF_CUSTOMPOPUP_H_
 
 #include "components/DirectorPtr.h"
 #include "core/MapPos.h"
 #include "core/ScreenPos.h"
 #include "vectorelements/Popup.h"
 
-namespace carto {
+namespace massif {
     class CustomPopupHandler;
     
     /**

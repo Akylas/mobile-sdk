@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_ANDROIDASSETPACKAGE_H_
-#define _CARTO_ANDROIDASSETPACKAGE_H_
+#ifndef _MASSIF_ANDROIDASSETPACKAGE_H_
+#define _MASSIF_ANDROIDASSETPACKAGE_H_
 
 #include "utils/AssetPackage.h"
 
 #include <mutex>
 
-namespace carto {
+namespace massif {
 
     /**
      * An asset package based on the application-bundled Android assets (the 'assets' folder of

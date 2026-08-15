@@ -4,7 +4,7 @@
 #include "renderers/drawdatas/BillboardDrawData.h"
 #include "utils/Log.h"
 
-namespace carto {
+namespace massif {
 
     Billboard::~Billboard() {
     }

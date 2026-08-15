@@ -4,10 +4,10 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_PACKAGEMANAGERVALHALLAROUTINGSERVICE_H_
-#define _CARTO_PACKAGEMANAGERVALHALLAROUTINGSERVICE_H_
+#ifndef _MASSIF_PACKAGEMANAGERVALHALLAROUTINGSERVICE_H_
+#define _MASSIF_PACKAGEMANAGERVALHALLAROUTINGSERVICE_H_
 
-#if defined(_CARTO_ROUTING_SUPPORT) && defined(_CARTO_VALHALLA_ROUTING_SUPPORT) && defined(_CARTO_PACKAGEMANAGER_SUPPORT)
+#if defined(_MASSIF_ROUTING_SUPPORT) && defined(_MASSIF_VALHALLA_ROUTING_SUPPORT) && defined(_MASSIF_PACKAGEMANAGER_SUPPORT)
 
 #include "core/Variant.h"
 #include "packagemanager/PackageManager.h"
@@ -22,7 +22,7 @@ namespace sqlite3pp {
     class database;
 }
 
-namespace carto {
+namespace massif {
 
     /**
      * A routing service that uses routing packages from package manager.

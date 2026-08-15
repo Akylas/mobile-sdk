@@ -4,7 +4,7 @@
 #include "geometry/PointGeometry.h"
 #include "renderers/drawdatas/PointDrawData.h"
 
-namespace carto {
+namespace massif {
 
     Point::Point(const std::shared_ptr<PointGeometry>& geometry, const std::shared_ptr<PointStyle>& style) :
         VectorElement(geometry),

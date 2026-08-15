@@ -1,6 +1,6 @@
 #include "VectorElementClickInfo.h"
 
-namespace carto {
+namespace massif {
 
     VectorElementClickInfo::VectorElementClickInfo(const ClickInfo& clickInfo, const MapPos& clickPos, const MapPos& elementClickPos,
                                                    const std::shared_ptr<VectorElement>& vectorElement,

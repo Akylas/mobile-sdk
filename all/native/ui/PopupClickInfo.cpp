@@ -1,6 +1,6 @@
 #include "PopupClickInfo.h"
 
-namespace carto {
+namespace massif {
 
     PopupClickInfo::PopupClickInfo(const ClickInfo& clickInfo, const MapPos& clickPos, const ScreenPos& elementClickPos, const std::shared_ptr<Popup>& popup) :
         _clickInfo(clickInfo),

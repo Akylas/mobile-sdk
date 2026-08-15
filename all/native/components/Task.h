@@ -4,12 +4,12 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_TASK_H_
-#define _CARTO_TASK_H_
+#ifndef _MASSIF_TASK_H_
+#define _MASSIF_TASK_H_
 
 #include <memory>
 
-namespace carto {
+namespace massif {
 
     class Task : public std::enable_shared_from_this<Task> {
     public:

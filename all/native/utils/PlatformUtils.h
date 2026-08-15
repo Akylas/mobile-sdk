@@ -4,13 +4,13 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_PLATFORMUTILS_H_
-#define _CARTO_PLATFORMUTILS_H_
+#ifndef _MASSIF_PLATFORMUTILS_H_
+#define _MASSIF_PLATFORMUTILS_H_
 
 #include <string>
 #include <mutex>
 
-namespace carto {
+namespace massif {
     
     namespace PlatformType {
         enum PlatformType {

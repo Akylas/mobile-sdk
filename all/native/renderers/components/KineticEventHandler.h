@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_KINETICEVENTHANDLER_H_
-#define _CARTO_KINETICEVENTHANDLER_H_
+#ifndef _MASSIF_KINETICEVENTHANDLER_H_
+#define _MASSIF_KINETICEVENTHANDLER_H_
 
 #include "core/MapPos.h"
 #include "core/MapVec.h"
@@ -17,7 +17,7 @@
 #include <deque>
 #include <mutex>
 
-namespace carto {
+namespace massif {
     class MapRenderer;
     class Options;
     class ViewState;

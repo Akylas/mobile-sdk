@@ -6,9 +6,9 @@
 
 %module(directors="1") PackageManagerGeocodingService
 
-#if defined(_CARTO_GEOCODING_SUPPORT) && defined(_CARTO_PACKAGEMANAGER_SUPPORT)
+#if defined(_MASSIF_GEOCODING_SUPPORT) && defined(_MASSIF_PACKAGEMANAGER_SUPPORT)
 
-!proxy_imports(carto::PackageManagerGeocodingService, geocoding.GeocodingService, geocoding.GeocodingRequest, geocoding.GeocodingResult, packagemanager.PackageManager, projections.Projection)
+!proxy_imports(massif::PackageManagerGeocodingService, geocoding.GeocodingService, geocoding.GeocodingRequest, geocoding.GeocodingResult, packagemanager.PackageManager, projections.Projection)
 
 %{
 #include "geocoding/PackageManagerGeocodingService.h"
@@ -17,17 +17,17 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "geocoding/GeocodingService.i"
 %import "packagemanager/PackageManager.i"
 
-!polymorphic_shared_ptr(carto::PackageManagerGeocodingService, geocoding.PackageManagerGeocodingService)
+!polymorphic_shared_ptr(massif::PackageManagerGeocodingService, geocoding.PackageManagerGeocodingService)
 
-%std_exceptions(carto::PackageManagerGeocodingService::PackageManagerGeocodingService)
-%std_io_exceptions(carto::PackageManagerGeocodingService::calculateAddresses)
+%std_exceptions(massif::PackageManagerGeocodingService::PackageManagerGeocodingService)
+%std_io_exceptions(massif::PackageManagerGeocodingService::calculateAddresses)
 
-%feature("director") carto::PackageManagerGeocodingService;
+%feature("director") massif::PackageManagerGeocodingService;
 
 %include "geocoding/PackageManagerGeocodingService.h"
 

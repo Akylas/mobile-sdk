@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The demo screen is built in code (see com.akylas.cartotest.demo.DemoPanel), so this layout only
+  The demo screen is built in code (see com.massifmaps.MassifDemo.demo.DemoPanel), so this layout only
   holds the map and the small camera readout. Every control lives in the panel behind the gear
   button, which DemoPanel adds to the ConstraintLayout below at runtime.
 -->
@@ -12,7 +12,7 @@
     android:layout_height="match_parent"
     tools:context=".ui.main.SecondFragment">
 
-    <com.carto.ui.MapView
+    <com.massifmaps.ui.MapView
         android:id="@+id/mapView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"

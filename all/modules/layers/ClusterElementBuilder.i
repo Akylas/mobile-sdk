@@ -2,7 +2,7 @@
 #define _CLUSTERELEMENTBUILDER_I
 
 %module(directors="1") ClusterElementBuilder
-!proxy_imports(carto::ClusterElementBuilder, core.MapPos, vectorelements.VectorElement, vectorelements.VectorElementVector)
+!proxy_imports(massif::ClusterElementBuilder, core.MapPos, vectorelements.VectorElement, vectorelements.VectorElementVector)
 
 %{
 #include "layers/ClusterElementBuilder.h"
@@ -10,15 +10,15 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/MapPos.i"
 %import "vectorelements/VectorElement.i"
 
-!enum(carto::ClusterBuilderMode::ClusterBuilderMode)
-!polymorphic_shared_ptr(carto::ClusterElementBuilder, layers.ClusterElementBuilder)
+!enum(massif::ClusterBuilderMode::ClusterBuilderMode)
+!polymorphic_shared_ptr(massif::ClusterElementBuilder, layers.ClusterElementBuilder)
 
-%feature("director") carto::ClusterElementBuilder;
+%feature("director") massif::ClusterElementBuilder;
 
 %include "layers/ClusterElementBuilder.h"
 

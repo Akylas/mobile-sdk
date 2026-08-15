@@ -1,4 +1,4 @@
-#if defined(_CARTO_PACKAGEMANAGER_SUPPORT)
+#if defined(_MASSIF_PACKAGEMANAGER_SUPPORT)
 
 #include "MapPackageHandler.h"
 #include "core/BinaryData.h"
@@ -13,7 +13,7 @@
 
 #include <botan/botan_all.h>
 
-namespace carto {
+namespace massif {
 
     MapPackageHandler::MapPackageHandler(const std::string& fileName, const std::string& serverEncKey, const std::string& localEncKey) :
         PackageHandler(fileName),

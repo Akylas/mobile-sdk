@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_BILLBOARDPLACEMENTWORKER_H_
-#define _CARTO_BILLBOARDPLACEMENTWORKER_H_
+#ifndef _MASSIF_BILLBOARDPLACEMENTWORKER_H_
+#define _MASSIF_BILLBOARDPLACEMENTWORKER_H_
 
 #include "components/ThreadWorker.h"
 #include "core/MapEnvelope.h"
@@ -17,7 +17,7 @@
 #include <mutex>
 #include <vector>
 
-namespace carto {
+namespace massif {
     class Billboard;
     class BillboardDrawData;
     class MapRenderer;

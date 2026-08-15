@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_LINE_H_
-#define _CARTO_LINE_H_
+#ifndef _MASSIF_LINE_H_
+#define _MASSIF_LINE_H_
 
 #include "vectorelements/VectorElement.h"
 
 #include <vector>
 
-namespace carto {
+namespace massif {
     class LineDrawData;
     class LineGeometry;
     class LineStyle;

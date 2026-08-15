@@ -5,9 +5,9 @@
 
 %module Address
 
-#ifdef _CARTO_GEOCODING_SUPPORT
+#ifdef _MASSIF_GEOCODING_SUPPORT
 
-!proxy_imports(carto::Address, core.StringVector)
+!proxy_imports(massif::Address, core.StringVector)
 
 %{
 #include "core/Address.h"
@@ -15,24 +15,24 @@
 
 %include <std_string.i>
 %include <std_vector.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/StringVector.i"
 
-!value_type(carto::Address, core.Address)
+!value_type(massif::Address, core.Address)
 
-%attributestring(carto::Address, std::string, Country, getCountry)
-%attributestring(carto::Address, std::string, Region, getRegion)
-%attributestring(carto::Address, std::string, County, getCounty)
-%attributestring(carto::Address, std::string, Locality, getLocality)
-%attributestring(carto::Address, std::string, Neighbourhood, getNeighbourhood)
-%attributestring(carto::Address, std::string, Street, getStreet)
-%attributestring(carto::Address, std::string, Postcode, getPostcode)
-%attributestring(carto::Address, std::string, HouseNumber, getHouseNumber)
-%attributestring(carto::Address, std::string, Name, getName)
-%attributeval(carto::Address, std::vector<std::string>, Categories, getCategories)
-!custom_equals(carto::Address);
-!custom_tostring(carto::Address);
+%attributestring(massif::Address, std::string, Country, getCountry)
+%attributestring(massif::Address, std::string, Region, getRegion)
+%attributestring(massif::Address, std::string, County, getCounty)
+%attributestring(massif::Address, std::string, Locality, getLocality)
+%attributestring(massif::Address, std::string, Neighbourhood, getNeighbourhood)
+%attributestring(massif::Address, std::string, Street, getStreet)
+%attributestring(massif::Address, std::string, Postcode, getPostcode)
+%attributestring(massif::Address, std::string, HouseNumber, getHouseNumber)
+%attributestring(massif::Address, std::string, Name, getName)
+%attributeval(massif::Address, std::vector<std::string>, Categories, getCategories)
+!custom_equals(massif::Address);
+!custom_tostring(massif::Address);
 
 %include "core/Address.h"
 

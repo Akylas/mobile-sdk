@@ -3,7 +3,7 @@
 
 %module BitmapUtils
 
-!proxy_imports(carto::BitmapUtils, graphics.Bitmap)
+!proxy_imports(massif::BitmapUtils, graphics.Bitmap)
 
 %{
 #include "utils/BitmapUtils.h"

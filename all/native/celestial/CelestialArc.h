@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_CELESTIALARC_H_
-#define _CARTO_CELESTIALARC_H_
+#ifndef _MASSIF_CELESTIALARC_H_
+#define _MASSIF_CELESTIALARC_H_
 
 #include "celestial/CelestialObject.h"
 
 #include <vector>
 
-namespace carto {
+namespace massif {
 
     /**
      * A curve drawn on the sky.

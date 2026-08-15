@@ -1,7 +1,7 @@
 #include "LabelStyleBuilder.h"
 #include "styles/LabelStyle.h"
 
-namespace carto {
+namespace massif {
 
     LabelStyleBuilder::LabelStyleBuilder() :
         BillboardStyleBuilder(),

@@ -1,6 +1,6 @@
 # The GL vector-tile renderer
 
-Scope: `libs-carto/vt/src/vt/GLTileRenderer.*` and its bridge `all/native/renderers/TileRenderer.*`.
+Scope: `libs-massif/vt/src/vt/GLTileRenderer.*` and its bridge `all/native/renderers/TileRenderer.*`.
 Terrain specifics are in [04-terrain.md](04-terrain.md), depth in [05-depth-model.md](05-depth-model.md),
 labels in [06-labels.md](06-labels.md).
 
@@ -315,7 +315,7 @@ code — check by forcing `a = 0` in that branch and seeing whether the line sti
 
 ## Style evaluation
 
-CartoCSS values may be functions of view state (zoom, nuti parameters), so colours, widths and
+CartoCSS values may be functions of view state (zoom, style parameters), so colours, widths and
 opacities are evaluated per frame per style layer through small caches keyed by the function plus
 view state (`_colorFuncCache` and friends, with `styleFuncLookups`/`styleFuncMisses` counters).
 

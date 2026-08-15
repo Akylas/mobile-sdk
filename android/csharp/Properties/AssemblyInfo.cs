@@ -4,8 +4,8 @@ using System.Runtime.CompilerServices;
 // Information about this assembly is defined by the following attributes.
 // Change them to the values specific to your project.
 
-[assembly: AssemblyTitle ("CartoMobileSDK.Android")]
-[assembly: AssemblyDescription ("Carto Mobile SDK for Android")]
+[assembly: AssemblyTitle ("MassifMaps.Android")]
+[assembly: AssemblyDescription ("Massif Maps for Android")]
 [assembly: AssemblyConfiguration ("")]
 [assembly: AssemblyCompany ("CartoDB")]
 [assembly: AssemblyProduct ("")]

@@ -4,7 +4,7 @@
 
 #include <algorithm>
 
-namespace carto {
+namespace massif {
 
     VectorTileDecoder::~VectorTileDecoder()
     {
@@ -48,7 +48,7 @@ namespace carto {
     {
     }
     
-    cglib::mat3x3<float> VectorTileDecoder::calculateTileTransform(const carto::vt::TileId& tileId, const carto::vt::TileId& targetTileId) {
+    cglib::mat3x3<float> VectorTileDecoder::calculateTileTransform(const massif::vt::TileId& tileId, const massif::vt::TileId& targetTileId) {
         int deltaMask = (1 << (targetTileId.zoom - tileId.zoom)) - 1;
         float s = 1 << (targetTileId.zoom - tileId.zoom);
         float x = targetTileId.x & deltaMask;

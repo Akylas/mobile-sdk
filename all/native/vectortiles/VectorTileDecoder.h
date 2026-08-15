@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_VECTORTILEDECODER_H_
-#define _CARTO_VECTORTILEDECODER_H_
+#ifndef _MASSIF_VECTORTILEDECODER_H_
+#define _MASSIF_VECTORTILEDECODER_H_
 
 #include "graphics/Color.h"
 
@@ -20,7 +20,7 @@
 #include <mapnikvt/Map.h>
 #include <mapnikvt/SymbolizerContext.h>
 
-namespace carto {
+namespace massif {
     namespace vt {
         struct TileId;
         class Tile;
@@ -148,7 +148,7 @@ namespace carto {
     protected:
         VectorTileDecoder();
 
-        static cglib::mat3x3<float> calculateTileTransform(const carto::vt::TileId& tileId, const carto::vt::TileId& targetTileId);
+        static cglib::mat3x3<float> calculateTileTransform(const massif::vt::TileId& tileId, const massif::vt::TileId& targetTileId);
         
     private:
         std::vector<std::shared_ptr<OnChangeListener> > _onChangeListeners;

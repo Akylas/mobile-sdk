@@ -25,7 +25,7 @@ namespace {
 
 }
 
-namespace carto {
+namespace massif {
 
     BitmapOverlayRasterTileDataSource::BitmapOverlayRasterTileDataSource(int minZoom, int maxZoom, const std::shared_ptr<Bitmap>& bitmap, const std::shared_ptr<Projection>& projection, const std::vector<MapPos>& mapPoses, const std::vector<ScreenPos>& bitmapPoses) :
         TileDataSource(minZoom, maxZoom),

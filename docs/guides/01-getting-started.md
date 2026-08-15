@@ -1,15 +1,24 @@
 ## Getting Started
 
+:::warning Describes a removed API
+This guide came from the original CARTO documentation. The CARTO online services it
+uses are **not part of Massif Maps** — `CartoBaseMapStyle`, `CartoOnlineVectorTileLayer`, `CartoPackageManager` and the hosted basemap, offline-package
+and routing endpoints behind them were dropped from the fork. The concepts still apply;
+the class names in these snippets do not. See [Migrating to Massif Maps](/docs/migration)
+and bring your own tile source and style.
+:::
+
+
 ### Android app
 
 1) **Install SDK** by adding the following to the `build.gradle` of your project:
 
   {% highlight groovy linenos%}
 
-  // use the latest version number from https://github.com/CartoDB/mobile-sdk/releases
+  // use the latest version number from https://github.com/massif-maps/MassifMaps/releases
 
   dependencies {
-      compile 'com.carto:carto-mobile-sdk:4.4.6@aar'
+      compile 'com.massifmaps:carto-mobile-sdk:4.4.6@aar'
   }
   {% endhighlight %}
  
@@ -21,7 +30,7 @@
 
 3) Define your **application layout**
 
-  Define **main layout** as **res/layout/main.xml**, so that it contains `com.carto.ui.MapView` element:
+  Define **main layout** as **res/layout/main.xml**, so that it contains `com.massifmaps.ui.MapView` element:
 
   {% highlight xml linenos %}
   <?xml version="1.0" encoding="utf-8"?>
@@ -30,7 +39,7 @@
       android:layout_width="fill_parent"
       android:layout_height="fill_parent"
       android:orientation="vertical" >
-     <com.carto.ui.MapView
+     <com.massifmaps.ui.MapView
       android:id="@+id/mapView"
       android:layout_width="fill_parent" 
       android:layout_height="fill_parent" 
@@ -198,13 +207,13 @@
 
 1) **Create new project**. The simplest is to create a new ‘Single View application’ in your Xcode project
 
-2) **Configure Cocapod Podfile** to load SDK to your project. If you do not use Cocoapod, then you can also load SDK and add as plain .framework  to your project structure from the [Mobile SDK Releases](https://github.com/CartoDB/mobile-sdk/releases) page.
+2) **Configure Cocapod Podfile** to load SDK to your project. If you do not use Cocoapod, then you can also load SDK and add as plain .framework  to your project structure from the [Mobile SDK Releases](https://github.com/massif-maps/MassifMaps/releases) page.
 
 {% highlight groovy %}
 
   // Add to your CocoaPods Podfile:
-  // use the latest version number from https://github.com/CartoDB/mobile-sdk/releases
-  pod 'CartoMobileSDK', '4.4.6'
+  // use the latest version number from https://github.com/massif-maps/MassifMaps/releases
+  pod 'MassifMaps', '4.4.6'
 
 {% endhighlight %}
 
@@ -237,7 +246,7 @@ In **Objective-C apps** you need some special tricks:
   <div id="tab-swift">
   {% highlight swift linenos %}
   import UIKit
-  import CartoMobileSDK
+  import MassifMaps
 
   class ViewController: UIViewController {
 
@@ -246,13 +255,13 @@ In **Objective-C apps** you need some special tricks:
   
       // The initial step: register your license. 
       let license = "YOUR_LICENSE_KEY"
-      NTMapView.registerLicense(license)
+      MSFMapView.registerLicense(license)
       
       // MapView initialization in code: initialize and set it as view
-      let mapView = NTMapView()
+      let mapView = MSFMapView()
       view = mapView
           
-      let baseLayer = NTCartoOnlineVectorTileLayer(style: NTCartoBaseMapStyle.CARTO_BASEMAP_STYLE_VOYAGER)
+      let baseLayer = MSFCartoOnlineVectorTileLayer(style: MSFCartoBaseMapStyle.CARTO_BASEMAP_STYLE_VOYAGER)
       mapView?.getLayers().add(baseLayer)
     }
   }
@@ -272,14 +281,14 @@ In **Objective-C apps** you need some special tricks:
 
   // ViewController.mm
   #import "ViewController.h"
-  #import <CartoMobileSDK/CartoMobileSDK.h>
+  #import <MassifMaps/MassifMaps.h>
 
   @implementation ViewController
 
   - (void)loadView {
     // 1. The initial step: register your license. 
     // **Note:** This must be done before using MapView
-    [NTMapView registerLicense:@"YOUR_LICENSE_KEY"];
+    [MSFMapView registerLicense:@"YOUR_LICENSE_KEY"];
     [super loadView];
   }
 
@@ -288,11 +297,11 @@ In **Objective-C apps** you need some special tricks:
   {
     [super viewDidLoad];
 
-    // 1. Ensure the storyboard has NTMapView connected as a view
-    NTMapView* mapView = (NTMapView*) self.view;
+    // 1. Ensure the storyboard has MSFMapView connected as a view
+    MSFMapView* mapView = (MSFMapView*) self.view;
 
     // 2. Create online vector tile layer, use style asset embedded in the project
-    NTVectorTileLayer* baseLayer = [[NTCartoOnlineVectorTileLayer alloc] initWithStyle: NT_CARTO_BASEMAP_STYLE_VOYAGER];
+    MSFVectorTileLayer* baseLayer = [[MSFCartoOnlineVectorTileLayer alloc] initWithStyle: NT_CARTO_BASEMAP_STYLE_VOYAGER];
 
     // 3. Add vector tile layer
     [[mapView getLayers] add:baseLayer];
@@ -307,11 +316,11 @@ In **Objective-C apps** you need some special tricks:
 
 5) **Modify Storyboard** to enable Map View
 
-The default storyboard template uses **UIView** class, you must use **NTMapView** class instead:
+The default storyboard template uses **UIView** class, you must use **MSFMapView** class instead:
 
 
   - Open Main.Storyboard, select *View Controller Scene &gt; View Controller* &gt; *View*
-  - From Navigator window, select **Identity Inspector**, change the first parameter (Custom Class) to **NTMapView** (from the default UIView).
+  - From Navigator window, select **Identity Inspector**, change the first parameter (Custom Class) to **MSFMapView** (from the default UIView).
 
 **Note:** If you are using both iPhone (**Main\_iPhone.storyboard**) or iPad (**Main\_iPad.storyboard**) files for iOS, you must repeat the steps to change the default storyboard.
 
@@ -337,38 +346,38 @@ The default storyboard template uses **UIView** class, you must use **NTMapView*
     {% highlight swift linenos %}
     
     // MapView initialization in code: initialize and set it as view
-    let mapView = NTMapView()
+    let mapView = MSFMapView()
     view = mapView
 
     // Get base projection from mapView
     let projection = mapView?.getOptions().getBaseProjection()
     
     // Create a vector data source, bucket where we'll put objects
-    let source = NTLocalVectorDataSource(projection: projection)
+    let source = MSFLocalVectorDataSource(projection: projection)
     
     // Initialize layer
-    let layer = NTVectorLayer(dataSource: source)
+    let layer = MSFVectorLayer(dataSource: source)
     
     // Add layer
     mapView?.getLayers().add(layer)
     
     // Define marker location. Make sure to use projection fromWgs84 to have proper coordinate system
-    let tallinn = projection?.fromWgs84(NTMapPos(x: 24.646469, y: 59.426939))
+    let tallinn = projection?.fromWgs84(MSFMapPos(x: 24.646469, y: 59.426939))
     
     // Create a vector data source, bucket where we'll put objects
-    let source = NTLocalVectorDataSource(projection: projection)
+    let source = MSFLocalVectorDataSource(projection: projection)
 
     // Initialize layer with datasource, add it to MapView
-    let layer = NTVectorLayer(dataSource: source)
+    let layer = MSFVectorLayer(dataSource: source)
     self.getLayers().add(layer)
 
     // define marker style        
-    let builder = NTMarkerStyleBuilder()
+    let builder = MSFMarkerStyleBuilder()
     builder?.setSize(15)
-    builder?.setColor(NTColor(r: 0, g: 255, b: 0, a: 255)) // green, alpha = no transarency
+    builder?.setColor(MSFColor(r: 0, g: 255, b: 0, a: 255)) // green, alpha = no transarency
     
     // create marker and add to DataSource    
-    let marker = NTMarker(pos: tallinn, style: builder?.buildStyle())
+    let marker = MSFMarker(pos: tallinn, style: builder?.buildStyle())
     source?.add(marker)
 
     // zoom map view focus to the marker                
@@ -382,29 +391,29 @@ The default storyboard template uses **UIView** class, you must use **NTMapView*
     {% highlight objc linenos %}
     
     // we'll need projection later
-    NTEPSG3857* proj = [[NTEPSG3857 alloc] init];
+    MSFEPSG3857* proj = [[MSFEPSG3857 alloc] init];
 
     // 1. Create a vector data source, bucket where we'll put objects
-    NTLocalVectorDataSource* vectorDataSource1 = [[NTLocalVectorDataSource alloc] initWithProjection:proj];
+    MSFLocalVectorDataSource* vectorDataSource1 = [[MSFLocalVectorDataSource alloc] initWithProjection:proj];
 
     // 2. Initialize a vector layer with the previous data source
-    NTVectorLayer* vectorLayer1 = [[NTVectorLayer alloc] initWithDataSource:vectorDataSource1];
+    MSFVectorLayer* vectorLayer1 = [[MSFVectorLayer alloc] initWithDataSource:vectorDataSource1];
 
     // 3. Add the previous vector layer to the map
     [[self getLayers] add:vectorLayer1];
 
     // 4. Set visible zoom range for the vector layer (optional)
-    [vectorLayer1 setVisibleZoomRange:[[NTMapRange alloc] initWithMin:10 max:24]];
+    [vectorLayer1 setVisibleZoomRange:[[MSFMapRange alloc] initWithMin:10 max:24]];
     
     // 5. Create a marker style, using default marker bitmap here
-    NTMarkerStyleBuilder* markerStyleBuilder = [[NTMarkerStyleBuilder alloc] init];
+    MSFMarkerStyleBuilder* markerStyleBuilder = [[MSFMarkerStyleBuilder alloc] init];
     [markerStyleBuilder setSize:30];
-    [markerStyleBuilder setColor:[[NTColor alloc] initWithColor:0xFF00FF00]]; // green
-    NTMarkerStyle* markerStyle1 = [markerStyleBuilder buildStyle];
+    [markerStyleBuilder setColor:[[MSFColor alloc] initWithColor:0xFF00FF00]]; // green
+    MSFMarkerStyle* markerStyle1 = [markerStyleBuilder buildStyle];
 
     // 6. Define marker position and create the marker
-    NTMapPos* pos1 = [proj fromWgs84:[[NTMapPos alloc] initWithX:24.651488 y:59.423581]]; // Tallinn
-    NTMarker* marker1 = [[NTMarker alloc] initWithPos:pos1 style:markerStyle1];
+    MSFMapPos* pos1 = [proj fromWgs84:[[MSFMapPos alloc] initWithX:24.651488 y:59.423581]]; // Tallinn
+    MSFMarker* marker1 = [[MSFMarker alloc] initWithPos:pos1 style:markerStyle1];
 
     // 7. Add the marker to the data source
     [vectorDataSource1 add:marker1];
@@ -427,7 +436,7 @@ Each platform needs to be registered as its own app, and app UI is created separ
 
 Almost all of the map related API code - such as adding layers and objects to map, handling interactions and clicks, etc. can be shared for iOS and Android through one project.
 
-2) **Add library** : to iOS app add [nuget CartoMobileSDK.iOS](https://www.nuget.org/packages/CartoMobileSDK.iOS) and to Android app add [nuget CartoMobileSDK.Android](https://www.nuget.org/packages/CartoMobileSDK.Android) 
+2) **Add library** : to iOS app add [nuget MassifMaps.iOS](https://www.nuget.org/packages/MassifMaps.iOS) and to Android app add [nuget MassifMaps.Android](https://www.nuget.org/packages/MassifMaps.Android) 
 
 Setup on different platoforms is a bit different:
 
@@ -578,13 +587,13 @@ This, as given before, is cross-platform code, covering both Xamarin and UWP:
 
 ### Windows (UWP) native apps
 
-Regardless of the name, CARTO Mobile SDK **works also in Windows 10 desktop apps**, assuming that they are created as modern UWP apps and not classic winapi apps.
+Regardless of the name, Massif Maps **works also in Windows 10 desktop apps**, assuming that they are created as modern UWP apps and not classic winapi apps.
 
 **Note:** The UWP implementation of the Mobile SDK is experimental.
 
 As app ID use same UUID as in your project's *Package.appmanifest > Packaging > Package name*. For example, the sample app ID is **c882d38a-5c09-4994-87f0-89875cdee539**
 
-1) Add the **nuget package** [CartoMobileSDK.UWP](https://www.nuget.org/packages/CartoMobileSDK.UWP) to your app project
+1) Add the **nuget package** [MassifMaps.UWP](https://www.nuget.org/packages/MassifMaps.UWP) to your app project
 
 2) **Create MapView object, and add a base layer**
 

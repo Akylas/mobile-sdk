@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_POLYGON3DSTYLEBUILDER_H_
-#define _CARTO_POLYGON3DSTYLEBUILDER_H_
+#ifndef _MASSIF_POLYGON3DSTYLEBUILDER_H_
+#define _MASSIF_POLYGON3DSTYLEBUILDER_H_
 
 #include "styles/StyleBuilder.h"
 
 #include <memory>
 
-namespace carto {
+namespace massif {
     class Polygon3DStyle;
     
     /**

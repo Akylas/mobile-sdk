@@ -9,10 +9,10 @@ DIR=$(dirname "$0")
 i=0
 while [ "$i" -lt "$ROUNDS" ]; do
   for level in 0 1 2; do
-    adb shell setprop debug.carto.paintdetail "$level"
+    adb shell setprop debug.massif.paintdetail "$level"
     sh "$DIR/north.sh" "detail$level" "$@"
     echo "--- dem pipeline (detail$level):"
-    adb logcat -d -s carto-mobile-sdk | grep "RenderStats: dem " | tail -3
+    adb logcat -d -s massif | grep "RenderStats: dem " | tail -3
   done
   i=$((i + 1))
 done

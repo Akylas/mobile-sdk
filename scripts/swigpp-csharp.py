@@ -62,7 +62,7 @@ POLYMORPHIC_SHARED_PTR_TEMPLATE = SHARED_PTR_TEMPLATE + """
 %{
 #include "components/ClassRegistry.h"
 #include "components/Director.h"
-static carto::ClassRegistry::Entry $TYPE$RegistryEntry(typeid(const $CLASSNAME$&), "$TYPE$");
+static massif::ClassRegistry::Entry $TYPE$RegistryEntry(typeid(const $CLASSNAME$&), "$TYPE$");
 %}
 
 %extend $CLASSNAME$ {
@@ -71,7 +71,7 @@ static carto::ClassRegistry::Entry $TYPE$RegistryEntry(typeid(const $CLASSNAME$&
    * @return The class name of this object.
    */
   std::string SwigGetClassName$TYPE$() const {
-    std::string className = carto::ClassRegistry::GetClassName(typeid(*$self));
+    std::string className = massif::ClassRegistry::GetClassName(typeid(*$self));
     if (className.empty()) {
       className = "$TYPE$";
     }
@@ -83,7 +83,7 @@ static carto::ClassRegistry::Entry $TYPE$RegistryEntry(typeid(const $CLASSNAME$&
    * @return The pointer to the connected director object or null if director is not connected.
    */
   void* SwigGetDirectorObject$TYPE$() const {
-    if (auto director = dynamic_cast<const carto::Director*>($self)) {
+    if (auto director = dynamic_cast<const massif::Director*>($self)) {
       return director->getDirectorObject();
     }
     return 0;
@@ -144,7 +144,7 @@ POLYMORPHIC_SHARED_PTR_CODE_TEMPLATE = """
       #endif
     } catch (System.Exception) { }
     if (objInstance == null) {
-      Carto.Utils.Log.Error("Carto Mobile SDK: Could not instantiate class: " + objClassName);
+      Massif.Utils.Log.Error("Massif Maps: Could not instantiate class: " + objClassName);
     }
     return objInstance;
   }
@@ -287,7 +287,7 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
     match = re.search('^\s*!(static|)attributestring_polymorphic\s*[(]([^,]*),([^,]*),([^,]*),([^,]*),([^)]*)[)].*', line)
     if match:
       className = match.group(2).strip()
-      csNamespace = 'Carto.%s' % getNamespace(match.group(3).strip())
+      csNamespace = 'Massif.%s' % getNamespace(match.group(3).strip())
       csClass = match.group(3).strip().split(".")[-1]
       attrName = match.group(4).strip()
       modifier = method_modifiers.get("%s::%s" % (className, attrName), "public")
@@ -302,7 +302,7 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
     match = re.search('^\s*!(static|)attributestring_polymorphic\s*[(]([^,]*),([^,]*),([^,]*),([^)]*)[)].*', line)
     if match:
       className = match.group(2).strip()
-      csNamespace = 'Carto.%s' % getNamespace(match.group(3).strip())
+      csNamespace = 'Massif.%s' % getNamespace(match.group(3).strip())
       csClass = match.group(3).strip().split(".")[-1]
       attrName = match.group(4).strip()
       modifier = method_modifiers.get("%s::%s" % (className, attrName), "public")
@@ -343,7 +343,7 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
     match = re.search('^\s*!polymorphic_shared_ptr\s*[(]([^,]*),([^)]*)[)].*', line)
     if match:
       className = match.group(1).strip()
-      csNamespace = 'Carto.%s' % getNamespace(match.group(2).strip())
+      csNamespace = 'Massif.%s' % getNamespace(match.group(2).strip())
       csClass = match.group(2).strip().split(".")[-1]
       args = { 'CLASSNAME': match.group(1).strip(), 'TYPE': csClass, 'NAMESPACE': csNamespace }
       code = class_code.get(className, [])
@@ -368,7 +368,7 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
       parts = [part.strip() for part in match.group(2).split(",")]
       className = parts[0]
       if lang == 'proxy':
-        class_imports[className] = class_imports.get(className, []) + ['using Carto.%s;' % getNamespace(part) for part in parts[1:]]
+        class_imports[className] = class_imports.get(className, []) + ['using Massif.%s;' % getNamespace(part) for part in parts[1:]]
       elif lang == 'cs':
         class_imports[className] = class_imports.get(className, []) + ['using %s;' % part for part in parts[1:]]
       else:
@@ -426,10 +426,10 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
     if match:
       includeName = match.group(1)
       if includeName != "NutiSwig.i":
-        # This is a huge hack: we will capitalize all method names starting with lower case letters. But we will do this only for carto:: classes
+        # This is a huge hack: we will capitalize all method names starting with lower case letters. But we will do this only for massif:: classes
         for n in range(ord('a'), ord('z') + 1):
           c = chr(n)
-          lines_out.append('%%rename("%%(regex:/::%s([^:]*)$/%s\\\\1/)s", fullname=1, regextarget=1, %%$isfunction) "^carto::.+::%s[^:]*$";' % (c, c.upper(), c))
+          lines_out.append('%%rename("%%(regex:/::%s([^:]*)$/%s\\\\1/)s", fullname=1, regextarget=1, %%$isfunction) "^massif::.+::%s[^:]*$";' % (c, c.upper(), c))
         lines_out.append('%rename("%(camelcase)s", sourcefmt="%(undercase)s", %$isenumitem) "";')
         lines_out.append('')
 
@@ -514,7 +514,7 @@ def buildSwigPackage(args, sourceDir, packageName):
     if swigPath:
       includes += ["-I%s/Lib/csharp" % swigPath, "-I%s/Lib" % swigPath]
     defines = ["-D%s" % define for define in args.defines.split(';') if define]
-    cmd = [args.swig, "-c++", "-csharp", "-namespace", "Carto.%s" % packageName, "-dllimport", args.dllName, "-outdir", args.proxyDir, "-o", outPath, "-doxygen"] + defines + includes + [sourcePath]
+    cmd = [args.swig, "-c++", "-csharp", "-namespace", "Massif.%s" % packageName, "-dllimport", args.dllName, "-outdir", args.proxyDir, "-o", outPath, "-doxygen"] + defines + includes + [sourcePath]
     if subprocess.call(cmd) != 0:
       print("Error in %s" % fileName)
       return False
@@ -535,7 +535,7 @@ def buildSwigPackages(args, sourceDir, basePackageName):
 parser = argparse.ArgumentParser()
 parser.add_argument('--profile', dest='profile', default=getDefaultProfileId(), type=validProfile, help='Build profile')
 parser.add_argument('--swig', dest='swig', default='swig', help='path to Swig executable')
-parser.add_argument('--dll', dest='dllName', default='carto_mobile_sdk', help='name of the DLL (Android only)')
+parser.add_argument('--dll', dest='dllName', default='massif', help='name of the DLL (Android only)')
 parser.add_argument('--defines', dest='defines', default='', help='Defines for Swig')
 parser.add_argument('--cppdir', dest='cppDir', default='../all/native;../{target}/native', help='directories containing C++ headers')
 parser.add_argument('--proxydir', dest='proxyDir', default='../generated/{target}-csharp/proxies', help='output directory for C# proxies')
@@ -557,7 +557,7 @@ args.sourceDir = args.sourceDir.replace("{target}", args.target)
 args.defines += ';' + getProfile(args.profile).get('defines', '')
 
 if not checkExecutable(args.swig, '-help'):
-  print('Unable to find SWIG executable. Use --swig argument to specify its location. The supported version is available from https://github.com/cartodb/mobile-swig')
+  print('Unable to find SWIG executable. Use --swig argument to specify its location. The supported version is available from https://github.com/farfromrefug/mobile-swig')
   sys.exit(-1)
 
 if os.path.isdir(args.wrapperDir):

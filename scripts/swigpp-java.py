@@ -52,13 +52,13 @@ SHARED_PTR_TEMPLATE = """
 """
 
 POLYMORPHIC_SHARED_PTR_TEMPLATE = SHARED_PTR_TEMPLATE + """
-%pragma(java) jniclassclassmodifiers="@com.carto.utils.DontObfuscate public class"
-%typemap(javaclassmodifiers) $CLASSNAME$ "@com.carto.utils.DontObfuscate public class"
+%pragma(java) jniclassclassmodifiers="@com.massifmaps.utils.DontObfuscate public class"
+%typemap(javaclassmodifiers) $CLASSNAME$ "@com.massifmaps.utils.DontObfuscate public class"
 
 %{
 #include "components/ClassRegistry.h"
 #include "components/Director.h"
-static carto::ClassRegistry::Entry $TYPE$RegistryEntry(typeid(const $CLASSNAME$&), "$TYPE$");
+static massif::ClassRegistry::Entry $TYPE$RegistryEntry(typeid(const $CLASSNAME$&), "$TYPE$");
 %}
 
 %extend $CLASSNAME$ {
@@ -67,7 +67,7 @@ static carto::ClassRegistry::Entry $TYPE$RegistryEntry(typeid(const $CLASSNAME$&
    * @return The class name of this object.
    */
   std::string swigGetClassName() const {
-    std::string className = carto::ClassRegistry::GetClassName(typeid(*$self));
+    std::string className = massif::ClassRegistry::GetClassName(typeid(*$self));
     if (className.empty()) {
       className = "$TYPE$";
     }
@@ -79,7 +79,7 @@ static carto::ClassRegistry::Entry $TYPE$RegistryEntry(typeid(const $CLASSNAME$&
    * @return The connected director object or null if director is not connected.
    */
   jobject swigGetDirectorObject() const {
-    if (auto director = dynamic_cast<const carto::Director*>($self)) {
+    if (auto director = dynamic_cast<const massif::Director*>($self)) {
       return static_cast<jobject>(director->getDirectorObject());
     }
     return 0;
@@ -125,7 +125,7 @@ POLYMORPHIC_SHARED_PTR_CODE_TEMPLATE = """
       java.lang.reflect.Constructor<?> constructor = objClass.getDeclaredConstructor(argTypes);
       objInstance = ($PACKAGE$.$TYPE$) constructor.newInstance(args);
     } catch (Exception e) {
-      com.carto.utils.Log.error("Carto Mobile SDK: Could not instantiate class: " + objClassName + " error: " + e.getMessage());
+      com.massifmaps.utils.Log.error("Massif Maps: Could not instantiate class: " + objClassName + " error: " + e.getMessage());
     }
     return objInstance;
   }
@@ -201,7 +201,7 @@ def fixProxyCode(fileName, className):
     # Add '@hidden' comment above the special SWIG-wrapper lines
     hide = line.strip() in [
       'public class %sModuleJNI {' % className,
-      '@com.carto.utils.DontObfuscate public class %sModuleJNI {' % className,
+      '@com.massifmaps.utils.DontObfuscate public class %sModuleJNI {' % className,
       'private transient long swigCPtr;',
       'protected transient boolean swigCMemOwn;',
       'public %s(long cPtr, boolean cMemoryOwn) {' % className,
@@ -240,7 +240,7 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
   directors_module = False
   for line in lines_in:
 
-    match = re.search(r'(?:^\s*(?:#ifdef )(_CARTO_[^\s]*_SUPPORT)$|(?:defined\((_CARTO_[^\s]*_SUPPORT)\)))', line)
+    match = re.search(r'(?:^\s*(?:#ifdef )(_MASSIF_[^\s]*_SUPPORT)$|(?:defined\((_MASSIF_[^\s]*_SUPPORT)\)))', line)
     if match:
       if(match.group(1) and not match.group(1) in argsDefines ):
         print("ignoredSourceFiles %s for define: %s" % (sourcePath, match.group(1)))
@@ -291,7 +291,7 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
     if match:
       className = match.group(1).strip()
       javaClass = match.group(2).strip().split(".")[-1]
-      javaDescriptor = "Lcom/carto/%s;" % match.group(2).strip().replace('.', '/')
+      javaDescriptor = "Lcom/massifmaps/%s;" % match.group(2).strip().replace('.', '/')
       args = { 'CLASSNAME': match.group(1).strip(), 'TYPE': javaClass, 'DESCRIPTOR': javaDescriptor }
       lines_out += applyTemplate(VALUE_TYPE_TEMPLATE, args)
       continue
@@ -301,7 +301,7 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
     if match:
       className = match.group(1).strip()
       javaClass = match.group(2).strip().split(".")[-1]
-      javaDescriptor = "Lcom/carto/%s;" % match.group(2).strip().replace('.', '/')
+      javaDescriptor = "Lcom/massifmaps/%s;" % match.group(2).strip().replace('.', '/')
       args = { 'CLASSNAME': match.group(1).strip(), 'TYPE': javaClass, 'DESCRIPTOR': javaDescriptor }
       lines_out += applyTemplate(SHARED_PTR_TEMPLATE, args)
       continue
@@ -310,9 +310,9 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
     match = re.search(r'^\s*!polymorphic_shared_ptr\s*[(]([^,]*),([^)]*)[)].*', line)
     if match:
       className = match.group(1).strip()
-      javaPackage = 'com.carto.%s' % '.'.join(match.group(2).strip().split(".")[:-1])
+      javaPackage = 'com.massifmaps.%s' % '.'.join(match.group(2).strip().split(".")[:-1])
       javaClass = match.group(2).strip().split(".")[-1]
-      javaDescriptor = "Lcom/carto/%s;" % match.group(2).strip().replace('.', '/')
+      javaDescriptor = "Lcom/massifmaps/%s;" % match.group(2).strip().replace('.', '/')
       args = { 'CLASSNAME': match.group(1).strip(), 'TYPE': javaClass, 'PACKAGE': javaPackage, 'DESCRIPTOR': javaDescriptor }
       code = class_code.get(className, [])
       code += applyTemplate(POLYMORPHIC_SHARED_PTR_CODE_TEMPLATE, args)
@@ -363,7 +363,7 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
       parts = [part.strip() for part in match.group(2).split(",")]
       className = parts[0]
       if lang == 'proxy':
-        class_imports[className] = class_imports.get(className, []) + ['import com.carto.%s;' % part for part in parts[1:]]
+        class_imports[className] = class_imports.get(className, []) + ['import com.massifmaps.%s;' % part for part in parts[1:]]
       elif lang == 'java':
         class_imports[className] = class_imports.get(className, []) + ['import %s;' % part for part in parts[1:]]
       else:
@@ -398,10 +398,10 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
     if match:
       includeName = match.group(1)
       if not stl_wrapper and includeName != "NutiSwig.i":
-        # This is a huge hack: we will capitalize all method names starting with lower case letters. But we will do this only for carto:: classes
+        # This is a huge hack: we will capitalize all method names starting with lower case letters. But we will do this only for massif:: classes
         for n in range(ord('a'), ord('z') + 1):
           c = chr(n)
-          lines_out.append('%%rename("%%(regex:/::%s([^:]*)$/%s\\\\1/)s", fullname=1, regextarget=1, %%$isfunction) "^carto::.+::%s[^:]*$";' % (c.upper(), c, c.upper()))
+          lines_out.append('%%rename("%%(regex:/::%s([^:]*)$/%s\\\\1/)s", fullname=1, regextarget=1, %%$isfunction) "^massif::.+::%s[^:]*$";' % (c.upper(), c, c.upper()))
         lines_out.append('')
 
     lines_out.append(line)
@@ -475,7 +475,7 @@ def collectSwigJobs(args, sourceDir, packageName, jobs):
     fileNameWithoutExt = fileName.split(".")[0]
     sourcePath = os.path.join(sourceDir, fileName)
     outPath = os.path.join(args.wrapperDir, fileNameWithoutExt) + "_wrap.cpp"
-    proxyDir = os.path.join(args.proxyDir, ("com.carto.%s" % packageName).replace(".", "/"))
+    proxyDir = os.path.join(args.proxyDir, ("com.massifmaps.%s" % packageName).replace(".", "/"))
     if not os.path.isfile(sourcePath):
       continue
     if (sourcePath in ignoredSourceFiles):
@@ -490,7 +490,7 @@ def collectSwigJobs(args, sourceDir, packageName, jobs):
     if swigPath:
       includes += ["-I%s/Lib/java" % swigPath, "-I%s/Lib" % swigPath]
     defines = ["-D%s" % define for define in args.defines.split(';') if define]
-    cmd = [args.swig, "-c++", "-java", "-package", "com.carto.%s" % packageName, "-outdir", proxyDir, "-o", outPath, "-doxygen"] + defines + includes + [sourcePath]
+    cmd = [args.swig, "-c++", "-java", "-package", "com.massifmaps.%s" % packageName, "-outdir", proxyDir, "-o", outPath, "-doxygen"] + defines + includes + [sourcePath]
     jobs.append({ 'cmd': cmd, 'fileName': fileName, 'sourcePath': sourcePath,
                   'proxyDir': proxyDir, 'fileNameWithoutExt': fileNameWithoutExt })
 
@@ -546,7 +546,7 @@ args = parser.parse_args()
 args.defines += ';' + getProfile(args.profile).get('defines', '')
 argsDefines = args.defines.split(";")
 if not checkExecutable(args.swig, '-help'):
-  print('Unable to find SWIG executable. Use --swig argument to specify its location. The supported version is available from https://github.com/cartodb/mobile-swig')
+  print('Unable to find SWIG executable. Use --swig argument to specify its location. The supported version is available from https://github.com/farfromrefug/mobile-swig')
   sys.exit(-1)
 
 if os.path.isdir(args.wrapperDir):

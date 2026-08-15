@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_VTBITMAPLOADER_H_
-#define _CARTO_VTBITMAPLOADER_H_
+#ifndef _MASSIF_VTBITMAPLOADER_H_
+#define _MASSIF_VTBITMAPLOADER_H_
 
 #include "utils/URLFileLoader.h"
 
@@ -16,7 +16,7 @@
 #include <vt/Bitmap.h>
 #include <vt/BitmapManager.h>
 
-namespace carto {
+namespace massif {
     class AssetPackage;
     
     class VTBitmapLoader : public vt::BitmapManager::BitmapLoader {

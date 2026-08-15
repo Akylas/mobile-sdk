@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_VECTORTILEFEATURE_H_
-#define _CARTO_VECTORTILEFEATURE_H_
+#ifndef _MASSIF_VECTORTILEFEATURE_H_
+#define _MASSIF_VECTORTILEFEATURE_H_
 
 #include "core/MapTile.h"
 #include "geometry/Feature.h"
@@ -13,7 +13,7 @@
 #include <string>
 #include <memory>
 
-namespace carto {
+namespace massif {
 
     /**
      * A vector tile feature consisting of id, layer, geometry and properties.

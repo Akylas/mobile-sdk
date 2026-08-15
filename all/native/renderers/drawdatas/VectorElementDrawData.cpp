@@ -1,6 +1,6 @@
 #include "VectorElementDrawData.h"
 
-namespace carto {
+namespace massif {
 
     VectorElementDrawData::~VectorElementDrawData() {
     }

@@ -6,9 +6,9 @@
 
 %module(directors="1") PeliasOnlineReverseGeocodingService
 
-#if defined(_CARTO_GEOCODING_SUPPORT)
+#if defined(_MASSIF_GEOCODING_SUPPORT)
 
-!proxy_imports(carto::PeliasOnlineReverseGeocodingService, geocoding.ReverseGeocodingService, geocoding.ReverseGeocodingRequest, geocoding.GeocodingResult, projections.Projection)
+!proxy_imports(massif::PeliasOnlineReverseGeocodingService, geocoding.ReverseGeocodingService, geocoding.ReverseGeocodingRequest, geocoding.GeocodingResult, projections.Projection)
 
 %{
 #include "geocoding/PeliasOnlineReverseGeocodingService.h"
@@ -18,18 +18,18 @@
 
 %include <std_shared_ptr.i>
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "geocoding/ReverseGeocodingService.i"
 %import "geocoding/ReverseGeocodingRequest.i"
 %import "geocoding/GeocodingResult.i"
 
-!polymorphic_shared_ptr(carto::PeliasOnlineReverseGeocodingService, geocoding.PeliasOnlineReverseGeocodingService)
+!polymorphic_shared_ptr(massif::PeliasOnlineReverseGeocodingService, geocoding.PeliasOnlineReverseGeocodingService)
 
-%attributestring(carto::PeliasOnlineReverseGeocodingService, std::string, CustomServiceURL, getCustomServiceURL, setCustomServiceURL)
-%std_io_exceptions(carto::PeliasOnlineReverseGeocodingService::calculateAddresses)
+%attributestring(massif::PeliasOnlineReverseGeocodingService, std::string, CustomServiceURL, getCustomServiceURL, setCustomServiceURL)
+%std_io_exceptions(massif::PeliasOnlineReverseGeocodingService::calculateAddresses)
 
-%feature("director") carto::PeliasOnlineReverseGeocodingService;
+%feature("director") massif::PeliasOnlineReverseGeocodingService;
 
 %include "geocoding/PeliasOnlineReverseGeocodingService.h"
 

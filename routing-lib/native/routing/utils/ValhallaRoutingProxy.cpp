@@ -102,7 +102,7 @@ std::string ValhallaRoutingProxy::CallRaw(
         const std::string& jsonBody) {
 
     // Map endpoint string → valhalla action enum
-    // The endpoints under _CARTO_VALHALLA_SERVICES need Valhalla action sources that are left out
+    // The endpoints under _MASSIF_VALHALLA_SERVICES need Valhalla action sources that are left out
     // of the build unless it is configured with -DVALHALLA_SERVICES=ON. Without it they are not
     // recognised at all, so a caller gets "Unknown Valhalla endpoint" rather than a silent failure.
     valhalla::Options::Action action;
@@ -110,7 +110,7 @@ std::string ValhallaRoutingProxy::CallRaw(
     else if (endpoint == "trace_route"       ) action = valhalla::Options::trace_route;
     else if (endpoint == "trace_attributes"  ) action = valhalla::Options::trace_attributes;
     else if (endpoint == "centroid"          ) action = valhalla::Options::centroid;
-#ifdef _CARTO_VALHALLA_SERVICES
+#ifdef _MASSIF_VALHALLA_SERVICES
     else if (endpoint == "locate"            ) action = valhalla::Options::locate;
     else if (endpoint == "matrix" ||
              endpoint == "sources_to_targets") action = valhalla::Options::sources_to_targets;
@@ -155,7 +155,7 @@ std::string ValhallaRoutingProxy::CallRaw(
             result = valhalla::tyr::serializeDirections(api);
             break;
 
-#ifdef _CARTO_VALHALLA_SERVICES
+#ifdef _MASSIF_VALHALLA_SERVICES
         case valhalla::Options::sources_to_targets:
             lokiWorker.matrix(api);
             result = thorWorker.matrix(api);

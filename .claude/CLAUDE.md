@@ -1,4 +1,4 @@
-# CARTO Mobile SDK — working agreement
+# Massif Maps — working agreement
 
 Process rules. The **architecture, debugging playbook and demo-app loop live in the root [`CLAUDE.md`](../CLAUDE.md)** — read it for anything technical; this file does not restate it.
 
@@ -56,12 +56,12 @@ Every repo here is a fork of an **archived** CartoDB original, so **`gh` always 
 
 | Repo                                                                         | Path             | Base branch | `--repo`                         |
 | ---------------------------------------------------------------------------- | ---------------- | ----------- | -------------------------------- |
-| main SDK                                                                     | `.`              | `master`    | `Akylas/mobile-sdk`              |
-| carto libs (`vt`, `mapnikvt`, `cartocss`, `sgre`/`osrm`, `geocoding`, `nml`) | `libs-carto/`    | `develop`   | `farfromrefug/mobile-carto-libs` |
-| external libs                                                                | `libs-external/` | `develop`   | `Akylas/mobile-external-libs`    |
+| main SDK                                                                     | `.`              | `master`    | `massif-maps/MassifMaps`              |
+| massif libs (`vt`, `mapnikvt`, `cartocss`, `sgre`/`osrm`, `geocoding`, `nml`) | `libs-massif/`   | `develop`   | `massif-maps/massif-maps-libs` |
+| external libs                                                                | `libs-external/` | `develop`   | `massif-maps/massif-external-libs`    |
 
 - **Work in a submodule is branch + commit + PR in that submodule too** — never a stray commit on `develop`, never a pointer bump that references an unpushed commit. Submodule PR first, main-repo PR (carrying the pointer bump) second, cross-linked; the submodule PR merges first.
-- `libs-carto` / `libs-external` are routinely left on a **detached HEAD**: check `git -C libs-carto status -sb` before and after committing, or the work lands off-branch and the push claims "Everything up-to-date".
+- `libs-massif` / `libs-external` are routinely left on a **detached HEAD**: check `git -C libs-massif status -sb` before and after committing, or the work lands off-branch and the push claims "Everything up-to-date".
 - `libs-external` has unrelated dirty nested pointers (`brotli/brotli`, `date/date`) — never stage them.
 - `upstream` remotes point at the archived CartoDB repos: read-only, never push or pull there.
 
@@ -79,8 +79,8 @@ No test framework exists in this repo (`package.json` has no real `test` script)
 
 - **Syntax/type check every touched translation unit** — the mandatory gate for any C++ change:
   ```sh
-  clang++ -fsyntax-only -std=c++20 -I all/native -I libs-carto/vt/src -I libs-carto/mapnikvt/src \
-    -I libs-carto/cartocss/src -I libs-carto/nml/src -I libs-external/cglib -I libs-external/stdext \
+  clang++ -fsyntax-only -std=c++20 -I all/native -I libs-massif/vt/src -I libs-massif/mapnikvt/src \
+    -I libs-massif/cartocss/src -I libs-massif/nml/src -I libs-external/cglib -I libs-external/stdext \
     -I libs-external/boost -I libs-external/picojson -I libs-external/pbf -I libs-external/tinyformat \
     -I libs-external/utf8/source -I libs-external/angle-metal/include <file>.cpp
   ```
@@ -99,9 +99,9 @@ There is no formatter or linter for the C++ here — **the surrounding file is t
 - Public API changes are mirrored in `all/modules/*.i` and are **breaking for every app binding** even when the C++ compiles.
 - New options default to the current behaviour, so upgrading an app changes nothing until it opts in.
 - Fetch shader uniforms with `glGetUniformLocation` + a `>= 0` guard: `Shader::getUniformLoc` returns `0` for a uniform the compiler dropped, and `0` is a valid location that clobbers uniform 0.
-- Logging: `Log::` in `all/native`; `vt` has no logger, use `__android_log_print(4, "carto-mobile-sdk", …)`. Throttle probes shared by several renderer instances with a **prime** modulus, and strip probes before committing.
+- Logging: `Log::` in `all/native`; `vt` has no logger, use `__android_log_print(4, "massif", …)`. Throttle probes shared by several renderer instances with a **prime** modulus, and strip probes before committing.
 - Demo-app edits (`scripts/android-dev/**`) stay additive: new defaults go in `demo/DemoConfig.java`, controls in `demo/DemoPanel.java`.
 
 ## Library documentation
 
-`libs-carto/` and `libs-external/` are checked out and authoritative — read the source (cglib, vt, freetype, harfbuzz, protobuf, valhalla) instead of guessing at an API. Use the Context7 MCP only for genuinely external libraries with published docs. For the SDK itself, prefer the root `CLAUDE.md`, `BUILDING.md` and `website/docs/`.
+`libs-massif/` and `libs-external/` are checked out and authoritative — read the source (cglib, vt, freetype, harfbuzz, protobuf, valhalla) instead of guessing at an API. Use the Context7 MCP only for genuinely external libraries with published docs. For the SDK itself, prefer the root `CLAUDE.md`, `BUILDING.md` and `website/docs/`.

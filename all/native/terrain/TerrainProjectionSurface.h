@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_TERRAINPROJECTIONSURFACE_H_
-#define _CARTO_TERRAINPROJECTIONSURFACE_H_
+#ifndef _MASSIF_TERRAINPROJECTIONSURFACE_H_
+#define _MASSIF_TERRAINPROJECTIONSURFACE_H_
 
 #include "projections/PlanarProjectionSurface.h"
 
 #include <memory>
 
-namespace carto {
+namespace massif {
     class ElevationManager;
 
     /**

@@ -17,7 +17,7 @@
 
 #include <cglib/mat.h>
 
-namespace carto {
+namespace massif {
 
     Polygon3DRenderer::Polygon3DRenderer() :
         _options(),

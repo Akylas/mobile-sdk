@@ -6,7 +6,7 @@
 
 #include <algorithm>
 
-namespace carto {
+namespace massif {
 
     Texture::~Texture() {
     }

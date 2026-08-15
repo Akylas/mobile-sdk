@@ -1,4 +1,4 @@
-﻿namespace Carto.Ui {
+﻿namespace Massif.Ui {
     using System;
     using Javax.Microedition.Khronos.Egl;
     using Javax.Microedition.Khronos.Opengles;

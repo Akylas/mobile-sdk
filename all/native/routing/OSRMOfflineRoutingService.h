@@ -4,23 +4,23 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_OSRMOFFLINEROUTINGSERVICE_H_
-#define _CARTO_OSRMOFFLINEROUTINGSERVICE_H_
+#ifndef _MASSIF_OSRMOFFLINEROUTINGSERVICE_H_
+#define _MASSIF_OSRMOFFLINEROUTINGSERVICE_H_
 
-#if defined(_CARTO_ROUTING_SUPPORT) && defined(_CARTO_OFFLINE_SUPPORT)
+#if defined(_MASSIF_ROUTING_SUPPORT) && defined(_MASSIF_OFFLINE_SUPPORT)
 
 #include "routing/RoutingService.h"
 
 #include <memory>
 #include <string>
 
-namespace carto {
+namespace massif {
     namespace osrm {
         class RouteFinder;
     }
 
     /**
-     * An offline routing service that uses Carto-specific routing 
+     * An offline routing service that uses Massif-specific routing 
      * database file created from OSRM prepared routing files.
      * Note: this class is experimental and may change or even be removed in future SDK versions.
      */

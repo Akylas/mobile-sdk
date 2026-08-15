@@ -4,7 +4,7 @@
 #include "layers/Layer.h"
 #include "utils/Log.h"
 
-namespace carto {
+namespace massif {
 
     VectorElement::~VectorElement() {
     }

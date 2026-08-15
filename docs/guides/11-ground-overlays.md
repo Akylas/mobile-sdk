@@ -55,7 +55,7 @@ This example uses only one geographical coordinate. The building size is known, 
   <div id="tab-java">
     {% highlight java linenos %}
 
-    com.carto.graphics.Bitmap overlayBitmap = BitmapUtils.loadBitmapFromAssets("jefferson-building-ground-floor.jpg");
+    com.massifmaps.graphics.Bitmap overlayBitmap = BitmapUtils.loadBitmapFromAssets("jefferson-building-ground-floor.jpg");
 
     // 1. Create two vector containing geographical positions and corresponding raster image pixel coordinates
     MapPos pos = proj.fromWgs84(new MapPos(-77.004590, 38.888702));
@@ -137,27 +137,27 @@ This example uses only one geographical coordinate. The building size is known, 
   {% highlight objc linenos %}
 
     // 1. Load ground overlay bitmap
-    NTBitmap* overlayBitmap = [NTBitmapUtils loadBitmapFromAssets:@"jefferson-building-ground-floor.jpg"];
+    MSFBitmap* overlayBitmap = [MSFBitmapUtils loadBitmapFromAssets:@"jefferson-building-ground-floor.jpg"];
 
     // 2. Create two vector geographical positions, and corresponding raster image pixel coordinates
-    NTMapPos* pos = [proj fromWgs84:[[NTMapPos alloc] initWithX:-77.004590 y:38.888702]];
+    MSFMapPos* pos = [proj fromWgs84:[[MSFMapPos alloc] initWithX:-77.004590 y:38.888702]];
     double sizeNS = 110, sizeWE = 100;
 
-    NTMapPosVector* mapPoses = [[NTMapPosVector alloc] init];
-    [mapPoses add:[[NTMapPos alloc] initWithX:[pos getX]-sizeWE y:[pos getY]+sizeNS]];
-    [mapPoses add:[[NTMapPos alloc] initWithX:[pos getX]+sizeWE y:[pos getY]+sizeNS]];
-    [mapPoses add:[[NTMapPos alloc] initWithX:[pos getX]+sizeWE y:[pos getY]-sizeNS]];
-    [mapPoses add:[[NTMapPos alloc] initWithX:[pos getX]-sizeWE y:[pos getY]-sizeNS]];
+    MSFMapPosVector* mapPoses = [[MSFMapPosVector alloc] init];
+    [mapPoses add:[[MSFMapPos alloc] initWithX:[pos getX]-sizeWE y:[pos getY]+sizeNS]];
+    [mapPoses add:[[MSFMapPos alloc] initWithX:[pos getX]+sizeWE y:[pos getY]+sizeNS]];
+    [mapPoses add:[[MSFMapPos alloc] initWithX:[pos getX]+sizeWE y:[pos getY]-sizeNS]];
+    [mapPoses add:[[MSFMapPos alloc] initWithX:[pos getX]-sizeWE y:[pos getY]-sizeNS]];
 
-    NTScreenPosVector* bitmapPoses = [[NTScreenPosVector alloc] init];
-    [bitmapPoses add:[[NTScreenPos alloc] initWithX:0 y:0]];
-    [bitmapPoses add:[[NTScreenPos alloc] initWithX:0 y:[overlayBitmap getHeight]]];
-    [bitmapPoses add:[[NTScreenPos alloc] initWithX:[overlayBitmap getWidth] y:[overlayBitmap getHeight]]];
-    [bitmapPoses add:[[NTScreenPos alloc] initWithX:[overlayBitmap getWidth] y:0]];
+    MSFScreenPosVector* bitmapPoses = [[MSFScreenPosVector alloc] init];
+    [bitmapPoses add:[[MSFScreenPos alloc] initWithX:0 y:0]];
+    [bitmapPoses add:[[MSFScreenPos alloc] initWithX:0 y:[overlayBitmap getHeight]]];
+    [bitmapPoses add:[[MSFScreenPos alloc] initWithX:[overlayBitmap getWidth] y:[overlayBitmap getHeight]]];
+    [bitmapPoses add:[[MSFScreenPos alloc] initWithX:[overlayBitmap getWidth] y:0]];
 
     // 3. Create bitmap overlay raster tile data source
-    NTBitmapOverlayRasterTileDataSource* rasterDataSource = [[NTBitmapOverlayRasterTileDataSource alloc] initWithMinZoom:0 maxZoom:20 bitmap:overlayBitmap projection:proj mapPoses:mapPoses bitmapPoses:bitmapPoses];
-    NTRasterTileLayer* rasterLayer = [[NTRasterTileLayer alloc] initWithDataSource:rasterDataSource];
+    MSFBitmapOverlayRasterTileDataSource* rasterDataSource = [[MSFBitmapOverlayRasterTileDataSource alloc] initWithMinZoom:0 maxZoom:20 bitmap:overlayBitmap projection:proj mapPoses:mapPoses bitmapPoses:bitmapPoses];
+    MSFRasterTileLayer* rasterLayer = [[MSFRasterTileLayer alloc] initWithDataSource:rasterDataSource];
     [[mapView getLayers] add:rasterLayer];
 
     // 4. Apply zoom level bias to the raster layer
@@ -177,28 +177,28 @@ This example uses only one geographical coordinate. The building size is known, 
   <div id="tab-swift">
     {% highlight swift linenos %}
 
-    let overlayBitmap = NTBitmapUtils.createBitmap(from: UIImage(named: "jefferson-building-ground-floor.jpg"))
+    let overlayBitmap = MSFBitmapUtils.createBitmap(from: UIImage(named: "jefferson-building-ground-floor.jpg"))
 
     // 1. Create two vector containing geographical positions and corresponding raster image pixel coordinates
-    let pos = projection!.fromWgs84(NTMapPos(x: -77.004590, y: 38.888702))!
+    let pos = projection!.fromWgs84(MSFMapPos(x: -77.004590, y: 38.888702))!
     let sizeNS = 110.0
     let sizeWE = 100.0
 
-    let mapPoses = NTMapPosVector();
-    mapPoses?.add(NTMapPos(x: pos.getX() - sizeWE, y: pos.getY() + sizeNS))
-    mapPoses?.add(NTMapPos(x: pos.getX() + sizeWE, y: pos.getY() + sizeNS))
-    mapPoses?.add(NTMapPos(x: pos.getX() + sizeWE, y: pos.getY() - sizeNS))
-    mapPoses?.add(NTMapPos(x: pos.getX() - sizeWE, y: pos.getY() - sizeNS))
+    let mapPoses = MSFMapPosVector();
+    mapPoses?.add(MSFMapPos(x: pos.getX() - sizeWE, y: pos.getY() + sizeNS))
+    mapPoses?.add(MSFMapPos(x: pos.getX() + sizeWE, y: pos.getY() + sizeNS))
+    mapPoses?.add(MSFMapPos(x: pos.getX() + sizeWE, y: pos.getY() - sizeNS))
+    mapPoses?.add(MSFMapPos(x: pos.getX() - sizeWE, y: pos.getY() - sizeNS))
 
-    let bitmapPoses = NTScreenPosVector()
-    bitmapPoses?.add(NTScreenPos(x: 0, y: 0))
-    bitmapPoses?.add(NTScreenPos(x: 0, y: Float(overlayBitmap!.getHeight())))
-    bitmapPoses?.add(NTScreenPos(x: Float(overlayBitmap!.getWidth()), y: Float(overlayBitmap!.getHeight())))
-    bitmapPoses?.add(NTScreenPos(x: Float(overlayBitmap!.getWidth()), y: 0))
+    let bitmapPoses = MSFScreenPosVector()
+    bitmapPoses?.add(MSFScreenPos(x: 0, y: 0))
+    bitmapPoses?.add(MSFScreenPos(x: 0, y: Float(overlayBitmap!.getHeight())))
+    bitmapPoses?.add(MSFScreenPos(x: Float(overlayBitmap!.getWidth()), y: Float(overlayBitmap!.getHeight())))
+    bitmapPoses?.add(MSFScreenPos(x: Float(overlayBitmap!.getWidth()), y: 0))
 
     // 2. Create bitmap overlay raster tile data source
-    let rasterDataSource = NTBitmapOverlayRasterTileDataSource(minZoom: 0, maxZoom: 20, bitmap: overlayBitmap, projection: projection, mapPoses: mapPoses, bitmapPoses: bitmapPoses)
-    let rasterLayer = NTRasterTileLayer(dataSource: rasterDataSource);
+    let rasterDataSource = MSFBitmapOverlayRasterTileDataSource(minZoom: 0, maxZoom: 20, bitmap: overlayBitmap, projection: projection, mapPoses: mapPoses, bitmapPoses: bitmapPoses)
+    let rasterLayer = MSFRasterTileLayer(dataSource: rasterDataSource);
     mapView?.getLayers()?.add(rasterLayer)
 
     // 3. Apply zoom level bias to the raster layer
@@ -208,7 +208,7 @@ This example uses only one geographical coordinate. The building size is known, 
 
     let zoomLevelBias = UIKit.log(mapView!.getOptions().getDPI() / 160.0) / UIKit.log(2.0)
     rasterLayer?.setZoomLevelBias(zoomLevelBias * 0.75)
-    rasterLayer?.setTileSubstitutionPolicy(NTTileSubstitutionPolicy.TILE_SUBSTITUTION_POLICY_VISIBLE)
+    rasterLayer?.setTileSubstitutionPolicy(MSFTileSubstitutionPolicy.TILE_SUBSTITUTION_POLICY_VISIBLE)
 
     mapView?.setFocus(pos, durationSeconds: 0)
     mapView?.setZoom(16, durationSeconds: 0)

@@ -1,7 +1,7 @@
 #include "FeatureCollection.h"
 #include "components/Exceptions.h"
 
-namespace carto {
+namespace massif {
 
     FeatureCollection::FeatureCollection(std::vector<std::shared_ptr<Feature> > features) :
         _features(std::move(features))

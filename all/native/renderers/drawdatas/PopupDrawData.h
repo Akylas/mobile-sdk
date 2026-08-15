@@ -4,13 +4,13 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_POPUPDRAWDATA_H_
-#define _CARTO_POPUPDRAWDATA_H_
+#ifndef _MASSIF_POPUPDRAWDATA_H_
+#define _MASSIF_POPUPDRAWDATA_H_
 
 #include "core/ScreenPos.h"
 #include "renderers/drawdatas/BillboardDrawData.h"
 
-namespace carto {
+namespace massif {
     class Options;
     class Popup;
     class PopupStyle;

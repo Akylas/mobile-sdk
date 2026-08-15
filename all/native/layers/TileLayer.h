@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_TILELAYER_H_
-#define _CARTO_TILELAYER_H_
+#ifndef _MASSIF_TILELAYER_H_
+#define _MASSIF_TILELAYER_H_
 
 #include "core/MapPos.h"
 #include "core/MapBounds.h"
@@ -22,7 +22,7 @@
 #include <mutex>
 #include <unordered_map>
 
-namespace carto {
+namespace massif {
     class CancelableTask;
     class CullState;
     class GLResourceManager;

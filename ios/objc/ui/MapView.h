@@ -4,39 +4,39 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifdef _CARTO_USE_METALANGLE
+#ifdef _MASSIF_USE_METALANGLE
 
 #import "MGLKit.h"
 
-#define NTGLContext MGLContext
-#define NTGLKView MGLKView
+#define MSFGLContext MGLContext
+#define MSFGLKView MGLKView
 
 #else
 
 #import <GLKit/GLKit.h>
 
-#define NTGLContext EAGLContext
-#define NTGLKView GLKView
+#define MSFGLContext EAGLContext
+#define MSFGLKView GLKView
 
 #endif
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
-@class NTLayers;
-@class NTMapBounds;
-@class NTMapPos;
-@class NTMapVec;
-@class NTScreenPos;
-@class NTScreenBounds;
-@class NTMapEventListener;
-@class NTMapRenderer;
-@class NTOptions;
+@class MSFLayers;
+@class MSFMapBounds;
+@class MSFMapPos;
+@class MSFMapVec;
+@class MSFScreenPos;
+@class MSFScreenBounds;
+@class MSFMapEventListener;
+@class MSFMapRenderer;
+@class MSFOptions;
 
 /**
  * MapView is a view class supporting map rendering and interaction.
  */
-__attribute__ ((visibility("default"))) @interface NTMapView : NTGLKView
+__attribute__ ((visibility("default"))) @interface MSFMapView : MSFGLKView
 
 -(id)init;
 -(id)initWithCoder:(NSCoder *)aDecoder;
@@ -45,11 +45,11 @@ __attribute__ ((visibility("default"))) @interface NTMapView : NTGLKView
  * Returns the Layers object, that can be used for adding and removing map layers.
  * @return The Layer object.
  */
--(NTLayers*)getLayers;
+-(MSFLayers*)getLayers;
 /**
  * Makes the view translucent, so that whatever is behind it shows through wherever the map does
  * not paint. Combine it with a transparent clear color - [options setClearColor:
- * [[NTColor alloc] initWithR:0 g:0 b:0 a:0]] - which is what leaves the frame empty; the SDK
+ * [[MSFColor alloc] initWithR:0 g:0 b:0 a:0]] - which is what leaves the frame empty; the SDK
  * renders with premultiplied alpha, so the result composites correctly.
  *
  * The view is an ordinary UIView, so it blends with the views behind it: a camera preview layer,
@@ -61,17 +61,17 @@ __attribute__ ((visibility("default"))) @interface NTMapView : NTGLKView
  * Returns the Options object, that can be used for modifying various map options.
  * @return the Option object.
  */
--(NTOptions*)getOptions;
+-(MSFOptions*)getOptions;
 /**
  * Returns the MapRenderer object, that can be used to control rendering options.
  * @return the MapRenderer object.
  */
--(NTMapRenderer*)getMapRenderer;
+-(MSFMapRenderer*)getMapRenderer;
 /**
  * Returns the position that the camera is currently looking at.
  * @return The current focus position in the coordinate system of the base projection.
  */
--(NTMapPos*)getFocusPos;
+-(MSFMapPos*)getFocusPos;
 /**
  * Returns the map rotation in degrees. 0 means looking north, 90 means west, -90 means east and 180 means south.
  * @return The map rotation in degrees in range of (-180 .. 180].
@@ -98,7 +98,7 @@ __attribute__ ((visibility("default"))) @interface NTMapView : NTGLKView
  * @param deltaPos The coordinate difference the map should be moved by.
  * @param durationSeconds The duration in which the tilting operation will be completed in seconds.
  */
--(void)pan:(NTMapVec*)deltaPos durationSeconds:(float)durationSeconds;
+-(void)pan:(MSFMapVec*)deltaPos durationSeconds:(float)durationSeconds;
 /**
  * Sets the new absolute focus position. The new focus position is expected to be in
  * the coordinate system of the base projection. The new focus position will be clamped to
@@ -109,7 +109,7 @@ __attribute__ ((visibility("default"))) @interface NTMapView : NTGLKView
  * @param pos The new focus point position in base coordinate system.
  * @param durationSeconds The duration in which the tilting operation will be completed in seconds.
  */
--(void)setFocusPos:(NTMapPos*)pos durationSeconds:(float)durationSeconds;
+-(void)setFocusPos:(MSFMapPos*)pos durationSeconds:(float)durationSeconds;
 /**
  * Rotates the view relative to the current rotation value. Positive values rotate clockwise, negative values counterclockwise.
  * The new calculated rotation value will be wrapped to the range of (-180 .. 180]. Rotations are ignored if Options::setRotatable
@@ -129,7 +129,7 @@ __attribute__ ((visibility("default"))) @interface NTMapView : NTGLKView
  * @param zoom The target zoom level.
  * @param durationSeconds The duration in seconds, or 0 to derive it from the length of the path.
  */
--(void)flyTo:(NTMapPos*)pos zoom:(float)zoom durationSeconds:(float)durationSeconds;
+-(void)flyTo:(MSFMapPos*)pos zoom:(float)zoom durationSeconds:(float)durationSeconds;
 /**
  * Moves the camera to a position, zoom, rotation and tilt in one animation. See flyTo.
  * @param pos The target position in base projection coordinate system.
@@ -138,7 +138,7 @@ __attribute__ ((visibility("default"))) @interface NTMapView : NTGLKView
  * @param tilt The target tilt in degrees.
  * @param durationSeconds The duration in seconds, or 0 to derive it from the path.
  */
--(void)flyTo:(NTMapPos*)pos zoom:(float)zoom rotation:(float)rotation tilt:(float)tilt durationSeconds:(float)durationSeconds;
+-(void)flyTo:(MSFMapPos*)pos zoom:(float)zoom rotation:(float)rotation tilt:(float)tilt durationSeconds:(float)durationSeconds;
 /**
  * Moves the camera to a position, zoom, rotation and tilt in one animation, climbing over the way
  * there. The target position's Z is the height the viewpoint ends at, and the climb is added to it
@@ -150,7 +150,7 @@ __attribute__ ((visibility("default"))) @interface NTMapView : NTGLKView
  * @param climbHeight The extra height at the middle of the path, in the base projection's units.
  * @param durationSeconds The duration in seconds, or 0 to derive it from the path.
  */
--(void)flyTo:(NTMapPos*)pos zoom:(float)zoom rotation:(float)rotation tilt:(float)tilt climbHeight:(float)climbHeight durationSeconds:(float)durationSeconds;
+-(void)flyTo:(MSFMapPos*)pos zoom:(float)zoom rotation:(float)rotation tilt:(float)tilt climbHeight:(float)climbHeight durationSeconds:(float)durationSeconds;
 /**
  * Stops a flight started with flyTo, leaving the camera where it is.
  */
@@ -180,7 +180,7 @@ __attribute__ ((visibility("default"))) @interface NTMapView : NTGLKView
  * @param targetPos The zooming target position in the coordinate system of the base projection.
  * @param durationSeconds The duration in which the zooming operation will be completed in seconds.
  */
--(void)rotate:(float)deltaAngle targetPos:(NTMapPos*)targetPos durationSeconds:(float)durationSeconds;
+-(void)rotate:(float)deltaAngle targetPos:(MSFMapPos*)targetPos durationSeconds:(float)durationSeconds;
 /**
  * Sets the new absolute rotation value. 0 means look north, 90 means west, -90 means east and 180 means south.
  * The rotation value will be wrapped to the range of (-180 .. 180]. Rotations are ignored if Options::setRotatable
@@ -205,7 +205,7 @@ __attribute__ ((visibility("default"))) @interface NTMapView : NTGLKView
  * @param targetPos The zooming target position in the coordinate system of the base projection.
  * @param durationSeconds The duration in which the zooming operation will be completed in seconds.
  */
--(void)setRotation:(float)angle targetPos:(NTMapPos*)targetPos durationSeconds:(float)durationSeconds;
+-(void)setRotation:(float)angle targetPos:(MSFMapPos*)targetPos durationSeconds:(float)durationSeconds;
 /**
  * Tilts the view relative to the current tilt value. Positive values tilt the view down towards the map,
  * negative values tilt the view up towards the horizon. The new calculated tilt value will be clamped to
@@ -251,7 +251,7 @@ __attribute__ ((visibility("default"))) @interface NTMapView : NTGLKView
  * @param targetPos The zooming target position in the coordinate system of the base projection.
  * @param durationSeconds The duration in which the zooming operation will be completed in seconds.
  */
--(void)zoom:(float)deltaZoom targetPos:(NTMapPos*)targetPos durationSeconds:(float)durationSeconds;
+-(void)zoom:(float)deltaZoom targetPos:(MSFMapPos*)targetPos durationSeconds:(float)durationSeconds;
 /**
  * Sets the new absolute zoom value. The minimum zoom value is 0, which means absolutely zoomed out and the maximum
  * zoom value is 24. The zoom value can be further constrained by the Options::setZoomRange method. Values
@@ -277,7 +277,7 @@ __attribute__ ((visibility("default"))) @interface NTMapView : NTGLKView
  * @param durationSeconds The duration in which the zooming operation will be completed in seconds.
  */
 
--(void)setZoom:(float)zoom targetPos:(NTMapPos*)targetPos durationSeconds:(float)durationSeconds;
+-(void)setZoom:(float)zoom targetPos:(MSFMapPos*)targetPos durationSeconds:(float)durationSeconds;
 /**
  * Animate the view parameters (focus position, tilt, rotation, zoom) so that the specified bounding box becomes fully visible.
  * This method does not work before the screen size is set.
@@ -286,7 +286,7 @@ __attribute__ ((visibility("default"))) @interface NTMapView : NTGLKView
  * @param integerZoom If true, then closest integer zoom level will be used. If false, exact fractional zoom level will be used.
  * @param durationSeconds The duration in which the operation will be completed in seconds.
  */
--(void)moveToFitBounds:(NTMapBounds*)mapBounds screenBounds:(NTScreenBounds*)screenBounds integerZoom:(BOOL)integerZoom durationSeconds:(float)durationSeconds;
+-(void)moveToFitBounds:(MSFMapBounds*)mapBounds screenBounds:(MSFScreenBounds*)screenBounds integerZoom:(BOOL)integerZoom durationSeconds:(float)durationSeconds;
 /**
  * Animate the view parameters (focus position, tilt, rotation, zoom) so that the specified bounding box becomes fully visible.
  * Also supports resetting the tilt and rotation angles over the course of the animation.
@@ -298,31 +298,31 @@ __attribute__ ((visibility("default"))) @interface NTMapView : NTGLKView
  * @param resetRotation If true, rotation will be reset. If false, current rotation will be kept.
  * @param durationSeconds The duration in which the operation will be completed in seconds.
  */
--(void)moveToFitBounds:(NTMapBounds*)mapBounds screenBounds:(NTScreenBounds*)screenBounds integerZoom:(BOOL)integerZoom resetRotation:(BOOL)resetRotation resetTilt:(BOOL)resetTilt durationSeconds:(float)durationSeconds;
+-(void)moveToFitBounds:(MSFMapBounds*)mapBounds screenBounds:(MSFScreenBounds*)screenBounds integerZoom:(BOOL)integerZoom resetRotation:(BOOL)resetRotation resetTilt:(BOOL)resetTilt durationSeconds:(float)durationSeconds;
 /**
  * Returns the map event listener. May be null.
  * @return The map event listener.
  */
--(NTMapEventListener*) getMapEventListener;
+-(MSFMapEventListener*) getMapEventListener;
 
 /**
  * Sets the map event listener. If a null pointer is passed no map events will be generated. The default is null.
  * @param mapEventListener The new map event listener.
  */
--(void)setMapEventListener:(NTMapEventListener*)mapEventListener;
+-(void)setMapEventListener:(MSFMapEventListener*)mapEventListener;
 
 /**
  * Calculates the map position in base projection coordinate system corresponding to a screen position, using the current view parameters.
  * @param screenPos The screen position.
  * @return The calculated map position in base projection coordinate system. If the given screen position is not on the map, then NaNs are returned.
  */
--(NTMapPos*)screenToMap:(NTScreenPos*)screenPos;
+-(MSFMapPos*)screenToMap:(MSFScreenPos*)screenPos;
 /**
  * Calculates the screen position corresponding to a map position in base projection coordinate system, using the current view parameters.
  * @param mapPos The map position in base projection coordinate system.
  * @return The calculated screen position. Can be off-screen.
  */
--(NTScreenPos*)mapToScreen:(NTMapPos*)mapPos;
+-(MSFScreenPos*)mapToScreen:(MSFMapPos*)mapPos;
 
 /**
  * Cancels all qued tasks such as tile and vector data fetches. Tasks that have already started

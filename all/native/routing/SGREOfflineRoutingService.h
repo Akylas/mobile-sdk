@@ -4,10 +4,10 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_SGREOFFLINEROUTINGSERVICE_H_
-#define _CARTO_SGREOFFLINEROUTINGSERVICE_H_
+#ifndef _MASSIF_SGREOFFLINEROUTINGSERVICE_H_
+#define _MASSIF_SGREOFFLINEROUTINGSERVICE_H_
 
-#if defined(_CARTO_ROUTING_SUPPORT) && defined(_CARTO_OFFLINE_SUPPORT)
+#if defined(_MASSIF_ROUTING_SUPPORT) && defined(_MASSIF_OFFLINE_SUPPORT)
 
 #include "core/Variant.h"
 #include "routing/RoutingService.h"
@@ -19,7 +19,7 @@
 
 #include <picojson/picojson.h>
 
-namespace carto {
+namespace massif {
     namespace sgre {
         class RuleList;
         class RouteFinder;

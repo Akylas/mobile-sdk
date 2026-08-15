@@ -3,7 +3,7 @@
 
 %module StyleBuilder
 
-!proxy_imports(carto::StyleBuilder, graphics.Color)
+!proxy_imports(massif::StyleBuilder, graphics.Color)
 
 %{
 #include "styles/StyleBuilder.h"
@@ -12,14 +12,14 @@
 
 %include <std_string.i>
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "graphics/Color.i"
 
-!polymorphic_shared_ptr(carto::StyleBuilder, styles.StyleBuilder)
+!polymorphic_shared_ptr(massif::StyleBuilder, styles.StyleBuilder)
 
-%attributeval(carto::StyleBuilder, carto::Color, Color, getColor, setColor)
-!standard_equals(carto::StyleBuilder);
+%attributeval(massif::StyleBuilder, massif::Color, Color, getColor, setColor)
+!standard_equals(massif::StyleBuilder);
 
 %include "styles/StyleBuilder.h"
 

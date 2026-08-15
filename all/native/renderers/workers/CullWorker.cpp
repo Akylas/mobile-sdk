@@ -14,7 +14,7 @@
 
 #include <optional>
 
-namespace carto {
+namespace massif {
 
     CullWorker::CullWorker() :
         _layerWakeupMap(),

@@ -13,7 +13,7 @@ Follow the general instructions from the main page
 python swigpp-java.py --profile valhalla+nmlmodellodtree
 ```
 
-Note that other profiles require changes in 'carto_mobile_sdk/build.gradle' file, simply update the
+Note that other profiles require changes in 'massif/build.gradle' file, simply update the
 value of 'profiles' variable in that file.
 
 ### 3. Load the project into Android studio
@@ -36,7 +36,7 @@ show is a layer you can turn on or off, and everything it can be configured with
 | `app/.../demo/DemoConfig.java` | **All defaults, one static field per knob.** Edit here to change what the app does on launch. Also maps every intent-extra key onto a field (`applyIntentOverrides`). |
 | `app/.../demo/DemoCfg.java` | The `cfgBool/cfgFloat/cfgInt/cfgStr/cfgColor` intent-extra readers (used by scripted / AI debugging runs). |
 | `app/.../demo/DemoMap.java` | Builds the map from the config and applies changes: layer registry, shared tile sources, terrain/light/sky options, camera, scripted animation. |
-| `app/.../demo/DemoStyles.java` | Style decoders (dir / zip / inline CartoCSS / nuti project) + the demo shaders. |
+| `app/.../demo/DemoStyles.java` | Style decoders (dir / zip / inline CartoCSS / style project) + the demo shaders. |
 | `app/.../demo/DemoSky.java` | Day cycle: sun position, sky colours and the generated sky shader (sun, moon, stars, clouds). |
 | `app/.../demo/DemoPanel.java` | The on-screen panel: every config knob, live. Writes `DemoConfig`, then calls a `DemoMap.apply*()`. |
 | `app/.../demo/DemoTests.java` | One-shot actions: offline/online routing, vector tile search, GeoJSON geometry. |
@@ -48,7 +48,7 @@ show is a layer you can turn on or off, and everything it can be configured with
 2. **Rebuild-free, at launch** — intent extras:
 
 ```bash
-adb shell am start -n com.akylas.cartotest/.MainActivity --es base composite --es style dir --es hs true --es zoom 14.7 --es tilt 60 --es lon 5.760595 --es lat 45.244172
+adb shell am start -n com.massifmaps.MassifDemo/.MainActivity --es base composite --es style dir --es hs true --es zoom 14.7 --es tilt 60 --es lon 5.760595 --es lat 45.244172
 ```
 
 3. **Permanent** — edit the static fields at the top of `DemoConfig.java`.
@@ -66,7 +66,7 @@ The base map itself has two more switches:
 
 - **mode**: `plain` (VectorTileLayer) or `composite` (CompositeVectorTileLayer, which weaves the
   `#hillshade` / `#satellite` / `#contour` sources into the style's own layer order);
-- **style**: `dir` | `zip` | `inline` | `nuti` | `assets`.
+- **style**: `dir` | `zip` | `inline` | `project` | `assets`.
 
 `assets` reads the style project bundled in the APK (`app/src/main/assets/style`) through
 `AndroidAssetPackage` — APK assets are not files, so `DirAssetPackage` cannot read them. That

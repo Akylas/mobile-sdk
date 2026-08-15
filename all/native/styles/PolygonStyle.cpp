@@ -1,6 +1,6 @@
 #include "PolygonStyle.h"
 
-namespace carto {
+namespace massif {
 
     PolygonStyle::PolygonStyle(const Color& color, const std::shared_ptr<Bitmap>& bitmap,
             const std::shared_ptr<LineStyle>& lineStyle) :

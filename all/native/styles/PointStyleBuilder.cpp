@@ -4,7 +4,7 @@
 #include "graphics/Bitmap.h"
 #include "styles/PointStyle.h"
 
-namespace carto {
+namespace massif {
 
     PointStyleBuilder::PointStyleBuilder() :
         StyleBuilder(),

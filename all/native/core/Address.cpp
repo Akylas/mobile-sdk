@@ -1,10 +1,10 @@
-#ifdef _CARTO_GEOCODING_SUPPORT
+#ifdef _MASSIF_GEOCODING_SUPPORT
 
 #include "Address.h"
 
 #include <sstream>
 
-namespace carto {
+namespace massif {
 
     Address::Address() :
         _country(),

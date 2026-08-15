@@ -4,6 +4,14 @@ sidebar_position: 7
 slug: /guides/geocoding
 ---
 
+:::warning Describes a removed API
+This guide came from the original CARTO documentation. The CARTO online services it
+uses are **not part of Massif Maps** — `CartoPackageManager` and the hosted basemap, offline-package
+and routing endpoints behind them were dropped from the fork. The concepts still apply;
+the class names in these snippets do not. See [Migrating to Massif Maps](/docs/migration)
+and bring your own tile source and style.
+:::
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -14,7 +22,7 @@ Terms:
 * **Geocoding** is the process of transforming textual address to a location or a geographic identity, basically same as **Address Search**
 * **Reverse geocoding** converts geographic location coordinates back to an address.
 
-CARTO Mobile SDK supports both geocoding and reverse geocoding and both are available in online and offline modes. Offline geocoding requires that you download special offline data package through **Package Manager**, see chapter above for more about this.
+Massif Maps supports both geocoding and reverse geocoding and both are available in online and offline modes. Offline geocoding requires that you download special offline data package through **Package Manager**, see chapter above for more about this.
 
 Mobile SDK supports the following geocoding features:
 
@@ -67,12 +75,12 @@ GeocodingResultVector results = service.CalculateAddresses(request);
 
 ```objectivec
   
-NTTomTomOnlineGeocodingService* service = [[NTTomTomOnlineGeocodingService alloc] initWithApiKey:@"<your-tomtom-key>"];
-NTProjection* projection = [[self.mapView getOptions] getBaseProjection];
-NTGeocodingRequest* request = [[NTGeocodingRequest alloc] initWithProjection:projection query:@"text"];
+MSFTomTomOnlineGeocodingService* service = [[MSFTomTomOnlineGeocodingService alloc] initWithApiKey:@"<your-tomtom-key>"];
+MSFProjection* projection = [[self.mapView getOptions] getBaseProjection];
+MSFGeocodingRequest* request = [[MSFGeocodingRequest alloc] initWithProjection:projection query:@"text"];
 
 // Note: Geocoding is a complicated process and should not be done on the main thread
-NTGeocodingResultVector* results = [service calculateAddresses:request];
+MSFGeocodingResultVector* results = [service calculateAddresses:request];
 
 ```
 
@@ -82,8 +90,8 @@ NTGeocodingResultVector* results = [service calculateAddresses:request];
 
 ```swift
   
-let service = NTTomTomOnlineGeocodingService(apiKey: "<your-tomtom-key>")
-let request = NTGeocodingRequest(projection: self.contentView.map.getOptions().getBaseProjection(), query: "Fifth Avenue, New York")
+let service = MSFTomTomOnlineGeocodingService(apiKey: "<your-tomtom-key>")
+let request = MSFGeocodingRequest(projection: self.contentView.map.getOptions().getBaseProjection(), query: "Fifth Avenue, New York")
 
 // Note: Geocoding is a complicated process and should not be done on the main thread
 let results = self.service.calculateAddresses(request)
@@ -162,16 +170,16 @@ GeocodingResultVector results = service.CalculateAddresses(request);
 
 ```objectivec
 
-NTReverseGeocodingService* service = [[NTTomTomOnlineReverseGeocodingService alloc] initWithApiKey:@"<your-tomtom-key>"];
+MSFReverseGeocodingService* service = [[MSFTomTomOnlineReverseGeocodingService alloc] initWithApiKey:@"<your-tomtom-key>"];
 
 // Center of New York. Reverse Geocoding these coordinates will find City Hall Park
-NTMapPos* newYork = [projection fromLat:40.7128 lng:-74.0059];
-NTReverseGeocodingRequest* request = [[NTReverseGeocodingRequest alloc] initWithProjection:projection location:newYork];
+MSFMapPos* newYork = [projection fromLat:40.7128 lng:-74.0059];
+MSFReverseGeocodingRequest* request = [[MSFReverseGeocodingRequest alloc] initWithProjection:projection location:newYork];
 float meters = 125.0f;
 [request setSearchRadius:meters];
     
 // Note: Reverse geocoding is a complicated process and should not be done on the main thread
-NTGeocodingResultVector* results = [self.service calculateAddresses: request];
+MSFGeocodingResultVector* results = [self.service calculateAddresses: request];
 
 ```
 
@@ -181,11 +189,11 @@ NTGeocodingResultVector* results = [self.service calculateAddresses: request];
 
 ```swift
 
-let service = NTTomTomOnlineReverseGeocodingService(apiKey: "<your-tomtom-key>")
+let service = MSFTomTomOnlineReverseGeocodingService(apiKey: "<your-tomtom-key>")
 
 // Center of New York. Reverse Geocoding these coordinates will find City Hall Park
 let newYork = projection.fromLat(40.7128, lng: -74.0059)
-let request = NTReverseGeocodingRequest(projection: projection, location: newYork)
+let request = MSFReverseGeocodingRequest(projection: projection, location: newYork)
 let meters: Float = 125.0
 request?.setSearchRadius(meters)
     
@@ -219,7 +227,7 @@ val results = service?.calculateAddresses(request)
 
 ### Offline Geocoding
 
-CARTO Mobile SDK also supports offline geocoding and reverse geocoding, In order to geocode offline, you must first download the required country geocoding data packages. 
+Massif Maps also supports offline geocoding and reverse geocoding, In order to geocode offline, you must first download the required country geocoding data packages. 
 
 **Note:** You will not be able to geocode without downloaded data packages, and the geocoding packages are different from Offline Map packages, do not mix them up !
 
@@ -274,15 +282,15 @@ var service = new PackageManagerReverseGeocodingService(packageManager);
 ```objectivec
 
 // Note: Provide an absolute path for your geocoding package folder
-NTCartoPackageManager* packageManager = [[NTCartoPackageManager alloc] initWithSource:@"geocoding:carto.streets" dataFolder:@"folder/geocodingpackages"];
+MSFCartoPackageManager* packageManager = [[MSFCartoPackageManager alloc] initWithSource:@"geocoding:carto.streets" dataFolder:@"folder/geocodingpackages"];
 ...
 // Now define also PackageManagerListener and download your selected package or map area, wait via listener until it is downloaded!
 
 // Geocoding service
-NTPackageManagerGeocodingService* service = [[NTPackageManagerGeocodingService alloc] initWithPackageManager:self.packageManager];
+MSFPackageManagerGeocodingService* service = [[MSFPackageManagerGeocodingService alloc] initWithPackageManager:self.packageManager];
 
 // Reverse geocoding service
-NTPackageManagerReverseGeocodingService* service = [[NTPackageManagerReverseGeocodingService alloc] initWithPackageManager:self.packageManager];
+MSFPackageManagerReverseGeocodingService* service = [[MSFPackageManagerReverseGeocodingService alloc] initWithPackageManager:self.packageManager];
 
 ```
 
@@ -293,15 +301,15 @@ NTPackageManagerReverseGeocodingService* service = [[NTPackageManagerReverseGeoc
 ```swift
   
 // Note: Provide an absolute path for your geocoding package folder
-let packageManager = NTCartoPackageManager(source: "geocoding:carto.streets", dataFolder: "folder/geocodingpackages")
+let packageManager = MSFCartoPackageManager(source: "geocoding:carto.streets", dataFolder: "folder/geocodingpackages")
 ...
 // Now define also PackageManagerListener and download your selected package or map area, wait via listener until it is downloaded!
 
 // Geocoding service
-let service = NTPackageManagerGeocodingService(packageManager: packageManager)
+let service = MSFPackageManagerGeocodingService(packageManager: packageManager)
 
 // Reverse geocoding service
-let service = NTPackageManagerReverseGeocodingService(packageManager: packageManager)
+let service = MSFPackageManagerReverseGeocodingService(packageManager: packageManager)
 
 ```
 

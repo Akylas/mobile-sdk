@@ -4,7 +4,7 @@
 
 #include <algorithm>
 
-namespace carto
+namespace massif
 {
     ElevationDecoder::~ElevationDecoder()
     {
@@ -13,4 +13,4 @@ namespace carto
     ElevationDecoder::ElevationDecoder()
     {
     }
-} // namespace carto
+} // namespace massif

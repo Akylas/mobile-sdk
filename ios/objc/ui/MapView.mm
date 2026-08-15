@@ -1,6 +1,6 @@
 #import "MapView.h"
-#import "NTBaseMapView.h"
-#import "NTPolymorphicClasses.h"
+#import "MSFBaseMapView.h"
+#import "MSFPolymorphicClasses.h"
 #import "ui/MapRedrawRequestListener.h"
 #import "ui/BaseMapView.h"
 #include "utils/Const.h"
@@ -9,9 +9,9 @@
 
 #import  <UIKit/UIKit.h>
 
-@interface NTMapView() { }
+@interface MSFMapView() { }
 
-@property (strong, nonatomic) NTBaseMapView* baseMapView;
+@property (strong, nonatomic) MSFBaseMapView* baseMapView;
 @property (assign, nonatomic) BOOL active;
 @property (assign, nonatomic) BOOL surfaceCreated;
 @property (assign, nonatomic) float scale;
@@ -30,14 +30,14 @@ static const int NATIVE_ACTION_POINTER_1_UP = 4;
 static const int NATIVE_ACTION_POINTER_2_UP = 5;
 static const int NATIVE_NO_COORDINATE = -1;
 
-@implementation NTMapView
+@implementation MSFMapView
 
 +(void)initialize {
-    if (self == [NTMapView class]) {
-        carto::IOSUtils::InitializeLog();
+    if (self == [MSFMapView class]) {
+        massif::IOSUtils::InitializeLog();
 
         // Because iOS uses static library, we must explicitly refer to all polymorphic classes created via reflection; otherwise linking may leave them from the build
-        initNTPolymorphicClasses();
+        initMSFPolymorphicClasses();
     }
 }
 
@@ -65,17 +65,17 @@ static const int NATIVE_NO_COORDINATE = -1;
     _activeDrawableSize = CGSizeMake(0, 0);
     _scale = [[UIScreen mainScreen] scale];
     // In case of MetalANGLE build, use the original scale value
-#ifndef _CARTO_USE_METALANGLE
+#ifndef _MASSIF_USE_METALANGLE
     if ([[UIScreen mainScreen] respondsToSelector:@selector(nativeScale)]) {
         _scale = [[UIScreen mainScreen] nativeScale];
     }
 #endif
     self.contentScaleFactor = _scale;
 
-    _baseMapView = [[NTBaseMapView alloc] init];
-    [[_baseMapView getOptions] setDPI:carto::Const::UNSCALED_DPI * _scale];
+    _baseMapView = [[MSFBaseMapView alloc] init];
+    [[_baseMapView getOptions] setDPI:massif::Const::UNSCALED_DPI * _scale];
 
-    NTMapRedrawRequestListener* redrawRequestListener = [[NTMapRedrawRequestListener alloc] initWithView:self];
+    MSFMapRedrawRequestListener* redrawRequestListener = [[MSFMapRedrawRequestListener alloc] initWithView:self];
     [_baseMapView setRedrawRequestListener:redrawRequestListener];
     
     if (self.window != nil) {
@@ -94,26 +94,26 @@ static const int NATIVE_NO_COORDINATE = -1;
 -(void)initContext {
     // Prefer an OpenGL ES 3.0 context: the rendering code uses the ES 2.0 API subset,
     // but ES3-class contexts guarantee vertex texture fetch (GPU terrain draping).
-#ifdef _CARTO_USE_METALANGLE
-    NTGLContext* context = [[NTGLContext alloc] initWithAPI:kMGLRenderingAPIOpenGLES3];
+#ifdef _MASSIF_USE_METALANGLE
+    MSFGLContext* context = [[MSFGLContext alloc] initWithAPI:kMGLRenderingAPIOpenGLES3];
     if (!context) {
-        carto::Log::Warn("MapView::initContext: Failed to create OpenGL ES 3.0 context, falling back to ES 2.0");
-        context = [[NTGLContext alloc] initWithAPI:kMGLRenderingAPIOpenGLES2];
+        massif::Log::Warn("MapView::initContext: Failed to create OpenGL ES 3.0 context, falling back to ES 2.0");
+        context = [[MSFGLContext alloc] initWithAPI:kMGLRenderingAPIOpenGLES2];
     }
 #else
-    NTGLContext* context = [[NTGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES3];
+    MSFGLContext* context = [[MSFGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES3];
     if (!context) {
-        carto::Log::Warn("MapView::initContext: Failed to create OpenGL ES 3.0 context, falling back to ES 2.0");
-        context = [[NTGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
+        massif::Log::Warn("MapView::initContext: Failed to create OpenGL ES 3.0 context, falling back to ES 2.0");
+        context = [[MSFGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
     }
 #endif
     if (!context) {
-        carto::Log::Fatal("MapView::initContext: Failed to create OpenGL ES context");
+        massif::Log::Fatal("MapView::initContext: Failed to create OpenGL ES context");
     }
 
     self.context = context;
     self.multipleTouchEnabled = YES;
-#ifdef _CARTO_USE_METALANGLE
+#ifdef _MASSIF_USE_METALANGLE
     self.drawableColorFormat = MGLDrawableColorFormatRGBA8888;
     self.drawableDepthFormat = MGLDrawableDepthFormat24;
     self.drawableMultisample = MGLDrawableMultisampleNone;
@@ -141,15 +141,15 @@ static const int NATIVE_NO_COORDINATE = -1;
     [super willMoveToWindow:newWindow];
 
     if (newWindow == nil) {
-        carto::Log::Info("MapView::willMoveToWindow: null");
+        massif::Log::Info("MapView::willMoveToWindow: null");
     } else {
-        carto::Log::Info("MapView::willMoveToWindow: nonnull");
+        massif::Log::Info("MapView::willMoveToWindow: nonnull");
 
         @synchronized (self) {
             if (!_active) {
                 [self initContext];
-                if ([NTGLContext currentContext] == nil) {
-                    [NTGLContext setCurrentContext:self.context];
+                if ([MSFGLContext currentContext] == nil) {
+                    [MSFGLContext setCurrentContext:self.context];
                 }
                 _active = YES;
                 _surfaceCreated = NO;
@@ -162,20 +162,20 @@ static const int NATIVE_NO_COORDINATE = -1;
     [super didMoveToWindow];
 
     if (self.window == nil) {
-        carto::Log::Info("MapView::didMoveToWindow: null");
+        massif::Log::Info("MapView::didMoveToWindow: null");
 
         @synchronized (self) {
             if (_active) {
                 [_baseMapView onSurfaceDestroyed];
-                if ([NTGLContext currentContext] == self.context) {
-                    [NTGLContext setCurrentContext:nil];
+                if ([MSFGLContext currentContext] == self.context) {
+                    [MSFGLContext setCurrentContext:nil];
                 }
                 _active = NO;
                 _surfaceCreated = NO;
             }
         }
     } else {
-        carto::Log::Info("MapView::didMoveToWindow: nonnull");
+        massif::Log::Info("MapView::didMoveToWindow: nonnull");
 
         [self setNeedsDisplay];
     }
@@ -190,9 +190,9 @@ static const int NATIVE_NO_COORDINATE = -1;
 -(void)drawRect:(CGRect)rect {
     @synchronized (self) {
         if (_active) {
-#ifdef _CARTO_USE_METALANGLE
-            NTGLContext* context = [NTGLContext currentContext];
-            [NTGLContext setCurrentContext:self.context forLayer:self.glLayer];
+#ifdef _MASSIF_USE_METALANGLE
+            MSFGLContext* context = [MSFGLContext currentContext];
+            [MSFGLContext setCurrentContext:self.context forLayer:self.glLayer];
 #endif
 
             if (!_surfaceCreated) {
@@ -201,7 +201,7 @@ static const int NATIVE_NO_COORDINATE = -1;
                 _surfaceCreated = YES;
             }
 
-#ifdef _CARTO_USE_METALANGLE
+#ifdef _MASSIF_USE_METALANGLE
             CGFloat drawableWidth = self.drawableSize.width;
             CGFloat drawableHeight = self.drawableSize.height;
 #else
@@ -215,10 +215,10 @@ static const int NATIVE_NO_COORDINATE = -1;
 
             [_baseMapView onDrawFrame];
 
-#ifdef _CARTO_USE_METALANGLE
+#ifdef _MASSIF_USE_METALANGLE
             [self.context present:self.glLayer];
             if (context != self.context) {
-                [NTGLContext setCurrentContext:context];
+                [MSFGLContext setCurrentContext:context];
             }
 #endif
         }
@@ -236,8 +236,8 @@ static const int NATIVE_NO_COORDINATE = -1;
             [_baseMapView onSurfaceDestroyed];
             [_baseMapView setRedrawRequestListener:nil];
 
-            if ([NTGLContext currentContext] == self.context) {
-                [NTGLContext setCurrentContext:nil];
+            if ([MSFGLContext currentContext] == self.context) {
+                [MSFGLContext setCurrentContext:nil];
             }
 
             _baseMapView = nil;
@@ -248,19 +248,19 @@ static const int NATIVE_NO_COORDINATE = -1;
 }
 
 -(void)appWillResignActive {
-    carto::Log::Info("MapView::appWillResignActive");
+    massif::Log::Info("MapView::appWillResignActive");
 
     @synchronized (self) {
         if (_active) {
-            NTGLContext* context = [NTGLContext currentContext];
+            MSFGLContext* context = [MSFGLContext currentContext];
             if (context != self.context) {
-                [NTGLContext setCurrentContext:self.context];
+                [MSFGLContext setCurrentContext:self.context];
             }
 
             [_baseMapView finishRendering];
 
             if (context != self.context) {
-                [NTGLContext setCurrentContext:context];
+                [MSFGLContext setCurrentContext:context];
             }
         }
         _active = NO;
@@ -268,7 +268,7 @@ static const int NATIVE_NO_COORDINATE = -1;
 }
 
 -(void)appDidBecomeActive {
-    carto::Log::Info("MapView::appDidBecomeActive");
+    massif::Log::Info("MapView::appDidBecomeActive");
 
     @synchronized (self) {
         _active = YES;
@@ -278,7 +278,7 @@ static const int NATIVE_NO_COORDINATE = -1;
 }
 
 -(void)appDidEnterBackground {
-    carto::Log::Info("MapView::appDidEnterBackground");
+    massif::Log::Info("MapView::appDidEnterBackground");
 
     @synchronized (self) {
         _active = NO;
@@ -286,7 +286,7 @@ static const int NATIVE_NO_COORDINATE = -1;
 }
 
 -(void)appWillEnterForeground {
-    carto::Log::Info("MapView::appWillEnterForeground");
+    massif::Log::Info("MapView::appWillEnterForeground");
 
     @synchronized (self) {
         _active = YES;
@@ -370,19 +370,19 @@ static const int NATIVE_NO_COORDINATE = -1;
     }
 }
 
--(NTLayers*)getLayers {
+-(MSFLayers*)getLayers {
     return [_baseMapView getLayers];
 }
 
--(NTOptions*)getOptions {
+-(MSFOptions*)getOptions {
     return [_baseMapView getOptions];
 }
 
--(NTMapRenderer*)getMapRenderer {
+-(MSFMapRenderer*)getMapRenderer {
     return [_baseMapView getMapRenderer];
 }
 
--(NTMapPos*)getFocusPos {
+-(MSFMapPos*)getFocusPos {
     return [_baseMapView getFocusPos];
 }
 
@@ -398,11 +398,11 @@ static const int NATIVE_NO_COORDINATE = -1;
     return [_baseMapView getZoom];
 }
 
--(void)pan:(NTMapVec*)deltaPos durationSeconds:(float)durationSeconds {
+-(void)pan:(MSFMapVec*)deltaPos durationSeconds:(float)durationSeconds {
     [_baseMapView pan:deltaPos durationSeconds:durationSeconds];
 }
 
--(void)setFocusPos:(NTMapPos*)pos durationSeconds:(float)durationSeconds {
+-(void)setFocusPos:(MSFMapPos*)pos durationSeconds:(float)durationSeconds {
     [_baseMapView setFocusPos:pos durationSeconds:durationSeconds];
 }
 
@@ -410,15 +410,15 @@ static const int NATIVE_NO_COORDINATE = -1;
     [_baseMapView rotate:deltaAngle durationSeconds:durationSeconds];
 }
 
--(void)flyTo:(NTMapPos*)pos zoom:(float)zoom durationSeconds:(float)durationSeconds {
+-(void)flyTo:(MSFMapPos*)pos zoom:(float)zoom durationSeconds:(float)durationSeconds {
     [_baseMapView flyTo:pos zoom:zoom durationSeconds:durationSeconds];
 }
 
--(void)flyTo:(NTMapPos*)pos zoom:(float)zoom rotation:(float)rotation tilt:(float)tilt durationSeconds:(float)durationSeconds {
+-(void)flyTo:(MSFMapPos*)pos zoom:(float)zoom rotation:(float)rotation tilt:(float)tilt durationSeconds:(float)durationSeconds {
     [_baseMapView flyTo:pos zoom:zoom rotation:rotation tilt:tilt durationSeconds:durationSeconds];
 }
 
--(void)flyTo:(NTMapPos*)pos zoom:(float)zoom rotation:(float)rotation tilt:(float)tilt climbHeight:(float)climbHeight durationSeconds:(float)durationSeconds {
+-(void)flyTo:(MSFMapPos*)pos zoom:(float)zoom rotation:(float)rotation tilt:(float)tilt climbHeight:(float)climbHeight durationSeconds:(float)durationSeconds {
     [_baseMapView flyTo:pos zoom:zoom rotation:rotation tilt:tilt climbHeight:climbHeight durationSeconds:durationSeconds];
 }
 
@@ -434,7 +434,7 @@ static const int NATIVE_NO_COORDINATE = -1;
     return [_baseMapView getFlightProgress];
 }
 
--(void)rotate:(float)deltaAngle targetPos:(NTMapPos*)targetPos durationSeconds:(float)durationSeconds {
+-(void)rotate:(float)deltaAngle targetPos:(MSFMapPos*)targetPos durationSeconds:(float)durationSeconds {
     [_baseMapView rotate:deltaAngle targetPos:targetPos durationSeconds:durationSeconds];
 }
 
@@ -442,7 +442,7 @@ static const int NATIVE_NO_COORDINATE = -1;
     [_baseMapView setRotation:angle durationSeconds:durationSeconds];
 }
 
--(void)setRotation:(float)angle targetPos:(NTMapPos*)targetPos durationSeconds:(float)durationSeconds {
+-(void)setRotation:(float)angle targetPos:(MSFMapPos*)targetPos durationSeconds:(float)durationSeconds {
     [_baseMapView setRotation:angle targetPos:targetPos durationSeconds:durationSeconds];
 }
 
@@ -458,7 +458,7 @@ static const int NATIVE_NO_COORDINATE = -1;
     [_baseMapView zoom:deltaZoom durationSeconds:durationSeconds];
 }
 
--(void)zoom:(float)deltaZoom targetPos:(NTMapPos*)targetPos durationSeconds:(float)durationSeconds {
+-(void)zoom:(float)deltaZoom targetPos:(MSFMapPos*)targetPos durationSeconds:(float)durationSeconds {
     [_baseMapView zoom:deltaZoom targetPos:targetPos durationSeconds:durationSeconds];
 }
 
@@ -466,31 +466,31 @@ static const int NATIVE_NO_COORDINATE = -1;
     [_baseMapView setZoom:zoom durationSeconds:durationSeconds];
 }
 
--(void)setZoom:(float)zoom targetPos:(NTMapPos*)targetPos durationSeconds:(float)durationSeconds {
+-(void)setZoom:(float)zoom targetPos:(MSFMapPos*)targetPos durationSeconds:(float)durationSeconds {
     [_baseMapView setZoom:zoom targetPos:targetPos durationSeconds:durationSeconds];
 }
 
--(void)moveToFitBounds:(NTMapBounds*)mapBounds screenBounds:(NTScreenBounds*)screenBounds integerZoom:(BOOL)integerZoom durationSeconds:(float)durationSeconds {
+-(void)moveToFitBounds:(MSFMapBounds*)mapBounds screenBounds:(MSFScreenBounds*)screenBounds integerZoom:(BOOL)integerZoom durationSeconds:(float)durationSeconds {
     [_baseMapView moveToFitBounds:mapBounds screenBounds:screenBounds integerZoom:integerZoom durationSeconds:durationSeconds];
 }
 
--(void)moveToFitBounds:(NTMapBounds*)mapBounds screenBounds:(NTScreenBounds*)screenBounds integerZoom:(BOOL)integerZoom resetRotation:(BOOL)resetRotation resetTilt:(BOOL)resetTilt durationSeconds:(float)durationSeconds {
+-(void)moveToFitBounds:(MSFMapBounds*)mapBounds screenBounds:(MSFScreenBounds*)screenBounds integerZoom:(BOOL)integerZoom resetRotation:(BOOL)resetRotation resetTilt:(BOOL)resetTilt durationSeconds:(float)durationSeconds {
     [_baseMapView moveToFitBounds:mapBounds screenBounds:screenBounds integerZoom:integerZoom resetRotation:resetRotation resetTilt:resetTilt durationSeconds:durationSeconds];
 }
 
--(NTMapEventListener*) getMapEventListener {
+-(MSFMapEventListener*) getMapEventListener {
     return [_baseMapView getMapEventListener];
 }
 
--(void)setMapEventListener:(NTMapEventListener*)mapEventListener {
+-(void)setMapEventListener:(MSFMapEventListener*)mapEventListener {
     [_baseMapView setMapEventListener:mapEventListener];
 }
 
--(NTMapPos*)screenToMap:(NTScreenPos*)screenPos {
+-(MSFMapPos*)screenToMap:(MSFScreenPos*)screenPos {
     return [_baseMapView screenToMap:screenPos];
 }
 
--(NTScreenPos*)mapToScreen:(NTMapPos*)mapPos {
+-(MSFScreenPos*)mapToScreen:(MSFMapPos*)mapPos {
     return [_baseMapView mapToScreen:mapPos];
 }
 

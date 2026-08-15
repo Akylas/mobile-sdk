@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_GLRESOURCEMANAGER_H_
-#define _CARTO_GLRESOURCEMANAGER_H_
+#ifndef _MASSIF_GLRESOURCEMANAGER_H_
+#define _MASSIF_GLRESOURCEMANAGER_H_
 
 #include "renderers/utils/GLResource.h"
 
@@ -14,7 +14,7 @@
 #include <thread>
 #include <vector>
 
-namespace carto {
+namespace massif {
 
     class GLResourceManager : public std::enable_shared_from_this<GLResourceManager> {
     public:

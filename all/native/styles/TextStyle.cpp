@@ -1,6 +1,6 @@
 #include "TextStyle.h"
 
-namespace carto {
+namespace massif {
     
     TextMargins::TextMargins(int left, int top, int right, int bottom) :
         _left(left),

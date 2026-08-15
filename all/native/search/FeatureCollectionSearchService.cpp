@@ -1,4 +1,4 @@
-#ifdef _CARTO_SEARCH_SUPPORT
+#ifdef _MASSIF_SEARCH_SUPPORT
 
 #include "FeatureCollectionSearchService.h"
 #include "components/Exceptions.h"
@@ -10,7 +10,7 @@
 #include "projections/EPSG3857.h"
 #include "utils/Log.h"
 
-namespace carto {
+namespace massif {
 
     FeatureCollectionSearchService::FeatureCollectionSearchService(const std::shared_ptr<Projection>& projection, const std::shared_ptr<FeatureCollection>& featureCollection) :
         _projection(projection),

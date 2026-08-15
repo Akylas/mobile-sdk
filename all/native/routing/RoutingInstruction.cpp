@@ -1,10 +1,10 @@
-#ifdef _CARTO_ROUTING_SUPPORT
+#ifdef _MASSIF_ROUTING_SUPPORT
 
 #include "RoutingInstruction.h"
 
 #include <sstream>
 
-namespace carto {
+namespace massif {
 
     RoutingInstruction::RoutingInstruction() :
         _action(RoutingAction::ROUTING_ACTION_NO_TURN),

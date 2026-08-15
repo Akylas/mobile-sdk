@@ -1,4 +1,4 @@
-#ifdef _CARTO_ROUTING_SUPPORT
+#ifdef _MASSIF_ROUTING_SUPPORT
 
 #include "ValhallaOnlineRoutingService.h"
 #include "components/Exceptions.h"
@@ -10,7 +10,7 @@
 
 #include <map>
 
-namespace carto {
+namespace massif {
 
     ValhallaOnlineRoutingService::ValhallaOnlineRoutingService(const std::string& apiKey) :
         _apiKey(apiKey),

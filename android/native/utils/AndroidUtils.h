@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_ANDROIDUTILS_H_
-#define _CARTO_ANDROIDUTILS_H_
+#ifndef _MASSIF_ANDROIDUTILS_H_
+#define _MASSIF_ANDROIDUTILS_H_
 
 #include <mutex>
 #include <string>
@@ -13,7 +13,7 @@
 #include <jni.h>
 #include <pthread.h>
 
-namespace carto {
+namespace massif {
 
     /**
      * AndroidUtils is an internal class of the SDK.

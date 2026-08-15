@@ -4,10 +4,10 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_VALHALLAROUTINGPROXY_H_
-#define _CARTO_VALHALLAROUTINGPROXY_H_
+#ifndef _MASSIF_VALHALLAROUTINGPROXY_H_
+#define _MASSIF_VALHALLAROUTINGPROXY_H_
 
-#ifdef _CARTO_ROUTING_SUPPORT
+#ifdef _MASSIF_ROUTING_SUPPORT
 
 #include "core/Variant.h"
 #include "routing/RoutingInstruction.h"
@@ -19,7 +19,7 @@ namespace sqlite3pp {
     class database;
 }
 
-namespace carto {
+namespace massif {
     class HTTPClient;
     class Projection;
     class RoutingRequest;
@@ -34,7 +34,7 @@ namespace carto {
         static std::shared_ptr<RouteMatchingResult> MatchRoute(HTTPClient& httpClient, const std::string& baseURL, const std::string& profile, const std::shared_ptr<RouteMatchingRequest>& request, std::map<std::string, std::string>& headers);
         static std::shared_ptr<RoutingResult> CalculateRoute(HTTPClient& httpClient, const std::string& baseURL, const std::string& profile, const std::shared_ptr<RoutingRequest>& request, std::map<std::string, std::string>& headers);
 
-#ifdef _CARTO_VALHALLA_ROUTING_SUPPORT
+#ifdef _MASSIF_VALHALLA_ROUTING_SUPPORT
         static std::shared_ptr<RouteMatchingResult> MatchRoute(const std::vector<std::shared_ptr<sqlite3pp::database> >& databases, const std::string& profile, const Variant& config, const std::shared_ptr<RouteMatchingRequest>& request);
         static std::shared_ptr<RoutingResult> CalculateRoute(const std::vector<std::shared_ptr<sqlite3pp::database> >& databases, const std::string& profile, const Variant& config, const std::shared_ptr<RoutingRequest>& request);
         static void AddLocale(const std::string& key, const std::string& json);

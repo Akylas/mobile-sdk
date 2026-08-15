@@ -1,4 +1,4 @@
-#ifdef _CARTO_PACKAGEMANAGER_SUPPORT
+#ifdef _MASSIF_PACKAGEMANAGER_SUPPORT
 
 #include "PackageManager.h"
 #include "core/BinaryData.h"
@@ -38,17 +38,17 @@
 
 namespace {
 
-    std::shared_ptr<carto::PackageMetaInfo> createPackageMetaInfo(const rapidjson::Value& value) {
+    std::shared_ptr<massif::PackageMetaInfo> createPackageMetaInfo(const rapidjson::Value& value) {
         rapidjson::StringBuffer metaInfo;
         rapidjson::Writer<rapidjson::StringBuffer> writer(metaInfo);
         value.Accept(writer);
-        carto::Variant var = carto::Variant::FromString(metaInfo.GetString());
-        return std::make_shared<carto::PackageMetaInfo>(var);
+        massif::Variant var = massif::Variant::FromString(metaInfo.GetString());
+        return std::make_shared<massif::PackageMetaInfo>(var);
     }
 
 }
 
-namespace carto {
+namespace massif {
     
     PackageManager::PackageManager(const std::string& packageListURL, const std::string& dataFolder, const std::string& serverEncKey, const std::string& localEncKey) :
         _packageListURL(packageListURL),
@@ -752,11 +752,11 @@ namespace carto {
         if (zlib::inflate_gzip(packageListData.data(), packageListData.size(), packageListDataTemp)) {
             packageListData = std::move(packageListDataTemp);
 #ifdef HAVE_ZSTD
-        } else if (carto::mvt::compression::inflate_zstd(packageListData.data(), packageListData.size(), packageListDataTemp)) {
+        } else if (massif::mvt::compression::inflate_zstd(packageListData.data(), packageListData.size(), packageListDataTemp)) {
             packageListData = std::move(packageListDataTemp);
 #endif
 #ifdef HAVE_BROTLI
-        } else if (carto::mvt::compression::inflate_brotli(packageListData.data(), packageListData.size(), packageListDataTemp)) {
+        } else if (massif::mvt::compression::inflate_brotli(packageListData.data(), packageListData.size(), packageListDataTemp)) {
             packageListData = std::move(packageListDataTemp);
 #endif
         }

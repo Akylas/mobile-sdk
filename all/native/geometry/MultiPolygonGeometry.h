@@ -4,13 +4,13 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_MULTIPOLYGONGEOMETRY_H_
-#define _CARTO_MULTIPOLYGONGEOMETRY_H_
+#ifndef _MASSIF_MULTIPOLYGONGEOMETRY_H_
+#define _MASSIF_MULTIPOLYGONGEOMETRY_H_
 
 #include "geometry/MultiGeometry.h"
 #include "geometry/PolygonGeometry.h"
 
-namespace carto {
+namespace massif {
     
     /**
      * A multipolygon container.

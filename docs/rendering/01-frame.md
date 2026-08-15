@@ -110,7 +110,7 @@ plane's flight, which is also how the camera clears whatever stands between the 
 
 The platform `MapView`s are hand-written wrappers over `BaseMapView`, not generated, so each one has
 to forward the flight API itself: `flyTo` (all three overloads), `stopFlight`, `isFlightActive` and
-`getFlightProgress` are exposed on both `android/java/com/carto/ui/MapView.java` and
+`getFlightProgress` are exposed on both `android/java/com/massifmaps/ui/MapView.java` and
 `ios/objc/ui/MapView.{h,mm}`. A method missing from one of those two files is missing from that
 platform's API however complete the C++ is — iOS had no flight API at all until the peak-finder
 demo needed it.

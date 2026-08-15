@@ -3,7 +3,7 @@
 
 %module(directors="1") DirAssetPackage
 
-!proxy_imports(carto::DirAssetPackage, core.BinaryData, core.StringVector, utils.AssetPackage)
+!proxy_imports(massif::DirAssetPackage, core.BinaryData, core.StringVector, utils.AssetPackage)
 
 %{
 #include "utils/DirAssetPackage.h"
@@ -14,17 +14,17 @@
 %include <std_shared_ptr.i>
 %include <std_string.i>
 %include <std_vector.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/BinaryData.i"
 %import "core/StringVector.i"
 %import "utils/AssetPackage.i"
 
-!polymorphic_shared_ptr(carto::DirAssetPackage, utils.DirAssetPackage)
+!polymorphic_shared_ptr(massif::DirAssetPackage, utils.DirAssetPackage)
 
-%attributestring(carto::DirAssetPackage, std::string, DirPath, getDirPath)
-%attributeval(carto::DirAssetPackage, %arg(std::vector<std::string>), LocalAssetNames, getLocalAssetNames)
-%std_io_exceptions(carto::DirAssetPackage::DirAssetPackage)
+%attributestring(massif::DirAssetPackage, std::string, DirPath, getDirPath)
+%attributeval(massif::DirAssetPackage, %arg(std::vector<std::string>), LocalAssetNames, getLocalAssetNames)
+%std_io_exceptions(massif::DirAssetPackage::DirAssetPackage)
 
 %include "utils/DirAssetPackage.h"
 

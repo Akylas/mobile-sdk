@@ -13,11 +13,11 @@ distDir="${baseDir}/dist/ios"
 rm -rf ${tempDir}
 mkdir -p ${tempDir}
 cp -r ${baseDir}/generated/ios-objc/proxies/* ${tempDir}
-cp -r ${baseDir}/ios/objc/ui/MapView.h ${tempDir}/NTMapView.h
-cp -r ${baseDir}/ios/objc/ui/MapView.mm ${tempDir}/NTMapView.mm
-find ${tempDir} -name "*NTBaseMapView.*" -exec rm {} \;
-find ${tempDir} -name "*NTRedrawRequestListener.*" -exec rm {} \;
-find ${tempDir} -name "*NTIOSUtils.*" -exec rm {} \;
+cp -r ${baseDir}/ios/objc/ui/MapView.h ${tempDir}/MSFMapView.h
+cp -r ${baseDir}/ios/objc/ui/MapView.mm ${tempDir}/MSFMapView.mm
+find ${tempDir} -name "*MSFBaseMapView.*" -exec rm {} \;
+find ${tempDir} -name "*MSFRedrawRequestListener.*" -exec rm {} \;
+find ${tempDir} -name "*MSFIOSUtils.*" -exec rm {} \;
 
 # Remove attributes unsupported by doxygen from source files
 find ${tempDir} -name "*.h" -exec sed -i '' 's/__attribute__ ((visibility("default")))//g' {} \;

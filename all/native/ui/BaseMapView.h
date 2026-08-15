@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_BASEMAPVIEW_H_
-#define _CARTO_BASEMAPVIEW_H_
+#ifndef _MASSIF_BASEMAPVIEW_H_
+#define _MASSIF_BASEMAPVIEW_H_
 
 #include <memory>
 #include <mutex>
 #include <thread>
 
-namespace carto {
+namespace massif {
     class CancelableThreadPool;
     class Layers;
     class MapBounds;

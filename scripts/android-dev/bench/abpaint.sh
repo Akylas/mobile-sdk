@@ -8,11 +8,11 @@ ROUNDS="${1:-3}"; shift 2>/dev/null
 DIR=$(dirname "$0")
 i=0
 while [ "$i" -lt "$ROUNDS" ]; do
-  adb shell setprop debug.carto.terrainpaint 1; adb shell setprop debug.carto.paintdetail 0
+  adb shell setprop debug.massif.terrainpaint 1; adb shell setprop debug.massif.paintdetail 0
   sh "$DIR/north.sh" paint "$@"
-  adb shell setprop debug.carto.terrainpaint 1; adb shell setprop debug.carto.paintdetail 1
+  adb shell setprop debug.massif.terrainpaint 1; adb shell setprop debug.massif.paintdetail 1
   sh "$DIR/north.sh" paint-detail "$@"
-  adb shell setprop debug.carto.terrainpaint 0; adb shell setprop debug.carto.paintdetail 0
+  adb shell setprop debug.massif.terrainpaint 0; adb shell setprop debug.massif.paintdetail 0
   sh "$DIR/north.sh" normalmap "$@"
   i=$((i + 1))
 done

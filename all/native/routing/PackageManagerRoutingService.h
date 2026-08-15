@@ -4,10 +4,10 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_PACKAGEMANAGERROUTINGSERVICE_H_
-#define _CARTO_PACKAGEMANAGERROUTINGSERVICE_H_
+#ifndef _MASSIF_PACKAGEMANAGERROUTINGSERVICE_H_
+#define _MASSIF_PACKAGEMANAGERROUTINGSERVICE_H_
 
-#if defined(_CARTO_ROUTING_SUPPORT) && defined(_CARTO_PACKAGEMANAGER_SUPPORT)
+#if defined(_MASSIF_ROUTING_SUPPORT) && defined(_MASSIF_PACKAGEMANAGER_SUPPORT)
 
 #include "packagemanager/PackageManager.h"
 #include "routing/RoutingService.h"
@@ -17,7 +17,7 @@
 #include <map>
 #include <mutex>
 
-namespace carto {
+namespace massif {
     namespace osrm {
         class RouteFinder;
     }

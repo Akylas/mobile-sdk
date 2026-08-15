@@ -3,7 +3,7 @@
 #include <iomanip>
 #include <sstream>
 
-namespace carto {
+namespace massif {
 
     ClickInfo::ClickInfo(ClickType::ClickType clickType, float duration) :
         _clickType(clickType),

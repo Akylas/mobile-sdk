@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_CLASSREGISTRY_H_
-#define _CARTO_CLASSREGISTRY_H_
+#ifndef _MASSIF_CLASSREGISTRY_H_
+#define _MASSIF_CLASSREGISTRY_H_
 
 #include <typeinfo>
 #include <typeindex>
@@ -13,7 +13,7 @@
 #include <string>
 #include <unordered_map>
 
-namespace carto {
+namespace massif {
 
     class ClassRegistry {
     public:

@@ -8,7 +8,7 @@
 
 #include <cmath>
 
-namespace carto {
+namespace massif {
 
     struct BitmapCanvas::AndroidImpl::RectFClass {
         JNIUniqueGlobalRef<jclass> clazz;

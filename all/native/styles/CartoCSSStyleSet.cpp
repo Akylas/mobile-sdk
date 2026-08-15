@@ -2,7 +2,7 @@
 #include "core/BinaryData.h"
 #include "utils/AssetPackage.h"
 
-namespace carto {
+namespace massif {
     
     CartoCSSStyleSet::CartoCSSStyleSet(const std::string& cartoCSS) :
         _cartoCSS(cartoCSS),

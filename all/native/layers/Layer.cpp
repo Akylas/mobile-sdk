@@ -11,7 +11,7 @@
 
 #include <limits>
 
-namespace carto {
+namespace massif {
 
     Layer::~Layer() {
     }

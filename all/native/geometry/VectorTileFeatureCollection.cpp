@@ -1,6 +1,6 @@
 #include "VectorTileFeatureCollection.h"
 
-namespace carto {
+namespace massif {
 
     VectorTileFeatureCollection::VectorTileFeatureCollection(const std::vector<std::shared_ptr<VectorTileFeature> >& features) :
         FeatureCollection(features.begin(), features.end())

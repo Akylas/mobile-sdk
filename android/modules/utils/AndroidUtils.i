@@ -35,11 +35,11 @@
 %typemap(imtype) jobject context "System.IntPtr"
 %typemap(cstype) jobject context "Android.Content.Context"
 
-%ignore carto::AndroidUtils::JNILocalFrame;
-%ignore carto::AndroidUtils::GetJVM;
-%ignore carto::AndroidUtils::GetCurrentThreadJNIEnv;
-%ignore carto::AndroidUtils::GetPackageName;
-%ignore carto::AndroidUtils::GetDeviceId;
+%ignore massif::AndroidUtils::JNILocalFrame;
+%ignore massif::AndroidUtils::GetJVM;
+%ignore massif::AndroidUtils::GetCurrentThreadJNIEnv;
+%ignore massif::AndroidUtils::GetPackageName;
+%ignore massif::AndroidUtils::GetDeviceId;
 
 %include "utils/AndroidUtils.h"
 

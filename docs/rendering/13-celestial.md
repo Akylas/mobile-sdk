@@ -194,7 +194,7 @@ What each view can reveal is NOT the same, and this is the trap:
 - **`TextureMapView` (Android, TextureView)** — an ordinary view in the hierarchy
   (`setOpaque(false)`), so it blends with whatever is behind it in the layout. This is the one for
   a map over other UI.
-- **`NTMapView` (iOS, GLKView)** — `opaque = NO` on the view and its layer, and a clear background.
+- **`MSFMapView` (iOS, GLKView)** — `opaque = NO` on the view and its layer, and a clear background.
 
 The demo wires the first case end to end (`DemoCameraPreview`): a plain `SurfaceView` added at
 index 0 runs a Camera2 preview, the map sits over it as a media overlay, and the sky is drawn on

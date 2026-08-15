@@ -1,6 +1,6 @@
 #include "CameraEvent.h"
 
-namespace carto {
+namespace massif {
 
     CameraEvent::~CameraEvent() {
     }

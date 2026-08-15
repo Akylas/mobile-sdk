@@ -3,7 +3,7 @@
 
 %module Feature
 
-!proxy_imports(carto::Feature, core.Variant, geometry.Geometry)
+!proxy_imports(massif::Feature, core.Variant, geometry.Geometry)
 
 %{
 #include "geometry/Feature.h"
@@ -12,20 +12,20 @@
 
 %include <std_shared_ptr.i>
 %include <std_vector.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/Variant.i"
 %import "geometry/Geometry.i"
 
-!polymorphic_shared_ptr(carto::Feature, geometry.Feature)
-!value_type(std::vector<std::shared_ptr<carto::Feature> >, geometry.FeatureVector)
+!polymorphic_shared_ptr(massif::Feature, geometry.Feature)
+!value_type(std::vector<std::shared_ptr<massif::Feature> >, geometry.FeatureVector)
 
-!attributestring_polymorphic(carto::Feature, geometry.Geometry, Geometry, getGeometry)
-%attributeval(carto::Feature, carto::Variant, Properties, getProperties)
-!standard_equals(carto::Feature);
+!attributestring_polymorphic(massif::Feature, geometry.Geometry, Geometry, getGeometry)
+%attributeval(massif::Feature, massif::Variant, Properties, getProperties)
+!standard_equals(massif::Feature);
 
 %include "geometry/Feature.h"
 
-!value_template(std::vector<std::shared_ptr<carto::Feature> >, geometry.FeatureVector)
+!value_template(std::vector<std::shared_ptr<massif::Feature> >, geometry.FeatureVector)
 
 #endif

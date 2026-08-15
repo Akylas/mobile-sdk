@@ -38,7 +38,7 @@
 
 #include <cglib/mat.h>
 
-namespace carto {
+namespace massif {
 
     struct TileRenderer::LabelOcclusionState {
         std::mutex mutex;
@@ -481,17 +481,17 @@ namespace carto {
     }
 
     // Measurement switches, all off by default:
-    //   debug.carto.groundpaint 1  paint drawn AS the ground (tangram) - one draw per tile cheaper,
+    //   debug.massif.groundpaint 1  paint drawn AS the ground (tangram) - one draw per tile cheaper,
     //                              but the shading goes under every ground-shaped fill
-    //   debug.carto.demtaps 4      elevation fetches per terrain vertex (16 lattice clamp / 4
+    //   debug.massif.demtaps 4      elevation fetches per terrain vertex (16 lattice clamp / 4
     //                              manual bilinear / 1 hardware-filtered, tangram's) - first
     //                              suspect whenever the frame sits in the swap wait
-    //   debug.carto.tilebg 1       per-layer per-tile background meshes tangram does not have
+    //   debug.massif.tilebg 1       per-layer per-tile background meshes tangram does not have
 #ifdef __ANDROID__
     bool TileRenderer::isTerrainTileBackgroundsForced() {
         static const bool forced = [] {
             char property[PROP_VALUE_MAX] = { 0 };
-            return __system_property_get("debug.carto.tilebg", property) > 0 && property[0] == '1';
+            return __system_property_get("debug.massif.tilebg", property) > 0 && property[0] == '1';
         }();
         return forced;
     }
@@ -507,12 +507,12 @@ namespace carto {
     // two-triangle quad. Tangram has no stencil anywhere. What they protect against is a retained
     // (proxy) tile painting through the gaps of the tile that replaced it, so the A/B to run is
     // the zoom transitions, not only the frame rate.
-    //   adb shell setprop debug.carto.tilemasks 1
+    //   adb shell setprop debug.massif.tilemasks 1
 #ifdef __ANDROID__
     int TileRenderer::tileMasksMode() {
         static const int mode = [] {
             char property[PROP_VALUE_MAX] = { 0 };
-            if (__system_property_get("debug.carto.tilemasks", property) > 0) {
+            if (__system_property_get("debug.massif.tilemasks", property) > 0) {
                 if (property[0] == '0') {
                     return 0;
                 }
@@ -527,7 +527,7 @@ namespace carto {
     bool TileRenderer::isInline3DEnabled() {
         static const bool enabled = [] {
             char property[PROP_VALUE_MAX] = { 0 };
-            return !(__system_property_get("debug.carto.inline3d", property) > 0 && property[0] == '0');
+            return !(__system_property_get("debug.massif.inline3d", property) > 0 && property[0] == '0');
         }();
         return enabled;
     }
@@ -545,7 +545,7 @@ namespace carto {
     int TileRenderer::terrainDemTaps() {
         static const int taps = [] {
             char property[PROP_VALUE_MAX] = { 0 };
-            if (__system_property_get("debug.carto.demtaps", property) > 0) {
+            if (__system_property_get("debug.massif.demtaps", property) > 0) {
                 int value = std::atoi(property);
                 if (value > 0) {
                     return value;
@@ -565,7 +565,7 @@ namespace carto {
     bool TileRenderer::isTerrainPaintOnGroundForced() {
         static const bool forced = [] {
             char property[PROP_VALUE_MAX] = { 0 };
-            return __system_property_get("debug.carto.groundpaint", property) > 0 && property[0] == '1';
+            return __system_property_get("debug.massif.groundpaint", property) > 0 && property[0] == '1';
         }();
         return forced;
     }
@@ -703,7 +703,7 @@ namespace carto {
                 if (_elevationTextureCache) {
                     // The paint reads the elevation texture per FRAGMENT, so it may ignore the
                     // mesh's level cap. A dial, not a flag - each level back is 4x the working set.
-                    //   adb shell setprop debug.carto.paintdetail 0|1|2   (2 = the source's own level)
+                    //   adb shell setprop debug.massif.paintdetail 0|1|2   (2 = the source's own level)
                     _elevationTextureCache->setDetailLevels(_terrainPaintEnabled && _terrainPaintFullDetail ? terrainPaintDetailLevels() : 0);
                     _elevationTextureCache->beginFrame();
                     std::shared_ptr<ElevationTextureCache> elevationTextureCache = _elevationTextureCache;
@@ -756,7 +756,7 @@ namespace carto {
         // unscaled: it separates COPLANAR STYLE LAYERS, one step each - it is not a budget to spend,
         // and scaling it up is what let far content over a near ridge. An un-subdivided fill gets
         // its clearance from the geometry-sized slack instead. docs/rendering/05-depth-model.md.
-        //   adb shell setprop debug.carto.depthshift <value>   (measurement override)
+        //   adb shell setprop debug.massif.depthshift <value>   (measurement override)
         float contentDepthShift = getTerrainContentDepthShift();
         if (_terrainGroundActive && contentDepthShift == 0.0f) {
             contentDepthShift = TERRAIN_TANGRAM_DEPTH_SHIFT;
@@ -768,7 +768,7 @@ namespace carto {
         // sag, so the clearance is expressed in metres and converted at the equator scale - the
         // remaining 1/cos(latitude) is under a factor of 1.5 at the latitudes terrain is used at,
         // which is inside the tolerance this is tuned to anyway.
-        //   adb shell setprop debug.carto.lineclearance <metres>
+        //   adb shell setprop debug.massif.lineclearance <metres>
         tileRenderer->setTerrainLineClearance(static_cast<float>(terrainLineClearanceMeters() * Const::WORLD_SIZE / Const::EARTH_CIRCUMFERENCE));
         tileRenderer->setTerrainEdgeStitching(regularGrid && activeTerrainOptions && activeTerrainOptions->isTileEdgeStitchingEnabled());
         // Draped content is baked FLAT (orthographic, no displacement), so lines need no terrain
@@ -780,7 +780,7 @@ namespace carto {
         bool drapeLines = drapeFills && activeTerrainOptions && activeTerrainOptions->isDrapeLinesEnabled();
         tileRenderer->setTerrainDrapeFills(drapeFills, drapeLines);
         // ...except the layers the application keeps sharp (contours by default), drawn live instead.
-        //   adb shell setprop debug.carto.nodrapelayers "^contour.*" ("none" drapes everything)
+        //   adb shell setprop debug.massif.nodrapelayers "^contour.*" ("none" drapes everything)
         tileRenderer->setNoDrapeLayerFilter(noDrapeLayerFilter(
             activeTerrainOptions ? activeTerrainOptions->getNoDrapeLayerFilter() : std::string()));
         tileRenderer->setTerrainDrapeResolution(resolveDrapeResolution(activeTerrainOptions ? activeTerrainOptions->getDrapeResolution() : 0, viewState, _options.lock()));
@@ -1120,7 +1120,7 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
 #ifdef __ANDROID__
         static const float depthShift = [] {
             char property[PROP_VALUE_MAX] = { 0 };
-            if (__system_property_get("debug.carto.depthshift", property) > 0) {
+            if (__system_property_get("debug.massif.depthshift", property) > 0) {
                 return static_cast<float>(std::atof(property));
             }
             return 0.0f;
@@ -1135,7 +1135,7 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
         std::string pattern = optionFilter;
 #ifdef __ANDROID__
         char property[PROP_VALUE_MAX] = { 0 };
-        if (__system_property_get("debug.carto.nodrapelayers", property) > 0 && property[0]) {
+        if (__system_property_get("debug.massif.nodrapelayers", property) > 0 && property[0]) {
             pattern = (std::strcmp(property, "none") == 0 ? std::string() : property);
         }
 #endif
@@ -1163,7 +1163,7 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
     float TileRenderer::terrainLineClearanceMeters() {
         static const float meters = [] {
             char property[PROP_VALUE_MAX] = { 0 };
-            if (__system_property_get("debug.carto.lineclearance", property) > 0) {
+            if (__system_property_get("debug.massif.lineclearance", property) > 0) {
                 return static_cast<float>(std::atof(property));
             }
             return DEFAULT_LINE_CLEARANCE_METERS;
@@ -1178,10 +1178,10 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
 
     int TileRenderer::terrainPaintDetailLevels() {
 #ifdef __ANDROID__
-        // adb shell setprop debug.carto.paintdetail 0|1|2 - elevation levels beyond the mesh cap.
+        // adb shell setprop debug.massif.paintdetail 0|1|2 - elevation levels beyond the mesh cap.
         static const int levels = [] {
             char property[PROP_VALUE_MAX] = { 0 };
-            if (__system_property_get("debug.carto.paintdetail", property) > 0) {
+            if (__system_property_get("debug.massif.paintdetail", property) > 0) {
                 int value = std::atoi(property);
                 if (value >= 0 && value <= 4) {
                     return value;
@@ -1566,7 +1566,7 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
             // aspect is mirrored about the east-west axis and the light rotates the wrong way.
             vec2 deriv = vec2(-normal.x, normal.y) / max(normal.z, 0.001);
 
-            // Extra vertical exaggeration, a CARTO addition with no MapLibre equivalent. At the
+            // Extra vertical exaggeration, a Massif addition with no MapLibre equivalent. At the
             // default of 1.0 the slope is left exactly as the normal map encoded it.
             deriv *= u_exaggeration;
 

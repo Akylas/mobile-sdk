@@ -12,7 +12,7 @@
 
 namespace {
 
-    std::string CalculateMD5Hash(const std::shared_ptr<carto::BinaryData>& data) {
+    std::string CalculateMD5Hash(const std::shared_ptr<massif::BinaryData>& data) {
         if (!data) {
             return std::string();
         }
@@ -24,7 +24,7 @@ namespace {
 
 }
 
-namespace carto {
+namespace massif {
 
     AssetPackageUpdater::~AssetPackageUpdater() {
     }

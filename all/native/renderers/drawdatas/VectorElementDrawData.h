@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_VECTORELEMENTDRAWDATA_H_
-#define _CARTO_VECTORELEMENTDRAWDATA_H_
+#ifndef _MASSIF_VECTORELEMENTDRAWDATA_H_
+#define _MASSIF_VECTORELEMENTDRAWDATA_H_
 
 #include "graphics/Color.h"
 
 #include <memory>
 
-namespace carto {
+namespace massif {
     class ProjectionSurface;
     class VectorElement;
     

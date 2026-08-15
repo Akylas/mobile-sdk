@@ -3,7 +3,7 @@
 
 %module CartoCSSStyleSet
 
-!proxy_imports(carto::CartoCSSStyleSet, utils.AssetPackage)
+!proxy_imports(massif::CartoCSSStyleSet, utils.AssetPackage)
 
 %{
 #include "styles/CartoCSSStyleSet.h"
@@ -14,19 +14,19 @@
 %include <std_string.i>
 %include <std_map.i>
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "utils/AssetPackage.i"
 
-!shared_ptr(carto::CartoCSSStyleSet, styles.CartoCSSStyleSet)
+!shared_ptr(massif::CartoCSSStyleSet, styles.CartoCSSStyleSet)
 
-%attributestring(carto::CartoCSSStyleSet, std::string, CartoCSS, getCartoCSS)
-%attributestring(carto::CartoCSSStyleSet, std::shared_ptr<carto::AssetPackage>, AssetPackage, getAssetPackage)
-%std_exceptions(carto::CartoCSSStyleSet::CartoCSSStyleSet)
-!standard_equals(carto::CartoCSSStyleSet);
+%attributestring(massif::CartoCSSStyleSet, std::string, CartoCSS, getCartoCSS)
+%attributestring(massif::CartoCSSStyleSet, std::shared_ptr<massif::AssetPackage>, AssetPackage, getAssetPackage)
+%std_exceptions(massif::CartoCSSStyleSet::CartoCSSStyleSet)
+!standard_equals(massif::CartoCSSStyleSet);
 
 %include "styles/CartoCSSStyleSet.h"
 
-!value_template(std::map<std::string, std::shared_ptr<carto::CartoCSSStyleSet> >, styles.StringCartoCSSStyleSetMap);
+!value_template(std::map<std::string, std::shared_ptr<massif::CartoCSSStyleSet> >, styles.StringCartoCSSStyleSetMap);
 
 #endif

@@ -24,7 +24,7 @@
 #include <nml/GLResourceManager.h>
 #include <nml/Package.h>
 
-namespace carto {
+namespace massif {
 
     BillboardRenderer::BillboardRenderer() :
         _mapRenderer(),

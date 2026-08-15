@@ -25,11 +25,11 @@ find ${tempDir} -name "*.java" > ${tempDir}/files
 # Execute JavaDoc
 rm -rf ${javadocDir}
 mkdir -p ${javadocDir}
-${javadocExec} -public -doctitle "CARTO Mobile SDK" -classpath "${ANDROID_HOME}/platforms/android-21/android.jar" -d "${javadocDir}" -sourcepath "@${tempDir}/files"
+${javadocExec} -public -doctitle "Massif Maps" -classpath "${ANDROID_HOME}/platforms/android-21/android.jar" -d "${javadocDir}" -sourcepath "@${tempDir}/files"
 
 # Create .jar
 cd ${javadocDir}
-${jarExec} cf ../carto-mobile-sdk-javadoc.jar .
+${jarExec} cf ../massif-javadoc.jar .
 cd ${cmdDir}
 
 # Finished

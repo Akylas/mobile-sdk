@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_LINESTYLE_H_
-#define _CARTO_LINESTYLE_H_
+#ifndef _MASSIF_LINESTYLE_H_
+#define _MASSIF_LINESTYLE_H_
 
 #include "styles/Style.h"
 
 #include <memory>
 
-namespace carto {
+namespace massif {
     
     namespace LineEndType {
         /**

@@ -28,11 +28,9 @@ TITLES = {
     "06": ("package-manager", "Package Manager"),
     "07": ("geocoding", "Geocoding"),
     "08": ("routing", "Routing"),
-    "09": ("carto-integrations", "CARTO Integrations"),
     "10": ("clustering", "Clustering"),
     "11": ("ground-overlays", "Ground Overlays"),
     "12": ("performance", "Performance"),
-    "13": ("api-keys", "API Keys"),
 }
 
 HIGHLIGHT_OPEN = re.compile(r"\{%\s*highlight\s+([A-Za-z0-9_+-]+)[^%]*%\}")

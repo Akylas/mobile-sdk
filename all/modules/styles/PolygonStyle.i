@@ -3,7 +3,7 @@
 
 %module PolygonStyle
 
-!proxy_imports(carto::PolygonStyle, graphics.Bitmap, graphics.Color, styles.LineStyle)
+!proxy_imports(massif::PolygonStyle, graphics.Bitmap, graphics.Color, styles.LineStyle)
 
 %{
 #include "styles/PolygonStyle.h"
@@ -11,15 +11,15 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "styles/LineStyle.i"
 
-!polymorphic_shared_ptr(carto::PolygonStyle, styles.PolygonStyle)
+!polymorphic_shared_ptr(massif::PolygonStyle, styles.PolygonStyle)
 
-%attributestring(carto::PolygonStyle, std::shared_ptr<carto::LineStyle>, LineStyle, getLineStyle)
-%ignore carto::PolygonStyle::getBitmap;
-%ignore carto::PolygonStyle::PolygonStyle;
+%attributestring(massif::PolygonStyle, std::shared_ptr<massif::LineStyle>, LineStyle, getLineStyle)
+%ignore massif::PolygonStyle::getBitmap;
+%ignore massif::PolygonStyle::PolygonStyle;
 
 %include "styles/PolygonStyle.h"
 

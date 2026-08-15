@@ -4,13 +4,13 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_CAMERAZOOMEVENT_H_
-#define _CARTO_CAMERAZOOMEVENT_H_
+#ifndef _MASSIF_CAMERAZOOMEVENT_H_
+#define _MASSIF_CAMERAZOOMEVENT_H_
 
 #include "core/MapPos.h"
 #include "renderers/cameraevents/CameraEvent.h"
 
-namespace carto {
+namespace massif {
 
     class CameraZoomEvent : public CameraEvent {
     public:

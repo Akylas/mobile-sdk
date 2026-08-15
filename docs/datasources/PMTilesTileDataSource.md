@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `PMTilesTileDataSource` class provides support for reading PMTiles v3 archive files in the CARTO Mobile SDK. PMTiles is a single-file archive format for pyramids of tiled data, designed for efficient random access and cloud-optimized serving.
+The `PMTilesTileDataSource` class provides support for reading PMTiles v3 archive files in the Massif Maps. PMTiles is a single-file archive format for pyramids of tiled data, designed for efficient random access and cloud-optimized serving.
 
 ## Features
 

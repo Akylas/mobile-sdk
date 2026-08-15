@@ -5,7 +5,7 @@
 #include "renderers/drawdatas/LineDrawData.h"
 #include "utils/Log.h"
 
-namespace carto {
+namespace massif {
 
     Line::Line(const std::shared_ptr<LineGeometry>& geometry, const std::shared_ptr<LineStyle>& style) :
         VectorElement(geometry),

@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_FRAMEPROFILER_H_
-#define _CARTO_FRAMEPROFILER_H_
+#ifndef _MASSIF_FRAMEPROFILER_H_
+#define _MASSIF_FRAMEPROFILER_H_
 
 /**
  * Per-frame render timing, split by the section of the frame it was spent in.
@@ -16,24 +16,24 @@
  * guessing at it.
  *
  * It lives in the hot path - one clock read per section per frame - so it must cost nothing
- * when unused: with CARTO_FRAME_PROFILER at 0 the counters do not exist, the FRAME_PROF_*
+ * when unused: with MASSIF_FRAME_PROFILER at 0 the counters do not exist, the FRAME_PROF_*
  * macros expand to nothing, and their arguments are never evaluated.
  *
- * Enable it for a debug build with -DCARTO_FRAME_PROFILER=1 (scripts/android-dev passes
+ * Enable it for a debug build with -DMASSIF_FRAME_PROFILER=1 (scripts/android-dev passes
  * CMake flags through to the native build), then read the 'PROF' lines from logcat.
  */
-#ifndef CARTO_FRAME_PROFILER
-#define CARTO_FRAME_PROFILER 0
+#ifndef MASSIF_FRAME_PROFILER
+#define MASSIF_FRAME_PROFILER 0
 #endif
 
-#if CARTO_FRAME_PROFILER
+#if MASSIF_FRAME_PROFILER
 
 #include <algorithm>
 #include <chrono>
 
 #include "utils/Log.h"
 
-namespace carto {
+namespace massif {
     /**
      * The same frame sections, measured on the GPU with GL_EXT_disjoint_timer_query.
      *
@@ -129,13 +129,13 @@ namespace carto {
     };
 }
 
-#define FRAME_PROF_RESET() (carto::FrameProfiler::resetFrame())
-#define FRAME_PROF_NOW(var) double var = carto::FrameProfiler::now()
-#define FRAME_PROF_ADD(field, startVar) (carto::FrameProfiler::field += carto::FrameProfiler::now() - (startVar))
-#define FRAME_PROF_SET(field, value) (carto::FrameProfiler::field = (value))
-#define FRAME_PROF_END(startVar) (carto::FrameProfiler::endFrame(carto::FrameProfiler::now() - (startVar)))
-#define FRAME_PROF_GPU_BEGIN(section) (carto::GpuFrameProfiler::beginSection(carto::GpuFrameProfiler::section))
-#define FRAME_PROF_GPU_END() (carto::GpuFrameProfiler::endSection())
+#define FRAME_PROF_RESET() (massif::FrameProfiler::resetFrame())
+#define FRAME_PROF_NOW(var) double var = massif::FrameProfiler::now()
+#define FRAME_PROF_ADD(field, startVar) (massif::FrameProfiler::field += massif::FrameProfiler::now() - (startVar))
+#define FRAME_PROF_SET(field, value) (massif::FrameProfiler::field = (value))
+#define FRAME_PROF_END(startVar) (massif::FrameProfiler::endFrame(massif::FrameProfiler::now() - (startVar)))
+#define FRAME_PROF_GPU_BEGIN(section) (massif::GpuFrameProfiler::beginSection(massif::GpuFrameProfiler::section))
+#define FRAME_PROF_GPU_END() (massif::GpuFrameProfiler::endSection())
 
 #else
 

@@ -15,7 +15,7 @@
 #include <dirent.h>
 #endif
 
-namespace carto {
+namespace massif {
 
     DirAssetPackage::DirAssetPackage(const std::string& dirPath) :
         _dirPath(FileUtils::NormalizePath(dirPath)),

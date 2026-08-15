@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_PROJECTIONSURFACE_H_
-#define _CARTO_PROJECTIONSURFACE_H_
+#ifndef _MASSIF_PROJECTIONSURFACE_H_
+#define _MASSIF_PROJECTIONSURFACE_H_
 
 #include "core/MapPos.h"
 #include "core/MapVec.h"
@@ -16,7 +16,7 @@
 #include <cglib/mat.h>
 #include <cglib/ray.h>
 
-namespace carto {
+namespace massif {
 
     class ProjectionSurface {
     public:

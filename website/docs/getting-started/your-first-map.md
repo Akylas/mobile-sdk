@@ -13,7 +13,7 @@ This walkthrough puts an interactive map on screen. It assumes you have
 Add a `MapView` to your layout (`res/layout/main.xml`):
 
 ```xml
-<com.carto.ui.MapView
+<com.massifmaps.ui.MapView
     android:id="@+id/mapView"
     android:layout_width="fill_parent"
     android:layout_height="fill_parent" />
@@ -22,11 +22,13 @@ Add a `MapView` to your layout (`res/layout/main.xml`):
 Then in your `Activity`:
 
 ```kotlin
-import com.carto.core.MapPos
-import com.carto.core.MapPosVector
-import com.carto.layers.CartoOnlineVectorTileLayer
-import com.carto.layers.CartoBaseMapStyle
-import com.carto.ui.MapView
+import com.massifmaps.core.MapPos
+import com.massifmaps.datasources.HTTPTileDataSource
+import com.massifmaps.layers.VectorTileLayer
+import com.massifmaps.styles.CartoCSSStyleSet
+import com.massifmaps.ui.MapView
+import com.massifmaps.utils.ZippedAssetPackage
+import com.massifmaps.vectortiles.MBVectorTileDecoder
 
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -35,8 +37,12 @@ class MainActivity : AppCompatActivity() {
 
         val mapView = findViewById<MapView>(R.id.mapView)
 
-        // A base map layer (online vector tiles).
-        val baseLayer = CartoOnlineVectorTileLayer(CartoBaseMapStyle.CARTO_BASEMAP_STYLE_VOYAGER)
+        // A vector tile source: any OpenMapTiles-schema {z}/{x}/{y}.pbf endpoint.
+        val source = HTTPTileDataSource(0, 14, "https://example.com/tiles/{z}/{x}/{y}.pbf")
+
+        // A style. CartoCSS as a string, or a zipped style project via ZippedAssetPackage.
+        val style = CartoCSSStyleSet("#water { polygon-fill: #9cc3e0; }")
+        val baseLayer = VectorTileLayer(source, MBVectorTileDecoder(style))
         mapView.layers.add(baseLayer)
 
         // Center on a location. Coordinates are in the layer's projection (EPSG:3857 by default).
@@ -50,20 +56,24 @@ class MainActivity : AppCompatActivity() {
 ## iOS
 
 ```swift
-import CartoMobileSDK
+import MassifMaps
 
 class ViewController: GLKViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        let mapView = NTMapView()
+        let mapView = MSFMapView()
         view = mapView
 
-        let baseLayer = NTCartoOnlineVectorTileLayer(style: .CARTO_BASEMAP_STYLE_VOYAGER)
+        let source = MSFHTTPTileDataSource(minZoom: 0, maxZoom: 14,
+                                           baseURL: "https://example.com/tiles/{z}/{x}/{y}.pbf")
+        let style = MSFCartoCSSStyleSet(cartoCSS: "#water { polygon-fill: #9cc3e0; }")
+        let baseLayer = MSFVectorTileLayer(dataSource: source,
+                                           decoder: MSFMBVectorTileDecoder(style: style))
         mapView.getLayers()?.add(baseLayer)
 
         let proj = baseLayer!.getDataSource()!.getProjection()!
-        mapView.setFocus(proj.fromWgs84(NTMapPos(x: -0.8164, y: 51.2131)), durationSeconds: 0)
+        mapView.setFocus(proj.fromWgs84(MSFMapPos(x: -0.8164, y: 51.2131)), durationSeconds: 0)
         mapView.setZoom(5, durationSeconds: 0)
     }
 }
@@ -75,9 +85,9 @@ prefix/namespace:
 
 | Concept | Android (Java/Kotlin) | iOS (Objective-C/Swift) |
 |---|---|---|
-| Map view | `com.carto.ui.MapView` | `NTMapView` |
-| Position | `com.carto.core.MapPos` | `NTMapPos` |
-| Vector tile layer | `com.carto.layers.CartoOnlineVectorTileLayer` | `NTCartoOnlineVectorTileLayer` |
+| Map view | `com.massifmaps.ui.MapView` | `MSFMapView` |
+| Position | `com.massifmaps.core.MapPos` | `MSFMapPos` |
+| Vector tile layer | `com.massifmaps.layers.VectorTileLayer` | `MSFVectorTileLayer` |
 
 The [API Reference](/docs/api-reference) documents the shared class model; the per-language
 Javadoc / Jazzy output gives the exact signatures.

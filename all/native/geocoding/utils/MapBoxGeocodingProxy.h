@@ -4,10 +4,10 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_MAPBOXGEOCODINGPROXY_H_
-#define _CARTO_MAPBOXGEOCODINGPROXY_H_
+#ifndef _MASSIF_MAPBOXGEOCODINGPROXY_H_
+#define _MASSIF_MAPBOXGEOCODINGPROXY_H_
 
-#ifdef _CARTO_GEOCODING_SUPPORT
+#ifdef _MASSIF_GEOCODING_SUPPORT
 
 #include "geocoding/GeocodingResult.h"
 
@@ -15,7 +15,7 @@
 #include <string>
 #include <vector>
 
-namespace carto {
+namespace massif {
     class Projection;
     
     class MapBoxGeocodingProxy {

@@ -5,7 +5,7 @@
 #include <nml/GLModel.h>
 #include <nml/GLTexture.h>
 
-namespace carto {
+namespace massif {
 
     NMLResources::~NMLResources() {
     }

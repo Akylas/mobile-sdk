@@ -1,6 +1,6 @@
 #include "BalloonPopupButtonStyle.h"
 
-namespace carto {
+namespace massif {
     
     BalloonPopupButtonStyle::BalloonPopupButtonStyle(const Color& color,
                                                      int buttonWidth,

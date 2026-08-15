@@ -4,13 +4,13 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_GEOMETRYSIMPLIFIER_H_
-#define _CARTO_GEOMETRYSIMPLIFIER_H_
+#ifndef _MASSIF_GEOMETRYSIMPLIFIER_H_
+#define _MASSIF_GEOMETRYSIMPLIFIER_H_
 
 #include <memory>
 #include <string>
 
-namespace carto {
+namespace massif {
     class Geometry;
     class Projection;
     class ProjectionSurface;

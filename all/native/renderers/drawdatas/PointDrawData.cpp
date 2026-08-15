@@ -11,7 +11,7 @@
 #include <utility>
 #include <algorithm>
 
-namespace carto {
+namespace massif {
 
     PointDrawData::PointDrawData(const PointGeometry& geometry, const PointStyle& style, const Projection& projection, const std::shared_ptr<ProjectionSurface>& projectionSurface) :
         VectorElementDrawData(style.getColor(), projectionSurface),

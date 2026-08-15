@@ -4,10 +4,10 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_SEARCHPROXY_H_
-#define _CARTO_SEARCHPROXY_H_
+#ifndef _MASSIF_SEARCHPROXY_H_
+#define _MASSIF_SEARCHPROXY_H_
 
-#ifdef _CARTO_SEARCH_SUPPORT
+#ifdef _MASSIF_SEARCH_SUPPORT
 
 #include "core/MapBounds.h"
 #include "search/SearchRequest.h"
@@ -17,7 +17,7 @@
 #include <vector>
 #include <regex>
 
-namespace carto {
+namespace massif {
     class Geometry;
     class Projection;
     class QueryExpression;
@@ -33,7 +33,7 @@ namespace carto {
 
         double testElement(const std::shared_ptr<Geometry>& geometry, const std::string* layerName, const Variant& var) const;
 
-        static double calculateDistance(const std::shared_ptr<carto::Geometry>& geometry1, const std::shared_ptr<carto::Geometry>& geometry2);
+        static double calculateDistance(const std::shared_ptr<massif::Geometry>& geometry1, const std::shared_ptr<massif::Geometry>& geometry2);
 
     protected:
         std::shared_ptr<SearchRequest> _request;

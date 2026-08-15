@@ -6,7 +6,7 @@
 
 %module(directors="1") VectorDataSource
 
-!proxy_imports(carto::VectorDataSource, core.MapBounds, datasources.components.VectorData, projections.Projection, renderers.components.CullState, graphics.ViewState)
+!proxy_imports(massif::VectorDataSource, core.MapBounds, datasources.components.VectorData, projections.Projection, renderers.components.CullState, graphics.ViewState)
 
 %{
 #include "datasources/VectorDataSource.h"
@@ -15,7 +15,7 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/MapBounds.i"
 %import "datasources/components/VectorData.i"
@@ -23,25 +23,25 @@
 %import "renderers/components/CullState.i"
 %import "graphics/ViewState.i"
 
-!polymorphic_shared_ptr(carto::VectorDataSource, datasources.VectorDataSource)
+!polymorphic_shared_ptr(massif::VectorDataSource, datasources.VectorDataSource)
 
-%feature("director") carto::VectorDataSource;
+%feature("director") massif::VectorDataSource;
 
-%attributeval(carto::VectorDataSource, carto::MapBounds, DataExtent, getDataExtent)
-!attributestring_polymorphic(carto::VectorDataSource, projections.Projection, Projection, getProjection)
-%std_exceptions(carto::VectorDataSource::VectorDataSource)
-%ignore carto::VectorDataSource::OnChangeListener;
-%ignore carto::VectorDataSource::registerOnChangeListener;
-%ignore carto::VectorDataSource::unregisterOnChangeListener;
-%ignore carto::VectorDataSource::getElementDataSource;
+%attributeval(massif::VectorDataSource, massif::MapBounds, DataExtent, getDataExtent)
+!attributestring_polymorphic(massif::VectorDataSource, projections.Projection, Projection, getProjection)
+%std_exceptions(massif::VectorDataSource::VectorDataSource)
+%ignore massif::VectorDataSource::OnChangeListener;
+%ignore massif::VectorDataSource::registerOnChangeListener;
+%ignore massif::VectorDataSource::unregisterOnChangeListener;
+%ignore massif::VectorDataSource::getElementDataSource;
 
-%feature("nodirector") carto::VectorDataSource::notifyElementAdded;
-%feature("nodirector") carto::VectorDataSource::notifyElementChanged;
-%feature("nodirector") carto::VectorDataSource::notifyElementRemoved;
-%feature("nodirector") carto::VectorDataSource::notifyElementsAdded;
-%feature("nodirector") carto::VectorDataSource::notifyElementsRemoved;
-%feature("nodirector") carto::VectorDataSource::attachElement;
-%feature("nodirector") carto::VectorDataSource::detachElement;
+%feature("nodirector") massif::VectorDataSource::notifyElementAdded;
+%feature("nodirector") massif::VectorDataSource::notifyElementChanged;
+%feature("nodirector") massif::VectorDataSource::notifyElementRemoved;
+%feature("nodirector") massif::VectorDataSource::notifyElementsAdded;
+%feature("nodirector") massif::VectorDataSource::notifyElementsRemoved;
+%feature("nodirector") massif::VectorDataSource::attachElement;
+%feature("nodirector") massif::VectorDataSource::detachElement;
 
 %include "datasources/VectorDataSource.h"
 

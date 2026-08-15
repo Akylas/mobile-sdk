@@ -4,7 +4,7 @@
 #include "ui/PopupClickInfo.h"
 #include "ui/PopupDrawInfo.h"
 
-namespace carto {
+namespace massif {
     
     CustomPopup::CustomPopup(const std::shared_ptr<Billboard>& baseBillboard, const std::shared_ptr<PopupStyle>& style, const std::shared_ptr<CustomPopupHandler>& popupHandler) :
         Popup(baseBillboard, style),

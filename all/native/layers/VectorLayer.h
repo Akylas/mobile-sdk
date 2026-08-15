@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_VECTORLAYER_H_
-#define _CARTO_VECTORLAYER_H_
+#ifndef _MASSIF_VECTORLAYER_H_
+#define _MASSIF_VECTORLAYER_H_
 
 #include "components/CancelableTask.h"
 #include "components/DirectorPtr.h"
@@ -17,7 +17,7 @@
 #include <memory>
 #include <mutex>
 
-namespace carto {
+namespace massif {
     class CullState;
     class ProjectionSurface;
     class TerrainProjectionSurface;

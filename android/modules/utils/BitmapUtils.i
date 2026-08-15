@@ -3,7 +3,7 @@
 
 %module BitmapUtils
 
-!proxy_imports(carto::BitmapUtils, graphics.Bitmap)
+!proxy_imports(massif::BitmapUtils, graphics.Bitmap)
 
 %{
 #include "utils/BitmapUtils.h"
@@ -12,7 +12,7 @@
 
 %include <std_shared_ptr.i>
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "graphics/Bitmap.i"
 
@@ -38,8 +38,8 @@
 %typemap(imtype) jobject "System.IntPtr"
 %typemap(cstype) jobject "Android.Graphics.Bitmap"
 
-%std_exceptions(carto::BitmapUtils::CreateBitmapFromAndroidBitmap)
-%std_exceptions(carto::BitmapUtils::CreateAndroidBitmapFromBitmap)
+%std_exceptions(massif::BitmapUtils::CreateBitmapFromAndroidBitmap)
+%std_exceptions(massif::BitmapUtils::CreateAndroidBitmapFromBitmap)
 
 %include "utils/BitmapUtils.h"
 

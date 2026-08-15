@@ -3,7 +3,7 @@
 
 %module AssetUtils
 
-!proxy_imports(carto::AssetUtils, core.BinaryData, core.StringVector)
+!proxy_imports(massif::AssetUtils, core.BinaryData, core.StringVector)
 
 %{
 #include "utils/AssetUtils.h"	
@@ -11,7 +11,7 @@
 
 %include <std_string.i>
 %include <std_vector.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/BinaryData.i"
 %import "core/StringVector.i"

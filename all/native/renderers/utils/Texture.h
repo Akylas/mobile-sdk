@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_TEXTURE_H_
-#define _CARTO_TEXTURE_H_
+#ifndef _MASSIF_TEXTURE_H_
+#define _MASSIF_TEXTURE_H_
 
 #include "renderers/utils/GLResource.h"
 
@@ -13,7 +13,7 @@
 
 #include <cglib/vec.h>
 
-namespace carto {
+namespace massif {
     class Bitmap;
     
     class Texture : public GLResource {

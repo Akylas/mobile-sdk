@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_BALLOONPOPUPBUTTONCLICKINFO_H_
-#define _CARTO_BALLOONPOPUPBUTTONCLICKINFO_H_
+#ifndef _MASSIF_BALLOONPOPUPBUTTONCLICKINFO_H_
+#define _MASSIF_BALLOONPOPUPBUTTONCLICKINFO_H_
 
 #include "ui/ClickInfo.h"
 
 #include <memory>
 
-namespace carto {
+namespace massif {
     class BalloonPopupButton;
     class Layer;
     class VectorElement;

@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_OPTIONS_H_
-#define _CARTO_OPTIONS_H_
+#ifndef _MASSIF_OPTIONS_H_
+#define _MASSIF_OPTIONS_H_
 
 #include "core/MapBounds.h"
 #include "core/MapRange.h"
@@ -19,7 +19,7 @@
 #include <mutex>
 #include <vector>
 
-namespace carto {
+namespace massif {
     class Bitmap;
     class CancelableThreadPool;
     class Projection;

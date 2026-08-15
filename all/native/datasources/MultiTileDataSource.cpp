@@ -6,7 +6,7 @@
 #include "utils/Const.h"
 #include "packagemanager/PackageTileMask.h"
 
-#ifdef _CARTO_OFFLINE_SUPPORT
+#ifdef _MASSIF_OFFLINE_SUPPORT
 #include "datasources/MBTilesTileDataSource.h"
 #endif
 
@@ -15,7 +15,7 @@
 
 #include <memory>
 
-namespace carto {
+namespace massif {
 
     MultiTileDataSource::MultiTileDataSource(int maxOpenedPackages) : TileDataSource(0, Const::MAX_SUPPORTED_ZOOM_LEVEL),
         _dataSources(),
@@ -200,7 +200,7 @@ namespace carto {
                 if (auto mbtilesDatasource = std::dynamic_pointer_cast<MergedMBVTTileDataSource>(dataSource)) {
                     tileMaskStr = mbtilesDatasource->getTileMask();
                 }
-#ifdef _CARTO_OFFLINE_SUPPORT
+#ifdef _MASSIF_OFFLINE_SUPPORT
                 if (auto mbtilesDatasource = std::dynamic_pointer_cast<MBTilesTileDataSource>(dataSource)) {
                     tileMaskStr = mbtilesDatasource->getTileMask();
                 }

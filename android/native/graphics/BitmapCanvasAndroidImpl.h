@@ -4,13 +4,13 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_BITMAPCANVASANDROIDIMPL_H_
-#define _CARTO_BITMAPCANVASANDROIDIMPL_H_
+#ifndef _MASSIF_BITMAPCANVASANDROIDIMPL_H_
+#define _MASSIF_BITMAPCANVASANDROIDIMPL_H_
 
 #include "graphics/BitmapCanvas.h"
 #include "utils/JNIUniqueGlobalRef.h"
 
-namespace carto {
+namespace massif {
 
     class BitmapCanvas::AndroidImpl : public BitmapCanvas::Impl {
     public:

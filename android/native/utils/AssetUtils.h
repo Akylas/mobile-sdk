@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_ASSETUTILS_H_
-#define _CARTO_ASSETUTILS_H_
+#ifndef _MASSIF_ASSETUTILS_H_
+#define _MASSIF_ASSETUTILS_H_
 
 #include <memory>
 #include <mutex>
@@ -15,7 +15,7 @@
 #include <jni.h>
 #include <android/asset_manager.h>
 
-namespace carto {
+namespace massif {
     class BinaryData;
 
     /**

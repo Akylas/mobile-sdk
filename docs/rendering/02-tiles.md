@@ -128,7 +128,7 @@ With the shared ground, content is displaced per vertex by the same elevation fu
 uses, so it does **not** need to be tesselated to follow the terrain — tangram does not subdivide at
 all. Ours subdivides **area fills only**, to two surface cells
 (`TerrainTileTransformer.cpp`, `AREA_THRESHOLD_CELLS = 2`, overridable with
-`adb shell setprop debug.carto.areathreshold N`).
+`adb shell setprop debug.massif.areathreshold N`).
 
 The reason is not the displacement, it is the depth model: an un-subdivided fill chords across the
 displaced surface, and the constant clip-space `depth_shift` has to cover that chord
@@ -176,7 +176,7 @@ Standard sources (HTTP, MBTiles, PMTiles, assets) plus two of interest here:
 
 `MBVectorTileDecoder` reads either. `setTileFormat` takes `TILE_FORMAT_AUTO` (the default),
 `TILE_FORMAT_MVT` or `TILE_FORMAT_MLT`. Everything downstream of the decode — CartoCSS,
-symbolizers, nuti parameters, the `vt::Tile` — is shared; only the bytes-to-features step differs.
+symbolizers, style parameters, the `vt::Tile` — is shared; only the bytes-to-features step differs.
 
 ```
 MBVectorTileDecoder ─ createFeatureDecoder() ─┬─ MBVTFeatureDecoder  (protobuf, pbf.hpp)
@@ -328,7 +328,7 @@ resolution and filters by importance afterwards. That gap is open.
 ### Binary size
 
 geojson-vt is header-only, and the code it replaces went away, so the cost is small but not zero —
-`libcarto_mobile_sdk.so`, arm64-v8a, debug build, stripped:
+`libmassif.so`, arm64-v8a, debug build, stripped:
 
 | | bytes |
 |---|---|

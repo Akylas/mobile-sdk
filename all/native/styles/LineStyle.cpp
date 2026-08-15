@@ -1,6 +1,6 @@
 #include "LineStyle.h"
 
-namespace carto {
+namespace massif {
 
     LineStyle::LineStyle(const Color& color, const std::shared_ptr<Bitmap>& bitmap, float clickWidth,
             LineEndType::LineEndType lineEndType, LineJoinType::LineJoinType lineJoinType,

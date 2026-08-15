@@ -4,13 +4,13 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_PROJECTION_H_
-#define _CARTO_PROJECTION_H_
+#ifndef _MASSIF_PROJECTION_H_
+#define _MASSIF_PROJECTION_H_
 
 #include "core/MapPos.h"
 #include "core/MapBounds.h"
 
-namespace carto {
+namespace massif {
     
     /**
      * An abstract base class for all projections.

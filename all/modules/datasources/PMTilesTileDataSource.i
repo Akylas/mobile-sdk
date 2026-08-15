@@ -3,9 +3,9 @@
 
 %module(directors="1") PMTilesTileDataSource
 
-#ifdef _CARTO_OFFLINE_SUPPORT
+#ifdef _MASSIF_OFFLINE_SUPPORT
 
-!proxy_imports(carto::PMTilesTileDataSource, core.MapTile, core.MapBounds, datasources.TileDataSource, datasources.components.TileData)
+!proxy_imports(massif::PMTilesTileDataSource, core.MapTile, core.MapBounds, datasources.TileDataSource, datasources.components.TileData)
 
 %{
 #include "datasources/PMTilesTileDataSource.h"
@@ -15,17 +15,17 @@
 
 %include <std_shared_ptr.i>
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/MapTile.i"
 %import "datasources/TileDataSource.i"
 %import "datasources/components/TileData.i"
 
-!polymorphic_shared_ptr(carto::PMTilesTileDataSource, datasources.PMTilesTileDataSource)
+!polymorphic_shared_ptr(massif::PMTilesTileDataSource, datasources.PMTilesTileDataSource)
 
-%std_io_exceptions(carto::PMTilesTileDataSource::PMTilesTileDataSource)
+%std_io_exceptions(massif::PMTilesTileDataSource::PMTilesTileDataSource)
 
-%feature("director") carto::PMTilesTileDataSource;
+%feature("director") massif::PMTilesTileDataSource;
 
 %include "datasources/PMTilesTileDataSource.h"
 

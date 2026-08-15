@@ -49,15 +49,15 @@ The following code describes how to adjust the `LocalVectorDataSource` performan
 
   <div id="tab-objectivec">
     {% highlight objc linenos %}
-    NTLocalVectorDataSource* vectorDataSource2 =
-        [[NTLocalVectorDataSource alloc] initWithProjection:proj
-                                         spatialIndexType: NTLocalSpatialIndexType::NT_LOCAL_SPATIAL_INDEX_TYPE_KDTREE];
+    MSFLocalVectorDataSource* vectorDataSource2 =
+        [[MSFLocalVectorDataSource alloc] initWithProjection:proj
+                                         spatialIndexType: MSFLocalSpatialIndexType::NT_LOCAL_SPATIAL_INDEX_TYPE_KDTREE];
     {% endhighlight %}
   </div>
 
   <div id="tab-swift">
     {% highlight swift linenos %}
-    let vectorDataSource2 = NTLocalVectorDataSource(projection: projection, spatialIndexType: NTLocalSpatialIndexType.LOCAL_SPATIAL_INDEX_TYPE_KDTREE)
+    let vectorDataSource2 = MSFLocalVectorDataSource(projection: projection, spatialIndexType: MSFLocalSpatialIndexType.LOCAL_SPATIAL_INDEX_TYPE_KDTREE)
     {% endhighlight %}
   </div>
 
@@ -116,14 +116,14 @@ All this is can be applied with just one line of code - as shown in the followin
   <div id="tab-objectivec">
     {% highlight objc linenos %}
     [vectorDataSource2 setGeometrySimplifier:
-        [[NTDouglasPeuckerGeometrySimplifier alloc] initWithTolerance: 1.0f / 320.0f]
+        [[MSFDouglasPeuckerGeometrySimplifier alloc] initWithTolerance: 1.0f / 320.0f]
     ];
     {% endhighlight %}
   </div>
 
   <div id="tab-swift">
     {% highlight swift linenos %}
-    vectorDataSource2?.setGeometrySimplifier(NTDouglasPeuckerGeometrySimplifier(tolerance: 1.0 / 320.0))
+    vectorDataSource2?.setGeometrySimplifier(MSFDouglasPeuckerGeometrySimplifier(tolerance: 1.0 / 320.0))
     {% endhighlight %}
   </div>
 

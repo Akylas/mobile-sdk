@@ -4,7 +4,7 @@
 
 #include <vector>
 
-namespace carto {
+namespace massif {
 
     Shader::~Shader() {
     }

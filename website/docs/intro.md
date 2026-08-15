@@ -4,21 +4,21 @@ sidebar_position: 1
 slug: /intro
 ---
 
-# CARTO Mobile SDK
+# Massif Maps
 
-A **maintained fork** of the original CARTO Mobile SDK ([CartoDB/mobile-sdk](https://github.com/CartoDB/mobile-sdk)), kept alive and extended by [Akylas](https://github.com/Akylas/mobile-sdk).
+A **maintained fork** of the original Massif Maps ([CartoDB/mobile-sdk](https://github.com/CartoDB/mobile-sdk)), kept alive, extended and renamed to Massif Maps. See [Migrating to Massif Maps](/docs/migration).
 
-CARTO Mobile SDK is an open, multi-platform framework for visualizing maps and providing
+Massif Maps is an open, multi-platform framework for visualizing maps and providing
 location-based services on mobile devices — smartphones and tablets. It ships a high-performance,
 flexible vector-tile renderer, multiple built-in routing engines (street and indoor), plus
 built-in geocoding and reverse geocoding.
 
-![CARTO Mobile SDK](/img/carto-mobile-sdk-animated.gif)
+![Massif Maps](/img/massif-animated.gif)
 
 ## Why this fork?
 
 CARTO stopped maintaining the original SDK. This fork continues it and adds many features on
-top of the original 4.x API, while keeping the same `com.carto.*` public API namespace so
+top of the original 4.x API, while keeping the same `com.massifmaps.*` public API namespace so
 existing code keeps working. Highlights added by the fork:
 
 - ⛰️ **[3D Terrain](/docs/features/3d-terrain)** — real elevation with render-to-texture fill draping and correct depth occlusion.
@@ -57,7 +57,7 @@ existing code keeps working. Highlights added by the fork:
 | Browse the classes | **[API Reference](/docs/api-reference)** |
 
 :::info Original documentation
-This site mirrors the structure of the [original CARTO Mobile SDK docs](https://cartodb.github.io/developers/mobile-sdk/).
+This site mirrors the structure of the [original Massif Maps docs](https://cartodb.github.io/developers/mobile-sdk/).
 Conceptual guides carried over from there still apply — only installation and the fork-specific
 features differ.
 :::

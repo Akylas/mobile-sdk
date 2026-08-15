@@ -4,10 +4,10 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_MAPRENDERERLISTENER_H_
-#define _CARTO_MAPRENDERERLISTENER_H_
+#ifndef _MASSIF_MAPRENDERERLISTENER_H_
+#define _MASSIF_MAPRENDERERLISTENER_H_
 
-namespace carto {
+namespace massif {
 
     /**
      * Listener for specific map renderer events.

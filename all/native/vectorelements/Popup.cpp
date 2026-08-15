@@ -3,7 +3,7 @@
 #include "styles/PopupStyle.h"
 #include "renderers/drawdatas/PopupDrawData.h"
 
-namespace carto {
+namespace massif {
     
     Popup::Popup(const std::shared_ptr<Billboard>& baseBillboard, const std::shared_ptr<PopupStyle>& style) :
         Billboard(baseBillboard),

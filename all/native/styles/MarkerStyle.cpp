@@ -1,6 +1,6 @@
 #include "MarkerStyle.h"
 
-namespace carto {
+namespace massif {
 
     MarkerStyle::MarkerStyle(const Color& color,
                              float attachAnchorPointX,

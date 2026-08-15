@@ -4,12 +4,12 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_MARKER_H_
-#define _CARTO_MARKER_H_
+#ifndef _MASSIF_MARKER_H_
+#define _MASSIF_MARKER_H_
 
 #include "vectorelements/Billboard.h"
 
-namespace carto {
+namespace massif {
     class MarkerDrawData;
     class MarkerStyle;
     

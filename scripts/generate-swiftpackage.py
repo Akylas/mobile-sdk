@@ -40,7 +40,7 @@ def generate_swift_package(version, profiles_csv, checksums_map=None, routing_ch
         print("No profiles provided")
         sys.exit(1)
 
-    framework_base = "CartoMobileSDK"
+    framework_base = "MassifMaps"
 
     def make_library_name(name):
         # Split on any non-alphanumeric separator and join by capitalizing subsequent parts

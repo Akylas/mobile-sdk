@@ -1,4 +1,4 @@
-#ifdef _CARTO_OFFLINE_SUPPORT
+#ifdef _MASSIF_OFFLINE_SUPPORT
 
 #include "PMTilesTileDataSource.h"
 #include "core/BinaryData.h"
@@ -14,7 +14,7 @@
 // For JSON parsing (simple extraction)
 #include <boost/algorithm/string.hpp>
 
-namespace carto {
+namespace massif {
 
     PMTilesTileDataSource::PMTilesTileDataSource(const std::string& path) :
         TileDataSource(),

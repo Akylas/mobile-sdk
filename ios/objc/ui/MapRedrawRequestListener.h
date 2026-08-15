@@ -4,17 +4,17 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#import "NTRedrawRequestListener.h"
+#import "MSFRedrawRequestListener.h"
 #import "ui/MapView.h"
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
-@interface NTMapRedrawRequestListener : NTRedrawRequestListener
+@interface MSFMapRedrawRequestListener : MSFRedrawRequestListener
 
-@property (weak, nonatomic) NTGLKView* view;
+@property (weak, nonatomic) MSFGLKView* view;
 
--(id)initWithView:(NTGLKView*)view;
+-(id)initWithView:(MSFGLKView*)view;
 
 @end
 

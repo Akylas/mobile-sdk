@@ -3,7 +3,7 @@
 
 %module MBVectorTileDecoder
 
-!proxy_imports(carto::MBVectorTileDecoder, core.BinaryData, core.StringVector, core.StringMap, graphics.Color, styles.CompiledStyleSet, styles.CartoCSSStyleSet, vectortiles.VectorTileDecoder)
+!proxy_imports(massif::MBVectorTileDecoder, core.BinaryData, core.StringVector, core.StringMap, graphics.Color, styles.CompiledStyleSet, styles.CartoCSSStyleSet, vectortiles.VectorTileDecoder)
 
 %{
 #include "vectortiles/MBVectorTileDecoder.h"
@@ -14,7 +14,7 @@
 %include <std_shared_ptr.i>
 %include <std_vector.i>
 %include <std_map.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/StringMap.i"
 %import "core/BinaryData.i"
@@ -22,35 +22,35 @@
 %import "styles/CartoCSSStyleSet.i"
 %import "vectortiles/VectorTileDecoder.i"
 
-!polymorphic_shared_ptr(carto::MBVectorTileDecoder, vectortiles.MBVectorTileDecoder)
+!polymorphic_shared_ptr(massif::MBVectorTileDecoder, vectortiles.MBVectorTileDecoder)
 
-%attributeval(carto::MBVectorTileDecoder, std::vector<std::string>, StyleParameters, getStyleParameters)
-%attributeval(carto::MBVectorTileDecoder, std::vector<std::string>, StyleLayerNames, getStyleLayerNames)
-%attributestring(carto::MBVectorTileDecoder, std::shared_ptr<carto::CompiledStyleSet>, CompiledStyle, getCompiledStyleSet, setCompiledStyleSet)
-%attributestring(carto::MBVectorTileDecoder, std::shared_ptr<carto::CartoCSSStyleSet>, CartoCSSStyle, getCartoCSSStyleSet, setCartoCSSStyleSet)
-%attribute(carto::MBVectorTileDecoder, bool, FeatureIdOverride, isFeatureIdOverride, setFeatureIdOverride)
-%attribute(carto::MBVectorTileDecoder, carto::TileFormat::TileFormat, TileFormat, getTileFormat, setTileFormat)
-%std_exceptions(carto::MBVectorTileDecoder::MBVectorTileDecoder)
-%std_exceptions(carto::MBVectorTileDecoder::setCompiledStyleSet)
-%std_exceptions(carto::MBVectorTileDecoder::setCartoCSSStyleSet)
-%std_exceptions(carto::MBVectorTileDecoder::getStyleParameter)
-%std_exceptions(carto::MBVectorTileDecoder::setStyleParameter)
-%std_exceptions(carto::MBVectorTileDecoder::setStyleParameters)
-%std_exceptions(carto::MBVectorTileDecoder::setJSONStyleParameters)
-%ignore carto::MBVectorTileDecoder::isCartoCSSLayerNamesIgnored;
-%ignore carto::MBVectorTileDecoder::setCartoCSSLayerNamesIgnored;
-%ignore carto::MBVectorTileDecoder::getLayerNameOverride;
-%ignore carto::MBVectorTileDecoder::setLayerNameOverride;
-%ignore carto::MBVectorTileDecoder::decodeFeature;
-%ignore carto::MBVectorTileDecoder::decodeFeatures;
-%ignore carto::MBVectorTileDecoder::decodeTile;
-%ignore carto::MBVectorTileDecoder::getMapSettings;
-%ignore carto::MBVectorTileDecoder::getSymbolizerContextSettings;
-%ignore carto::MBVectorTileDecoder::setPixelScale;
-%ignore carto::MBVectorTileDecoder::loadMapnikMap;
-%ignore carto::MBVectorTileDecoder::loadCartoCSSMap;
-%ignore carto::MBVectorTileDecoder::resolveLayerConfig;
-%ignore carto::MBVectorTileDecoder::getStyleLayerZoomRange;
+%attributeval(massif::MBVectorTileDecoder, std::vector<std::string>, StyleParameters, getStyleParameters)
+%attributeval(massif::MBVectorTileDecoder, std::vector<std::string>, StyleLayerNames, getStyleLayerNames)
+%attributestring(massif::MBVectorTileDecoder, std::shared_ptr<massif::CompiledStyleSet>, CompiledStyle, getCompiledStyleSet, setCompiledStyleSet)
+%attributestring(massif::MBVectorTileDecoder, std::shared_ptr<massif::CartoCSSStyleSet>, CartoCSSStyle, getCartoCSSStyleSet, setCartoCSSStyleSet)
+%attribute(massif::MBVectorTileDecoder, bool, FeatureIdOverride, isFeatureIdOverride, setFeatureIdOverride)
+%attribute(massif::MBVectorTileDecoder, massif::TileFormat::TileFormat, TileFormat, getTileFormat, setTileFormat)
+%std_exceptions(massif::MBVectorTileDecoder::MBVectorTileDecoder)
+%std_exceptions(massif::MBVectorTileDecoder::setCompiledStyleSet)
+%std_exceptions(massif::MBVectorTileDecoder::setCartoCSSStyleSet)
+%std_exceptions(massif::MBVectorTileDecoder::getStyleParameter)
+%std_exceptions(massif::MBVectorTileDecoder::setStyleParameter)
+%std_exceptions(massif::MBVectorTileDecoder::setStyleParameters)
+%std_exceptions(massif::MBVectorTileDecoder::setJSONStyleParameters)
+%ignore massif::MBVectorTileDecoder::isCartoCSSLayerNamesIgnored;
+%ignore massif::MBVectorTileDecoder::setCartoCSSLayerNamesIgnored;
+%ignore massif::MBVectorTileDecoder::getLayerNameOverride;
+%ignore massif::MBVectorTileDecoder::setLayerNameOverride;
+%ignore massif::MBVectorTileDecoder::decodeFeature;
+%ignore massif::MBVectorTileDecoder::decodeFeatures;
+%ignore massif::MBVectorTileDecoder::decodeTile;
+%ignore massif::MBVectorTileDecoder::getMapSettings;
+%ignore massif::MBVectorTileDecoder::getSymbolizerContextSettings;
+%ignore massif::MBVectorTileDecoder::setPixelScale;
+%ignore massif::MBVectorTileDecoder::loadMapnikMap;
+%ignore massif::MBVectorTileDecoder::loadCartoCSSMap;
+%ignore massif::MBVectorTileDecoder::resolveLayerConfig;
+%ignore massif::MBVectorTileDecoder::getStyleLayerZoomRange;
 
 %include "vectortiles/MBVectorTileDecoder.h"
 

@@ -3,9 +3,9 @@
 
 %module EditableVectorLayer
 
-#ifdef _CARTO_EDITABLE_SUPPORT
+#ifdef _MASSIF_EDITABLE_SUPPORT
 
-!proxy_imports(carto::EditableVectorLayer, datasources.VectorDataSource, layers.VectorLayer, layers.VectorEditEventListener, vectorelements.VectorElement)
+!proxy_imports(massif::EditableVectorLayer, datasources.VectorDataSource, layers.VectorLayer, layers.VectorEditEventListener, vectorelements.VectorElement)
 
 %{
 #include "layers/EditableVectorLayer.h"
@@ -14,17 +14,17 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "datasources/VectorDataSource.i"
 %import "layers/VectorLayer.i"
 %import "layers/VectorEditEventListener.i"
 
-!polymorphic_shared_ptr(carto::EditableVectorLayer, layers.EditableVectorLayer)
+!polymorphic_shared_ptr(massif::EditableVectorLayer, layers.EditableVectorLayer)
 
-%attributestring(carto::EditableVectorLayer, std::shared_ptr<carto::VectorElement>, SelectedVectorElement, getSelectedVectorElement, setSelectedVectorElement)
-!attributestring_polymorphic(carto::EditableVectorLayer, layers.VectorEditEventListener, VectorEditEventListener, getVectorEditEventListener, setVectorEditEventListener)
-%std_exceptions(carto::EditableVectorLayer::EditableVectorLayer)
+%attributestring(massif::EditableVectorLayer, std::shared_ptr<massif::VectorElement>, SelectedVectorElement, getSelectedVectorElement, setSelectedVectorElement)
+!attributestring_polymorphic(massif::EditableVectorLayer, layers.VectorEditEventListener, VectorEditEventListener, getVectorEditEventListener, setVectorEditEventListener)
+%std_exceptions(massif::EditableVectorLayer::EditableVectorLayer)
 
 %include "layers/EditableVectorLayer.h"
 

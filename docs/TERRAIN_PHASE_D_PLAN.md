@@ -1,7 +1,7 @@
 # Terrain Phase D — painter-order depth model (drop the surface occluder)
 
 Branch: `feature/terrain-painter-order`. Builds on the shipped regular-grid + lattice
-work (main `6bca2c889`, libs-carto develop `7accc7f`).
+work (main `6bca2c889`, libs-massif develop `7accc7f`).
 
 Reference: tangram-ng (`/Volumes/dev/carto/tangram-ng`), which has no terrain artifacts
 by construction. This plan ports its depth model.
@@ -10,7 +10,7 @@ by construction. This plan ports its depth model.
 
 Phases A–C gave us the shared regular-grid surface (no per-tile red-green tesselation)
 and lattice-clamped vt geometry (near-zero slack). Two problems remain, and both trace to
-one root cause — CARTO uses the **terrain surface as a depth pre-pass occluder** that all
+one root cause — Massif uses the **terrain surface as a depth pre-pass occluder** that all
 draped content is depth-tested against:
 
 1. **Zero geometry subdivision is unsafe** (Phase C had to be walked back). An
@@ -56,7 +56,7 @@ Key points:
 - Ridge occlusion is automatic: the near tile's surface writes real depth densely; far
   content behind it fails LEQUAL.
 
-## Current CARTO model (what we replace)
+## Current Massif model (what we replace)
 
 `GLTileRenderer.cpp`:
 - Pre-pass (`renderGeometry`, ~441-472): per tile layer `glClear(GL_DEPTH_BUFFER_BIT)`,
@@ -80,7 +80,7 @@ Gate behind a new opt-in so the shipped occluder model stays the default fallbac
 Painter-order **implies** regular-grid (needs a depth-writing ground surface); enabling it
 forces the shared grid path.
 
-### Phase D.1 — vt painter-order depth (libs-carto)
+### Phase D.1 — vt painter-order depth (libs-massif)
 
 1. **One depth domain.** Stop clearing depth per tile layer for the occluder. Clear depth
    once at the start of the terrain 2D pass. All draped content shares it.

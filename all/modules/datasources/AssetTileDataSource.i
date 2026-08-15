@@ -3,7 +3,7 @@
 
 %module(directors="1") AssetTileDataSource
 
-!proxy_imports(carto::AssetTileDataSource, core.MapTile, core.MapBounds, core.StringMap, datasources.TileDataSource, datasources.components.TileData)
+!proxy_imports(massif::AssetTileDataSource, core.MapTile, core.MapBounds, core.StringMap, datasources.TileDataSource, datasources.components.TileData)
 
 %{
 #include "datasources/AssetTileDataSource.h"
@@ -11,13 +11,13 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "datasources/TileDataSource.i"
 
-!polymorphic_shared_ptr(carto::AssetTileDataSource, datasources.AssetTileDataSource)
+!polymorphic_shared_ptr(massif::AssetTileDataSource, datasources.AssetTileDataSource)
 
-%feature("director") carto::AssetTileDataSource;
+%feature("director") massif::AssetTileDataSource;
 
 %include "datasources/AssetTileDataSource.h"
 

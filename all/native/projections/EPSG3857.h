@@ -4,12 +4,12 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_EPSG3857_H_
-#define _CARTO_EPSG3857_H_
+#ifndef _MASSIF_EPSG3857_H_
+#define _MASSIF_EPSG3857_H_
 
 #include "projections/Projection.h"
 
-namespace carto {
+namespace massif {
 
     /**
      * EPSG:3857 is a Spherical Mercator projection coordinate system popularized by web services such as Google and later OpenStreetMap.

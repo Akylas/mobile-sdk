@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_BILLBOARDRENDERER_H_
-#define _CARTO_BILLBOARDRENDERER_H_
+#ifndef _MASSIF_BILLBOARDRENDERER_H_
+#define _MASSIF_BILLBOARDRENDERER_H_
 
 #include "core/MapPos.h"
 #include "renderers/utils/GLContext.h"
@@ -21,7 +21,7 @@
 #include <cglib/mat.h>
 #include <cglib/ray.h>
 
-namespace carto {
+namespace massif {
     class Billboard;
     class BillboardDrawData;
     class BillboardSorter;

@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_DIRASSETPACKAGE_H_
-#define _CARTO_DIRASSETPACKAGE_H_
+#ifndef _MASSIF_DIRASSETPACKAGE_H_
+#define _MASSIF_DIRASSETPACKAGE_H_
 
 #include "utils/AssetPackage.h"
 
 #include <mutex>
 
-namespace carto {
+namespace massif {
 
     /**
      * An asset package based on a file system directory.

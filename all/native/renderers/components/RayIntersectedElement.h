@@ -4,15 +4,15 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_RAYINTERSECTEDELEMENT_H_
-#define _CARTO_RAYINTERSECTEDELEMENT_H_
+#ifndef _MASSIF_RAYINTERSECTEDELEMENT_H_
+#define _MASSIF_RAYINTERSECTEDELEMENT_H_
 
 #include <memory>
 #include <any>
 
 #include <cglib/vec.h>
 
-namespace carto {
+namespace massif {
     class Layer;
 
     class RayIntersectedElement {

@@ -10,7 +10,7 @@
 #include <cmath>
 #include <string>
 
-namespace carto {
+namespace massif {
 
     ManeuverArrowBuilder::ManeuverArrowBuilder() :
         _lengthBefore(DEFAULT_LENGTH),

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(carto_mobile_sdk)
+project(massif)
 
 enable_language( C CXX ASM )
 
@@ -14,7 +14,7 @@ endif()
 # Directories
 set(SDK_BASE_DIR "${PROJECT_SOURCE_DIR}/../..")
 set(SDK_SRC_DIR "${SDK_BASE_DIR}/all/native")
-set(SDK_CARTO_LIBS_DIR "${SDK_BASE_DIR}/libs-carto" )
+set(SDK_MASSIF_LIBS_DIR "${SDK_BASE_DIR}/libs-massif" )
 set(SDK_EXTERNAL_LIBS_DIR "${SDK_BASE_DIR}/libs-external")
 
 # General platform-specific flags
@@ -56,7 +56,8 @@ endif()
 
 if(APPLE)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fobjc-arc -fmodules -fvisibility=hidden -ffunction-sections -fdata-sections")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fobjc-arc -fmodules -stdlib=libc++ -std=c++20 -ftemplate-depth=1024 -fexceptions -frtti -fvisibility=hidden -fvisibility-inlines-hidden -ffunction-sections -fdata-sections -fno-aligned-allocation -Wno-unqualified-std-cast-call -Wno-shorten-64-to-32")
+  # date v3.0.4 hardcodes std::uncaught_exception() on __APPLE__, and C++20 removed it
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fobjc-arc -fmodules -stdlib=libc++ -std=c++20 -D_LIBCPP_ENABLE_CXX20_REMOVED_UNCAUGHT_EXCEPTION -ftemplate-depth=1024 -fexceptions -frtti -fvisibility=hidden -fvisibility-inlines-hidden -ffunction-sections -fdata-sections -fno-aligned-allocation -Wno-unqualified-std-cast-call -Wno-shorten-64-to-32")
   set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -Oz")
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Oz")
   set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -ObjC")
@@ -64,7 +65,7 @@ if(APPLE)
   set(CMAKE_XCODE_ATTRIBUTE_CLANG_ENABLE_CODE_COVERAGE NO)
   set(CMAKE_XCODE_ATTRIBUTE_GCC_INSTRUMENT_PROGRAM_FLOW_ARCS NO)
 
-  if(SDK_CPP_DEFINES MATCHES ".*_CARTO_USE_METALANGLE.*")
+  if(SDK_CPP_DEFINES MATCHES ".*_MASSIF_USE_METALANGLE.*")
     set(CMAKE_XCODE_ATTRIBUTE_PRELINK_LIBS "${SDK_EXTERNAL_LIBS_DIR}/angle-metal/${SDK_IOS_BASEARCH}/libangle.a")
   endif()
 
@@ -106,7 +107,7 @@ include_directories("${SDK_EXTERNAL_LIBS_DIR}/boost/libs/any/include")
 
 if(APPLE)
   # include_directories("${SDK_BASE_DIR}/ios/stdlib")
-  if(SDK_CPP_DEFINES MATCHES ".*_CARTO_USE_METALANGLE.*")
+  if(SDK_CPP_DEFINES MATCHES ".*_MASSIF_USE_METALANGLE.*")
     include_directories("${SDK_EXTERNAL_LIBS_DIR}/angle-metal/include")
   else()
     # include_directories("${SDK_BASE_DIR}/ios/glwrapper")
@@ -118,7 +119,7 @@ if(WIN32)
 endif(WIN32)
 
 # Subprojects
-set(SDK_CARTO_SUBPROJECTS vt mapnikvt mbvtbuilder cartocss nml)
+set(SDK_MASSIF_SUBPROJECTS vt mapnikvt mbvtbuilder cartocss nml)
 set(SDK_EXTERNAL_SUBPROJECTS botan pugixml bidi freetype harfbuzz brotli zstd miniz libjpeg libpng libwebp tess2 pvrt rg_etc1 mlt)
 
 if(WIN32)
@@ -130,11 +131,11 @@ if(NOT (WIN32 OR APPLE OR ANDROID))
 endif()
 
 if(INCLUDE_GEOCODING)
-  list(APPEND SDK_CARTO_SUBPROJECTS "geocoding")
+  list(APPEND SDK_MASSIF_SUBPROJECTS "geocoding")
 endif(INCLUDE_GEOCODING)
 
 if(INCLUDE_ROUTING)
-  list(APPEND SDK_CARTO_SUBPROJECTS "osrm" "sgre")
+  list(APPEND SDK_MASSIF_SUBPROJECTS "osrm" "sgre")
 endif(INCLUDE_ROUTING)  
 
 if(INCLUDE_SQLITE)
@@ -149,15 +150,15 @@ if(INCLUDE_VALHALLA)
   option(VALHALLA_SERVICES "Build the Valhalla service actions beyond routing and map matching" OFF)
 endif(INCLUDE_VALHALLA)
 
-foreach(SDK_SUBPROJECT IN ITEMS ${SDK_CARTO_SUBPROJECTS})
-  add_subdirectory("${SDK_CARTO_LIBS_DIR}/${SDK_SUBPROJECT}" ${SDK_SUBPROJECT})
+foreach(SDK_SUBPROJECT IN ITEMS ${SDK_MASSIF_SUBPROJECTS})
+  add_subdirectory("${SDK_MASSIF_LIBS_DIR}/${SDK_SUBPROJECT}" ${SDK_SUBPROJECT})
 endforeach()
 
 foreach(SDK_SUBPROJECT IN ITEMS ${SDK_EXTERNAL_SUBPROJECTS})
   add_subdirectory("${SDK_EXTERNAL_LIBS_DIR}/${SDK_SUBPROJECT}" ${SDK_SUBPROJECT})
 endforeach()
 
-set(SDK_SUBPROJECTS "${SDK_CARTO_SUBPROJECTS}" "${SDK_EXTERNAL_SUBPROJECTS}")
+set(SDK_SUBPROJECTS "${SDK_MASSIF_SUBPROJECTS}" "${SDK_EXTERNAL_SUBPROJECTS}")
 
 # When in single library mode, apply compilation flags to individual projects.
 if(SINGLE_LIBRARY)
@@ -196,7 +197,7 @@ file(GLOB SDK_SRC_FILES CONFIGURE_DEPENDS
   "${SDK_SRC_DIR}/*/*.h"
   "${SDK_SRC_DIR}/*/*/*.h"
 )
-set_source_files_properties("${SDK_SRC_DIR}/utils/PlatformUtils.cpp" PROPERTIES COMPILE_OPTIONS "-D_CARTO_MOBILE_SDK_PLATFORM=\"${SDK_PLATFORM}\";-D_CARTO_MOBILE_SDK_VERSION=\"${SDK_VERSION}\"")
+set_source_files_properties("${SDK_SRC_DIR}/utils/PlatformUtils.cpp" PROPERTIES COMPILE_OPTIONS "-D_MASSIF_MOBILE_SDK_PLATFORM=\"${SDK_PLATFORM}\";-D_MASSIF_MOBILE_SDK_VERSION=\"${SDK_VERSION}\"")
 
 # Release builds the whole SDK at -Oz, which is right for the API surface but not for the code
 # the frame budget is actually spent in. Build the render and tile paths for speed, same as the
@@ -309,18 +310,18 @@ else()
   endforeach()
 endif()
 
-add_library(carto_mobile_sdk ${SDK_LIBRARY_TYPE} ${SDK_SRC_FILES} ${SDK_OBJECTS})
+add_library(massif ${SDK_LIBRARY_TYPE} ${SDK_SRC_FILES} ${SDK_OBJECTS})
 
 if(ANDROID)
-  target_link_libraries(carto_mobile_sdk EGL GLESv2 z log android jnigraphics)
+  target_link_libraries(massif EGL GLESv2 z log android jnigraphics)
 elseif(APPLE)
-  target_link_libraries(carto_mobile_sdk "-framework Foundation" "-framework CoreGraphics" "-framework CoreText" "-framework CFNetwork" "-framework UIKit")
-  if(SDK_CPP_DEFINES MATCHES ".*_CARTO_USE_METALANGLE.*")
-    target_link_libraries(carto_mobile_sdk "-weak_framework OpenGLES" "-weak_framework Metal" "-framework QuartzCore")
+  target_link_libraries(massif "-framework Foundation" "-framework CoreGraphics" "-framework CoreText" "-framework CFNetwork" "-framework UIKit")
+  if(SDK_CPP_DEFINES MATCHES ".*_MASSIF_USE_METALANGLE.*")
+    target_link_libraries(massif "-weak_framework OpenGLES" "-weak_framework Metal" "-framework QuartzCore")
   else()
-    target_link_libraries(carto_mobile_sdk "-framework OpenGLES" "-framework GLKit")
+    target_link_libraries(massif "-framework OpenGLES" "-framework GLKit")
   endif()
 elseif(WIN32)
-  target_link_libraries(carto_mobile_sdk "${SDK_EXTERNAL_LIBS_DIR}/angle-uwp/${SDK_WINPHONE_ARCH}/libEGL.dll.lib" "${SDK_EXTERNAL_LIBS_DIR}/angle-uwp/${SDK_WINPHONE_ARCH}/libGLESv2.dll.lib")
-  target_link_libraries(carto_mobile_sdk "msxml6.lib" "d3d11.lib" "dwrite.lib" "d2d1.lib")
+  target_link_libraries(massif "${SDK_EXTERNAL_LIBS_DIR}/angle-uwp/${SDK_WINPHONE_ARCH}/libEGL.dll.lib" "${SDK_EXTERNAL_LIBS_DIR}/angle-uwp/${SDK_WINPHONE_ARCH}/libGLESv2.dll.lib")
+  target_link_libraries(massif "msxml6.lib" "d3d11.lib" "dwrite.lib" "d2d1.lib")
 endif()

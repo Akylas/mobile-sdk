@@ -1,7 +1,7 @@
 #include "BillboardStyleBuilder.h"
 #include "AnimationStyle.h"
 
-namespace carto {
+namespace massif {
 
     BillboardStyleBuilder::~BillboardStyleBuilder() {
     }

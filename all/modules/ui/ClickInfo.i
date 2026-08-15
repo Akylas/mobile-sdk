@@ -8,17 +8,17 @@
 %}
 
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "ui/ClickInfo.i"
 
-!enum(carto::ClickType::ClickType)
-!value_type(carto::ClickInfo, ui.ClickInfo)
+!enum(massif::ClickType::ClickType)
+!value_type(massif::ClickInfo, ui.ClickInfo)
 
-%attribute(carto::ClickInfo, carto::ClickType::ClickType, ClickType, getClickType)
-%attribute(carto::ClickInfo, float, Duration, getDuration)
-!custom_equals(carto::ClickInfo);
-!custom_tostring(carto::ClickInfo);
+%attribute(massif::ClickInfo, massif::ClickType::ClickType, ClickType, getClickType)
+%attribute(massif::ClickInfo, float, Duration, getDuration)
+!custom_equals(massif::ClickInfo);
+!custom_tostring(massif::ClickInfo);
 
 %include "ui/ClickInfo.h"
 

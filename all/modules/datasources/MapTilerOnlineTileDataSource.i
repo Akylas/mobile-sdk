@@ -3,7 +3,7 @@
 
 %module(directors="1") MapTilerOnlineTileDataSource
 
-!proxy_imports(carto::MapTilerOnlineTileDataSource, core.MapTile, core.MapBounds, core.StringMap, datasources.TileDataSource, datasources.components.TileData)
+!proxy_imports(massif::MapTilerOnlineTileDataSource, core.MapTile, core.MapBounds, core.StringMap, datasources.TileDataSource, datasources.components.TileData)
 
 %{
 #include "datasources/MapTilerOnlineTileDataSource.h"
@@ -13,20 +13,20 @@
 
 %include <std_shared_ptr.i>
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "datasources/TileDataSource.i"
 
-!polymorphic_shared_ptr(carto::MapTilerOnlineTileDataSource, datasources.MapTilerOnlineTileDataSource)
+!polymorphic_shared_ptr(massif::MapTilerOnlineTileDataSource, datasources.MapTilerOnlineTileDataSource)
 
-%attributestring(carto::MapTilerOnlineTileDataSource, std::string, CustomServiceURL, getCustomServiceURL, setCustomServiceURL)
-%attribute(carto::MapTilerOnlineTileDataSource, int, Timeout, getTimeout, setTimeout)
-%std_exceptions(carto::MapTilerOnlineTileDataSource::MapTilerOnlineTileDataSource)
-%ignore carto::MapTilerOnlineTileDataSource::buildTileURL;
-%ignore carto::MapTilerOnlineTileDataSource::loadConfiguration;
-%ignore carto::MapTilerOnlineTileDataSource::loadOnlineTile;
+%attributestring(massif::MapTilerOnlineTileDataSource, std::string, CustomServiceURL, getCustomServiceURL, setCustomServiceURL)
+%attribute(massif::MapTilerOnlineTileDataSource, int, Timeout, getTimeout, setTimeout)
+%std_exceptions(massif::MapTilerOnlineTileDataSource::MapTilerOnlineTileDataSource)
+%ignore massif::MapTilerOnlineTileDataSource::buildTileURL;
+%ignore massif::MapTilerOnlineTileDataSource::loadConfiguration;
+%ignore massif::MapTilerOnlineTileDataSource::loadOnlineTile;
 
-%feature("director") carto::MapTilerOnlineTileDataSource;
+%feature("director") massif::MapTilerOnlineTileDataSource;
 
 %include "datasources/MapTilerOnlineTileDataSource.h"
 

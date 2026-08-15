@@ -1,8 +1,8 @@
-#ifdef _CARTO_ROUTING_SUPPORT
+#ifdef _MASSIF_ROUTING_SUPPORT
 
 #include "RoutingService.h"
 
-namespace carto {
+namespace massif {
 
     RoutingService::RoutingService() {
     }

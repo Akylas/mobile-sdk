@@ -31,12 +31,12 @@
 namespace {
 
     template <typename T>
-    std::optional<T> readDecoderParameter(const std::shared_ptr<carto::VectorTileDecoder>& decoder, const std::string& paramName) {
+    std::optional<T> readDecoderParameter(const std::shared_ptr<massif::VectorTileDecoder>& decoder, const std::string& paramName) {
         if (auto symbolizerContextSettings = decoder->getSymbolizerContextSettings()) {
-            if (auto parameterValueMap = symbolizerContextSettings->getNutiParameterValueMap()) { // snapshot
+            if (auto parameterValueMap = symbolizerContextSettings->getStyleParameterValueMap()) { // snapshot
                 auto it = parameterValueMap->find(paramName);
                 if (it != parameterValueMap->end()) {
-                    return std::optional<T>(carto::mvt::ValueConverter<T>::convert(it->second));
+                    return std::optional<T>(massif::mvt::ValueConverter<T>::convert(it->second));
                 }
             }
         }
@@ -45,7 +45,7 @@ namespace {
 
 }
 
-namespace carto {
+namespace massif {
 
     VectorTileLayer::VectorTileLayer(const std::shared_ptr<TileDataSource>& dataSource, const std::shared_ptr<VectorTileDecoder>& decoder) :
         TileLayer(dataSource),
@@ -667,7 +667,7 @@ namespace carto {
     mvt::ExpressionContext VectorTileLayer::getExpressionContext() const {
         mvt::ExpressionContext exprContext;
         if (auto symbolizerContextSettings = _tileDecoder->getSymbolizerContextSettings()) {
-            exprContext.setNutiParameterStore(symbolizerContextSettings->getNutiParameterStore());
+            exprContext.setStyleParameterStore(symbolizerContextSettings->getStyleParameterStore());
         }
         return exprContext;
     }

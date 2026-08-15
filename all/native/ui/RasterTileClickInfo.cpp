@@ -1,6 +1,6 @@
 #include "RasterTileClickInfo.h"
 
-namespace carto {
+namespace massif {
 
     RasterTileClickInfo::RasterTileClickInfo(const ClickInfo& clickInfo, const MapPos& clickPos, const MapTile& mapTile,
                                                    const Color& nearestColor, const Color& interpolatedColor,

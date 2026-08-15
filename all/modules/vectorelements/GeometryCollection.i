@@ -3,7 +3,7 @@
 
 %module GeometryCollection
 
-!proxy_imports(carto::GeometryCollection, geometry.MultiGeometry, styles.GeometryCollectionStyle, vectorelements.VectorElement)
+!proxy_imports(massif::GeometryCollection, geometry.MultiGeometry, styles.GeometryCollectionStyle, vectorelements.VectorElement)
 
 %{
 #include "vectorelements/GeometryCollection.h"
@@ -12,22 +12,22 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "geometry/MultiGeometry.i"
 %import "styles/GeometryCollectionStyle.i"
 %import "vectorelements/VectorElement.i"
 
-!polymorphic_shared_ptr(carto::GeometryCollection, vectorelements.GeometryCollection)
+!polymorphic_shared_ptr(massif::GeometryCollection, vectorelements.GeometryCollection)
 
-%csmethodmodifiers carto::GeometryCollection::Geometry "public new";
-!attributestring_polymorphic(carto::GeometryCollection, geometry.MultiGeometry, Geometry, getGeometry, setGeometry)
-%attributestring(carto::GeometryCollection, std::shared_ptr<carto::GeometryCollectionStyle>, Style, getStyle, setStyle)
-%std_exceptions(carto::GeometryCollection::GeometryCollection)
-%std_exceptions(carto::GeometryCollection::setGeometry)
-%std_exceptions(carto::GeometryCollection::setStyle)
-%ignore carto::GeometryCollection::getDrawData;
-%ignore carto::GeometryCollection::setDrawData;
+%csmethodmodifiers massif::GeometryCollection::Geometry "public new";
+!attributestring_polymorphic(massif::GeometryCollection, geometry.MultiGeometry, Geometry, getGeometry, setGeometry)
+%attributestring(massif::GeometryCollection, std::shared_ptr<massif::GeometryCollectionStyle>, Style, getStyle, setStyle)
+%std_exceptions(massif::GeometryCollection::GeometryCollection)
+%std_exceptions(massif::GeometryCollection::setGeometry)
+%std_exceptions(massif::GeometryCollection::setStyle)
+%ignore massif::GeometryCollection::getDrawData;
+%ignore massif::GeometryCollection::setDrawData;
 
 %include "vectorelements/GeometryCollection.h"
 

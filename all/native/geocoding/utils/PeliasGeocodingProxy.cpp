@@ -1,4 +1,4 @@
-#ifdef _CARTO_GEOCODING_SUPPORT
+#ifdef _MASSIF_GEOCODING_SUPPORT
 
 #include "PeliasGeocodingProxy.h"
 #include "core/Variant.h"
@@ -13,7 +13,7 @@
 
 #include <picojson/picojson.h>
 
-namespace carto {
+namespace massif {
 
     std::vector<std::shared_ptr<GeocodingResult> > PeliasGeocodingProxy::ReadResponse(const std::string& responseString, const std::shared_ptr<Projection>& proj) {
         picojson::value response;

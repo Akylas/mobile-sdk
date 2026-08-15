@@ -4,12 +4,12 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_MAPRANGE_H_
-#define _CARTO_MAPRANGE_H_
+#ifndef _MASSIF_MAPRANGE_H_
+#define _MASSIF_MAPRANGE_H_
 
 #include <string>
 
-namespace carto {
+namespace massif {
 
     /**
      * A container class that defines a half closed range of values using minimum and maximum values.

@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_HTTPCLIENTANDROIDIMPL_H_
-#define _CARTO_HTTPCLIENTANDROIDIMPL_H_
+#ifndef _MASSIF_HTTPCLIENTANDROIDIMPL_H_
+#define _MASSIF_HTTPCLIENTANDROIDIMPL_H_
 
 #include "network/HTTPClient.h"
 #include "components/Exceptions.h"
@@ -15,7 +15,7 @@
 
 #include <jni.h>
 
-namespace carto {
+namespace massif {
 
     class HTTPClient::AndroidImpl : public HTTPClient::Impl {
     public:

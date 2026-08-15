@@ -11,7 +11,7 @@ IOS_ARCHS = ['i386', 'x86_64', 'armv7', 'arm64', 'arm64-simulator', 'x86_64-macc
 SDK_VERSION = "4.4.9"
 
 FRAMEWORK_NAME="ValhallaRouting"
-REPO_URL="https://github.com/Akylas/mobile-sdk"
+REPO_URL="https://github.com/massif-maps/MassifMaps"
 
 def getFinalBuildDir(target, arch=None):
   return getBuildDir( target, arch)
@@ -192,7 +192,7 @@ def buildIOSXCFramework(args, baseArchs, outputDir=None):
     ):
       return False
     frameworkOptions.extend(["-library", str(libFinalPath), "-headers", str(headersDir) ])  
-  # frameworkOptions = itertools.chain(*[['-framework', '%s/CartoMobileSDK.framework' % frameworkBuildDir] for frameworkBuildDir in frameworkBuildDirs])
+  # frameworkOptions = itertools.chain(*[['-framework', '%s/MassifMaps.framework' % frameworkBuildDir] for frameworkBuildDir in frameworkBuildDirs])
   if not execute('xcodebuild', baseDir,
     '-create-xcframework', '-output', '%s/%s.xcframework' % (distDir, FRAMEWORK_NAME),
     *list(frameworkOptions)

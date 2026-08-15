@@ -1,4 +1,4 @@
-#ifdef _CARTO_ROUTING_SUPPORT
+#ifdef _MASSIF_ROUTING_SUPPORT
 
 #include "RoutingResultBuilder.h"
 #include "projections/Projection.h"
@@ -10,7 +10,7 @@
 #include <sstream>
 #include <iomanip>
 
-namespace carto {
+namespace massif {
 
     RoutingResultBuilder::RoutingResultBuilder(const std::shared_ptr<Projection>& proj, const std::string& rawResult) :
         _projection(proj),

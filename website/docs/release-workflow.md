@@ -1,6 +1,6 @@
 ---
 title: Release Workflow
-sidebar_position: 7
+sidebar_position: 8
 slug: /release-workflow
 ---
 
@@ -15,14 +15,14 @@ GitHub Pages:
 
 ## What the workflow does
 
-1. Checks out the repo **with submodules** (`libs-carto`, `libs-external`).
+1. Checks out the repo **with submodules** (`libs-massif`, `libs-external`).
 2. Generates the **Android Javadoc** and **iOS Jazzy** reference from the SWIG bindings into
    `website/static/api/{android,ios}`.
 3. Builds the **Docusaurus** site (`npm ci && npm run build`).
 4. Uploads the result and **deploys to GitHub Pages**.
 
 The workflow file is
-[`.github/workflows/docs.yml`](https://github.com/Akylas/mobile-sdk/blob/master/.github/workflows/docs.yml).
+[`.github/workflows/docs.yml`](https://github.com/massif-maps/MassifMaps/blob/master/.github/workflows/docs.yml).
 
 ## One-time setup
 
@@ -30,7 +30,7 @@ Enable Pages for the repository:
 
 1. **Settings → Pages → Build and deployment → Source: GitHub Actions.**
 2. Push to `master` (or run the workflow manually). The site publishes to
-   `https://akylas.github.io/mobile-sdk/`.
+   `https://massif-maps.github.io/MassifMaps/`.
 
 ## Versioned docs (optional)
 

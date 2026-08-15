@@ -28,7 +28,7 @@
 
 #include <cglib/vec.h>
 
-namespace carto {
+namespace massif {
 
     ClusteredVectorLayer::ClusteredVectorLayer(const std::shared_ptr<LocalVectorDataSource>& dataSource, const std::shared_ptr<ClusterElementBuilder>& clusterElementBuilder) :
         VectorLayer(dataSource),

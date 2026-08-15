@@ -8,7 +8,7 @@
 
 #include <picojson/picojson.h>
 
-namespace carto {
+namespace massif {
     
     MapTilerOnlineTileDataSource::MapTilerOnlineTileDataSource(const std::string& key) :
         TileDataSource(),

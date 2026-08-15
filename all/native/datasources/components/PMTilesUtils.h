@@ -1,11 +1,11 @@
 
-#ifndef _CARTO_PMTILESUTILS_H_
-#define _CARTO_PMTILESUTILS_H_
+#ifndef _MASSIF_PMTILESUTILS_H_
+#define _MASSIF_PMTILESUTILS_H_
 
 #include <cstdint>
 #include <vector>
 
-namespace carto {
+namespace massif {
 namespace pmtiles {
 
     /**
@@ -102,6 +102,6 @@ namespace pmtiles {
     bool findTileEntry(const std::vector<DirectoryEntry>& directory, uint64_t tileId, DirectoryEntry& outEntry);
 
 } // namespace pmtiles
-} // namespace carto
+} // namespace massif
 
 #endif

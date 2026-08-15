@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_TORQUETILEDECODER_H_
-#define _CARTO_TORQUETILEDECODER_H_
+#ifndef _MASSIF_TORQUETILEDECODER_H_
+#define _MASSIF_TORQUETILEDECODER_H_
 
 #include "vectortiles/VectorTileDecoder.h"
 
@@ -14,7 +14,7 @@
 #include <map>
 #include <string>
 
-namespace carto {
+namespace massif {
     namespace mvt {
         class TorqueMap;
         class SymbolizerContext;

@@ -21,7 +21,7 @@
 #include <mapnikvt/Value.h>
 #include <mapnikvt/LayerConfigResolver.h>
 
-namespace carto {
+namespace massif {
 
     namespace {
         float valueToFloat(const mvt::Value& value, float defaultValue) {
@@ -465,7 +465,7 @@ namespace carto {
     void CompositeVectorTileLayer::loadData(const std::shared_ptr<CullState>& cullState) {
         VectorTileLayer::loadData(cullState);
 
-        // Re-apply merged-vector (contour) generation parameters in case the style / nuti
+        // Re-apply merged-vector (contour) generation parameters in case the style / parameter
         // parameters changed (a change triggers a decoder update -> tile reload -> loadData).
         applyVectorSourceConfigs();
 
@@ -718,7 +718,7 @@ namespace carto {
                 continue;
             }
             // Contour generation parameters are not per-frame (changing them regenerates
-            // tiles), so evaluate at a neutral zoom; nuti parameters still apply.
+            // tiles), so evaluate at a neutral zoom; style parameters still apply.
             mvt::ResolvedLayerConfig config = decoder->resolveLayerConfig(s.name, 0.0f);
             std::map<std::string, float>& applied = _lastVectorConfig[s.name];
 
@@ -839,7 +839,7 @@ namespace carto {
                 continue;
             }
             bool visible = true;
-            // Raster/hillshade children are gated by their config symbolizer's zoom/nuti visibility.
+            // Raster/hillshade children are gated by their config symbolizer's zoom/param:: visibility.
             // Vector children have no config symbolizer (they are styled by normal line/text rules,
             // which the child's own decode already zoom-filters), so they always draw.
             if (source->type != CompositeSourceType::COMPOSITE_SOURCE_TYPE_VECTOR && decoder) {

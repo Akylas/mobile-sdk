@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_LINEGEOMETRY_H_
-#define _CARTO_LINEGEOMETRY_H_
+#ifndef _MASSIF_LINEGEOMETRY_H_
+#define _MASSIF_LINEGEOMETRY_H_
 
 #include "geometry/Geometry.h"
 
 #include <vector>
 
-namespace carto {
+namespace massif {
 
     /**
      * Line geometry defined by a list of map positions.

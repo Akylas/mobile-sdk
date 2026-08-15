@@ -3,7 +3,7 @@
 
 %module(directors="1") CombinedTileDataSource
 
-!proxy_imports(carto::CombinedTileDataSource, core.MapTile, core.MapBounds, core.StringMap, datasources.TileDataSource, datasources.components.TileData)
+!proxy_imports(massif::CombinedTileDataSource, core.MapTile, core.MapBounds, core.StringMap, datasources.TileDataSource, datasources.components.TileData)
 
 %{
 #include "datasources/CombinedTileDataSource.h"
@@ -13,15 +13,15 @@
 
 %include <std_shared_ptr.i>
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "datasources/TileDataSource.i"
 
-!polymorphic_shared_ptr(carto::CombinedTileDataSource, datasources.CombinedTileDataSource)
+!polymorphic_shared_ptr(massif::CombinedTileDataSource, datasources.CombinedTileDataSource)
 
-%std_exceptions(carto::CombinedTileDataSource::CombinedTileDataSource)
+%std_exceptions(massif::CombinedTileDataSource::CombinedTileDataSource)
 
-%feature("director") carto::CombinedTileDataSource;
+%feature("director") massif::CombinedTileDataSource;
 
 %include "datasources/CombinedTileDataSource.h"
 

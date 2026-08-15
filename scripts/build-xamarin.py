@@ -91,7 +91,7 @@ def buildIOSLib(args, arch):
 
   bitcodeOptions = ['ENABLE_BITCODE=NO']
   return execute('xcodebuild', buildDir,
-    '-project', 'carto_mobile_sdk.xcodeproj', '-arch', arch, '-configuration', args.configuration, 'archive',
+    '-project', 'massif.xcodeproj', '-arch', arch, '-configuration', args.configuration, 'archive',
     *list(bitcodeOptions)
   )
 
@@ -102,7 +102,7 @@ def buildIOSFatLib(args, archs):
 
   libFilePaths = []
   for platform, arch in platformArchs:
-    libFilePath = "%s/%s-%s/libcarto_mobile_sdk.%s" % (getBuildDir('xamarin_ios', '%s-%s' % (platform, arch)), args.configuration, 'iphoneos' if arch.startswith("arm") else 'iphonesimulator', 'a')
+    libFilePath = "%s/%s-%s/libmassif.%s" % (getBuildDir('xamarin_ios', '%s-%s' % (platform, arch)), args.configuration, 'iphoneos' if arch.startswith("arm") else 'iphonesimulator', 'a')
     if args.metalangle:
       mergedLibFilePath = '%s_merged.%s' % tuple(libFilePath.rsplit('.', 1))
       angleLibFilePath = "%s/libs-external/angle-metal/%s/libangle.a" % (baseDir, arch)
@@ -114,7 +114,7 @@ def buildIOSFatLib(args, archs):
     libFilePaths.append(libFilePath)
 
   return execute('lipo', baseDir,
-    '-output', '%s/libcarto_mobile_sdk.a' % buildDir,
+    '-output', '%s/libmassif.a' % buildDir,
     '-create', *libFilePaths
   )
 
@@ -123,9 +123,9 @@ def buildXamarinDLL(args, target):
   buildDir = getBuildDir('xamarin_%s' % target)
   distDir = getDistDir('xamarin')
 
-  with open('%s/scripts/xamarin/CartoMobileSDK.%s.csproj.template' % (baseDir, target), 'r') as f:
+  with open('%s/scripts/xamarin/MassifMaps.%s.csproj.template' % (baseDir, target), 'r') as f:
     csProjFile = string.Template(f.read()).safe_substitute({ 'baseDir': baseDir, 'buildDir': buildDir, 'distDir': "%s/bin" % buildDir })
-  with open('%s/CartoMobileSDK.%s.csproj' % (buildDir, target), 'w') as f:
+  with open('%s/MassifMaps.%s.csproj' % (buildDir, target), 'w') as f:
     f.write(csProjFile)
 
   if args.msbuild is None:
@@ -136,12 +136,12 @@ def buildXamarinDLL(args, target):
     '/t:Build',
     '/p:Configuration=%s' % args.configuration,
     '/p:AndroidSdkDirectory=%s' % args.androidsdkpath,
-    '%s/CartoMobileSDK.%s.csproj' % (buildDir, target)
+    '%s/MassifMaps.%s.csproj' % (buildDir, target)
   ):
     return False
   return makedirs(distDir) and \
-         copyfile('%s/bin/%s/CartoMobileSDK.%s.dll' % (buildDir, args.configuration, target), '%s/CartoMobileSDK.%s.dll' % (distDir, target)) and \
-         copyfile('%s/bin/%s/CartoMobileSDK.%s.xml' % (buildDir, args.configuration, target), '%s/CartoMobileSDK.%s.xml' % (distDir, target))
+         copyfile('%s/bin/%s/MassifMaps.%s.dll' % (buildDir, args.configuration, target), '%s/MassifMaps.%s.dll' % (distDir, target)) and \
+         copyfile('%s/bin/%s/MassifMaps.%s.xml' % (buildDir, args.configuration, target), '%s/MassifMaps.%s.xml' % (distDir, target))
 
 def buildXamarinNuget(args, target):
   baseDir = getBaseDir()
@@ -149,7 +149,7 @@ def buildXamarinNuget(args, target):
   distDir = getDistDir('xamarin')
   version = args.buildversion
 
-  with open('%s/scripts/nuget/CartoMobileSDK.%s.nuspec.template' % (baseDir, target), 'r') as f:
+  with open('%s/scripts/nuget/MassifMaps.%s.nuspec.template' % (baseDir, target), 'r') as f:
     nuspecFile = string.Template(f.read()).safe_substitute({
       'baseDir': baseDir,
       'buildDir': buildDir,
@@ -157,17 +157,17 @@ def buildXamarinNuget(args, target):
       'nativeConfiguration': args.nativeconfiguration,
       'version': version
     })
-  with open('%s/CartoMobileSDK.%s.nuspec' % (buildDir, target), 'w') as f:
+  with open('%s/MassifMaps.%s.nuspec' % (buildDir, target), 'w') as f:
     f.write(nuspecFile)
 
   if not nuget(args, buildDir,
     'pack',
-    '%s/CartoMobileSDK.%s.nuspec' % (buildDir, target),
+    '%s/MassifMaps.%s.nuspec' % (buildDir, target),
     '-BasePath', '/'
   ):
     return False
 
-  if not copyfile('%s/CartoMobileSDK.%s.%s.nupkg' % (buildDir, target, version), '%s/CartoMobileSDK.%s.%s.nupkg' % (distDir, target, version)):
+  if not copyfile('%s/MassifMaps.%s.%s.nupkg' % (buildDir, target, version), '%s/MassifMaps.%s.%s.nupkg' % (distDir, target, version)):
     return False
 
   print("Nuget output available in:\n%s" % distDir)
@@ -213,7 +213,7 @@ if args.androidndkpath == 'auto' and args.target == 'android':
 args.defines += ';' + getProfile(args.profile).get('defines', '')
 args.defines += ';' + 'TARGET_XAMARIN'
 if args.metalangle and args.target == 'ios':
-  args.defines += ';' + '_CARTO_USE_METALANGLE'
+  args.defines += ';' + '_MASSIF_USE_METALANGLE'
   print('Metal ANGLE rendering backend currently not supported for Xamarin/iOS')
   sys.exit(-1)
 args.cmakeoptions += ';' + getProfile(args.profile).get('cmake-options', '')
@@ -233,7 +233,7 @@ if args.target == 'android':
     print('Failed to find ninja or make executable. Use --ninja or --make to specify its location')
     sys.exit(-1)
   for abi in ANDROID_ABIS:
-    if not (abi in args.androidabi or os.path.exists('%s/libcarto_mobile_sdk.so' % getBuildDir('xamarin_android', abi))):
+    if not (abi in args.androidabi or os.path.exists('%s/libmassif.so' % getBuildDir('xamarin_android', abi))):
       print('Android build requires %s in specified list' % abi)
       sys.exit(-1)
 

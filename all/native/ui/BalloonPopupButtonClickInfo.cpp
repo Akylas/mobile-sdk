@@ -2,7 +2,7 @@
 #include "vectorelements/BalloonPopupButton.h"
 #include "vectorelements/VectorElement.h"
 
-namespace carto {
+namespace massif {
 
     BalloonPopupButtonClickInfo::BalloonPopupButtonClickInfo(const ClickInfo& clickInfo,
                                                    const std::shared_ptr<BalloonPopupButton>& button,

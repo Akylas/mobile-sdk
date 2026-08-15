@@ -3,7 +3,7 @@
 
 %module(directors="1") HTTPTileDataSource
 
-!proxy_imports(carto::HTTPTileDataSource, core.MapTile, core.MapBounds, core.StringVector, core.StringMap, datasources.TileDataSource, datasources.components.TileData)
+!proxy_imports(massif::HTTPTileDataSource, core.MapTile, core.MapBounds, core.StringVector, core.StringMap, datasources.TileDataSource, datasources.components.TileData)
 
 %{
 #include "datasources/HTTPTileDataSource.h"
@@ -14,22 +14,22 @@
 %include <std_string.i>
 %include <std_map.i>
 %include <std_vector.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "datasources/TileDataSource.i"
 %import "core/StringVector.i"
 %import "core/StringMap.i"
 
-!polymorphic_shared_ptr(carto::HTTPTileDataSource, datasources.HTTPTileDataSource)
+!polymorphic_shared_ptr(massif::HTTPTileDataSource, datasources.HTTPTileDataSource)
 
-%attributestring(carto::HTTPTileDataSource, std::string, BaseURL, getBaseURL, setBaseURL)
-%attributeval(carto::HTTPTileDataSource, %arg(std::vector<std::string>), Subdomains, getSubdomains, setSubdomains)
-%attribute(carto::HTTPTileDataSource, bool, TMSScheme, isTMSScheme, setTMSScheme)
-%attribute(carto::HTTPTileDataSource, bool, MaxAgeHeaderCheck, isMaxAgeHeaderCheck, setMaxAgeHeaderCheck)
-%attribute(carto::HTTPTileDataSource, int, Timeout, getTimeout, setTimeout)
-%attributeval(carto::HTTPTileDataSource, %arg(std::map<std::string, std::string>), HTTPHeaders, getHTTPHeaders, setHTTPHeaders)
+%attributestring(massif::HTTPTileDataSource, std::string, BaseURL, getBaseURL, setBaseURL)
+%attributeval(massif::HTTPTileDataSource, %arg(std::vector<std::string>), Subdomains, getSubdomains, setSubdomains)
+%attribute(massif::HTTPTileDataSource, bool, TMSScheme, isTMSScheme, setTMSScheme)
+%attribute(massif::HTTPTileDataSource, bool, MaxAgeHeaderCheck, isMaxAgeHeaderCheck, setMaxAgeHeaderCheck)
+%attribute(massif::HTTPTileDataSource, int, Timeout, getTimeout, setTimeout)
+%attributeval(massif::HTTPTileDataSource, %arg(std::map<std::string, std::string>), HTTPHeaders, getHTTPHeaders, setHTTPHeaders)
 
-%feature("director") carto::HTTPTileDataSource;
+%feature("director") massif::HTTPTileDataSource;
 
 %include "datasources/HTTPTileDataSource.h"
 

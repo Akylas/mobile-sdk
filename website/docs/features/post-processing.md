@@ -9,10 +9,10 @@ Run a full-screen fragment shader over the rendered frame — with access to the
 and keep chosen layers above it. This is what a peak-finder / relief look is made of.
 
 :::info Fork feature
-Added in PR [#56](https://github.com/Akylas/mobile-sdk/pull/56).
+Added in PR [#56](https://github.com/massif-maps/MassifMaps/pull/56).
 `MapRenderer.setPostProcessEffect()` + `PostProcessEffect`. The SDK ships **no** effect of its own:
 the shader is a string the app supplies. Technical notes:
-[`docs/rendering/14-post-process.md`](https://github.com/Akylas/mobile-sdk/blob/master/docs/rendering/14-post-process.md).
+[`docs/rendering/14-post-process.md`](https://github.com/massif-maps/MassifMaps/blob/master/docs/rendering/14-post-process.md).
 :::
 
 <figure class="docs-figure">
@@ -26,7 +26,7 @@ the shader is a string the app supplies. Technical notes:
 ## Attaching an effect
 
 ```kotlin
-import com.carto.renderers.PostProcessEffect
+import com.massifmaps.renderers.PostProcessEffect
 
 val effect = PostProcessEffect("relief-outline", myFragmentShaderSource).apply {
     isTerrainDepthRequired = true          // render the terrain depth texture for the shader

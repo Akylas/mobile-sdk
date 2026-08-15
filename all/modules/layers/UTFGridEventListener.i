@@ -3,7 +3,7 @@
 
 %module(directors="1") UTFGridEventListener
 
-!proxy_imports(carto::UTFGridEventListener, ui.UTFGridClickInfo)
+!proxy_imports(massif::UTFGridEventListener, ui.UTFGridClickInfo)
 
 %{
 #include "layers/UTFGridEventListener.h"
@@ -11,13 +11,13 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "ui/UTFGridClickInfo.i"
 
-!polymorphic_shared_ptr(carto::UTFGridEventListener, layers.UTFGridEventListener)
+!polymorphic_shared_ptr(massif::UTFGridEventListener, layers.UTFGridEventListener)
 
-%feature("director") carto::UTFGridEventListener;
+%feature("director") massif::UTFGridEventListener;
 
 %include "layers/UTFGridEventListener.h"
 

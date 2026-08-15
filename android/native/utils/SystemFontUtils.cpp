@@ -11,7 +11,7 @@
 
 #include <dirent.h>
 
-namespace carto {
+namespace massif {
 
     namespace {
 

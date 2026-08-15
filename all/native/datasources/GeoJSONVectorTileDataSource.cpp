@@ -22,28 +22,28 @@
 namespace
 {
 
-    carto::mbvtbuilder::MBVTTileBuilder::Point convertPoint(const std::shared_ptr<carto::Projection> &projection, const carto::MapPos &mapPos)
+    massif::mbvtbuilder::MBVTTileBuilder::Point convertPoint(const std::shared_ptr<massif::Projection> &projection, const massif::MapPos &mapPos)
     {
-        carto::MapPos wgs84Pos = projection ? projection->toWgs84(mapPos) : mapPos;
-        return carto::mbvtbuilder::MBVTTileBuilder::Point(wgs84Pos.getX(), wgs84Pos.getY());
+        massif::MapPos wgs84Pos = projection ? projection->toWgs84(mapPos) : mapPos;
+        return massif::mbvtbuilder::MBVTTileBuilder::Point(wgs84Pos.getX(), wgs84Pos.getY());
     }
 
-    std::vector<carto::mbvtbuilder::MBVTTileBuilder::Point> convertPoints(const std::shared_ptr<carto::Projection> &projection, const std::vector<carto::MapPos> &mapPoses)
+    std::vector<massif::mbvtbuilder::MBVTTileBuilder::Point> convertPoints(const std::shared_ptr<massif::Projection> &projection, const std::vector<massif::MapPos> &mapPoses)
     {
-        std::vector<carto::mbvtbuilder::MBVTTileBuilder::Point> points;
+        std::vector<massif::mbvtbuilder::MBVTTileBuilder::Point> points;
         points.reserve(mapPoses.size());
-        for (const carto::MapPos &mapPos : mapPoses)
+        for (const massif::MapPos &mapPos : mapPoses)
         {
             points.push_back(convertPoint(projection, mapPos));
         }
         return points;
     }
 
-    std::vector<std::vector<carto::mbvtbuilder::MBVTTileBuilder::Point>> convertPointsList(const std::shared_ptr<carto::Projection> &projection, const std::vector<std::vector<carto::MapPos>> &mapPosesList)
+    std::vector<std::vector<massif::mbvtbuilder::MBVTTileBuilder::Point>> convertPointsList(const std::shared_ptr<massif::Projection> &projection, const std::vector<std::vector<massif::MapPos>> &mapPosesList)
     {
-        std::vector<std::vector<carto::mbvtbuilder::MBVTTileBuilder::Point>> pointsList;
+        std::vector<std::vector<massif::mbvtbuilder::MBVTTileBuilder::Point>> pointsList;
         pointsList.reserve(mapPosesList.size());
-        for (const std::vector<carto::MapPos> &mapPoses : mapPosesList)
+        for (const std::vector<massif::MapPos> &mapPoses : mapPosesList)
         {
             pointsList.push_back(convertPoints(projection, mapPoses));
         }
@@ -52,7 +52,7 @@ namespace
 
 }
 
-namespace carto
+namespace massif
 {
 
     GeoJSONVectorTileDataSource::GeoJSONVectorTileDataSource(int minZoom, int maxZoom) : TileDataSource(minZoom, maxZoom),

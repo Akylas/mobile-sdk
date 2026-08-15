@@ -1,12 +1,12 @@
 ---
 title: Building the Docs
-sidebar_position: 6
+sidebar_position: 7
 slug: /contributing-docs
 ---
 
 # Building the documentation
 
-This documentation site lives in [`website/`](https://github.com/Akylas/mobile-sdk/tree/master/website)
+This documentation site lives in [`website/`](https://github.com/massif-maps/MassifMaps/tree/master/website)
 and is built with [Docusaurus](https://docusaurus.io/). Everything needed to build it — content,
 API-reference generation and screenshot capture — is in the repo.
 
@@ -22,7 +22,7 @@ npm run build      # production build into website/build
 ## Migrated guides
 
 The conceptual guides under **Guides** are converted from the original CARTO Jekyll docs by
-[`scripts/docs/convert-guides.py`](https://github.com/Akylas/mobile-sdk/blob/master/scripts/docs/convert-guides.py)
+[`scripts/docs/convert-guides.py`](https://github.com/massif-maps/MassifMaps/blob/master/scripts/docs/convert-guides.py)
 (Liquid → CommonMark). Re-run it if the source `docs/guides/*.md` change:
 
 ```bash
@@ -60,18 +60,18 @@ RECORD=1 scripts/docs/capture-screenshots.sh terrain  # still + ~14s video
 
 The demo streams its terrain data from public online tiles (a terrarium DEM +
 an OpenFreeMap vector basemap), so the emulator only needs internet — no map data is pushed to
-the device. The native libraries are prebuilt under `scripts/android-dev/carto_mobile_sdk/`, so the
+the device. The native libraries are prebuilt under `scripts/android-dev/massif/`, so the
 app builds in seconds. The script builds (`assembleDebug --offline`), installs, launches, grabs a
 screenshot (and optionally a screen recording), then uses `ffmpeg` to crop the Android status/nav
 bars and encode a web-friendly JPEG/MP4. Drop the results into `website/static/img/features/`.
 
 For distinct shots (top-down hillshade, close-up contours, a low-angle 3D view), edit the demo's
-`SecondFragment` camera (`setFocusPos` / `setZoom` / `setTilt` — CARTO tilt is `90` = top-down,
+`SecondFragment` camera (`setFocusPos` / `setZoom` / `setTilt` — Massif tilt is `90` = top-down,
 low = horizon) and comment out `addTerrainControls` to hide the debug UI, then restore it.
 
 ## Deployment
 
 A GitHub Actions workflow
-([`.github/workflows/docs.yml`](https://github.com/Akylas/mobile-sdk/blob/master/.github/workflows/docs.yml))
+([`.github/workflows/docs.yml`](https://github.com/massif-maps/MassifMaps/blob/master/.github/workflows/docs.yml))
 builds the site + API reference and deploys to GitHub Pages on every push to `master` and on every
 published release. See [Release workflow](/docs/release-workflow).

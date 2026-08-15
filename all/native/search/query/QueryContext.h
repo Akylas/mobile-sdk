@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_QUERYCONTEXT_H_
-#define _CARTO_QUERYCONTEXT_H_
+#ifndef _MASSIF_QUERYCONTEXT_H_
+#define _MASSIF_QUERYCONTEXT_H_
 
 #include "core/Variant.h"
 
@@ -13,7 +13,7 @@
 #include <string>
 #include <map>
 
-namespace carto {
+namespace massif {
 
     /**
      * Query context for evaluating rules.

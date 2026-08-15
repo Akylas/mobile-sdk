@@ -30,5 +30,5 @@ SVG
 card "$FEAT/terrain-hero.svg" 1200 675 "3D Terrain" "placeholder — replace with a real capture" "&#9968;&#65039;"
 card "$FEAT/contours.svg"     1200 675 "On-the-fly Contours" "placeholder — replace with a real capture" "&#12336;&#65039;"
 card "$FEAT/hillshade.svg"    1200 675 "Hillshade" "placeholder — replace with a real capture" "&#127748;"
-card "$OUT/social-card.svg"   1200 630 "CARTO Mobile SDK" "Maps, terrain &amp; routing for Android and iOS" "&#128506;&#65039;"
+card "$OUT/social-card.svg"   1200 630 "Massif Maps" "Maps, terrain &amp; routing for Android and iOS" "&#128506;&#65039;"
 echo "done."

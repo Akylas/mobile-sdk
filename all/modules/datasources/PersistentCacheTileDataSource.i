@@ -3,9 +3,9 @@
 
 %module(directors="1") PersistentCacheTileDataSource
 
-#ifdef _CARTO_OFFLINE_SUPPORT
+#ifdef _MASSIF_OFFLINE_SUPPORT
 
-!proxy_imports(carto::PersistentCacheTileDataSource, core.MapBounds, core.MapTile, core.MapBounds, core.StringMap, datasources.CacheTileDataSource, datasources.TileDownloadListener, datasources.components.TileData)
+!proxy_imports(massif::PersistentCacheTileDataSource, core.MapBounds, core.MapTile, core.MapBounds, core.StringMap, datasources.CacheTileDataSource, datasources.TileDownloadListener, datasources.components.TileData)
 
 %{
 #include "datasources/PersistentCacheTileDataSource.h"
@@ -15,19 +15,19 @@
 
 %include <std_shared_ptr.i>
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "datasources/CacheTileDataSource.i"
 %import "datasources/TileDownloadListener.i"
 
-!polymorphic_shared_ptr(carto::PersistentCacheTileDataSource, datasources.PersistentCacheTileDataSource)
+!polymorphic_shared_ptr(massif::PersistentCacheTileDataSource, datasources.PersistentCacheTileDataSource)
 
-%attribute(carto::PersistentCacheTileDataSource, bool, CacheOnlyMode, isCacheOnlyMode, setCacheOnlyMode)
-%attribute(carto::PersistentCacheTileDataSource, bool, Open, isOpen)
-%std_exceptions(carto::PersistentCacheTileDataSource::PersistentCacheTileDataSource)
-%std_exceptions(carto::PersistentCacheTileDataSource::startDownloadArea)
+%attribute(massif::PersistentCacheTileDataSource, bool, CacheOnlyMode, isCacheOnlyMode, setCacheOnlyMode)
+%attribute(massif::PersistentCacheTileDataSource, bool, Open, isOpen)
+%std_exceptions(massif::PersistentCacheTileDataSource::PersistentCacheTileDataSource)
+%std_exceptions(massif::PersistentCacheTileDataSource::startDownloadArea)
 
-%feature("director") carto::PersistentCacheTileDataSource;
+%feature("director") massif::PersistentCacheTileDataSource;
 
 %include "datasources/PersistentCacheTileDataSource.h"
 

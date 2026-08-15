@@ -8,7 +8,7 @@
 
 #include <algorithm>
 
-namespace carto {
+namespace massif {
 
     void ThreadUtils::SetThreadPriority(ThreadPriority::ThreadPriority priority) {
         // setpriority is supposed to set the priority of the the whole process, but by using thread id, it is possible to set the priority of actual thread on Linux/Android.

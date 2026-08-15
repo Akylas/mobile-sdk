@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_NULLSPATIALINDEX_H_
-#define _CARTO_NULLSPATIALINDEX_H_
+#ifndef _MASSIF_NULLSPATIALINDEX_H_
+#define _MASSIF_NULLSPATIALINDEX_H_
 
 #include "geometry/utils/SpatialIndex.h"
 
 #include <utility>
 
-namespace carto {
+namespace massif {
     
     template <typename T>
     class NullSpatialIndex : public SpatialIndex<T> {

@@ -79,20 +79,20 @@ namespace {
         return stringValue;
     }
 
-    std::vector<std::vector<carto::MapPos> > createTilePolygon(const carto::MapTile& mapTile, const std::shared_ptr<carto::Projection>& proj) {
-        std::vector<carto::MapPos> poses;
-        carto::MapBounds bounds = carto::TileUtils::CalculateMapTileBounds(mapTile, proj);
+    std::vector<std::vector<massif::MapPos> > createTilePolygon(const massif::MapTile& mapTile, const std::shared_ptr<massif::Projection>& proj) {
+        std::vector<massif::MapPos> poses;
+        massif::MapBounds bounds = massif::TileUtils::CalculateMapTileBounds(mapTile, proj);
         poses.emplace_back(bounds.getMin().getX(), bounds.getMin().getY());
         poses.emplace_back(bounds.getMax().getX(), bounds.getMin().getY());
         poses.emplace_back(bounds.getMax().getX(), bounds.getMax().getY());
         poses.emplace_back(bounds.getMin().getX(), bounds.getMax().getY());
-        return std::vector<std::vector<carto::MapPos> > {{ poses }};
+        return std::vector<std::vector<massif::MapPos> > {{ poses }};
     }
 
-    std::vector<std::vector<carto::MapPos> > unifyTilePolygons(const std::vector<std::vector<carto::MapPos> >& poly1, const std::vector<std::vector<carto::MapPos> >& poly2) {
+    std::vector<std::vector<massif::MapPos> > unifyTilePolygons(const std::vector<std::vector<massif::MapPos> >& poly1, const std::vector<std::vector<massif::MapPos> >& poly2) {
         std::unordered_set<std::size_t> poly2Indices;
-        std::vector<std::vector<carto::MapPos> > unifiedPoly;
-        for (const std::vector<carto::MapPos>& poses1 : poly1) {
+        std::vector<std::vector<massif::MapPos> > unifiedPoly;
+        for (const std::vector<massif::MapPos>& poses1 : poly1) {
             bool found = false;
             for (std::size_t i = 0; i < poses1.size() && !found; i++) {
                 for (auto it2 = poly2.begin(); it2 != poly2.end() && !found; it2++) {
@@ -100,7 +100,7 @@ namespace {
                         continue;
                     }
 
-                    const std::vector<carto::MapPos>& poses2 = *it2;
+                    const std::vector<massif::MapPos>& poses2 = *it2;
                     for (std::size_t j = 0; j < poses2.size(); j++) {
                         if (poses1[i] != poses2[j]) {
                             continue;
@@ -112,7 +112,7 @@ namespace {
                             continue;
                         }
 
-                        std::vector<carto::MapPos> unifiedPoses;
+                        std::vector<massif::MapPos> unifiedPoses;
                         unifiedPoses.reserve(poses1.size() + poses2.size());
                         unifiedPoses.insert(unifiedPoses.end(), poses1.begin(), poses1.begin() + i);
                         unifiedPoses.insert(unifiedPoses.end(), poses2.begin() + j, poses2.end());
@@ -120,8 +120,8 @@ namespace {
                         unifiedPoses.insert(unifiedPoses.end(), poses1.begin() + i, poses1.end());
 
                         for (std::size_t k = 1; k < unifiedPoses.size(); ) {
-                            carto::MapVec v0 = unifiedPoses[k] - unifiedPoses[k - 1];
-                            carto::MapVec v1 = unifiedPoses[k] - unifiedPoses[(k + 1) % unifiedPoses.size()];
+                            massif::MapVec v0 = unifiedPoses[k] - unifiedPoses[k - 1];
+                            massif::MapVec v1 = unifiedPoses[k] - unifiedPoses[(k + 1) % unifiedPoses.size()];
                             if (v0 == v1) {
                                 unifiedPoses.erase(unifiedPoses.begin() + k - 1, unifiedPoses.begin() + k + 1);
                             } else {
@@ -149,7 +149,7 @@ namespace {
 
 }
 
-namespace carto {
+namespace massif {
     
     PackageTileMask::PackageTileMask(const std::string& stringValue, int maxZoom) :
         _stringValue(stringValue),

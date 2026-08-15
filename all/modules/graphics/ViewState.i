@@ -5,85 +5,85 @@
 
 %module ViewState
 
-!proxy_imports(carto::ViewState, core.MapPos, core.ScreenPos, core.MapVec, components.Options, projections.Projection)
+!proxy_imports(massif::ViewState, core.MapPos, core.ScreenPos, core.MapVec, components.Options, projections.Projection)
 
 %{
 #include "graphics/ViewState.h"	
 #include <cglib/mat.h>
 %}
 
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/MapPos.i"
 %import "core/MapVec.i"
 %import "core/ScreenPos.i"
 %import "components/Options.i"
 
-!value_type(carto::ViewState, graphics.ViewState)
+!value_type(massif::ViewState, graphics.ViewState)
 
-%ignore carto::ViewState::getCameraPos;
-%ignore carto::ViewState::getFocusPos;
-%ignore carto::ViewState::getUpVec;
-%ignore carto::ViewState::getFrustum;
+%ignore massif::ViewState::getCameraPos;
+%ignore massif::ViewState::getFocusPos;
+%ignore massif::ViewState::getUpVec;
+%ignore massif::ViewState::getFrustum;
 
-%attribute(carto::ViewState, float, Rotation, getRotation)
-%attribute(carto::ViewState, float, Zoom, getZoom)
-%attribute(carto::ViewState, float, Tilt, getTilt)
-%attribute(carto::ViewState, float, Zoom0Distance, getZoom0Distance)
-%attribute(carto::ViewState, int, FOVY, getFOVY)
-%attribute(carto::ViewState, float, Near, getNear)
-%attribute(carto::ViewState, float, Far, getFar)
-%attribute(carto::ViewState, bool, CameraChanged, isCameraChanged)
-%attribute(carto::ViewState, int, Width, getWidth)
-%attribute(carto::ViewState, int, Height, getHeight)
-%attribute(carto::ViewState, int, ScreenWidth, getScreenWidth)
-%attribute(carto::ViewState, int, ScreenHeight, getScreenHeight)
-%attribute(carto::ViewState, float, DPI, getDPI)
-%attribute(carto::ViewState, float, DPToPX, getDPToPX)
-%attribute(carto::ViewState, float, UnitToDPCoef, getUnitToDPCoef)
-%attribute(carto::ViewState, float, UnitToPXCoef, getUnitToPXCoef)
-%attribute(carto::ViewState, float, AspectRatio, getAspectRatio)
-%ignore carto::ViewState::ViewState;
-%ignore carto::ViewState::RotationState;
-%ignore carto::ViewState::getMinZoom;
-%ignore carto::ViewState::getHalfWidth;
-%ignore carto::ViewState::getHalfHeight;
-%ignore carto::ViewState::getTanHalfFOVY;
-%ignore carto::ViewState::getHalfFOVY;
-%ignore carto::ViewState::getNormalizedResolution;
-%ignore carto::ViewState::getTanHalfFOVX;
-%ignore carto::ViewState::getCosHalfFOVY;
-%ignore carto::ViewState::getCosHalfFOVXY;
-%ignore carto::ViewState::setCameraPos;
-%ignore carto::ViewState::setFocusPos;
-%ignore carto::ViewState::setUpVec;
-%ignore carto::ViewState::setRotation;
-%ignore carto::ViewState::setTilt;
-%ignore carto::ViewState::setZoom;
-%ignore carto::ViewState::cameraChanged;
-%ignore carto::ViewState::get2PowZoom;
-%ignore carto::ViewState::getRotationState;
-%ignore carto::ViewState::getProjectionSurface;
-%ignore carto::ViewState::getProjectionMat;
-%ignore carto::ViewState::getModelviewMat;
-%ignore carto::ViewState::getModelviewProjectionMat;
-%ignore carto::ViewState::getRTELocalMat;
-%ignore carto::ViewState::getRTEModelviewMat;
-%ignore carto::ViewState::getRTEModelviewProjectionMat;
-%ignore carto::ViewState::getRTESkyProjectionMat;
-%ignore carto::ViewState::setScreenSize;
-%ignore carto::ViewState::setTerrainCameraReference; // renderer plumbing, published every frame
-%ignore carto::ViewState::clampZoom;
-%ignore carto::ViewState::clampFocusPos;
-%ignore carto::ViewState::getFocusPosNormal;
-%ignore carto::ViewState::isSkyVisible;
-%ignore carto::ViewState::calculateViewState;
-%ignore carto::ViewState::worldToScreen;
-%ignore carto::ViewState::screenToWorld;
-%ignore carto::ViewState::estimateWorldPixelMeasure;
-%ignore carto::ViewState::getHorizontalLayerOffsetDir;
-%ignore carto::ViewState::setHorizontalLayerOffsetDir;
-!standard_equals(carto::ViewState);
+%attribute(massif::ViewState, float, Rotation, getRotation)
+%attribute(massif::ViewState, float, Zoom, getZoom)
+%attribute(massif::ViewState, float, Tilt, getTilt)
+%attribute(massif::ViewState, float, Zoom0Distance, getZoom0Distance)
+%attribute(massif::ViewState, int, FOVY, getFOVY)
+%attribute(massif::ViewState, float, Near, getNear)
+%attribute(massif::ViewState, float, Far, getFar)
+%attribute(massif::ViewState, bool, CameraChanged, isCameraChanged)
+%attribute(massif::ViewState, int, Width, getWidth)
+%attribute(massif::ViewState, int, Height, getHeight)
+%attribute(massif::ViewState, int, ScreenWidth, getScreenWidth)
+%attribute(massif::ViewState, int, ScreenHeight, getScreenHeight)
+%attribute(massif::ViewState, float, DPI, getDPI)
+%attribute(massif::ViewState, float, DPToPX, getDPToPX)
+%attribute(massif::ViewState, float, UnitToDPCoef, getUnitToDPCoef)
+%attribute(massif::ViewState, float, UnitToPXCoef, getUnitToPXCoef)
+%attribute(massif::ViewState, float, AspectRatio, getAspectRatio)
+%ignore massif::ViewState::ViewState;
+%ignore massif::ViewState::RotationState;
+%ignore massif::ViewState::getMinZoom;
+%ignore massif::ViewState::getHalfWidth;
+%ignore massif::ViewState::getHalfHeight;
+%ignore massif::ViewState::getTanHalfFOVY;
+%ignore massif::ViewState::getHalfFOVY;
+%ignore massif::ViewState::getNormalizedResolution;
+%ignore massif::ViewState::getTanHalfFOVX;
+%ignore massif::ViewState::getCosHalfFOVY;
+%ignore massif::ViewState::getCosHalfFOVXY;
+%ignore massif::ViewState::setCameraPos;
+%ignore massif::ViewState::setFocusPos;
+%ignore massif::ViewState::setUpVec;
+%ignore massif::ViewState::setRotation;
+%ignore massif::ViewState::setTilt;
+%ignore massif::ViewState::setZoom;
+%ignore massif::ViewState::cameraChanged;
+%ignore massif::ViewState::get2PowZoom;
+%ignore massif::ViewState::getRotationState;
+%ignore massif::ViewState::getProjectionSurface;
+%ignore massif::ViewState::getProjectionMat;
+%ignore massif::ViewState::getModelviewMat;
+%ignore massif::ViewState::getModelviewProjectionMat;
+%ignore massif::ViewState::getRTELocalMat;
+%ignore massif::ViewState::getRTEModelviewMat;
+%ignore massif::ViewState::getRTEModelviewProjectionMat;
+%ignore massif::ViewState::getRTESkyProjectionMat;
+%ignore massif::ViewState::setScreenSize;
+%ignore massif::ViewState::setTerrainCameraReference; // renderer plumbing, published every frame
+%ignore massif::ViewState::clampZoom;
+%ignore massif::ViewState::clampFocusPos;
+%ignore massif::ViewState::getFocusPosNormal;
+%ignore massif::ViewState::isSkyVisible;
+%ignore massif::ViewState::calculateViewState;
+%ignore massif::ViewState::worldToScreen;
+%ignore massif::ViewState::screenToWorld;
+%ignore massif::ViewState::estimateWorldPixelMeasure;
+%ignore massif::ViewState::getHorizontalLayerOffsetDir;
+%ignore massif::ViewState::setHorizontalLayerOffsetDir;
+!standard_equals(massif::ViewState);
 
 %include "graphics/ViewState.h"
 

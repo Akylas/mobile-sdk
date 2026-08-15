@@ -8,7 +8,7 @@
 #include <cmath>
 #include <vector>
 
-namespace carto {
+namespace massif {
 
     TerrainProjectionSurface::TerrainProjectionSurface(const std::shared_ptr<ElevationManager>& elevationManager) :
         PlanarProjectionSurface(),

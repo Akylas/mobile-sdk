@@ -11,7 +11,7 @@
 
 #include <algorithm>
 
-namespace carto {
+namespace massif {
 
     CameraZoomEvent::CameraZoomEvent() :
         _keepRotation(false),

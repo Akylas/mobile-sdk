@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_SPHERICALPROJECTIONSURFACE_H_
-#define _CARTO_SPHERICALPROJECTIONSURFACE_H_
+#ifndef _MASSIF_SPHERICALPROJECTIONSURFACE_H_
+#define _MASSIF_SPHERICALPROJECTIONSURFACE_H_
 
 #include "projections/ProjectionSurface.h"
 
@@ -13,7 +13,7 @@
 #include <cglib/mat.h>
 #include <cglib/ray.h>
 
-namespace carto {
+namespace massif {
     
     class SphericalProjectionSurface : public ProjectionSurface {
     public:

@@ -1,4 +1,4 @@
-#if defined(_CARTO_VALHALLA_ROUTING_SUPPORT) && defined(_CARTO_PACKAGEMANAGER_SUPPORT)
+#if defined(_MASSIF_VALHALLA_ROUTING_SUPPORT) && defined(_MASSIF_PACKAGEMANAGER_SUPPORT)
 
 #include "ValhallaRoutingPackageHandler.h"
 #include "packagemanager/PackageTileMask.h"
@@ -8,7 +8,7 @@
 
 #include <sqlite3pp.h>
 
-namespace carto {
+namespace massif {
 
     ValhallaRoutingPackageHandler::ValhallaRoutingPackageHandler(const std::string& fileName) :
         PackageHandler(fileName),

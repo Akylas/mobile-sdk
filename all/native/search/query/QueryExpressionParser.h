@@ -4,15 +4,15 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_QUERYEXPRESSIONPARSER_H_
-#define _CARTO_QUERYEXPRESSIONPARSER_H_
+#ifndef _MASSIF_QUERYEXPRESSIONPARSER_H_
+#define _MASSIF_QUERYEXPRESSIONPARSER_H_
 
 #include "search/query/QueryExpression.h"
 
 #include <string>
 #include <memory>
 
-namespace carto {
+namespace massif {
 
     /**
      * Parser for SQL-like query expression.

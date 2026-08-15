@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_CLICKHANDLERTASK_H_
-#define _CARTO_CLICKHANDLERTASK_H_
+#ifndef _MASSIF_CLICKHANDLERTASK_H_
+#define _MASSIF_CLICKHANDLERTASK_H_
 
 #include "components/ThreadWorker.h"
 #include "core/ScreenPos.h"
@@ -15,7 +15,7 @@
 #include <thread>
 #include <memory>
 
-namespace carto {
+namespace massif {
     class Options;
     class TouchHandler;
     

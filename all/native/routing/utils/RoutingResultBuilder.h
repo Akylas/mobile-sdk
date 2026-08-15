@@ -4,10 +4,10 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_ROUTINGRESULTBUILDER_H_
-#define _CARTO_ROUTINGRESULTBUILDER_H_
+#ifndef _MASSIF_ROUTINGRESULTBUILDER_H_
+#define _MASSIF_ROUTINGRESULTBUILDER_H_
 
-#ifdef _CARTO_ROUTING_SUPPORT
+#ifdef _MASSIF_ROUTING_SUPPORT
 
 #include "core/MapPos.h"
 #include "routing/RoutingResult.h"
@@ -18,7 +18,7 @@
 #include <vector>
 #include <list>
 
-namespace carto {
+namespace massif {
     class Projection;
 
     class RoutingResultBuilder {

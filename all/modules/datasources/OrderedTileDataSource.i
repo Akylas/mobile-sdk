@@ -3,7 +3,7 @@
 
 %module(directors="1") OrderedTileDataSource
 
-!proxy_imports(carto::OrderedTileDataSource, core.MapTile, core.MapBounds, core.StringMap, datasources.TileDataSource, datasources.components.TileData)
+!proxy_imports(massif::OrderedTileDataSource, core.MapTile, core.MapBounds, core.StringMap, datasources.TileDataSource, datasources.components.TileData)
 
 %{
 #include "datasources/OrderedTileDataSource.h"
@@ -13,15 +13,15 @@
 
 %include <std_shared_ptr.i>
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "datasources/TileDataSource.i"
 
-!polymorphic_shared_ptr(carto::OrderedTileDataSource, datasources.OrderedTileDataSource)
+!polymorphic_shared_ptr(massif::OrderedTileDataSource, datasources.OrderedTileDataSource)
 
-%std_exceptions(carto::OrderedTileDataSource::OrderedTileDataSource)
+%std_exceptions(massif::OrderedTileDataSource::OrderedTileDataSource)
 
-%feature("director") carto::OrderedTileDataSource;
+%feature("director") massif::OrderedTileDataSource;
 
 %include "datasources/OrderedTileDataSource.h"
 

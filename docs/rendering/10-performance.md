@@ -32,18 +32,18 @@ adb install -r -t app/build/outputs/apk/debug/app-debug.apk
 | instrument | what it gives | gotchas |
 |---|---|---|
 | `PROF` | CPU ms per frame section: `sky prelude prepare cover drape layers layers3D billboards` | `sky` is mostly the swap wait, not work. Not comparable across apps. |
-| `PROF GPU` | the same sections on the GPU (`GL_EXT_disjoint_timer_query`) | Android only; off with `setprop debug.carto.gputimer 0` |
+| `PROF GPU` | the same sections on the GPU (`GL_EXT_disjoint_timer_query`) | Android only; off with `setprop debug.massif.gputimer 0` |
 | `RenderStats` | draws, indices, render tiles, style layers, surfaces, label and prep timings, tile-surface builds | per one-second interval, deltas — **divide by the `PROF` frame count** of that interval, a faster build prints bigger counters |
 | `simpleperf` | an actual CPU profile of the render thread | see below — this is what finds things the timers cannot |
 
 ### Profiling the render thread
 
 ```sh
-adb shell simpleperf record --app com.akylas.cartotest -g -f 500 --duration 12 -o /data/local/tmp/perf.data
+adb shell simpleperf record --app com.massifmaps.MassifDemo -g -f 500 --duration 12 -o /data/local/tmp/perf.data
 adb pull /data/local/tmp/perf.data /tmp/perf.data
 # symbols: the UNSTRIPPED .so, in a tree mirroring the device path
-D='/tmp/symfs/data/app/~~<hash>==/com.akylas.cartotest-<hash>==/lib/arm64'; mkdir -p "$D"
-cp scripts/android-dev/carto_mobile_sdk/build/intermediates/cxx/*/*/obj/arm64-v8a/libcarto_mobile_sdk.so "$D/"
+D='/tmp/symfs/data/app/~~<hash>==/com.massifmaps.MassifDemo-<hash>==/lib/arm64'; mkdir -p "$D"
+cp scripts/android-dev/massif/build/intermediates/cxx/*/*/obj/arm64-v8a/libmassif.so "$D/"
 $NDK/simpleperf/bin/darwin/x86_64/simpleperf report -i /tmp/perf.data --symfs /tmp/symfs \
   --tids <gl-thread-tid> --children --sort symbol -n
 ```
@@ -81,7 +81,7 @@ is the one whose call graph starts at `MapRenderer::onDrawFrame`.
 
 ## Reset the debug props before measuring
 
-`debug.carto.*` properties survive until the device reboots, and a session that leaves them set
+`debug.massif.*` properties survive until the device reboots, and a session that leaves them set
 measures a crippled build for weeks. A run in August 2026 found `drapebudget 0` and `drapemip 0`
 (the drape memory budget and its mipmaps, i.e. the whole win of the round that added them) still
 set from the session that introduced them, along with `paintdetail 0` and `skyclip 0`. Clear every
@@ -90,7 +90,7 @@ one of them before a baseline:
 ```sh
 for p in areasourcedensity areathreshold asyncdepth asyncdepthms background demtaps depthshift \
          drapebudget drapemip groundpaint linesourcedensity paintdetail skyclip terrainpaint \
-         tilebg tilemasks; do adb shell setprop debug.carto.$p '""'; done
+         tilebg tilemasks; do adb shell setprop debug.massif.$p '""'; done
 ```
 
 ## Where the frame goes today
@@ -127,7 +127,7 @@ anything on this page: cutting a draped line by its **sag** instead of by the ti
 ([04-terrain.md](04-terrain.md#cutting-a-line-by-its-sag-instead-of-by-the-tiles-cell-count)) took
 the city pan from 7.5 to 13.8 fps and the mountain pan from ~11 to ~17.8, with the draw count
 unchanged and 3.4× fewer geometry indices per frame. It is the shipped path now
-(`debug.carto.linesag 0` restores the old split), so any city number taken before 2026-08-13 is
+(`debug.massif.linesag 0` restores the old split), so any city number taken before 2026-08-13 is
 measuring a frame that no longer exists — retake rather than compare.
 
 ### What the city frame is bound by, and the five things that were not it
@@ -163,7 +163,7 @@ The natural reading of the resolution test above is "fragment-bound". It is wron
 experiment says so: **halving every line width changes nothing** (`layers` 20.3–21.7 ms). Neither
 does anything else that makes a fragment cheaper — see the table above, plus round-join fans cut
 from 5 triangles to 1 (13.6–15.5 fps, same indices/frame) and the DEM vertex taps cut from 4 to a
-single hardware-filtered fetch (`debug.carto.demtaps 1`, `layers` 22.3–23.3 ms).
+single hardware-filtered fetch (`debug.massif.demtaps 1`, `layers` 22.3–23.3 ms).
 
 What moves it, every time, is the triangle count. Shrinking the framebuffer also shrinks **binning**
 work, which is per-primitive on a tiler, so that test could not separate fill from binning. Long
@@ -279,7 +279,7 @@ of a 52 MB DB.
 ## Style load and tile decode (off the render thread, but in front of the user)
 
 Measured on a Crosscall HLTE556N with the demo's bundled style project (`--es style assets`:
-`osm.json`, 23 layers, 67 styles, 461 nutiparameters, 9 `.less`/`.mss` files, 74 KB), with temporary
+`osm.json`, 23 layers, 67 styles, 461 styleparameters, 9 `.less`/`.mss` files, 74 KB), with temporary
 timers in `CartoCSSMapLoader`, `TileReader` and `MBVectorTileDecoder`. Device clocks move the
 absolute numbers by up to 40% between runs — compare a change against a run whose *style load* time
 matches, or pair the runs.
@@ -352,7 +352,7 @@ than once per property.
 Both masks are 256 bits with a fallback to the scans they replace (the biggest layer here has ~50
 fields and ~80 predicates).
 
-**How this was measured, and how to redo it:** `libs-carto/cartocss/test/CompileBench.cpp` builds
+**How this was measured, and how to redo it:** `libs-massif/cartocss/test/CompileBench.cpp` builds
 on the host (the command is in its header), loads a style project the way `CartoCSSMapLoader` does
 and times `compileLayer` per layer. With `CSSBENCH_DUMP=<file>` it dumps every compiled property
 set, so `diff` proves a compiler change kept the output identical — all five bundled projects
@@ -382,7 +382,7 @@ scale cannot change:
   27 ms for the system fallback. Only the **stroke and glyph maps** hold anything rasterized at a
   pixel scale; the font and bitmap managers do not. `resetSymbolizerContextRasterMaps` now replaces
   those two and keeps the managers.
-- `mvt::resolveLiveNutiParameters` ran on every `updateSymbolizerContext` — **38 ms** on the
+- `mvt::resolveLiveStyleParameters` ran on every `updateSymbolizerContext` — **38 ms** on the
   23-layer style — although it is a property of the compiled map alone. It moved next to
   `_map`'s assignment, with `getSelectionParameter`.
 
@@ -480,7 +480,7 @@ dropped. `TileReader::hasLayer` (a `_layerMap` lookup in `MBVTFeatureDecoder`, v
 `TorqueTileReader` keeps answering yes) is now asked once per layer, before anything is built.
 
 The one case that must still be built is a style with a **comp-op**: `GLTileRenderer` renders an
-empty layer when `isEmptyBlendRequired(compOp)` ([GLTileRenderer.cpp:2587](../../libs-carto/vt/src/vt/GLTileRenderer.cpp)),
+empty layer when `isEmptyBlendRequired(compOp)` ([GLTileRenderer.cpp:2587](../../libs-massif/vt/src/vt/GLTileRenderer.cpp)),
 so dropping it would change the frame. The skip is therefore `!layerPresent && !style->getCompOp()`.
 
 **Reverted: one feature-data cache per field set, for the current layer.** `createLayerFeatureIterator`
@@ -489,7 +489,7 @@ plus every field name for feature data. A key that does not match throws the cac
 
 The geometry one was **already fine, and the first read of it was wrong**: `readTile` iterates
 `for layer { for style }` and `CartoCSSMapLoader` builds exactly one `mvt::Layer` per layer name
-with the attachments as its consecutive styles ([CartoCSSMapLoader.cpp:365](../../libs-carto/cartocss/src/cartocss/CartoCSSMapLoader.cpp)),
+with the attachments as its consecutive styles ([CartoCSSMapLoader.cpp:365](../../libs-massif/cartocss/src/cartocss/CartoCSSMapLoader.cpp)),
 so a layer's styles never interleave with another layer's and the single slot is discarded exactly
 when the loop leaves the layer. Nothing to win there.
 
@@ -524,14 +524,14 @@ the single-load case.
 ### Live style parameters
 
 `setStyleParameter` used to invalidate every tile ([TileLayer.cpp](../../all/native/layers/TileLayer.cpp)
-`updateTiles`), so changing one `nuti::` colour cost *visible tiles × ~130 ms* of decode CPU. A
+`updateTiles`), so changing one `param::` colour cost *visible tiles × ~130 ms* of decode CPU. A
 parameter that **only** feeds properties the renderer evaluates per frame does not need any of that:
 
-- the values live in a `mvt::NutiParameterStore` that decoded tiles hold a pointer to, so replacing
+- the values live in a `mvt::StyleParameterStore` that decoded tiles hold a pointer to, so replacing
   them is visible to already-decoded tiles;
 - a colour/width property whose expression reads parameters (and at most the view state) becomes a
   `vt::ColorFunction`/`FloatFunction` instead of being folded at decode — `Property::isLiveCapable`;
-- `mvt::resolveLiveNutiParameters` classifies each parameter at load, and `MBVectorTileDecoder`
+- `mvt::resolveLiveStyleParameters` classifies each parameter at load, and `MBVectorTileDecoder`
   takes the cheap path only when **every** parameter in the call is live: swap the values, ask for a
   redraw (`onDecoderRefreshed`), decode nothing.
 
@@ -541,7 +541,7 @@ raster size, generated marker bitmap, stroke pattern (`Property::isBakedAtDecode
 expression also reads a feature field or the zoom, or when it drives `_geometryscale`, `_fontscale`
 or `_zoomlevelbias`. Anything unclassified stays on the re-decode path.
 
-Measured on the device with the demo's in-memory nuti style (`--es style nuti`): flipping a colour
+Measured on the device with the demo's in-memory style project (`--es style project`): flipping a colour
 parameter every 3 s produced **zero `decodeTile` calls** and the water polygons changed between the
 two colours in the next frame; flipping the boolean the style uses in a filter still re-decodes, as
 it must. Worth knowing: the bundled 23-layer style has **no** live parameter — its 461 parameters all
@@ -552,12 +552,12 @@ Classification costs ~37 ms once per style load on that style (a walk over every
 
 ### Selection: the appearance half, without a decode
 
-A selection is a parameter compared with a feature field — `[nuti::selected_id] = [osmid] + ''` —
+A selection is a parameter compared with a feature field — `[param::selected_id] = [osmid] + ''` —
 which the classification above rejects, because the comparison can only be answered per feature. The
 **appearance** half of it no longer needs a decode either, for a style that asks:
 
 ```json
-"nutiparameters": { "selected_id": { "default": "", "selects": true } }
+"styleparameters": { "selected_id": { "default": "", "selects": true } }
 ```
 
 Opt-in on purpose. It only works for a style written a particular way, so inferring it would make
@@ -576,7 +576,7 @@ same geometry. Nothing else about the feature changes, so it is tesselated once.
   properties it may fold (`Property::setSelectionFoldable`). A folded property reads no parameter, so
   it collapses to a constant — which is what makes it a slot, and what lets every unselected feature
   share one.
-- `ExpressionContext::setNutiParameterOverride` is how the fold is forced; `TileReader::createSelectionFeatureProcessor`
+- `ExpressionContext::setStyleParameterOverride` is how the fold is forced; `TileReader::createSelectionFeatureProcessor`
   runs the branch that is not drawn over an EMPTY feature collection, so it registers its slot without
   laying down vertices.
 - Each feature keeps a 64-bit `hashValue` of what it is compared with, next to the vertex run
@@ -604,7 +604,7 @@ filter, which decides whether the geometry exists at all`. The selected route ch
 width in the next frame in both, and the 23-layer base-map style is unaffected - it declares no
 selecting parameter, so its rules are never walked.
 
-**What is still a decode: the structural half.** `when ([nuti::selected_id] = [osmid] + '')::selected`
+**What is still a decode: the structural half.** `when ([param::selected_id] = [osmid] + '')::selected`
 decides whether the casing geometry exists at all, and no repaint can build geometry. A style that
 wants a free selection has to express the casing as appearance — a width and a colour that fold —
 rather than as a rule. The durable answer for the general case is maplibre's `feature-state` model:
@@ -618,7 +618,7 @@ a feature-id vertex attribute in `vt` and shader support — not done.
 | geometry volume (area subdivision off) | indices 37.3M → 7.5M, **+6.5%, inside the noise** |
 | per-vertex DEM taps 16 → 1 | 5.69 vs 5.86 fps with content — nothing (worth ~20% terrain-only) |
 | tile LOD granularity (`--es maxTileZoomOffset -1`) | 11.46 → 11.16 fps |
-| paint-as-ground (`debug.carto.groundpaint 1`) | nothing, twice |
+| paint-as-ground (`debug.massif.groundpaint 1`) | nothing, twice |
 | the far plane (tangram's formula) | never binds at the cameras tested |
 | tile decode pool size 1 → 4 | no change warm or cold |
 | shadows off / sky shader off | ~0 |
@@ -680,7 +680,7 @@ is the culler doing the same work in a denser burst, not the mutex being held lo
 
 ## Runtime switches (no rebuild)
 
-`adb shell setprop debug.carto.<name> <value>` — `demtaps`, `groundpaint`, `tilebg`,
+`adb shell setprop debug.massif.<name> <value>` — `demtaps`, `groundpaint`, `tilebg`,
 `areathreshold`, `areasourcedensity`, `linesourcedensity`, `depthshift`, `terrainpaint`,
 `paintdetail`, `asyncdepthms`, `gputimer`. They are read **once per process**, so restart the app
 after setting one, and **reset them when you are done** — they survive until reboot.

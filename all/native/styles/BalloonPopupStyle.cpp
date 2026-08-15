@@ -1,7 +1,7 @@
 #include "BalloonPopupStyle.h"
 #include "graphics/Bitmap.h"
 
-namespace carto {
+namespace massif {
     
     BalloonPopupStyle::BalloonPopupStyle(const Color& color,
                                          float attachAnchorPointX,

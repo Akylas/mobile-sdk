@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_CARTOCSSASSETLOADER_H_
-#define _CARTO_CARTOCSSASSETLOADER_H_
+#ifndef _MASSIF_CARTOCSSASSETLOADER_H_
+#define _MASSIF_CARTOCSSASSETLOADER_H_
 
 #include "utils/URLFileLoader.h"
 
@@ -14,7 +14,7 @@
 
 #include <cartocss/CartoCSSMapLoader.h>
 
-namespace carto {
+namespace massif {
     class AssetPackage;
     
     class CartoCSSAssetLoader : public css::CartoCSSMapLoader::AssetLoader {

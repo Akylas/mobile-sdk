@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_TERRAINOPTIONS_H_
-#define _CARTO_TERRAINOPTIONS_H_
+#ifndef _MASSIF_TERRAINOPTIONS_H_
+#define _MASSIF_TERRAINOPTIONS_H_
 
 #include "core/MapPos.h"
 #include "graphics/Color.h"
@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 
-namespace carto {
+namespace massif {
     class TileDataSource;
     class ElevationDecoder;
     class ElevationManager;

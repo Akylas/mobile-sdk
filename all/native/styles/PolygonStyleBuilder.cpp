@@ -3,7 +3,7 @@
 #include "graphics/Bitmap.h"
 #include "styles/PolygonStyle.h"
 
-namespace carto {
+namespace massif {
 
     PolygonStyleBuilder::PolygonStyleBuilder() :
         StyleBuilder(),

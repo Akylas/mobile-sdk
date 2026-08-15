@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_GLCONTEXT_H_
-#define _CARTO_GLCONTEXT_H_
+#ifndef _MASSIF_GLCONTEXT_H_
+#define _MASSIF_GLCONTEXT_H_
 
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
@@ -15,7 +15,7 @@
 #include <unordered_set>
 #include <atomic>
 
-namespace carto {
+namespace massif {
 
     class GLContext {
     public:

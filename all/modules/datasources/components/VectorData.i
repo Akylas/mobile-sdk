@@ -3,7 +3,7 @@
 
 %module VectorData
 
-!proxy_imports(carto::VectorData, vectorelements.VectorElement, vectorelements.VectorElementVector)
+!proxy_imports(massif::VectorData, vectorelements.VectorElement, vectorelements.VectorElementVector)
 
 %{
 #include "datasources/components/VectorData.h"
@@ -11,14 +11,14 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "vectorelements/VectorElement.i"
 
-!shared_ptr(carto::VectorData, datasources.components.VectorData)
+!shared_ptr(massif::VectorData, datasources.components.VectorData)
 
-%attributeval(carto::VectorData, %arg(std::vector<std::shared_ptr<carto::VectorElement> >), Elements, getElements)
-!standard_equals(carto::VectorData);
+%attributeval(massif::VectorData, %arg(std::vector<std::shared_ptr<massif::VectorElement> >), Elements, getElements)
+!standard_equals(massif::VectorData);
 
 %include "datasources/components/VectorData.h"
 

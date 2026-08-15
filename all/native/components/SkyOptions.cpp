@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace carto {
+namespace massif {
 
     SkyOptions::SkyOptions() :
         _enabled(true),

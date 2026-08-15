@@ -7,7 +7,7 @@
 
 #include <stdext/utf8_filesystem.h>
 
-namespace carto {
+namespace massif {
     
     URLFileLoader::URLFileLoader() :
         _caching(false),

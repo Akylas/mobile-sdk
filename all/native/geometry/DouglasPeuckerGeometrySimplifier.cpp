@@ -15,7 +15,7 @@
 #include <utility>
 #include <algorithm>
 
-namespace carto {
+namespace massif {
 
     class DouglasPeuckerGeometrySimplifier::Helper {
     public:

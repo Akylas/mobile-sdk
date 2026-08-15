@@ -11,9 +11,9 @@
 %include <std_shared_ptr.i>
 %include <std_string.i>
 
-!polymorphic_shared_ptr(carto::RedrawRequestListener, renderers.RedrawRequestListener)
+!polymorphic_shared_ptr(massif::RedrawRequestListener, renderers.RedrawRequestListener)
 
-%feature("director") carto::RedrawRequestListener;
+%feature("director") massif::RedrawRequestListener;
 
 %include "renderers/RedrawRequestListener.h"
 

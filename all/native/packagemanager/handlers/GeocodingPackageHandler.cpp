@@ -1,4 +1,4 @@
-#if defined(_CARTO_GEOCODING_SUPPORT) && defined(_CARTO_PACKAGEMANAGER_SUPPORT)
+#if defined(_MASSIF_GEOCODING_SUPPORT) && defined(_MASSIF_PACKAGEMANAGER_SUPPORT)
 
 #include "GeocodingPackageHandler.h"
 #include "packagemanager/PackageTileMask.h"
@@ -9,7 +9,7 @@
 
 #include <sqlite3pp.h>
 
-namespace carto {
+namespace massif {
 
     GeocodingPackageHandler::GeocodingPackageHandler(const std::string& fileName) :
         PackageHandler(fileName),

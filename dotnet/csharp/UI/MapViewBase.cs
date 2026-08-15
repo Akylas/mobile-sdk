@@ -1,9 +1,9 @@
-namespace Carto.Ui {
-    using Carto.Components;
-    using Carto.Core;
-    using Carto.Layers;
-    using Carto.Renderers;
-    using Carto.Utils;
+namespace Massif.Ui {
+    using Massif.Components;
+    using Massif.Core;
+    using Massif.Layers;
+    using Massif.Renderers;
+    using Massif.Utils;
 
     /// <summary>
     /// MapView is a platform-specific map class supporting map rendering and interaction.

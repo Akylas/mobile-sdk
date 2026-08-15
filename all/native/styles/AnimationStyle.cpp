@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-namespace carto {
+namespace massif {
 
     AnimationStyle::AnimationStyle(float relativeSpeed, float phaseInDuration, float phaseOutDuration, AnimationType::AnimationType fadeAnimationType, AnimationType::AnimationType sizeAnimationType) :
         _relativeSpeed(relativeSpeed),
