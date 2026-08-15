@@ -590,36 +590,81 @@ jobs:
     permissions:
       contents: write # release changes require contents write
     steps:
-      # we need to do this so that the tag is created now that the build worked
-      - name: Update release
-        uses: irongut/EditRelease@v1.2.0
+      - uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          id: ${{ needs.create-release.outputs.RELEASE_UPLOAD_ID }}
-          prerelease: true
-          draft: false
+          fetch-depth: 0
 
-      - name: Update CHANGELOG
+      - uses: oleksiyrudenko/gha-git-credentials@v2.1.1
+        with:
+          token: '${{ secrets.GITHUB_TOKEN }}'
+          global: true
+          actor: farfromrefug
+          name: Martin Guillon
+          email: dev@akylas.fr
+
+      - name: Generate CHANGELOG
         id: changelog
         uses: requarks/changelog-action@v1
         with:
           useGitmojis: false
           excludeTypes: build,docs,other,style,chore,perf,doc
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag:  v${{ github.event.inputs.version }}
-  
+          tag: v${{ github.event.inputs.version }}
+
       - name: Commit CHANGELOG.md
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
           branch: master
-          commit_message: 'docs: update CHANGELOG.md for ${{ github.ref_name }} [skip ci]'
+          commit_message: 'docs: update CHANGELOG.md for v${{ github.event.inputs.version }} [skip ci]'
           file_pattern: CHANGELOG.md
-      
-      - name: Update release
+
+      - name: Build release body
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+          CHANGELOG: ${{ steps.changelog.outputs.changes }}
+        run: |
+          cat > release_body.md <<EOF
+          ${CHANGELOG}
+
+          ---
+
+          ## Installation
+
+          ### Android
+
+          \`\`\`groovy
+          repositories {
+              mavenCentral()
+              maven { url 'https://jitpack.io' }
+          }
+          dependencies {
+              implementation 'com.github.massif-maps:MassifMaps-android-aar:v${VERSION}'
+          }
+          \`\`\`
+
+          Add the INTERNET permission to \`AndroidManifest.xml\`:
+
+          \`\`\`xml
+          <uses-permission android:name="android.permission.INTERNET"/>
+          \`\`\`
+
+          ### iOS
+
+          Use Swift Package Manager:
+
+          1. In Xcode: **File → Add Packages…**
+          2. Paste the package URL: \`https://github.com/massif-maps/MassifMaps-ios-swift\`
+          3. Select version \`v${VERSION}\` and add it to your target.
+
+          Or download the prebuilt framework attached to this release.
+          EOF
+
+      - name: Update release with body and publish
         uses: irongut/EditRelease@v1.2.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           id: ${{ needs.create-release.outputs.RELEASE_UPLOAD_ID }}
-          body: ${{ steps.changelog.outputs.changes }}
+          files: release_body.md
+          replacebody: true
           prerelease: false
           draft: false
