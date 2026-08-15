@@ -4,7 +4,7 @@ import {themes as prismThemes} from 'prism-react-renderer';
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: 'Massif Maps',
-  tagline: 'Open, multi-platform maps & location services for Android, iOS and UWP',
+  tagline: 'Open, multi-platform maps & location services for Android and iOS — desktop and web next',
   favicon: 'img/favicon.svg',
 
   url: 'https://massif-maps.github.io',
@@ -50,6 +50,8 @@ const config = {
   ],
 
   plugins: [
+    // /roadmap is built from the `roadmap`-labelled GitHub issues (see the plugin header).
+    './plugins/roadmap-issues',
     [
       '@easyops-cn/docusaurus-search-local',
       /** @type {import('@easyops-cn/docusaurus-search-local').PluginOptions} */
@@ -84,6 +86,17 @@ const config = {
             label: 'Documentation',
           },
           {to: '/docs/features/3d-terrain', label: 'Features', position: 'left'},
+          {to: '/platforms', label: 'Platforms', position: 'left'},
+          {to: '/roadmap', label: 'Roadmap', position: 'left'},
+          {
+            label: 'Project',
+            position: 'left',
+            items: [
+              {to: '/integrations', label: 'Integrations'},
+              {to: '/community', label: 'Community'},
+              {to: '/sponsors', label: 'Sponsors'},
+            ],
+          },
           {
             label: 'API Reference',
             position: 'left',
@@ -123,8 +136,18 @@ const config = {
             ],
           },
           {
+            title: 'Project',
+            items: [
+              {label: 'Platforms', to: '/platforms'},
+              {label: 'Roadmap', to: '/roadmap'},
+              {label: 'Integrations', to: '/integrations'},
+              {label: 'Sponsors', to: '/sponsors'},
+            ],
+          },
+          {
             title: 'More',
             items: [
+              {label: 'Community', to: '/community'},
               {label: 'GitHub', href: 'https://github.com/massif-maps/MassifMaps'},
               {label: 'Releases', href: 'https://github.com/massif-maps/MassifMaps/releases'},
               {label: 'Original CARTO docs', href: 'https://cartodb.github.io/developers/mobile-sdk/'},

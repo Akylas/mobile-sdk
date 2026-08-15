@@ -18,10 +18,15 @@ on:
       - '.github/workflows/docs.yml'
   release:
     types: [published]
+  # Nightly: the /roadmap page is baked from the `roadmap`-labelled issues at
+  # build time, so it only refreshes when the site is rebuilt.
+  schedule:
+    - cron: '17 4 * * *'
   workflow_dispatch:
 
 permissions:
   contents: read
+  issues: read
   pages: write
   id-token: write
 
@@ -133,6 +138,9 @@ jobs:
           path: website/static/api/ios
       - name: Install & build site
         working-directory: website
+        # GITHUB_TOKEN lifts the anonymous rate limit for the roadmap issue fetch.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           npm ci
           npm run build

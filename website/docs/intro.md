@@ -38,8 +38,8 @@ existing code keeps working. Highlights added by the fork:
 
 ## What's in the box
 
-- Supports **Android, iOS and UWP** from a single C++ core.
-- Multiple languages: **Java / Kotlin / C#** on Android, **Objective-C / Swift / C#** on iOS, **C#** on UWP.
+- Supports **Android and iOS** from a single C++ core — desktop and web are next, see [Platforms](/platforms).
+- Multiple languages: **Java / Kotlin** on Android, **Objective-C / Swift** on iOS, JavaScript through the [NativeScript plugin](/integrations).
 - Open GIS formats: **GeoJSON, Mapbox Vector Tiles, MBTiles, PMTiles, TMS**.
 - High-level styling via **[CartoCSS](https://carto.com/developers/styling/cartocss/)**.
 - **Globe** and **planar** map modes, plus 2.5D tilted views.
