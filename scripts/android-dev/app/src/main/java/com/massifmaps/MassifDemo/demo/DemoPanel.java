@@ -995,6 +995,9 @@ public final class DemoPanel {
         button(context, "geojson line test", new Action() {
             public void run() { DemoTests.addGeoJSONLine(demo); }
         });
+        button(context, "popup font sampler", new Action() {
+            public void run() { DemoTests.runPopupFonts(demo, "sample"); }
+        });
         button(context, "geojson bench: many routes", new Action() {
             public void run() { DemoTests.runGeoJSONBench(demo, "many"); }
         });

@@ -213,6 +213,10 @@ public class DemoMap {
         if (DemoConfig.GEOJSON_BENCH_LAYER != null && !DemoConfig.GEOJSON_BENCH_LAYER.isEmpty()) {
             DemoTests.addGeoJSONBenchLayer(this, DemoConfig.GEOJSON_BENCH_LAYER);
         }
+        if (DemoConfig.POPUP_FONTS != null && !DemoConfig.POPUP_FONTS.isEmpty()) {
+            DemoTests.runPopupFonts(this, DemoConfig.POPUP_FONTS,
+                    new MapPos(DemoConfig.START_LON, DemoConfig.START_LAT));
+        }
     }
 
     // =============================================================================================

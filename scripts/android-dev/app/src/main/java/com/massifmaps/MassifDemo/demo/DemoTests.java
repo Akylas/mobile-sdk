@@ -26,7 +26,9 @@ import com.massifmaps.projections.Projection;
 import com.massifmaps.search.SearchRequest;
 import com.massifmaps.search.VectorTileSearchService;
 import com.massifmaps.styles.CartoCSSStyleSet;
+import com.massifmaps.styles.BalloonPopupStyleBuilder;
 import com.massifmaps.styles.LineStyleBuilder;
+import com.massifmaps.vectorelements.BalloonPopup;
 import com.massifmaps.vectorelements.Line;
 import com.massifmaps.vectortiles.MBVectorTileDecoder;
 
@@ -431,6 +433,41 @@ public final class DemoTests {
                 }
             }
         }).start();
+    }
+
+    /**
+     * One BalloonPopup per '|' separated font list, stacked around the start camera. What it shows
+     * is which font a name resolves to on THIS device - the popups draw with the platform text API,
+     * not with the tile labels' FreeType path.
+     *
+     *   --es popupFonts sample                     the built-in set, one popup per capability
+     *   --es popupFonts "Roboto|serif|monospace"   a set of your own
+     */
+    public static void runPopupFonts(final DemoMap demo, final String which) {
+        // The live camera, for the panel button. At startup the focus latitude is not applied yet,
+        // which is why DemoMap passes the configured start position instead.
+        runPopupFonts(demo, which, demo.mapView.getOptions().getBaseProjection()
+                .toWgs84(demo.mapView.getFocusPos()));
+    }
+
+    public static void runPopupFonts(final DemoMap demo, final String which, final MapPos wgs) {
+        String fontLists = (which == null || which.isEmpty()
+                || "sample".equalsIgnoreCase(which) || "true".equalsIgnoreCase(which))
+                ? DemoConfig.POPUP_FONTS_SAMPLE : which;
+        String[] fonts = fontLists.split("\\|");
+        LocalVectorDataSource source = results(demo);
+        Projection proj = demo.mapView.getOptions().getBaseProjection();
+        for (int i = 0; i < fonts.length; i++) {
+            BalloonPopupStyleBuilder builder = new BalloonPopupStyleBuilder();
+            builder.setTitleFontName(fonts[i]);
+            builder.setTitleFontSize(18);
+            builder.setDescriptionFontName(fonts[i]);
+            builder.setDescriptionFontSize(14);
+            MapPos pos = proj.fromWgs84(new MapPos(wgs.getX(),
+                    wgs.getY() + 0.0016 * (i - (fonts.length - 1) / 2.0)));
+            source.add(new BalloonPopup(pos, builder.buildStyle(), fonts[i], "Handgloves 0123"));
+        }
+        report(demo, "popup fonts: " + fonts.length);
     }
 
     /**

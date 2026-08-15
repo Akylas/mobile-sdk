@@ -306,6 +306,17 @@ static NSMutableDictionary *sValues = nil;
         // --- style parameter ---
         @"paramInterval":        @0.0f,
 
+        // --- marker popup fonts (DemoTests runPopupFonts) ---
+        // "" = off at startup. sample | a '|' separated list of CSS-like font lists.
+        @"popupFonts":          @"",
+        // What 'sample' shows: one popup per capability, in order.
+        @"popupFontsSample":    @"Roboto"                       // a named system font
+                                 "|serif"                       // a generic family
+                                 "|monospace"
+                                 "|HelveticaNeue-Light"         // a weight of a family
+                                 "|NoSuchFont, monospace"       // list: the 1st name is skipped
+                                 "|android:sans-serif-light, ios:HelveticaNeue-Light, windows:Segoe UI Light",
+
         // --- debug ---
         @"tileBorders":         @NO,
 

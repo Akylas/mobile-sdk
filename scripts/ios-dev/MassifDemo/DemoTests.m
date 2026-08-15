@@ -38,6 +38,8 @@ static MSFLocalVectorDataSource *sResults = nil;
         [self addGeoJSONLine:demo];
     } else if ([action isEqualToString:@"geojsonBench"]) {
         [self runGeoJSONBench:demo];
+    } else if ([action isEqualToString:@"popupFonts"]) {
+        [self runPopupFonts:demo];
     } else if ([action isEqualToString:@"clear"]) {
         [self clear:demo];
     }
@@ -361,6 +363,45 @@ static MSFLocalVectorDataSource *sResults = nil;
     } @catch (NSException *exception) {
         [DemoToast show:[NSString stringWithFormat:@"geojson test failed: %@", exception.reason]];
     }
+}
+
+/**
+ * One BalloonPopup per '|' separated font list, stacked around the camera: what a font name
+ * resolves to on THIS device. A popup draws with CoreText, not with the tile labels' FreeType
+ * path, so this is where the two font stacks can be compared side by side.
+ *
+ * '-popupFonts sample' at launch (or the panel button) shows the built-in set - one entry per
+ * capability - and '-popupFonts "A|B, C"' a set of your own.
+ */
++ (void)runPopupFonts:(DemoMap *)demo {
+    NSString *which = [DemoConfig stringFor:@"popupFonts"];
+    if (!which.length || [which caseInsensitiveCompare:@"sample"] == NSOrderedSame
+            || [which caseInsensitiveCompare:@"true"] == NSOrderedSame) {
+        which = [DemoConfig stringFor:@"popupFontsSample"];
+    }
+    NSArray<NSString *> *fonts = [which componentsSeparatedByString:@"|"];
+    MSFLocalVectorDataSource *source = [self results:demo];
+    MSFProjection *projection = [[demo.mapView getOptions] getBaseProjection];
+    MSFMapPos *wgs = [projection toWgs84:[demo.mapView getFocusPos]];
+    if ([wgs getX] == 0 && [wgs getY] == 0) { // no frame yet at startup
+        wgs = [[MSFMapPos alloc] initWithX:[DemoConfig doubleFor:@"lon"] y:[DemoConfig doubleFor:@"lat"]];
+    }
+    for (NSUInteger i = 0; i < fonts.count; i++) {
+        NSString *font = fonts[i];
+        MSFBalloonPopupStyleBuilder *builder = [[MSFBalloonPopupStyleBuilder alloc] init];
+        [builder setTitleFontName:font];
+        [builder setTitleFontSize:18];
+        [builder setDescriptionFontName:font];
+        [builder setDescriptionFontSize:14];
+        MSFMapPos *wgsPos = [[MSFMapPos alloc] initWithX:[wgs getX]
+                                                       y:[wgs getY] + 0.0016 * ((double)i - (fonts.count - 1) / 2.0)];
+        MSFBalloonPopup *popup = [[MSFBalloonPopup alloc] initWithPos:[projection fromWgs84:wgsPos]
+                                                               style:[builder buildStyle]
+                                                               title:font
+                                                                desc:@"Handgloves 0123"];
+        [source add:popup];
+    }
+    [DemoToast show:[NSString stringWithFormat:@"popup fonts: %d", (int)fonts.count]];
 }
 
 /**

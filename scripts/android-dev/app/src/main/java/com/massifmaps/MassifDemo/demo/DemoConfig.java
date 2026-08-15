@@ -643,6 +643,26 @@ public final class DemoConfig {
     /** Adds a bench dataset as a REAL layer (route style) instead of timing tile builds, so the
      *  RENDER cost can be panned through. Empty = off. many | long | both | a file name. */
     public static String GEOJSON_BENCH_LAYER = "";
+    // =============================================================================================
+    // MARKER POPUP FONTS (DemoTests.runPopupFonts)
+    // A BalloonPopup per font list, to see what a font name resolves to on THIS device. The popups
+    // draw with the platform text API, not with the tile labels' FreeType path, so this is the
+    // only place the two font stacks can be compared side by side.
+    // '--es popupFonts sample' at startup, or the panel button; '--es popupFonts "A|B,C"' for a
+    // list of your own ('|' separates the popups, each one a CSS-like font list).
+    // =============================================================================================
+
+    /** Empty = off at startup. sample | a '|' separated list of font lists. */
+    public static String POPUP_FONTS = "";
+    /** What 'sample' shows: one popup per capability, in order. */
+    public static String POPUP_FONTS_SAMPLE =
+            "Roboto"                                                          // a named system font
+            + "|serif"                                                        // a generic family
+            + "|monospace"
+            + "|HelveticaNeue-Light"                                          // a weight of a family
+            + "|NoSuchFont, monospace"                                        // list: 1st is skipped
+            + "|android:sans-serif-light, ios:HelveticaNeue-Light, windows:Segoe UI Light";
+
     /** Simplify tolerance of the bench source, in tile subpixels. This is the SDK default (1.0),
      *  NOT the route test's 0: at 0 nothing is dropped at any zoom, and 5000 routes then reach the
      *  terrain lattice at full resolution - measured 24M indices/frame and 4 fps on the Crosscall,
@@ -1020,6 +1040,7 @@ public final class DemoConfig {
         GEOJSON_BENCH_TILES_PER_SIDE = DemoCfg.cfgInt("geojsonBenchTiles", GEOJSON_BENCH_TILES_PER_SIDE);
         GEOJSON_BENCH_LAYER = DemoCfg.cfgStr("geojsonLayer", GEOJSON_BENCH_LAYER);
         GEOJSON_BENCH_SIMPLIFY = DemoCfg.cfgFloat("geojsonBenchSimplify", GEOJSON_BENCH_SIMPLIFY);
+        POPUP_FONTS = DemoCfg.cfgStr("popupFonts", POPUP_FONTS);
 
         // inline style
         INLINE_BACKGROUND_COLOR = DemoCfg.cfgColor("bg", INLINE_BACKGROUND_COLOR);
