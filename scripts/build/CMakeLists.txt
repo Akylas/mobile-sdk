@@ -46,6 +46,7 @@ if(WIN32)
 endif(WIN32)
 
 if(APPLE AND (NOT IOS))
+  set(SDK_MACCATALYST TRUE)
   execute_process(COMMAND "xcodebuild" "-version" "-sdk" "macosx" "Path" OUTPUT_VARIABLE OSX_SDK_PATH ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
 
   add_compile_options("-target" "${SDK_IOS_ARCH}-apple-ios-13.0-macabi" "-iframework" "${OSX_SDK_PATH}/System/iOSSupport/System/Library/Frameworks")
@@ -65,7 +66,13 @@ if(APPLE)
   set(CMAKE_XCODE_ATTRIBUTE_GCC_INSTRUMENT_PROGRAM_FLOW_ARCS NO)
 
   if(SDK_CPP_DEFINES MATCHES ".*_MASSIF_USE_METALANGLE.*")
-    set(CMAKE_XCODE_ATTRIBUTE_PRELINK_LIBS "${SDK_EXTERNAL_LIBS_DIR}/angle-metal/${SDK_IOS_BASEARCH}/libangle.a")
+    if(SDK_MACCATALYST)
+      # No prelink here (see below), so libangle is merged by the libtool step instead. libtool
+      # copies archive members without checking their platform, which ld -r refuses to do.
+      set(CMAKE_XCODE_ATTRIBUTE_OTHER_LIBTOOLFLAGS "${SDK_EXTERNAL_LIBS_DIR}/angle-metal/${SDK_IOS_BASEARCH}/libangle.a")
+    else()
+      set(CMAKE_XCODE_ATTRIBUTE_PRELINK_LIBS "${SDK_EXTERNAL_LIBS_DIR}/angle-metal/${SDK_IOS_BASEARCH}/libangle.a")
+    endif()
   endif()
 
   if(SDK_DEV_TEAM)
@@ -77,15 +84,25 @@ if(APPLE)
   # single master object (GENERATE_MASTER_OBJECT_FILE below): the ld -r that produces it runs the
   # LTO codegen, so the archive member we ship is native code, not bitcode that would then need a
   # compatible toolchain in every consuming app.
-  set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -flto=full")
-  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -flto=full")
+  #
+  # Mac Catalyst gets neither. This is a macOS Xcode project with -target ...-macabi forced onto the
+  # compiles, so the prelink runs ld -r for macOS and refuses every real Mach-O input stamped Mac
+  # Catalyst - the prebuilt libangle.a, and any object not turned into bitcode by LTO. Without the
+  # prelink there is nothing to run the LTO codegen, so LTO has to go with it. See
+  # docs/maintenance/mac-catalyst.md.
+  if(NOT SDK_MACCATALYST)
+    set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -flto=full")
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -flto=full")
+  endif()
 
   if(CMAKE_BUILD_TYPE MATCHES "Release|RELEASE")
     set(CMAKE_XCODE_ATTRIBUTE_DEPLOYMENT_POSTPROCESSING YES)
     set(CMAKE_XCODE_ATTRIBUTE_DEAD_CODE_STRIPPING YES)
     set(CMAKE_XCODE_ATTRIBUTE_SEPARATE_STRIP YES)
     set(CMAKE_XCODE_ATTRIBUTE_STRIP_STYLE "non-global")
-    set(CMAKE_XCODE_ATTRIBUTE_GENERATE_MASTER_OBJECT_FILE YES)
+    if(NOT SDK_MACCATALYST)
+      set(CMAKE_XCODE_ATTRIBUTE_GENERATE_MASTER_OBJECT_FILE YES)
+    endif()
   endif()
 endif(APPLE)
 

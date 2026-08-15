@@ -46,7 +46,11 @@ if(APPLE)
     set(CMAKE_XCODE_ATTRIBUTE_DEAD_CODE_STRIPPING YES)
     set(CMAKE_XCODE_ATTRIBUTE_SEPARATE_STRIP YES)
     set(CMAKE_XCODE_ATTRIBUTE_STRIP_STYLE "non-global")
-    set(CMAKE_XCODE_ATTRIBUTE_GENERATE_MASTER_OBJECT_FILE YES)
+    # Not on Mac Catalyst: the prelink runs ld -r for macOS and rejects the Catalyst-stamped
+    # objects this project produces. See docs/maintenance/mac-catalyst.md.
+    if(NOT (APPLE AND (NOT IOS)))
+      set(CMAKE_XCODE_ATTRIBUTE_GENERATE_MASTER_OBJECT_FILE YES)
+    endif()
   endif()
 
 endif(APPLE)
