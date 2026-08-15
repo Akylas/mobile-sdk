@@ -70,7 +70,7 @@ def buildWinPhoneManagedDLL(args, arch):
   buildDir = getBuildDir('winphone_managed10', arch)
 
   proxyFiles = os.listdir("%s/generated/winphone-csharp/proxies" % baseDir)
-  proxies = "\n".join(['<Compile Include="%s\\generated\\winphone-csharp\\proxies\\%s"><Link>Proxies\%s</Link></Compile>' % (baseDir, proxyFile, proxyFile) for proxyFile in proxyFiles])
+  proxies = "\n".join(['<Compile Include="%s\\generated\\winphone-csharp\\proxies\\%s"><Link>Proxies\\%s</Link></Compile>' % (baseDir, proxyFile, proxyFile) for proxyFile in proxyFiles])
   with open('%s/scripts/winphone10/MassifMaps.WinPhone.csproj.template' % baseDir, 'r') as f:
     csProjFile = string.Template(f.read()).safe_substitute({ 'baseDir': baseDir, 'buildDir': buildDir, 'proxies': proxies })
   with open('%s/MassifMaps.WinPhone.csproj' % buildDir, 'w') as f:

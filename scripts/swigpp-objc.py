@@ -196,7 +196,7 @@ def fixProxyCode(fileName):
   lines_out = []
   for line in lines_in:
     # Rename #import "XXX_proxy.h" -> #import "MSFXXX.h" / same for #include
-    line = re.sub('#(import|include)\s+"(.*)_proxy.h"', '#\\1 "MSF\\2.h"', line)
+    line = re.sub(r'#(import|include)\s+"(.*)_proxy.h"', '#\\1 "MSF\\2.h"', line)
 
     # Add '@internal:nodoc:' comment above the special SWIG-wrapper lines
     hide = line.strip() in [
@@ -248,7 +248,7 @@ def transformSwigFile(sourcePath, outPath, moduleDirs, headerDirs):
         return
     
     # Language-specific rename declarations
-    match = re.search('^\s*!(java|cs|objc)_rename(.*)$', line)
+    match = re.search(r'^\s*!(java|cs|objc)_rename(.*)$', line)
     if match:
       lang = match.group(1)
       if lang != 'objc':
@@ -256,19 +256,19 @@ def transformSwigFile(sourcePath, outPath, moduleDirs, headerDirs):
       line = '%%rename%s' % match.group(2)
 
     # Language-specific method modifiers
-    match = re.search('^\s*%(java|cs|objc)methodmodifiers.*$', line)
+    match = re.search(r'^\s*%(java|cs|objc)methodmodifiers.*$', line)
     if match:
       lang = match.group(1)
       if lang != 'objc':
         continue
 
     # Attributes
-    match = re.search('^\s*(%|!)(static|)attribute.*$', line)
+    match = re.search(r'^\s*(%|!)(static|)attribute.*$', line)
     if match:
       continue
 
     # Detect enum directive
-    match = re.search('^\s*!enum\s*[(]([^)]*)[)].*$', line)
+    match = re.search(r'^\s*!enum\s*[(]([^)]*)[)].*$', line)
     if match:
       enumName = match.group(1).strip()
       args = { 'ENUMNAME': match.group(1).strip() }
@@ -276,7 +276,7 @@ def transformSwigFile(sourcePath, outPath, moduleDirs, headerDirs):
       continue
 
     # Detect value_type directive
-    match = re.search('^\s*!value_type\s*[(]([^)]*),([^)]*)[)].*$', line)
+    match = re.search(r'^\s*!value_type\s*[(]([^)]*),([^)]*)[)].*$', line)
     if match:
       className = match.group(1).strip()
       objcClass = 'MSF%s' % match.group(2).strip().split(".")[-1]
@@ -285,7 +285,7 @@ def transformSwigFile(sourcePath, outPath, moduleDirs, headerDirs):
       continue
 
     # Detect shared_ptr directive
-    match = re.search('^\s*!shared_ptr\s*[(]([^)]*),([^)]*)[)].*$', line)
+    match = re.search(r'^\s*!shared_ptr\s*[(]([^)]*),([^)]*)[)].*$', line)
     if match:
       className = match.group(1).strip()
       objcClass = 'MSF%s' % match.group(2).strip().split(".")[-1]
@@ -294,7 +294,7 @@ def transformSwigFile(sourcePath, outPath, moduleDirs, headerDirs):
       continue
 
     # Polymorphic shared_ptr
-    match = re.search('^\s*!polymorphic_shared_ptr\s*[(]([^,]*),([^)]*)[)].*', line)
+    match = re.search(r'^\s*!polymorphic_shared_ptr\s*[(]([^,]*),([^)]*)[)].*', line)
     if match:
       className = match.group(1).strip()
       rawClass = match.group(2).strip().split(".")[-1]
@@ -312,7 +312,7 @@ def transformSwigFile(sourcePath, outPath, moduleDirs, headerDirs):
       continue
 
     # Value-template
-    match = re.search('^\s*!value_template\s*[(]([^)]*),([^)]*)[)].*$', line)
+    match = re.search(r'^\s*!value_template\s*[(]([^)]*),([^)]*)[)].*$', line)
     if match:
       className = match.group(1).strip()
       objcClass = 'MSF%s' % match.group(2).strip().split(".")[-1]
@@ -321,7 +321,7 @@ def transformSwigFile(sourcePath, outPath, moduleDirs, headerDirs):
       continue
 
     # Standard equals
-    match = re.search('^\s*!standard_equals\s*[(]([^)]*)[)].*', line)
+    match = re.search(r'^\s*!standard_equals\s*[(]([^)]*)[)].*', line)
     if match:
       className = match.group(1).strip()
       args = { 'CLASSNAME': match.group(1).strip() }
@@ -335,7 +335,7 @@ def transformSwigFile(sourcePath, outPath, moduleDirs, headerDirs):
       continue
 
     # Custom equals
-    match = re.search('^\s*!custom_equals\s*[(]([^)]*)[)].*', line)
+    match = re.search(r'^\s*!custom_equals\s*[(]([^)]*)[)].*', line)
     if match:
       className = match.group(1).strip()
       args = { 'CLASSNAME': match.group(1).strip() }
@@ -349,13 +349,13 @@ def transformSwigFile(sourcePath, outPath, moduleDirs, headerDirs):
       continue
 
     # Custom toString
-    match = re.search('^\s*!custom_tostring\s*[(]([^)]*)[)].*', line)
+    match = re.search(r'^\s*!custom_tostring\s*[(]([^)]*)[)].*', line)
     if match:
       # Automatically renamed by general rule declared below
       continue
 
     # Imports
-    match = re.search('^\s*!(proxy|java|cs|objc)_imports\s*[(]([^)]*)[)](.*)$', line)
+    match = re.search(r'^\s*!(proxy|java|cs|objc)_imports\s*[(]([^)]*)[)](.*)$', line)
     if match:
       lang = match.group(1)
       parts = [part.strip() for part in match.group(2).split(",")]
@@ -380,17 +380,17 @@ def transformSwigFile(sourcePath, outPath, moduleDirs, headerDirs):
         imports_linenum = len(lines_out)
 
     # Check for STL templates
-    match = re.search('^\s*%template\(.*\)\s*std::.*$', line)
+    match = re.search(r'^\s*%template\(.*\)\s*std::.*$', line)
     if match:
       stl_wrapper = True
 
     # Includes
-    match = re.search('^\s*%include\s+(.*)$', line)
+    match = re.search(r'^\s*%include\s+(.*)$', line)
     if match:
       include_linenum = len(lines_out)
 
     # Rename all methods to nonCapCase, add this before including C++ code
-    match = re.search('^\s*%include\s+"(.*)".*$', line)
+    match = re.search(r'^\s*%include\s+"(.*)".*$', line)
     if match:
       includeName = match.group(1)
       if not stl_wrapper and includeName != "NutiSwig.i":
@@ -551,7 +551,7 @@ def buildPolymorphicReferences(args):
       headerPath = os.path.join(args.proxyDir, '%s.h' % objcClass)
       with open(headerPath, 'r') as f2:
         for line in f2:
-          if re.search('@interface\s+%s' % objcClass, line):
+          if re.search(r'@interface\s+%s' % objcClass, line):
             f.write('  [%s class];\n' % objcClass)
             break
     f.write('}\n')
