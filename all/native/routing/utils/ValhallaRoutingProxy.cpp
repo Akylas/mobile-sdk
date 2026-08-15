@@ -44,7 +44,6 @@
 #include <valhalla/midgard/encoded.h>
 #include <valhalla/midgard/pointll.h>
 #include <valhalla/baldr/json.h>
-#include <valhalla/baldr/pathlocation.h>
 #include <valhalla/baldr/directededge.h>
 #include <valhalla/baldr/datetime.h>
 #include <valhalla/baldr/rapidjson_utils.h>

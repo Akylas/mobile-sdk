@@ -43,7 +43,10 @@ static const char valhalla_default_config[] = R"({
       "radius": 0,
       "search_cutoff": 35000,
       "street_side_max_distance": 1000,
-      "street_side_tolerance": 5
+      "street_side_tolerance": 5,
+      "mvt_min_zoom_road_class": [7, 7, 8, 11, 11, 12, 13, 14],
+      "mvt_cache_min_zoom": 11,
+      "mvt_max_age": "1800"
     },
     "use_connectivity": false
   },

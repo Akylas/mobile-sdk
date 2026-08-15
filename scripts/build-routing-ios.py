@@ -128,7 +128,8 @@ def buildIOSLib(args, baseArch, outputDir=None):
     '-DSHARED_LIBRARY:BOOL=%s' % ('ON' if args.sharedlib else 'OFF'),
     '-DCMAKE_OSX_ARCHITECTURES=%s' % arch,
     '-DCMAKE_OSX_SYSROOT=%s' % ('macosx' if platform == 'MACCATALYST' else 'iphone%s' % platform.lower()),
-    '-DCMAKE_OSX_DEPLOYMENT_TARGET=%s' % ('11.3' if platform == 'MACCATALYST' else ('11.0' if arch == 'i386' else '9.0')),
+    # Valhalla 3.8 uses std::filesystem, which Apple gates on iOS 13 / macOS 10.15.
+    '-DCMAKE_OSX_DEPLOYMENT_TARGET=%s' % ('13.1' if platform == 'MACCATALYST' else '13.0'),
     '-DCMAKE_BUILD_TYPE=%s' % args.configuration,
     "-DSDK_CPP_DEFINES=%s" % " ".join(defines),
     "-DSDK_DEV_TEAM='%s'" % (args.devteam if args.devteam else ""),
@@ -154,7 +155,7 @@ def buildIOSLib(args, baseArch, outputDir=None):
   buildMode = ('archive' if args.configuration == 'Release' else 'build')
   return execute('xcodebuild', buildDir,
     '-project', 'valhalla_routing.xcodeproj', '-arch', arch, '-configuration', args.configuration, buildMode,
-    *list(bitcodeOptions+['GCC_PREPROCESSOR_DEFINITIONS=_LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION'])
+    *list(bitcodeOptions+['GCC_PREPROCESSOR_DEFINITIONS=_LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION _LIBCPP_ENABLE_CXX20_REMOVED_UNCAUGHT_EXCEPTION'])
   )
 
 def buildIOSXCFramework(args, baseArchs, outputDir=None):
