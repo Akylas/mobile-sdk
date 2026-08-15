@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Generate the iOS (Objective-C) API reference (Jazzy) into website/static/api/ios.
 #
-# Steps: run the SWIG Objective-C proxy generator to emit the public NT* headers,
+# Steps: run the SWIG Objective-C proxy generator to emit the public MSF* headers,
 # then run `jazzy --objc` over the umbrella header. macOS host only.
 #
 # Prerequisites (macOS):
@@ -34,12 +34,13 @@ echo "==> Generating Objective-C proxies (profile: $PROFILE)"
 # Build an umbrella header that imports every generated public header.
 UMBRELLA="$BUILD/MassifMaps.h"
 : > "$UMBRELLA"
-find "$PROXY" -name 'NT*.h' | sort | while read -r h; do
+# MSFPolymorphicClasses.h is generated plumbing (imports + a static init), not API.
+find "$PROXY" -name 'MSF*.h' ! -name 'MSFPolymorphicClasses.h' | sort | while read -r h; do
   echo "#import \"$(basename "$h")\"" >> "$UMBRELLA"
 done
 HCOUNT=$(grep -c '#import' "$UMBRELLA" || true)
 echo "   $HCOUNT public headers"
-[ "$HCOUNT" -gt 0 ] || { echo "No NT*.h generated — check the SWIG run above."; exit 1; }
+[ "$HCOUNT" -gt 0 ] || { echo "No MSF*.h generated — check the SWIG run above."; exit 1; }
 
 echo "==> Running jazzy"
 rm -rf "$OUT" && mkdir -p "$OUT"

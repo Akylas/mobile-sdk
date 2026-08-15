@@ -15,7 +15,7 @@ API-reference generation and screenshot capture — is in the repo.
 ```bash
 cd website
 npm install
-npm start          # dev server with hot reload at http://localhost:3000/mobile-sdk/
+npm start          # dev server with hot reload at http://localhost:3000/MassifMaps/
 npm run build      # production build into website/build
 ```
 

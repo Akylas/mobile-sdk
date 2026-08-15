@@ -61,7 +61,7 @@ jobs:
           ./Tools/pcre-build.sh
           ./autogen.sh
           ./configure
-          make -j"$(sysctl -n hw.ncpu)"
+          make -j"$(nproc)"
           echo "SWIG=$RUNNER_TEMP/swig-src/swig" >> "$GITHUB_ENV"
       - name: Generate Android Javadoc
         run: bash scripts/docs/gen-api-android.sh
