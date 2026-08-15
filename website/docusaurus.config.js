@@ -52,6 +52,8 @@ const config = {
   plugins: [
     // /roadmap is built from the `roadmap`-labelled GitHub issues (see the plugin header).
     './plugins/roadmap-issues',
+    // /changelog renders the repo's CHANGELOG.md.
+    './plugins/changelog-content',
     [
       '@easyops-cn/docusaurus-search-local',
       /** @type {import('@easyops-cn/docusaurus-search-local').PluginOptions} */
@@ -92,6 +94,7 @@ const config = {
             label: 'Project',
             position: 'left',
             items: [
+              {to: '/changelog', label: 'Changelog'},
               {to: '/integrations', label: 'Integrations'},
               {to: '/community', label: 'Community'},
               {to: '/sponsors', label: 'Sponsors'},
@@ -147,6 +150,7 @@ const config = {
           {
             title: 'More',
             items: [
+              {label: 'Changelog', to: '/changelog'},
               {label: 'Community', to: '/community'},
               {label: 'GitHub', href: 'https://github.com/massif-maps/MassifMaps'},
               {label: 'Releases', href: 'https://github.com/massif-maps/MassifMaps/releases'},

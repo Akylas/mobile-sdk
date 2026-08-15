@@ -2,6 +2,40 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## Installation
+
+### Android
+
+Add JitPack and the dependency to your `build.gradle`:
+
+```groovy
+repositories {
+    mavenCentral()
+    maven { url 'https://jitpack.io' }
+}
+dependencies {
+    implementation 'com.github.massif-maps:MassifMaps-android-aar:<version>'
+}
+```
+
+Add the INTERNET permission to `AndroidManifest.xml`:
+
+```xml
+<uses-permission android:name="android.permission.INTERNET"/>
+```
+
+### iOS
+
+Use Swift Package Manager:
+
+1. In Xcode: **File → Add Packages…**
+2. Paste the package URL: `https://github.com/massif-maps/MassifMaps-ios-swift`
+3. Pick a version and add it to your target.
+
+Or download a prebuilt framework from the [Releases page](https://github.com/massif-maps/MassifMaps/releases).
+
+---
+
 ## [Unreleased]
 ### New Features
 - **3D terrain support** (experimental): the map surface can be displaced by a DEM elevation tile source (mapbox/terrarium RGB encoding, the same sources used by `HillshadeRasterTileLayer`).

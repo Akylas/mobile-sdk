@@ -19,6 +19,45 @@ Valhalla routing, custom label rules, PMTiles, ...).
 inside the submodule (branch `develop`), then the submodule pointer updated in the main
 repo. Commit style is conventional-commits (`fix:`, `feat:`, `chore:`).
 
+## Conventional commits and PR workflow
+
+All commits and PR titles **must** follow [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+<type>[optional scope]: <description>
+```
+
+Common types:
+- `feat:` — a new feature (triggers a minor version bump in changelogs)
+- `fix:` — a bug fix (triggers a patch bump)
+- `chore:` — maintenance, CI, dependency updates (no version bump)
+- `docs:` — documentation only changes
+- `refactor:` — code change that is neither a fix nor a feature
+- `perf:` — performance improvement
+- `test:` — adding or correcting tests
+- `build:` — build system or external dependency changes
+
+A breaking change must append `!` after the type (e.g. `feat!:`) and/or include a
+`BREAKING CHANGE:` footer. This is used for changelog generation and versioning.
+
+When creating PRs via `gh pr create`, always use:
+```sh
+gh pr create --repo massif-maps/MassifMaps --title "feat: your title here" ...
+```
+(Without `--repo` the command targets the archived CartoDB upstream and fails.)
+
+## Release workflow
+
+When creating a new release:
+
+1. Update `CHANGELOG.md` — add a new version section (e.g. `## [v5.1.0] - YYYY-MM-DD`) by
+   aggregating conventional commits since the last tag. Include `### New Features` and
+   `### Bug Fixes` sub-sections as appropriate. Keep the `## [Unreleased]` section at the top.
+2. Tag the commit: `git tag v5.1.0 && git push origin v5.1.0` (via `engine-tools-report_progress`).
+3. Create the GitHub release with a body generated from the CHANGELOG section for that version.
+   The release body should include the full diff section from `CHANGELOG.md` plus installation
+   instructions (see the CHANGELOG header for the canonical snippet).
+
 ## Working in this checkout
 
 `scripts/android-dev` is the live test bench. It is ONE composable demo, not a set of examples:

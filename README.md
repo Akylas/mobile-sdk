@@ -59,7 +59,7 @@ repositories {
 	maven { url 'https://jitpack.io' }
 }
 dependencies {
-	implementation 'com.github.massif-maps:MassifMaps:5.0.0'
+	implementation 'com.github.massif-maps:MassifMaps-android-aar:5.0.0'
 }
 ```
 
@@ -95,9 +95,9 @@ repositories {
 }
 dependencies {
     // Full map SDK (optional if you only need routing)
-    implementation 'com.github.massif-maps:MassifMaps:5.0.0'
+    implementation 'com.github.massif-maps:MassifMaps-android-aar:5.0.0'
     // Standalone routing library
-    implementation 'com.github.massif-maps:MassifMaps:valhalla-routing:5.0.0'
+    implementation 'com.github.massif-maps:MassifMaps-android-aar:valhalla-routing:5.0.0'
 }
 ```
 
