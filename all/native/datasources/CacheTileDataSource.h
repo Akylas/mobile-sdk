@@ -31,6 +31,8 @@ namespace carto {
          */
         virtual std::string getEncoding() const;
 
+        virtual std::string getMetaData(const std::string& key) const;
+
         virtual void notifyTilesChanged(bool removeTiles);
 
         /**

@@ -512,6 +512,10 @@ namespace carto {
         return _dataSource->getEncoding();
     }
 
+    std::string ContourTileDataSource::getMetaData(const std::string& key) const {
+        return _dataSource->getMetaData(key);
+    }
+
     std::shared_ptr<ElevationDecoder> ContourTileDataSource::resolveDecoder(const std::shared_ptr<TileData>& tileData) const {
         if (_elevationDecoder) {
             return _elevationDecoder;

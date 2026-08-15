@@ -77,6 +77,22 @@ namespace carto {
 
         setCullDelay(DEFAULT_CULL_DELAY);
 
+        // A source that declares its format is authoritative, so take it over the per-tile
+        // detection. 'encoding' is read first because MapLibre's own tilesets keep format at 'pbf'
+        // and put the MLT-ness there. Only when the decoder is still on AUTO: an explicit
+        // setTileFormat is the app's decision and stands.
+        if (auto mbDecoder = std::dynamic_pointer_cast<MBVectorTileDecoder>(decoder)) {
+            if (mbDecoder->getTileFormat() == TileFormat::TILE_FORMAT_AUTO && dataSource) {
+                TileFormat::TileFormat format = MBVectorTileDecoder::parseTileFormat(dataSource->getMetaData("encoding"));
+                if (format == TileFormat::TILE_FORMAT_AUTO) {
+                    format = MBVectorTileDecoder::parseTileFormat(dataSource->getMetaData("format"));
+                }
+                if (format != TileFormat::TILE_FORMAT_AUTO) {
+                    mbDecoder->setTileFormat(format);
+                }
+            }
+        }
+
         if (auto clickRadius = readDecoderParameter<float>(decoder, "_clickradius")) {
             setClickRadius(*clickRadius);
         }

@@ -4,7 +4,9 @@ This is now a maintained fork of original Carto SDK as Carto stopped maintaining
 If you like the project and want me to keep on maintaining it. Please support it.
 
 📚 **Documentation: https://akylas.github.io/mobile-sdk/** — installation, guides, feature docs
-(3D terrain, contours, hillshade, composite layers, PMTiles) and the Android/iOS API reference.
+(3D terrain, contours, hillshade, composite layers, PMTiles, sky/sun/shadows, sky-anchored objects,
+post-processing effects, shields & font icons, live style parameters, GeoJSON tiling, maneuver
+arrows) and the Android/iOS API reference.
 The site lives in [`website/`](website/) and rebuilds automatically on release
 (see [Building the docs](website/docs/contributing-docs.md)).
 
@@ -24,6 +26,20 @@ CARTO Mobile SDK is an open, multi-platform framework for visualizing maps and p
 * Embedded [Simple GeoJSON routing engine](https://github.com/nutiteq/python-sgre)  for indoor routing
 * Offline package support for maps, routing and geocoding
 * Support for connecting to CARTO online services like [Maps API](https://carto.com/developers/maps-api/) and [SQL API](https://carto.com/developers/sql-api/).
+
+### Added by this fork
+
+* 3D terrain from RGB elevation tiles, with draping, depth occlusion and terrain-aware labels
+* On-the-fly contour lines, advanced hillshade and custom raster shaders
+* Composite vector tile layers — external raster/vector sources woven into one CartoCSS style
+* Sun lighting, a shader sky, fog and cascaded shadow maps
+* Sky-anchored objects (sun, moon, stars, aircraft) and a free-roam / look-up camera
+* Full-screen post-processing effects with access to the terrain depth
+* Shield anchors, SDF font icons, label plates and panorama callout labels
+* Live style parameters, including a feature selection that repaints instead of re-decoding
+* GeoJSON tiled through a geojson-vt pyramid, and navigation maneuver arrows built from a route
+* MapLibre Tiles (MLT) alongside MVT, in the same decoder and the same styles
+* PMTiles (local and HTTP)
 
 ## Requirements
 
