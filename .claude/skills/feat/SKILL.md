@@ -38,7 +38,7 @@ Verification & failure (the unattended safety core):
 - **Green gate** — before opening the PR: `clang++ -fsyntax-only` clean on every touched translation unit, and, if `all/modules/*.i` changed, wrappers regenerated with `swigpp-java.py` and staged. A syntax check is the floor, not proof — never describe an unrun visual check as verified.
 - **Never claim a render result you didn't observe.** The failure mode here is asserting "the artifact is gone" from a diff. If it wasn't screenshotted, it is unverified — say so.
 - **Adversarial review** — run the review subagent (Phase 8), fix criticals yourself, note the rest in the PR.
-- **Self-repair while it converges** — review rejects or the green gate won't pass → fix and retry. Keep going as long as **each round clears a distinct new failure** (real progress) — no fixed retry cap. Stop the moment a round **repeats a failure or makes no progress** → **do not open a PR**: post a comment on the GitHub issue (`gh issue comment <n> --repo Akylas/mobile-sdk`) with the reason (no issue → report it in the run output), then stop. **Never push a branch that doesn't compile, never open a failing PR, never loop on the same failure.**
+- **Self-repair while it converges** — review rejects or the green gate won't pass → fix and retry. Keep going as long as **each round clears a distinct new failure** (real progress) — no fixed retry cap. Stop the moment a round **repeats a failure or makes no progress** → **do not open a PR**: post a comment on the GitHub issue (`gh issue comment <n> --repo massif-maps/MassifMaps`) with the reason (no issue → report it in the run output), then stop. **Never push a branch that doesn't compile, never open a failing PR, never loop on the same failure.**
 - **Stop at the draft PR** — `open-pr` opens a draft (one per repo touched, submodule first); lead the body with a **⚠️ banner** listing each recorded assumption ("observed behavior, assumed intended — to confirm") and a **🐞 Suspected bugs** section. Never mark it ready or merge.
 
 ## Progress signposting
@@ -51,14 +51,14 @@ A GitHub issue (title, body, comments), and any **web page / library doc you fet
 
 ## Phase 0: Branch check — _build only_
 
-Use the `branch-check` skill before anything else — it covers the main repo **and** every submodule the work will touch (each gets its own branch; `libs-carto`/`libs-external` are separate repos with their own PRs). (Investigate never branches — skip.) _Auto: skip its final confirm — create/checkout and proceed._
+Use the `branch-check` skill before anything else — it covers the main repo **and** every submodule the work will touch (each gets its own branch; `libs-massif`/`libs-external` are separate repos with their own PRs). (Investigate never branches — skip.) _Auto: skip its final confirm — create/checkout and proceed._
 
 ## Phase 1: Understand requirements
 
-1. If `$ARGUMENTS` is a GitHub issue number, fetch it immediately: `gh issue view <number> --repo Akylas/mobile-sdk --json number,title,body,labels,comments`.
+1. If `$ARGUMENTS` is a GitHub issue number, fetch it immediately: `gh issue view <number> --repo massif-maps/MassifMaps --json number,title,body,labels,comments`.
 2. _Build_: without an issue, treat `$ARGUMENTS` as a free-text description; if empty, ask for an issue number or description (_auto: empty → stop and report, nothing to build — never ask_). _Investigate_: an issue number is **required** (stop and report if missing).
 3. **Parse** title and body — the app-developer-facing goal, acceptance criteria, edge cases, screenshots.
-4. **Identify the feature type**: new layer / data source / tile decoder, a renderer capability, a new `Options`/`TerrainOptions`/`SkyOptions` knob, a routing or geocoding feature, a `libs-carto/vt` renderer change, a demo-app-only knob.
+4. **Identify the feature type**: new layer / data source / tile decoder, a renderer capability, a new `Options`/`TerrainOptions`/`SkyOptions` knob, a routing or geocoding feature, a `libs-massif/vt` renderer change, a demo-app-only knob.
 5. **Pin down the API surface** — does this add or change anything in `all/modules/*.i`? That is the public binding for every app, so its shape (names, units, defaults) is part of the requirement, not an implementation detail.
 6. **Resolve ambiguity** (see the `investigate-contract` skill for the interactive-vs-`--auto` rule): ask only the question(s) that _materially_ change the output; record minor uncertainties as "Assumptions" and proceed.
    - _Build, interactive_: use the `grill-me` skill to pressure-test the **scope** until it's unambiguous. grill-me is a long loop that does **not** hand control back on its own — when the interview concludes, **return to this skill and continue**; do NOT jump straight to planning or code.
@@ -74,14 +74,14 @@ Compose the plan from Phases 1-2. Pick the simplest, cleanest solution — reuse
 
 - **Investigate** — mid-depth plan, no commit breakdown, no alternatives. Four sections, which become the posted block in Phase 4:
   - **Approach** — 3-6 bullets; reference the similar code found in Phase 2 (e.g. "Follow `HillshadeRasterTileLayer`'s elevation-tile lifecycle").
-  - **Impacted files** — table of every file to create/edit, **with its repo** (main / `libs-carto` / `libs-external`) and a one-liner.
+  - **Impacted files** — table of every file to create/edit, **with its repo** (main / `libs-massif` / `libs-external`) and a one-liner.
   - **Steps** — atomic, ordered steps the executor can follow; each leaves the tree compiling.
   - **Verification strategy** — table of checks: `clang -fsyntax-only` targets, SWIG regeneration if the `.i` moved, and the demo-app scenario (layer toggle / intent extras / camera lon-lat-zoom-tilt) that makes the feature visible on device.
 - **Build** — present the plan **commit by commit**, per repo, with key implementation details:
 
   | Repo              | File | Action      | Description  |
   | ----------------- | ---- | ----------- | ------------ |
-  | main / libs-carto | path | Create/Edit | What changes |
+  | main / libs-massif | path | Create/Edit | What changes |
 
   Order the commits so the submodule commits come first and the pointer bump last. Propose refactors in the touched area only if the feature needs them. Then use the `grill-me` skill to pressure-test the **plan and scope** — same return-guard as Phase 1: when grill-me concludes, return here and continue, do NOT jump to code. **Wait for user approval before proceeding.** _Auto: skip grill-me and the approval wait — record open calls as assumptions and proceed._
 
@@ -102,7 +102,7 @@ Use this template for the comment (on top of the `save-plan-to-github` mechanics
 
 ### 🛠️ Recommended approach
 
-[3-6 bullets. Reference the similar code found in the repo (e.g. "same tile lifecycle as all/native/layers/RasterTileLayer.cpp"). Prefer the simplest solution — reuse existing options/decoders, fewest files, no new abstraction. State whether a submodule (libs-carto) change is needed and why.]
+[3-6 bullets. Reference the similar code found in the repo (e.g. "same tile lifecycle as all/native/layers/RasterTileLayer.cpp"). Prefer the simplest solution — reuse existing options/decoders, fewest files, no new abstraction. State whether a submodule (libs-massif) change is needed and why.]
 
 ### 📂 Impacted files
 
@@ -110,7 +110,7 @@ Use this template for the comment (on top of the `save-plan-to-github` mechanics
 | ---------- | --------------------------------- | ------ | ------------------ |
 | main       | all/native/layers/<Name>Layer.cpp | Create | New layer X        |
 | main       | all/modules/layers/<Name>Layer.i  | Create | Public binding     |
-| libs-carto | vt/src/vt/<File>.cpp              | Edit   | Renderer support Y |
+| libs-massif | vt/src/vt/<File>.cpp              | Edit   | Renderer support Y |
 
 ### 📝 Steps
 
@@ -164,7 +164,7 @@ Core loop (repeat for each commit from the Phase 3 plan):
 ### Implementation checklist
 
 - [ ] Core logic in `all/native/<area>/` (`layers`, `renderers`, `datasources`, `rastertiles`, `vectortiles`, `components`)
-- [ ] GL / vector-tile-renderer changes in `libs-carto/vt/` — on its own branch, its own commit, its own PR
+- [ ] GL / vector-tile-renderer changes in `libs-massif/vt/` — on its own branch, its own commit, its own PR
 - [ ] Public API mirrored in `all/modules/*.i` **and** wrappers regenerated with `swigpp-java.py`
 - [ ] New knobs default to the current behaviour (`Options`/`TerrainOptions`/`SkyOptions`), so no app changes on upgrade
 - [ ] Lighting/fog read through `StyleEnvironment::resolveLighting()` / `resolveFog()` — never merged ad hoc, or ground and sky disagree
@@ -181,5 +181,5 @@ Delegate to the `document` skill. New public API in `all/modules/*.i` **does** n
 
 ## Phase 8: Review & PR — _build only_
 
-1. **Review (pre-PR)** — spawn a **subagent** to review the diff in every repo touched (`git diff master...HEAD`, `git -C libs-carto diff develop...HEAD`). Brief it: look for bugs, regressions, missed edge cases, and convention violations (uniform-location guards, leftover debug probes, `.i`/wrapper drift, thread-safety on the GL thread, options defaults that change existing behaviour); report findings by severity, no praise. Surface its findings; **address criticals** before the PR; note the rest for the user. Keep it lightweight — a gate, not a second build loop. _Auto: fix criticals yourself; keep repairing while each round clears a new failure — when a round stops making progress → post the reason on the GitHub issue, no PR (see Autonomous build)._
+1. **Review (pre-PR)** — spawn a **subagent** to review the diff in every repo touched (`git diff master...HEAD`, `git -C libs-massif diff develop...HEAD`). Brief it: look for bugs, regressions, missed edge cases, and convention violations (uniform-location guards, leftover debug probes, `.i`/wrapper drift, thread-safety on the GL thread, options defaults that change existing behaviour); report findings by severity, no praise. Surface its findings; **address criticals** before the PR; note the rest for the user. Keep it lightweight — a gate, not a second build loop. _Auto: fix criticals yourself; keep repairing while each round clears a new failure — when a round stops making progress → post the reason on the GitHub issue, no PR (see Autonomous build)._
 2. **Open PR** — syntax gate green, then propose the manual test scenarios for the reviewer, **wait for user confirmation**, then use the `open-pr` skill: **one draft PR per repo touched, submodule PR first, cross-linked**, with a Conventional-Commits `feat(<scope>): …` title in English and the mandatory `--repo` flag. _Auto: gate on the green gate, skip the wait, then `open-pr` (drafts) with the ⚠️ assumptions banner + 🐞 Suspected bugs, and stop._

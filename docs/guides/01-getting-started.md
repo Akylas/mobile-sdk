@@ -6,7 +6,7 @@
 
   {% highlight groovy linenos%}
 
-  // use the latest version number from https://github.com/massifmaps/MassifMaps/releases
+  // use the latest version number from https://github.com/massif-maps/MassifMaps/releases
 
   dependencies {
       compile 'com.massifmaps:carto-mobile-sdk:4.4.6@aar'
@@ -198,12 +198,12 @@
 
 1) **Create new project**. The simplest is to create a new ‘Single View application’ in your Xcode project
 
-2) **Configure Cocapod Podfile** to load SDK to your project. If you do not use Cocoapod, then you can also load SDK and add as plain .framework  to your project structure from the [Mobile SDK Releases](https://github.com/massifmaps/MassifMaps/releases) page.
+2) **Configure Cocapod Podfile** to load SDK to your project. If you do not use Cocoapod, then you can also load SDK and add as plain .framework  to your project structure from the [Mobile SDK Releases](https://github.com/massif-maps/MassifMaps/releases) page.
 
 {% highlight groovy %}
 
   // Add to your CocoaPods Podfile:
-  // use the latest version number from https://github.com/massifmaps/MassifMaps/releases
+  // use the latest version number from https://github.com/massif-maps/MassifMaps/releases
   pod 'MassifMaps', '4.4.6'
 
 {% endhighlight %}

@@ -14,7 +14,7 @@ endif()
 # Directories
 set(SDK_BASE_DIR "${PROJECT_SOURCE_DIR}/../..")
 set(SDK_SRC_DIR "${SDK_BASE_DIR}/all/native")
-set(SDK_MASSIF_LIBS_DIR "${SDK_BASE_DIR}/libs-carto" )
+set(SDK_MASSIF_LIBS_DIR "${SDK_BASE_DIR}/libs-massif" )
 set(SDK_EXTERNAL_LIBS_DIR "${SDK_BASE_DIR}/libs-external")
 
 # General platform-specific flags

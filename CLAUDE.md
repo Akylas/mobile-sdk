@@ -10,12 +10,12 @@ Valhalla routing, custom label rules, PMTiles, ...).
 |------|-----------|
 | `all/native/` | Core SDK C++ (layers, renderers, datasources, projections, ui, vectortiles...) |
 | `all/modules/` | SWIG interface files (`*.i`) — public API surface, mirrors `all/native` |
-| `libs-carto/` | **git submodule** (farfromrefug/mobile-carto-libs): `vt` (GL vector-tile renderer), `mapnikvt`, `cartocss`, `geocoding`, `sgre`/`osrm` routing, `nml` |
-| `libs-external/` | **git submodule** (Akylas/mobile-external-libs): third-party deps (cglib, freetype, harfbuzz, `mlt` = maplibre-tile-spec, decoder only, ...). `boost` is expected as a symlink here (see BUILDING.md) |
+| `libs-massif/` | **git submodule** (massif-maps/massif-maps-libs): `vt` (GL vector-tile renderer), `mapnikvt`, `cartocss`, `geocoding`, `sgre`/`osrm` routing, `nml` |
+| `libs-external/` | **git submodule** (massif-maps/massif-external-libs): third-party deps (cglib, freetype, harfbuzz, `mlt` = maplibre-tile-spec, decoder only, ...). `boost` is expected as a symlink here (see BUILDING.md) |
 | `android/`, `ios/`, `dotnet/`, `winphone/` | Platform glue code |
 | `scripts/` | Build scripts (`build-android.py`, `build-ios.py`, `swigpp-*.py`, CMake in `scripts/build/`) |
 
-**Submodule gotcha:** changes under `libs-carto/` or `libs-external/` must be committed
+**Submodule gotcha:** changes under `libs-massif/` or `libs-external/` must be committed
 inside the submodule (branch `develop`), then the submodule pointer updated in the main
 repo. Commit style is conventional-commits (`fix:`, `feat:`, `chore:`).
 
@@ -23,7 +23,7 @@ repo. Commit style is conventional-commits (`fix:`, `feat:`, `chore:`).
 
 `scripts/android-dev` is the live test bench. It is ONE composable demo, not a set of examples:
 
-| File (under `app/src/main/java/com/massifmaps/test/`) | Role |
+| File (under `app/src/main/java/com/massif-maps/test/`) | Role |
 |---|---|
 | `demo/DemoConfig.java` | every default, one static field per knob + the intent-extra key map (`applyIntentOverrides`) |
 | `demo/DemoCfg.java` | `cfgBool/cfgFloat/cfgInt/cfgStr/cfgColor` intent readers (`--es key value`) |
@@ -47,7 +47,7 @@ Comparing against older SDK code (A/B-ing a regression) takes three steps, not o
 
 ```sh
 git checkout <sha> -- all/                       # 1. old sources
-(cd libs-carto && git checkout <matching-sha>)   # 2. matching submodule commit
+(cd libs-massif && git checkout <matching-sha>)   # 2. matching submodule commit
 cd scripts && python3 swigpp-java.py --profile "standard+valhalla+geocoding+routing+packagemanager" \
   --swig /Volumes/dev/carto/mobile-swig/swig     # 3. regenerate wrappers, else the build fails
 ```
@@ -61,7 +61,7 @@ regenerate). SWIG is never run by gradle — any change to `all/modules/*.i` nee
 for the full profile, 256 for `standard`, 236 for `lite`), and the only way back is to run it again
 with the profile you develop against. Size per profile is in [`docs/build-size.md`](docs/build-size.md).
 
-`gh pr create` needs `--repo Akylas/mobile-sdk` (or `--repo farfromrefug/mobile-carto-libs`).
+`gh pr create` needs `--repo massif-maps/MassifMaps` (or `--repo massif-maps/massif-maps-libs`).
 Both repos are forks of the archived CartoDB originals, and without `--repo` gh targets the
 upstream and fails with "Repository was archived so is read-only".
 
@@ -163,10 +163,10 @@ For fast iteration on the vt renderer, a syntax/type check is enough:
 
 ```sh
 clang++ -fsyntax-only -std=c++20 \
-  -I libs-carto/vt/src -I libs-external/cglib -I libs-external/stdext \
+  -I libs-massif/vt/src -I libs-external/cglib -I libs-external/stdext \
   -I libs-external/angle-metal/include \
   -I <dir-with-boost-or-stub> \
-  libs-carto/vt/src/vt/<file>.cpp
+  libs-massif/vt/src/vt/<file>.cpp
 ```
 
 boost is only used for `boost::math::constants::pi` in vt; a one-line stub header works
@@ -192,7 +192,7 @@ Data flow for a `VectorTileLayer`:
 1. `CullWorker` → `TileLayer::calculateDrawData` → visible tile set.
 2. `VectorTileLayer` decodes tiles (mapnikvt + cartocss) → `vt::Tile` with `TileLayer`s
    containing geometry + `TileLabel`s.
-3. `TileRenderer` (all/native) wraps `vt::GLTileRenderer` (libs-carto/vt) which does all
+3. `TileRenderer` (all/native) wraps `vt::GLTileRenderer` (libs-massif/vt) which does all
    GL work: `startFrame` → `renderGeometry` → `renderLabels` → `endFrame`.
 
 ### Label pipeline (the flicker-sensitive part)
@@ -236,7 +236,7 @@ relies on fresh caches / snapPlacement semantics).
   `MapBoxElevationDataDecoder` (RGB-encoded) and `TerrariumElevationDataDecoder`.
 - `all/native/layers/HillshadeRasterTileLayer.{h,cpp}`: consumes elevation tiles,
   has `getElevation(s)` queries; shading uses `vt::NormalMapBuilder`
-  (libs-carto/vt/src/vt/NormalMapBuilder.cpp).
+  (libs-massif/vt/src/vt/NormalMapBuilder.cpp).
 - Tile geometry/mesh generation: `vt::TileSurfaceBuilder` builds per-tile surface
   meshes; `vt::TileTransformer` (planar + spherical implementations in
   TileTransformer.cpp) abstracts tile-local → world transforms — 3D terrain would plug

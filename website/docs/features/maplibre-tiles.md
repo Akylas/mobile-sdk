@@ -10,10 +10,10 @@ decode — CartoCSS, symbolizers, `param::` parameters, labels, terrain draping 
 tileset styles exactly like an MVT one.
 
 :::info Fork feature
-Added in PR [#90](https://github.com/Akylas/mobile-sdk/pull/90), on the
+Added in PR [#90](https://github.com/massif-maps/MassifMaps/pull/90), on the
 [maplibre-tile-spec](https://github.com/maplibre/maplibre-tile-spec) decoder vendored under
 `libs-external/mlt`. Technical notes:
-[`docs/rendering/02-tiles.md`](https://github.com/Akylas/mobile-sdk/blob/master/docs/rendering/02-tiles.md#two-binary-formats-mvt-and-mlt).
+[`docs/rendering/02-tiles.md`](https://github.com/massif-maps/MassifMaps/blob/master/docs/rendering/02-tiles.md#two-binary-formats-mvt-and-mlt).
 :::
 
 ## Usage

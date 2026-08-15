@@ -6,7 +6,7 @@ slug: /contributing-docs
 
 # Building the documentation
 
-This documentation site lives in [`website/`](https://github.com/Akylas/mobile-sdk/tree/master/website)
+This documentation site lives in [`website/`](https://github.com/massif-maps/MassifMaps/tree/master/website)
 and is built with [Docusaurus](https://docusaurus.io/). Everything needed to build it — content,
 API-reference generation and screenshot capture — is in the repo.
 
@@ -22,7 +22,7 @@ npm run build      # production build into website/build
 ## Migrated guides
 
 The conceptual guides under **Guides** are converted from the original CARTO Jekyll docs by
-[`scripts/docs/convert-guides.py`](https://github.com/Akylas/mobile-sdk/blob/master/scripts/docs/convert-guides.py)
+[`scripts/docs/convert-guides.py`](https://github.com/massif-maps/MassifMaps/blob/master/scripts/docs/convert-guides.py)
 (Liquid → CommonMark). Re-run it if the source `docs/guides/*.md` change:
 
 ```bash
@@ -72,6 +72,6 @@ low = horizon) and comment out `addTerrainControls` to hide the debug UI, then r
 ## Deployment
 
 A GitHub Actions workflow
-([`.github/workflows/docs.yml`](https://github.com/Akylas/mobile-sdk/blob/master/.github/workflows/docs.yml))
+([`.github/workflows/docs.yml`](https://github.com/massif-maps/MassifMaps/blob/master/.github/workflows/docs.yml))
 builds the site + API reference and deploys to GitHub Pages on every push to `master` and on every
 published release. See [Release workflow](/docs/release-workflow).

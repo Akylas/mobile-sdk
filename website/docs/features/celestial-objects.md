@@ -10,9 +10,9 @@ stars and constellation figures, a satellite pass, an aircraft overhead. Plus th
 let a map look at them.
 
 :::info Fork feature
-Added in PR [#55](https://github.com/Akylas/mobile-sdk/pull/55). The SDK has **no notion of a sun or
+Added in PR [#55](https://github.com/massif-maps/MassifMaps/pull/55). The SDK has **no notion of a sun or
 a moon** — the layer knows directions, sizes and colours; the astronomy lives in the app. Technical
-notes: [`docs/rendering/13-celestial.md`](https://github.com/Akylas/mobile-sdk/blob/master/docs/rendering/13-celestial.md).
+notes: [`docs/rendering/13-celestial.md`](https://github.com/massif-maps/MassifMaps/blob/master/docs/rendering/13-celestial.md).
 :::
 
 <figure class="docs-figure">

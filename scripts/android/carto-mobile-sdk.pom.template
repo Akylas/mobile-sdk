@@ -8,7 +8,7 @@
   <packaging>aar</packaging>
   <name>Akylas CARTO Maps SDK Fork</name>
   <description>Maps SDK build for Android</description>
-  <url>https://github.com/Akylas/mobile-sdk</url>
+  <url>https://github.com/massif-maps/MassifMaps</url>
   <licenses>
     <license>
       <name>BSD 3-Clause</name>
@@ -23,8 +23,8 @@
     </developer>
   </developers>
   <scm>
-    <connection>scm:git:git://github.com/Akylas/mobile-sdk.git</connection>
-    <developerConnection>scm:git:git@github.com:Akylas/mobile-sdk.git</developerConnection>
-    <url>http://github.com/Akylas/mobile-sdk</url>
+    <connection>scm:git:git://github.com/massif-maps/MassifMaps.git</connection>
+    <developerConnection>scm:git:git@github.com:massif-maps/MassifMaps.git</developerConnection>
+    <url>http://github.com/massif-maps/MassifMaps</url>
   </scm>
 </project>

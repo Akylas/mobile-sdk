@@ -32,7 +32,7 @@ spelling and log a deprecation warning once per stylesheet.
 | Native library | `carto_mobile_sdk` (`libcarto_mobile_sdk.so`) | `massif` (`libmassif.so`) |
 | Gradle artifact | `com.carto:carto-mobile-sdk` | `com.massifmaps:massif` |
 
-On JitPack the resolvable coordinate is `com.github.massifmaps:MassifMaps:<tag>` — JitPack overrides
+On JitPack the resolvable coordinate is `com.github.massif-maps:MassifMaps:<tag>` — JitPack overrides
 the declared `groupId`, so the package name and the coordinate differ by design.
 
 ## CartoCSS — old spelling still accepted

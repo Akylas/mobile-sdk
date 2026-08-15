@@ -7,10 +7,10 @@ const config = {
   tagline: 'Open, multi-platform maps & location services for Android, iOS and UWP',
   favicon: 'img/favicon.svg',
 
-  url: 'https://massifmaps.github.io',
+  url: 'https://massif-maps.github.io',
   baseUrl: '/MassifMaps/',
 
-  organizationName: 'massifmaps',
+  organizationName: 'massif-maps',
   projectName: 'MassifMaps',
   deploymentBranch: 'gh-pages',
   trailingSlash: false,
@@ -38,7 +38,7 @@ const config = {
         docs: {
           sidebarPath: './sidebars.js',
           routeBasePath: 'docs',
-          editUrl: 'https://github.com/Akylas/mobile-sdk/edit/master/website/',
+          editUrl: 'https://github.com/massif-maps/MassifMaps/edit/master/website/',
           showLastUpdateTime: true,
         },
         blog: false,
@@ -93,12 +93,12 @@ const config = {
             ],
           },
           {
-            href: 'https://github.com/Akylas/mobile-sdk/releases',
+            href: 'https://github.com/massif-maps/MassifMaps/releases',
             label: 'Releases',
             position: 'right',
           },
           {
-            href: 'https://github.com/Akylas/mobile-sdk',
+            href: 'https://github.com/massif-maps/MassifMaps',
             label: 'GitHub',
             position: 'right',
           },
@@ -125,8 +125,8 @@ const config = {
           {
             title: 'More',
             items: [
-              {label: 'GitHub', href: 'https://github.com/Akylas/mobile-sdk'},
-              {label: 'Releases', href: 'https://github.com/Akylas/mobile-sdk/releases'},
+              {label: 'GitHub', href: 'https://github.com/massif-maps/MassifMaps'},
+              {label: 'Releases', href: 'https://github.com/massif-maps/MassifMaps/releases'},
               {label: 'Original CARTO docs', href: 'https://cartodb.github.io/developers/mobile-sdk/'},
             ],
           },

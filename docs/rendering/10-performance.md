@@ -352,7 +352,7 @@ than once per property.
 Both masks are 256 bits with a fallback to the scans they replace (the biggest layer here has ~50
 fields and ~80 predicates).
 
-**How this was measured, and how to redo it:** `libs-carto/cartocss/test/CompileBench.cpp` builds
+**How this was measured, and how to redo it:** `libs-massif/cartocss/test/CompileBench.cpp` builds
 on the host (the command is in its header), loads a style project the way `CartoCSSMapLoader` does
 and times `compileLayer` per layer. With `CSSBENCH_DUMP=<file>` it dumps every compiled property
 set, so `diff` proves a compiler change kept the output identical — all five bundled projects
@@ -480,7 +480,7 @@ dropped. `TileReader::hasLayer` (a `_layerMap` lookup in `MBVTFeatureDecoder`, v
 `TorqueTileReader` keeps answering yes) is now asked once per layer, before anything is built.
 
 The one case that must still be built is a style with a **comp-op**: `GLTileRenderer` renders an
-empty layer when `isEmptyBlendRequired(compOp)` ([GLTileRenderer.cpp:2587](../../libs-carto/vt/src/vt/GLTileRenderer.cpp)),
+empty layer when `isEmptyBlendRequired(compOp)` ([GLTileRenderer.cpp:2587](../../libs-massif/vt/src/vt/GLTileRenderer.cpp)),
 so dropping it would change the frame. The skip is therefore `!layerPresent && !style->getCompOp()`.
 
 **Reverted: one feature-data cache per field set, for the current layer.** `createLayerFeatureIterator`
@@ -489,7 +489,7 @@ plus every field name for feature data. A key that does not match throws the cac
 
 The geometry one was **already fine, and the first read of it was wrong**: `readTile` iterates
 `for layer { for style }` and `CartoCSSMapLoader` builds exactly one `mvt::Layer` per layer name
-with the attachments as its consecutive styles ([CartoCSSMapLoader.cpp:365](../../libs-carto/cartocss/src/cartocss/CartoCSSMapLoader.cpp)),
+with the attachments as its consecutive styles ([CartoCSSMapLoader.cpp:365](../../libs-massif/cartocss/src/cartocss/CartoCSSMapLoader.cpp)),
 so a layer's styles never interleave with another layer's and the single slot is discarded exactly
 when the loop leaves the layer. Nothing to win there.
 

@@ -10,10 +10,10 @@ route around a maneuver, and the head is a **line property** — no marker, no b
 symbol layer.
 
 :::info Fork feature
-Added in PR [#61](https://github.com/Akylas/mobile-sdk/pull/61). The reference is
+Added in PR [#61](https://github.com/massif-maps/MassifMaps/pull/61). The reference is
 [maplibre-navigation-ios](https://github.com/maplibre/maplibre-navigation-ios), which slices the
 route the same way but draws the head as a symbol. Technical notes:
-[`docs/rendering/15-maneuver-arrows.md`](https://github.com/Akylas/mobile-sdk/blob/master/docs/rendering/15-maneuver-arrows.md).
+[`docs/rendering/15-maneuver-arrows.md`](https://github.com/massif-maps/MassifMaps/blob/master/docs/rendering/15-maneuver-arrows.md).
 :::
 
 <figure class="docs-figure">

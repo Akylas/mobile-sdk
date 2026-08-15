@@ -9,7 +9,7 @@ sidebar_position: 5
 the general base class that [`HillshadeRasterTileLayer`](/docs/features/hillshade) specializes.
 
 :::info Fork feature
-Added in PR [#18](https://github.com/Akylas/mobile-sdk/pull/18).
+Added in PR [#18](https://github.com/massif-maps/MassifMaps/pull/18).
 :::
 
 ## What it does

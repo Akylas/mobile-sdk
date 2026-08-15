@@ -9,7 +9,7 @@ Generate contour lines **directly from RGB elevation tiles** at runtime — no p
 mbtiles required — or draw them entirely in the fragment shader.
 
 :::info Fork feature
-Added in PR [#18](https://github.com/Akylas/mobile-sdk/pull/18). Two independent paths:
+Added in PR [#18](https://github.com/massif-maps/MassifMaps/pull/18). Two independent paths:
 a vector `ContourTileDataSource` and shader contours on `HillshadeRasterTileLayer`.
 :::
 

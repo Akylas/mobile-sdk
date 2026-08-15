@@ -11,7 +11,7 @@ expected (vector or raster).
 
 :::info Fork feature
 Added by the fork. Full technical notes:
-[`docs/datasources/PMTilesTileDataSource.md`](https://github.com/Akylas/mobile-sdk/blob/master/docs/datasources/PMTilesTileDataSource.md).
+[`docs/datasources/PMTilesTileDataSource.md`](https://github.com/massif-maps/MassifMaps/blob/master/docs/datasources/PMTilesTileDataSource.md).
 :::
 
 ## Why PMTiles

@@ -8,7 +8,7 @@ import shutil
 import json
 
 SDK_VERSION = '5.0.0'
-REPO_URL="https://github.com/Akylas/mobile-sdk"
+REPO_URL="https://github.com/massif-maps/MassifMaps"
 
 def makedirs(dir):
   try:

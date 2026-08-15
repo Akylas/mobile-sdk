@@ -1,6 +1,6 @@
 # The GL vector-tile renderer
 
-Scope: `libs-carto/vt/src/vt/GLTileRenderer.*` and its bridge `all/native/renderers/TileRenderer.*`.
+Scope: `libs-massif/vt/src/vt/GLTileRenderer.*` and its bridge `all/native/renderers/TileRenderer.*`.
 Terrain specifics are in [04-terrain.md](04-terrain.md), depth in [05-depth-model.md](05-depth-model.md),
 labels in [06-labels.md](06-labels.md).
 

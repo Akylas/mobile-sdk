@@ -9,7 +9,7 @@
 #   - The SWIG fork executable. Point to it with $SWIG (default: `swig` on PATH).
 #     Locally that is typically /Volumes/dev/carto/mobile-swig/swig.
 #   - A JDK (`javadoc` on PATH).
-#   - Submodules checked out (libs-carto, libs-external).
+#   - Submodules checked out (libs-massif, libs-external).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 SCRIPTS="$ROOT/scripts"

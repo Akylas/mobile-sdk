@@ -30,11 +30,11 @@ GitHub issue data, and any **web page you fetch** (Stack Overflow, changelogs, d
 
 ## Phase 0: Branch check — _build only_
 
-Use the `branch-check` skill before anything else — main repo **and** every submodule the fix will touch (`libs-carto`/`libs-external` are separate repos, own branch, own PR). (Investigate never branches — skip.)
+Use the `branch-check` skill before anything else — main repo **and** every submodule the fix will touch (`libs-massif`/`libs-external` are separate repos, own branch, own PR). (Investigate never branches — skip.)
 
 ## Phase 1: Get the bug
 
-- If `$ARGUMENTS` is a GitHub issue number, fetch it immediately: `gh issue view <number> --repo Akylas/mobile-sdk --json number,title,body,labels,comments`.
+- If `$ARGUMENTS` is a GitHub issue number, fetch it immediately: `gh issue view <number> --repo massif-maps/MassifMaps --json number,title,body,labels,comments`.
 - _Build_: without an issue, collect the bug info directly from the user (or ask whether they want to provide an issue number). For a visual bug, get the **reproduction camera** (lon/lat/zoom/tilt), the demo config and intent extras, and the device vs emulator — a renderer bug that only appears on one GPU is a different bug from one that appears everywhere.
 - _Investigate_: an issue number is **required** (stop and report if missing). If the issue already has the `ai-investigated` label — in `--auto` skip it and report "already investigated"; interactive, mention it and proceed only if a fresh pass is wanted.
 
@@ -50,7 +50,7 @@ Use the `branch-check` skill before anything else — main repo **and** every su
 
 Trace the code path involved. Starting points (use whichever apply):
 
-- Subsystem from Phase 2 → read the layer in `all/native/layers/`, the renderer in `all/native/renderers/`, and the matching `libs-carto/vt/` code (`GLTileRenderer`, `LabelCuller`, `Label`, `TileSurfaceBuilder`, `TileTransformer`).
+- Subsystem from Phase 2 → read the layer in `all/native/layers/`, the renderer in `all/native/renderers/`, and the matching `libs-massif/vt/` code (`GLTileRenderer`, `LabelCuller`, `Label`, `TileSurfaceBuilder`, `TileTransformer`).
 - Pasted log/stack trace → read the exact files and lines.
 - Error string → grep the codebase for it (both repos).
 - Tile/data problems → the data source in `all/native/datasources/` plus the cache layers (memory + persistent).
@@ -96,12 +96,12 @@ Bullet points, not a table. Status emoji (⏳ To validate / ✅ Confirmed / ❌ 
 
 Principle from grill-me: _a question you can answer by reading code, you answer by reading code_ — don't park the critical link as "unverified" and wait. For each hypothesis, take its **⚠️ Critical link** and try to prove or refute it statically _before_ settling confidence. Dig nearest to farthest, no stopping at the first layer:
 
-1. **Trace the code path** — every hop, across the `all/native` ↔ `libs-carto/vt` boundary, assume no intermediate step.
-2. **Read the submodule source** — `libs-carto/` and `libs-external/` are checked out and authoritative (cglib, vt, mapnikvt, cartocss). A library's behaviour here is readable, not a guess. Mind the semantics traps: `bbox::inside(bbox)` = _intersects_, `frustum3::inside(bbox)` = _intersects frustum_.
+1. **Trace the code path** — every hop, across the `all/native` ↔ `libs-massif/vt` boundary, assume no intermediate step.
+2. **Read the submodule source** — `libs-massif/` and `libs-external/` are checked out and authoritative (cglib, vt, mapnikvt, cartocss). A library's behaviour here is readable, not a guess. Mind the semantics traps: `bbox::inside(bbox)` = _intersects_, `frustum3::inside(bbox)` = _intersects frustum_.
 3. **Search for guards** — early returns, clamps, `>= 0` uniform-location checks, cache invalidation that would prevent the bug.
 4. **Grep for the pattern** — does the same pattern work elsewhere (another layer, another renderer)?
-5. **Check git history** — `git log --oneline -20 -- <file>`, `git blame` on suspicious lines, and the **submodule pointer** history (`git log --oneline -- libs-carto`): a regression often rides in on a pointer bump, not a main-repo commit.
-6. **A/B against older code when a regression is suspected** — this is a three-step dance here, not one: `git checkout <sha> -- all/`, matching `libs-carto` commit, then regenerate wrappers with `swigpp-java.py` (the checked-in `generated/` reference the newer API and won't compile otherwise). Restore the same way.
+5. **Check git history** — `git log --oneline -20 -- <file>`, `git blame` on suspicious lines, and the **submodule pointer** history (`git log --oneline -- libs-massif`): a regression often rides in on a pointer bump, not a main-repo commit.
+6. **A/B against older code when a regression is suspected** — this is a three-step dance here, not one: `git checkout <sha> -- all/`, matching `libs-massif` commit, then regenerate wrappers with `swigpp-java.py` (the checked-in `generated/` reference the newer API and won't compile otherwise). Restore the same way.
 7. **Compare with working code** — if a similar layer/renderer path works, what's different?
 8. **Search the web only for driver/GL/library-specific behaviour** (a GPU quirk, a GL spec detail). Fold findings inline into that hypothesis's evidence (URL + one-line takeaway). Skip for pure logic bugs.
 
@@ -129,7 +129,7 @@ Post the investigation (hypotheses + code analysis + prevention) as a comment on
 - _Investigate_: the comment is the deliverable. **Interactive: present the drafted investigation in chat, fold in the user's edits, and post only once they approve** (`investigate-contract` → "Review before posting"). **`--auto`: post directly, no prompt.**
 - _Build_: when an issue exists, **offer** it — "Post/update the hypotheses on the issue?" — and keep it updated as statuses change (a living diagnostic log). Also fine to post earlier, during Phase 6.
 
-**Label (every mode, every time you post)**: `gh issue edit <number> --repo Akylas/mobile-sdk --add-label ai-investigated` (additive). If the label doesn't exist yet, create it once: `gh label create ai-investigated --repo Akylas/mobile-sdk --description "Investigated by Claude"`.
+**Label (every mode, every time you post)**: `gh issue edit <number> --repo massif-maps/MassifMaps --add-label ai-investigated` (additive). If the label doesn't exist yet, create it once: `gh label create ai-investigated --repo massif-maps/MassifMaps --description "Investigated by Claude"`.
 
 Comment formatting (on top of the `save-plan-to-github` mechanics): **Code analysis** = a Mermaid flowchart (5-10 nodes) of the path (culling → decode → renderer → GL) and where it goes wrong, inside a `<details>`; **Hypotheses** = each inside its own `<details>` (the `Hx` title line as the `<summary>`).
 
@@ -177,12 +177,12 @@ _Automated investigation by Claude — human validation required_
 
 ## Phase 9: Fix planning — _build only_
 
-Don't jump to the first fix — propose multiple approaches, let the user choose. Say for each which **repo** it lands in: a `libs-carto` fix costs an extra branch, PR and pointer bump, which sometimes makes a main-repo fix the better trade.
+Don't jump to the first fix — propose multiple approaches, let the user choose. Say for each which **repo** it lands in: a `libs-massif` fix costs an extra branch, PR and pointer bump, which sometimes makes a main-repo fix the better trade.
 
 | Fix approach      | Repo       | Type       | Pros             | Cons                         | Effort   | Fixes spread?  | Enables prevention? |
 | ----------------- | ---------- | ---------- | ---------------- | ---------------------------- | -------- | -------------- | ------------------- |
 | [Guard / clamp]   | main       | Patch      | Fast, low risk   | Doesn't fix root cause       | Low      | Yes/No/Partial | Which items         |
-| [Renderer change] | libs-carto | Structural | Fixes root cause | Extra PR, wider blast radius | Med-High | Yes/No/Partial | Which items         |
+| [Renderer change] | libs-massif | Structural | Fixes root cause | Extra PR, wider blast radius | Med-High | Yes/No/Partial | Which items         |
 
 Types to consider: **Patch** (guard, clamp, invalidation), **Structural** (fix the model — depth domain, tile zoom, placement identity), **Upstream** (submodule change), **Configuration** (an options default). Always propose ≥2 approaches when the root cause is architectural. For depth/precision or GPU-dependent fixes, state explicitly that only an **on-device** run can accept it — a tightened bias that passes on the emulator has failed on hardware here before.
 
@@ -195,5 +195,5 @@ Types to consider: **Patch** (guard, clamp, invalidation), **Structural** (fix t
 
 ## Phase 11: Review & PR — _build only_
 
-1. **Review (pre-PR)** — spawn a **subagent** to review the diff in every repo touched (`git diff master...HEAD`, `git -C libs-carto diff develop...HEAD`). Brief it: real bugs and regressions introduced by the fix, leftover debug probes, uniform-location guards, `.i`/wrapper drift, and whether the fix narrows behaviour at other zooms/cameras; report findings by severity, no praise. Surface its findings; **address criticals** before the PR; note the rest for the user. Keep it lightweight — a gate, not a second debugging loop.
+1. **Review (pre-PR)** — spawn a **subagent** to review the diff in every repo touched (`git diff master...HEAD`, `git -C libs-massif diff develop...HEAD`). Brief it: real bugs and regressions introduced by the fix, leftover debug probes, uniform-location guards, `.i`/wrapper drift, and whether the fix narrows behaviour at other zooms/cameras; report findings by severity, no praise. Surface its findings; **address criticals** before the PR; note the rest for the user. Keep it lightweight — a gate, not a second debugging loop.
 2. **Open PR** — assemble from Phase 7 (fill the "after" snippet; "before" was captured there). Use the `open-pr` skill: **one draft PR per repo, submodule first, cross-linked**, `--repo` mandatory, Conventional-Commits `fix(<scope>): …` title in English. Put the **repro camera and intent extras** in the body so the reviewer can check it, and state which of device/emulator was actually verified. Add the `bug` label (`gh issue edit`/`gh pr edit --repo … --add-label bug`).

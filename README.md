@@ -5,7 +5,7 @@ It was renamed in 2026 — see [`docs/migration-massif.md`](docs/migration-massi
 renamed namespace, package and style token.
 If you like the project and want me to keep on maintaining it. Please support it.
 
-📚 **Documentation: https://massifmaps.github.io/MassifMaps/** — installation, guides, feature docs
+📚 **Documentation: https://massif-maps.github.io/MassifMaps/** — installation, guides, feature docs
 (3D terrain, contours, hillshade, composite layers, PMTiles, sky/sun/shadows, sky-anchored objects,
 post-processing effects, shields & font icons, live style parameters, GeoJSON tiling, maneuver
 arrows) and the Android/iOS API reference.
@@ -59,17 +59,17 @@ repositories {
 	maven { url 'https://jitpack.io' }
 }
 dependencies {
-	implementation 'com.github.Akylas:mobile-sdk-android-aar:5.0.0'
+	implementation 'com.github.massif-maps:MassifMaps:5.0.0'
 }
 ```
 
 ### iOS
 
 * In Xcode, go to File > Add Packages....
-* Paste the following URL into the search bar: https://github.com/Akylas/mobile-sdk-ios-swift
+* Paste the following URL into the search bar: https://github.com/massif-maps/MassifMaps-ios-swift
 * Select the version and add it to your project.
 
-You can also download the release from [Releases](https://github.com/Akylas/mobile-sdk/releases)
+You can also download the release from [Releases](https://github.com/massif-maps/MassifMaps/releases)
 
 ---
 
@@ -95,9 +95,9 @@ repositories {
 }
 dependencies {
     // Full map SDK (optional if you only need routing)
-    implementation 'com.github.Akylas:mobile-sdk-android-aar:5.0.0'
+    implementation 'com.github.massif-maps:MassifMaps:5.0.0'
     // Standalone routing library
-    implementation 'com.github.Akylas:mobile-sdk-android-aar:valhalla-routing:5.0.0'
+    implementation 'com.github.massif-maps:MassifMaps:valhalla-routing:5.0.0'
 }
 ```
 
@@ -145,7 +145,7 @@ val routeJson: String = onlineService.calculateRoute(request)
 In Xcode, go to **File › Add Packages…** and enter:
 
 ```
-https://github.com/Akylas/mobile-sdk-ios-swift
+https://github.com/massif-maps/MassifMaps-ios-swift
 ```
 
 The `ValhallaRouting` library is included as a separate product. Import it in your target:
@@ -206,7 +206,7 @@ For custom builds, please read the [building guide](./BUILDING.md).
 
 ## Documentation and samples
 
-* Documentation: https://massifmaps.github.io/MassifMaps/
+* Documentation: https://massif-maps.github.io/MassifMaps/
 * Demo benches in this repo: `scripts/android-dev` (Android) and `scripts/ios-dev` (iOS)
 * Scripts for preparing offline packages: https://github.com/nutiteq/mobile-sdk-scripts
 
@@ -217,7 +217,7 @@ lists what to rename.
 
 ## Support, Questions?
 
-* Post an [issue](https://github.com/massifmaps/MassifMaps/issues) or a [Pull Request](https://github.com/massifmaps/MassifMaps/pulls)
+* Post an [issue](https://github.com/massif-maps/MassifMaps/issues) or a [Pull Request](https://github.com/massif-maps/MassifMaps/pulls)
 
 ## License
 

@@ -17,7 +17,7 @@ description: MANDATORY skill for ALL pull requests. Must be used EVERY TIME befo
    2. **CRITICAL — `--repo` is mandatory.** Every repo here is a fork of an **archived** CartoDB original; without `--repo`, `gh` targets upstream and fails with "Repository was archived so is read-only".
    3. **CRITICAL**: `--template` and `--body` are **mutually exclusive** in `gh pr create`. Always use `--body` with an inline multiline string, never `--template`:
       ```sh
-      gh pr create --repo Akylas/mobile-sdk --base master --draft \
+      gh pr create --repo massif-maps/MassifMaps --base master --draft \
         --title "fix(terrain): re-clamp the elevation level for far tiles" --body "$(cat <<'EOF'
       ## Summary
       ...
@@ -30,21 +30,21 @@ description: MANDATORY skill for ALL pull requests. Must be used EVERY TIME befo
 
 ## Submodule work = one PR per repo
 
-Work touching `libs-carto` / `libs-external` is **never** a single PR. Each repo gets its own branch (see [branch-check](../branch-check/SKILL.md)) and its own PR, and the submodule PR goes **first** — the main-repo PR is unreviewable until the reviewer can see the commit its pointer bump refers to.
+Work touching `libs-massif` / `libs-external` is **never** a single PR. Each repo gets its own branch (see [branch-check](../branch-check/SKILL.md)) and its own PR, and the submodule PR goes **first** — the main-repo PR is unreviewable until the reviewer can see the commit its pointer bump refers to.
 
 | Repo          | `--repo`                         | `--base`  |
 | ------------- | -------------------------------- | --------- |
-| main SDK      | `Akylas/mobile-sdk`              | `master`  |
-| carto libs    | `farfromrefug/mobile-carto-libs` | `develop` |
-| external libs | `Akylas/mobile-external-libs`    | `develop` |
+| main SDK      | `massif-maps/MassifMaps`              | `master`  |
+| carto libs    | `massif-maps/massif-maps-libs` | `develop` |
+| external libs | `massif-maps/massif-external-libs`    | `develop` |
 
 Order:
 
-1. **Check the submodule branch is real** — `git -C libs-carto status -sb` must show `## <branch>...origin/<branch>`, not `## HEAD (no branch)`. On a detached HEAD the push says "Everything up-to-date" and the PR would be empty.
+1. **Check the submodule branch is real** — `git -C libs-massif status -sb` must show `## <branch>...origin/<branch>`, not `## HEAD (no branch)`. On a detached HEAD the push says "Everything up-to-date" and the PR would be empty.
 2. **Push and open the submodule PR** — same conventional title, scoped to its module (`fix(vt): …`):
    ```sh
-   git -C libs-carto push -u origin <branch>
-   gh pr create --repo farfromrefug/mobile-carto-libs --base develop --draft --title "fix(vt): ..." --body "..."
+   git -C libs-massif push -u origin <branch>
+   gh pr create --repo massif-maps/massif-maps-libs --base develop --draft --title "fix(vt): ..." --body "..."
    ```
 3. **Open the main-repo PR**, whose branch carries the pointer bump. **Cross-link both ways**: the main PR body gets a `## Depends on` line with the submodule PR URL; the submodule PR body gets "Consumed by <main PR URL>".
 4. **Never merge in the wrong order** — submodule PR merges first, then the pointer bump is rebased onto the merged submodule commit (not the branch commit) before the main PR merges. Point this out in the main PR body; only the user merges.

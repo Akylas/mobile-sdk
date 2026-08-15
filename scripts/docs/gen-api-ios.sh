@@ -8,7 +8,7 @@
 #   - The SWIG fork executable. Point to it with $SWIG (default: `swig` on PATH).
 #   - jazzy:   gem install jazzy   (or `bundle`)
 #   - sourcekitten (pulled in by jazzy)
-#   - Submodules checked out (libs-carto, libs-external).
+#   - Submodules checked out (libs-massif, libs-external).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 SCRIPTS="$ROOT/scripts"

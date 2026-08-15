@@ -40,7 +40,7 @@ Placement, visibility and per-source settings are driven from CartoCSS with zoom
 | Topic | Choice |
 |-------|--------|
 | Class name | `CompositeVectorTileLayer` (extends `VectorTileLayer`) |
-| Config mechanism | Extend libs-carto: real config symbolizers in cartocss+mapnikvt |
+| Config mechanism | Extend libs-massif: real config symbolizers in cartocss+mapnikvt |
 | Terrain | Must work with 3D terrain (draped children, painter-order model) |
 | Extra vector source | Merged into master decoder/style |
 | Contour source | Merged vector (styled by master CSS); params driven by an optional config symbolizer |
@@ -72,9 +72,9 @@ this frame.
 
 ---
 
-## Part A — libs-carto (submodule `develop`)
+## Part A — libs-massif (submodule `develop`)
 
-> Submodule gotcha: `libs-carto` is often in **detached HEAD**; `git status -sb` there and
+> Submodule gotcha: `libs-massif` is often in **detached HEAD**; `git status -sb` there and
 > commit on `develop` before bumping the pointer.
 
 ### A.1 New symbolizer base: `LayerConfigSymbolizer`
@@ -82,7 +82,7 @@ this frame.
 A symbolizer whose `createFeatureProcessor` returns an empty processor (never touches
 geometry). It just holds evaluable properties.
 
-`libs-carto/mapnikvt/src/mapnikvt/LayerConfigSymbolizer.h`:
+`libs-massif/mapnikvt/src/mapnikvt/LayerConfigSymbolizer.h`:
 
 ```cpp
 #ifndef _MASSIF_MAPNIKVT_LAYERCONFIGSYMBOLIZER_H_
@@ -117,7 +117,7 @@ namespace massif::mvt {
 
 ### A.2 `RasterConfigSymbolizer` and `HillshadeConfigSymbolizer`
 
-`libs-carto/mapnikvt/src/mapnikvt/RasterConfigSymbolizer.h`:
+`libs-massif/mapnikvt/src/mapnikvt/RasterConfigSymbolizer.h`:
 
 ```cpp
 #include "LayerConfigSymbolizer.h"
@@ -135,7 +135,7 @@ namespace massif::mvt {
 }
 ```
 
-`libs-carto/mapnikvt/src/mapnikvt/HillshadeConfigSymbolizer.h`:
+`libs-massif/mapnikvt/src/mapnikvt/HillshadeConfigSymbolizer.h`:
 
 ```cpp
 #include "LayerConfigSymbolizer.h"
@@ -239,7 +239,7 @@ Add a helper that, without decoding a tile, returns the evaluated config for a n
 at a given view zoom + style-parameter map. It walks the layer's styles→rules, honoring the rule
 zoom range and filter predicate, and reads the config symbolizer's properties.
 
-`libs-carto/mapnikvt/src/mapnikvt/LayerConfigResolver.h` (sketch):
+`libs-massif/mapnikvt/src/mapnikvt/LayerConfigResolver.h` (sketch):
 
 ```cpp
 namespace massif::mvt {
@@ -690,8 +690,8 @@ Cost: one vt **decode per group + per vector child**; share network with a cache
 
 ## Milestones
 
-1. **[DONE]** libs-carto config symbolizers (A.1–A.3) + `resolveLayerConfig` (A.4).
-   Files added under `libs-carto/mapnikvt/src/mapnikvt/`: `LayerConfigSymbolizer.h`,
+1. **[DONE]** libs-massif config symbolizers (A.1–A.3) + `resolveLayerConfig` (A.4).
+   Files added under `libs-massif/mapnikvt/src/mapnikvt/`: `LayerConfigSymbolizer.h`,
    `RasterConfigSymbolizer.h`, `HillshadeConfigSymbolizer.h`, `ContourConfigSymbolizer.h`,
    `LayerConfigResolver.{h,cpp}`. Translator wired in `CartoCSSMapnikTranslator.cpp`
    (`_symbolizerList`, `_symbolizerPropertyMap`, `createSymbolizer`, includes). Both TUs

@@ -2,7 +2,7 @@
 
 Feeling stuck? There are many ways to find help.
 
-* [Report an issue](https://github.com/massifmaps/MassifMaps/issues) in Github (for issues specific to Massif Maps).
+* [Report an issue](https://github.com/massif-maps/MassifMaps/issues) in Github (for issues specific to Massif Maps).
 * Ask a question on [GIS StackExchange](https://gis.stackexchange.com/questions/tagged/carto) using the `CARTO` tag (for general issues about CARTO platform).
 * Engine Plan customers have additional access to enterprise-level support through Massif's support representatives.
 

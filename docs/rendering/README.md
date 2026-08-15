@@ -58,11 +58,11 @@ Do not build on it, and do not extend these docs to cover it.
 | `all/native/layers/` | layer types: `TileLayer`, `VectorTileLayer`, `RasterTileLayer`, `HillshadeRasterTileLayer`, `CompositeVectorTileLayer` |
 | `all/native/terrain/` | `ElevationManager`, `ElevationTileGrid`, `TerrainTileTransformer` |
 | `all/native/datasources/` | tile sources, including the on-the-fly `ContourTileDataSource` |
-| `libs-carto/vt/` (submodule) | the GL vector-tile renderer: `GLTileRenderer`, `TileSurfaceBuilder`, `Label`, `LabelCuller`, shaders |
-| `libs-carto/mapnikvt`, `cartocss` | tile decoding and style evaluation |
+| `libs-massif/vt/` (submodule) | the GL vector-tile renderer: `GLTileRenderer`, `TileSurfaceBuilder`, `Label`, `LabelCuller`, shaders |
+| `libs-massif/mapnikvt`, `cartocss` | tile decoding and style evaluation |
 | `all/modules/*.i` | the SWIG public API surface, mirroring `all/native` |
 
-A change under `libs-carto/` is a commit in that submodule plus a pointer bump here — see the
+A change under `libs-massif/` is a commit in that submodule plus a pointer bump here — see the
 working agreement in `.claude/CLAUDE.md`.
 
 ## What this set does not cover yet

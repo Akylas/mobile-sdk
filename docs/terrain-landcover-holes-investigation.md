@@ -43,7 +43,7 @@ overzoomed tiles too, which is what the parked `feat/terrain-rtt-draping` branch
 - `sourceTileId` vs `targetTileId` terrain uniforms — tested on master, no change.
   (Still a real latent inconsistency: the surface uses `renderTile.targetTileId` while content
   uses `renderLayer->targetTileId`. Kept on branch `test/terrain-uniform-target-tile` in
-  libs-carto.)
+  libs-massif.)
 - Empty drape textures — magenta bake-clear showed them fully painted.
 - Missing elevation at decode — logged: `no-elev 0` over 1500+ decodes.
 - Insufficient clearance from `meshResolution` — tested at 32, artifact persists.

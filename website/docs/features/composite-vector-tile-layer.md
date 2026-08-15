@@ -11,9 +11,9 @@ external source is placed at the slot of a matching **layer name** and configure
 `#name { … }` block in the style — including zoom- and `param::`-dependent expressions.
 
 :::info Fork feature
-Added in PR [#19](https://github.com/Akylas/mobile-sdk/pull/19). Pairs with the libs-carto
-config symbolizers (submodule PR `farfromrefug/mobile-carto-libs#5`). Full property reference:
-[`docs/composite-vector-tile-layer-config.md`](https://github.com/Akylas/mobile-sdk/blob/master/docs/composite-vector-tile-layer-config.md).
+Added in PR [#19](https://github.com/massif-maps/MassifMaps/pull/19). Pairs with the libs-massif
+config symbolizers (submodule PR `massif-maps/massif-maps-libs#5`). Full property reference:
+[`docs/composite-vector-tile-layer-config.md`](https://github.com/massif-maps/MassifMaps/blob/master/docs/composite-vector-tile-layer-config.md).
 :::
 
 ## Why
@@ -96,7 +96,7 @@ evaluated **per frame**, so `[view::zoom]` and `param::` parameters animate smoo
 Supported property families include `raster-opacity`, `hillshade-exaggeration` /
 `-illumination-direction` / …, and `contour-base-interval` / …. `[view::zoom]` expressions and
 `param::` bundle parameters are supported. See the
-[full config reference](https://github.com/Akylas/mobile-sdk/blob/master/docs/composite-vector-tile-layer-config.md)
+[full config reference](https://github.com/massif-maps/MassifMaps/blob/master/docs/composite-vector-tile-layer-config.md)
 for every property, smooth-vs-per-zoom-level timing, and interpolation syntax.
 
 ### Smooth hillshade exaggeration

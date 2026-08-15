@@ -11,7 +11,7 @@ IOS_ARCHS = ['i386', 'x86_64', 'armv7', 'arm64', 'arm64-simulator', 'x86_64-macc
 SDK_VERSION = "4.4.9"
 
 FRAMEWORK_NAME="MassifMaps"
-REPO_URL="https://github.com/Akylas/mobile-sdk"
+REPO_URL="https://github.com/massif-maps/MassifMaps"
 
 def getFinalBuildDir(target, arch=None):
   return getBuildDir(('%s_metal' % target) if args.metalangle else target, arch)

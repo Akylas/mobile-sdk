@@ -1,6 +1,6 @@
 # Migrating to Massif Maps
 
-> Published version: https://massifmaps.github.io/MassifMaps/migration
+> Published version: https://massif-maps.github.io/MassifMaps/migration
 
 The SDK was renamed from **CARTO Mobile SDK** to **Massif Maps** — CARTO no longer maintains it,
 and the fork had carried a dead brand in every namespace, package and style token.
@@ -29,7 +29,7 @@ spelling and log a deprecation warning once per stylesheet.
 | Native library | `carto_mobile_sdk` (`libcarto_mobile_sdk.so`) | `massif` (`libmassif.so`) |
 | Gradle artifact | `com.carto:carto-mobile-sdk` | `com.massifmaps:massif` |
 
-On JitPack the resolvable coordinate is `com.github.massifmaps:MassifMaps:<tag>` — JitPack overrides
+On JitPack the resolvable coordinate is `com.github.massif-maps:MassifMaps:<tag>` — JitPack overrides
 the declared `groupId`, so the package name and the coordinate differ by design.
 
 ## CartoCSS — old spelling still accepted

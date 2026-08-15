@@ -10,7 +10,7 @@ The Akylas fork is published under **new artifact coordinates** — the API name
 
 :::tip Version
 Always use the latest version from the
-[Releases page](https://github.com/Akylas/mobile-sdk/releases). The `5.x` line below is an example.
+[Releases page](https://github.com/massif-maps/MassifMaps/releases). The `5.x` line below is an example.
 :::
 
 ## Android
@@ -24,7 +24,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'com.github.Akylas:mobile-sdk-android-aar:5.0.0'
+    implementation 'com.github.massif-maps:MassifMaps:5.0.0'
 }
 ```
 
@@ -42,12 +42,12 @@ Use Swift Package Manager:
 2. Paste the package URL:
 
    ```
-   https://github.com/Akylas/mobile-sdk-ios-swift
+   https://github.com/massif-maps/MassifMaps-ios-swift
    ```
 3. Pick a version and add it to your target.
 
 You can also download a prebuilt framework from the
-[Releases page](https://github.com/Akylas/mobile-sdk/releases).
+[Releases page](https://github.com/massif-maps/MassifMaps/releases).
 
 ## Registering a license
 
@@ -69,7 +69,7 @@ without registering a license.
 ## Building from source
 
 The SDK is a large C++ project built per platform. See
-[`BUILDING.md`](https://github.com/Akylas/mobile-sdk/blob/master/BUILDING.md) in the repo for the
+[`BUILDING.md`](https://github.com/massif-maps/MassifMaps/blob/master/BUILDING.md) in the repo for the
 full toolchain (a SWIG fork and a boost symlink are required). A typical full build takes an hour
 or more; for most apps the prebuilt artifacts above are what you want.
 

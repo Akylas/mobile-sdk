@@ -9,10 +9,10 @@ CartoCSS label properties the fork added: a name that takes the free side of its
 icons, rounded plates behind text and icon, callout labels for peaks, and per-label distance limits.
 
 :::info Fork feature
-Added in PRs [#57](https://github.com/Akylas/mobile-sdk/pull/57) and
-[#56](https://github.com/Akylas/mobile-sdk/pull/56), with the renderer half in
-`farfromrefug/mobile-carto-libs`. Everything here is style syntax — no API call is needed.
-Technical notes: [`docs/rendering/06-labels.md`](https://github.com/Akylas/mobile-sdk/blob/master/docs/rendering/06-labels.md).
+Added in PRs [#57](https://github.com/massif-maps/MassifMaps/pull/57) and
+[#56](https://github.com/massif-maps/MassifMaps/pull/56), with the renderer half in
+`massif-maps/massif-maps-libs`. Everything here is style syntax — no API call is needed.
+Technical notes: [`docs/rendering/06-labels.md`](https://github.com/massif-maps/MassifMaps/blob/master/docs/rendering/06-labels.md).
 :::
 
 <figure class="docs-figure">

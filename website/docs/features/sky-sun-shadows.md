@@ -11,7 +11,7 @@ fog — so the map, the horizon and the haze all agree on where the sun is.
 :::info Fork feature
 `SkyOptions` and `LightOptions` are additions of the Akylas fork, attached through
 `Options.setSkyOptions()` / `Options.setLightOptions()`. Both classes are marked experimental.
-Technical notes: [`docs/rendering/08-lighting-sky-fog.md`](https://github.com/Akylas/mobile-sdk/blob/master/docs/rendering/08-lighting-sky-fog.md).
+Technical notes: [`docs/rendering/08-lighting-sky-fog.md`](https://github.com/massif-maps/MassifMaps/blob/master/docs/rendering/08-lighting-sky-fog.md).
 :::
 
 <figure class="docs-figure">

@@ -569,7 +569,7 @@ whole mechanism measures nothing.
 
 ### Reverted: labels jump in the sky
 
-Steps 1 and 3 shipped as mobile-sdk #83 / libs-carto #41 and were **reverted the same day**:
+Steps 1 and 3 shipped as mobile-sdk #83 / libs-massif #41 and were **reverted the same day**:
 reported on device (iOS, city camera) as labels jumping out of position, in 2D as well as 3D. Since
 the measured gain was zero frames, there was nothing to weigh against it. What the code review found,
 for whoever retries this:

@@ -1,7 +1,7 @@
 # Building Massif Maps 
 
 **We strongly suggest to use the precompiled SDK versions that can be found in
-the [Releases](https://github.com/massifmaps/MassifMaps/releases) section** 
+the [Releases](https://github.com/massif-maps/MassifMaps/releases) section** 
 
 Getting all the SDK dependencies resolved and waiting for the build to complete can be very time-consuming.
 
@@ -122,7 +122,7 @@ python build-winphone.py --profile standard
 ```
 
 # Usage
-* Documentation: https://massifmaps.github.io/MassifMaps/
+* Documentation: https://massif-maps.github.io/MassifMaps/
 * Demo benches in this repo: `scripts/android-dev` (Android) and `scripts/ios-dev` (iOS)
 * Scripts for preparing offline packages: https://github.com/nutiteq/mobile-sdk-scripts
 
@@ -132,11 +132,11 @@ still build against the pre-rebrand API. See [`docs/migration-massif.md`](docs/m
 for what to rename.
 
 # Support, Questions?
-* Post an [issue](https://github.com/massifmaps/MassifMaps/issues) or a [Pull Request](https://github.com/massifmaps/MassifMaps/pulls)
+* Post an [issue](https://github.com/massif-maps/MassifMaps/issues) or a [Pull Request](https://github.com/massif-maps/MassifMaps/pulls)
 
 
 # Building css2xml
- Go into `libs-carto/cartocss/util`
+ Go into `libs-massif/cartocss/util`
  Then run :
  ```
 cmake -B build -DCMAKE_BUILD_TYPE=Release

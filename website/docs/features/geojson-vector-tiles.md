@@ -11,7 +11,7 @@ as the base map, instead of the `VectorLayer` element path.
 
 :::info Fork feature
 The source exists upstream; the fork rebuilt its tiler on **[geojson-vt](https://github.com/mapbox/geojson-vt)**
-(PR [#54](https://github.com/Akylas/mobile-sdk/pull/54)) — a real tile pyramid instead of a
+(PR [#54](https://github.com/massif-maps/MassifMaps/pull/54)) — a real tile pyramid instead of a
 per-tile scan of every feature.
 :::
 

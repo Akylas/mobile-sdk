@@ -114,7 +114,7 @@ tilt 85 most of the screen is sky.
 
 ## 2. What landed, with the measured effect
 
-All on `perf/terrain-render` (main repo) and the matching `libs-carto` branch.
+All on `perf/terrain-render` (main repo) and the matching `libs-massif` branch.
 
 | change | commit | effect |
 |---|---|---|
@@ -123,7 +123,7 @@ All on `perf/terrain-render` (main repo) and the matching `libs-carto` branch.
 | Demo terrain mesh 128 → 64 (tangram's value) | `8cd585887` | 8.5 → 15.2 fps |
 | Draped lines cut at the surface lattice, not halved 3× finer | `0112fad65` | 16.7 → 18.1 fps, output unchanged |
 | Tile decode pool knob (`--es tilePool N`) | `142e8095d` | no effect — see §5 |
-| Switches to measure the tangram content model | `005998a37` + libs-carto `9c9319a` | 18.0 → 19.3 fps when enabled |
+| Switches to measure the tangram content model | `005998a37` + libs-massif `9c9319a` | 18.0 → 19.3 fps when enabled |
 | Scripted pan can move north (`--es animLatDelta`) | `83eabcbcc` | benching tool for the slow case |
 | Hillshade shades the terrain DEM instead of a tile set of its own | §9 | render tiles −22%, surface draws −16% (emulator counters; device bench pending) |
 
@@ -1089,7 +1089,7 @@ the outermost cell onto the neighbour's chords.
 | before | 14.8 | 31.5 ms |
 | after | **19.9** | **24.9 ms** |
 
-0.06% of pixels differ at the ridge camera. (libs-carto `ad51cb0`)
+0.06% of pixels differ at the ridge camera. (libs-massif `ad51cb0`)
 
 ### 15.2 The elevation sampler was lowp - the device-only hillshade bug
 
@@ -1101,7 +1101,7 @@ device and never on the emulator, where desktop GL computes lowp as fp32.
 
 Costs ~2% (19.7 -> 19.3 fps). The vertex stage sampled at lowp too, so terrain displacement was
 quantised on device as well - worth remembering for the device-only see-through this branch
-chased for weeks. (libs-carto `fdbefcb`)
+chased for weeks. (libs-massif `fdbefcb`)
 
 ### 15.3 No stencil tile masks in a terrain frame (+21%)
 
@@ -1119,7 +1119,7 @@ displaced grid per tile per stencil reset, in 2D it is a two-triangle quad.
 `setTileMasks` now takes three states and defaults to automatic: off in a terrain frame, kept
 in 2D, and kept in both when any layer composites through a `comp-op` (the overlay buffer has
 its own stencil and no depth, so nothing else clips that layer to its tile).
-`debug.carto.tilemasks 1|0` forces either way. (libs-carto `be51df2`, mobile-sdk `cb702b0dc`)
+`debug.carto.tilemasks 1|0` forces either way. (libs-massif `be51df2`, mobile-sdk `cb702b0dc`)
 
 ### 15.4 Contour label stubs read the terrain's elevation (CPU only)
 

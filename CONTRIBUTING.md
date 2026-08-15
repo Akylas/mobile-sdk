@@ -1,7 +1,7 @@
 ## How to contribute:
 
-* [Add issues](https://github.com/massifmaps/MassifMaps/issues) for found bugs and new feature ideas. Check first if issue for specific thing does not already exist
-* See [README.md](https://github.com/massifmaps/MassifMaps/blob/master/README.md) for compilation guides
+* [Add issues](https://github.com/massif-maps/MassifMaps/issues) for found bugs and new feature ideas. Check first if issue for specific thing does not already exist
+* See [README.md](https://github.com/massif-maps/MassifMaps/blob/master/README.md) for compilation guides
 * Use Pull Requests to contribute with own code additions
 
 Additional developer channels and more detailed guidelines will be added soon.
@@ -15,8 +15,8 @@ There are several rules you should follow when a new pull request is created:
 
 ## Development environments
 
-* [iOS instructions](https://github.com/massifmaps/MassifMaps/tree/master/scripts/ios-dev)
-* [Android instructions](https://github.com/massifmaps/MassifMaps/tree/master/scripts/android-dev)
+* [iOS instructions](https://github.com/massif-maps/MassifMaps/tree/master/scripts/ios-dev)
+* [Android instructions](https://github.com/massif-maps/MassifMaps/tree/master/scripts/android-dev)
 
 ## Directories
 

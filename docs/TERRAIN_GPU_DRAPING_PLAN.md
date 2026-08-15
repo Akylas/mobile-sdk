@@ -46,7 +46,7 @@ worker threads with zoom-derivatives baked into vertex attributes (widths scale 
 the shader — zero rebuilds while zooming); proxy tiles from an LRU cache fill every
 hole; LOD selection is by projected screen area (terrain-aware); uploads are lazy.
 
-## Translation to Massif / libs-carto vt
+## Translation to Massif / libs-massif vt
 
 ### Phase 0 — GL capability gate
 - Android: request an ES3 context (ES2 API remains valid on it); iOS MetalANGLE
@@ -55,7 +55,7 @@ hole; LOD selection is by projected screen area (terrain-aware); uploads are laz
 - Decision: drop the CPU-displacement path once GPU draping works (it is the source
   of the artifact class, and maintaining both doubles the surface).
 
-### Phase 1 — GPU draping core (libs-carto vt + terrain glue)
+### Phase 1 — GPU draping core (libs-massif vt + terrain glue)
 1. **Elevation textures.** ElevationManager (or TileRenderer glue) keeps a GL texture
    cache keyed by DEM tile id. Upload decoded grids re-encoded as terrarium RGBA8
    (decode is linear in R,G,B, so bilinear filtering commutes with decoding — safe on

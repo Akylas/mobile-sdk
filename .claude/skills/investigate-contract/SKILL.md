@@ -10,7 +10,7 @@ Applies whenever a skill runs with `--investigate`. The domain-specific output (
 
 Investigate mode is **strictly read-only**: never edit code, never create a branch, never commit. Nothing at the tool level blocks you here, so hold the line yourself. The only writes you make are the GitHub-issue comment (`gh issue comment`, via the `save-plan-to-github` skill) and, in autonomous mode, a label the calling skill may add (`gh issue edit --add-label`). Other hard limits (no force-push, no destructive shell) are enforced by `.claude/settings.json` deny/ask rules — if a tool call is blocked, do not work around it.
 
-Read-only extends to the **submodules and the working tree**: no `git -C libs-carto checkout`, no `git checkout <sha> -- all/`, no SWIG regeneration, no gradle build, no `adb install`. The A/B-against-an-older-commit dance mutates `all/`, the submodule pointer and `generated/` — it belongs to build mode only. Reading submodule source is fine and encouraged.
+Read-only extends to the **submodules and the working tree**: no `git -C libs-massif checkout`, no `git checkout <sha> -- all/`, no SWIG regeneration, no gradle build, no `adb install`. The A/B-against-an-older-commit dance mutates `all/`, the submodule pointer and `generated/` — it belongs to build mode only. Reading submodule source is fine and encouraged.
 
 ## Interactive vs autonomous
 

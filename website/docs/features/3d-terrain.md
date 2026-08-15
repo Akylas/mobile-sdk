@@ -11,8 +11,8 @@ far slopes), fill draping and fast zooming.
 :::info Fork feature
 3D terrain is an addition of the Akylas fork. It is configured through
 `TerrainOptions`, attached to the map via `Options.setTerrainOptions()`.
-See PR [#21](https://github.com/Akylas/mobile-sdk/pull/21) and the design notes in
-[`docs/terrain-3d-draping.md`](https://github.com/Akylas/mobile-sdk/blob/master/docs/terrain-3d-draping.md).
+See PR [#21](https://github.com/massif-maps/MassifMaps/pull/21) and the design notes in
+[`docs/terrain-3d-draping.md`](https://github.com/massif-maps/MassifMaps/blob/master/docs/terrain-3d-draping.md).
 :::
 
 <figure class="docs-figure">

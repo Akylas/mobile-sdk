@@ -109,4 +109,4 @@ Native has not solved terrain symbols at all — CARTO is ahead here.
 ## References
 - tangram-ng: `core/src/style/rasterStyle.cpp`, `core/shaders/*.vs`, `maps/assets/scenes/{terrain-3d,elevation}.yaml`
 - MapLibre Native (feature/terrain-3d): `src/mbgl/renderer/{render_terrain,texture_pool,render_target}.cpp`, `include/mbgl/shaders/gl/terrain.hpp`
-- CARTO: `libs-carto/vt/src/vt/GLTileRenderer.cpp` (drape pass, depth model), `all/native/terrain/TerrainTileTransformer.cpp` (subdivision), `all/native/components/TerrainOptions.h` (API)
+- CARTO: `libs-massif/vt/src/vt/GLTileRenderer.cpp` (drape pass, depth model), `all/native/terrain/TerrainTileTransformer.cpp` (subdivision), `all/native/components/TerrainOptions.h` (API)

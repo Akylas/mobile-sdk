@@ -11,9 +11,9 @@ visible tile**.
 
 :::info Fork feature
 Table parameters and the repaint paths were added in PRs
-[#73](https://github.com/Akylas/mobile-sdk/pull/73) and
-[#76](https://github.com/Akylas/mobile-sdk/pull/76). Reference:
-[`docs/style-parameters.md`](https://github.com/Akylas/mobile-sdk/blob/master/docs/style-parameters.md).
+[#73](https://github.com/massif-maps/MassifMaps/pull/73) and
+[#76](https://github.com/massif-maps/MassifMaps/pull/76). Reference:
+[`docs/style-parameters.md`](https://github.com/massif-maps/MassifMaps/blob/master/docs/style-parameters.md).
 :::
 
 <figure class="docs-figure">

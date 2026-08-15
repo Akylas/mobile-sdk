@@ -9,7 +9,7 @@ option(SINGLE_LIBRARY "Compile as single library" OFF)
 # Directories (mirroring scripts/build/CMakeLists.txt)
 set(SDK_BASE_DIR "${PROJECT_SOURCE_DIR}/../..")
 set(SDK_EXTERNAL_LIBS_DIR "${SDK_BASE_DIR}/libs-external")
-set(SDK_MASSIF_LIBS_DIR "${SDK_BASE_DIR}/libs-carto")
+set(SDK_MASSIF_LIBS_DIR "${SDK_BASE_DIR}/libs-massif")
 set(ROUTING_SRC_DIR "${SDK_BASE_DIR}/routing-lib")
 
 # Library type

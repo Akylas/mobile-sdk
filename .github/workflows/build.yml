@@ -166,7 +166,7 @@ jobs:
       - name: Build CSS2XML
         if: matrix.profile == 'lite'
         run: |
-          cd libs-carto/cartocss/util
+          cd libs-massif/cartocss/util
           cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
           cd build
           make css2xml
@@ -449,7 +449,7 @@ jobs:
       - name: Checkout mobile-sdk-android-aar
         uses: actions/checkout@v4
         with:
-          repository: Akylas/mobile-sdk-android-aar
+          repository: massif-maps/MassifMaps-android-aar
           token: '${{ secrets.AAR_SWIFT_TOKEN }}'
           path: mobile-sdk-android-aar
 
@@ -538,7 +538,7 @@ jobs:
       - name: Checkout mobile-sdk-ios-swift
         uses: actions/checkout@v4
         with:
-          repository: Akylas/mobile-sdk-ios-swift
+          repository: massif-maps/MassifMaps-ios-swift
           token: '${{ secrets.AAR_SWIFT_TOKEN }}'
           path: mobile-sdk-ios-swift
 
