@@ -5,10 +5,10 @@ import android.os.Looper;
 import android.util.Log;
 import android.widget.Toast;
 
-import com.akylas.routing.LatLon;
-import com.akylas.routing.RoutingRequest;
-import com.akylas.routing.ValhallaOnlineRoutingService;
-import com.akylas.routing.ValhallaRoutingService;
+import com.massifmaps.routing.LatLon;
+import com.massifmaps.routing.RoutingRequest;
+import com.massifmaps.routing.ValhallaOnlineRoutingService;
+import com.massifmaps.routing.ValhallaRoutingService;
 import com.massifmaps.core.MapBounds;
 import com.massifmaps.core.MapPos;
 import com.massifmaps.core.MapPosVector;

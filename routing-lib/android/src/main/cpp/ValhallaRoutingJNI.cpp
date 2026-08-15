@@ -1,7 +1,7 @@
 //
 // ValhallaRoutingJNI.cpp
 //
-// JNI bridge between com.akylas.routing.ValhallaRoutingService (Kotlin)
+// JNI bridge between com.massifmaps.routing.ValhallaRoutingService (Kotlin)
 // and routing::ValhallaRoutingService (C++).
 //
 
@@ -65,22 +65,22 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* /*reserved*/) {
 }
 
 // ---------------------------------------------------------------------------
-// com.akylas.routing.ValhallaRoutingService native methods
+// com.massifmaps.routing.ValhallaRoutingService native methods
 // ---------------------------------------------------------------------------
 
 JNIEXPORT jlong JNICALL
-Java_com_akylas_routing_ValhallaRoutingService_nativeCreate(JNIEnv*, jobject) {
+Java_com_massifmaps_routing_ValhallaRoutingService_nativeCreate(JNIEnv*, jobject) {
     auto* svc = new routing::ValhallaRoutingService();
     return reinterpret_cast<jlong>(svc);
 }
 
 JNIEXPORT void JNICALL
-Java_com_akylas_routing_ValhallaRoutingService_nativeDestroy(JNIEnv*, jobject, jlong ptr) {
+Java_com_massifmaps_routing_ValhallaRoutingService_nativeDestroy(JNIEnv*, jobject, jlong ptr) {
     delete toService(ptr);
 }
 
 JNIEXPORT void JNICALL
-Java_com_akylas_routing_ValhallaRoutingService_nativeAddMBTilesPath(
+Java_com_massifmaps_routing_ValhallaRoutingService_nativeAddMBTilesPath(
         JNIEnv* env, jobject, jlong ptr, jstring jpath) {
     try {
         std::string path = jstringToStr(env, jpath);
@@ -91,19 +91,19 @@ Java_com_akylas_routing_ValhallaRoutingService_nativeAddMBTilesPath(
 }
 
 JNIEXPORT jstring JNICALL
-Java_com_akylas_routing_ValhallaRoutingService_nativeGetProfile(
+Java_com_massifmaps_routing_ValhallaRoutingService_nativeGetProfile(
         JNIEnv* env, jobject, jlong ptr) {
     return strToJString(env, toService(ptr)->getProfile());
 }
 
 JNIEXPORT void JNICALL
-Java_com_akylas_routing_ValhallaRoutingService_nativeSetProfile(
+Java_com_massifmaps_routing_ValhallaRoutingService_nativeSetProfile(
         JNIEnv* env, jobject, jlong ptr, jstring jprofile) {
     toService(ptr)->setProfile(jstringToStr(env, jprofile));
 }
 
 JNIEXPORT jstring JNICALL
-Java_com_akylas_routing_ValhallaRoutingService_nativeGetConfigParam(
+Java_com_massifmaps_routing_ValhallaRoutingService_nativeGetConfigParam(
         JNIEnv* env, jobject, jlong ptr, jstring jkey) {
     std::string val = toService(ptr)->getConfigurationParameter(jstringToStr(env, jkey));
     if (val.empty()) return nullptr;
@@ -111,7 +111,7 @@ Java_com_akylas_routing_ValhallaRoutingService_nativeGetConfigParam(
 }
 
 JNIEXPORT void JNICALL
-Java_com_akylas_routing_ValhallaRoutingService_nativeSetConfigParam(
+Java_com_massifmaps_routing_ValhallaRoutingService_nativeSetConfigParam(
         JNIEnv* env, jobject, jlong ptr, jstring jkey, jstring jvalue) {
     try {
         toService(ptr)->setConfigurationParameter(jstringToStr(env, jkey),
@@ -122,12 +122,12 @@ Java_com_akylas_routing_ValhallaRoutingService_nativeSetConfigParam(
 }
 
 JNIEXPORT void JNICALL
-Java_com_akylas_routing_ValhallaRoutingService_nativeAddLocale(
+Java_com_massifmaps_routing_ValhallaRoutingService_nativeAddLocale(
         JNIEnv* env, jobject, jlong ptr, jstring jkey, jstring jjson) {
     toService(ptr)->addLocale(jstringToStr(env, jkey), jstringToStr(env, jjson));
 }
 JNIEXPORT jstring JNICALL
-Java_com_akylas_routing_ValhallaRoutingService_nativeParseShape(
+Java_com_massifmaps_routing_ValhallaRoutingService_nativeParseShape(
         JNIEnv* env, jobject, jlong ptr, jstring jShape, jstring jjson) {
     std::string val = toService(ptr)->parseShape(jstringToStr(env, jShape));
     if (val.empty()) return nullptr;
@@ -135,7 +135,7 @@ Java_com_akylas_routing_ValhallaRoutingService_nativeParseShape(
 }
 
 JNIEXPORT jstring JNICALL
-Java_com_akylas_routing_ValhallaRoutingService_nativeCallRaw(
+Java_com_massifmaps_routing_ValhallaRoutingService_nativeCallRaw(
         JNIEnv* env, jobject, jlong ptr, jstring jendpoint, jstring jbody) {
     try {
         std::string result = toService(ptr)->callRaw(
@@ -149,7 +149,7 @@ Java_com_akylas_routing_ValhallaRoutingService_nativeCallRaw(
 }
 
 JNIEXPORT jstring JNICALL
-Java_com_akylas_routing_ValhallaOnlineRoutingService_nativeHttpPost(
+Java_com_massifmaps_routing_ValhallaOnlineRoutingService_nativeHttpPost(
         JNIEnv* env, jobject /*thiz*/, jstring jurl, jstring jbody, jstring jheaders) {
     try {
         routing::HTTPClient client;

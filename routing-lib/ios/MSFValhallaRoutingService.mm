@@ -1,9 +1,9 @@
 //
-//  NTValhallaRoutingService.mm
+//  MSFValhallaRoutingService.mm
 //  routing-lib iOS wrapper
 //
 
-#import "NTValhallaRoutingService.h"
+#import "MSFValhallaRoutingService.h"
 
 #include "../native/routing/ValhallaRoutingService.h"
 #include "../native/routing/ValhallaOnlineRoutingService.h"
@@ -15,11 +15,11 @@
 // NSError helper
 // ---------------------------------------------------------------------------
 
-static NSString * const NTRoutingErrorDomain = @"NTRoutingError";
+static NSString * const MSFRoutingErrorDomain = @"MSFRoutingError";
 
 static NSError *makeError(const std::exception& ex) {
     NSString *msg = [NSString stringWithUTF8String:ex.what()];
-    return [NSError errorWithDomain:NTRoutingErrorDomain
+    return [NSError errorWithDomain:MSFRoutingErrorDomain
                                code:-1
                            userInfo:@{NSLocalizedDescriptionKey: msg}];
 }
@@ -29,17 +29,17 @@ static NSError *makeError(const std::exception& ex) {
 // ---------------------------------------------------------------------------
 
 /**
- * Build a Valhalla route-request JSON body from an NTRoutingRequest.
+ * Build a Valhalla route-request JSON body from an MSFRoutingRequest.
  * The "costing" key is only included when the request's profile is non-nil;
  * the service will inject its own profile if absent.
  */
-static NSString *serializeRoutingRequest(NTRoutingRequest *req) {
+static NSString *serializeRoutingRequest(MSFRoutingRequest *req) {
     NSMutableString *sb = [NSMutableString string];
     [sb appendString:@"{\"locations\":["];
-    NSArray<NTLatLon *> *points = req.points;
+    NSArray<MSFLatLon *> *points = req.points;
     for (NSUInteger i = 0; i < points.count; i++) {
         if (i > 0) [sb appendString:@","];
-        NTLatLon *ll = points[i];
+        MSFLatLon *ll = points[i];
         [sb appendFormat:@"{\"lon\":%g,\"lat\":%g}", ll.lon, ll.lat];
     }
     [sb appendString:@"]"];
@@ -66,15 +66,15 @@ static NSString *serializeRoutingRequest(NTRoutingRequest *req) {
 }
 
 /**
- * Build a Valhalla trace-attributes-request JSON body from an NTRouteMatchingRequest.
+ * Build a Valhalla trace-attributes-request JSON body from an MSFRouteMatchingRequest.
  */
-static NSString *serializeRouteMatchingRequest(NTRouteMatchingRequest *req) {
+static NSString *serializeRouteMatchingRequest(MSFRouteMatchingRequest *req) {
     NSMutableString *sb = [NSMutableString string];
     [sb appendString:@"{\"shape\":["];
-    NSArray<NTLatLon *> *points = req.points;
+    NSArray<MSFLatLon *> *points = req.points;
     for (NSUInteger i = 0; i < points.count; i++) {
         if (i > 0) [sb appendString:@","];
-        NTLatLon *ll = points[i];
+        MSFLatLon *ll = points[i];
         [sb appendFormat:@"{\"lon\":%g,\"lat\":%g}", ll.lon, ll.lat];
     }
     [sb appendString:@"],\"shape_match\":\"map_snap\""];
@@ -102,12 +102,12 @@ static NSString *serializeRouteMatchingRequest(NTRouteMatchingRequest *req) {
 }
 
 // ---------------------------------------------------------------------------
-// NTLatLon
+// MSFLatLon
 // ---------------------------------------------------------------------------
 
-@implementation NTLatLon
+@implementation MSFLatLon
 + (instancetype)lat:(double)lat lon:(double)lon {
-    NTLatLon *c = [[NTLatLon alloc] init];
+    MSFLatLon *c = [[MSFLatLon alloc] init];
     c.lat = lat;
     c.lon = lon;
     return c;
@@ -115,11 +115,11 @@ static NSString *serializeRouteMatchingRequest(NTRouteMatchingRequest *req) {
 @end
 
 // ---------------------------------------------------------------------------
-// NTRoutingRequest
+// MSFRoutingRequest
 // ---------------------------------------------------------------------------
 
-@implementation NTRoutingRequest
-- (instancetype)initWithPoints:(NSArray<NTLatLon *> *)points {
+@implementation MSFRoutingRequest
+- (instancetype)initWithPoints:(NSArray<MSFLatLon *> *)points {
     self = [super init];
     if (self) { _points = [points copy]; }
     return self;
@@ -127,11 +127,11 @@ static NSString *serializeRouteMatchingRequest(NTRouteMatchingRequest *req) {
 @end
 
 // ---------------------------------------------------------------------------
-// NTRouteMatchingRequest
+// MSFRouteMatchingRequest
 // ---------------------------------------------------------------------------
 
-@implementation NTRouteMatchingRequest
-- (instancetype)initWithPoints:(NSArray<NTLatLon *> *)points accuracy:(float)accuracy {
+@implementation MSFRouteMatchingRequest
+- (instancetype)initWithPoints:(NSArray<MSFLatLon *> *)points accuracy:(float)accuracy {
     self = [super init];
     if (self) { _points = [points copy]; _accuracy = accuracy; }
     return self;
@@ -139,15 +139,15 @@ static NSString *serializeRouteMatchingRequest(NTRouteMatchingRequest *req) {
 @end
 
 // ---------------------------------------------------------------------------
-// NTValhallaRoutingService
+// MSFValhallaRoutingService
 // ---------------------------------------------------------------------------
 
-@interface NTValhallaRoutingService () {
+@interface MSFValhallaRoutingService () {
     std::shared_ptr<routing::ValhallaRoutingService> _service;
 }
 @end
 
-@implementation NTValhallaRoutingService
+@implementation MSFValhallaRoutingService
 
 - (instancetype)initWithMBTilesPaths:(nullable NSArray<NSString *> *)paths {
     self = [super init];
@@ -194,13 +194,13 @@ static NSString *serializeRouteMatchingRequest(NTRouteMatchingRequest *req) {
     _service->addLocale(key.UTF8String, json.UTF8String);
 }
 
-- (nullable NSString *)calculateRoute:(NTRoutingRequest *)request
+- (nullable NSString *)calculateRoute:(MSFRoutingRequest *)request
                                 error:(NSError * _Nullable __autoreleasing *)error {
     NSString *jsonBody = serializeRoutingRequest(request);
     return [self callRaw:@"route" jsonBody:jsonBody error:error];
 }
 
-- (nullable NSString *)matchRoute:(NTRouteMatchingRequest *)request
+- (nullable NSString *)matchRoute:(MSFRouteMatchingRequest *)request
                             error:(NSError * _Nullable __autoreleasing *)error {
     NSString *jsonBody = serializeRouteMatchingRequest(request);
     return [self callRaw:@"trace_attributes" jsonBody:jsonBody error:error];
@@ -221,22 +221,22 @@ static NSString *serializeRouteMatchingRequest(NTRouteMatchingRequest *req) {
 @end
 
 // ---------------------------------------------------------------------------
-// NTValhallaOnlineRoutingService
+// MSFValhallaOnlineRoutingService
 // ---------------------------------------------------------------------------
 
-@interface NTValhallaOnlineRoutingService () {
+@interface MSFValhallaOnlineRoutingService () {
     std::shared_ptr<routing::ValhallaOnlineRoutingService> _service;
 }
 @end
 
-@implementation NTValhallaOnlineRoutingService
+@implementation MSFValhallaOnlineRoutingService
 
 - (instancetype)initWithBaseURL:(NSString *)baseURL {
     return [self initWithBaseURL:baseURL handler:nil];
 }
 
 - (instancetype)initWithBaseURL:(NSString *)baseURL
-                        handler:(NTHTTPPostHandler _Nullable)handler {
+                        handler:(MSFHTTPPostHandler _Nullable)handler {
     self = [super init];
     if (!self) return nil;
 
@@ -278,13 +278,13 @@ static NSString *serializeRouteMatchingRequest(NTRouteMatchingRequest *req) {
     _service->setProfile(profile.UTF8String);
 }
 
-- (nullable NSString *)calculateRoute:(NTRoutingRequest *)request
+- (nullable NSString *)calculateRoute:(MSFRoutingRequest *)request
                                 error:(NSError * _Nullable __autoreleasing *)error {
     NSString *jsonBody = serializeRoutingRequest(request);
     return [self callRaw:@"route" jsonBody:jsonBody error:error];
 }
 
-- (nullable NSString *)matchRoute:(NTRouteMatchingRequest *)request
+- (nullable NSString *)matchRoute:(MSFRouteMatchingRequest *)request
                             error:(NSError * _Nullable __autoreleasing *)error {
     NSString *jsonBody = serializeRouteMatchingRequest(request);
     return [self callRaw:@"trace_attributes" jsonBody:jsonBody error:error];

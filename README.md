@@ -103,10 +103,10 @@ dependencies {
 #### Basic usage (Kotlin)
 
 ```kotlin
-import com.akylas.routing.ValhallaRoutingService
-import com.akylas.routing.ValhallaOnlineRoutingService
-import com.akylas.routing.RoutingRequest
-import com.akylas.routing.LatLon
+import com.massifmaps.routing.ValhallaRoutingService
+import com.massifmaps.routing.ValhallaOnlineRoutingService
+import com.massifmaps.routing.RoutingRequest
+import com.massifmaps.routing.LatLon
 import okhttp3.OkHttpClient
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -153,7 +153,7 @@ The `ValhallaRouting` library is included as a separate product. Import it in yo
 import ValhallaRouting
 
 // --- Offline routing (MBTiles) ---
-let service = NTValhallaRoutingService(mBTilesPaths: ["/path/to/france.vtiles"])
+let service = MSFValhallaRoutingService(mBTilesPaths: ["/path/to/france.vtiles"])
 service?.profile = "pedestrian"
 
 let waypoints = [

@@ -2,7 +2,7 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
 android {
-    namespace 'com.akylas.routing'
+    namespace 'com.massifmaps.routing'
     compileSdkVersion 36
 
     ndkVersion "27.3.13750724"

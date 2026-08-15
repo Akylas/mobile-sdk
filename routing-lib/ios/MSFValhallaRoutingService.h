@@ -1,5 +1,5 @@
 //
-//  NTValhallaRoutingService.h
+//  MSFValhallaRoutingService.h
 //  routing-lib iOS wrapper
 //
 //  Objective-C bridge to the C++ ValhallaRoutingService (offline) and
@@ -11,13 +11,13 @@
 NS_ASSUME_NONNULL_BEGIN
 
 // ---------------------------------------------------------------------------
-// NTRoutingRequest — input for calculateRoute
+// MSFRoutingRequest — input for calculateRoute
 // ---------------------------------------------------------------------------
 
 /**
  * A geographic coordinate (WGS-84).
  */
-@interface NTLatLon : NSObject
+@interface MSFLatLon : NSObject
 @property (nonatomic, assign) double lat;
 @property (nonatomic, assign) double lon;
 + (instancetype)lat:(double)lat lon:(double)lon;
@@ -30,15 +30,15 @@ NS_ASSUME_NONNULL_BEGIN
  * Set @c profile to override the service-level costing model for this request.
  * If @c customJSON is supplied its top-level keys are merged into the request.
  */
-@interface NTRoutingRequest : NSObject
-/** Ordered list of NTLatLon waypoints. */
-@property (nonatomic, copy) NSArray<NTLatLon *> *points;
+@interface MSFRoutingRequest : NSObject
+/** Ordered list of MSFLatLon waypoints. */
+@property (nonatomic, copy) NSArray<MSFLatLon *> *points;
 /** Optional costing model override (e.g. @"auto", @"pedestrian", @"bicycle"). */
 @property (nonatomic, copy, nullable) NSString *profile;
 /** Optional extra Valhalla request fields serialised as a JSON object string. */
 @property (nonatomic, copy, nullable) NSString *customJSON;
 
-- (instancetype)initWithPoints:(NSArray<NTLatLon *> *)points;
+- (instancetype)initWithPoints:(NSArray<MSFLatLon *> *)points;
 @end
 
 
@@ -47,9 +47,9 @@ NS_ASSUME_NONNULL_BEGIN
  *
  * Set @c profile to override the service-level costing model for this request.
  */
-@interface NTRouteMatchingRequest : NSObject
+@interface MSFRouteMatchingRequest : NSObject
 /** Ordered GPS trace points. */
-@property (nonatomic, copy) NSArray<NTLatLon *> *points;
+@property (nonatomic, copy) NSArray<MSFLatLon *> *points;
 /** GPS accuracy in metres (0 = use Valhalla default). */
 @property (nonatomic, assign) float accuracy;
 /** Optional costing model override (e.g. @"auto", @"pedestrian", @"bicycle"). */
@@ -57,12 +57,12 @@ NS_ASSUME_NONNULL_BEGIN
 /** Optional extra Valhalla request fields as a JSON object string. */
 @property (nonatomic, copy, nullable) NSString *customJSON;
 
-- (instancetype)initWithPoints:(NSArray<NTLatLon *> *)points accuracy:(float)accuracy;
+- (instancetype)initWithPoints:(NSArray<MSFLatLon *> *)points accuracy:(float)accuracy;
 @end
 
 
 // ---------------------------------------------------------------------------
-// NTValhallaRoutingService — offline service backed by MBTiles
+// MSFValhallaRoutingService — offline service backed by MBTiles
 // ---------------------------------------------------------------------------
 
 /**
@@ -76,7 +76,7 @@ NS_ASSUME_NONNULL_BEGIN
  *
  * All routing methods are synchronous and must be called from a background thread.
  */
-@interface NTValhallaRoutingService : NSObject
+@interface MSFValhallaRoutingService : NSObject
 
 /**
  * Initialise with an optional array of MBTiles file paths.
@@ -129,7 +129,7 @@ NS_ASSUME_NONNULL_BEGIN
  * Equivalent to calling @c callRaw:@"route" with the serialised request.
  * The service profile is injected as "costing" if the request does not set one.
  */
-- (nullable NSString *)calculateRoute:(NTRoutingRequest *)request
+- (nullable NSString *)calculateRoute:(MSFRoutingRequest *)request
                                 error:(NSError * _Nullable __autoreleasing *)error;
 
 /**
@@ -137,7 +137,7 @@ NS_ASSUME_NONNULL_BEGIN
  *
  * Equivalent to calling @c callRaw:@"trace_attributes" with the serialised request.
  */
-- (nullable NSString *)matchRoute:(NTRouteMatchingRequest *)request
+- (nullable NSString *)matchRoute:(MSFRouteMatchingRequest *)request
                             error:(NSError * _Nullable __autoreleasing *)error;
 
 /**
@@ -158,7 +158,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 
 // ---------------------------------------------------------------------------
-// NTValhallaOnlineRoutingService — online service via HTTP
+// MSFValhallaOnlineRoutingService — online service via HTTP
 // ---------------------------------------------------------------------------
 
 /**
@@ -169,7 +169,7 @@ NS_ASSUME_NONNULL_BEGIN
  * @param error     Set this on failure; returning nil triggers the error path.
  * @return          HTTP response body string, or nil on failure.
  */
-typedef NSString * _Nullable (^NTHTTPPostHandler)(NSString *url,
+typedef NSString * _Nullable (^MSFHTTPPostHandler)(NSString *url,
                                                    NSString *postBody,
                                                    NSError * _Nullable __autoreleasing *error);
 
@@ -186,7 +186,7 @@ typedef NSString * _Nullable (^NTHTTPPostHandler)(NSString *url,
  *
  * All routing methods are synchronous; call them from a background thread.
  */
-@interface NTValhallaOnlineRoutingService : NSObject
+@interface MSFValhallaOnlineRoutingService : NSObject
 
 /**
  * Initializer for use when the library is built with ROUTING_WITH_HTTP_CLIENT=ON.
@@ -201,7 +201,7 @@ typedef NSString * _Nullable (^NTHTTPPostHandler)(NSString *url,
  *                 built with ROUTING_WITH_HTTP_CLIENT=ON).
  */
 - (instancetype)initWithBaseURL:(NSString *)baseURL
-                        handler:(NTHTTPPostHandler _Nullable)handler;
+                        handler:(MSFHTTPPostHandler _Nullable)handler;
 
 /** Base URL of the Valhalla service. */
 @property (nonatomic, copy) NSString *baseURL;
@@ -215,13 +215,13 @@ typedef NSString * _Nullable (^NTHTTPPostHandler)(NSString *url,
 /**
  * Calculate a route. Equivalent to @c callRaw:@"route" with the serialised request.
  */
-- (nullable NSString *)calculateRoute:(NTRoutingRequest *)request
+- (nullable NSString *)calculateRoute:(MSFRoutingRequest *)request
                                 error:(NSError * _Nullable __autoreleasing *)error;
 
 /**
  * Match a GPS trace. Equivalent to @c callRaw:@"trace_attributes".
  */
-- (nullable NSString *)matchRoute:(NTRouteMatchingRequest *)request
+- (nullable NSString *)matchRoute:(MSFRouteMatchingRequest *)request
                             error:(NSError * _Nullable __autoreleasing *)error;
 
 /**
