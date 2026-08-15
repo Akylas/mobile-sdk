@@ -61,7 +61,7 @@ This adds to map CARTO built-in vector tile service with generic streetmaps, you
   <div id="tab-java">
      {% highlight java linenos %}
   
-     CartoOnlineVectorTileLayer layer = new CartoOnlineVectorTileLayer(CartoBaseMapStyle.MASSIF_BASEMAP_STYLE_POSITRON);
+     CartoOnlineVectorTileLayer layer = new CartoOnlineVectorTileLayer(CartoBaseMapStyle.CARTO_BASEMAP_STYLE_POSITRON);
      mapView.getLayers().add(layer);
 
      {% endhighlight %}
@@ -77,7 +77,7 @@ This adds to map CARTO built-in vector tile service with generic streetmaps, you
   <div id="tab-objectivec">
      {% highlight objc linenos %}
   
-     MSFCartoOnlineVectorTileLayer* layer = [[MSFCartoOnlineVectorTileLayer alloc] initWithStyle:NT_MASSIF_BASEMAP_STYLE_POSITRON];
+     MSFCartoOnlineVectorTileLayer* layer = [[MSFCartoOnlineVectorTileLayer alloc] initWithStyle:NT_CARTO_BASEMAP_STYLE_POSITRON];
      [[self.mapView getLayers] add:layer];
   
      {% endhighlight %}
@@ -85,7 +85,7 @@ This adds to map CARTO built-in vector tile service with generic streetmaps, you
   <div id="tab-swift">
      {% highlight swift linenos %}
 
-     let layer = MSFCartoOnlineVectorTileLayer(style: MSFCartoBaseMapStyle.MASSIF_BASEMAP_STYLE_POSITRON)
+     let layer = MSFCartoOnlineVectorTileLayer(style: MSFCartoBaseMapStyle.CARTO_BASEMAP_STYLE_POSITRON)
      mapView?.getLayers()?.add(layer)
 
      {% endhighlight %}
@@ -93,7 +93,7 @@ This adds to map CARTO built-in vector tile service with generic streetmaps, you
   <div id="tab-kotlin">
      {% highlight kotlin linenos %}
 
-     val layer = CartoOnlineVectorTileLayer(CartoBaseMapStyle.MASSIF_BASEMAP_STYLE_POSITRON)
+     val layer = CartoOnlineVectorTileLayer(CartoBaseMapStyle.CARTO_BASEMAP_STYLE_POSITRON)
      mapView?.layers?.add(layer)
 
      {% endhighlight %}

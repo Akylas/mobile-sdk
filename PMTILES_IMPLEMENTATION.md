@@ -2,7 +2,7 @@
 
 ## What Was Implemented
 
-This implementation adds full read support for **PMTiles v3** archive format to the CARTO Mobile SDK.
+This implementation adds full read support for **PMTiles v3** archive format to the Massif Maps.
 
 ### Files Created
 

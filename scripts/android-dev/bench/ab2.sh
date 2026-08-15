@@ -16,4 +16,4 @@ while [ $i -lt 8 ]; do sleep 5; adb shell input keyevent KEYCODE_WAKEUP >/dev/nu
 adb logcat -c
 sleep 22
 adb shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1
-adb logcat -d -s carto-mobile-sdk | grep "PROF: " | sed "s/^/[$LABEL] /"
+adb logcat -d -s massif | grep "PROF: " | sed "s/^/[$LABEL] /"

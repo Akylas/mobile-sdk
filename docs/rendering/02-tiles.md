@@ -128,7 +128,7 @@ With the shared ground, content is displaced per vertex by the same elevation fu
 uses, so it does **not** need to be tesselated to follow the terrain — tangram does not subdivide at
 all. Ours subdivides **area fills only**, to two surface cells
 (`TerrainTileTransformer.cpp`, `AREA_THRESHOLD_CELLS = 2`, overridable with
-`adb shell setprop debug.carto.areathreshold N`).
+`adb shell setprop debug.massif.areathreshold N`).
 
 The reason is not the displacement, it is the depth model: an un-subdivided fill chords across the
 displaced surface, and the constant clip-space `depth_shift` has to cover that chord

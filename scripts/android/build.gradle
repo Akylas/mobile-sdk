@@ -71,7 +71,7 @@ task javadoc(type: Javadoc) {
     source = android.sourceSets.main.java.srcDirs
     classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
     destinationDir = file("../../dist/android/javadoc")
-    title = "CARTO Mobile SDK"
+    title = "Massif Maps"
     options.setMemberLevel(JavadocMemberLevel.PUBLIC)
     failOnError false
 }
@@ -104,8 +104,8 @@ version = System.getProperty('build-version')
 //                 artifact sourcesJar
 //                 artifact javadocJar
 //                 pom {
-//                     name = "CARTO Mobile SDK"
-//                     description = "CARTO Mobile Maps SDK for Android"
+//                     name = "Massif Maps"
+//                     description = "Massif Maps for Android"
 //                     url = "https://github.com/CartoDB/mobile-sdk"
 //                     licenses {
 //                         license {
@@ -115,8 +115,8 @@ version = System.getProperty('build-version')
 //                     }
 //                     developers {
 //                         developer {
-//                             id = "CARTO"
-//                             name = "CARTO Mobile Team"
+//                             id = "massif-maps"
+//                             name = "Massif Maps"
 //                         }
 //                     }
 //                     scm {

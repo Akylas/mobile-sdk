@@ -18,7 +18,7 @@ import TabItem from '@theme/TabItem';
   // use the latest version number from https://github.com/massif-maps/MassifMaps/releases
 
   dependencies {
-      compile 'com.massifmaps:carto-mobile-sdk:4.4.6@aar'
+      compile 'com.massifmaps:massif:4.4.6@aar'
   }
   ```
  
@@ -75,7 +75,7 @@ public class MainActivity extends Activity {
         mapView = (MapView) this.findViewById(R.id.mapView);
 
         // Add basemap layer to mapView
-        CartoOnlineVectorTileLayer baseLayer = new CartoOnlineVectorTileLayer(CartoBaseMapStyle.MASSIF_BASEMAP_STYLE_VOYAGER);
+        CartoOnlineVectorTileLayer baseLayer = new CartoOnlineVectorTileLayer(CartoBaseMapStyle.CARTO_BASEMAP_STYLE_VOYAGER);
         mapView.getLayers().add(baseLayer);
     }
 }
@@ -105,7 +105,7 @@ class MainActivity : AppCompatActivity() {
         mapView = findViewById(R.id.mapView) as MapView
 
         // Add basemap layer to mapView
-        val layer = CartoOnlineVectorTileLayer(CartoBaseMapStyle.MASSIF_BASEMAP_STYLE_VOYAGER)
+        val layer = CartoOnlineVectorTileLayer(CartoBaseMapStyle.CARTO_BASEMAP_STYLE_VOYAGER)
         mapView?.layers?.add(layer)
     }
 }
@@ -243,7 +243,7 @@ class ViewController: UIViewController {
     let mapView = MSFMapView()
     view = mapView
         
-    let baseLayer = MSFCartoOnlineVectorTileLayer(style: MSFCartoBaseMapStyle.MASSIF_BASEMAP_STYLE_VOYAGER)
+    let baseLayer = MSFCartoOnlineVectorTileLayer(style: MSFCartoBaseMapStyle.CARTO_BASEMAP_STYLE_VOYAGER)
     mapView?.getLayers().add(baseLayer)
   }
 }
@@ -283,7 +283,7 @@ class ViewController: UIViewController {
   MSFMapView* mapView = (MSFMapView*) self.view;
 
   // 2. Create online vector tile layer, use style asset embedded in the project
-  MSFVectorTileLayer* baseLayer = [[MSFCartoOnlineVectorTileLayer alloc] initWithStyle: NT_MASSIF_BASEMAP_STYLE_VOYAGER];
+  MSFVectorTileLayer* baseLayer = [[MSFCartoOnlineVectorTileLayer alloc] initWithStyle: NT_CARTO_BASEMAP_STYLE_VOYAGER];
 
   // 3. Add vector tile layer
   [[mapView getLayers] add:baseLayer];

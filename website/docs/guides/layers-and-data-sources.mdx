@@ -52,7 +52,7 @@ This adds to map CARTO built-in vector tile service with generic streetmaps, you
 
 ```java
   
-CartoOnlineVectorTileLayer layer = new CartoOnlineVectorTileLayer(CartoBaseMapStyle.MASSIF_BASEMAP_STYLE_POSITRON);
+CartoOnlineVectorTileLayer layer = new CartoOnlineVectorTileLayer(CartoBaseMapStyle.CARTO_BASEMAP_STYLE_POSITRON);
 mapView.getLayers().add(layer);
 
 ```
@@ -74,7 +74,7 @@ MapView.Layers.Add(layer);
 
 ```objectivec
   
-MSFCartoOnlineVectorTileLayer* layer = [[MSFCartoOnlineVectorTileLayer alloc] initWithStyle:NT_MASSIF_BASEMAP_STYLE_POSITRON];
+MSFCartoOnlineVectorTileLayer* layer = [[MSFCartoOnlineVectorTileLayer alloc] initWithStyle:NT_CARTO_BASEMAP_STYLE_POSITRON];
 [[self.mapView getLayers] add:layer];
   
 ```
@@ -85,7 +85,7 @@ MSFCartoOnlineVectorTileLayer* layer = [[MSFCartoOnlineVectorTileLayer alloc] in
 
 ```swift
 
-let layer = MSFCartoOnlineVectorTileLayer(style: MSFCartoBaseMapStyle.MASSIF_BASEMAP_STYLE_POSITRON)
+let layer = MSFCartoOnlineVectorTileLayer(style: MSFCartoBaseMapStyle.CARTO_BASEMAP_STYLE_POSITRON)
 mapView?.getLayers()?.add(layer)
 
 ```
@@ -96,7 +96,7 @@ mapView?.getLayers()?.add(layer)
 
 ```kotlin
 
-val layer = CartoOnlineVectorTileLayer(CartoBaseMapStyle.MASSIF_BASEMAP_STYLE_POSITRON)
+val layer = CartoOnlineVectorTileLayer(CartoBaseMapStyle.CARTO_BASEMAP_STYLE_POSITRON)
 mapView?.layers?.add(layer)
 
 ```

@@ -13,7 +13,7 @@
     <ProjectGuid>{98F3B3DF-0B9A-446E-9170-9705AF6D1288}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Carto</RootNamespace>
+    <RootNamespace>Massif</RootNamespace>
     <AssemblyName>MassifMaps.WinPhone.VSIX</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <GeneratePkgDefFile>false</GeneratePkgDefFile>
@@ -128,8 +128,8 @@
       <Link>SDKManifest.xml</Link>
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
-    <Content Include="$baseDir\scripts\winphone10-vsix\carto128x128.png">
-      <Link>carto128x128.png</Link>
+    <Content Include="$baseDir\scripts\winphone10-vsix\massif128x128.png">
+      <Link>massif128x128.png</Link>
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
   </ItemGroup>

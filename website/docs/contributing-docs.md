@@ -66,7 +66,7 @@ screenshot (and optionally a screen recording), then uses `ffmpeg` to crop the A
 bars and encode a web-friendly JPEG/MP4. Drop the results into `website/static/img/features/`.
 
 For distinct shots (top-down hillshade, close-up contours, a low-angle 3D view), edit the demo's
-`SecondFragment` camera (`setFocusPos` / `setZoom` / `setTilt` — CARTO tilt is `90` = top-down,
+`SecondFragment` camera (`setFocusPos` / `setZoom` / `setTilt` — Massif tilt is `90` = top-down,
 low = horizon) and comment out `addTerrainControls` to hide the debug UI, then restore it.
 
 ## Deployment

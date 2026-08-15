@@ -341,7 +341,7 @@ mvt::ResolvedLayerConfig MBVectorTileDecoder::resolveLayerConfig(const std::stri
 
 #include "layers/VectorTileLayer.h"
 
-namespace carto {
+namespace massif {
     class HillshadeRasterTileLayer;
     class ElevationDecoder;
 
@@ -613,7 +613,7 @@ run. Do this in the composite's overrides of `Layer::update` and `setComponents`
 %include <std_string.i>
 %include <std_vector.i>
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "layers/VectorTileLayer.i"
 %import "datasources/TileDataSource.i"

@@ -18,7 +18,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 DEV="$ROOT/scripts/android-dev"
 OUT="$ROOT/website/static/img/features"
-APP_ID="${APP_ID:-com.akylas.cartotest}"
+APP_ID="${APP_ID:-com.massifmaps.test}"
 NAME="${1:-feature}"
 mkdir -p "$OUT"
 
@@ -71,5 +71,5 @@ fi
 echo "done. Review $OUT/ and point the feature doc's image/video at it."
 echo
 echo "Tip: for distinct feature shots, edit scripts/android-dev SecondFragment"
-echo "     (camera setFocusPos/setZoom/setTilt; CARTO tilt 90=top-down, low=horizon)"
+echo "     (camera setFocusPos/setZoom/setTilt; Massif tilt 90=top-down, low=horizon)"
 echo "     and comment addTerrainControls to hide the debug UI. Restore it after."

@@ -2,14 +2,14 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
     <metadata>
         <id>MassifMaps.UWP</id>
-        <title>CARTO Mobile SDK for UWP and Windows Phone 10</title>
+        <title>Massif Maps for UWP and Windows Phone 10</title>
         <version>$version</version>
-        <authors>CARTO</authors>
-        <icon>images\CARTO.png</icon>
+        <authors>Massif Maps</authors>
+        <icon>images\MassifMaps.png</icon>
         <license type="expression">BSD-3-Clause</license>
-        <projectUrl>https://carto.com</projectUrl>
+        <projectUrl>https://massif-maps.github.io/MassifMaps/</projectUrl>
         <requireLicenseAcceptance>false</requireLicenseAcceptance>
-        <description>CARTO Maps SDK for UWP and Windows Phone 10</description>
+        <description>Massif Maps for UWP and Windows Phone 10</description>
         <summary>Advanced cross-platform Maps library with offline vector tiles, GIS and 3D features</summary>
         <copyright>Copyright CartoDB, Inc.</copyright>
         <dependencies>
@@ -19,7 +19,7 @@
         </dependencies>
     </metadata>
     <files>
-        <file src="$baseDir\scripts\nuget\CARTO.png" target="images\" />
+        <file src="$baseDir\scripts\nuget\MassifMaps.png" target="images\" />
         <!-- This is hack - we use Win32 assembly and remove reference to Win32 using corflags -->
         <file src="$buildDir\MassifMaps.WinPhone.dll" target="lib\uap10.0\MassifMaps.WinPhone.dll" />
         <file src="$baseDir\build\winphone_managed10-ARM64\bin\$configuration\MassifMaps.WinPhone.xml" target="lib\uap10.0\MassifMaps.WinPhone.xml" />

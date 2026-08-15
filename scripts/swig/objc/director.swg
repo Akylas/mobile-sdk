@@ -53,7 +53,7 @@ namespace Swig {
       swig_strong_ptr_ = take_or_release ? nil : obj;
     }
 
-    // Carto-specific methods
+    // Massif-specific methods
 
     virtual void retainDirector() {
       int counter = swig_refcounter_.fetch_add(1);

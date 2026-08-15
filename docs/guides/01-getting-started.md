@@ -73,7 +73,7 @@
           mapView = (MapView) this.findViewById(R.id.mapView);
 
           // Add basemap layer to mapView
-          CartoOnlineVectorTileLayer baseLayer = new CartoOnlineVectorTileLayer(CartoBaseMapStyle.MASSIF_BASEMAP_STYLE_VOYAGER);
+          CartoOnlineVectorTileLayer baseLayer = new CartoOnlineVectorTileLayer(CartoBaseMapStyle.CARTO_BASEMAP_STYLE_VOYAGER);
           mapView.getLayers().add(baseLayer);
       }
   }
@@ -101,7 +101,7 @@
           mapView = findViewById(R.id.mapView) as MapView
 
           // Add basemap layer to mapView
-          val layer = CartoOnlineVectorTileLayer(CartoBaseMapStyle.MASSIF_BASEMAP_STYLE_VOYAGER)
+          val layer = CartoOnlineVectorTileLayer(CartoBaseMapStyle.CARTO_BASEMAP_STYLE_VOYAGER)
           mapView?.layers?.add(layer)
       }
   }
@@ -252,7 +252,7 @@ In **Objective-C apps** you need some special tricks:
       let mapView = MSFMapView()
       view = mapView
           
-      let baseLayer = MSFCartoOnlineVectorTileLayer(style: MSFCartoBaseMapStyle.MASSIF_BASEMAP_STYLE_VOYAGER)
+      let baseLayer = MSFCartoOnlineVectorTileLayer(style: MSFCartoBaseMapStyle.CARTO_BASEMAP_STYLE_VOYAGER)
       mapView?.getLayers().add(baseLayer)
     }
   }
@@ -292,7 +292,7 @@ In **Objective-C apps** you need some special tricks:
     MSFMapView* mapView = (MSFMapView*) self.view;
 
     // 2. Create online vector tile layer, use style asset embedded in the project
-    MSFVectorTileLayer* baseLayer = [[MSFCartoOnlineVectorTileLayer alloc] initWithStyle: NT_MASSIF_BASEMAP_STYLE_VOYAGER];
+    MSFVectorTileLayer* baseLayer = [[MSFCartoOnlineVectorTileLayer alloc] initWithStyle: NT_CARTO_BASEMAP_STYLE_VOYAGER];
 
     // 3. Add vector tile layer
     [[mapView getLayers] add:baseLayer];

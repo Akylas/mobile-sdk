@@ -7,9 +7,9 @@
 #import <Foundation/Foundation.h>
 
 /**
- * NTExceptionWrapper is an utility class for handling ObjectiveC exceptions in Swift.
+ * MSFExceptionWrapper is an utility class for handling ObjectiveC exceptions in Swift.
  */
-__attribute__ ((visibility("default"))) @interface NTExceptionWrapper : NSObject
+__attribute__ ((visibility("default"))) @interface MSFExceptionWrapper : NSObject
 
 /**
  * Catches an ObjectiveC exception and stores the exception info in NSError object.

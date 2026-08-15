@@ -80,7 +80,7 @@ predates §12.6 was taken at `-O0`, and the same code at `-O2` is 49% faster.
 - `PROF` — CPU ms per frame section: `sky prelude prepare cover drape layers layers3D billboards`.
   `sky` is mostly the swap-buffer wait, not work.
 - `PROF GPU` — the same sections timed on the GPU (`GL_EXT_disjoint_timer_query`, Android only).
-  Switch off with `adb shell setprop debug.carto.gputimer 0`.
+  Switch off with `adb shell setprop debug.massif.gputimer 0`.
 - `RenderStats` — draw counts, index counts, per-draw µs, surface/label/drape counters.
 
 **Device numbers drift.** On the Crosscall (Adreno 610) the *same build* measured 14.6-17.4 fps
@@ -180,8 +180,8 @@ That is structurally different from a constant-**NDC** bias, whose eye tolerance
 distance²/near and which is what produced the see-through in rounds 45-56.
 
 Our shader already has the term (`uLayerDepthOffset * (2⁻¹⁹·w + uDepthShift)`); we feed it 0.
-Measurable with `adb shell setprop debug.carto.depthshift 0.02` plus
-`debug.carto.linesourcedensity 1` (lines at source density): **18.0 → 19.3 fps, 2.7× fewer content
+Measurable with `adb shell setprop debug.massif.depthshift 0.02` plus
+`debug.massif.linesourcedensity 1` (lines at source density): **18.0 → 19.3 fps, 2.7× fewer content
 indices per render tile**, and no visible difference at the ridge camera beyond label placement.
 
 **VERDICT (Martin, on device): rejected as a default — "a bit of see-through, on ridges I see bits of
@@ -347,7 +347,7 @@ grid is coarse. A custom normal-map lighting shader that reads `getRawColor()` s
 re-encoded DEM texel, not the source tile's; `getElevation()` is the portable one.
 Switch it off with `HillshadeRasterTileLayer.setTerrainPaintEnabled(false)` or, for an interleaved
 A/B that also reaches a composite layer's internal hillshade child,
-`adb shell setprop debug.carto.terrainpaint 0`.
+`adb shell setprop debug.massif.terrainpaint 0`.
 
 ### 9.3 Two things the port had to get right
 
@@ -375,7 +375,7 @@ far more than that, so on the paint that cap is visible as blur from z15 up - it
 lift it for the paint's own cache.
 
 It stays OFF by default, because the elevation texture pipeline cannot pay for it (Crosscall, north
-pan, `debug.carto.paintdetail 1`): **2.5 fps against 6.7**, with `drape` at 172-218 ms. Measured
+pan, `debug.massif.paintdetail 1`): **2.5 fps against 6.7**, with `drape` at 172-218 ms. Measured
 cause: each DEM grid is 512², re-encoded into a 514² RGBA texture **on the render thread** and
 uploaded there (53 ms + 52 ms per texture at full detail), and the working set jumps ~16× past the
 96-texture cache. At the mesh level the same path barely runs (fewer than 64 encodes over a whole
@@ -696,13 +696,13 @@ their builder would delete that layer and keep labelled contours.
 
 - **Geometry volume.** Area subdivision off cuts vector indices 37.3M → 7.5M per interval (3× per
   render tile) and buys **+6.5%, inside the noise**.
-- **Per-vertex DEM taps.** 16 → 1 (`debug.carto.demtaps`) with content on: 5.69 vs 5.86 fps, i.e.
+- **Per-vertex DEM taps.** 16 → 1 (`debug.massif.demtaps`) with content on: 5.69 vs 5.86 fps, i.e.
   nothing. Worth ~20% in the terrain-only config and nothing once content is there.
 - **The GPU.** `PROF GPU` with content: layers 29–43 ms, total 38–53 ms, against a CPU frame of
   120–175 ms. The GPU could sustain ~20 fps; we are CPU-bound.
 - **Tile LOD granularity.** `--es maxTileZoomOffset -1` moved 11.46 → 11.16 fps. This supersedes the
   +11% in §7.2, which was measured with `PROF` on a different config.
-- **Paint-as-ground** (`debug.carto.groundpaint 1`): 13.80/15.02 against a 13.96/15.66 baseline —
+- **Paint-as-ground** (`debug.massif.groundpaint 1`): 13.80/15.02 against a 13.96/15.66 baseline —
   nothing, twice. So the hillshade keeps its place in the layer order at no cost.
 - **The far plane.** Porting `far = 2*height/cos(pitch+fovy/2)` changed neither tile count nor fps
   at that camera: the ground-derived far is already inside the bound their formula gives there, so
@@ -800,9 +800,9 @@ draw.
   falls back to its own DEM tile set: render tiles 494 → 216, `layers` 18.4 → 16.1 ms.
 - The depth budget (§10) rescaled to the stack's ordinal span, and area fills subdivided to two
   surface cells instead of one: 16.6 → 20.6 fps at the mountain camera.
-- Measurement switches, all defaulting to current behaviour: `debug.carto.demtaps`,
-  `debug.carto.groundpaint`, `debug.carto.tilebg`, `debug.carto.areathreshold`,
-  `debug.carto.areasourcedensity`.
+- Measurement switches, all defaulting to current behaviour: `debug.massif.demtaps`,
+  `debug.massif.groundpaint`, `debug.massif.tilebg`, `debug.massif.areathreshold`,
+  `debug.massif.areasourcedensity`.
 
 ---
 
@@ -1047,7 +1047,7 @@ neighbour lands, only the 2-texel ring is re-encoded and patched into the existi
 
 | cold load + zoom sequence | full re-encodes | border patches | fps median |
 |---|---|---|---|
-| re-encode whole (`debug.carto.demborderpatch 0`) | **353** | 0 | 10.6 |
+| re-encode whole (`debug.massif.demborderpatch 0`) | **353** | 0 | 10.6 |
 | **patch the ring** | **24** | 118 | 10.5 |
 
 And at every camera tried the frame rate is unchanged: north pan 14.6 vs 15.0, cold 10.5 vs 10.6,
@@ -1063,7 +1063,7 @@ the same switch now measures:
 | | fps median | frame | `layers` |
 |---|---|---|---|
 | mesh-capped DEM (default) | 13.9 | 38.1 ms | 7.1 ms |
-| `debug.carto.paintdetail 1` | 10.4 | 67.0 ms | 21.1 ms |
+| `debug.massif.paintdetail 1` | 10.4 | 67.0 ms | 21.1 ms |
 
 −25%, not −63%. Sharp high-zoom relief is now a plausible option for a stack that wants it, but not
 a default. The old numbers in §9.4 should be read as historical.
@@ -1119,7 +1119,7 @@ displaced grid per tile per stencil reset, in 2D it is a two-triangle quad.
 `setTileMasks` now takes three states and defaults to automatic: off in a terrain frame, kept
 in 2D, and kept in both when any layer composites through a `comp-op` (the overlay buffer has
 its own stencil and no depth, so nothing else clips that layer to its tile).
-`debug.carto.tilemasks 1|0` forces either way. (libs-massif `be51df2`, mobile-sdk `cb702b0dc`)
+`debug.massif.tilemasks 1|0` forces either way. (libs-massif `be51df2`, mobile-sdk `cb702b0dc`)
 
 ### 15.4 Contour label stubs read the terrain's elevation (CPU only)
 
@@ -1142,13 +1142,13 @@ resolution, which the terrain's mesh-capped level cannot supply. (mobile-sdk `85
   configuration, which is mostly the idle it absorbs (the caveat in `FrameProfiler.h`). Timed
   apart: the sky quad is ~1.5-1.8 ms and the background plane 2.8-4.7 ms, and **removing either
   changes fps by nothing** - 2D holds 41.3 fps with a 10.4 ms GPU frame or a 5.7 ms one.
-  `debug.carto.background 0` drops the plane. Tangram has no background geometry at all and
+  `debug.massif.background 0` drops the plane. Tangram has no background geometry at all and
   draws its sky only above the horizon (`core/src/util/skyManager.cpp`, mesh y in [0,1]
   translated by `u_horizon_y`); both are worth copying as simplicity, not as frame rate.
 - **Labels.** `buildMs 0.0 batchMs 0.0`, pass3D labels2D 0.2 ms/interval; `--es labels false` is
   +3% in 3D and +3.4% in 2D. The culler runs on its own worker.
 - **Tile stitching, fog, the GPU timer itself.** Stitching is the shader's edge coarsening (and
-  now only on edge tiles); fog costs 4.5% and is off by default; `debug.carto.gputimer 0` is
+  now only on edge tiles); fog costs 4.5% and is off by default; `debug.massif.gputimer 0` is
   worth nothing, so the instrumentation is not paying for itself in frames.
 
 ### 15.6 The device presents at 43 Hz, not 60 - and so does tangram

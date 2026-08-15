@@ -128,13 +128,13 @@ def buildAndroidJAR(args):
   os.chdir(currentDir)
 
   if not jar(args, buildDir,
-    'cf', 'carto-mobile-sdk.jar',
+    'cf', 'massif.jar',
     *classFiles
   ):
     return False
 
   if not makedirs(distDir) or \
-     not copyfile('%s/carto-mobile-sdk.jar' % buildDir, '%s/carto-mobile-sdk.jar' % distDir):
+     not copyfile('%s/massif.jar' % buildDir, '%s/massif.jar' % distDir):
     return False
 
   print("JAR output available in:\n%s" % distDir)
@@ -150,14 +150,14 @@ def buildAndroidAAR(args):
   version = args.buildversion
   distName = getAndroidAarDistName(version, args.profile)
 
-  # with open('%s/scripts/android/carto-mobile-sdk.pom.template' % baseDir, 'r') as f:
+  # with open('%s/scripts/android/massif.pom.template' % baseDir, 'r') as f:
   #   pomFile = string.Template(f.read()).safe_substitute({
   #     'baseDir': baseDir,
   #     'buildDir': buildDir,
   #     'distDir': distDir,
   #     'version': version
   #   })
-  # pomFileName = '%s/carto-mobile-sdk.pom' % buildDir
+  # pomFileName = '%s/massif.pom' % buildDir
   # with open(pomFileName, 'w') as f:
   #   f.write(pomFile)
 
@@ -181,14 +181,14 @@ def buildAndroidAAR(args):
     'assembleRelease'
   ):
     return False
-  aarFileName = '%s/outputs/aar/carto-mobile-sdk-%s.aar' % (buildDir, args.configuration.lower())
+  aarFileName = '%s/outputs/aar/massif-%s.aar' % (buildDir, args.configuration.lower())
   if not os.path.exists(aarFileName):
     aarFileName = '%s/outputs/aar/android-release.aar' % buildDir
   if not makedirs(distDir) or \
      not copyfile(aarFileName, '%s/%s' % (distDir, distName)):
-    #  not copyfile(srcFileName, '%s/carto-mobile-sdk-android-%s-sources.jar' % (distDir, version)):
-      #  not copyfile(pomFileName, '%s/carto-mobile-sdk-android-%s.pom' % (distDir, version)) or \
-    #  not zip(args, '%s/scripts/android/src/main' % baseDir, '%s/carto-mobile-sdk-%s.aar' % (distDir, version), 'R.txt'):
+    #  not copyfile(srcFileName, '%s/massif-android-%s-sources.jar' % (distDir, version)):
+      #  not copyfile(pomFileName, '%s/massif-android-%s.pom' % (distDir, version)) or \
+    #  not zip(args, '%s/scripts/android/src/main' % baseDir, '%s/massif-%s.aar' % (distDir, version), 'R.txt'):
     return False
 
   # if buildForJitpack:

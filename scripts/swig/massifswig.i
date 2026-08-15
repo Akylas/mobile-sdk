@@ -1,5 +1,5 @@
-#ifndef _CARTOSWIG_I
-#define _CARTOSWIG_I
+#ifndef _MASSIFSWIG_I
+#define _MASSIFSWIG_I
 
 #ifndef SWIGCSHARP
 %define SWIGEXCODE

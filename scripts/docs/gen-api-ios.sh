@@ -49,7 +49,7 @@ jazzy \
   --framework-root "$PROXY" \
   --module MassifMaps \
   --module-version "${DOCS_VERSION:-master}" \
-  --title "CARTO Mobile SDK (Akylas fork) — iOS API" \
+  --title "Massif Maps — iOS API" \
   --output "$OUT" \
   || echo "   (jazzy reported warnings — output still generated)"
 

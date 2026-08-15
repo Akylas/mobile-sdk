@@ -58,7 +58,7 @@ namespace Swig {
       }
     }
 
-    // Carto-specific methods
+    // Massif-specific methods
 
     virtual void retainDirector() {
       int counter = swig_refcounter_.fetch_add(1);

@@ -59,8 +59,8 @@ echo "   $COUNT public Java sources"
 # Unresolved Android-framework types are expected; -Xdoclint:none + continue past them.
 javadoc \
   -d "$OUT" \
-  -windowtitle "CARTO Mobile SDK — Android API" \
-  -doctitle "CARTO Mobile SDK (Akylas fork) — Android API" \
+  -windowtitle "Massif Maps — Android API" \
+  -doctitle "Massif Maps — Android API" \
   -notimestamp -quiet -Xdoclint:none \
   -sourcepath "$PROXY:$ROOT/android/java" \
   ${ANDROID_JAR:+-classpath "$ANDROID_JAR"} \

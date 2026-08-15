@@ -7,7 +7,7 @@
     <ProjectGuid>{66E7B812-CCBE-4C7E-91A7-3740BF0C7029}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Carto</RootNamespace>
+    <RootNamespace>Massif</RootNamespace>
     <AssemblyName>MassifMaps.WinPhone</AssemblyName>
     <DefaultLanguage>en-US</DefaultLanguage>
     <TargetPlatformIdentifier>UAP</TargetPlatformIdentifier>

@@ -6,7 +6,7 @@
     <ProjectTypeGuids>{FEACFBD2-3405-455C-9665-78FE426C6842};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
     <ProjectGuid>{2E2DE024-A633-449F-B727-31DCEDE81BD0}</ProjectGuid>
     <OutputType>Library</OutputType>
-    <RootNamespace>Carto</RootNamespace>
+    <RootNamespace>Massif</RootNamespace>
     <IPhoneResourcePrefix>Resources</IPhoneResourcePrefix>
     <AssemblyName>MassifMaps.iOS</AssemblyName>
   </PropertyGroup>

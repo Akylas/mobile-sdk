@@ -5,6 +5,7 @@ slug: /migration
 ---
 
 
+
 The SDK was renamed from **CARTO Mobile SDK** to **Massif Maps** — CARTO no longer maintains it,
 and the fork had carried a dead brand in every namespace, package and style token.
 
@@ -16,7 +17,7 @@ spelling and log a deprecation warning once per stylesheet.
 | Before | After |
 |---|---|
 | `carto::` | `massif::` |
-| `_CARTO_*_SUPPORT` build defines | `_MASSIF_*_SUPPORT` |
+| `_MASSIF_*_SUPPORT` build defines | `_MASSIF_*_SUPPORT` |
 | `CARTO_VT_RENDER_STATS`, `CARTO_FRAME_PROFILER` | `MASSIF_VT_RENDER_STATS`, `MASSIF_FRAME_PROFILER` |
 | `mvt::NutiParameter*` | `mvt::StyleParameter*` |
 | `CartoGeocodingProxy` | `MassifGeocodingProxy` |
@@ -69,7 +70,7 @@ These name data or upstream work, not this SDK:
 | Before | After |
 |---|---|
 | logcat tag `carto-mobile-sdk` | `massif` |
-| `adb shell setprop debug.carto.*` | `debug.massif.*` |
-| demo app `com.akylas.cartotest` | `com.massifmaps.test` |
+| `adb shell setprop debug.massif.*` | `debug.massif.*` |
+| demo app `com.massifmaps.test` | `com.massifmaps.test` |
 | demo `--es style nuti` | `--es style project` (`--es demo nuti` still accepted) |
 | demo `--es nutiInterval` | `--es paramInterval` |

@@ -291,7 +291,7 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
     if match:
       className = match.group(1).strip()
       javaClass = match.group(2).strip().split(".")[-1]
-      javaDescriptor = "Lcom/carto/%s;" % match.group(2).strip().replace('.', '/')
+      javaDescriptor = "Lcom/massifmaps/%s;" % match.group(2).strip().replace('.', '/')
       args = { 'CLASSNAME': match.group(1).strip(), 'TYPE': javaClass, 'DESCRIPTOR': javaDescriptor }
       lines_out += applyTemplate(VALUE_TYPE_TEMPLATE, args)
       continue
@@ -301,7 +301,7 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
     if match:
       className = match.group(1).strip()
       javaClass = match.group(2).strip().split(".")[-1]
-      javaDescriptor = "Lcom/carto/%s;" % match.group(2).strip().replace('.', '/')
+      javaDescriptor = "Lcom/massifmaps/%s;" % match.group(2).strip().replace('.', '/')
       args = { 'CLASSNAME': match.group(1).strip(), 'TYPE': javaClass, 'DESCRIPTOR': javaDescriptor }
       lines_out += applyTemplate(SHARED_PTR_TEMPLATE, args)
       continue
@@ -312,7 +312,7 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
       className = match.group(1).strip()
       javaPackage = 'com.massifmaps.%s' % '.'.join(match.group(2).strip().split(".")[:-1])
       javaClass = match.group(2).strip().split(".")[-1]
-      javaDescriptor = "Lcom/carto/%s;" % match.group(2).strip().replace('.', '/')
+      javaDescriptor = "Lcom/massifmaps/%s;" % match.group(2).strip().replace('.', '/')
       args = { 'CLASSNAME': match.group(1).strip(), 'TYPE': javaClass, 'PACKAGE': javaPackage, 'DESCRIPTOR': javaDescriptor }
       code = class_code.get(className, [])
       code += applyTemplate(POLYMORPHIC_SHARED_PTR_CODE_TEMPLATE, args)
@@ -546,7 +546,7 @@ args = parser.parse_args()
 args.defines += ';' + getProfile(args.profile).get('defines', '')
 argsDefines = args.defines.split(";")
 if not checkExecutable(args.swig, '-help'):
-  print('Unable to find SWIG executable. Use --swig argument to specify its location. The supported version is available from https://github.com/cartodb/mobile-swig')
+  print('Unable to find SWIG executable. Use --swig argument to specify its location. The supported version is available from https://github.com/farfromrefug/mobile-swig')
   sys.exit(-1)
 
 if os.path.isdir(args.wrapperDir):

@@ -8,7 +8,7 @@ adb logcat -c
 adb shell am start -n com.massifmaps.test/.MainActivity --es ui false \
   --es style "$S" --es contour false --es hs false --es elements false >/dev/null 2>&1
 sleep 70
-START=$(adb logcat -d -v time -s carto-mobile-sdk | grep "AttachJVM" | head -1 | awk '{print $2}')
-FIRSTTILE=$(adb logcat -d -v time -s carto-mobile-sdk | grep "loadTile" | head -1 | awk '{print $2}')
-FIRSTDRAW=$(adb logcat -d -v time -s carto-mobile-sdk | grep -E "geomDraws=[1-9]" | head -1 | awk '{print $2}')
+START=$(adb logcat -d -v time -s massif | grep "AttachJVM" | head -1 | awk '{print $2}')
+FIRSTTILE=$(adb logcat -d -v time -s massif | grep "loadTile" | head -1 | awk '{print $2}')
+FIRSTDRAW=$(adb logcat -d -v time -s massif | grep -E "geomDraws=[1-9]" | head -1 | awk '{print $2}')
 echo "style=$S start=$START firstTileRequest=$FIRSTTILE firstDraw=$FIRSTDRAW"

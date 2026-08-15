@@ -222,7 +222,7 @@ namespace Swig {
       return clz ? (jclass)jenv->NewGlobalRef(clz) : 0;
     }
 
-    // Carto-specific methods
+    // Massif-specific methods
 
     virtual void retainDirector() {
       int counter = swig_refcounter_.fetch_add(1);

@@ -30,7 +30,7 @@ Creation and management of `PackageManager`, which handles offline package disco
 **Note:** If map package is not yet downloaded, then this layer will have no map. So you may want to add another online tiled layer with same style, which will be replaced once offline map is downloaded
 
   ```java
-  CartoOfflineVectorTileLayer layer = new CartoOfflineVectorTileLayer(cartoPackageManager, CartoBaseMapStyle.MASSIF_BASEMAP_STYLE_VOYAGER);
+  CartoOfflineVectorTileLayer layer = new CartoOfflineVectorTileLayer(cartoPackageManager, CartoBaseMapStyle.CARTO_BASEMAP_STYLE_VOYAGER);
   mapView.getLayers().add(layer);
   ```
 
@@ -478,7 +478,7 @@ Vector maps always need proper **style definitions**. Style definition must matc
 
 You can also use **CARTO Builder** to define map styling using web interface , see chapter **Offline CARTO map** below how to get data to mobile offline from this.
 
-In this sample we use mbtiles downloaded from openmaptiles.org, these are in [openmaptiles schema](http://openmaptiles.org/schema). As also CARTO bundled vector maps use same schema, then the built-in *MASSIF_BASEMAP_STYLE_VOYAGER* and other styles happen to be compatible with this, and can be used to render the data.
+In this sample we use mbtiles downloaded from openmaptiles.org, these are in [openmaptiles schema](http://openmaptiles.org/schema). As also CARTO bundled vector maps use same schema, then the built-in *CARTO_BASEMAP_STYLE_VOYAGER* and other styles happen to be compatible with this, and can be used to render the data.
 
 <Tabs groupId="language">
 
@@ -489,7 +489,7 @@ In this sample we use mbtiles downloaded from openmaptiles.org, these are in [op
 MBTilesTileDataSource tileDataSource = new MBTilesTileDataSource("estonia.mbtiles");
 
 // Create tile decoder based on Voyager style and VectorTileLayer
-VectorTileDecoder tileDecoder = CartoVectorTileLayer.createTileDecoder(CartoBaseMapStyle.MASSIF_BASEMAP_STYLE_VOYAGER);
+VectorTileDecoder tileDecoder = CartoVectorTileLayer.createTileDecoder(CartoBaseMapStyle.CARTO_BASEMAP_STYLE_VOYAGER);
 VectorTileLayer offlineLayer = new VectorTileLayer(tileDataSource, tileDecoder);
 
 mapView.getLayers().add(offlineLayer);
@@ -522,7 +522,7 @@ NSString* path = [[NSBundle mainBundle] pathForResource:@"estonia" ofType:@"mbti
 MSFMBTilesTileDataSource* tileDataSource = [[MSFMBTilesTileDataSource alloc] initWithPath:path];
 
 // Create tile decoder based on Voyager style and VectorTileLayer
-MSFMBVectorTileDecoder* tileDecoder = [MSFCartoVectorTileLayer createTileDecoder: NT_MASSIF_BASEMAP_STYLE_VOYAGER];
+MSFMBVectorTileDecoder* tileDecoder = [MSFCartoVectorTileLayer createTileDecoder: NT_CARTO_BASEMAP_STYLE_VOYAGER];
 MSFVectorTileLayer* offlineLayer = [[MSFVectorTileLayer alloc] initWithDataSource:tileDataSource decoder:tileDecoder];
 
 [[mapView getLayers] add:offlineLayer];
@@ -538,7 +538,7 @@ MSFVectorTileLayer* offlineLayer = [[MSFVectorTileLayer alloc] initWithDataSourc
 let tileDataSource = MSFMBTilesTileDataSource(path: Bundle.main.path(forResource: "estonia", ofType: "mbtiles"))
 
 // Create tile decoder based on Voyager style and VectorTileLayer
-let tileDecoder = MSFCartoVectorTileLayer.createTileDecoder(CartoBaseMapStyle.MASSIF_BASEMAP_STYLE_VOYAGER)
+let tileDecoder = MSFCartoVectorTileLayer.createTileDecoder(CartoBaseMapStyle.CARTO_BASEMAP_STYLE_VOYAGER)
 let offlineLayer = MSFVectorTileLayer(tileDataSource, tileDecoder)
 
 mapView?.layers?.add(offlineLayer)
@@ -554,7 +554,7 @@ mapView?.layers?.add(offlineLayer)
 val tileDataSource = MBTilesTileDataSource("estonia.mbtiles")
 
 // Create tile decoder based on Voyager style and VectorTileLayer
-val tileDecoder = CartoVectorTileLayer.createTileDecoder(CartoBaseMapStyle.MASSIF_BASEMAP_STYLE_VOYAGER)
+val tileDecoder = CartoVectorTileLayer.createTileDecoder(CartoBaseMapStyle.CARTO_BASEMAP_STYLE_VOYAGER)
 val offlineLayer = VectorTileLayer(tileDataSource, tileDecoder)
 
 mapView?.layers?.add(offlineLayer)

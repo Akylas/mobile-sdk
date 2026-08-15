@@ -435,7 +435,7 @@ zoom filter.
   `TileTransformer::tesselateLabelLineString`, which halves to the **surface cell** and skips the
   lattice split — the profile a glyph run follows cannot carry more detail than the surface it is
   laid on. **`prepare` 157 → 72 ms, 1.75 → 2.10 fps.** The bound was measured first with
-  `debug.carto.linesourcedensity 1` (no line subdivision at all): `prepare` 154 → 68, so the label
+  `debug.massif.linesourcedensity 1` (no line subdivision at all): `prepare` 154 → 68, so the label
   path gives up almost nothing by keeping the surface-cell step.
   Visible cost: a glyph run can shift a few pixels along its line, and it may sag by the surface's
   own chord error where a segment crosses a cell diagonal. Contour labels — the most sensitive class,
@@ -553,7 +553,7 @@ position, **focus distance**, screen size — only reaches uniforms. That last o
 terrain `focusDistance` changes on every frame, and while it was in the test the cache never once
 hit.
 
-**Measured** (Crosscall, assets style, 5.724/45.188 z15 t45, scripted pan, `debug.carto.labelcache`
+**Measured** (Crosscall, assets style, 5.724/45.188 z15 t45, scripted pan, `debug.massif.labelcache`
 A/B): `pass3D labels3DMs` **67–76 → 25–33 ms/interval**, labels rebuilt 3900 → 1900 per interval,
 ~200 batches a second replayed and ~80 patched. **Frame rate: unchanged** — three interleaved
 rounds gave medians 26.4/26.0/25.6 fps with the cache against 26.4/25.8/25.8 without. The pass is

@@ -32,7 +32,7 @@ adb install -r -t app/build/outputs/apk/debug/app-debug.apk
 | instrument | what it gives | gotchas |
 |---|---|---|
 | `PROF` | CPU ms per frame section: `sky prelude prepare cover drape layers layers3D billboards` | `sky` is mostly the swap wait, not work. Not comparable across apps. |
-| `PROF GPU` | the same sections on the GPU (`GL_EXT_disjoint_timer_query`) | Android only; off with `setprop debug.carto.gputimer 0` |
+| `PROF GPU` | the same sections on the GPU (`GL_EXT_disjoint_timer_query`) | Android only; off with `setprop debug.massif.gputimer 0` |
 | `RenderStats` | draws, indices, render tiles, style layers, surfaces, label and prep timings, tile-surface builds | per one-second interval, deltas — **divide by the `PROF` frame count** of that interval, a faster build prints bigger counters |
 | `simpleperf` | an actual CPU profile of the render thread | see below — this is what finds things the timers cannot |
 
@@ -81,7 +81,7 @@ is the one whose call graph starts at `MapRenderer::onDrawFrame`.
 
 ## Reset the debug props before measuring
 
-`debug.carto.*` properties survive until the device reboots, and a session that leaves them set
+`debug.massif.*` properties survive until the device reboots, and a session that leaves them set
 measures a crippled build for weeks. A run in August 2026 found `drapebudget 0` and `drapemip 0`
 (the drape memory budget and its mipmaps, i.e. the whole win of the round that added them) still
 set from the session that introduced them, along with `paintdetail 0` and `skyclip 0`. Clear every
@@ -90,7 +90,7 @@ one of them before a baseline:
 ```sh
 for p in areasourcedensity areathreshold asyncdepth asyncdepthms background demtaps depthshift \
          drapebudget drapemip groundpaint linesourcedensity paintdetail skyclip terrainpaint \
-         tilebg tilemasks; do adb shell setprop debug.carto.$p '""'; done
+         tilebg tilemasks; do adb shell setprop debug.massif.$p '""'; done
 ```
 
 ## Where the frame goes today
@@ -127,7 +127,7 @@ anything on this page: cutting a draped line by its **sag** instead of by the ti
 ([04-terrain.md](04-terrain.md#cutting-a-line-by-its-sag-instead-of-by-the-tiles-cell-count)) took
 the city pan from 7.5 to 13.8 fps and the mountain pan from ~11 to ~17.8, with the draw count
 unchanged and 3.4× fewer geometry indices per frame. It is the shipped path now
-(`debug.carto.linesag 0` restores the old split), so any city number taken before 2026-08-13 is
+(`debug.massif.linesag 0` restores the old split), so any city number taken before 2026-08-13 is
 measuring a frame that no longer exists — retake rather than compare.
 
 ### What the city frame is bound by, and the five things that were not it
@@ -163,7 +163,7 @@ The natural reading of the resolution test above is "fragment-bound". It is wron
 experiment says so: **halving every line width changes nothing** (`layers` 20.3–21.7 ms). Neither
 does anything else that makes a fragment cheaper — see the table above, plus round-join fans cut
 from 5 triangles to 1 (13.6–15.5 fps, same indices/frame) and the DEM vertex taps cut from 4 to a
-single hardware-filtered fetch (`debug.carto.demtaps 1`, `layers` 22.3–23.3 ms).
+single hardware-filtered fetch (`debug.massif.demtaps 1`, `layers` 22.3–23.3 ms).
 
 What moves it, every time, is the triangle count. Shrinking the framebuffer also shrinks **binning**
 work, which is per-primitive on a tiler, so that test could not separate fill from binning. Long
@@ -618,7 +618,7 @@ a feature-id vertex attribute in `vt` and shader support — not done.
 | geometry volume (area subdivision off) | indices 37.3M → 7.5M, **+6.5%, inside the noise** |
 | per-vertex DEM taps 16 → 1 | 5.69 vs 5.86 fps with content — nothing (worth ~20% terrain-only) |
 | tile LOD granularity (`--es maxTileZoomOffset -1`) | 11.46 → 11.16 fps |
-| paint-as-ground (`debug.carto.groundpaint 1`) | nothing, twice |
+| paint-as-ground (`debug.massif.groundpaint 1`) | nothing, twice |
 | the far plane (tangram's formula) | never binds at the cameras tested |
 | tile decode pool size 1 → 4 | no change warm or cold |
 | shadows off / sky shader off | ~0 |
@@ -680,7 +680,7 @@ is the culler doing the same work in a denser burst, not the mutex being held lo
 
 ## Runtime switches (no rebuild)
 
-`adb shell setprop debug.carto.<name> <value>` — `demtaps`, `groundpaint`, `tilebg`,
+`adb shell setprop debug.massif.<name> <value>` — `demtaps`, `groundpaint`, `tilebg`,
 `areathreshold`, `areasourcedensity`, `linesourcedensity`, `depthshift`, `terrainpaint`,
 `paintdetail`, `asyncdepthms`, `gputimer`. They are read **once per process**, so restart the app
 after setting one, and **reset them when you are done** — they survive until reboot.

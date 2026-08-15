@@ -3,10 +3,10 @@
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.github.akylas</groupId>
-  <artifactId>carto-mobile-sdk</artifactId>
+  <artifactId>massif</artifactId>
   <version>$version</version>
   <packaging>aar</packaging>
-  <name>Akylas CARTO Maps SDK Fork</name>
+  <name>Massif Maps</name>
   <description>Maps SDK build for Android</description>
   <url>https://github.com/massif-maps/MassifMaps</url>
   <licenses>

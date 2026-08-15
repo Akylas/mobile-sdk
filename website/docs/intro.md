@@ -6,14 +6,14 @@ slug: /intro
 
 # Massif Maps
 
-A **maintained fork** of the original CARTO Mobile SDK ([CartoDB/mobile-sdk](https://github.com/CartoDB/mobile-sdk)), kept alive, extended and renamed to Massif Maps. See [Migrating to Massif Maps](/docs/migration).
+A **maintained fork** of the original Massif Maps ([CartoDB/mobile-sdk](https://github.com/CartoDB/mobile-sdk)), kept alive, extended and renamed to Massif Maps. See [Migrating to Massif Maps](/docs/migration).
 
 Massif Maps is an open, multi-platform framework for visualizing maps and providing
 location-based services on mobile devices — smartphones and tablets. It ships a high-performance,
 flexible vector-tile renderer, multiple built-in routing engines (street and indoor), plus
 built-in geocoding and reverse geocoding.
 
-![Massif Maps](/img/carto-mobile-sdk-animated.gif)
+![Massif Maps](/img/massif-animated.gif)
 
 ## Why this fork?
 
@@ -57,7 +57,7 @@ existing code keeps working. Highlights added by the fork:
 | Browse the classes | **[API Reference](/docs/api-reference)** |
 
 :::info Original documentation
-This site mirrors the structure of the [original CARTO Mobile SDK docs](https://cartodb.github.io/developers/mobile-sdk/).
+This site mirrors the structure of the [original Massif Maps docs](https://cartodb.github.io/developers/mobile-sdk/).
 Conceptual guides carried over from there still apply — only installation and the fork-specific
 features differ.
 :::

@@ -2,10 +2,10 @@
 # A/B by system property with one APK. $1 = label, $2 = linesourcedensity, $3 = depthshift, rest = extras.
 ANDROID_SERIAL="${ANDROID_SERIAL:?set it to the device serial}"; export ANDROID_SERIAL
 LABEL="$1"; LSD="$2"; SHIFT="$3"; shift 3
-adb shell setprop debug.carto.linesourcedensity "$LSD"
-adb shell setprop debug.carto.depthshift "$SHIFT"
+adb shell setprop debug.massif.linesourcedensity "$LSD"
+adb shell setprop debug.massif.depthshift "$SHIFT"
 # Area subdivision, off by default = the shipped behaviour. ASD=1 measures what it costs.
-adb shell setprop debug.carto.areasourcedensity "${ASD:-0}"
+adb shell setprop debug.massif.areasourcedensity "${ASD:-0}"
 adb shell am force-stop com.massifmaps.test >/dev/null 2>&1
 adb shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1
 adb shell am start -n com.massifmaps.test/.MainActivity --es ui false \
@@ -17,4 +17,4 @@ while [ $i -lt 8 ]; do sleep 5; adb shell input keyevent KEYCODE_WAKEUP >/dev/nu
 adb logcat -c
 sleep 22
 adb shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1
-adb logcat -d -s carto-mobile-sdk | grep "PROF: " | sed "s/^/[$LABEL] /"
+adb logcat -d -s massif | grep "PROF: " | sed "s/^/[$LABEL] /"

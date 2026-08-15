@@ -479,11 +479,11 @@ Two things this reveals:
 
 - **The split runs whatever the relief.** The only flatness gate is `FLAT_HEIGHT_RANGE_EPSILON`
   (0.001 m), so a valley tile is cut exactly like a cliff to protect against a fold it cannot have.
-  `debug.carto.latticerelief <metres>` skips the split under a given relief: the city goes 6.61 →
-  7.57 fps (`layers` 51.3 → 36.9 ms) at 200 m, and adding `debug.carto.linethreshold 8` on those
+  `debug.massif.latticerelief <metres>` skips the split under a given relief: the city goes 6.61 →
+  7.57 fps (`layers` 51.3 → 36.9 ms) at 200 m, and adding `debug.massif.linethreshold 8` on those
   tiles reaches **8.43 fps / 32.5 ms**. The mountain camera does not move (11.4–12.0 fps) — the gate
   never fires there, which is the point.
-- **`debug.carto.linethreshold` alone does nothing** in regular-grid mode: the lattice split is tried
+- **`debug.massif.linethreshold` alone does nothing** in regular-grid mode: the lattice split is tried
   first and returns, so the threshold is only a fallback for segments spanning very many cells. Any
   measurement of line cost has to go through the lattice, not the threshold.
 
@@ -510,8 +510,8 @@ it "shines everything through".
 recursively, until the residual sag is under a tolerance — expressed in METRES so it is the same
 currency as the depth clearance that lifts these lines. It replaces both the lattice split and the
 fixed threshold, and it is **the shipped path** since 2026-08-13:
-`DEFAULT_LINE_SAG_METERS = 2`, with `debug.carto.linesag <metres>` as the override and
-`debug.carto.linesag 0` going back to the old lattice split for an A/B.
+`DEFAULT_LINE_SAG_METERS = 2`, with `debug.massif.linesag <metres>` as the override and
+`debug.massif.linesag 0` going back to the old lattice split for an A/B.
 
 **The insight is that sag measures curvature, not slope.** A road running along a constant slope
 chords perfectly: its sag is zero and it needs no cut at all. Only a break in slope needs one. The
@@ -570,7 +570,7 @@ drawn live in the 3D pass at screen resolution, exactly once (the same predicate
 `hasDrapeableContent` and the 3D-pass skip). The application sets it through
 **`TerrainOptions::NoDrapeLayerFilter`**, a regex over vt layer names, defaulting to `^contour.*`;
 an empty string drapes everything the geometry type allows, and `adb shell setprop
-debug.carto.nodrapelayers <regex>` (or `none`) overrides it for an A/B without rebuilding.
+debug.massif.nodrapelayers <regex>` (or `none`) overrides it for an A/B without rebuilding.
 
 **Both defaults changed on 2026-08-13**: `DrapeLinesEnabled` is now **true**, with contours exempt.
 Verified on device with no props and no intent extras — city pan 26.0–27.2 fps, GPU total 11.8–12.6
