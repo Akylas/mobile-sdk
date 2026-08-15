@@ -46,7 +46,7 @@ worker threads with zoom-derivatives baked into vertex attributes (widths scale 
 the shader — zero rebuilds while zooming); proxy tiles from an LRU cache fill every
 hole; LOD selection is by projected screen area (terrain-aware); uploads are lazy.
 
-## Translation to carto mobile-sdk / libs-carto vt
+## Translation to Massif / libs-carto vt
 
 ### Phase 0 — GL capability gate
 - Android: request an ES3 context (ES2 API remains valid on it); iOS MetalANGLE
@@ -75,7 +75,7 @@ hole; LOD selection is by projected screen area (terrain-aware); uploads are laz
 5. **Depth model.** Remove: terrain depth pre-pass usage for rendering, designated
    depth-write layer, all glPolygonOffset calls, uDepthBias, the surface-fan clamp.
    Add: per-layer constant clip-space delta as in tangram (layer index is already
-   available per TileLayer; proxy equivalent = carto's non-active blend tiles).
+   available per TileLayer; proxy equivalent = massif's non-active blend tiles).
    Opaque draped content depth-tests and the bottom layer writes depth as before —
    but now every layer's heights are identical by construction.
 6. **Keep CPU heights** (ElevationManager grids) for: hit testing, camera,
@@ -88,14 +88,14 @@ hole; LOD selection is by projected screen area (terrain-aware); uploads are laz
 ### Phase 2 — LOD/prefetch polish
 - Blend/retained tiles get the tangram `proxy`-style depth push instead of stencil
   ordering heuristics; verify LOD transitions.
-- Optional: screen-area-based tile selection for terrain (carto currently uses
+- Optional: screen-area-based tile selection for terrain (massif currently uses
   w-distance of flat tile centers).
 
 ### Phase 3 — smoothness & sharpness (separate track, needs profiling first)
-- Compare carto's per-frame CPU work (style function evaluation, label transforms)
+- Compare massif's per-frame CPU work (style function evaluation, label transforms)
   against tangram's; consider zoom-derivative attributes if line-width evaluation
   shows up in profiles.
-- Text sharpness: compare carto SDF glyph rasterization sizes/filtering vs alfons
+- Text sharpness: compare massif SDF glyph rasterization sizes/filtering vs alfons
   (3 fixed SDF sizes, 6px radius, two-pass stroke+fill, ¼-px screen quantization).
 
 ## Risks / open questions
@@ -103,6 +103,6 @@ hole; LOD selection is by projected screen area (terrain-aware); uploads are laz
 - Terrarium re-encode adds one copy per DEM tile upload (cheap; grids are already
   decoded once).
 - Buildings/3D polygons: tangram displaces them by the same texture (base follows
-  terrain); carto POLYGON3D pass needs the same treatment.
+  terrain); massif POLYGON3D pass needs the same treatment.
 - Raster (hillshade) layers: their surfaces get the same shader displacement — the
   hillshade bitmap remains a plain raster draped like everything else.

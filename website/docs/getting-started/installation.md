@@ -6,7 +6,7 @@ sidebar_position: 1
 # Installation
 
 The Akylas fork is published under **new artifact coordinates** — the API namespace stays
-`com.carto.*`, but the packages come from the fork, not from CARTO's original distribution.
+`com.massifmaps.*`, but the packages come from the fork, not from Massif's original distribution.
 
 :::tip Version
 Always use the latest version from the
@@ -61,7 +61,7 @@ MapView.registerLicense("YOUR_LICENSE_KEY", context);
 MapView.registerLicense("YOUR_LICENSE_KEY")
 ```
 
-The fork does not depend on CARTO's license servers for offline/self-hosted use. If you use
+The fork does not depend on Massif's license servers for offline/self-hosted use. If you use
 CARTO online services (Maps API / SQL API) you still need valid CARTO credentials — see
 [CARTO Integrations](/docs/guides/carto-integrations). For fully offline maps you can proceed
 without registering a license.

@@ -2,9 +2,9 @@
 
 Feeling stuck? There are many ways to find help.
 
-* [Report an issue](https://github.com/CartoDB/mobile-sdk/issues) in Github (for issues specific to CARTO Mobile SDK).
+* [Report an issue](https://github.com/massifmaps/MassifMaps/issues) in Github (for issues specific to Massif Maps).
 * Ask a question on [GIS StackExchange](https://gis.stackexchange.com/questions/tagged/carto) using the `CARTO` tag (for general issues about CARTO platform).
-* Engine Plan customers have additional access to enterprise-level support through CARTO's support representatives.
+* Engine Plan customers have additional access to enterprise-level support through Massif's support representatives.
 
 If you just want to describe an issue or share an idea, just <a class="typeform-share" href="https://cartohq.typeform.com/to/mH6RRl" data-mode="popup" target="_blank"> send your feedback</a>.
 
@@ -28,7 +28,7 @@ When posting a new question, please consider the following:
 
 ### Engine Plan Customers
 
-Engine Plan customers have additional support options beyond general community support. As per your account Terms of Service, you have access to enterprise-level support through CARTO's support representatives available at [enterprise-support@carto.com](mailto:enterprise-support@carto.com)
+Engine Plan customers have additional support options beyond general community support. As per your account Terms of Service, you have access to enterprise-level support through Massif's support representatives available at [enterprise-support@carto.com](mailto:enterprise-support@carto.com)
 
 In order to speed up the resolution of your issue, provide as much information as possible (even if it is a link from community support). This allows our engineers to investigate your problem as soon as possible.
 

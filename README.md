@@ -1,18 +1,20 @@
-# CARTO Mobile SDK
+# Massif Maps
 
-This is now a maintained fork of original Carto SDK as Carto stopped maintaining it.
+Massif Maps is a maintained fork of the CARTO Mobile SDK, which CARTO stopped maintaining.
+It was renamed in 2026 — see [`docs/migration-massif.md`](docs/migration-massif.md) for every
+renamed namespace, package and style token.
 If you like the project and want me to keep on maintaining it. Please support it.
 
-📚 **Documentation: https://akylas.github.io/mobile-sdk/** — installation, guides, feature docs
+📚 **Documentation: https://massifmaps.github.io/MassifMaps/** — installation, guides, feature docs
 (3D terrain, contours, hillshade, composite layers, PMTiles, sky/sun/shadows, sky-anchored objects,
 post-processing effects, shields & font icons, live style parameters, GeoJSON tiling, maneuver
 arrows) and the Android/iOS API reference.
 The site lives in [`website/`](website/) and rebuilds automatically on release
 (see [Building the docs](website/docs/contributing-docs.md)).
 
-CARTO Mobile SDK is an open, multi-platform framework for visualizing maps and providing location based services on mobile devices like smartphones or tablets. It includes high performance and flexible vector tile renderer, multiple built-in routing engines (for both indoor and street maps) plus built-in geocoding and reverse geocoding support.
+Massif Maps is an open, multi-platform framework for visualizing maps and providing location based services on mobile devices like smartphones or tablets. It includes high performance and flexible vector tile renderer, multiple built-in routing engines (for both indoor and street maps) plus built-in geocoding and reverse geocoding support.
 
-![Liverpool](media/carto-mobile-sdk-animated.gif)
+![Liverpool](media/massif-animated.gif)
 
 ## Features
 
@@ -25,7 +27,6 @@ CARTO Mobile SDK is an open, multi-platform framework for visualizing maps and p
 * Embedded [Valhalla routing engine](https://github.com/valhalla/valhalla) for street level routing
 * Embedded [Simple GeoJSON routing engine](https://github.com/nutiteq/python-sgre)  for indoor routing
 * Offline package support for maps, routing and geocoding
-* Support for connecting to CARTO online services like [Maps API](https://carto.com/developers/maps-api/) and [SQL API](https://carto.com/developers/sql-api/).
 
 ### Added by this fork
 
@@ -83,7 +84,7 @@ This is useful when you only need routing in an existing app (navigation, logist
 * Offline routing from Valhalla-format MBTiles databases
 * Online routing via any Valhalla HTTP endpoint
 * Raw Valhalla JSON results — parse only what you need
-* No transitive dependency on CARTO maps renderer
+* No transitive dependency on the Massif maps renderer
 * Kotlin/Swift idiomatic API on Android/iOS
 
 ### Android — via JitPack
@@ -157,10 +158,10 @@ let service = MSFValhallaRoutingService(mBTilesPaths: ["/path/to/france.vtiles"]
 service?.profile = "pedestrian"
 
 let waypoints = [
-    NTLatLon.lat(48.8566, lon: 2.3522),  // Paris — origin
-    NTLatLon.lat(48.8738, lon: 2.2950)   // Bois de Boulogne — destination
+    MSFLatLon.lat(48.8566, lon: 2.3522),  // Paris — origin
+    MSFLatLon.lat(48.8738, lon: 2.2950)   // Bois de Boulogne — destination
 ]
-let request = NTRoutingRequest(points: waypoints)
+let request = MSFRoutingRequest(points: waypoints)
 
 do {
     let rawJson = try service!.calculateRoute(request)
@@ -171,7 +172,7 @@ do {
 }
 
 // --- Online routing (URLSession) ---
-let online = NTValhallaOnlineRoutingService(
+let online = MSFValhallaOnlineRoutingService(
     baseURL: "https://valhalla.openstreetmap.de"
 ) { url, body, error in
     guard let urlObj = URL(string: url) else { return nil }
@@ -205,21 +206,23 @@ For custom builds, please read the [building guide](./BUILDING.md).
 
 ## Documentation and samples
 
-* Developer documentation: https://carto.com/docs/carto-engine/mobile-sdk/
-* Android sample app: https://github.com/CartoDB/mobile-android-samples
-* iOS sample app: https://github.com/CartoDB/mobile-ios-samples
-* .NET (Xamarin and UWP) sample app: https://github.com/CartoDB/mobile-dotnet-samples
+* Documentation: https://massifmaps.github.io/MassifMaps/
+* Demo benches in this repo: `scripts/android-dev` (Android) and `scripts/ios-dev` (iOS)
 * Scripts for preparing offline packages: https://github.com/nutiteq/mobile-sdk-scripts
+
+The archived CartoDB sample apps ([android](https://github.com/CartoDB/mobile-android-samples),
+[ios](https://github.com/CartoDB/mobile-ios-samples), [dotnet](https://github.com/CartoDB/mobile-dotnet-samples))
+still build against the pre-rebrand API; [`docs/migration-massif.md`](docs/migration-massif.md)
+lists what to rename.
 
 ## Support, Questions?
 
-* Post an [issue](https://github.com/CartoDB/mobile-sdk/issues) to this project, submit a [Pull Request](https://github.com/CartoDB/mobile-sdk/pulls)
-* Commercial support options: sales@carto.com
+* Post an [issue](https://github.com/massifmaps/MassifMaps/issues) or a [Pull Request](https://github.com/massifmaps/MassifMaps/pulls)
 
 ## License
 
-* CARTO Mobile SDK is licensed under the BSD 3-clause "New" or "Revised" License - see the [LICENSE file](LICENSE) for details.
+* Massif Maps is licensed under the BSD 3-clause "New" or "Revised" License - see the [LICENSE file](LICENSE) for details.
 
-## Developing & Contributing to CARTO
+## Developing & Contributing
 
-* See [our contributing doc](CONTRIBUTING.md) for how you can improve CARTO, but you will need to sign a Contributor License Agreement (CLA) before making a submission, [learn more here](https://carto.com/contributions).
+* See [our contributing doc](CONTRIBUTING.md).

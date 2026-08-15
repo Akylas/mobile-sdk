@@ -26,8 +26,8 @@ per-tile scan of every feature.
 ## Usage
 
 ```kotlin
-import com.carto.datasources.GeoJSONVectorTileDataSource
-import com.carto.layers.VectorTileLayer
+import com.massifmaps.datasources.GeoJSONVectorTileDataSource
+import com.massifmaps.layers.VectorTileLayer
 
 val source = GeoJSONVectorTileDataSource(0, 24).apply {
     simplifyTolerance = 1.0f      // tile pixels
@@ -76,7 +76,7 @@ Measured on a device (Adreno 610), 640 tiles z8–z17:
 Known regression, documented rather than fixed: many *small* features at a single zoom are **1.6×
 slower** (209 → 328 ms over 256 tiles at z14).
 
-Binary cost: **+104 KiB** on `libcarto_mobile_sdk.so` (arm64-v8a, stripped) — header-only template
+Binary cost: **+104 KiB** on `libmassif.so` (arm64-v8a, stripped) — header-only template
 instantiation, nothing new linked.
 
 ## See also

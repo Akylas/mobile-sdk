@@ -8,7 +8,7 @@ sidebar_position: 3
 `CompositeVectorTileLayer` is a `VectorTileLayer` that **weaves external data sources**
 (raster, hillshade, extra vector / contour) into a master CartoCSS style's layer order. Each
 external source is placed at the slot of a matching **layer name** and configured from a
-`#name { … }` block in the style — including zoom- and `nuti`-parameter-dependent expressions.
+`#name { … }` block in the style — including zoom- and `param::`-dependent expressions.
 
 :::info Fork feature
 Added in PR [#19](https://github.com/Akylas/mobile-sdk/pull/19). Pairs with the libs-carto
@@ -26,9 +26,9 @@ to that name, and the SDK renders it in the right slot with style-driven configu
 ## Usage
 
 ```kotlin
-import com.carto.layers.CompositeVectorTileLayer
-import com.carto.layers.CompositeSourceType
-import com.carto.datasources.HTTPTileDataSource
+import com.massifmaps.layers.CompositeVectorTileLayer
+import com.massifmaps.layers.CompositeSourceType
+import com.massifmaps.datasources.HTTPTileDataSource
 
 // Master style + its base vector source, as for a normal VectorTileLayer.
 val composite = CompositeVectorTileLayer(baseVectorSource, mbVectorTileDecoder)
@@ -76,7 +76,7 @@ composite.addVectorDataSource("labels", extraLabelsSource) // shortcut for VECTO
 ## Styling from CartoCSS
 
 Each external source is configured by a block whose selector matches its name. Properties are
-evaluated **per frame**, so `[view::zoom]` and `nuti::` parameters animate smoothly:
+evaluated **per frame**, so `[view::zoom]` and `param::` parameters animate smoothly:
 
 ```css
 #satellite {
@@ -95,7 +95,7 @@ evaluated **per frame**, so `[view::zoom]` and `nuti::` parameters animate smoot
 
 Supported property families include `raster-opacity`, `hillshade-exaggeration` /
 `-illumination-direction` / …, and `contour-base-interval` / …. `[view::zoom]` expressions and
-`nuti::` bundle parameters are supported. See the
+`param::` bundle parameters are supported. See the
 [full config reference](https://github.com/Akylas/mobile-sdk/blob/master/docs/composite-vector-tile-layer-config.md)
 for every property, smooth-vs-per-zoom-level timing, and interpolation syntax.
 

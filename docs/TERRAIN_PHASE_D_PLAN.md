@@ -10,7 +10,7 @@ by construction. This plan ports its depth model.
 
 Phases A–C gave us the shared regular-grid surface (no per-tile red-green tesselation)
 and lattice-clamped vt geometry (near-zero slack). Two problems remain, and both trace to
-one root cause — CARTO uses the **terrain surface as a depth pre-pass occluder** that all
+one root cause — Massif uses the **terrain surface as a depth pre-pass occluder** that all
 draped content is depth-tested against:
 
 1. **Zero geometry subdivision is unsafe** (Phase C had to be walked back). An
@@ -56,7 +56,7 @@ Key points:
 - Ridge occlusion is automatic: the near tile's surface writes real depth densely; far
   content behind it fails LEQUAL.
 
-## Current CARTO model (what we replace)
+## Current Massif model (what we replace)
 
 `GLTileRenderer.cpp`:
 - Pre-pass (`renderGeometry`, ~441-472): per tile layer `glClear(GL_DEPTH_BUFFER_BIT)`,

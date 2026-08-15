@@ -1,6 +1,6 @@
 ---
 title: Building the Docs
-sidebar_position: 6
+sidebar_position: 7
 slug: /contributing-docs
 ---
 
@@ -60,7 +60,7 @@ RECORD=1 scripts/docs/capture-screenshots.sh terrain  # still + ~14s video
 
 The demo streams its terrain data from public online tiles (a terrarium DEM +
 an OpenFreeMap vector basemap), so the emulator only needs internet — no map data is pushed to
-the device. The native libraries are prebuilt under `scripts/android-dev/carto_mobile_sdk/`, so the
+the device. The native libraries are prebuilt under `scripts/android-dev/massif/`, so the
 app builds in seconds. The script builds (`assembleDebug --offline`), installs, launches, grabs a
 screenshot (and optionally a screen recording), then uses `ffmpeg` to crop the Android status/nav
 bars and encode a web-friendly JPEG/MP4. Drop the results into `website/static/img/features/`.

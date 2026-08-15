@@ -4,6 +4,6 @@
   "link": {
     "type": "generated-index",
     "title": "Fork Features",
-    "description": "Features added by the Akylas fork on top of the original CARTO Mobile SDK 4.x API."
+    "description": "Features added by this fork on top of the original CARTO Mobile SDK 4.x API."
   }
 }

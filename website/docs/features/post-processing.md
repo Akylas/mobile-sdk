@@ -26,7 +26,7 @@ the shader is a string the app supplies. Technical notes:
 ## Attaching an effect
 
 ```kotlin
-import com.carto.renderers.PostProcessEffect
+import com.massifmaps.renderers.PostProcessEffect
 
 val effect = PostProcessEffect("relief-outline", myFragmentShaderSource).apply {
     isTerrainDepthRequired = true          // render the terrain depth texture for the shader

@@ -176,7 +176,7 @@ Standard sources (HTTP, MBTiles, PMTiles, assets) plus two of interest here:
 
 `MBVectorTileDecoder` reads either. `setTileFormat` takes `TILE_FORMAT_AUTO` (the default),
 `TILE_FORMAT_MVT` or `TILE_FORMAT_MLT`. Everything downstream of the decode — CartoCSS,
-symbolizers, nuti parameters, the `vt::Tile` — is shared; only the bytes-to-features step differs.
+symbolizers, style parameters, the `vt::Tile` — is shared; only the bytes-to-features step differs.
 
 ```
 MBVectorTileDecoder ─ createFeatureDecoder() ─┬─ MBVTFeatureDecoder  (protobuf, pbf.hpp)
@@ -328,7 +328,7 @@ resolution and filters by importance afterwards. That gap is open.
 ### Binary size
 
 geojson-vt is header-only, and the code it replaces went away, so the cost is small but not zero —
-`libcarto_mobile_sdk.so`, arm64-v8a, debug build, stripped:
+`libmassif.so`, arm64-v8a, debug build, stripped:
 
 | | bytes |
 |---|---|

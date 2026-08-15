@@ -13,7 +13,7 @@ There are several methods of connecting map data from your CARTO account (via th
 
 ### Offline maps
 
-CARTO Mobile SDK can take map offline via the CARTO platform:
+Massif Maps can take map offline via the CARTO platform:
 
 1. Upload your data to CARTO, create a new map with CARTO Builder, and apply map custom styling with CartoCSS.
 2. Use the [Mobile Tile Packager](https://github.com/CartoDB/mobile-tile-packager) tool to create the offline map data package.
@@ -26,7 +26,7 @@ For details, see the **Offline Maps** page.
 
 ### Online maps 
 
-CARTO Mobile SDK supports **CARTO Maps API** integration for Anonymous Maps and Named Maps. *Anonymous maps* allow you to instantiate a map given SQL and CartoCSS. *Named Maps* are essentially the same as Anonymous Maps except the MapConfig is stored on the server, and the map is given a unique name.
+Massif Maps supports **CARTO Maps API** integration for Anonymous Maps and Named Maps. *Anonymous maps* allow you to instantiate a map given SQL and CartoCSS. *Named Maps* are essentially the same as Anonymous Maps except the MapConfig is stored on the server, and the map is given a unique name.
 
 ### Anonymous Map
 
@@ -475,7 +475,7 @@ Use `CartoMapsService` class to configure layers. Note that this must be done in
   <div id="tab-objectivec">
     {% highlight objc linenos %}
 
-    NTCartoMapsService* mapsService = [[NTCartoMapsService alloc] init];
+    MSFCartoMapsService* mapsService = [[MSFCartoMapsService alloc] init];
     
     [mapsService setUsername:@"nutiteq"];
     
@@ -483,8 +483,8 @@ Use `CartoMapsService` class to configure layers. Note that this must be done in
     [mapsService setDefaultVectorLayerMode:TRUE];
     [mapsService setInteractive:TRUE];
     
-    NTVariant* variant = [NTVariant fromString:[self getConfig]];
-    NTLayerVector* layers = [mapsService buildMap:variant];
+    MSFVariant* variant = [MSFVariant fromString:[self getConfig]];
+    MSFLayerVector* layers = [mapsService buildMap:variant];
     [[self.mapView getLayers] addAll:layers];
 
     {% endhighlight %}
@@ -498,11 +498,11 @@ Use `CartoMapsService` class to configure layers. Note that this must be done in
     // This calculation should be in background thread
     DispatchQueue.global(qos: .userInitiated).async {
         
-        let mapsService = NTCartoMapsService()
+        let mapsService = MSFCartoMapsService()
         mapsService?.setUsername("nutiteq")
         mapsService?.setDefaultVectorLayerMode(true) // use vector layers
         
-        let layers = mapsService?.buildMap(NTVariant.fromString(config))
+        let layers = mapsService?.buildMap(MSFVariant.fromString(config))
         self.mapView?.getLayers()?.addAll(layers)
     }
 
@@ -622,14 +622,14 @@ If you have created **Named map** using CARTO Maps API then map is already confi
     <div id="tab-objectivec">
     {% highlight objc linenos %}
 
-    NTCartoMapsService* mapsService = [[NTCartoMapsService alloc] init];
+    MSFCartoMapsService* mapsService = [[MSFCartoMapsService alloc] init];
 
     [mapsService setUsername:@"nutiteq"];
 
     // Use vector layers
     [mapsService setDefaultVectorLayerMode:YES];
 
-    NTLayerVector* layers = [mapsService buildNamedMap:@"tpl_69f3eebe_33b6_11e6_8634_0e5db1731f59" templateParams: [[NTStringVariantMap alloc] init]];
+    MSFLayerVector* layers = [mapsService buildNamedMap:@"tpl_69f3eebe_33b6_11e6_8634_0e5db1731f59" templateParams: [[MSFStringVariantMap alloc] init]];
     [[self.mapView getLayers] addAll:layers];
 
     {% endhighlight %}
@@ -638,7 +638,7 @@ If you have created **Named map** using CARTO Maps API then map is already confi
   <div id="tab-swift">
     {% highlight swift linenos %}
 
-    let service = NTCartoMapsService()
+    let service = MSFCartoMapsService()
     
     // Use vector layers
     service?.setDefaultVectorLayerMode(true)
@@ -648,7 +648,7 @@ If you have created **Named map** using CARTO Maps API then map is already confi
     let name = "tpl_69f3eebe_33b6_11e6_8634_0e5db1731f59"
 
     DispatchQueue.global(qos: .userInitiated).async {
-        let layers = service?.buildNamedMap(name, templateParams: NTStringVariantMap())
+        let layers = service?.buildNamedMap(name, templateParams: MSFStringVariantMap())
         self.mapView?.getLayers()?.addAll(layers)
     }
 
@@ -689,7 +689,7 @@ If you have created **Named map** using CARTO Maps API then map is already confi
 
 ### SQL API
 
-CARTO’s **SQL API** allows you to interact with your tables and data inside CARTO, as if you were running SQL statements against a normal database. In general you can use the SQL API to insert, update or delete data (i.e., insert a new column with a latitude and longitude data) or to select data from public tables in order to use it on your website or application (i.e., display the 10 closest records to a particular location).
+Massif’s **SQL API** allows you to interact with your tables and data inside CARTO, as if you were running SQL statements against a normal database. In general you can use the SQL API to insert, update or delete data (i.e., insert a new column with a latitude and longitude data) or to select data from public tables in order to use it on your website or application (i.e., display the 10 closest records to a particular location).
 
 **Note:** In mobile SDK you can only **SELECT** data from public tables without api_key for higher security. Private tables and using api_key is not allowed from mobile directly. If you need these, you need to proxy CARTO SQL API to a custom API towards your app, so api_key requests are done from server to server
 
@@ -792,28 +792,28 @@ CARTO’s **SQL API** allows you to interact with your tables and data inside CA
     NSString* sql = @"SELECT * FROM cities15000 WHERE population > 100000";
     
     // Initialize CartoSQL service, set a username
-    NTCartoSQLService* service = [[NTCartoSQLService alloc] init];
+    MSFCartoSQLService* service = [[MSFCartoSQLService alloc] init];
     [service setUsername:@"nutiteq"];
     
-    NTPointStyleBuilder* builder = [[NTPointStyleBuilder alloc] init];
-    NTColor* color = [[NTColor alloc] initWithR:255 g:0 b:0 a:255];
+    MSFPointStyleBuilder* builder = [[MSFPointStyleBuilder alloc] init];
+    MSFColor* color = [[MSFColor alloc] initWithR:255 g:0 b:0 a:255];
     [builder setColor:color];
     [builder setSize:1];
-    NTPointStyle* style = [builder buildStyle];
+    MSFPointStyle* style = [builder buildStyle];
     
     dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0ul);
     
     // Set on background thread for "animated" point appear
     dispatch_async(queue, ^{
-        NTFeatureCollection *features = [service queryFeatures:sql proj:self.projection];
+        MSFFeatureCollection *features = [service queryFeatures:sql proj:self.projection];
     
         for (int i = 0; i < [features getFeatureCount]; i++) {
 
             // This data set features point geometry,
             // however, it can also be LineGeometry or PolygonGeometry
-            NTPointGeometry* geometry = (NTPointGeometry *)[[features getFeature:i] getGeometry];
+            MSFPointGeometry* geometry = (MSFPointGeometry *)[[features getFeature:i] getGeometry];
         
-            NTPoint* point = [[NTPoint alloc] initWithGeometry:geometry style:style];
+            MSFPoint* point = [[MSFPoint alloc] initWithGeometry:geometry style:style];
             [self.source add:point];
         }
     });
@@ -826,15 +826,15 @@ CARTO’s **SQL API** allows you to interact with your tables and data inside CA
 
     let query = "SELECT * FROM cities15000 WHERE population > 100000"
     
-    let service = NTCartoSQLService()
+    let service = MSFCartoSQLService()
     service?.setUsername("nutiteq")
     
-    let builder = NTPointStyleBuilder()
+    let builder = MSFPointStyleBuilder()
     builder?.setSize(1.0)
-    builder?.setColor(NTColor(r: 255, g: 0, b: 0, a: 255))
+    builder?.setColor(MSFColor(r: 255, g: 0, b: 0, a: 255))
     let style = builder?.buildStyle()
     
-    let source = NTLocalVectorDataSource(projection: projection);
+    let source = MSFLocalVectorDataSource(projection: projection);
     
     // Networking should be placed on a background thread
     // Remember: Put your operations back on the main thread to change the UI
@@ -848,8 +848,8 @@ CARTO’s **SQL API** allows you to interact with your tables and data inside CA
             // This data set features point geometry,
             // however, it can also be LineGeometry or PolygonGeometry
             
-            let geometry = features?.getFeature(Int32(i)).getGeometry() as! NTPointGeometry
-            source?.add(NTPoint (geometry: geometry, style: style))
+            let geometry = features?.getFeature(Int32(i)).getGeometry() as! MSFPointGeometry
+            source?.add(MSFPoint (geometry: geometry, style: style))
         }
     }
 

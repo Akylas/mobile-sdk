@@ -38,7 +38,7 @@ CPU cost — vt geometry is subdivided to the mesh cell size on every tile decod
 ## Costs, accepted up front
 
 - **VRAM.** maplibre uses 1024² RGBA per tile per stack (~4 MB); ~20 visible tiles × 2 stacks
-  ≈ 160 MB. CARTO's current drape texture is 512² (1 MB). Resolution must become an API knob.
+  ≈ 160 MB. Massif's current drape texture is 512² (1 MB). Resolution must become an API knob.
 - **Content is resampled, not native-resolution.** Thin lines get softer. maplibre
   compensates with a 2× quality factor and anisotropic filtering.
 - **Layer ordering costs passes.** Every non-drapeable layer sandwiched between drapeable
@@ -165,7 +165,7 @@ consumers among draped layers and can be deleted (S4).
 ## Open questions
 
 - Drape resolution vs. sharpness for thin vector content at high zoom. maplibre's 2× quality
-  factor is the starting point; CARTO's current 512² is likely too low.
+  factor is the starting point; Massif's current 512² is likely too low.
 - Whether comp-op style layers can be draped at all (`_overlayBuffer2D` has no depth
   attachment today).
 - Whether to keep a non-RTT fallback path for devices without the memory budget, and if so

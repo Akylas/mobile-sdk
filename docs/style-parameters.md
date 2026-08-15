@@ -1,7 +1,7 @@
-# Style parameters (`nuti::`)
+# Style parameters (`param::`)
 
 A style parameter is a value the **app** owns and the style reads. It is declared in the style
-project's `nutiparameters` block and set at runtime through `MBVectorTileDecoder`:
+project's `styleparameters` block and set at runtime through `MBVectorTileDecoder`:
 
 ```java
 decoder.setStyleParameter("show_relief", "true");
@@ -12,7 +12,7 @@ decoder.setJSONStyleParameters("{\"lang\":\"fr\"}");
 ## Declaring one
 
 ```json
-"nutiparameters": {
+"styleparameters": {
   "show_relief":  { "default": true },
   "lang":         { "default": "en" },
   "routes_type":  [0, 1, 2],
@@ -34,15 +34,15 @@ The array form has always meant "enum", so a table must be declared under `defau
 Scalars read like any other variable, in an expression or a filter:
 
 ```css
-#road['nuti::show_underground' = 1] { line-color: @underground_color; }
-#label { text-size: 12 / [nuti::_fontscale]; }
+#road['param::show_underground' = 1] { line-color: @underground_color; }
+#label { text-size: 12 / [param::_fontscale]; }
 ```
 
 Tables are read with `get`, which takes an optional fallback, plus `has` and `length`:
 
 ```css
-#poi { marker-fill: get([nuti::poi_colors], [class], #888888); }
-#contour { line-width: get([nuti::widths], 0, 0.8); }
+#poi { marker-fill: get([param::poi_colors], [class], #888888); }
+#contour { line-width: get([param::widths], 0, 0.8); }
 ```
 
 `get(table, key)` takes a member by name from an object, or an element by index from an array, and
@@ -65,12 +65,12 @@ per tile), decided per parameter when the style loads:
   decode time.
 - **Redraw** — or it SELECTS a feature (below).
 - **Re-decode** — everything else, and deliberately so:
-  - the parameter appears in a **filter** (`#road['nuti::x' = 1]`, `when (...)`): it decides which
+  - the parameter appears in a **filter** (`#road['param::x' = 1]`, `when (...)`): it decides which
     rules match, i.e. what geometry the tile contains at all;
   - it feeds a property that is *also* read while the tile is built — `text-size` and `shield-size`
     pick the glyph raster, marker `width`/`height`/`stroke-width` draw the generated bitmap, line
     `stroke-width` and `stroke-miterlimit` shape the stroke pattern;
-  - the expression also reads a **feature field** or the zoom — `get([nuti::poi_colors], [class])`
+  - the expression also reads a **feature field** or the zoom — `get([param::poi_colors], [class])`
     is in this group, because the class comes from the feature;
   - it is `_geometryscale`, `_fontscale` or `_zoomlevelbias`, which scale the geometry and the
     glyphs a tile is built with.
@@ -84,13 +84,13 @@ The one "parameter compared with a feature field" that can be free is a SELECTIO
 to **ask for it** — nothing is inferred, and a style that declares nothing is not even inspected:
 
 ```json
-"nutiparameters": {
+"styleparameters": {
   "selected_id": { "default": "", "selects": true }
 }
 ```
 
 ```css
-@is_selected: [nuti::selected_id] = [osmid] + '';
+@is_selected: [param::selected_id] = [osmid] + '';
 #routes {
   line-color: @is_selected ? #ff3b00 : #3388ff;
   line-width: 5 + (@is_selected ? 4 : 0);
@@ -109,9 +109,9 @@ The rules are narrow, and a style that breaks one falls back to the re-decode pa
 in the log naming the reason, so `selects` never fails silently:
 
 - only `line-color`, `line-opacity` and `line-width` of a **line** rule may read the parameter;
-- always as `[nuti::x] = <expression of feature fields>`, with the same expression everywhere, and
+- always as `[param::x] = <expression of feature fields>`, with the same expression everywhere, and
   never together with another parameter in one property;
-- never in a **filter** — `when ([nuti::selected_id] = [osmid] + '')::casing` decides whether the
+- never in a **filter** — `when ([param::selected_id] = [osmid] + '')::casing` decides whether the
   casing geometry EXISTS, and no repaint can build geometry. Write the casing as a width and a
   colour instead of as a rule if you want the selection to stay free;
 - not on a **dashed** line whose width is selected: the dash raster is sized by the width.

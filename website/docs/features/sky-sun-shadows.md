@@ -25,7 +25,7 @@ Technical notes: [`docs/rendering/08-lighting-sky-fog.md`](https://github.com/Ak
 ## The sun
 
 ```kotlin
-import com.carto.components.LightOptions
+import com.massifmaps.components.LightOptions
 
 val light = LightOptions().apply {
     sunAzimuth = 315f          // degrees clockwise from north; default 315 (NW)
@@ -74,8 +74,8 @@ nothing.
 does.
 
 ```kotlin
-import com.carto.components.SkyOptions
-import com.carto.graphics.Color
+import com.massifmaps.components.SkyOptions
+import com.massifmaps.graphics.Color
 
 val sky = SkyOptions().apply {
     isEnabled = true

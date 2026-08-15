@@ -8,7 +8,7 @@ The following procedure describes how to register mobile apps under your account
 
 <span class="wrap-border"><img src="../../img/avatar.gif" alt="Access mobile apps from API keys" /></span>
 
-2. Click _API keys_. The API key page opens, displaying options for _CARTO_ or _Mobile Apps_.
+2. Click _API keys_. The API key page opens, displaying options for _MASSIF_ or _Mobile Apps_.
 3. Click _Mobile apps_ to add mobile applications to your account
 
 **Note:** If this option is not visible from your account settings, [contact us](mailto:sales@carto.com) to ensure that Mobile SDK features are enabled for your account.

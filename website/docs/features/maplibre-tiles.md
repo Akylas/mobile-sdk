@@ -6,7 +6,7 @@ sidebar_position: 14
 # MapLibre Tiles (MLT)
 
 `MBVectorTileDecoder` reads **MapLibre Tiles** as well as MapBox Vector Tiles. Everything past the
-decode — CartoCSS, symbolizers, `nuti` parameters, labels, terrain draping — is shared, so an MLT
+decode — CartoCSS, symbolizers, `param::` parameters, labels, terrain draping — is shared, so an MLT
 tileset styles exactly like an MVT one.
 
 :::info Fork feature

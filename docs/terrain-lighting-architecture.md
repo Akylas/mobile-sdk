@@ -35,7 +35,7 @@ Every vector style therefore displaces its own vertices by sampling the shared e
   framebuffer, and `getDepth(screenpos)` reads it back. That is exactly the primitive a peak
   finder needs, and CARTO already has the equivalent (`PostProcessEffect` +
   `uTerrainDepthTex`).
-- `skyManager.{h,cpp}` is a small full-screen sky pass — the same shape as CARTO's
+- `skyManager.{h,cpp}` is a small full-screen sky pass — the same shape as Massif's
   `SkyRenderer`.
 - **No shadows anywhere.** Nothing in tangram-ng casts or receives.
 
@@ -250,12 +250,12 @@ draw per stack.
 `scripts/android-dev` now takes intent extras, so one build covers many configurations:
 
 ```
-adb shell am start -n com.akylas.cartotest/.MainActivity \
+adb shell am start -n com.massifmaps.test/.MainActivity \
     --es demo composite --es drape true --es sat false --es hs true \
     --es tilt 60 --es zoom 14.2 --es lon 5.760595 --es lat 45.244172 --es ui false
 ```
 
-Recognised keys: `demo` (composite/terrain/nuti), `lon`, `lat`, `zoom`, `tilt`, `rotation`,
+Recognised keys: `demo` (composite/terrain/project), `lon`, `lat`, `zoom`, `tilt`, `rotation`,
 `drape`, `drapeLines`, `drapeResolution`, `meshResolution`, `exaggeration`, `sat`, `hs`,
 `contour`, `bg` (bare hex, `#` is a comment in the adb shell), `ui`, and `anim`/`animDelay`/
 `animDuration`/`animZoomDelta`/`animLonDelta`/`animRotation` for scripted camera moves that can be

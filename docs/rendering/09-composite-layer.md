@@ -8,7 +8,7 @@ below the whole map.
 
 A `VectorTileLayer` that weaves named external sources into the master CartoCSS layer order. Each
 source is placed at the position of the matching layer name in the style project's `layers` array,
-and configured by a matching `#name { … }` block — including zoom- and nuti-parameter-dependent
+and configured by a matching `#name { … }` block — including zoom- and style-parameter-dependent
 expressions.
 
 Three source types:

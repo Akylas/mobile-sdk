@@ -36,11 +36,11 @@ It emits a `contour` layer whose features carry:
 Because it is a normal vector source, it drops straight into a `VectorTileLayer` + CartoCSS.
 
 ```kotlin
-import com.carto.datasources.ContourTileDataSource
-import com.carto.datasources.HTTPTileDataSource
-import com.carto.layers.VectorTileLayer
-import com.carto.vectortiles.MBVectorTileDecoder
-import com.carto.styles.CompiledStyleSet
+import com.massifmaps.datasources.ContourTileDataSource
+import com.massifmaps.datasources.HTTPTileDataSource
+import com.massifmaps.layers.VectorTileLayer
+import com.massifmaps.vectortiles.MBVectorTileDecoder
+import com.massifmaps.styles.CompiledStyleSet
 
 // DEM source (Terrarium encoding assumed if not set).
 val dem = HTTPTileDataSource(0, 12, "https://your.tiles/dem/{z}/{x}/{y}.png").apply {

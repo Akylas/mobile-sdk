@@ -39,11 +39,11 @@ adb install -r -t app/build/outputs/apk/debug/app-debug.apk
 ### Profiling the render thread
 
 ```sh
-adb shell simpleperf record --app com.akylas.cartotest -g -f 500 --duration 12 -o /data/local/tmp/perf.data
+adb shell simpleperf record --app com.massifmaps.test -g -f 500 --duration 12 -o /data/local/tmp/perf.data
 adb pull /data/local/tmp/perf.data /tmp/perf.data
 # symbols: the UNSTRIPPED .so, in a tree mirroring the device path
-D='/tmp/symfs/data/app/~~<hash>==/com.akylas.cartotest-<hash>==/lib/arm64'; mkdir -p "$D"
-cp scripts/android-dev/carto_mobile_sdk/build/intermediates/cxx/*/*/obj/arm64-v8a/libcarto_mobile_sdk.so "$D/"
+D='/tmp/symfs/data/app/~~<hash>==/com.massifmaps.test-<hash>==/lib/arm64'; mkdir -p "$D"
+cp scripts/android-dev/massif/build/intermediates/cxx/*/*/obj/arm64-v8a/libmassif.so "$D/"
 $NDK/simpleperf/bin/darwin/x86_64/simpleperf report -i /tmp/perf.data --symfs /tmp/symfs \
   --tids <gl-thread-tid> --children --sort symbol -n
 ```
@@ -279,7 +279,7 @@ of a 52 MB DB.
 ## Style load and tile decode (off the render thread, but in front of the user)
 
 Measured on a Crosscall HLTE556N with the demo's bundled style project (`--es style assets`:
-`osm.json`, 23 layers, 67 styles, 461 nutiparameters, 9 `.less`/`.mss` files, 74 KB), with temporary
+`osm.json`, 23 layers, 67 styles, 461 styleparameters, 9 `.less`/`.mss` files, 74 KB), with temporary
 timers in `CartoCSSMapLoader`, `TileReader` and `MBVectorTileDecoder`. Device clocks move the
 absolute numbers by up to 40% between runs — compare a change against a run whose *style load* time
 matches, or pair the runs.
@@ -382,7 +382,7 @@ scale cannot change:
   27 ms for the system fallback. Only the **stroke and glyph maps** hold anything rasterized at a
   pixel scale; the font and bitmap managers do not. `resetSymbolizerContextRasterMaps` now replaces
   those two and keeps the managers.
-- `mvt::resolveLiveNutiParameters` ran on every `updateSymbolizerContext` — **38 ms** on the
+- `mvt::resolveLiveStyleParameters` ran on every `updateSymbolizerContext` — **38 ms** on the
   23-layer style — although it is a property of the compiled map alone. It moved next to
   `_map`'s assignment, with `getSelectionParameter`.
 
@@ -524,14 +524,14 @@ the single-load case.
 ### Live style parameters
 
 `setStyleParameter` used to invalidate every tile ([TileLayer.cpp](../../all/native/layers/TileLayer.cpp)
-`updateTiles`), so changing one `nuti::` colour cost *visible tiles × ~130 ms* of decode CPU. A
+`updateTiles`), so changing one `param::` colour cost *visible tiles × ~130 ms* of decode CPU. A
 parameter that **only** feeds properties the renderer evaluates per frame does not need any of that:
 
-- the values live in a `mvt::NutiParameterStore` that decoded tiles hold a pointer to, so replacing
+- the values live in a `mvt::StyleParameterStore` that decoded tiles hold a pointer to, so replacing
   them is visible to already-decoded tiles;
 - a colour/width property whose expression reads parameters (and at most the view state) becomes a
   `vt::ColorFunction`/`FloatFunction` instead of being folded at decode — `Property::isLiveCapable`;
-- `mvt::resolveLiveNutiParameters` classifies each parameter at load, and `MBVectorTileDecoder`
+- `mvt::resolveLiveStyleParameters` classifies each parameter at load, and `MBVectorTileDecoder`
   takes the cheap path only when **every** parameter in the call is live: swap the values, ask for a
   redraw (`onDecoderRefreshed`), decode nothing.
 
@@ -541,7 +541,7 @@ raster size, generated marker bitmap, stroke pattern (`Property::isBakedAtDecode
 expression also reads a feature field or the zoom, or when it drives `_geometryscale`, `_fontscale`
 or `_zoomlevelbias`. Anything unclassified stays on the re-decode path.
 
-Measured on the device with the demo's in-memory nuti style (`--es style nuti`): flipping a colour
+Measured on the device with the demo's in-memory style project (`--es style project`): flipping a colour
 parameter every 3 s produced **zero `decodeTile` calls** and the water polygons changed between the
 two colours in the next frame; flipping the boolean the style uses in a filter still re-decodes, as
 it must. Worth knowing: the bundled 23-layer style has **no** live parameter — its 461 parameters all
@@ -552,12 +552,12 @@ Classification costs ~37 ms once per style load on that style (a walk over every
 
 ### Selection: the appearance half, without a decode
 
-A selection is a parameter compared with a feature field — `[nuti::selected_id] = [osmid] + ''` —
+A selection is a parameter compared with a feature field — `[param::selected_id] = [osmid] + ''` —
 which the classification above rejects, because the comparison can only be answered per feature. The
 **appearance** half of it no longer needs a decode either, for a style that asks:
 
 ```json
-"nutiparameters": { "selected_id": { "default": "", "selects": true } }
+"styleparameters": { "selected_id": { "default": "", "selects": true } }
 ```
 
 Opt-in on purpose. It only works for a style written a particular way, so inferring it would make
@@ -576,7 +576,7 @@ same geometry. Nothing else about the feature changes, so it is tesselated once.
   properties it may fold (`Property::setSelectionFoldable`). A folded property reads no parameter, so
   it collapses to a constant — which is what makes it a slot, and what lets every unselected feature
   share one.
-- `ExpressionContext::setNutiParameterOverride` is how the fold is forced; `TileReader::createSelectionFeatureProcessor`
+- `ExpressionContext::setStyleParameterOverride` is how the fold is forced; `TileReader::createSelectionFeatureProcessor`
   runs the branch that is not drawn over an EMPTY feature collection, so it registers its slot without
   laying down vertices.
 - Each feature keeps a 64-bit `hashValue` of what it is compared with, next to the vertex run
@@ -604,7 +604,7 @@ filter, which decides whether the geometry exists at all`. The selected route ch
 width in the next frame in both, and the 23-layer base-map style is unaffected - it declares no
 selecting parameter, so its rules are never walked.
 
-**What is still a decode: the structural half.** `when ([nuti::selected_id] = [osmid] + '')::selected`
+**What is still a decode: the structural half.** `when ([param::selected_id] = [osmid] + '')::selected`
 decides whether the casing geometry exists at all, and no repaint can build geometry. A style that
 wants a free selection has to express the casing as appearance — a width and a colour that fold —
 rather than as a rule. The durable answer for the general case is maplibre's `feature-state` model:

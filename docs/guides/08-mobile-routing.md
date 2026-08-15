@@ -1,6 +1,6 @@
 ## Mobile Routing
 
-**Routing** in CARTO Mobile SDK provides fastest path between two or more geographic locations.
+**Routing** in Massif Maps provides fastest path between two or more geographic locations.
 
 The resulting Route includes waypoints and instructions. It can be displayed as turn-by-turn directions on your map, or just a line or list of instructions. Routing functionality through the Mobile SDK includes [online routing](#online-routing), based on CARTOs online service (or third party services), and [offline routing](#offline-routing), which requires that you install an offline data package. Offline packages have to be downloaded via **Package Manager**.
 
@@ -129,18 +129,18 @@ First create the `CartoOnlineRoutingService` and then  the route with the `calcu
   <div id="tab-objectivec">
     {% highlight objc linenos %}
   
-    NTCartoOnlineRoutingService* onlineRoutingService = [[NTCartoOnlineRoutingService alloc] initWithApiKey:@"nutiteq.osm.car"];
+    MSFCartoOnlineRoutingService* onlineRoutingService = [[MSFCartoOnlineRoutingService alloc] initWithApiKey:@"nutiteq.osm.car"];
 
     // Set route start end end points
-    NTMapPosVector* poses = [[NTMapPosVector alloc] init];
+    MSFMapPosVector* poses = [[MSFMapPosVector alloc] init];
     [poses add:startPos];
     [poses add:stopPos];
     
-    NTRoutingRequest* request = [[NTRoutingRequest alloc] initWithProjection:[[mapView getOptions] getBaseProjection] points:poses];
+    MSFRoutingRequest* request = [[MSFRoutingRequest alloc] initWithProjection:[[mapView getOptions] getBaseProjection] points:poses];
     
     // This calculation should be in background thread
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        NTRoutingResult* route = [onlineRoutingService calculateRoute:request];
+        MSFRoutingResult* route = [onlineRoutingService calculateRoute:request];
         
         // Process results in main thread, so it can update UI
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -162,7 +162,7 @@ First create the `CartoOnlineRoutingService` and then  the route with the `calcu
             
             // Get instructions
             for (int i=0; i < [[route getInstructions] size]; i++){
-                NTRoutingInstruction* instruction = [[route getInstructions] get:i];
+                MSFRoutingInstruction* instruction = [[route getInstructions] get:i];
                 NSLog(@"%@", [instruction description]);
             }
         });
@@ -174,20 +174,20 @@ First create the `CartoOnlineRoutingService` and then  the route with the `calcu
   <div id="tab-swift">
     {% highlight swift linenos %}
   
-    let onlineRoutingService = NTCartoOnlineRoutingService(source: "nutiteq.osm.car");
+    let onlineRoutingService = MSFCartoOnlineRoutingService(source: "nutiteq.osm.car");
 
     // Sample positions, from from Tallinn (Estonia) to Tartu (Estonia)
-    let startPos = projection?.fromWgs84(NTMapPos(x: 24.7536, y: 59.4370))
-    let stopPos = projection?.fromWgs84(NTMapPos(x: 26.7290, y: 58.3776))
+    let startPos = projection?.fromWgs84(MSFMapPos(x: 24.7536, y: 59.4370))
+    let stopPos = projection?.fromWgs84(MSFMapPos(x: 26.7290, y: 58.3776))
     
     // This calculation should be in background thread
     DispatchQueue.global(qos: .userInitiated).async {
         
-        let poses = NTMapPosVector()
+        let poses = MSFMapPosVector()
         poses?.add(startPos)
         poses?.add(stopPos)
         
-        let request = NTRoutingRequest(projection: projection, points: poses)
+        let request = MSFRoutingRequest(projection: projection, points: poses)
         let result = onlineRoutingService?.calculateRoute(request)
         
         let km = ((result?.getTotalDistance())! / 100) / 10
@@ -260,7 +260,7 @@ If the required routing packages are downloaded and routing service is ready, yo
 
 #### Limitations of offline routing
 
-CARTO Mobile SDK provides two built-in offline routing engines: the basic routing engine is based on **OSRM project** and the alternative one is using **Valhalla routing engine**. The OSRM-based routing engine is better optimized for low memory usage and calculation speed, including very large road networks using *Contraction Hierarchy* representation and algorithms. However, this has some expected limitations:
+Massif Maps provides two built-in offline routing engines: the basic routing engine is based on **OSRM project** and the alternative one is using **Valhalla routing engine**. The OSRM-based routing engine is better optimized for low memory usage and calculation speed, including very large road networks using *Contraction Hierarchy* representation and algorithms. However, this has some expected limitations:
 
 - Route profile is precalculated and hardcoded in the data. For different profiles, such as driving or walking, download different map data packages to accomodate for offline routing
 - Only the fastest route is calculated, there is no shortest route choice

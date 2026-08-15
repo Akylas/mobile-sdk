@@ -26,8 +26,8 @@ per frame, with no CPU re-decode.
 ## Usage
 
 ```kotlin
-import com.carto.layers.CustomRasterTileLayer
-import com.carto.datasources.HTTPTileDataSource
+import com.massifmaps.layers.CustomRasterTileLayer
+import com.massifmaps.datasources.HTTPTileDataSource
 
 val source = HTTPTileDataSource(0, 19, "https://your.tiles/{z}/{x}/{y}.png")
 val layer = CustomRasterTileLayer(source)

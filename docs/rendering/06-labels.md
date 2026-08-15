@@ -78,7 +78,7 @@ and free roam breaks that — lift the viewpoint or tilt and the names grow or s
 
 ### Callout labels (fork-specific)
 
-`LabelOrientation::CALLOUT` — style `text-placement: nuticallout` — is a point label **lifted away
+`LabelOrientation::CALLOUT` — style `text-placement: callout` — is a point label **lifted away
 from its anchor in screen space** and joined back to it by a leader line. It exists because a
 panorama is the case the ordinary rules answer badly: hundreds of summits within a few degrees of
 the horizon, all wanting the same band of pixels, and hiding all but a handful of them loses exactly
@@ -563,7 +563,7 @@ against the cache off is 1.38% where two runs with it ON differ by 1.06% — no 
 So it removes the work it was designed to remove and buys no frames at this camera. The label cost
 that is left is **2D**: `labels2DMs` is 48–94 ms/interval, dominated by `LINE` layout
 (`lineMs` 28 of `buildMs` 44), which follows the projected line and cannot be kept — see
-`updateLineVertexData`. Note also that only a style using `text-placement: nutibillboard` puts
+`updateLineVertexData`. Note also that only a style using `text-placement: billboard` puts
 labels in the 3D pass at all; with the demo's inline style the 3D pass is 1.2 ms/interval and this
 whole mechanism measures nothing.
 

@@ -24,8 +24,8 @@ Added by the fork. Full technical notes:
 ## Usage
 
 ```kotlin
-import com.carto.datasources.PMTilesTileDataSource
-import com.carto.layers.VectorTileLayer
+import com.massifmaps.datasources.PMTilesTileDataSource
+import com.massifmaps.layers.VectorTileLayer
 
 // Auto-detect zoom range from the archive…
 val source = PMTilesTileDataSource("/sdcard/maps/basemap.pmtiles")
@@ -38,8 +38,8 @@ mapView.layers.add(layer)
 ```
 
 ```swift
-let source = NTPMTilesTileDataSource(path: "\(NSHomeDirectory())/maps/basemap.pmtiles")
-let layer = NTVectorTileLayer(dataSource: source, decoder: decoder)
+let source = MSFPMTilesTileDataSource(path: "\(NSHomeDirectory())/maps/basemap.pmtiles")
+let layer = MSFVectorTileLayer(dataSource: source, decoder: decoder)
 mapView.getLayers()?.add(layer)
 ```
 

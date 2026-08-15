@@ -3,15 +3,15 @@ import {themes as prismThemes} from 'prism-react-renderer';
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: 'CARTO Mobile SDK',
+  title: 'Massif Maps',
   tagline: 'Open, multi-platform maps & location services for Android, iOS and UWP',
   favicon: 'img/favicon.svg',
 
-  url: 'https://akylas.github.io',
-  baseUrl: '/mobile-sdk/',
+  url: 'https://massifmaps.github.io',
+  baseUrl: '/MassifMaps/',
 
-  organizationName: 'Akylas',
-  projectName: 'mobile-sdk',
+  organizationName: 'massifmaps',
+  projectName: 'MassifMaps',
   deploymentBranch: 'gh-pages',
   trailingSlash: false,
 
@@ -71,9 +71,9 @@ const config = {
         respectPrefersColorScheme: true,
       },
       navbar: {
-        title: 'Mobile SDK',
+        title: 'Massif Maps',
         logo: {
-          alt: 'CARTO Mobile SDK',
+          alt: 'Massif Maps',
           src: 'img/logo.svg',
         },
         items: [
@@ -131,7 +131,7 @@ const config = {
             ],
           },
         ],
-        copyright: `Copyright © ${new Date().getFullYear()} Akylas — maintained fork of CartoDB/mobile-sdk. Built with Docusaurus.`,
+        copyright: `Copyright © ${new Date().getFullYear()} Massif Maps — maintained fork of CartoDB/mobile-sdk. Built with Docusaurus.`,
       },
       prism: {
         theme: prismThemes.github,

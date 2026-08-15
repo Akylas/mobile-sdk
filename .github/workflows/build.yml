@@ -207,7 +207,7 @@ jobs:
           cd scripts
           python swigpp-java.py --profile ${{ matrix.profile }} --swig ../mobile-swig/swig
 
-      - name: Build CartoSDK for Android
+      - name: Build Massif for Android
         if: matrix.variant == 'android'
         run: |
           cd scripts
@@ -215,7 +215,7 @@ jobs:
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
 
-      - name: Build CartoSDK for IOS
+      - name: Build Massif for IOS
         if: matrix.variant == 'ios'
         run: |
           cd scripts
@@ -245,7 +245,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: github.event.inputs.publish != 'true' && matrix.variant == 'ios'
         with:
-          name:  CartoSDK-ios-${{matrix.variant}}-${{ matrix.profile }}
+          name:  Massif-ios-${{matrix.variant}}-${{ matrix.profile }}
           path: |
             dist/ios_metal/*.zip
           retention-days: 7
@@ -267,7 +267,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: github.event.inputs.publish != 'true' && matrix.variant == 'android'
         with:
-          name:  CartoSDK-android-${{matrix.variant}}-${{ matrix.profile }}
+          name:  Massif-android-${{matrix.variant}}-${{ matrix.profile }}
           path: |
             dist/android/*android*.aar
           retention-days: 7
@@ -276,7 +276,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: github.event.inputs.publish != 'true' && matrix.profile == 'lite'
         with:
-          name:  CartoSDK-${{matrix.variant}}-${{ matrix.profile }}-css2xml
+          name:  Massif-${{matrix.variant}}-${{ matrix.profile }}-css2xml
           path: |
             dist/css2xml_*.zip
           retention-days: 7

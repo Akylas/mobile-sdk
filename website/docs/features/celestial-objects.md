@@ -28,8 +28,8 @@ notes: [`docs/rendering/13-celestial.md`](https://github.com/Akylas/mobile-sdk/b
 An object is placed one of two ways:
 
 ```kotlin
-import com.carto.celestial.CelestialSprite
-import com.carto.layers.CelestialLayer
+import com.massifmaps.celestial.CelestialSprite
+import com.massifmaps.layers.CelestialLayer
 
 val sun = CelestialSprite().apply {
     setDirection(168f, 42f, 0.0)   // azimuth°, altitude°, distance — 0 = infinitely far
@@ -69,7 +69,7 @@ mapView.layers.insert(0, layer)    // FIRST: the map and the terrain then draw o
 declination about the rotation axis, so the useful case is one call:
 
 ```kotlin
-import com.carto.celestial.CelestialArc
+import com.massifmaps.celestial.CelestialArc
 
 val sunPath = CelestialArc().apply {
     setCircle(0f, 45f, 66.5f)   // axis azimuth°, axis altitude° (≈ latitude), radius°
@@ -164,7 +164,7 @@ What each view can reveal differs:
   over a camera preview. Changing it after attach recreates the GL surface.
 - **`TextureMapView` (TextureView)** — an ordinary view, so it blends with whatever is behind it in
   the layout. This is the one for a map over other UI.
-- **`NTMapView` (iOS)** — `opaque = NO` on the view and its layer.
+- **`MSFMapView` (iOS)** — `opaque = NO` on the view and its layer.
 
 ## See also
 

@@ -1,4 +1,4 @@
-# CARTO Mobile SDK (Akylas fork)
+# Massif Maps (Akylas fork)
 
 C++ map SDK for Android / iOS / UWP (and desktop via the same native core). This is the
 Akylas/farfromrefug fork of CartoDB/mobile-sdk with many custom features (hillshade,
@@ -23,12 +23,12 @@ repo. Commit style is conventional-commits (`fix:`, `feat:`, `chore:`).
 
 `scripts/android-dev` is the live test bench. It is ONE composable demo, not a set of examples:
 
-| File (under `app/src/main/java/com/akylas/cartotest/`) | Role |
+| File (under `app/src/main/java/com/massifmaps/test/`) | Role |
 |---|---|
 | `demo/DemoConfig.java` | every default, one static field per knob + the intent-extra key map (`applyIntentOverrides`) |
 | `demo/DemoCfg.java` | `cfgBool/cfgFloat/cfgInt/cfgStr/cfgColor` intent readers (`--es key value`) |
 | `demo/DemoMap.java` | builds/updates the map: layer registry, shared sources, terrain/light/sky, camera |
-| `demo/DemoStyles.java` | style decoders (dir / zip / inline CartoCSS / nuti project) + demo shaders |
+| `demo/DemoStyles.java` | style decoders (dir / zip / inline CartoCSS / style project) + demo shaders |
 | `demo/DemoSky.java` | day-cycle sun/sky + generated sky shader |
 | `demo/DemoPanel.java` | on-screen panel — writes DemoConfig, then calls a `DemoMap.apply*()` |
 | `demo/DemoTests.java` | one-shot actions (routing, search, GeoJSON) |
@@ -36,7 +36,7 @@ repo. Commit style is conventional-commits (`fix:`, `feat:`, `chore:`).
 
 Layers (`base`, `satellite`, `hillshade`, `hypso`, `contour`, `contourTiles`, `routes`, `elements`) toggle live
 from the panel or with `--es <name> true|false`; the base map has `--es base plain|composite` and
-`--es style dir|zip|inline|nuti`. `dir` reads the style from a FOLDER via `DirAssetPackage`
+`--es style dir|zip|inline|project`. `dir` reads the style from a FOLDER via `DirAssetPackage`
 (`/sdcard/alpimaps_mbtiles/osm`), falling back to `osm.zip` then to inline CartoCSS.
 
 Change defaults in `DemoConfig` only — those fields are also what the panel mutates. These files
@@ -73,17 +73,17 @@ fast loop — not the full `build-android.py`:
 ```sh
 cd scripts/android-dev && ./gradlew :app:assembleDebug -x lint   # ~40 s incremental (native included)
 adb install -r -t app/build/outputs/apk/debug/app-debug.apk      # -t: the APK is test-only
-adb shell am force-stop com.akylas.cartotest
-adb shell am start -n com.akylas.cartotest/.MainActivity --es ui false --es drape false
+adb shell am force-stop com.massifmaps.test
+adb shell am start -n com.massifmaps.test/.MainActivity --es ui false --es drape false
 ```
 
 - Install from `app/build/outputs/apk/debug/`. `app/build/intermediates/apk/debug/` also holds
   an `app-debug.apk` and it is **stale** — installing it silently runs old code. Verify with
   `unzip -p <apk> classes*.dex | strings | grep <new symbol>` (the demo's Java lands in classes5.dex).
 - Tiles need **60-90 s** to settle before a screenshot means anything (network + persistent
-  cache + label placement). `pm clear com.akylas.cartotest` resets camera/caches; without it the
+  cache + label placement). `pm clear com.massifmaps.test` resets camera/caches; without it the
   persistent tile caches stay warm, which is usually what you want.
-- `--es demo terrain|nuti|composite` picks the configuration (default `composite`).
+- `--es demo terrain|project|composite` picks the configuration (default `composite`).
   Every knob in `applyTerrainConfig`/`applyCameraConfig`/`applySkyAndLightConfig` is an intent
   extra, so most experiments need no rebuild: `lon lat zoom tilt rotation`, `drape drapeLines
   drapeResolution meshResolution exaggeration`, `fog fogStart fogDistance viewDistance`,
@@ -116,7 +116,7 @@ adb shell am start -n com.akylas.cartotest/.MainActivity --es ui false --es drap
   separate the composite's children), `RasterTileLayer::FetchTask::loadTile` (why a tile is not
   stored), `ElevationTextureCache::getTexture` (render zoom → DEM grid zoom), and
   `GLTileRenderer::renderGeometry2D` for what is actually visible/blended per target zoom.
-- **vt has no logger** — use `__android_log_print(4, "carto-mobile-sdk", ...)` there. When
+- **vt has no logger** — use `__android_log_print(4, "massif", ...)` there. When
   throttling a probe with a frame counter shared by several renderer instances, use a **prime**
   modulus: `% 120` with 4 instances always logs the same one.
 - `Shader::getUniformLoc` returns **0** for a uniform the compiler dropped, and 0 is a valid

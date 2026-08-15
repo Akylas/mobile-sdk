@@ -1,7 +1,7 @@
-# Building CARTO Mobile SDK 
+# Building Massif Maps 
 
 **We strongly suggest to use the precompiled SDK versions that can be found in
-the [Releases](https://github.com/CartoDB/mobile-sdk/releases) section** 
+the [Releases](https://github.com/massifmaps/MassifMaps/releases) section** 
 
 Getting all the SDK dependencies resolved and waiting for the build to complete can be very time-consuming.
 
@@ -64,7 +64,7 @@ iOS build requires **XCode 12** or later.
 Universal Windows Platform build requires **Visual Studio 2022** and **Microsoft Windows SDK**.
 
 ## SDK profiles
-CARTO Mobile SDK can be compiled with different features. The feature set is defined by **profiles**,
+Massif Maps can be compiled with different features. The feature set is defined by **profiles**,
 which are defined in 'scripts/build/sdk_profiles.json' file. Different profiles can be combined, for
 example the official SDK builds are currently compiled with 'valhalla+nmlmodellodtree' profiles. The
 following instructions use 'standard' profile as an example.
@@ -122,15 +122,17 @@ python build-winphone.py --profile standard
 ```
 
 # Usage
-* Developer docs: https://carto.com/docs/carto-engine/mobile-sdk/
-* Android sample app: https://github.com/CartoDB/mobile-android-samples
-* iOS sample app: https://github.com/CartoDB/mobile-ios-samples
-* .NET (Xamarin and UWP) sample app: https://github.com/CartoDB/mobile-dotnet-samples
+* Documentation: https://massifmaps.github.io/MassifMaps/
+* Demo benches in this repo: `scripts/android-dev` (Android) and `scripts/ios-dev` (iOS)
 * Scripts for preparing offline packages: https://github.com/nutiteq/mobile-sdk-scripts
 
+The archived CartoDB sample apps ([android](https://github.com/CartoDB/mobile-android-samples),
+[ios](https://github.com/CartoDB/mobile-ios-samples), [dotnet](https://github.com/CartoDB/mobile-dotnet-samples))
+still build against the pre-rebrand API. See [`docs/migration-massif.md`](docs/migration-massif.md)
+for what to rename.
+
 # Support, Questions?
-* Post an [issue](https://github.com/CartoDB/mobile-sdk/issues) to this project, submit a [Pull Request](https://github.com/CartoDB/mobile-sdk/pulls)
-* Commercial support options: sales@carto.com
+* Post an [issue](https://github.com/massifmaps/MassifMaps/issues) or a [Pull Request](https://github.com/massifmaps/MassifMaps/pulls)
 
 
 # Building css2xml

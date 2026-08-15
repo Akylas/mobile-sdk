@@ -46,9 +46,9 @@ var vectorDataSource2 = new LocalVectorDataSource(proj, LocalSpatialIndexType.Lo
 <TabItem value="objectivec" label="Objective-C">
 
 ```objectivec
-NTLocalVectorDataSource* vectorDataSource2 =
-    [[NTLocalVectorDataSource alloc] initWithProjection:proj
-                                     spatialIndexType: NTLocalSpatialIndexType::NT_LOCAL_SPATIAL_INDEX_TYPE_KDTREE];
+MSFLocalVectorDataSource* vectorDataSource2 =
+    [[MSFLocalVectorDataSource alloc] initWithProjection:proj
+                                     spatialIndexType: MSFLocalSpatialIndexType::NT_LOCAL_SPATIAL_INDEX_TYPE_KDTREE];
 ```
 
 </TabItem>
@@ -56,7 +56,7 @@ NTLocalVectorDataSource* vectorDataSource2 =
 <TabItem value="swift" label="Swift">
 
 ```swift
-let vectorDataSource2 = NTLocalVectorDataSource(projection: projection, spatialIndexType: NTLocalSpatialIndexType.LOCAL_SPATIAL_INDEX_TYPE_KDTREE)
+let vectorDataSource2 = MSFLocalVectorDataSource(projection: projection, spatialIndexType: MSFLocalSpatialIndexType.LOCAL_SPATIAL_INDEX_TYPE_KDTREE)
 ```
 
 </TabItem>
@@ -106,7 +106,7 @@ vectorDataSource2.GeometrySimplifier = new DouglasPeuckerGeometrySimplifier(1.0f
 
 ```objectivec
 [vectorDataSource2 setGeometrySimplifier:
-    [[NTDouglasPeuckerGeometrySimplifier alloc] initWithTolerance: 1.0f / 320.0f]
+    [[MSFDouglasPeuckerGeometrySimplifier alloc] initWithTolerance: 1.0f / 320.0f]
 ];
 ```
 
@@ -115,7 +115,7 @@ vectorDataSource2.GeometrySimplifier = new DouglasPeuckerGeometrySimplifier(1.0f
 <TabItem value="swift" label="Swift">
 
 ```swift
-vectorDataSource2?.setGeometrySimplifier(NTDouglasPeuckerGeometrySimplifier(tolerance: 1.0 / 320.0))
+vectorDataSource2?.setGeometrySimplifier(MSFDouglasPeuckerGeometrySimplifier(tolerance: 1.0 / 320.0))
 ```
 
 </TabItem>

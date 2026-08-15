@@ -831,7 +831,7 @@ them now.)
 ### 12.2 How to profile the render thread
 
 ```sh
-adb shell simpleperf record --app com.akylas.cartotest -g -f 500 --duration 12 -o /data/local/tmp/perf.data
+adb shell simpleperf record --app com.massifmaps.test -g -f 500 --duration 12 -o /data/local/tmp/perf.data
 adb pull /data/local/tmp/perf.data /tmp/perf.data
 ```
 
@@ -839,9 +839,9 @@ Symbols need the **unstripped** library, and `--symfs` matches by the dso's path
 tree has to mirror it:
 
 ```sh
-D='/tmp/symfs/data/app/~~<hash>==/com.akylas.cartotest-<hash>==/lib/arm64'
+D='/tmp/symfs/data/app/~~<hash>==/com.massifmaps.test-<hash>==/lib/arm64'
 mkdir -p "$D"
-cp scripts/android-dev/carto_mobile_sdk/build/intermediates/cxx/Debug/*/obj/arm64-v8a/libcarto_mobile_sdk.so "$D/"
+cp scripts/android-dev/massif/build/intermediates/cxx/Debug/*/obj/arm64-v8a/libmassif.so "$D/"
 $NDK/simpleperf/bin/darwin/x86_64/simpleperf report -i /tmp/perf.data --symfs /tmp/symfs \
   --tids <gl-thread-tid> --children --sort symbol -n
 ```
@@ -908,7 +908,7 @@ The demo's `debug` variant builds the native SDK with `CMAKE_BUILD_TYPE=Debug`. 
 optimization level there, so clang defaults to `-O0`:
 
 ```
-carto_mobile_sdk/.cxx/Debug/*/arm64-v8a/CMakeCache.txt:  CMAKE_BUILD_TYPE:STRING=Debug
+massif/.cxx/Debug/*/arm64-v8a/CMakeCache.txt:  CMAKE_BUILD_TYPE:STRING=Debug
 compile flags for GLTileRenderer.cpp:                    ['-g']          # no -O
 ```
 

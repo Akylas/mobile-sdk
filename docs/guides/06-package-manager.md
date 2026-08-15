@@ -1,6 +1,6 @@
 ## Package Manager
 
-**Offline maps, routing and geocoding** in the CARTO Mobile SDK require 
+**Offline maps, routing and geocoding** in the Massif Maps require 
 that you pre-download map data. For this we provide SDK internal API called
 **PackageManager** - this manages offline data packages, which are downloaded from 
 CARTO server and used by the SDK for specific features. 
@@ -96,7 +96,7 @@ App has to decide to which folder the map files are stored. Typically you use st
     NSError *error;
     [[NSFileManager defaultManager] createDirectoryAtPath:packagesDir withIntermediateDirectories:YES attributes:nil error:&error];
        
-    packageManager = [[NTCartoPackageManager alloc] initWithSource:@"<your-package-source>" dataFolder:packagesDir];
+    packageManager = [[MSFCartoPackageManager alloc] initWithSource:@"<your-package-source>" dataFolder:packagesDir];
 
     {% endhighlight %}
   </div>
@@ -106,7 +106,7 @@ App has to decide to which folder the map files are stored. Typically you use st
 
     // Define PackageManger to download offline packages
     // Create folder for package manager. Package manager needs persistent writable folder.
-    let packageFolder = NTAssetUtils.calculateWritablePath("foldername")
+    let packageFolder = MSFAssetUtils.calculateWritablePath("foldername")
 
     do {
         try FileManager.default.createDirectory(atPath: packageFolder!, withIntermediateDirectories: false, attributes: nil)
@@ -115,7 +115,7 @@ App has to decide to which folder the map files are stored. Typically you use st
     }
 
     // Create PackageManager instance for dealing with offline packages
-    var packageManager =  NTCartoPackageManager(source: "<your-package-source>", dataFolder: packageFolder)
+    var packageManager =  MSFCartoPackageManager(source: "<your-package-source>", dataFolder: packageFolder)
 
     {% endhighlight %}
   </div>
@@ -268,10 +268,10 @@ You see that `onPackageListUpdated()` callback starts immediately download of so
   <div id="tab-objectivec">
     {% highlight objc linenos %}
     
-    @interface MyPackageManagerListener : NTPackageManagerListener
+    @interface MyPackageManagerListener : MSFPackageManagerListener
 
-    @property NTPackageManager* _packageManager;
-    - (void)setPackageManager:(NTPackageManager*)manager;
+    @property MSFPackageManager* _packageManager;
+    - (void)setPackageManager:(MSFPackageManager*)manager;
     
     @end
 
@@ -299,18 +299,18 @@ You see that `onPackageListUpdated()` callback starts immediately download of so
     {
     }
 
-    - (void)onPackageFailed:(NSString*)packageId version:(int)version errorType:(enum NTPackageErrorType)errorType
+    - (void)onPackageFailed:(NSString*)packageId version:(int)version errorType:(enum MSFPackageErrorType)errorType
     {
         NSLog(@"onPackageFailed");
     }
 
-    - (void)onPackageStatusChanged:(NSString*)packageId version:(int)version status:(NTPackageStatus*)status
+    - (void)onPackageStatusChanged:(NSString*)packageId version:(int)version status:(MSFPackageStatus*)status
     {
         // here you can get progress of download
         NSLog(@"onPackageStatusChanged progress: %f", [status getProgress]);
     }
 
-    - (void)setPackageManager:(NTPackageManager*)manager
+    - (void)setPackageManager:(MSFPackageManager*)manager
     {
         self._packageManager = manager;
     }
@@ -323,10 +323,10 @@ You see that `onPackageListUpdated()` callback starts immediately download of so
   <div id="tab-swift">
     {% highlight swift linenos %}
       
-    public class MyPackageManagerListener : NTPackageManagerListener {
-        var packageManager: NTPackageManager?
+    public class MyPackageManagerListener : MSFPackageManagerListener {
+        var packageManager: MSFPackageManager?
         
-        convenience init(manager: NTCartoPackageManager) {
+        convenience init(manager: MSFCartoPackageManager) {
             self.init()
             self.packageManager = manager
         }
@@ -343,7 +343,7 @@ You see that `onPackageListUpdated()` callback starts immediately download of so
             
         }
         
-        public override func onPackageStatusChanged(_ arg1: String!, version: Int32, status: NTPackageStatus!) {
+        public override func onPackageStatusChanged(_ arg1: String!, version: Int32, status: MSFPackageStatus!) {
             // Here you can monitor download process %
         }
         public override func onPackageUpdated(_ arg1: String!, version: Int32) {
@@ -354,7 +354,7 @@ You see that `onPackageListUpdated()` callback starts immediately download of so
             
         }
         
-        public override func onPackageFailed(_ arg1: String!, version: Int32, errorType: NTPackageErrorType) {
+        public override func onPackageFailed(_ arg1: String!, version: Int32, errorType: MSFPackageErrorType) {
             
         }
     }
@@ -460,7 +460,7 @@ To link PackageManagerListener with PackageManager, apply the following code.
   <div id="tab-objectivec">
     {% highlight objc linenos %}
 
-    NTCartoPackageManager* packageManager = [[NTCartoPackageManager alloc] initWithSource:@"<your-package-source>" dataFolder:packagesDir];
+    MSFCartoPackageManager* packageManager = [[MSFCartoPackageManager alloc] initWithSource:@"<your-package-source>" dataFolder:packagesDir];
         
     // 1. Create PackageManagerListener with your listener class
     MyPackageManagerListener* _packageManagerListener = [[MyPackageManagerListener alloc] init];
@@ -482,7 +482,7 @@ To link PackageManagerListener with PackageManager, apply the following code.
     {% highlight swift linenos %}
 
     // Create PackageManager instance for dealing with offline packages
-    var packageManager =  NTCartoPackageManager(source: "<your-package-source>", dataFolder: packageFolder)
+    var packageManager =  MSFCartoPackageManager(source: "<your-package-source>", dataFolder: packageFolder)
 
     // 1. Set listener, and start PackageManager
     packageManager?.setPackageManagerListener(MyPackageManagerListener(manager: packageManager!))
@@ -528,7 +528,7 @@ Start download of e.g. Estonia with this PackageManager use method: `.startPacka
 
 #### Bounding Box
 
-CARTO Mobile SDK allows for the download of custom areas, called bounding boxes. It can be a city or national park for example. Note that there is size limit of about 50x50 km for the allowed areas here. For bigger areas you need to use several downloads, or country package.
+Massif Maps allows for the download of custom areas, called bounding boxes. It can be a city or national park for example. Note that there is size limit of about 50x50 km for the allowed areas here. For bigger areas you need to use several downloads, or country package.
 
 A bounding box is constructed as `bbox(west longitude,south latitude,east longitude,north latitude`, so the bounding box of Berlin would be: `bbox(13.2285,52.4698,13.5046,52.57477)`. There is no separate method for bounding box download start, just use same as string instead of  instead of a country or county code, as package ID. So Berlin download would start with `.startPackageDownload("bbox(13.2285,52.4698,13.5046,52.57477)");`
 
@@ -544,7 +544,7 @@ You should add `CartoOfflineVectorTileLayer` to the MapView, using PackageManage
 **Warning** - until map is downloaded, then this layer will have no map. So you may want to add another online tiled layer with same style, which will be replaced once offline map is downloaded
 
   {% highlight java linenos %}
-  CartoOfflineVectorTileLayer layer = new CartoOfflineVectorTileLayer(cartoPackageManager, CartoBaseMapStyle.CARTO_BASEMAP_STYLE_VOYAGER);
+  CartoOfflineVectorTileLayer layer = new CartoOfflineVectorTileLayer(cartoPackageManager, CartoBaseMapStyle.MASSIF_BASEMAP_STYLE_VOYAGER);
   mapView.getLayers().add(layer);
   {% endhighlight %}
 

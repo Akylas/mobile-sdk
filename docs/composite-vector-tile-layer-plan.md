@@ -7,7 +7,7 @@ Branch: `feat/composite-vector-tile-layer`
 A layer that renders a **master vector-tile style** but lets you weave **external named
 data sources** (raster, hillshade, extra vector, contour) into the style's layer order.
 Placement, visibility and per-source settings are driven from CartoCSS with zoom and
-`nuti::` expressions:
+`param::` expressions:
 
 ```css
 /* raster overlay, half-opaque, only mid-zoom, multiply blend */
@@ -17,8 +17,8 @@ Placement, visibility and per-source settings are driven from CartoCSS with zoom
 }
 
 /* hillshade woven between fills and roads; exaggeration ramps with zoom;
-   toggled by a runtime nuti parameter */
-#hillshade [zoom>5][zoom<=15][nuti::show_relief=true] {
+   toggled by a runtime style parameter */
+#hillshade [zoom>5][zoom<=15][param::show_relief=true] {
   hillshade-exaggeration: linear(zoom, [5, 0.3], [12, 1.0]);
   hillshade-illumination-direction: 315;
   hillshade-shadow-color: #003040;
@@ -56,8 +56,8 @@ The property system already does the hard part. From `Properties.h`:
   parse a CartoCSS expression and can be **evaluated per-frame** against an
   `ExpressionContext` + `ViewState` (`getStaticValue(context)` returns the concrete value
   for the current `view::zoom`).
-- `nuti::` parameters and `zoom` are already resolved by `ExpressionContext`.
-- Rule visibility (`[zoom>5]`, `[nuti::x=true]`) is already encoded as `mvt::Rule`
+- `param::` parameters and `zoom` are already resolved by `ExpressionContext`.
+- Rule visibility (`[zoom>5]`, `[param::x=true]`) is already encoded as `mvt::Rule`
   min/max-zoom + a `Filter` predicate (`CartoCSSMapnikTranslator::buildRule`,
   `CartoCSSMapnikTranslator.cpp:29`).
 
@@ -66,8 +66,8 @@ and validate `hillshade-*` / `raster-*` properties, and (b) act as a typed, eval
 container. `CompositeVectorTileLayer` reads their evaluated values every frame via a small
 decoder helper — no changes to the decode/geometry path, no injection into `vt::Tile`.
 
-Zoom-range and nuti visibility fall out for free: if no rule matches the current
-view-zoom / nuti map, the helper returns "no config" ⇒ that external source is not drawn
+Zoom-range and param:: visibility fall out for free: if no rule matches the current
+view-zoom / style-parameter map, the helper returns "no config" ⇒ that external source is not drawn
 this frame.
 
 ---
@@ -85,12 +85,12 @@ geometry). It just holds evaluable properties.
 `libs-carto/mapnikvt/src/mapnikvt/LayerConfigSymbolizer.h`:
 
 ```cpp
-#ifndef _CARTO_MAPNIKVT_LAYERCONFIGSYMBOLIZER_H_
-#define _CARTO_MAPNIKVT_LAYERCONFIGSYMBOLIZER_H_
+#ifndef _MASSIF_MAPNIKVT_LAYERCONFIGSYMBOLIZER_H_
+#define _MASSIF_MAPNIKVT_LAYERCONFIGSYMBOLIZER_H_
 
 #include "Symbolizer.h"
 
-namespace carto::mvt {
+namespace massif::mvt {
     // Base for "external source config" symbolizers (raster / hillshade / contour).
     // Produces NO geometry. Its properties are read out-of-band by the SDK layer via
     // Symbolizer::getProperty(name) + Property::getExpression(), evaluated per frame.
@@ -122,7 +122,7 @@ namespace carto::mvt {
 ```cpp
 #include "LayerConfigSymbolizer.h"
 
-namespace carto::mvt {
+namespace massif::mvt {
     class RasterConfigSymbolizer : public LayerConfigSymbolizer {
     public:
         explicit RasterConfigSymbolizer(std::shared_ptr<Logger> logger) : LayerConfigSymbolizer(std::move(logger)) {
@@ -140,7 +140,7 @@ namespace carto::mvt {
 ```cpp
 #include "LayerConfigSymbolizer.h"
 
-namespace carto::mvt {
+namespace massif::mvt {
     class HillshadeConfigSymbolizer : public LayerConfigSymbolizer {
     public:
         explicit HillshadeConfigSymbolizer(std::shared_ptr<Logger> logger) : LayerConfigSymbolizer(std::move(logger)) {
@@ -230,29 +230,29 @@ else if (symbolizerType == "contour") {
 ```
 
 Result: `#hillshade { hillshade-exaggeration: … }` compiles into a `Layer("hillshade")`
-holding a `HillshadeConfigSymbolizer`, with zoom/nuti predicates preserved on its
+holding a `HillshadeConfigSymbolizer`, with zoom/param:: predicates preserved on its
 `mvt::Rule`s — exactly like every other CartoCSS layer.
 
 ### A.4 Decoder-side evaluation helper (mapnikvt `Map` or a free function)
 
 Add a helper that, without decoding a tile, returns the evaluated config for a named layer
-at a given view zoom + nuti map. It walks the layer's styles→rules, honoring the rule
+at a given view zoom + style-parameter map. It walks the layer's styles→rules, honoring the rule
 zoom range and filter predicate, and reads the config symbolizer's properties.
 
 `libs-carto/mapnikvt/src/mapnikvt/LayerConfigResolver.h` (sketch):
 
 ```cpp
-namespace carto::mvt {
+namespace massif::mvt {
     struct ResolvedLayerConfig {
         bool   visible = false;                       // false => no matching rule / hidden
         std::map<std::string, Value> values;          // "opacity", "exaggeration", ...
     };
 
-    // viewZoom is fractional (view::zoom). nutiValues comes from the decoder's parameter map.
+    // viewZoom is fractional (view::zoom). styleParamValues comes from the decoder's parameter map.
     ResolvedLayerConfig resolveLayerConfig(const Map& map,
                                            const std::string& layerName,
                                            float viewZoom,
-                                           const std::map<std::string, Value>& nutiValues);
+                                           const std::map<std::string, Value>& styleParamValues);
 }
 ```
 
@@ -260,21 +260,21 @@ Implementation outline:
 
 ```cpp
 ResolvedLayerConfig resolveLayerConfig(const Map& map, const std::string& layerName,
-                                       float viewZoom, const std::map<std::string, Value>& nutiValues) {
+                                       float viewZoom, const std::map<std::string, Value>& styleParamValues) {
     ResolvedLayerConfig out;
     std::shared_ptr<const Layer> layer = map.getLayer(layerName);   // add getter if missing
     if (!layer) return out;
 
     ExpressionContext ctx;
     ctx.setAdjustedZoom(static_cast<int>(viewZoom));    // predicate zoom
-    ctx.setNutiParameterValueMap(nutiValues);
+    ctx.setStyleParameterValueMap(styleParamValues);
     vt::ViewState viewState; viewState.zoom = viewZoom; // for FloatFunction eval
 
     for (const auto& styleName : layer->getStyleNames()) {
         std::shared_ptr<const Style> style = map.getStyle(styleName);
         for (const std::shared_ptr<const Rule>& rule : style->getRules()) {
             if (viewZoom < rule->getMinZoom() || viewZoom >= rule->getMaxZoom()) continue;
-            if (rule->getFilter() && !rule->getFilter()->evaluate(ctx)) continue;   // zoom/nuti predicates
+            if (rule->getFilter() && !rule->getFilter()->evaluate(ctx)) continue;   // zoom/param:: predicates
             for (const auto& sym : rule->getSymbolizers()) {
                 auto cfg = std::dynamic_pointer_cast<const LayerConfigSymbolizer>(sym);
                 if (!cfg) continue;
@@ -311,7 +311,7 @@ Expose two things the composite needs (thin wrappers over the compiled `_map`):
 public:
     // Ordered master style layer names (the #name order in the CSS).
     std::vector<std::string> getStyleLayerNames() const;
-    // Evaluate a config layer's properties for the given view zoom (uses current nuti params).
+    // Evaluate a config layer's properties for the given view zoom (uses current style params).
     mvt::ResolvedLayerConfig resolveLayerConfig(const std::string& layerName, float viewZoom) const;
 ```
 
@@ -336,8 +336,8 @@ mvt::ResolvedLayerConfig MBVectorTileDecoder::resolveLayerConfig(const std::stri
 `all/native/layers/CompositeVectorTileLayer.h`:
 
 ```cpp
-#ifndef _CARTO_COMPOSITEVECTORTILELAYER_H_
-#define _CARTO_COMPOSITEVECTORTILELAYER_H_
+#ifndef _MASSIF_COMPOSITEVECTORTILELAYER_H_
+#define _MASSIF_COMPOSITEVECTORTILELAYER_H_
 
 #include "layers/VectorTileLayer.h"
 
@@ -479,7 +479,7 @@ std::shared_ptr<ElevationDecoder> CompositeVectorTileLayer::resolveElevationDeco
 > it emits MVT, so it merges and is styled by the master `#contour {}` block. No child
 > layer, no config symbolizer required for basic use. (An optional `#contour {
 > contour-base-interval: …; contour-resolution: … }` config symbolizer can push the
-> datasource setters on style/nuti change — applied in `applyConfig`, NOT per frame,
+> datasource setters on style/parameter change — applied in `applyConfig`, NOT per frame,
 > since changing them re-generates tiles.)
 
 **Segment ordering** — split master style layers at external slots:
@@ -602,7 +602,7 @@ run. Do this in the composite's overrides of `Layer::update` and `setComponents`
 
 %module CompositeVectorTileLayer
 
-!proxy_imports(carto::CompositeVectorTileLayer, datasources.TileDataSource, layers.VectorTileLayer, vectortiles.VectorTileDecoder, rastertiles.ElevationDecoder)
+!proxy_imports(massif::CompositeVectorTileLayer, datasources.TileDataSource, layers.VectorTileLayer, vectortiles.VectorTileDecoder, rastertiles.ElevationDecoder)
 
 %{
 #include "layers/CompositeVectorTileLayer.h"
@@ -619,10 +619,10 @@ run. Do this in the composite's overrides of `Layer::update` and `setComponents`
 %import "datasources/TileDataSource.i"
 %import "rastertiles/ElevationDecoder.i"
 
-!enum(carto::CompositeSourceType::CompositeSourceType)
-!polymorphic_shared_ptr(carto::CompositeVectorTileLayer, layers.CompositeVectorTileLayer)
+!enum(massif::CompositeSourceType::CompositeSourceType)
+!polymorphic_shared_ptr(massif::CompositeVectorTileLayer, layers.CompositeVectorTileLayer)
 
-%std_exceptions(carto::CompositeVectorTileLayer::CompositeVectorTileLayer)
+%std_exceptions(massif::CompositeVectorTileLayer::CompositeVectorTileLayer)
 
 %include "layers/CompositeVectorTileLayer.h"
 
@@ -637,7 +637,7 @@ cd scripts && python3 swigpp-java.py \
   --swig /Volumes/dev/carto/mobile-swig/swig
 ```
 
-Add the module to the swig module list / `all/modules/carto_mobile_sdk.i` include set the
+Add the module to the swig module list / `all/modules/massif.i` include set the
 same way `VectorTileLayer.i` is registered.
 
 ---
@@ -659,7 +659,7 @@ layer.addVectorDataSource("contour", new ContourTileDataSource(demSource));  // 
 
 mapView.getLayers().add(layer);
 
-// runtime toggle via nuti parameter used in the #hillshade predicate
+// runtime toggle via style parameter used in the #hillshade predicate
 decoder.setStyleParameter("show_relief", "false");   // hides hillshade live, no re-add
 layer.removeExternalDataSource("satellite");         // dynamic remove
 ```
@@ -683,7 +683,7 @@ renders **one stable-filtered layer per style-layer group**:
   are **not merged**, so e.g. contours overzoom (z13+ from z12 DEM) via the child layer.
 - Draw order per frame: group 0, then the draw items in style order (child / group / child ...),
   pure painter order (consistent with the terrain depth model). Raster/hillshade children gate on
-  their config symbolizer's zoom/nuti visibility; vector children draw always (zoom-filtered by
+  their config symbolizer's zoom/param:: visibility; vector children draw always (zoom-filtered by
   their own decode).
 
 Cost: one vt **decode per group + per vector child**; share network with a cache on the source.
@@ -696,7 +696,7 @@ Cost: one vt **decode per group + per vector child**; share network with a cache
    `LayerConfigResolver.{h,cpp}`. Translator wired in `CartoCSSMapnikTranslator.cpp`
    (`_symbolizerList`, `_symbolizerPropertyMap`, `createSymbolizer`, includes). Both TUs
    pass `clang -fsyntax-only`; CMake globs the new `.cpp`. TODO: runtime assertion (CSS
-   with `#hillshade{}` → `resolveLayerConfig` across a zoom sweep + nuti toggle) deferred
+   with `#hillshade{}` → `resolveLayerConfig` across a zoom sweep + parameter toggle) deferred
    to a linked build / the demo in Milestone 5.
 2. **[DONE]** CompositeVectorTileLayer 2D + 3D segmented render (B). Added:
    `MBVectorTileDecoder::getStyleLayerNames()` + `resolveLayerConfig()` (SWIG-ignored);
@@ -710,14 +710,14 @@ Cost: one vt **decode per group + per vector child**; share network with a cache
    CompositeVectorTileLayer;` added to `Layer.h` so the composite can drive child protected
    virtuals (setComponents/loadData/onDrawFrame/register listeners). All five TUs pass
    `clang -fsyntax-only`. TODO (needs a real build/device): runtime verify slot ordering,
-   per-frame opacity/exaggeration, zoom/nuti visibility; illumination-direction mapping;
+   per-frame opacity/exaggeration, zoom/param:: visibility; illumination-direction mapping;
    interaction of the composite's own rendererLayerFilter with segment filters.
 3. **[DONE]** Merged vector + contour. `addVectorDataSource` folds any MBVT source
    (incl. `ContourTileDataSource`) into the master via `DynamicMergedMBVTTileDataSource`,
    styled by the master CSS. `applyVectorSourceConfigs()` (called from `loadData`, with
    per-source change tracking to avoid setter→reload loops) applies `ContourConfigSymbolizer`
    values (`contour-base-interval`/`resolution`/`min-visible-zoom`/`simplify-tolerance`,
-   nuti-aware, evaluated at a neutral zoom) to a `ContourTileDataSource`. Compiles.
+   parameter-aware, evaluated at a neutral zoom) to a `ContourTileDataSource`. Compiles.
 4. **Terrain** (`onDrawFrame3D`): renderComposite already forwards `onDrawFrame3D` to group 0,
    the internal group layers and the external children in painter order (the terrain depth model
    is cross-layer painter order, so this should hold). NEEDS on-device validation: enable terrain
@@ -729,7 +729,7 @@ Cost: one vt **decode per group + per vector child**; share network with a cache
    (zoom-ramped exaggeration), `#satellite` (raster, faint, z>=13) and `#contour`
    (line + `contour-base-interval`) woven by first-reference order; hillshade decoder
    resolved from the DEM `encoding`; contour merged. Build steps below. Runtime verify +
-   nuti (needs a project-bundle style) still pending on device.
+   style parameters (needs a project-bundle style) still pending on device.
 
 ### Build / run the demo
 
@@ -767,22 +767,22 @@ the roads; exaggeration should increase with zoom.
 **See [composite-vector-tile-layer-config.md](composite-vector-tile-layer-config.md)** for the
 full style configuration reference (all `raster-*`/`hillshade-*`/`contour-*` properties, smooth
 vs per-zoom-level timing, `[view::zoom]`/interpolation syntax, and a self-contained in-memory
-nuti-bundle demo).
+project-bundle demo).
 
-**nuti-parameter visibility** works today with **project-bundle styles** (a zip/asset package whose
-project JSON declares `nutiparameters`, e.g. the app's osm.zip): `resolveLayerConfig` evaluates
-`[nuti::x=...]` predicates against the decoder's nuti value map, and `decoder.setStyleParameter`
+**style-parameter visibility** works today with **project-bundle styles** (a zip/asset package whose
+project JSON declares `styleparameters`, e.g. the app's osm.zip): `resolveLayerConfig` evaluates
+`[param::x=...]` predicates against the decoder's style-parameter value map, and `decoder.setStyleParameter`
 toggles them live. It is NOT available with a **raw CartoCSS string** decoder, because
-`CartoCSSMapLoader::loadMap` passes no `nutiParameters` (only `loadMapProject` reads them,
+`CartoCSSMapLoader::loadMap` passes no `styleParameters` (only `loadMapProject` reads them,
 CartoCSSMapLoader.cpp:133). The demo uses a raw string for self-containment, so it demos zoom-based
-config only. A future enhancement could let raw CartoCSS / the decoder declare nuti params
+config only. A future enhancement could let raw CartoCSS / the decoder declare style params
 programmatically.
 
 ## Status: feature complete (2D + 3D terrain), verified on device
 
 Milestones 1-5 done and device-verified (base fills, hillshade woven under roads, satellite raster
 with zoom gating, contour lines with overzoom, style background, 3D terrain). Remaining is the
-optional single-pass perf project (6) and the raw-string nuti enhancement, both above.
+optional single-pass perf project (6) and the raw-string style-parameter enhancement, both above.
 
 ## Open points (leaning defaults)
 
@@ -794,7 +794,7 @@ optional single-pass perf project (6) and the raw-string nuti enhancement, both 
    (safer than a generic map across the SWIG bridge).
 3. Segmented label placement: the group filter must include a slot-group's label layers so
    `VTLabelPlacementWorker` still culls per group — **verify no cross-group label loss**.
-4. Nuti-driven **reorder** unsupported: order is static per style; nuti drives properties
+4. Parameter-driven **reorder** unsupported: order is static per style; parameters drive properties
    and visibility only. Documented limitation.
 5. Perf: N slots ⇒ N+1 master vt passes/frame over the same GPU tiles. Fine for small N.
    Milestone 6 adds an optional single-pass segmented renderer (toggle, this layer only)

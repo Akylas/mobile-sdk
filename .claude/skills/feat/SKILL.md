@@ -145,7 +145,7 @@ Define how the feature will be proven before implementing it. There is no test f
 
 - **Syntax/type gate** — list the exact translation units to run `clang++ -fsyntax-only` on (recipe in the `commit` skill).
 - **Bindings** — if `all/modules/*.i` moves, the `swigpp-java.py` regeneration is part of the work, not an afterthought (gradle never runs SWIG, and the checked-in `generated/` wrappers won't compile otherwise).
-- **On-device scenario** — the demo knob that exercises it (`--es <name> true|false`, `--es demo terrain|nuti|composite`), the camera (lon/lat/zoom/tilt), and the expected visual difference. Renderer work is verified by **A/B**: screenshot with the feature on and off and compare per horizontal band — a 0.0 %-different band means the content isn't drawn there.
+- **On-device scenario** — the demo knob that exercises it (`--es <name> true|false`, `--es demo terrain|project|composite`), the camera (lon/lat/zoom/tilt), and the expected visual difference. Renderer work is verified by **A/B**: screenshot with the feature on and off and compare per horizontal band — a 0.0 %-different band means the content isn't drawn there.
 - **What stays unverified** — name it, don't hide it.
 
 Present the plan as a table; user confirms. _Auto: define it and proceed without confirmation._
@@ -169,7 +169,7 @@ Core loop (repeat for each commit from the Phase 3 plan):
 - [ ] New knobs default to the current behaviour (`Options`/`TerrainOptions`/`SkyOptions`), so no app changes on upgrade
 - [ ] Lighting/fog read through `StyleEnvironment::resolveLighting()` / `resolveFog()` — never merged ad hoc, or ground and sky disagree
 - [ ] Shader uniforms fetched with `glGetUniformLocation` + `>= 0` guards (`Shader::getUniformLoc` returns 0 for a dropped uniform, and 0 is a valid location that clobbers uniform 0)
-- [ ] Logging: `Log::` in `all/native`, `__android_log_print(4, "carto-mobile-sdk", …)` in `vt` (it has no logger); throttle shared-instance probes with a **prime** modulus, and strip probes before committing
+- [ ] Logging: `Log::` in `all/native`, `__android_log_print(4, "massif", …)` in `vt` (it has no logger); throttle shared-instance probes with a **prime** modulus, and strip probes before committing
 - [ ] Demo exposure added **additively** in `demo/DemoConfig.java` (+ `DemoPanel.java` / intent extra) — those files carry the user's uncommitted local edits, so never restore or overwrite them
 - [ ] Style matches the surrounding file (this is old C++ — mirror the local idiom, don't modernise it drive-by)
 

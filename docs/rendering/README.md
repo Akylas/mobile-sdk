@@ -1,6 +1,6 @@
 # How the renderer works
 
-Technical documentation of the CARTO Mobile SDK (Akylas fork) rendering path: what it does, how it
+Technical documentation of the Massif Maps (Akylas fork) rendering path: what it does, how it
 is implemented, how it compares to [tangram-ng](https://github.com/farfromrefug/tangram-ng), and why
 it differs where it does.
 

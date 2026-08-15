@@ -1,6 +1,6 @@
 ## Layers and Data Sources
 
-Maps in CARTO Mobile SDK are organized overlaying **layers**. Layer displays map and takes data from a  connected **DataSource**, which has data loading and processing logics.
+Maps in Massif Maps are organized overlaying **layers**. Layer displays map and takes data from a  connected **DataSource**, which has data loading and processing logics.
 
 
 ### Layers overview
@@ -61,7 +61,7 @@ This adds to map CARTO built-in vector tile service with generic streetmaps, you
   <div id="tab-java">
      {% highlight java linenos %}
   
-     CartoOnlineVectorTileLayer layer = new CartoOnlineVectorTileLayer(CartoBaseMapStyle.CARTO_BASEMAP_STYLE_POSITRON);
+     CartoOnlineVectorTileLayer layer = new CartoOnlineVectorTileLayer(CartoBaseMapStyle.MASSIF_BASEMAP_STYLE_POSITRON);
      mapView.getLayers().add(layer);
 
      {% endhighlight %}
@@ -77,7 +77,7 @@ This adds to map CARTO built-in vector tile service with generic streetmaps, you
   <div id="tab-objectivec">
      {% highlight objc linenos %}
   
-     NTCartoOnlineVectorTileLayer* layer = [[NTCartoOnlineVectorTileLayer alloc] initWithStyle:NT_CARTO_BASEMAP_STYLE_POSITRON];
+     MSFCartoOnlineVectorTileLayer* layer = [[MSFCartoOnlineVectorTileLayer alloc] initWithStyle:NT_MASSIF_BASEMAP_STYLE_POSITRON];
      [[self.mapView getLayers] add:layer];
   
      {% endhighlight %}
@@ -85,7 +85,7 @@ This adds to map CARTO built-in vector tile service with generic streetmaps, you
   <div id="tab-swift">
      {% highlight swift linenos %}
 
-     let layer = NTCartoOnlineVectorTileLayer(style: NTCartoBaseMapStyle.CARTO_BASEMAP_STYLE_POSITRON)
+     let layer = MSFCartoOnlineVectorTileLayer(style: MSFCartoBaseMapStyle.MASSIF_BASEMAP_STYLE_POSITRON)
      mapView?.getLayers()?.add(layer)
 
      {% endhighlight %}
@@ -93,7 +93,7 @@ This adds to map CARTO built-in vector tile service with generic streetmaps, you
   <div id="tab-kotlin">
      {% highlight kotlin linenos %}
 
-     val layer = CartoOnlineVectorTileLayer(CartoBaseMapStyle.CARTO_BASEMAP_STYLE_POSITRON)
+     val layer = CartoOnlineVectorTileLayer(CartoBaseMapStyle.MASSIF_BASEMAP_STYLE_POSITRON)
      mapView?.layers?.add(layer)
 
      {% endhighlight %}
@@ -150,7 +150,7 @@ For certain maps - especially for **Satellite imagery** (sourced from HERE) CART
   <div id="tab-objectivec">
   {% highlight objc linenos %}
 
-  NTCartoOnlineVectorTileLayer* layer = [[NTCartoOnlineRasterTileLayer alloc] initWithSource:@"here.satellite.day"];
+  MSFCartoOnlineVectorTileLayer* layer = [[MSFCartoOnlineRasterTileLayer alloc] initWithSource:@"here.satellite.day"];
   [[self.mapView getLayers] add:layer];
 
   {% endhighlight %}
@@ -159,7 +159,7 @@ For certain maps - especially for **Satellite imagery** (sourced from HERE) CART
   <div id="tab-swift">
   {% highlight swift linenos %}
 
-  let layer = NTCartoOnlineRasterTileLayer(source: "here.satellite.day")
+  let layer = MSFCartoOnlineRasterTileLayer(source: "here.satellite.day")
   mapView?.getLayers()?.add(layer)
 
   {% endhighlight %}
@@ -254,9 +254,9 @@ The following tags are supported in the URL definition: **zoom, x, y, xflipped, 
     {% highlight objc linenos %}
 
     NSString* url = @"http://ecn.t3.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=471&mkt=en-US";
-    NTHTTPTileDataSource* baseRasterTileDataSource = [[NTHTTPTileDataSource alloc] initWithMinZoom:1 maxZoom:19 baseURL:url];
+    MSFHTTPTileDataSource* baseRasterTileDataSource = [[MSFHTTPTileDataSource alloc] initWithMinZoom:1 maxZoom:19 baseURL:url];
       
-    NTRasterTileLayer* baseLayer = [[NTRasterTileLayer alloc] initWithDataSource:baseRasterTileDataSource];
+    MSFRasterTileLayer* baseLayer = [[MSFRasterTileLayer alloc] initWithDataSource:baseRasterTileDataSource];
     [[mapView getLayers] add:baseLayer];
 
     {% endhighlight %}
@@ -266,9 +266,9 @@ The following tags are supported in the URL definition: **zoom, x, y, xflipped, 
     {% highlight swift linenos %}
 
     let url = "http://ecn.t3.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=471&mkt=en-US"
-    let baseRasterTileDataSource = NTHTTPTileDataSource(minZoom: 1, maxZoom: 19, baseURL: url)
+    let baseRasterTileDataSource = MSFHTTPTileDataSource(minZoom: 1, maxZoom: 19, baseURL: url)
 
-    let baseLayer = NTRasterTileLayer(dataSource: baseRasterTileDataSource)
+    let baseLayer = MSFRasterTileLayer(dataSource: baseRasterTileDataSource)
     mapView?.getLayers()?.add(baseLayer)
 
     {% endhighlight %}

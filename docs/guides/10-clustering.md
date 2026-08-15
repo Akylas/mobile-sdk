@@ -1,12 +1,12 @@
 ## Clustering
 
-CARTO Mobile SDK can dynamically cluster point data if large amounts of points need to be shown without cluttering the MapView. Clusters are formed based on the map zoom level and spatially close points are placed into the same cluster.
+Massif Maps can dynamically cluster point data if large amounts of points need to be shown without cluttering the MapView. Clusters are formed based on the map zoom level and spatially close points are placed into the same cluster.
 
 Clusters are usually markers which display a location of several objects, and typically indicate the number of markers within each object.
 
 ![Cluster sample](http://share.gifyoutube.com/vMPDzX.gif)
 
-CARTO Mobile SDK has built-in cluster feature, which is highly customizable. You can define the following options in your app code:
+Massif Maps has built-in cluster feature, which is highly customizable. You can define the following options in your app code:
 
 - Styling the cluster objects
 - Dynamically generate cluster object styles. For example, automatically display the number of objects in each cluster
@@ -87,8 +87,8 @@ Clusters are generated dynamically, based on `VectorDataSource` data that loads 
     {% highlight objc linenos %}
 
     // 1. Initialize a local vector data source
-    NTProjection* proj = [[mapView getOptions] getBaseProjection];
-    NTLocalVectorDataSource* vectorDataSource = [[NTLocalVectorDataSource alloc] initWithProjection:proj];
+    MSFProjection* proj = [[mapView getOptions] getBaseProjection];
+    MSFLocalVectorDataSource* vectorDataSource = [[MSFLocalVectorDataSource alloc] initWithProjection:proj];
 
     // 2. Create Marker objects and add them to vectorDataSource.
     // **Note:** This depends on the _app type_ of your mobile app settings. See AdvancedMap for samples with JSON loading and random point generation
@@ -97,7 +97,7 @@ Clusters are generated dynamically, based on `VectorDataSource` data that loads 
     MyMarkerClusterElementBuilder* clusterElementBuilder = [[MyMarkerClusterElementBuilder alloc] init];
 
     // 4. Initialize a vector layer with the previous data source
-    NTClusteredVectorLayer* vectorLayer = [[NTClusteredVectorLayer alloc] initWithDataSource:vectorDataSource clusterElementBuilder:clusterElementBuilder];
+    MSFClusteredVectorLayer* vectorLayer = [[MSFClusteredVectorLayer alloc] initWithDataSource:vectorDataSource clusterElementBuilder:clusterElementBuilder];
 
     [[mapView getLayers] add:vectorLayer];
 
@@ -108,7 +108,7 @@ Clusters are generated dynamically, based on `VectorDataSource` data that loads 
     {% highlight swift linenos %}
   
     // 1. Initialize a local vector data source
-    let vectorDataSource1 = NTLocalVectorDataSource(projection: mapView?.getOptions().getBaseProjection())
+    let vectorDataSource1 = MSFLocalVectorDataSource(projection: mapView?.getOptions().getBaseProjection())
 
     // 2. Create Marker objects and add them to vectorDataSource
     // **Note:** This depends on the _app type_ of your mobile app settings.
@@ -116,7 +116,7 @@ Clusters are generated dynamically, based on `VectorDataSource` data that loads 
 
     // 3. Initialize a vector layer with the previous data source
     let builder = MyClusterElementBuilder(imageUrl: "marker_black.png")
-    let vectorLayer1 = NTClusteredVectorLayer(dataSource: vectorDataSource1, clusterElementBuilder: builder)
+    let vectorLayer1 = MSFClusteredVectorLayer(dataSource: vectorDataSource1, clusterElementBuilder: builder)
     vectorLayer1?.setMinimumClusterDistance(20)
 
     // 4. Add the previous vector layer to the map
@@ -252,7 +252,7 @@ The Cluster Element Builder takes set of original markers (map objects) as input
 
     // .h
 
-    @interface MyMarkerClusterElementBuilder : NTClusterElementBuilder
+    @interface MyMarkerClusterElementBuilder : MSFClusterElementBuilder
 
     @property NSMutableDictionary* markerStyles;
 
@@ -262,7 +262,7 @@ The Cluster Element Builder takes set of original markers (map objects) as input
 
     @implementation MyMarkerClusterElementBuilder
 
-    -(NTVectorElement*) buildClusterElement:(NTMapPos*)mapPos elements:(NTVectorElementVector*)elements
+    -(MSFVectorElement*) buildClusterElement:(MSFMapPos*)mapPos elements:(MSFVectorElementVector*)elements
     {
         if (!self.markerStyles) {
             self.markerStyles = [NSMutableDictionary new];
@@ -274,10 +274,10 @@ The Cluster Element Builder takes set of original markers (map objects) as input
             styleKey = @">1K";
         }
         
-        NTMarkerStyle* markerStyle = [self.markerStyles valueForKey:styleKey];
+        MSFMarkerStyle* markerStyle = [self.markerStyles valueForKey:styleKey];
         
         if ([elements size] == 1) {
-            markerStyle = [(NTMarker*)[elements get:0] getStyle];
+            markerStyle = [(MSFMarker*)[elements get:0] getStyle];
         }
         
         if (!markerStyle) {
@@ -298,9 +298,9 @@ The Cluster Element Builder takes set of original markers (map objects) as input
             
             UIGraphicsEndImageContext();
             
-            NTBitmap* markerBitmap = [NTBitmapUtils createBitmapFromUIImage:newImage];
+            MSFBitmap* markerBitmap = [MSFBitmapUtils createBitmapFromUIImage:newImage];
             
-            NTMarkerStyleBuilder* markerStyleBuilder = [[NTMarkerStyleBuilder alloc] init];
+            MSFMarkerStyleBuilder* markerStyleBuilder = [[MSFMarkerStyleBuilder alloc] init];
             [markerStyleBuilder setBitmap:markerBitmap];
             [markerStyleBuilder setSize:30];
             
@@ -310,9 +310,9 @@ The Cluster Element Builder takes set of original markers (map objects) as input
             [self.markerStyles setValue:markerStyle forKey:styleKey];
         }
         
-        NTMarker* marker = [[NTMarker alloc] initWithPos:mapPos style:markerStyle];
+        MSFMarker* marker = [[MSFMarker alloc] initWithPos:mapPos style:markerStyle];
         
-        NTVariant* variant = [[NTVariant alloc] initWithString:[@([elements size]) stringValue]];
+        MSFVariant* variant = [[MSFVariant alloc] initWithString:[@([elements size]) stringValue]];
         [marker setMetaDataElement:@"elements" element:variant];
         
         return marker;
@@ -324,7 +324,7 @@ The Cluster Element Builder takes set of original markers (map objects) as input
   <div id="tab-swift">
     {% highlight swift linenos %}
   
-    public class MyClusterElementBuilder : NTClusterElementBuilder {
+    public class MyClusterElementBuilder : MSFClusterElementBuilder {
         
         let markerStyles = NSMutableDictionary()
         
@@ -336,7 +336,7 @@ The Cluster Element Builder takes set of original markers (map objects) as input
             self.imageUrl = imageUrl
         }
         
-        override public func buildClusterElement(_ mapPos: NTMapPos!, elements: NTVectorElementVector!) -> NTVectorElement! {
+        override public func buildClusterElement(_ mapPos: MSFMapPos!, elements: MSFVectorElementVector!) -> MSFVectorElement! {
             
             var styleKey = String(elements.size())
             
@@ -347,7 +347,7 @@ The Cluster Element Builder takes set of original markers (map objects) as input
             var markerStyle = self.markerStyles.value(forKeyPath: styleKey)
             
             if (elements.size() == 1) {
-                markerStyle = (elements.get(0) as! NTMarker).getStyle()
+                markerStyle = (elements.get(0) as! MSFMarker).getStyle()
             }
             
             if (markerStyle == nil) {
@@ -365,8 +365,8 @@ The Cluster Element Builder takes set of original markers (map objects) as input
                 
                 UIGraphicsEndImageContext()
                 
-                let marker = NTBitmapUtils.createBitmap(from: newImage)
-                let builder = NTMarkerStyleBuilder()
+                let marker = MSFBitmapUtils.createBitmap(from: newImage)
+                let builder = MSFMarkerStyleBuilder()
                 builder?.setBitmap(marker)
                 builder?.setSize(30)
                 
@@ -376,9 +376,9 @@ The Cluster Element Builder takes set of original markers (map objects) as input
                 self.markerStyles.setValue(markerStyle, forKey: styleKey)
             }
             
-            let marker = NTMarker(pos: mapPos, style: markerStyle as! NTMarkerStyle!)
+            let marker = MSFMarker(pos: mapPos, style: markerStyle as! MSFMarkerStyle!)
             
-            let variant = NTVariant(string: String(elements.size()))
+            let variant = MSFVariant(string: String(elements.size()))
             marker?.setMetaData("elements", element: variant)
             
             return marker

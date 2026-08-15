@@ -1,6 +1,6 @@
 ---
 title: Release Workflow
-sidebar_position: 7
+sidebar_position: 8
 slug: /release-workflow
 ---
 
@@ -30,7 +30,7 @@ Enable Pages for the repository:
 
 1. **Settings → Pages → Build and deployment → Source: GitHub Actions.**
 2. Push to `master` (or run the workflow manually). The site publishes to
-   `https://akylas.github.io/mobile-sdk/`.
+   `https://massifmaps.github.io/MassifMaps/`.
 
 ## Versioned docs (optional)
 

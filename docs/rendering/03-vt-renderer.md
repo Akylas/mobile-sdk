@@ -315,7 +315,7 @@ code — check by forcing `a = 0` in that branch and seeing whether the line sti
 
 ## Style evaluation
 
-CartoCSS values may be functions of view state (zoom, nuti parameters), so colours, widths and
+CartoCSS values may be functions of view state (zoom, style parameters), so colours, widths and
 opacities are evaluated per frame per style layer through small caches keyed by the function plus
 view state (`_colorFuncCache` and friends, with `styleFuncLookups`/`styleFuncMisses` counters).
 

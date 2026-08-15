@@ -103,27 +103,27 @@ Add a marker and apply marker styling using the following code:
     // Preparation - create layer and datasource
     
     // we'll need projection later
-    NTEPSG3857* proj = [[NTEPSG3857 alloc] init];
+    MSFEPSG3857* proj = [[MSFEPSG3857 alloc] init];
 
     // 1. Create a vector data source, bucket where we'll put objects
-    NTLocalVectorDataSource* vectorDataSource1 = [[NTLocalVectorDataSource alloc] initWithProjection:proj];
+    MSFLocalVectorDataSource* vectorDataSource1 = [[MSFLocalVectorDataSource alloc] initWithProjection:proj];
 
     // 2. Initialize a vector layer with the previous data source
-    NTVectorLayer* vectorLayer1 = [[NTVectorLayer alloc] initWithDataSource:vectorDataSource1];
+    MSFVectorLayer* vectorLayer1 = [[MSFVectorLayer alloc] initWithDataSource:vectorDataSource1];
 
     // 3. Add the previous vector layer to the map
     [[self getLayers] add:vectorLayer1];
     
     // Now real adding objects
     // 1. Create a marker style, using default marker bitmap here
-    NTMarkerStyleBuilder* markerStyleBuilder = [[NTMarkerStyleBuilder alloc] init];
+    MSFMarkerStyleBuilder* markerStyleBuilder = [[MSFMarkerStyleBuilder alloc] init];
     [markerStyleBuilder setSize:30];
-    [markerStyleBuilder setColor:[[NTColor alloc] initWithColor:0xFF00FF00]]; // green
-    NTMarkerStyle* markerStyle1 = [markerStyleBuilder buildStyle];
+    [markerStyleBuilder setColor:[[MSFColor alloc] initWithColor:0xFF00FF00]]; // green
+    MSFMarkerStyle* markerStyle1 = [markerStyleBuilder buildStyle];
 
     // 2. Define marker position and create the marker
-    NTMapPos* pos1 = [proj fromWgs84:[[NTMapPos alloc] initWithX:24.651488 y:59.423581]]; // Tallinn
-    NTMarker* marker1 = [[NTMarker alloc] initWithPos:pos1 style:markerStyle1];
+    MSFMapPos* pos1 = [proj fromWgs84:[[MSFMapPos alloc] initWithX:24.651488 y:59.423581]]; // Tallinn
+    MSFMarker* marker1 = [[MSFMarker alloc] initWithPos:pos1 style:markerStyle1];
 
     // 3. Add the marker to the data source
     [vectorDataSource1 add:marker1];
@@ -139,10 +139,10 @@ Add a marker and apply marker styling using the following code:
     let projection = mapView?.getOptions().getBaseProjection();
     
    // Create a vector data source, bucket where we'll put objects
-    let source = NTLocalVectorDataSource(projection: projection);
+    let source = MSFLocalVectorDataSource(projection: projection);
     
     // Initialize layer
-    let layer = NTVectorLayer(dataSource: source);
+    let layer = MSFVectorLayer(dataSource: source);
     
     // Add layer
     mapView?.getLayers().add(layer);    
@@ -150,14 +150,14 @@ Add a marker and apply marker styling using the following code:
     // Now real adding objects
     
     // 1. Create a marker style, using default marker bitmap here
-    let markerStyleBuilder = NTMarkerStyleBuilder();
+    let markerStyleBuilder = MSFMarkerStyleBuilder();
     markerStyleBuilder?.setSize(30);
-    markerStyleBuilder?.setColor(NTColor.init(r: 0, g: 255, b: 0, a: 255)); // green
+    markerStyleBuilder?.setColor(MSFColor.init(r: 0, g: 255, b: 0, a: 255)); // green
     let markerStyle1 = markerStyleBuilder?.buildStyle();
 
     // 2. Define marker position and create the marker
-    let pos1 = projection?.fromWgs84(NTMapPos(x: 24.651488, y: 59.423581)); // Tallinn
-    let marker1 = NTMarker(pos: pos1, style: markerStyle1);
+    let pos1 = projection?.fromWgs84(MSFMapPos(x: 24.651488, y: 59.423581)); // Tallinn
+    let marker1 = MSFMarker(pos: pos1, style: markerStyle1);
 
     // 3. Add the marker to the data source
     vectorDataSource1?.add(marker1);
@@ -269,16 +269,16 @@ Add a point and apply point styling using the following code:
   <div id="tab-objectivec">
     {% highlight objc linenos %}
     // 1. Set point position
-    NTMapPos* tallinn = [proj fromWgs84:[[NTMapPos alloc] initWithX:24.646469 y:59.426939]];
+    MSFMapPos* tallinn = [proj fromWgs84:[[MSFMapPos alloc] initWithX:24.646469 y:59.426939]];
 
     // 2. Create style and position for the Point
-    NTPointStyleBuilder* pointStyleBuilder = [[NTPointStyleBuilder alloc] init];
-    [pointStyleBuilder setColor:[[NTColor alloc] initWithColor:0xFF00FF00]];
+    MSFPointStyleBuilder* pointStyleBuilder = [[MSFPointStyleBuilder alloc] init];
+    [pointStyleBuilder setColor:[[MSFColor alloc] initWithColor:0xFF00FF00]];
     [pointStyleBuilder setSize:16];
 
     // 3. Create Point, add to datasource with metadata
-    NTPoint* point1 = [[NTPoint alloc] initWithPos:tallinn style:[pointStyleBuilder buildStyle]];
-    [point1 setMetaDataElement:@"ClickText" element:[[NTVariant alloc] initWithString:@"Point 1"]];
+    MSFPoint* point1 = [[MSFPoint alloc] initWithPos:tallinn style:[pointStyleBuilder buildStyle]];
+    [point1 setMetaDataElement:@"ClickText" element:[[MSFVariant alloc] initWithString:@"Point 1"]];
 
     [vectorDataSource1 add:point1];
     {% endhighlight %}
@@ -287,16 +287,16 @@ Add a point and apply point styling using the following code:
   <div id="tab-swift">
     {% highlight swift linenos %}
     // 1. Set marker position
-    let tallinn = projection?.fromWgs84(NTMapPos(x: 24.646469, y: 59.426939))
+    let tallinn = projection?.fromWgs84(MSFMapPos(x: 24.646469, y: 59.426939))
 
     // 2. Create style and position for the Point
-    let pointStyleBuilder = NTPointStyleBuilder()
-    pointStyleBuilder?.setColor(NTColor(r: 0, g: 255, b: 0, a: 255))
+    let pointStyleBuilder = MSFPointStyleBuilder()
+    pointStyleBuilder?.setColor(MSFColor(r: 0, g: 255, b: 0, a: 255))
     pointStyleBuilder?.setSize(16)
 
     // 3. Create Point, add to datasource with metadata
-    let point1 = NTPoint(pos: tallinn, style: pointStyleBuilder?.buildStyle())
-    point1?.setMetaData("ClickText", element: NTVariant(string: "Point nr 1"));
+    let point1 = MSFPoint(pos: tallinn, style: pointStyleBuilder?.buildStyle())
+    point1?.setMetaData("ClickText", element: MSFVariant(string: "Point nr 1"));
 
     vectorDataSource1?.add(point1)
     {% endhighlight %}
@@ -398,24 +398,24 @@ Lines can be added to the same VectorDataSource, it is defined by an array of Ma
   <div id="tab-objectivec">
     {% highlight objc linenos %}
     // 1. Define line style
-    NTLineStyleBuilder* lineStyleBuilder = [[NTLineStyleBuilder alloc] init];
-    [lineStyleBuilder setColor:[[NTColor alloc] initWithColor:0xFFFF0000]];
+    MSFLineStyleBuilder* lineStyleBuilder = [[MSFLineStyleBuilder alloc] init];
+    [lineStyleBuilder setColor:[[MSFColor alloc] initWithColor:0xFFFF0000]];
     [lineStyleBuilder setLineJointType:NT_LINE_JOINT_TYPE_ROUND];
     [lineStyleBuilder setWidth:8];
 
     // 2. Define line positions, here as fixed locations
     MapPosVector* linePoses = [[MapPosVector alloc] init];
-    NTMapPos* initial = [proj fromWgs84:[[NTMapPos alloc] initWithX:24.645565 y:59.422074]]
+    MSFMapPos* initial = [proj fromWgs84:[[MSFMapPos alloc] initWithX:24.645565 y:59.422074]]
 
     [linePoses add:initial];
-    [linePoses add:[proj fromWgs84:[[NTMapPos alloc] initWithX:24.643076 y:59.420502]]];
-    [linePoses add:[proj fromWgs84:[[NTMapPos alloc] initWithX:24.645351 y:59.419149]]];
-    [linePoses add:[proj fromWgs84:[[NTMapPos alloc] initWithX:24.648956 y:59.420393]]];
-    [linePoses add:[proj fromWgs84:[[NTMapPos alloc] initWithX:24.650887 y:59.422707]]];
+    [linePoses add:[proj fromWgs84:[[MSFMapPos alloc] initWithX:24.643076 y:59.420502]]];
+    [linePoses add:[proj fromWgs84:[[MSFMapPos alloc] initWithX:24.645351 y:59.419149]]];
+    [linePoses add:[proj fromWgs84:[[MSFMapPos alloc] initWithX:24.648956 y:59.420393]]];
+    [linePoses add:[proj fromWgs84:[[MSFMapPos alloc] initWithX:24.650887 y:59.422707]]];
 
     // 3. Create line, add metadata and add to the datasource
-    NTLine* line1 = [[NTLine alloc] initWithGeometry:[[NTLineGeometry alloc] initWithPoses:linePoses] style:[lineStyleBuilder buildStyle]];
-    [line1 setMetaDataElement:@"ClickText" element:[[NTVariant alloc] initWithString:@"Line 1"]];
+    MSFLine* line1 = [[MSFLine alloc] initWithGeometry:[[MSFLineGeometry alloc] initWithPoses:linePoses] style:[lineStyleBuilder buildStyle]];
+    [line1 setMetaDataElement:@"ClickText" element:[[MSFVariant alloc] initWithString:@"Line 1"]];
 
     [vectorDataSource1 add:line1];
     {% endhighlight %}
@@ -424,25 +424,25 @@ Lines can be added to the same VectorDataSource, it is defined by an array of Ma
   <div id="tab-swift">
     {% highlight swift linenos %}
     // 1. Create line style, and line poses
-    let lineStyleBuilder = NTLineStyleBuilder()
-    lineStyleBuilder?.setColor(NTColor(r: 255, g: 0, b: 0, a: 255))
-    lineStyleBuilder?.setLineJoinType(NTLineJoinType.LINE_JOIN_TYPE_ROUND)
+    let lineStyleBuilder = MSFLineStyleBuilder()
+    lineStyleBuilder?.setColor(MSFColor(r: 255, g: 0, b: 0, a: 255))
+    lineStyleBuilder?.setLineJoinType(MSFLineJoinType.LINE_JOIN_TYPE_ROUND)
     lineStyleBuilder?.setWidth(8)
 
     // 2. Special MapPosVector must be used for coordinates
-    let linePoses = NTMapPosVector()
-    let initial = projection?.fromWgs84(NTMapPos(x: 24.645565, y: 59.422074))
+    let linePoses = MSFMapPosVector()
+    let initial = projection?.fromWgs84(MSFMapPos(x: 24.645565, y: 59.422074))
 
     // 3. Add positions
     linePoses?.add(initial)
-    linePoses?.add(projection?.fromWgs84(NTMapPos(x: 24.643076, y: 59.420502)));
-    linePoses?.add(projection?.fromWgs84(NTMapPos(x: 24.645351, y: 59.419149)));
-    linePoses?.add(projection?.fromWgs84(NTMapPos(x: 24.648956, y: 59.420393)));
-    linePoses?.add(projection?.fromWgs84(NTMapPos(x: 24.650887, y: 59.422707)));
+    linePoses?.add(projection?.fromWgs84(MSFMapPos(x: 24.643076, y: 59.420502)));
+    linePoses?.add(projection?.fromWgs84(MSFMapPos(x: 24.645351, y: 59.419149)));
+    linePoses?.add(projection?.fromWgs84(MSFMapPos(x: 24.648956, y: 59.420393)));
+    linePoses?.add(projection?.fromWgs84(MSFMapPos(x: 24.650887, y: 59.422707)));
 
     // 4. Add a line
-    let line1 = NTLine(poses: linePoses, style: lineStyleBuilder?.buildStyle());
-    line1?.setMetaData("ClickText", element: NTVariant(string: "Line nr 1"))
+    let line1 = MSFLine(poses: linePoses, style: lineStyleBuilder?.buildStyle());
+    line1?.setMetaData("ClickText", element: MSFVariant(string: "Line nr 1"))
 
     vectorDataSource1?.add(line1)
     {% endhighlight %}
@@ -602,47 +602,47 @@ Add a polygon and apply polygon styling using the following code. The following 
   <div id="tab-objectivec">
     {% highlight objc linenos %}
     // 1. Create polygon style
-    NTPolygonStyleBuilder* polygonStyleBuilder = [[NTPolygonStyleBuilder alloc] init];
-    [polygonStyleBuilder setColor:[[NTColor alloc] initWithColor:0xFFFF0000]];
-    lineStyleBuilder = [[NTLineStyleBuilder alloc] init];
-    [lineStyleBuilder setColor:[[NTColor alloc] initWithColor:0xFF000000]];
+    MSFPolygonStyleBuilder* polygonStyleBuilder = [[MSFPolygonStyleBuilder alloc] init];
+    [polygonStyleBuilder setColor:[[MSFColor alloc] initWithColor:0xFFFF0000]];
+    lineStyleBuilder = [[MSFLineStyleBuilder alloc] init];
+    [lineStyleBuilder setColor:[[MSFColor alloc] initWithColor:0xFF000000]];
     [lineStyleBuilder setWidth:1.0f];
     [polygonStyleBuilder setLineStyle:[lineStyleBuilder buildStyle]];
 
     // 2. Define coordinates of outer ring
-    NTMapPosVector* polygonPoses = [[MapPosVector alloc] init];
-    NTMapPos* initial = [proj fromWgs84:[[NTMapPos alloc] initWithX:24.650930 y:59.421659]];
+    MSFMapPosVector* polygonPoses = [[MapPosVector alloc] init];
+    MSFMapPos* initial = [proj fromWgs84:[[MSFMapPos alloc] initWithX:24.650930 y:59.421659]];
     [polygonPoses add:initial];
-    [polygonPoses add:[proj fromWgs84:[[NTMapPos alloc] initWithX:24.657453 y:59.416354]]];
-    [polygonPoses add:[proj fromWgs84:[[NTMapPos alloc] initWithX:24.661187 y:59.414607]]];
-    [polygonPoses add:[proj fromWgs84:[[NTMapPos alloc] initWithX:24.667667 y:59.418123]]];
-    [polygonPoses add:[proj fromWgs84:[[NTMapPos alloc] initWithX:24.665736 y:59.421703]]];
-    [polygonPoses add:[proj fromWgs84:[[NTMapPos alloc] initWithX:24.661444 y:59.421245]]];
-    [polygonPoses add:[proj fromWgs84:[[NTMapPos alloc] initWithX:24.660199 y:59.420677]]];
-    [polygonPoses add:[proj fromWgs84:[[NTMapPos alloc] initWithX:24.656552 y:59.420175]]];
-    [polygonPoses add:[proj fromWgs84:[[NTMapPos alloc] initWithX:24.654010 y:59.421472]]];
+    [polygonPoses add:[proj fromWgs84:[[MSFMapPos alloc] initWithX:24.657453 y:59.416354]]];
+    [polygonPoses add:[proj fromWgs84:[[MSFMapPos alloc] initWithX:24.661187 y:59.414607]]];
+    [polygonPoses add:[proj fromWgs84:[[MSFMapPos alloc] initWithX:24.667667 y:59.418123]]];
+    [polygonPoses add:[proj fromWgs84:[[MSFMapPos alloc] initWithX:24.665736 y:59.421703]]];
+    [polygonPoses add:[proj fromWgs84:[[MSFMapPos alloc] initWithX:24.661444 y:59.421245]]];
+    [polygonPoses add:[proj fromWgs84:[[MSFMapPos alloc] initWithX:24.660199 y:59.420677]]];
+    [polygonPoses add:[proj fromWgs84:[[MSFMapPos alloc] initWithX:24.656552 y:59.420175]]];
+    [polygonPoses add:[proj fromWgs84:[[MSFMapPos alloc] initWithX:24.654010 y:59.421472]]];
 
     // 3. Define polygon holes. This is two-dimensional array (MapPosVectorVector)
     // because Polygon can have several holes. In this sample there are two
-    NTMapPosVector* holePoses1 = [[MapPosVector alloc] init];
-    [holePoses1 add:[proj fromWgs84:[[NTMapPos alloc] initWithX:24.658409 y:59.420522]]];
-    [holePoses1 add:[proj fromWgs84:[[NTMapPos alloc] initWithX:24.662207 y:59.418896]]];
-    [holePoses1 add:[proj fromWgs84:[[NTMapPos alloc] initWithX:24.662207 y:59.417411]]];
-    [holePoses1 add:[proj fromWgs84:[[NTMapPos alloc] initWithX:24.659524 y:59.417171]]];
-    [holePoses1 add:[proj fromWgs84:[[NTMapPos alloc] initWithX:24.657615 y:59.419834]]];
+    MSFMapPosVector* holePoses1 = [[MapPosVector alloc] init];
+    [holePoses1 add:[proj fromWgs84:[[MSFMapPos alloc] initWithX:24.658409 y:59.420522]]];
+    [holePoses1 add:[proj fromWgs84:[[MSFMapPos alloc] initWithX:24.662207 y:59.418896]]];
+    [holePoses1 add:[proj fromWgs84:[[MSFMapPos alloc] initWithX:24.662207 y:59.417411]]];
+    [holePoses1 add:[proj fromWgs84:[[MSFMapPos alloc] initWithX:24.659524 y:59.417171]]];
+    [holePoses1 add:[proj fromWgs84:[[MSFMapPos alloc] initWithX:24.657615 y:59.419834]]];
 
-    NTMapPosVector* holePoses2 = [[MapPosVector alloc] init];
-    [holePoses2 add:[proj fromWgs84:[[NTMapPos alloc] initWithX:24.665640 y:59.421243]]];
-    [holePoses2 add:[proj fromWgs84:[[NTMapPos alloc] initWithX:24.668923 y:59.419463]]];
-    [holePoses2 add:[proj fromWgs84:[[NTMapPos alloc] initWithX:24.662893 y:59.419365]]];
+    MSFMapPosVector* holePoses2 = [[MapPosVector alloc] init];
+    [holePoses2 add:[proj fromWgs84:[[MSFMapPos alloc] initWithX:24.665640 y:59.421243]]];
+    [holePoses2 add:[proj fromWgs84:[[MSFMapPos alloc] initWithX:24.668923 y:59.419463]]];
+    [holePoses2 add:[proj fromWgs84:[[MSFMapPos alloc] initWithX:24.662893 y:59.419365]]];
 
-    NTMapPosVectorVector* polygonHoles = [[MapPosVectorVector alloc] init];
+    MSFMapPosVectorVector* polygonHoles = [[MapPosVectorVector alloc] init];
     [holes add:holePoses1];
     [holes add:holePoses2];
 
     // 4. Create polygon, define metadata and add to datasource
-    NTPolygon* polygon = [[NTPolygon alloc] initWithGeometry:[[NTPolygonGeometry alloc] initWithPoses:polygonPoses holes:polygonHoles] style:[polygonStyleBuilder buildStyle]];
-    [polygon setMetaDataElement:@"ClickText" element:[[NTVariant alloc] initWithString:@"Polygon"]];
+    MSFPolygon* polygon = [[MSFPolygon alloc] initWithGeometry:[[MSFPolygonGeometry alloc] initWithPoses:polygonPoses holes:polygonHoles] style:[polygonStyleBuilder buildStyle]];
+    [polygon setMetaDataElement:@"ClickText" element:[[MSFVariant alloc] initWithString:@"Polygon"]];
 
     [vectorDataSource1 add:polygon];
     {% endhighlight %}
@@ -651,47 +651,47 @@ Add a polygon and apply polygon styling using the following code. The following 
   <div id="tab-swift">
     {% highlight swift linenos %}
     // 1. Create polygon style and poses
-    let polygonStyleBuilder = NTPolygonStyleBuilder()
-    polygonStyleBuilder?.setColor(NTColor(r: 255, g: 0, b: 0, a: 255))
-    let lineStyleBuilder = NTLineStyleBuilder()
-    lineStyleBuilder?.setColor(NTColor(r: 0, g: 0, b: 255, a: 255))
+    let polygonStyleBuilder = MSFPolygonStyleBuilder()
+    polygonStyleBuilder?.setColor(MSFColor(r: 255, g: 0, b: 0, a: 255))
+    let lineStyleBuilder = MSFLineStyleBuilder()
+    lineStyleBuilder?.setColor(MSFColor(r: 0, g: 0, b: 255, a: 255))
     lineStyleBuilder?.setWidth(1)
     polygonStyleBuilder?.setLineStyle(lineStyleBuilder?.buildStyle())
 
     // 2. Define coordinates of outer ring
-    let polygonPoses = NTMapPosVector()
-    let initial = projection?.fromWgs84(NTMapPos(x: 24.650930, y: 59.421659))
+    let polygonPoses = MSFMapPosVector()
+    let initial = projection?.fromWgs84(MSFMapPos(x: 24.650930, y: 59.421659))
     polygonPoses?.add(initial)
-    polygonPoses?.add(projection?.fromWgs84(NTMapPos(x: 24.657453, y: 59.416354)))
-    polygonPoses?.add(projection?.fromWgs84(NTMapPos(x: 24.661187, y: 59.414607)))
-    polygonPoses?.add(projection?.fromWgs84(NTMapPos(x: 24.667667, y: 59.418123)))
-    polygonPoses?.add(projection?.fromWgs84(NTMapPos(x: 24.665736, y: 59.421703)))
-    polygonPoses?.add(projection?.fromWgs84(NTMapPos(x: 24.661444, y: 59.421245)))
-    polygonPoses?.add(projection?.fromWgs84(NTMapPos(x: 24.660199, y: 59.420677)))
-    polygonPoses?.add(projection?.fromWgs84(NTMapPos(x: 24.656552, y: 59.420175)))
-    polygonPoses?.add(projection?.fromWgs84(NTMapPos(x: 24.654010, y: 59.421472)))
+    polygonPoses?.add(projection?.fromWgs84(MSFMapPos(x: 24.657453, y: 59.416354)))
+    polygonPoses?.add(projection?.fromWgs84(MSFMapPos(x: 24.661187, y: 59.414607)))
+    polygonPoses?.add(projection?.fromWgs84(MSFMapPos(x: 24.667667, y: 59.418123)))
+    polygonPoses?.add(projection?.fromWgs84(MSFMapPos(x: 24.665736, y: 59.421703)))
+    polygonPoses?.add(projection?.fromWgs84(MSFMapPos(x: 24.661444, y: 59.421245)))
+    polygonPoses?.add(projection?.fromWgs84(MSFMapPos(x: 24.660199, y: 59.420677)))
+    polygonPoses?.add(projection?.fromWgs84(MSFMapPos(x: 24.656552, y: 59.420175)))
+    polygonPoses?.add(projection?.fromWgs84(MSFMapPos(x: 24.654010, y: 59.421472)))
 
     // 3. Create 2 polygon holes
-    let holePoses1 = NTMapPosVector()
-    holePoses1?.add(projection?.fromWgs84(NTMapPos(x: 24.658409, y: 59.420522)))
-    holePoses1?.add(projection?.fromWgs84(NTMapPos(x: 24.662207, y: 59.418896)))
-    holePoses1?.add(projection?.fromWgs84(NTMapPos(x: 24.662207, y: 59.417411)))
-    holePoses1?.add(projection?.fromWgs84(NTMapPos(x: 24.659524, y: 59.417171)))
-    holePoses1?.add(projection?.fromWgs84(NTMapPos(x: 24.657615, y: 59.419834)))
+    let holePoses1 = MSFMapPosVector()
+    holePoses1?.add(projection?.fromWgs84(MSFMapPos(x: 24.658409, y: 59.420522)))
+    holePoses1?.add(projection?.fromWgs84(MSFMapPos(x: 24.662207, y: 59.418896)))
+    holePoses1?.add(projection?.fromWgs84(MSFMapPos(x: 24.662207, y: 59.417411)))
+    holePoses1?.add(projection?.fromWgs84(MSFMapPos(x: 24.659524, y: 59.417171)))
+    holePoses1?.add(projection?.fromWgs84(MSFMapPos(x: 24.657615, y: 59.419834)))
 
-    let holePoses2 = NTMapPosVector()
-    holePoses2?.add(projection?.fromWgs84(NTMapPos(x: 24.665640, y: 59.421243)))
-    holePoses2?.add(projection?.fromWgs84(NTMapPos(x: 24.668923, y: 59.419463)))
-    holePoses2?.add(projection?.fromWgs84(NTMapPos(x: 24.662893, y: 59.419365)))
+    let holePoses2 = MSFMapPosVector()
+    holePoses2?.add(projection?.fromWgs84(MSFMapPos(x: 24.665640, y: 59.421243)))
+    holePoses2?.add(projection?.fromWgs84(MSFMapPos(x: 24.668923, y: 59.419463)))
+    holePoses2?.add(projection?.fromWgs84(MSFMapPos(x: 24.662893, y: 59.419365)))
 
-    let polygonHoles = NTMapPosVectorVector()
+    let polygonHoles = MSFMapPosVectorVector()
     polygonHoles?.add(holePoses1)
     polygonHoles?.add(holePoses2)
 
     // 4. Add polygon
     let polygonStyle = polygonStyleBuilder?.buildStyle()
-    let polygon = NTPolygon(poses: polygonPoses, holes: polygonHoles, style: polygonStyle)
-    polygon?.setMetaData("ClickText", element: NTVariant(string: "Polygon"))
+    let polygon = MSFPolygon(poses: polygonPoses, holes: polygonHoles, style: polygonStyle)
+    polygon?.setMetaData("ClickText", element: MSFVariant(string: "Polygon"))
 
     vectorDataSource1?.add(polygon)
     {% endhighlight %}
@@ -816,17 +816,17 @@ Add text and apply text styling using the following code.
   <div id="tab-objectivec">
     {% highlight objc linenos %}
     // 1. Create text style
-    NTTextStyleBuilder* textStyleBuilder = [[NTTextStyleBuilder alloc] init];
-    [textStyleBuilder setColor:[[NTColor alloc] initWithColor:0xFFFF0000]];
+    MSFTextStyleBuilder* textStyleBuilder = [[MSFTextStyleBuilder alloc] init];
+    [textStyleBuilder setColor:[[MSFColor alloc] initWithColor:0xFFFF0000]];
     [textStyleBuilder setOrientationMode:NT_BILLBOARD_ORIENTATION_FACE_CAMERA];
     // setScaleWithDPI enables higher resolution texts for retina devices,
     // but consumes more memory and is slower if you have many texts on map
     [textStyleBuilder setScaleWithDPI:false];
 
     // 2. Define text location and add to datasource
-    NTMapPos* position = [proj fromWgs84:[[NTMapPos alloc] initWithX:24.653302 y:59.422269]];
-    NTText* textpopup1 = [[NTText alloc] initWithPos:position style:[textStyleBuilder buildStyle] text:@"Face camera text"];  
-    [textpopup1 setMetaDataElement:@"ClickText" element:[[NTVariant alloc] initWithString:@"Text 1"]];
+    MSFMapPos* position = [proj fromWgs84:[[MSFMapPos alloc] initWithX:24.653302 y:59.422269]];
+    MSFText* textpopup1 = [[MSFText alloc] initWithPos:position style:[textStyleBuilder buildStyle] text:@"Face camera text"];  
+    [textpopup1 setMetaDataElement:@"ClickText" element:[[MSFVariant alloc] initWithString:@"Text 1"]];
 
     [vectorDataSource1 add:textpopup1];
     {% endhighlight %}
@@ -835,16 +835,16 @@ Add text and apply text styling using the following code.
   <div id="tab-swift">
     {% highlight swift linenos %}
     // 1. Create text style
-    let textStyleBuilder = NTTextStyleBuilder()
-    textStyleBuilder?.setColor(NTColor(r: 255, g: 0, b: 0, a: 255))
-    textStyleBuilder?.setOrientationMode(NTBillboardOrientation.BILLBOARD_ORIENTATION_FACE_CAMERA)
+    let textStyleBuilder = MSFTextStyleBuilder()
+    textStyleBuilder?.setColor(MSFColor(r: 255, g: 0, b: 0, a: 255))
+    textStyleBuilder?.setOrientationMode(MSFBillboardOrientation.BILLBOARD_ORIENTATION_FACE_CAMERA)
     // This enables higher resolution texts for retina devices, but consumes more memory and is slower
     textStyleBuilder?.setScaleWithDPI(false)
 
     // 2. Add text
-    let position = projection?.fromWgs84(NTMapPos(x: 24.653302, y: 59.422269))
-    let textpopup1 = NTText(pos: position, style: textStyleBuilder?.buildStyle(), text: "Face camera text")
-    textpopup1?.setMetaData("ClickText", element: NTVariant(string: "Text nr 1"))
+    let position = projection?.fromWgs84(MSFMapPos(x: 24.653302, y: 59.422269))
+    let textpopup1 = MSFText(pos: position, style: textStyleBuilder?.buildStyle(), text: "Face camera text")
+    textpopup1?.setMetaData("ClickText", element: MSFVariant(string: "Text nr 1"))
 
     vectorDataSource1.add(textpopup1)
     {% endhighlight %}
@@ -969,20 +969,20 @@ A BalloonPopup appears often based on click event of an object, but you can use 
     UIImage* arrowImage = [UIImage imageNamed:@"arrow.png"];
 
     // 2. Add popup
-    NTBalloonPopupStyleBuilder* balloonPopupStyleBuilder = [[NTBalloonPopupStyleBuilder alloc] init];
+    MSFBalloonPopupStyleBuilder* balloonPopupStyleBuilder = [[MSFBalloonPopupStyleBuilder alloc] init];
     [balloonPopupStyleBuilder setCornerRadius:20];
-    [balloonPopupStyleBuilder setLeftMargins:[[NTBalloonPopupMargins alloc] initWithLeft:6 top:6 right:6 bottom:6]];
+    [balloonPopupStyleBuilder setLeftMargins:[[MSFBalloonPopupMargins alloc] initWithLeft:6 top:6 right:6 bottom:6]];
     [balloonPopupStyleBuilder setLeftImage:infoImage];
     [balloonPopupStyleBuilder setRightImage:arrowImage];
-    [balloonPopupStyleBuilder setRightMargins:[[NTBalloonPopupMargins alloc] initWithLeft:2 top:6 right:12 bottom:6]];
+    [balloonPopupStyleBuilder setRightMargins:[[MSFBalloonPopupMargins alloc] initWithLeft:2 top:6 right:12 bottom:6]];
     [balloonPopupStyleBuilder setPlacementPriority:1];
 
-    NTMapPos* position = [proj fromWgs84:[[NTMapPos alloc] initWithX:24.655662 y:59.425521]];
-    NTBalloonPopup* popup = [[NTBalloonPopup alloc] initWithPos:position
+    MSFMapPos* position = [proj fromWgs84:[[MSFMapPos alloc] initWithX:24.655662 y:59.425521]];
+    MSFBalloonPopup* popup = [[MSFBalloonPopup alloc] initWithPos:position
                                style:[balloonPopupStyleBuilder buildStyle]
                                title:@"Popup with pos"
                                desc:@"Images, round"];
-    [popup setMetaDataElement:@"ClickText" element:[[NTVariant alloc] initWithString:@"Popup caption 1"]];
+    [popup setMetaDataElement:@"ClickText" element:[[MSFVariant alloc] initWithString:@"Popup caption 1"]];
 
     [vectorDataSource1 add:popup];
     {% endhighlight %}
@@ -991,21 +991,21 @@ A BalloonPopup appears often based on click event of an object, but you can use 
   <div id="tab-swift">
     {% highlight swift linenos %}
     // 1. Load bitmaps to show on the label
-    let infoImage = NTBitmapUtils.createBitmap(from: UIImage(named: "info.png"));
-    let arrowImage = NTBitmapUtils.createBitmap(from: UIImage(named: "arrow.png"));
+    let infoImage = MSFBitmapUtils.createBitmap(from: UIImage(named: "info.png"));
+    let arrowImage = MSFBitmapUtils.createBitmap(from: UIImage(named: "arrow.png"));
 
     // 2. Add popup
-    let builder = NTBalloonPopupStyleBuilder()
+    let builder = MSFBalloonPopupStyleBuilder()
     builder?.setCornerRadius(20)
-    builder?.setLeftMargins(NTBalloonPopupMargins(left: 6, top: 6, right: 6, bottom: 6))
+    builder?.setLeftMargins(MSFBalloonPopupMargins(left: 6, top: 6, right: 6, bottom: 6))
     builder?.setLeftImage(infoImage)
     builder?.setRightImage(arrowImage)
-    builder?.setRightMargins(NTBalloonPopupMargins(left: 2, top: 6, right: 12, bottom: 6))
+    builder?.setRightMargins(MSFBalloonPopupMargins(left: 2, top: 6, right: 12, bottom: 6))
     builder?.setPlacementPriority(1)
 
-    let position = projection?.fromWgs84(NTMapPos(x: 24.655662, y: 59.425521))
-    let popup = NTBalloonPopup(pos: position, style: builder?.buildStyle(), title: "Popup with pos", desc: "Images, round")
-    popup?.setMetaData("ClickText", element: NTVariant(string: "Popup caption nr 1"))
+    let position = projection?.fromWgs84(MSFMapPos(x: 24.655662, y: 59.425521))
+    let popup = MSFBalloonPopup(pos: position, style: builder?.buildStyle(), title: "Popup with pos", desc: "Images, round")
+    popup?.setMetaData("ClickText", element: MSFVariant(string: "Popup caption nr 1"))
 
     vectorDataSource1.add(popup)
     {% endhighlight %}
@@ -1108,12 +1108,12 @@ The following procedure describes how to setup and add a 3D object to your mobil
   <div id="tab-objectivec">
     {% highlight objc linenos %}
     // 1. Load NML model from a file
-    NTBinaryData* modelData = [NTAssetUtils loadAsset:@"fcd_auto.nml"];
+    MSFBinaryData* modelData = [MSFAssetUtils loadAsset:@"fcd_auto.nml"];
 
     // 2. Set location for model, and create NMLModel object with this
-    NTMapPos* pos = [proj fromWgs84:[[NTMapPos alloc] initWithX:24.646469 y:59.424939]];
-    NTNMLModel* model = [[NTNMLModel alloc] initWithPos:pos sourceModelData:modelData];
-    [model setMetaDataElement:@"ClickText" element:[[NTVariant alloc] initWithString:@"My nice car"]];    
+    MSFMapPos* pos = [proj fromWgs84:[[MSFMapPos alloc] initWithX:24.646469 y:59.424939]];
+    MSFNMLModel* model = [[MSFNMLModel alloc] initWithPos:pos sourceModelData:modelData];
+    [model setMetaDataElement:@"ClickText" element:[[MSFVariant alloc] initWithString:@"My nice car"]];    
 
     // 3. Adjust the size- oversize it by 20*, just to make it more visible (optional)
     [model setScale:20];
@@ -1126,12 +1126,12 @@ The following procedure describes how to setup and add a 3D object to your mobil
   <div id="tab-swift">
     {% highlight swift linenos %}
     // 1. Load NML model from a file (be sure it's targeted by your application)
-    let modelData = NTAssetUtils.loadAsset("fcd_auto.nml")
+    let modelData = MSFAssetUtils.loadAsset("fcd_auto.nml")
 
     // 2. Set location for model, and create NMLModel object with this
-    let position = projection?.fromWgs84(NTMapPos(x: 24.646469, y: 59.423939))
-    let model = NTNMLModel(pos: position, sourceModelData: modelData)
-    model?.setMetaData("ClickText", element: NTVariant(string: "Single model"))
+    let position = projection?.fromWgs84(MSFMapPos(x: 24.646469, y: 59.423939))
+    let model = MSFNMLModel(pos: position, sourceModelData: modelData)
+    model?.setMetaData("ClickText", element: MSFVariant(string: "Single model"))
 
     // 3. Adjust the size- oversize it by 20*, just to make it more visible (optional)
     model?.setScale(20)

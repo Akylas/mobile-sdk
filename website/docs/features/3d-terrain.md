@@ -52,9 +52,9 @@ elevation, and draws the map on top of it.
 ## Quick start
 
 ```kotlin
-import com.carto.components.TerrainOptions
-import com.carto.datasources.HTTPTileDataSource
-import com.carto.datasources.MemoryCacheTileDataSource
+import com.massifmaps.components.TerrainOptions
+import com.massifmaps.datasources.HTTPTileDataSource
+import com.massifmaps.datasources.MemoryCacheTileDataSource
 
 // 1. An RGB-elevation source (Terrarium or MapBox encoding).
 val demSource = MemoryCacheTileDataSource(
@@ -77,8 +77,8 @@ mapView.options.terrainOptions = terrain
 ```
 
 ```swift
-let dem = NTMemoryCacheTileDataSource(dataSource: httpDem)
-let terrain = NTTerrainOptions(dataSource: dem)
+let dem = MSFMemoryCacheTileDataSource(dataSource: httpDem)
+let terrain = MSFTerrainOptions(dataSource: dem)
 terrain?.setEnabled(true)
 terrain?.setDrapeFillsEnabled(true)
 terrain?.setMeshResolution(64)

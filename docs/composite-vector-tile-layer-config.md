@@ -3,7 +3,7 @@
 `CompositeVectorTileLayer` is a `VectorTileLayer` that weaves named external data sources
 (raster, hillshade, extra vector / contour) into a master CartoCSS style's layer order.
 Each external source is placed at the position of a matching layer name in the style, and
-configured by a matching `#name { … }` block — including zoom- and nuti-parameter-dependent
+configured by a matching `#name { … }` block — including zoom- and style-parameter-dependent
 expressions.
 
 ## 1. Registering sources (Java API)
@@ -36,7 +36,7 @@ and it is drawn at that position:
   which layers exist. Add the external name there. **Note:** the array is reversed into draw
   order — the *last* entry is the bottom layer, the *first* entry is on top.
 - **Raw CartoCSS string** (`CartoCSSStyleSet`): order = first `#name` reference in the CSS
-  (top of file = bottom of map). No `"layers"` array; also **no nuti parameters** (see §6).
+  (top of file = bottom of map). No `"layers"` array; also **no style parameters** (see §6).
 
 A registered source whose name is not in the layer order is skipped (with a warning).
 
@@ -127,39 +127,39 @@ source) — no need to download the DEM at the target zoom. Set
   integer-zoom crossings. Prefer `hillshade-exaggeration` (per-frame) over `hillshade-height-scale`
   for animation.
 
-## 5. Visibility (zoom & nuti)
+## 5. Visibility (zoom & param::)
 
 Gate a source's visibility with rule predicates on its `#name` block:
 
 ```css
 #satellite[view::zoom>=13] { raster-opacity: 0.4; }          // only z>=13 (also limits fetching)
 #hillshade[view::zoom>5][view::zoom<=15] { hillshade-opacity: 0.6; }
-#hillshade[nuti::show_relief=true] { hillshade-opacity: 0.6; } // toggled at runtime (see §6)
+#hillshade[param::show_relief=true] { hillshade-opacity: 0.6; } // toggled at runtime (see §6)
 ```
 
 Raster/hillshade children have their fetch/draw zoom range constrained to the config rules'
 zoom range, so they are not fetched outside the enabled zooms.
 
-## 6. Nuti parameters — runtime visibility toggles
+## 6. Style parameters — runtime visibility toggles
 
-`nuti::` parameters let user settings drive layer visibility/appearance at runtime via
+`param::` parameters let user settings drive layer visibility/appearance at runtime via
 `decoder.setStyleParameter(name, value)`. **They must be declared in a bundle style's project
-JSON** (`"nutiparameters"`); a raw CartoCSS string cannot declare them (`loadMap` passes none).
+JSON** (`"styleparameters"`); a raw CartoCSS string cannot declare them (`loadMap` passes none).
 
 Build a self-contained bundle in memory (no external file) with an in-memory zip:
 
 ```java
-// project.json declares the nuti parameter, the layer order, and the mss file(s)
+// project.json declares the style parameter, the layer order, and the mss file(s)
 String projectJson =
     "{ \"styles\": [\"style.mss\"]," +
     "  \"layers\": [\"place\",\"contour\",\"building\",\"transportation\",\"hillshade\",\"landcover\",\"water\"]," + // top -> bottom
-    "  \"nutiparameters\": { \"show_relief\": { \"default\": true } } }";
+    "  \"styleparameters\": { \"show_relief\": { \"default\": true } } }";
 
 String mss =
     "Map { background-color: #eef2f0; }\n" +
     "#water { polygon-fill: #9cc3e0; }\n" +
     "#landcover { polygon-fill: #dbe8cc; }\n" +
-    "#hillshade[nuti::show_relief=true][view::zoom>=4] {\n" +
+    "#hillshade[param::show_relief=true][view::zoom>=4] {\n" +
     "  hillshade-opacity: linear([view::zoom], (4, 0.4), (12, 0.7));\n" +
     "  hillshade-exaggeration: linear([view::zoom], (4, 0.6), (12, 1.4));\n" +
     "}\n" +
@@ -177,7 +177,7 @@ for (String[] entry : new String[][] { {"project.json", projectJson}, {"style.ms
 }
 zos.close();
 CompiledStyleSet styleSet = new CompiledStyleSet(
-    new ZippedAssetPackage(new com.carto.core.BinaryData(bos.toByteArray())));
+    new ZippedAssetPackage(new com.massifmaps.core.BinaryData(bos.toByteArray())));
 MBVectorTileDecoder decoder = new MBVectorTileDecoder(styleSet);
 
 CompositeVectorTileLayer layer = new CompositeVectorTileLayer(baseVectorSource, decoder);
@@ -189,7 +189,7 @@ mapView.getLayers().add(layer);
 decoder.setStyleParameter("show_relief", "false");  // hides #hillshade live, no re-add
 ```
 
-Nuti parameters can be booleans (as above), enums, or numbers; declare enums with a `values`
+Style parameters can be booleans (as above), enums, or numbers; declare enums with a `values`
 map in the project JSON. `setStyleParameter` re-symbolizes and the composite re-evaluates the
 config on the next frame.
 
@@ -199,7 +199,7 @@ config on the next frame.
   first-reference = bottom.
 - **Background:** the style `Map { background-color }` is drawn by the bottom group only.
 - **Decode-bound props** (`height-scale`, `contrast`, `contour-interval`) step per zoom level;
-  nuti-driven changes to them take effect on the next zoom change.
+  parameter-driven changes to them take effect on the next zoom change.
 - **Fonts:** text symbolizers (labels) need a font asset in the style bundle; the raw-string
   demo omits text.
 - **Performance:** the master style is decoded once per style-layer group (groups = external
