@@ -12,6 +12,8 @@ SDK_VERSION = "4.4.9"
 
 FRAMEWORK_NAME="ValhallaRouting"
 REPO_URL="https://github.com/massif-maps/MassifMaps"
+# Objective-C class prefix — must match the %rename in swigpp-objc.py.
+CLASS_PREFIX="MSF"
 
 def getFinalBuildDir(target, arch=None):
   return getBuildDir( target, arch)
@@ -30,14 +32,14 @@ def updateUmbrellaHeader(filename, defines):
   with open(filename, 'r') as f:
     lines = f.readlines()
     for i in range(0, len(lines)):
-      match = re.search('^\s*#import\s+"(.*)".*', lines[i].rstrip('\n'))
+      match = re.search(r'^\s*#import\s+"(.*)".*', lines[i].rstrip('\n'))
       if match:
         headerFilename = match.group(1).split('/')[-1]
-        if not headerFilename.startswith('NT'):
-          headerFilename = 'NT%s' % headerFilename
+        if not headerFilename.startswith(CLASS_PREFIX):
+          headerFilename = '%s%s' % (CLASS_PREFIX, headerFilename)
         lines[i] = '#import <%s/%s>\n' % (FRAMEWORK_NAME , headerFilename)
     for i in range(0, len(lines)):
-      if re.search('^\s*#define\s+.*$', lines[i].rstrip('\n')):
+      if re.search(r'^\s*#define\s+.*$', lines[i].rstrip('\n')):
         break
     lines = lines[:i+1] + ['\n'] + ['#define %s\n' % define for define in defines.split(';') if define] + lines[i+1:]
   with open(filename, 'w') as f:
@@ -65,7 +67,7 @@ def updatePublicHeader(filename):
     for i in range(0, len(lines)):
       if lines[i].find('extern "C"') != -1:
         externCMode = True
-      match = re.search('^\s*#import\s+"(.*)".*', lines[i].rstrip('\n'))
+      match = re.search(r'^\s*#import\s+"(.*)".*', lines[i].rstrip('\n'))
       if match:
         headerFilename = match.group(1)
         if externCMode:
@@ -95,16 +97,12 @@ def copyXCFrameworkHeaders(args, baseDir, outputDir):
 
   currentDir = os.getcwd()
 
-#   extraHeaders = ['%s/ios/objc/utils/ExceptionWrapper.h', '%s/ios/objc/ui/MapView.h']
-#   if args.metalangle:
-#     for extraHeader in ['MGLKit.h', 'MGLKitPlatform.h', 'MGLContext.h', 'MGLKView.h', 'MGLLayer.h', 'MGLKViewController.h']:
-#       extraHeaders += ['%s/libs-external/angle-metal/include/' + extraHeader]
-#   for extraHeader in extraHeaders:
-#     dirpath, filename = (extraHeader % baseDir).rsplit('/', 1)
-#     destFilename = filename if filename.startswith('MGL') else 'NT%s' % filename
-#     publicHeaders.append(destFilename)
-#     if not copyfile(os.path.join(dirpath, filename), '%s/%s' % (destDir, destFilename)):
-#       return False  
+  # The whole ObjC surface lives in one header; the umbrella below imports it.
+  for extraHeader in ['%s/routing-lib/ios/%sValhallaRoutingService.h' % (baseDir, CLASS_PREFIX)]:
+    filename = extraHeader.rsplit('/', 1)[1]
+    publicHeaders.append(filename)
+    if not copyfile(extraHeader, '%s/%s' % (destDir, filename)):
+      return False
 
   if not copyfile('%s/scripts/routing-ios/%s.h' % (baseDir, FRAMEWORK_NAME), '%s/%s.h' % (destDir, FRAMEWORK_NAME)):
     return False
