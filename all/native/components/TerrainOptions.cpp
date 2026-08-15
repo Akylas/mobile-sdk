@@ -7,7 +7,7 @@
 
 namespace massif {
 
-    const std::string TerrainOptions::DEFAULT_NO_DRAPE_LAYER_FILTER = "^contour.*";
+    const std::string TerrainOptions::DEFAULT_NO_DRAPE_LAYER_FILTER = "^contour|maneuver.*";
 
     TerrainOptions::TerrainOptions(const std::shared_ptr<TileDataSource>& dataSource) :
         TerrainOptions(dataSource, std::shared_ptr<ElevationDecoder>())
