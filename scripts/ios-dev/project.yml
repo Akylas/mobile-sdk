@@ -15,8 +15,8 @@ options:
   createIntermediateGroups: true
 
 projectReferences:
-  CartoSDK:
-    path: .sdkproj/carto_mobile_sdk.xcodeproj
+  Massif:
+    path: .sdkproj/massif.xcodeproj
 
 targets:
   CartoDemo:
@@ -25,7 +25,7 @@ targets:
     sources:
       - path: CartoDemo
     dependencies:
-      - target: CartoSDK/carto_mobile_sdk
+      - target: Massif/massif
       - sdk: Foundation.framework
       - sdk: CoreGraphics.framework
       - sdk: CoreText.framework
@@ -52,7 +52,7 @@ targets:
         CFBundleDisplayName: CartoDemo
     settings:
       base:
-        # The umbrella ios/objc/CartoMobileSDK.h imports the NT* proxies by plain name and the two
+        # The umbrella ios/objc/MassifMaps.h imports the NT* proxies by plain name and the two
         # renamed headers (ui/MapView.h, utils/ExceptionWrapper.h) by relative path, so both roots
         # have to be searchable. build-ios.py copies and renames them instead; here we read them
         # where they are generated.

@@ -8,7 +8,7 @@
     <OutputType>Library</OutputType>
     <RootNamespace>Carto</RootNamespace>
     <IPhoneResourcePrefix>Resources</IPhoneResourcePrefix>
-    <AssemblyName>CartoMobileSDK.iOS</AssemblyName>
+    <AssemblyName>MassifMaps.iOS</AssemblyName>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -20,7 +20,7 @@
     <WarningLevel>4</WarningLevel>
     <ConsolePause>false</ConsolePause>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <DocumentationFile>$distDir\Debug\CartoMobileSDK.iOS.xml</DocumentationFile>
+    <DocumentationFile>$distDir\Debug\MassifMaps.iOS.xml</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -30,7 +30,7 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <ConsolePause>false</ConsolePause>
-    <DocumentationFile>$distDir\Release\CartoMobileSDK.iOS.xml</DocumentationFile>
+    <DocumentationFile>$distDir\Release\MassifMaps.iOS.xml</DocumentationFile>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
@@ -65,8 +65,8 @@
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\Xamarin\iOS\Xamarin.iOS.ObjCBinding.CSharp.targets" />
   <ItemGroup>
-    <ObjcBindingNativeLibrary Include="$buildDir\..\xamarin_ios_unified\libcarto_mobile_sdk.a">
-      <Link>libcarto_mobile_sdk.a</Link>
+    <ObjcBindingNativeLibrary Include="$buildDir\..\xamarin_ios_unified\libmassif.a">
+      <Link>libmassif.a</Link>
     </ObjcBindingNativeLibrary>
   </ItemGroup>
   <ItemGroup>

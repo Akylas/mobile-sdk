@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.carto.ui;
+package com.massifmaps.ui;
 
 import android.content.Context;
 import android.graphics.SurfaceTexture;

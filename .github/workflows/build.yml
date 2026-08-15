@@ -1,4 +1,4 @@
-name: Build CartoMobileSDK 
+name: Build MassifMaps 
 permissions:
   contents: write
 
@@ -70,7 +70,7 @@ jobs:
     runs-on: ${{ matrix.variant == 'android' && 'ubuntu-latest' || 'macos-latest' }}
     needs: [create-release, prepare]
     if: always()
-    name: "CartoMobileSDK ${{ matrix.variant }} - Profile: ${{ matrix.profile }}"
+    name: "MassifMaps ${{ matrix.variant }} - Profile: ${{ matrix.profile }}"
     steps:
       - name: Runner platform name
         run: |

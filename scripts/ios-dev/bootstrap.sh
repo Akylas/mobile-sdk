@@ -13,7 +13,7 @@ set -e
 cd "$(dirname "$0")"
 BASE_DIR=$(cd ../.. && pwd)
 SWIG=${SWIG:-/Volumes/dev/carto/mobile-swig/swig}
-# Matches scripts/android-dev/carto_mobile_sdk/build.gradle, so the two demos expose the same API.
+# Matches scripts/android-dev/massif/build.gradle, so the two demos expose the same API.
 PROFILE=${PROFILE:-standard+valhalla+geocoding+routing+packagemanager}
 
 case "${1:-simulator}" in

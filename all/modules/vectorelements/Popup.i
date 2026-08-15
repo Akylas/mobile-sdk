@@ -4,7 +4,7 @@
 %module Popup
 
 !proxy_imports(massif::Popup, core.MapPos, core.ScreenPos, graphics.Bitmap, geometry.Geometry, geometry.PointGeometry, styles.PopupStyle, ui.ClickInfo, vectorelements.Billboard)
-!java_imports(massif::Popup, com.carto.ui.ClickType)
+!java_imports(massif::Popup, com.massifmaps.ui.ClickType)
 
 %{
 #include "vectorelements/Popup.h"

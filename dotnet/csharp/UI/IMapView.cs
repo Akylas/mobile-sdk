@@ -1,8 +1,8 @@
-﻿namespace Carto.Ui {
-    using Carto.Core;
-    using Carto.Components;
-    using Carto.Layers;
-    using Carto.Renderers;
+﻿namespace Massif.Ui {
+    using Massif.Core;
+    using Massif.Components;
+    using Massif.Layers;
+    using Massif.Renderers;
 
     /// <summary>
     /// IMapView is a platform independent interface to the

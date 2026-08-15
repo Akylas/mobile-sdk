@@ -1,8 +1,8 @@
 Copyright 2016 Carto
 
-### Carto Mobile SDK license
+### Massif Maps license
 
-Carto Mobile SDK commercial license: https://www.cartodb.com/license/ . Please email sales@cartodb.com for details.
+Massif Maps commercial license: https://www.cartodb.com/license/ . Please email sales@cartodb.com for details.
 
 ### Map data licenses
 

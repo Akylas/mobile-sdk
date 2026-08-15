@@ -14,7 +14,7 @@
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Carto</RootNamespace>
-    <AssemblyName>CartoMobileSDK.WinPhone.VSIX</AssemblyName>
+    <AssemblyName>MassifMaps.WinPhone.VSIX</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <GeneratePkgDefFile>false</GeneratePkgDefFile>
     <IncludeAssemblyInVSIXContainer>false</IncludeAssemblyInVSIXContainer>
@@ -46,54 +46,54 @@
     <Compile Include="$baseDir\scripts\winphone10-vsix\Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="$buildDir\..\winphone_native10-ARM64\$nativeConfiguration\carto_mobile_sdk.dll">
-      <Link>Redist\CommonConfiguration\ARM64\carto_mobile_sdk.dll</Link>
+    <Content Include="$buildDir\..\winphone_native10-ARM64\$nativeConfiguration\massif.dll">
+      <Link>Redist\CommonConfiguration\ARM64\massif.dll</Link>
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
-    <Content Include="$buildDir\..\winphone_native10-x64\$nativeConfiguration\carto_mobile_sdk.dll">
-      <Link>Redist\CommonConfiguration\x64\carto_mobile_sdk.dll</Link>
+    <Content Include="$buildDir\..\winphone_native10-x64\$nativeConfiguration\massif.dll">
+      <Link>Redist\CommonConfiguration\x64\massif.dll</Link>
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
-    <Content Include="$buildDir\..\winphone_native10-Win32\$nativeConfiguration\carto_mobile_sdk.dll">
-      <Link>Redist\CommonConfiguration\x86\carto_mobile_sdk.dll</Link>
+    <Content Include="$buildDir\..\winphone_native10-Win32\$nativeConfiguration\massif.dll">
+      <Link>Redist\CommonConfiguration\x86\massif.dll</Link>
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
-    <Content Include="$buildDir\..\winphone_managed10-ARM64\bin\$configuration\CartoMobileSDK.WinPhone.dll">
-      <Link>References\CommonConfiguration\ARM64\CartoMobileSDK.WinPhone.dll</Link>
+    <Content Include="$buildDir\..\winphone_managed10-ARM64\bin\$configuration\MassifMaps.WinPhone.dll">
+      <Link>References\CommonConfiguration\ARM64\MassifMaps.WinPhone.dll</Link>
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
-    <Content Include="$buildDir\..\winphone_managed10-ARM64\bin\$configuration\CartoMobileSDK.WinPhone.XML">
-      <Link>References\CommonConfiguration\ARM64\CartoMobileSDK.WinPhone.XML</Link>
+    <Content Include="$buildDir\..\winphone_managed10-ARM64\bin\$configuration\MassifMaps.WinPhone.XML">
+      <Link>References\CommonConfiguration\ARM64\MassifMaps.WinPhone.XML</Link>
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
-    <Content Include="$buildDir\..\winphone_managed10-x64\bin\$configuration\CartoMobileSDK.WinPhone.dll">
-      <Link>References\CommonConfiguration\x64\CartoMobileSDK.WinPhone.dll</Link>
+    <Content Include="$buildDir\..\winphone_managed10-x64\bin\$configuration\MassifMaps.WinPhone.dll">
+      <Link>References\CommonConfiguration\x64\MassifMaps.WinPhone.dll</Link>
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
-    <Content Include="$buildDir\..\winphone_managed10-x64\bin\$configuration\CartoMobileSDK.WinPhone.XML">
-      <Link>References\CommonConfiguration\x64\CartoMobileSDK.WinPhone.XML</Link>
+    <Content Include="$buildDir\..\winphone_managed10-x64\bin\$configuration\MassifMaps.WinPhone.XML">
+      <Link>References\CommonConfiguration\x64\MassifMaps.WinPhone.XML</Link>
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
-    <Content Include="$buildDir\..\winphone_managed10-x86\bin\$configuration\CartoMobileSDK.WinPhone.dll">
-      <Link>References\CommonConfiguration\x86\CartoMobileSDK.WinPhone.dll</Link>
+    <Content Include="$buildDir\..\winphone_managed10-x86\bin\$configuration\MassifMaps.WinPhone.dll">
+      <Link>References\CommonConfiguration\x86\MassifMaps.WinPhone.dll</Link>
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
-    <Content Include="$buildDir\..\winphone_managed10-x86\bin\$configuration\CartoMobileSDK.WinPhone.XML">
-      <Link>References\CommonConfiguration\x86\CartoMobileSDK.WinPhone.XML</Link>
+    <Content Include="$buildDir\..\winphone_managed10-x86\bin\$configuration\MassifMaps.WinPhone.XML">
+      <Link>References\CommonConfiguration\x86\MassifMaps.WinPhone.XML</Link>
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
     <Content Include="$baseDir\scripts\winphone10-vsix\License.md">
       <Link>License.md</Link>
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
-    <None Include="$buildDir\..\winphone_native10-ARM64\$nativeConfiguration\carto_mobile_sdk.winmd">
-      <Link>References\CommonConfiguration\ARM64\carto_mobile_sdk.winmd</Link>
+    <None Include="$buildDir\..\winphone_native10-ARM64\$nativeConfiguration\massif.winmd">
+      <Link>References\CommonConfiguration\ARM64\massif.winmd</Link>
     </None>
-    <None Include="$buildDir\..\winphone_native10-x64\$nativeConfiguration\carto_mobile_sdk.winmd">
-      <Link>References\CommonConfiguration\x64\carto_mobile_sdk.winmd</Link>
+    <None Include="$buildDir\..\winphone_native10-x64\$nativeConfiguration\massif.winmd">
+      <Link>References\CommonConfiguration\x64\massif.winmd</Link>
     </None>
-    <None Include="$buildDir\..\winphone_native10-Win32\$nativeConfiguration\carto_mobile_sdk.winmd">
-      <Link>References\CommonConfiguration\x86\carto_mobile_sdk.winmd</Link>
+    <None Include="$buildDir\..\winphone_native10-Win32\$nativeConfiguration\massif.winmd">
+      <Link>References\CommonConfiguration\x86\massif.winmd</Link>
     </None>
     <None Include="$baseDir\scripts\winphone10-vsix\source.extension.vsixmanifest">
       <SubType>Designer</SubType>

@@ -1,5 +1,5 @@
 #import <Foundation/Foundation.h>
-#import "CartoMobileSDK.h"
+#import "MassifMaps.h"
 
 /**
  * Points the camera where the device points: turning the phone turns the view, raising it looks up.

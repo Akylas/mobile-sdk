@@ -83,7 +83,7 @@ def buildAndroidSO(args, abi):
     '--config', args.configuration,
   ]):
     return False
-  return makedirs('%s/%s' % (distDir, abi)) and copyfile('%s/libcarto_mobile_sdk.so' % buildDir, '%s/%s/libcarto_mobile_sdk.so' % (distDir, abi))
+  return makedirs('%s/%s' % (distDir, abi)) and copyfile('%s/libmassif.so' % buildDir, '%s/%s/libmassif.so' % (distDir, abi))
 
 def buildAndroidJAR(args):
   shutil.rmtree(getBuildDir('android_java'), True)

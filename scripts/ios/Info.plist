@@ -7,13 +7,13 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleExecutable</key>
-	<string>CartoMobileSDK</string>
+	<string>MassifMaps</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.carto.cartomobilesdk</string>
+	<string>com.massifmaps.massif</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>CartoMobileSDK</string>
+	<string>MassifMaps</string>
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>

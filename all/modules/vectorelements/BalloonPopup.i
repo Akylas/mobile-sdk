@@ -4,7 +4,7 @@
 %module BalloonPopup
 
 !proxy_imports(massif::BalloonPopup, core.MapPos, core.ScreenPos, graphics.Bitmap, geometry.Geometry, styles.BalloonPopupStyle, ui.ClickInfo, vectorelements.BalloonPopupButton, vectorelements.BalloonPopupEventListener, vectorelements.Popup)
-!java_imports(massif::BalloonPopup, com.carto.ui.ClickType)
+!java_imports(massif::BalloonPopup, com.massifmaps.ui.ClickType)
 
 %{
 #include "vectorelements/BalloonPopup.h"

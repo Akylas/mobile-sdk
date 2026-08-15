@@ -7,7 +7,7 @@
 # (tiles.mapterhorn.com) and a vector basemap (tiles.openfreemap.org) — so the
 # emulator only needs internet; no map data has to be pushed to the device.
 #
-# The native .so are prebuilt under carto_mobile_sdk/, so the app builds in seconds
+# The native .so are prebuilt under massif/, so the app builds in seconds
 # (no NDK compile). Requires a booted emulator / connected device (adb) and ffmpeg
 # for cropping/encoding.
 #

@@ -19,7 +19,7 @@ rm -rf ${tempDir}
 rm -rf ${htmldocDir}
 
 # Build individual XML documentation files
-${mdocExec} update -i "${buildDir}/CartoMobileSDK.Android.xml" -o ${tempDir} "${buildDir}/CartoMobileSDK.Android.dll" ${libraryDirs}
+${mdocExec} update -i "${buildDir}/MassifMaps.Android.xml" -o ${tempDir} "${buildDir}/MassifMaps.Android.dll" ${libraryDirs}
 
 # Cleanup the documentation XML files
 ${python} "${cmdDir}/htmldoc/cleanup-htmldoc.py" ${tempDir}

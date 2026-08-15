@@ -1,8 +1,8 @@
-﻿namespace Carto.Ui {
+﻿namespace Massif.Ui {
     using System;
     using CoreFoundation;
     using GLKit;
-    using Carto.Renderers;
+    using Massif.Renderers;
 
     // iOS-specific implementation of RedrawRequestListener.
     internal class MapRedrawRequestListener : RedrawRequestListener {
@@ -30,7 +30,7 @@
                 }
             }
             catch (System.Exception e) {
-                Carto.Utils.Log.Error("MapRedrawRequestListener.SetNeedsDisplay: " + e);
+                Massif.Utils.Log.Error("MapRedrawRequestListener.SetNeedsDisplay: " + e);
             }
         }
 

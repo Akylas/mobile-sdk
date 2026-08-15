@@ -1,4 +1,4 @@
-package com.carto.ui;
+package com.massifmaps.ui;
 
 import java.lang.reflect.Method;
 
@@ -13,17 +13,17 @@ import android.opengl.GLSurfaceView;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 
-import com.carto.components.Options;
-import com.carto.components.Layers;
-import com.carto.core.MapBounds;
-import com.carto.core.MapPos;
-import com.carto.core.ScreenPos;
-import com.carto.core.ScreenBounds;
-import com.carto.core.MapVec;
-import com.carto.renderers.MapRenderer;
-import com.carto.renderers.RedrawRequestListener;
-import com.carto.utils.AndroidUtils;
-import com.carto.utils.AssetUtils;
+import com.massifmaps.components.Options;
+import com.massifmaps.components.Layers;
+import com.massifmaps.core.MapBounds;
+import com.massifmaps.core.MapPos;
+import com.massifmaps.core.ScreenPos;
+import com.massifmaps.core.ScreenBounds;
+import com.massifmaps.core.MapVec;
+import com.massifmaps.renderers.MapRenderer;
+import com.massifmaps.renderers.RedrawRequestListener;
+import com.massifmaps.utils.AndroidUtils;
+import com.massifmaps.utils.AssetUtils;
 
 /**
  * MapView is a view class supporting map rendering and interaction.
@@ -41,10 +41,10 @@ public class TextureMapView extends GLTextureView implements GLSurfaceView.Rende
 
     static {
         try {
-            System.loadLibrary("carto_mobile_sdk");
+            System.loadLibrary("massif");
             AndroidUtils.attachJVM(MapView.class);
         } catch (Throwable t) {
-            android.util.Log.e("carto_mobile_sdk", "Failed to initialize Carto Mobile Maps SDK, native .so library failed to load?", t);
+            android.util.Log.e("massif", "Failed to initialize Massif Maps, native .so library failed to load?", t);
         }
     }
 
@@ -80,7 +80,7 @@ public class TextureMapView extends GLTextureView implements GLSurfaceView.Rende
             longClickable = ta.getBoolean(1, true);
             ta.recycle();
         } catch (Exception e) {
-            com.carto.utils.Log.warn("MapView: Failed to read attributes");
+            com.massifmaps.utils.Log.warn("MapView: Failed to read attributes");
         }
         setClickable(clickable);
         setLongClickable(longClickable);
@@ -110,7 +110,7 @@ public class TextureMapView extends GLTextureView implements GLSurfaceView.Rende
                     glesVersion = 3;
                 }
             } catch (Exception e) {
-                com.carto.utils.Log.info("TextureMapView: Could not query OpenGL ES version, using ES 2.0: " + e);
+                com.massifmaps.utils.Log.info("TextureMapView: Could not query OpenGL ES version, using ES 2.0: " + e);
             }
             setEGLContextClientVersion(glesVersion);
             setEGLConfigChooser(new ConfigChooser(glesVersion));
@@ -267,7 +267,7 @@ public class TextureMapView extends GLTextureView implements GLSurfaceView.Rende
             }
         }
         catch (IllegalArgumentException e) {
-            com.carto.utils.Log.error("MapView.onTouchEvent: " + e);
+            com.massifmaps.utils.Log.error("MapView.onTouchEvent: " + e);
         }
         return true;
     }

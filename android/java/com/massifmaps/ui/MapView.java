@@ -1,4 +1,4 @@
-package com.carto.ui;
+package com.massifmaps.ui;
 
 import java.lang.reflect.Method;
 
@@ -13,17 +13,17 @@ import android.opengl.GLSurfaceView;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 
-import com.carto.components.Options;
-import com.carto.components.Layers;
-import com.carto.core.MapBounds;
-import com.carto.core.MapPos;
-import com.carto.core.ScreenPos;
-import com.carto.core.ScreenBounds;
-import com.carto.core.MapVec;
-import com.carto.renderers.MapRenderer;
-import com.carto.renderers.RedrawRequestListener;
-import com.carto.utils.AndroidUtils;
-import com.carto.utils.AssetUtils;
+import com.massifmaps.components.Options;
+import com.massifmaps.components.Layers;
+import com.massifmaps.core.MapBounds;
+import com.massifmaps.core.MapPos;
+import com.massifmaps.core.ScreenPos;
+import com.massifmaps.core.ScreenBounds;
+import com.massifmaps.core.MapVec;
+import com.massifmaps.renderers.MapRenderer;
+import com.massifmaps.renderers.RedrawRequestListener;
+import com.massifmaps.utils.AndroidUtils;
+import com.massifmaps.utils.AssetUtils;
 
 /**
  * MapView is a view class supporting map rendering and interaction.
@@ -46,10 +46,10 @@ public class MapView extends GLSurfaceView implements GLSurfaceView.Renderer, Ma
     
     static {
         try {
-            System.loadLibrary("carto_mobile_sdk");
+            System.loadLibrary("massif");
             AndroidUtils.attachJVM(MapView.class);
         } catch (Throwable cause) {
-            android.util.Log.e("carto_mobile_sdk", "Failed to initialize Carto Mobile Maps SDK, native .so library failed to load?", cause);
+            android.util.Log.e("massif", "Failed to initialize Massif Maps, native .so library failed to load?", cause);
             libraryLoadingErrorCause = cause;
         }
     }
@@ -84,7 +84,7 @@ public class MapView extends GLSurfaceView implements GLSurfaceView.Renderer, Ma
             longClickable = ta.getBoolean(1, true);
             ta.recycle();
         } catch (Exception e) {
-            com.carto.utils.Log.warn("MapView: Failed to read attributes");
+            com.massifmaps.utils.Log.warn("MapView: Failed to read attributes");
         }
         setClickable(clickable);
         setLongClickable(longClickable);
@@ -107,7 +107,7 @@ public class MapView extends GLSurfaceView implements GLSurfaceView.Renderer, Ma
                 Method m = GLSurfaceView.class.getMethod("setPreserveEGLContextOnPause", Boolean.TYPE);
                 m.invoke(this, true);
             } catch (Exception e) {
-                com.carto.utils.Log.info("MapView: Preserving EGL context on pause is not possible: " + e);
+                com.massifmaps.utils.Log.info("MapView: Preserving EGL context on pause is not possible: " + e);
             }
             // Prefer an OpenGL ES 3.0 context when the device supports it: the rendering
             // code uses the ES 2.0 API subset, but ES3-class contexts guarantee vertex
@@ -119,7 +119,7 @@ public class MapView extends GLSurfaceView implements GLSurfaceView.Renderer, Ma
                     glesVersion = 3;
                 }
             } catch (Exception e) {
-                com.carto.utils.Log.info("MapView: Could not query OpenGL ES version, using ES 2.0: " + e);
+                com.massifmaps.utils.Log.info("MapView: Could not query OpenGL ES version, using ES 2.0: " + e);
             }
             setEGLContextClientVersion(glesVersion);
             setEGLConfigChooser(new ConfigChooser(glesVersion));
@@ -288,7 +288,7 @@ public class MapView extends GLSurfaceView implements GLSurfaceView.Renderer, Ma
             }
         }
         catch (IllegalArgumentException e) {
-            com.carto.utils.Log.error("MapView.onTouchEvent: " + e);
+            com.massifmaps.utils.Log.error("MapView.onTouchEvent: " + e);
         }
         return true;
     }

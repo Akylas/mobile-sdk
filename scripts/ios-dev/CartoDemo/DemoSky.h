@@ -1,5 +1,5 @@
 #import <Foundation/Foundation.h>
-#import "CartoMobileSDK.h"
+#import "MassifMaps.h"
 
 /**
  * Day-cycle demo: sun position, sky/horizon/ground colours, shadow strength and a GENERATED sky

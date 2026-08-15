@@ -28,7 +28,7 @@ apply plugin: 'com.android.library'
 // apply from: "publish.gradle"
 
 android {
-    namespace "com.carto"
+    namespace "com.massifmaps"
     compileSdkVersion 36
 
     defaultConfig {
@@ -57,7 +57,7 @@ android {
     }
 
     packagingOptions {
-        doNotStrip "*/*/libcarto_mobile_sdk.so"
+        doNotStrip "*/*/libmassif.so"
     }
     lintOptions {
       checkReleaseBuilds false
@@ -90,15 +90,15 @@ artifacts {
     archives sourcesJar, javadocJar
 }
 
-group = 'com.carto'
+group = 'com.massifmaps'
 version = System.getProperty('build-version')
 
 // afterEvaluate {
 //     publishing {
 //         publications {
 //             release(MavenPublication) {
-//                 groupId = 'com.carto'
-//                 artifactId 'carto-mobile-sdk'
+//                 groupId = 'com.massifmaps'
+//                 artifactId 'massif'
 //                 version = System.getProperty('build-version')
 //                 from(components.release)
 //                 artifact sourcesJar

@@ -1,5 +1,5 @@
 #import <Foundation/Foundation.h>
-#import "CartoMobileSDK.h"
+#import "MassifMaps.h"
 
 /**
  * Style decoders and the generated CartoCSS, the counterpart of scripts/android-dev's

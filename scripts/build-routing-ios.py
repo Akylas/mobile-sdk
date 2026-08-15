@@ -192,7 +192,7 @@ def buildIOSXCFramework(args, baseArchs, outputDir=None):
     ):
       return False
     frameworkOptions.extend(["-library", str(libFinalPath), "-headers", str(headersDir) ])  
-  # frameworkOptions = itertools.chain(*[['-framework', '%s/CartoMobileSDK.framework' % frameworkBuildDir] for frameworkBuildDir in frameworkBuildDirs])
+  # frameworkOptions = itertools.chain(*[['-framework', '%s/MassifMaps.framework' % frameworkBuildDir] for frameworkBuildDir in frameworkBuildDirs])
   if not execute('xcodebuild', baseDir,
     '-create-xcframework', '-output', '%s/%s.xcframework' % (distDir, FRAMEWORK_NAME),
     *list(frameworkOptions)

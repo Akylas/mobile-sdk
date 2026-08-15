@@ -1,7 +1,7 @@
-namespace Carto.Ui {
+namespace Massif.Ui {
     using System;
     using Android.Opengl;
-    using Carto.Renderers;
+    using Massif.Renderers;
 
     // Android-specific implementation of RedrawRequestListener.
     internal class MapRedrawRequestListener : RedrawRequestListener {
@@ -29,10 +29,10 @@ namespace Carto.Ui {
                 }
             }
             catch (Java.Lang.Exception e) {
-                Carto.Utils.Log.Error("MapRedrawRequestListener.OnRedrawRequested: Java exception: " + e);
+                Massif.Utils.Log.Error("MapRedrawRequestListener.OnRedrawRequested: Java exception: " + e);
             }
             catch (System.Exception e) {
-                Carto.Utils.Log.Error("MapRedrawRequestListener.OnRedrawRequested: " + e);
+                Massif.Utils.Log.Error("MapRedrawRequestListener.OnRedrawRequested: " + e);
             }
         }
     }

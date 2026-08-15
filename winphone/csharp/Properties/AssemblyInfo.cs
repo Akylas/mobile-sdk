@@ -5,8 +5,8 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("CartoMobileSDK.WinPhone")]
-[assembly: AssemblyDescription("Carto Mobile SDK for Windows Phone")]
+[assembly: AssemblyTitle("MassifMaps.WinPhone")]
+[assembly: AssemblyDescription("Massif Maps for Windows Phone")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("CartoDB")]
 [assembly: AssemblyProduct("")]

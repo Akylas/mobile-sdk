@@ -1,4 +1,4 @@
-namespace Carto.Ui {
+namespace Massif.Ui {
     using Javax.Microedition.Khronos.Egl;
     using Android.Util;
 
@@ -19,14 +19,14 @@ namespace Carto.Ui {
         };
 
         public Javax.Microedition.Khronos.Egl.EGLConfig ChooseConfig(Javax.Microedition.Khronos.Egl.IEGL10 egl, Javax.Microedition.Khronos.Egl.EGLDisplay eglDisplay) {
-            Carto.Utils.Log.Debug("ConfigChooser.ChooseConfig: Model: " + Android.OS.Build.Model + ", board: " + Android.OS.Build.Board + ", product: " + Android.OS.Build.Product);
+            Massif.Utils.Log.Debug("ConfigChooser.ChooseConfig: Model: " + Android.OS.Build.Model + ", board: " + Android.OS.Build.Board + ", product: " + Android.OS.Build.Product);
 
             for (int i = 0; i < ATTRIBUTE_TABLE.Length; i++) {
                 int[] numConfigs = new int[] { 0 };
                 EGLConfig[] configs = new EGLConfig[1];
                 if (egl.EglChooseConfig(eglDisplay, ATTRIBUTE_TABLE[i], configs, 1, numConfigs)) {
                     if (numConfigs[0] > 0) {
-                        Carto.Utils.Log.Debug("ConfigChooser.ChooseConfig: Selected display configuration: " + i);
+                        Massif.Utils.Log.Debug("ConfigChooser.ChooseConfig: Selected display configuration: " + i);
                         return configs[0];
                     }
                 }

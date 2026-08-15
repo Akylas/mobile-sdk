@@ -10,7 +10,7 @@ from build.sdk_build_utils import *
 IOS_ARCHS = ['i386', 'x86_64', 'armv7', 'arm64', 'arm64-simulator', 'x86_64-maccatalyst', 'arm64-maccatalyst']
 SDK_VERSION = "4.4.9"
 
-FRAMEWORK_NAME="CartoMobileSDK"
+FRAMEWORK_NAME="MassifMaps"
 REPO_URL="https://github.com/Akylas/mobile-sdk"
 
 def getFinalBuildDir(target, arch=None):
@@ -190,7 +190,7 @@ def buildIOSLib(args, baseArch, outputDir=None):
     return False
 
   # we need to fix targets for MACALYST which are wrong 
-  pbxproj = '%s/carto_mobile_sdk.xcodeproj/project.pbxproj' % buildDir
+  pbxproj = '%s/massif.xcodeproj/project.pbxproj' % buildDir
   print('pbxproj %s' % pbxproj)
   with open(pbxproj) as f:
       pbxprojContent = f.read().replace('-apple-ios-13.0-macabi', '-apple-ios13.1-macabi')
@@ -202,7 +202,7 @@ def buildIOSLib(args, baseArch, outputDir=None):
     bitcodeOptions = ['ENABLE_BITCODE=YES', 'BITCODE_GENERATION_MODE=bitcode']
   buildMode = ('archive' if args.configuration == 'Release' else 'build')
   return execute('xcodebuild', buildDir,
-    '-project', 'carto_mobile_sdk.xcodeproj', '-arch', arch, '-configuration', args.configuration, buildMode,
+    '-project', 'massif.xcodeproj', '-arch', arch, '-configuration', args.configuration, buildMode,
     *list(bitcodeOptions+['GCC_PREPROCESSOR_DEFINITIONS=_LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION'])
   )
 
@@ -221,9 +221,9 @@ def buildIOSFramework(args, baseArchs, outputDir=None):
   for baseArch in baseArchs:
     platform, arch = getPlatformArch(baseArch)
     if platform == 'MACCATALYST':
-      libFilePath = "%s/%s/libcarto_mobile_sdk.%s" % (getFinalBuildDir('ios', '%s-%s' % (platform, arch)), args.configuration, 'dylib' if args.sharedlib else 'a')
+      libFilePath = "%s/%s/libmassif.%s" % (getFinalBuildDir('ios', '%s-%s' % (platform, arch)), args.configuration, 'dylib' if args.sharedlib else 'a')
     else:
-      libFilePath = "%s/%s-%s/libcarto_mobile_sdk.%s" % (getFinalBuildDir('ios', '%s-%s' % (platform, arch)), args.configuration, ('iphone%s' % platform.lower()), 'dylib' if args.sharedlib else 'a')
+      libFilePath = "%s/%s-%s/libmassif.%s" % (getFinalBuildDir('ios', '%s-%s' % (platform, arch)), args.configuration, ('iphone%s' % platform.lower()), 'dylib' if args.sharedlib else 'a')
     libFilePaths.append(libFilePath)
 
   if not execute('lipo', baseDir,
@@ -285,9 +285,9 @@ def buildIOSXCFramework(args, baseArchs, outputDir=None):
     for baseArch in baseArchs:
       platform, arch = getPlatformArch(baseArch)
       if platform == 'MACCATALYST':
-        libFilePath = "%s/%s/libcarto_mobile_sdk.%s" % (getFinalBuildDir('ios', '%s-%s' % (platform, arch)), args.configuration, 'dylib' if args.sharedlib else 'a')
+        libFilePath = "%s/%s/libmassif.%s" % (getFinalBuildDir('ios', '%s-%s' % (platform, arch)), args.configuration, 'dylib' if args.sharedlib else 'a')
       else:
-        libFilePath = "%s/%s-%s/libcarto_mobile_sdk.%s" % (getFinalBuildDir('ios', '%s-%s' % (platform, arch)), args.configuration, ('iphone%s' % platform.lower()), 'dylib' if args.sharedlib else 'a')
+        libFilePath = "%s/%s-%s/libmassif.%s" % (getFinalBuildDir('ios', '%s-%s' % (platform, arch)), args.configuration, ('iphone%s' % platform.lower()), 'dylib' if args.sharedlib else 'a')
       libFilePaths.append(libFilePath)
     libFinalPath = "%s/%s.a" % (getFinalBuildDir('ios', platform), FRAMEWORK_NAME)
     if not execute('lipo', baseDir,
@@ -296,7 +296,7 @@ def buildIOSXCFramework(args, baseArchs, outputDir=None):
     ):
       return False
     frameworkOptions.extend(["-library", str(libFinalPath), "-headers", str(headersDir) ])  
-  # frameworkOptions = itertools.chain(*[['-framework', '%s/CartoMobileSDK.framework' % frameworkBuildDir] for frameworkBuildDir in frameworkBuildDirs])
+  # frameworkOptions = itertools.chain(*[['-framework', '%s/MassifMaps.framework' % frameworkBuildDir] for frameworkBuildDir in frameworkBuildDirs])
   if not execute('xcodebuild', baseDir,
     '-create-xcframework', '-output', '%s/%s.xcframework' % (distDir, FRAMEWORK_NAME),
     *list(frameworkOptions)

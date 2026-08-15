@@ -1,8 +1,8 @@
-package com.carto.ui;
+package com.massifmaps.ui;
 
 import java.lang.ref.WeakReference;
 
-import com.carto.renderers.RedrawRequestListener;
+import com.massifmaps.renderers.RedrawRequestListener;
 
 /**
  * Android-specific implementation of RedrawRequestListener, used by MapView.

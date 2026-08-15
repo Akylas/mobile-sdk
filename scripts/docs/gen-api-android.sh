@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Generate the Android (Java) API reference (Javadoc) into website/static/api/android.
 #
-# Steps: run the SWIG Java proxy generator to emit the public com.carto.* Java
+# Steps: run the SWIG Java proxy generator to emit the public com.massifmaps.* Java
 # sources, then run `javadoc` over them. No native compile is needed — Javadoc only
 # reads the generated sources.
 #

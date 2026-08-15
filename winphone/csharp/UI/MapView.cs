@@ -1,7 +1,7 @@
-﻿namespace Carto.Ui {
+﻿namespace Massif.Ui {
     using System;
-    using Carto.Renderers;
-    using Carto.Utils;
+    using Massif.Renderers;
+    using Massif.Utils;
     using Windows.UI.Xaml.Markup;
 
     /// <summary>

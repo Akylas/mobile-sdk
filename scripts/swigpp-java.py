@@ -52,8 +52,8 @@ SHARED_PTR_TEMPLATE = """
 """
 
 POLYMORPHIC_SHARED_PTR_TEMPLATE = SHARED_PTR_TEMPLATE + """
-%pragma(java) jniclassclassmodifiers="@com.carto.utils.DontObfuscate public class"
-%typemap(javaclassmodifiers) $CLASSNAME$ "@com.carto.utils.DontObfuscate public class"
+%pragma(java) jniclassclassmodifiers="@com.massifmaps.utils.DontObfuscate public class"
+%typemap(javaclassmodifiers) $CLASSNAME$ "@com.massifmaps.utils.DontObfuscate public class"
 
 %{
 #include "components/ClassRegistry.h"
@@ -125,7 +125,7 @@ POLYMORPHIC_SHARED_PTR_CODE_TEMPLATE = """
       java.lang.reflect.Constructor<?> constructor = objClass.getDeclaredConstructor(argTypes);
       objInstance = ($PACKAGE$.$TYPE$) constructor.newInstance(args);
     } catch (Exception e) {
-      com.carto.utils.Log.error("Carto Mobile SDK: Could not instantiate class: " + objClassName + " error: " + e.getMessage());
+      com.massifmaps.utils.Log.error("Massif Maps: Could not instantiate class: " + objClassName + " error: " + e.getMessage());
     }
     return objInstance;
   }
@@ -201,7 +201,7 @@ def fixProxyCode(fileName, className):
     # Add '@hidden' comment above the special SWIG-wrapper lines
     hide = line.strip() in [
       'public class %sModuleJNI {' % className,
-      '@com.carto.utils.DontObfuscate public class %sModuleJNI {' % className,
+      '@com.massifmaps.utils.DontObfuscate public class %sModuleJNI {' % className,
       'private transient long swigCPtr;',
       'protected transient boolean swigCMemOwn;',
       'public %s(long cPtr, boolean cMemoryOwn) {' % className,
@@ -310,7 +310,7 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
     match = re.search(r'^\s*!polymorphic_shared_ptr\s*[(]([^,]*),([^)]*)[)].*', line)
     if match:
       className = match.group(1).strip()
-      javaPackage = 'com.carto.%s' % '.'.join(match.group(2).strip().split(".")[:-1])
+      javaPackage = 'com.massifmaps.%s' % '.'.join(match.group(2).strip().split(".")[:-1])
       javaClass = match.group(2).strip().split(".")[-1]
       javaDescriptor = "Lcom/carto/%s;" % match.group(2).strip().replace('.', '/')
       args = { 'CLASSNAME': match.group(1).strip(), 'TYPE': javaClass, 'PACKAGE': javaPackage, 'DESCRIPTOR': javaDescriptor }
@@ -363,7 +363,7 @@ def transformSwigFile(sourcePath, outPath, headerDirs):
       parts = [part.strip() for part in match.group(2).split(",")]
       className = parts[0]
       if lang == 'proxy':
-        class_imports[className] = class_imports.get(className, []) + ['import com.carto.%s;' % part for part in parts[1:]]
+        class_imports[className] = class_imports.get(className, []) + ['import com.massifmaps.%s;' % part for part in parts[1:]]
       elif lang == 'java':
         class_imports[className] = class_imports.get(className, []) + ['import %s;' % part for part in parts[1:]]
       else:
@@ -475,7 +475,7 @@ def collectSwigJobs(args, sourceDir, packageName, jobs):
     fileNameWithoutExt = fileName.split(".")[0]
     sourcePath = os.path.join(sourceDir, fileName)
     outPath = os.path.join(args.wrapperDir, fileNameWithoutExt) + "_wrap.cpp"
-    proxyDir = os.path.join(args.proxyDir, ("com.carto.%s" % packageName).replace(".", "/"))
+    proxyDir = os.path.join(args.proxyDir, ("com.massifmaps.%s" % packageName).replace(".", "/"))
     if not os.path.isfile(sourcePath):
       continue
     if (sourcePath in ignoredSourceFiles):
@@ -490,7 +490,7 @@ def collectSwigJobs(args, sourceDir, packageName, jobs):
     if swigPath:
       includes += ["-I%s/Lib/java" % swigPath, "-I%s/Lib" % swigPath]
     defines = ["-D%s" % define for define in args.defines.split(';') if define]
-    cmd = [args.swig, "-c++", "-java", "-package", "com.carto.%s" % packageName, "-outdir", proxyDir, "-o", outPath, "-doxygen"] + defines + includes + [sourcePath]
+    cmd = [args.swig, "-c++", "-java", "-package", "com.massifmaps.%s" % packageName, "-outdir", proxyDir, "-o", outPath, "-doxygen"] + defines + includes + [sourcePath]
     jobs.append({ 'cmd': cmd, 'fileName': fileName, 'sourcePath': sourcePath,
                   'proxyDir': proxyDir, 'fileNameWithoutExt': fileNameWithoutExt })
 

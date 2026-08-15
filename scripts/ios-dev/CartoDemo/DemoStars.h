@@ -1,5 +1,5 @@
 #import <Foundation/Foundation.h>
-#import "CartoMobileSDK.h"
+#import "MassifMaps.h"
 
 @class NTCelestialLayer;
 

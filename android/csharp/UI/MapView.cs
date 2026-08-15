@@ -1,12 +1,12 @@
-namespace Carto.Ui {
+namespace Massif.Ui {
     using Android.Content;
     using Android.Content.Res;
     using Android.Preferences;
     using Android.Opengl;
     using Android.Util;
     using Android.Views;
-    using Carto.Renderers;
-    using Carto.Utils;
+    using Massif.Renderers;
+    using Massif.Utils;
 
     /// <summary>
     /// MapView is an Android-specific view class supporting map rendering and interaction.
@@ -51,7 +51,7 @@ namespace Carto.Ui {
                 longClickable = ta.GetBoolean(1, true);
                 ta.Recycle();
             } catch (System.Exception e) {
-                Carto.Utils.Log.Warn("MapView: Failed to read attributes: " + e);
+                Massif.Utils.Log.Warn("MapView: Failed to read attributes: " + e);
             }
             Clickable = clickable;
             LongClickable = longClickable;
@@ -70,7 +70,7 @@ namespace Carto.Ui {
                 System.Reflection.PropertyInfo prop = typeof(GLSurfaceView).GetProperty("PreserveEGLContextOnPause");
                 prop.SetValue(this, true);
             } catch (System.Exception e) {
-                Carto.Utils.Log.Info("MapView: Preserving EGL context on pause is not possible: " + e);
+                Massif.Utils.Log.Info("MapView: Preserving EGL context on pause is not possible: " + e);
             }
 
             SetEGLContextClientVersion(2);
@@ -209,9 +209,9 @@ namespace Carto.Ui {
                         break;
                     }
                 } catch (Java.Lang.Exception e) {
-                    Carto.Utils.Log.Error("MapView.OnTouchEvent: Java exception: " + e);
+                    Massif.Utils.Log.Error("MapView.OnTouchEvent: Java exception: " + e);
                 } catch (System.Exception e) {
-                    Carto.Utils.Log.Error("MapView.OnTouchEvent: Exception: " + e);
+                    Massif.Utils.Log.Error("MapView.OnTouchEvent: Exception: " + e);
                 }
                 return true;
             }

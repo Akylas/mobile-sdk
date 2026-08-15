@@ -1,4 +1,4 @@
-name: Build CartoMobileSDK  css2xml tool
+name: Build MassifMaps  css2xml tool
  
 on: 
   workflow_dispatch:

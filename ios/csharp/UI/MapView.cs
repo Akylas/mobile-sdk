@@ -1,4 +1,4 @@
-﻿namespace Carto.Ui {
+﻿namespace Massif.Ui {
     using System;
     using UIKit;
     using GLKit;
@@ -6,11 +6,11 @@
     using CoreFoundation;
     using CoreGraphics;
     using Foundation;
-    using Carto.Components;
-    using Carto.Core;
-    using Carto.Layers;
-    using Carto.Renderers;
-    using Carto.Utils;
+    using Massif.Components;
+    using Massif.Core;
+    using Massif.Layers;
+    using Massif.Renderers;
+    using Massif.Utils;
 
     /// <summary>
     /// MapView is an iOS-specific view class supporting map rendering and interaction.

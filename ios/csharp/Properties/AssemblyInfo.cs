@@ -6,8 +6,8 @@ using Foundation;
 // Information about this assembly is defined by the following attributes.
 // Change them to the values specific to your project.
 
-[assembly: AssemblyTitle ("CartoMobileSDK.iOS")]
-[assembly: AssemblyDescription ("Carto Mobile SDK for iOS")]
+[assembly: AssemblyTitle ("MassifMaps.iOS")]
+[assembly: AssemblyDescription ("Massif Maps for iOS")]
 [assembly: AssemblyConfiguration ("")]
 [assembly: AssemblyCompany ("CartoDB")]
 [assembly: AssemblyProduct ("")]
@@ -20,7 +20,7 @@ using Foundation;
 // and "{Major}.{Minor}.{Build}.*" will update just the revision.
 
 [assembly: AssemblyVersion ("1.0.*")]
-[assembly: LinkWith("libcarto_mobile_sdk.a", LinkTarget.ArmV7|LinkTarget.ArmV7s|LinkTarget.Arm64|LinkTarget.Simulator|LinkTarget.Simulator64, ForceLoad=true, IsCxx=true, Frameworks="OpenGLES GLKit UIKit CoreGraphics CoreText CFNetwork Foundation", LinkerFlags="-stdlib=libc++ -ObjC -lc++ -lz")]
+[assembly: LinkWith("libmassif.a", LinkTarget.ArmV7|LinkTarget.ArmV7s|LinkTarget.Arm64|LinkTarget.Simulator|LinkTarget.Simulator64, ForceLoad=true, IsCxx=true, Frameworks="OpenGLES GLKit UIKit CoreGraphics CoreText CFNetwork Foundation", LinkerFlags="-stdlib=libc++ -ObjC -lc++ -lz")]
 [assembly: LinkerSafe]
 //[assembly: Preserve(AllMembers=true)]
 

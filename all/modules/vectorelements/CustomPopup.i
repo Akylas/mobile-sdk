@@ -4,7 +4,7 @@
 %module CustomPopup
 
 !proxy_imports(massif::CustomPopup, core.MapPos, core.ScreenPos, graphics.Bitmap, geometry.Geometry, geometry.PointGeometry, styles.PopupStyle, ui.ClickInfo, ui.PopupDrawInfo, ui.PopupClickInfo, vectorelements.Billboard, vectorelements.CustomPopupHandler)
-!java_imports(massif::CustomPopup, com.carto.ui.ClickType)
+!java_imports(massif::CustomPopup, com.massifmaps.ui.ClickType)
 
 %{
 #include "vectorelements/CustomPopup.h"

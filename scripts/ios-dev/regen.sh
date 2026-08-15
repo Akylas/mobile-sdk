@@ -8,7 +8,7 @@
 set -e
 cd "$(dirname "$0")"
 
-PBXPROJ=".sdkproj/carto_mobile_sdk.xcodeproj/project.pbxproj"
+PBXPROJ=".sdkproj/massif.xcodeproj/project.pbxproj"
 if [ ! -f "$PBXPROJ" ]; then
   echo "No SDK project at $PBXPROJ - run ./bootstrap.sh first" >&2
   exit 1

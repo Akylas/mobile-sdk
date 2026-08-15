@@ -1,4 +1,4 @@
-package com.carto.ui;
+package com.massifmaps.ui;
 
 import javax.microedition.khronos.egl.EGL10;
 import javax.microedition.khronos.egl.EGLConfig;
@@ -41,7 +41,7 @@ public class ConfigChooser implements GLSurfaceView.EGLConfigChooser {
 
     @Override
     public EGLConfig chooseConfig(EGL10 egl, EGLDisplay eglDisplay) {
-        com.carto.utils.Log.debug("ConfigChooser.chooseConfig: Model: " + android.os.Build.MODEL + ", board: " + android.os.Build.BOARD + ", product: " + android.os.Build.PRODUCT);
+        com.massifmaps.utils.Log.debug("ConfigChooser.chooseConfig: Model: " + android.os.Build.MODEL + ", board: " + android.os.Build.BOARD + ", product: " + android.os.Build.PRODUCT);
 
         // Prefer configurations matching the requested context version, then fall back to ES 2.0-renderable ones
         int[] renderableTypes = (glesVersion >= 3 ? new int[] { EGL_OPENGL_ES3_BIT, EGL_OPENGL_ES2_BIT } : new int[] { EGL_OPENGL_ES2_BIT });
@@ -52,7 +52,7 @@ public class ConfigChooser implements GLSurfaceView.EGLConfigChooser {
                 EGLConfig[] configs = new EGLConfig[1];
                 if (egl.eglChooseConfig(eglDisplay, attributes, configs, 1, numConfigs)) {
                     if (numConfigs[0] > 0) {
-                        com.carto.utils.Log.debug("ConfigChooser.chooseConfig: Selected display configuration: " + i + " (renderable type " + renderableType + ")");
+                        com.massifmaps.utils.Log.debug("ConfigChooser.chooseConfig: Selected display configuration: " + i + " (renderable type " + renderableType + ")");
                         return configs[0];
                     }
                 }

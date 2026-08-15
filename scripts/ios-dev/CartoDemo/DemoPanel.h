@@ -1,5 +1,5 @@
 #import <UIKit/UIKit.h>
-#import "CartoMobileSDK.h"
+#import "MassifMaps.h"
 
 @class DemoMap;
 

@@ -12,7 +12,7 @@
     <AndroidResgenClass>Resource</AndroidResgenClass>
     <AndroidResgenFile>Resources\Resource.designer.cs</AndroidResgenFile>
     <AndroidUseLatestPlatformSdk>True</AndroidUseLatestPlatformSdk>
-    <AssemblyName>CartoMobileSDK.Android</AssemblyName>
+    <AssemblyName>MassifMaps.Android</AssemblyName>
     <TargetFrameworkVersion>v5.0</TargetFrameworkVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
@@ -25,7 +25,7 @@
     <WarningLevel>4</WarningLevel>
     <AndroidLinkMode>None</AndroidLinkMode>
     <ConsolePause>false</ConsolePause>
-    <DocumentationFile>$distDir\Debug\CartoMobileSDK.Android.xml</DocumentationFile>
+    <DocumentationFile>$distDir\Debug\MassifMaps.Android.xml</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -36,7 +36,7 @@
     <WarningLevel>4</WarningLevel>
     <AndroidUseSharedRuntime>false</AndroidUseSharedRuntime>
     <ConsolePause>false</ConsolePause>
-    <DocumentationFile>$distDir\Release\CartoMobileSDK.Android.xml</DocumentationFile>
+    <DocumentationFile>$distDir\Release\MassifMaps.Android.xml</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -73,21 +73,21 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedNativeLibrary Include="$buildDir\..\xamarin_android-armeabi-v7a\libcarto_mobile_sdk.so">
+    <EmbeddedNativeLibrary Include="$buildDir\..\xamarin_android-armeabi-v7a\libmassif.so">
       <Abi>armeabi-v7a</Abi>
-      <Link>armeabi-v7a\libcarto_mobile_sdk.so</Link>
+      <Link>armeabi-v7a\libmassif.so</Link>
     </EmbeddedNativeLibrary>
-    <EmbeddedNativeLibrary Include="$buildDir\..\xamarin_android-x86\libcarto_mobile_sdk.so">
+    <EmbeddedNativeLibrary Include="$buildDir\..\xamarin_android-x86\libmassif.so">
       <Abi>x86</Abi>
-      <Link>x86\libcarto_mobile_sdk.so</Link>
+      <Link>x86\libmassif.so</Link>
     </EmbeddedNativeLibrary>
-    <EmbeddedNativeLibrary Include="$buildDir\..\xamarin_android-arm64-v8a\libcarto_mobile_sdk.so">
+    <EmbeddedNativeLibrary Include="$buildDir\..\xamarin_android-arm64-v8a\libmassif.so">
       <Abi>arm64-v8a</Abi>
-      <Link>arm64-v8a\libcarto_mobile_sdk.so</Link>
+      <Link>arm64-v8a\libmassif.so</Link>
     </EmbeddedNativeLibrary>
-    <EmbeddedNativeLibrary Include="$buildDir\..\xamarin_android-x86_64\libcarto_mobile_sdk.so">
+    <EmbeddedNativeLibrary Include="$buildDir\..\xamarin_android-x86_64\libmassif.so">
       <Abi>x86_64</Abi>
-      <Link>x86_64\libcarto_mobile_sdk.so</Link>
+      <Link>x86_64\libmassif.so</Link>
     </EmbeddedNativeLibrary>
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\Novell\Novell.MonoDroid.CSharp.targets" />

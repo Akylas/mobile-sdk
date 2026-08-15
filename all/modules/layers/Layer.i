@@ -6,7 +6,7 @@
 %module Layer
 
 !proxy_imports(massif::Layer, core.MapRange, core.ScreenPos, core.Variant, core.StringVariantMap, graphics.ViewState, renderers.components.CullState, ui.ClickInfo)
-!java_imports(massif::Layer, com.carto.ui.ClickType)
+!java_imports(massif::Layer, com.massifmaps.ui.ClickType)
 
 %{
 #include "layers/Layer.h"

@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTOMOBILESDK_H_
-#define _CARTOMOBILESDK_H_
+#ifndef _MASSIFMAPS_H_
+#define _MASSIFMAPS_H_
 
 #import "NTOptions.h"
 #import "NTLayers.h"
