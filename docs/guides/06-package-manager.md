@@ -1,5 +1,14 @@
 ## Package Manager
 
+:::warning Describes a removed API
+This guide came from the original CARTO documentation. The CARTO online services it
+uses are **not part of Massif Maps** — `CartoBaseMapStyle`, `CartoOfflineVectorTileLayer`, `CartoPackageManager` and the hosted basemap, offline-package
+and routing endpoints behind them were dropped from the fork. The concepts still apply;
+the class names in these snippets do not. See [Migrating to Massif Maps](/docs/migration)
+and bring your own tile source and style.
+:::
+
+
 **Offline maps, routing and geocoding** in the Massif Maps require 
 that you pre-download map data. For this we provide SDK internal API called
 **PackageManager** - this manages offline data packages, which are downloaded from 

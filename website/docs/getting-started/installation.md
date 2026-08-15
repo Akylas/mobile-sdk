@@ -49,22 +49,12 @@ Use Swift Package Manager:
 You can also download a prebuilt framework from the
 [Releases page](https://github.com/massif-maps/MassifMaps/releases).
 
-## Registering a license
+## No license key
 
-The original CARTO SDK required a license key registered at startup:
-
-```java
-MapView.registerLicense("YOUR_LICENSE_KEY", context);
-```
-
-```swift
-MapView.registerLicense("YOUR_LICENSE_KEY")
-```
-
-The fork does not depend on Massif's license servers for offline/self-hosted use. If you use
-CARTO online services (Maps API / SQL API) you still need valid CARTO credentials — see
-[CARTO Integrations](/docs/guides/carto-integrations). For fully offline maps you can proceed
-without registering a license.
+The original CARTO SDK required `MapView.registerLicense(...)` at startup. Massif Maps does not:
+there is no license server, and the CARTO online services that needed credentials (Maps API,
+SQL API, the hosted basemaps and offline package server) are not part of this fork. Bring your
+own tile source and style.
 
 ## Building from source
 

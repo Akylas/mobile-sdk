@@ -1,5 +1,14 @@
 ## Getting Started
 
+:::warning Describes a removed API
+This guide came from the original CARTO documentation. The CARTO online services it
+uses are **not part of Massif Maps** — `CartoBaseMapStyle`, `CartoOnlineVectorTileLayer`, `CartoPackageManager` and the hosted basemap, offline-package
+and routing endpoints behind them were dropped from the fork. The concepts still apply;
+the class names in these snippets do not. See [Migrating to Massif Maps](/docs/migration)
+and bring your own tile source and style.
+:::
+
+
 ### Android app
 
 1) **Install SDK** by adding the following to the `build.gradle` of your project:

@@ -1,5 +1,14 @@
 ## Mobile Routing
 
+:::warning Describes a removed API
+This guide came from the original CARTO documentation. The CARTO online services it
+uses are **not part of Massif Maps** — `CartoOnlineRoutingService` and the hosted basemap, offline-package
+and routing endpoints behind them were dropped from the fork. The concepts still apply;
+the class names in these snippets do not. See [Migrating to Massif Maps](/docs/migration)
+and bring your own tile source and style.
+:::
+
+
 **Routing** in Massif Maps provides fastest path between two or more geographic locations.
 
 The resulting Route includes waypoints and instructions. It can be displayed as turn-by-turn directions on your map, or just a line or list of instructions. Routing functionality through the Mobile SDK includes [online routing](#online-routing), based on CARTOs online service (or third party services), and [offline routing](#offline-routing), which requires that you install an offline data package. Offline packages have to be downloaded via **Package Manager**.

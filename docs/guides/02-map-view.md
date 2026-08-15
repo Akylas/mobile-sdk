@@ -1,5 +1,14 @@
 ## Map View 
 
+:::warning Describes a removed API
+This guide came from the original CARTO documentation. The CARTO online services it
+uses are **not part of Massif Maps** — `CartoOnlineVectorTileLayer` and the hosted basemap, offline-package
+and routing endpoints behind them were dropped from the fork. The concepts still apply;
+the class names in these snippets do not. See [Migrating to Massif Maps](/docs/migration)
+and bring your own tile source and style.
+:::
+
+
 CARTO SDK **MapView** is the central map object to be added to your application screen - Storyboard or Layout. Technically it is platform-specific, so some details could be different on different platforms, but in general it provides same features cross-platform.
 
 Following figure provides summary of MapView most used properties, methods and relationships with other SDK classes:
