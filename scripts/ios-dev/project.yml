@@ -1,4 +1,4 @@
-name: CartoDemo
+name: MassifDemo
 
 # Generated with 'xcodegen generate' by bootstrap.sh - do not open project.yml expecting the
 # .xcodeproj to follow; regenerate instead.
@@ -9,7 +9,7 @@ name: CartoDemo
 # scripts/android-dev, where gradle drives the native build through externalNativeBuild.
 
 options:
-  bundleIdPrefix: com.akylas
+  bundleIdPrefix: com.massifmaps
   deploymentTarget:
     iOS: "13.0"
   createIntermediateGroups: true
@@ -19,11 +19,14 @@ projectReferences:
     path: .sdkproj/massif.xcodeproj
 
 targets:
-  CartoDemo:
+  MassifDemo:
     type: application
     platform: iOS
+    # Explicit, so the id matches the Android demo instead of following the target name
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.massifmaps.test
     sources:
-      - path: CartoDemo
+      - path: MassifDemo
     dependencies:
       - target: Massif/massif
       - sdk: Foundation.framework
@@ -39,7 +42,7 @@ targets:
       - sdk: CoreMotion.framework
       - sdk: libz.tbd
     info:
-      path: CartoDemo/Info.plist
+      path: MassifDemo/Info.plist
       properties:
         # The AR / star-sky modes; without these iOS kills the app on the first request.
         NSCameraUsageDescription: The AR and star-sky modes draw the map over the live camera.
@@ -49,7 +52,7 @@ targets:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        CFBundleDisplayName: CartoDemo
+        CFBundleDisplayName: MassifDemo
     settings:
       base:
         # The umbrella ios/objc/MassifMaps.h imports the NT* proxies by plain name and the two

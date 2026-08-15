@@ -1,0 +1,155 @@
+apply plugin: 'com.android.library'
+
+// IMPORTANT!
+// This variable should normally reflect the value of '--profile' argument when generating wrappers via 'swigpp-java.py' script!
+def profiles = "standard+valhalla+geocoding+routing+packagemanager"
+
+// Compiler launcher, only when ccache is installed. AGP already drives CMake through ninja, so
+// this is the missing half: every ABI recompiles the same headers, and the Boost.Spirit grammars
+// (mapnikvt ParserUtils/GeneratorUtils, CartoCSSParser, QueryExpressionParser) are ~15% of a full
+// build while practically never changing. Turn it off with './gradlew ... -Pccache=false'.
+def ccacheOptions = {
+    if (project.findProperty('ccache') == 'false') {
+        return []
+    }
+    def name = System.getProperty('os.name').toLowerCase().contains('windows') ? 'ccache.exe' : 'ccache'
+    def found = System.getenv('PATH')?.split(File.pathSeparator)?.collect { new File(it, name) }?.find { it.canExecute() }
+    if (found == null) {
+        return []
+    }
+    return ["-DCMAKE_C_COMPILER_LAUNCHER=${found.absolutePath}", "-DCMAKE_CXX_COMPILER_LAUNCHER=${found.absolutePath}"]
+}
+
+def cmakeOptions = {
+    def jsonFile = file('$projectDir/../../../build/sdk_profiles.json')
+    def parsedJson = new groovy.json.JsonSlurper().parseText(jsonFile.text)
+
+    def profileList = profiles.split('\\+')
+    if (!profileList.contains('lite') && !profileList.contains('standard')) {
+        profileList += ['standard'];
+    }
+
+    def options = []
+    def defines = ''
+    def includes = [] as Set
+    def excludes = [] as Set
+    for (profile in profileList) {
+        if (!parsedJson.containsKey(profile)) {
+            throw new java.lang.Exception("The profile ${profile} is not valid!")
+        }
+        if (parsedJson[profile].containsKey('cmake-options')) {
+            for (option in parsedJson[profile]['cmake-options'].split(';')) {
+                options += ['-D' + option]
+            }
+        }
+        if (parsedJson[profile].containsKey('cmake-includes')) {
+            for (include in parsedJson[profile]['cmake-includes'].split(';')) {
+                includes += [include]
+            }
+        }
+        if (parsedJson[profile].containsKey('cmake-excludes')) {
+            for (exclude in parsedJson[profile]['cmake-excludes'].split(';')) {
+                excludes += [exclude]
+            }
+        }
+        for (include in includes) {
+            if (include != "") {
+                options += ["-DINCLUDE_$include:BOOL=ON"]
+            }
+        }
+        for (exclude in excludes) {
+            if (exclude != "" && !includes.contains(exclude)) {
+                options += ["-DINCLUDE_$exclude:BOOL=OFF"]
+            }
+        }
+        if (parsedJson[profile].containsKey('defines')) {
+            for (define in parsedJson[profile]['defines'].split(';')) {
+                defines += '-D' + define + ' '
+            }
+        }
+    }
+
+    options + ['-DSDK_CPP_DEFINES=' + defines.trim()]
+}
+
+android {
+    namespace 'com.massifmaps'
+    compileSdkVersion 35
+
+    defaultConfig {
+        minSdkVersion 21
+        targetSdkVersion 35
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        consumerProguardFiles 'consumer-rules.pro'
+        ndk {
+            abiFilters 'arm64-v8a', 'x86_64'
+            abiFilters 'x86', 'armeabi-v7a'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            externalNativeBuild {
+                cmake {
+                    arguments "-DCMAKE_BUILD_TYPE=Release"
+                }
+            }
+        }
+    }
+
+    ndkVersion "27.3.13750724"
+    defaultConfig {
+        externalNativeBuild {
+            cmake {
+                arguments "-DSDK_VERSION=Devel", "-DSDK_PLATFORM='Android'", "-DANDROID_STL=c++_static", '-DANDROID_ARM_NEON:BOOL=ON', '-DSINGLE_LIBRARY:BOOL=ON', '-DHAVE_ZSTD:BOOL=ON', '-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON', "-DWRAPPER_DIR=${projectDir.absolutePath.replaceAll('\\\\', '/')}/../../../generated/android-java/wrappers"
+                cmakeOptions().each {option -> arguments option }
+                ccacheOptions().each {option -> arguments option }
+                // Render profiling, off unless asked for: './gradlew :app:assembleDebug -PprofileRender'
+                // turns on the per-frame section timings (utils/FrameProfiler.h) and the vt
+                // draw/label/tile counters (vt/RenderStats.h), both printed to logcat as 'PROF'
+                // and 'RenderStats' lines. Neither exists in the binary otherwise.
+                if (project.hasProperty('profileRender')) {
+                    arguments "-DCMAKE_CXX_FLAGS=-DMASSIF_FRAME_PROFILER=1 -DMASSIF_VT_RENDER_STATS=1"
+                }
+                // Native optimization, ON by default - including from Android Studio, which
+                // passes no properties. AGP sets no CMAKE_BUILD_TYPE for the debug variant, so
+                // without this clang builds the whole SDK at -O0 and every number measured from
+                // this demo is an unoptimized one (device, north pan: 8.6 fps against 12.8).
+                // RelWithDebInfo keeps -g, so simpleperf still symbolizes the result.
+                // Turn it off to step through native code in a debugger:
+                //   './gradlew :app:assembleDebug -PnativeOpt=false'
+                // RelWithDebInfo is NOT what ships: it is a plain -O2 -g build, while Release
+                // applies -Oz + thin LTO and the per-subproject -O2/-Oz split. Bench the shipped
+                // configuration with './gradlew ... -PnativeConfig=Release' (no symbols left for
+                // simpleperf then, but the PROF/RenderStats lines still work).
+                if (project.findProperty('nativeOpt') != 'false') {
+                    arguments "-DCMAKE_BUILD_TYPE=${project.findProperty('nativeConfig') ?: 'RelWithDebInfo'}"
+                }
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path file("$projectDir/../../build/CMakeLists.txt")
+        }
+    }
+
+    sourceSets {
+        main {
+            java.srcDirs = ["$projectDir/../../../generated/android-java/proxies", "$projectDir/../../../android/java"]
+        }
+    }
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+}

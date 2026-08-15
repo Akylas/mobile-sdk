@@ -7,7 +7,7 @@
 #   PROFILE=lite ./bootstrap.sh     # a different feature profile
 #
 # Re-run it after changing the profile or the platform. Day to day you do not: once the project
-# exists, build from Xcode or with 'xcodebuild -project CartoDemo.xcodeproj'.
+# exists, build from Xcode or with 'xcodebuild -project MassifDemo.xcodeproj'.
 set -e
 
 cd "$(dirname "$0")"
@@ -74,9 +74,9 @@ ln -s "$BUILD_DIR" .sdkproj
 # MetalANGLE ships one static slice per arch; project.yml links it through this symlink.
 ln -s "$BASE_DIR/libs-external/angle-metal/$BASEARCH" .angle
 
-echo "==> Generating CartoDemo.xcodeproj"
+echo "==> Generating MassifDemo.xcodeproj"
 ./regen.sh
 
 echo
-echo "Done. Open CartoDemo.xcodeproj, or:"
-echo "  xcodebuild -project CartoDemo.xcodeproj -scheme CartoDemo -sdk $SYSROOT build"
+echo "Done. Open MassifDemo.xcodeproj, or:"
+echo "  xcodebuild -project MassifDemo.xcodeproj -scheme MassifDemo -sdk $SYSROOT build"

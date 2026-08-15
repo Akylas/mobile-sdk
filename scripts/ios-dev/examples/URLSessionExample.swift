@@ -1,8 +1,8 @@
 // ---------------------------------------------------------------------------
-// URLSession integration example for NTValhallaRoutingService (iOS, Swift)
+// URLSession integration example for MSFValhallaRoutingService (iOS, Swift)
 // ---------------------------------------------------------------------------
 //
-// NTHTTPPostHandler is a synchronous block — bridged to Swift as a closure.
+// MSFHTTPPostHandler is a synchronous block — bridged to Swift as a closure.
 // Since URLSession's default data task API is async we use a semaphore to
 // make it synchronous, matching the handler contract.
 //
@@ -15,19 +15,19 @@ import Foundation
 // or the bridging header if using CocoaPods / manual xcframework
 
 // ---------------------------------------------------------------------------
-// Factory — build NTValhallaOnlineRoutingService backed by URLSession
+// Factory — build MSFValhallaOnlineRoutingService backed by URLSession
 // ---------------------------------------------------------------------------
 
 func makeOnlineServiceWithURLSession(
     baseURL: String = "https://valhalla1.openstreetmap.de",
     profile: String = "pedestrian",
     session: URLSession = .shared
-) -> NTValhallaOnlineRoutingService {
+) -> MSFValhallaOnlineRoutingService {
 
-    let handler: NTHTTPPostHandler = { url, body, errorPtr in
+    let handler: MSFHTTPPostHandler = { url, body, errorPtr in
         guard let nsURL = URL(string: url) else {
             errorPtr?.pointee = NSError(
-                domain: "NTRoutingError", code: -1,
+                domain: "MSFRoutingError", code: -1,
                 userInfo: [NSLocalizedDescriptionKey: "Invalid URL: \(url)"])
             return nil
         }
@@ -51,7 +51,7 @@ func makeOnlineServiceWithURLSession(
             }
             guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
                 responseError = NSError(
-                    domain: "NTRoutingError", code: (response as? HTTPURLResponse)?.statusCode ?? -1,
+                    domain: "MSFRoutingError", code: (response as? HTTPURLResponse)?.statusCode ?? -1,
                     userInfo: [NSLocalizedDescriptionKey:
                         "HTTP \((response as? HTTPURLResponse)?.statusCode ?? -1) from \(url)"])
                 return
@@ -68,7 +68,7 @@ func makeOnlineServiceWithURLSession(
         return responseBody
     }
 
-    let service = NTValhallaOnlineRoutingService(baseURL: baseURL, handler: handler)!
+    let service = MSFValhallaOnlineRoutingService(baseURL: baseURL, handler: handler)!
     service.profile = profile
     return service
 }
@@ -83,9 +83,9 @@ func makeOnlineServiceWithURLSession(
 func exampleOnlineRoute() {
     let service = makeOnlineServiceWithURLSession()
 
-    let request = NTRoutingRequest(points: [
-        NTLatLon.lat(48.8566, lon: 2.3522),   // Paris
-        NTLatLon.lat(48.8738, lon: 2.2950),   // Bois de Boulogne
+    let request = MSFRoutingRequest(points: [
+        MSFLatLon.lat(48.8566, lon: 2.3522),   // Paris
+        MSFLatLon.lat(48.8738, lon: 2.2950),   // Bois de Boulogne
     ])
     // Optional: override any Valhalla field as JSON
     request.customJSON = #"{"units":"kilometers"}"#
@@ -100,12 +100,12 @@ func exampleOnlineRoute() {
 
 /// Offline route via MBTiles — no network needed.
 func exampleOfflineRoute(mbtilesPath: String) {
-    guard let service = NTValhallaRoutingService(mbTilesPaths: [mbtilesPath]) else { return }
+    guard let service = MSFValhallaRoutingService(mbTilesPaths: [mbtilesPath]) else { return }
     service.profile = "auto"
 
-    let request = NTRoutingRequest(points: [
-        NTLatLon.lat(48.8566, lon: 2.3522),
-        NTLatLon.lat(48.8738, lon: 2.2950),
+    let request = MSFRoutingRequest(points: [
+        MSFLatLon.lat(48.8566, lon: 2.3522),
+        MSFLatLon.lat(48.8738, lon: 2.2950),
     ])
 
     var error: NSError?
@@ -136,11 +136,11 @@ func exampleIsochrone() {
 func exampleMapMatch() {
     let service = makeOnlineServiceWithURLSession()
 
-    let request = NTRouteMatchingRequest(
+    let request = MSFRouteMatchingRequest(
         points: [
-            NTLatLon.lat(48.8566, lon: 2.3522),
-            NTLatLon.lat(48.8600, lon: 2.3600),
-            NTLatLon.lat(48.8650, lon: 2.3700),
+            MSFLatLon.lat(48.8566, lon: 2.3522),
+            MSFLatLon.lat(48.8600, lon: 2.3600),
+            MSFLatLon.lat(48.8650, lon: 2.3700),
         ],
         accuracy: 15   // GPS accuracy in metres
     )

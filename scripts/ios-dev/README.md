@@ -14,14 +14,14 @@ PROFILE=lite ./bootstrap.sh # a different feature profile
 ```
 
 That regenerates the Objective-C bindings, configures the SDK with CMake's Xcode generator, and
-writes `CartoDemo.xcodeproj` with [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install
+writes `MassifDemo.xcodeproj` with [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install
 xcodegen`). Re-run it only when the profile or the platform changes; day to day just build:
 
 ```sh
-xcodebuild -project CartoDemo.xcodeproj -scheme CartoDemo -sdk iphonesimulator build
+xcodebuild -project MassifDemo.xcodeproj -scheme MassifDemo -sdk iphonesimulator build
 ```
 
-`CartoDemo.xcodeproj`, `Info.plist`, `.sdkproj` and `.angle` are all generated and gitignored.
+`MassifDemo.xcodeproj`, `Info.plist`, `.sdkproj` and `.angle` are all generated and gitignored.
 `project.yml` is the source of truth.
 
 ## Configuring a run
@@ -31,8 +31,8 @@ into `NSUserDefaults`. The key names are deliberately identical, so a camera or 
 the same for both demos:
 
 ```sh
-adb shell am start -n com.akylas.cartotest/.MainActivity --es zoom 14 --es hillshade true
-xcrun simctl launch <device> com.akylas.CartoDemo -zoom 14 -hillshade true
+adb shell am start -n com.massifmaps.test/.MainActivity --es zoom 14 --es hillshade true
+xcrun simctl launch <device> com.massifmaps.test -zoom 14 -hillshade true
 ```
 
 Supported today: `base`, `satellite`, `hillshade`, `terrain`, `lon`, `lat`, `zoom`, `tilt`,
@@ -92,7 +92,7 @@ Also covered: the hypsometric tint (a `CustomRasterTileLayer` filter shader over
 slope-angle bands, vector elements (marker / text / line / polygon), summit callout labels, the
 peak-finder mode with its `flyTo` entry, the relief surface **and** the outline post-process
 effect, AR over the live camera, free roam with a negative tilt range, device-heading following,
-star sky, the scripted `anim` modes, the in-memory `nuti::` project style, the maneuver-head SVG
+star sky, the scripted `anim` modes, the in-memory `param::` project style, the maneuver-head SVG
 gallery, and the sun / moon / daily arcs / star catalogue on a `CelestialLayer`.
 
 Every demo is now a port rather than an approximation: `DemoAstro` is the same low-precision
@@ -131,7 +131,7 @@ defaults and same key names as the Android demo, where `contour` is on by defaul
 - **A launch value starting with `-` is silently dropped.** UIKit folds `-key value` pairs into
   `NSUserDefaults`, and it reads `-tilt -45` as two keys, so the knob keeps its default and the
   demo runs at a camera you did not ask for. Quote it with a leading space — `-tilt " -45"` — or
-  set it from the panel. The startup log line `CartoDemo: camera lon … tilt …` reports what the
+  set it from the panel. The startup log line `MassifDemo: camera lon … tilt …` reports what the
   camera actually ended up at, which is the fastest way to catch this (and the terrain's zoom
   clamp).
 - **Tilt 90 is straight down**, 0 is the horizon and negative looks above it. A panorama is around
@@ -145,7 +145,7 @@ defaults and same key names as the Android demo, where `contour` is on by defaul
   once and removing one only on the next pan, which was `Layers::setAll` never requesting a redraw
   of its own (fixed in the SDK - it notified the surviving layers only).
 - **Positions must go through the map's own projection.** `[[mapView getOptions] getBaseProjection]`
-  is EPSG3857; converting with `NTEPSG4326` instead compiles, looks right, and silently feeds
+  is EPSG3857; converting with `MSFEPSG4326` instead compiles, looks right, and silently feeds
   lon/lat to the map as metres, which puts the camera in the ocean off 0,0.
 - `bootstrap.sh` strips `PBXBuildStyle` from the CMake-generated project. CMake still emits those
   Xcode 2 vestiges and XcodeGen's parser refuses to read a project containing them.

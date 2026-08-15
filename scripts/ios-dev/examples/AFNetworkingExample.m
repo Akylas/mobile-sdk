@@ -1,23 +1,23 @@
 // ---------------------------------------------------------------------------
-// AFNetworking integration example for NTValhallaRoutingService (iOS, ObjC)
+// AFNetworking integration example for MSFValhallaRoutingService (iOS, ObjC)
 // ---------------------------------------------------------------------------
 //
 // Requires AFNetworking (pod 'AFNetworking', ~> 4.0).
 //
-// NTHTTPPostHandler is a synchronous block, so we use a semaphore to
+// MSFHTTPPostHandler is a synchronous block, so we use a semaphore to
 // turn AFNetworking's async completion into a blocking call.
 //
 // Call all routing methods off the main thread — e.g. from a serial
 // background queue — to avoid deadlocks and main-thread warnings.
 
-#import "NTValhallaRoutingService.h"
+#import "MSFValhallaRoutingService.h"
 #import <AFNetworking/AFNetworking.h>
 
 // ---------------------------------------------------------------------------
-// Factory — build NTValhallaOnlineRoutingService backed by AFNetworking
+// Factory — build MSFValhallaOnlineRoutingService backed by AFNetworking
 // ---------------------------------------------------------------------------
 
-static NTValhallaOnlineRoutingService *
+static MSFValhallaOnlineRoutingService *
 BuildOnlineServiceWithAFNetworking(NSString *baseURL, NSString *profile) {
 
     // Shared session manager — reuse across calls for connection pooling.
@@ -30,7 +30,7 @@ BuildOnlineServiceWithAFNetworking(NSString *baseURL, NSString *profile) {
         manager.requestSerializer.timeoutInterval = 30.0;
     });
 
-    NTHTTPPostHandler handler = ^NSString *(NSString *url,
+    MSFHTTPPostHandler handler = ^NSString *(NSString *url,
                                              NSString *postBody,
                                              NSError **outError) {
         __block NSString *result = nil;
@@ -73,8 +73,8 @@ BuildOnlineServiceWithAFNetworking(NSString *baseURL, NSString *profile) {
         return result;
     };
 
-    NTValhallaOnlineRoutingService *service =
-        [[NTValhallaOnlineRoutingService alloc] initWithBaseURL:baseURL
+    MSFValhallaOnlineRoutingService *service =
+        [[MSFValhallaOnlineRoutingService alloc] initWithBaseURL:baseURL
                                                         handler:handler];
     service.profile = profile ?: @"pedestrian";
     return service;
@@ -88,14 +88,14 @@ BuildOnlineServiceWithAFNetworking(NSString *baseURL, NSString *profile) {
 static void ExampleOnlineRoute(void) {
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
 
-        NTValhallaOnlineRoutingService *service =
+        MSFValhallaOnlineRoutingService *service =
             BuildOnlineServiceWithAFNetworking(
                 @"https://valhalla1.openstreetmap.de",
                 @"pedestrian");
 
-        NTRoutingRequest *req = [[NTRoutingRequest alloc] initWithPoints:@[
-            [NTLatLon lat:48.8566 lon:2.3522],   // Paris
-            [NTLatLon lat:48.8738 lon:2.2950],   // Bois de Boulogne
+        MSFRoutingRequest *req = [[MSFRoutingRequest alloc] initWithPoints:@[
+            [MSFLatLon lat:48.8566 lon:2.3522],   // Paris
+            [MSFLatLon lat:48.8738 lon:2.2950],   // Bois de Boulogne
         ]];
         req.customJSON = @"{\"units\":\"kilometers\"}";
 
@@ -113,13 +113,13 @@ static void ExampleOnlineRoute(void) {
 static void ExampleOfflineRoute(NSString *mbtilesPath) {
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
 
-        NTValhallaRoutingService *service =
-            [[NTValhallaRoutingService alloc] initWithMBTilesPaths:@[mbtilesPath]];
+        MSFValhallaRoutingService *service =
+            [[MSFValhallaRoutingService alloc] initWithMBTilesPaths:@[mbtilesPath]];
         service.profile = @"auto";
 
-        NTRoutingRequest *req = [[NTRoutingRequest alloc] initWithPoints:@[
-            [NTLatLon lat:48.8566 lon:2.3522],
-            [NTLatLon lat:48.8738 lon:2.2950],
+        MSFRoutingRequest *req = [[MSFRoutingRequest alloc] initWithPoints:@[
+            [MSFLatLon lat:48.8566 lon:2.3522],
+            [MSFLatLon lat:48.8738 lon:2.2950],
         ]];
 
         NSError *error = nil;
@@ -132,7 +132,7 @@ static void ExampleOfflineRoute(NSString *mbtilesPath) {
 static void ExampleIsochrone(void) {
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
 
-        NTValhallaOnlineRoutingService *service =
+        MSFValhallaOnlineRoutingService *service =
             BuildOnlineServiceWithAFNetworking(
                 @"https://valhalla1.openstreetmap.de",
                 @"pedestrian");
@@ -153,15 +153,15 @@ static void ExampleIsochrone(void) {
 static void ExampleMapMatch(void) {
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
 
-        NTValhallaOnlineRoutingService *service =
+        MSFValhallaOnlineRoutingService *service =
             BuildOnlineServiceWithAFNetworking(
                 @"https://valhalla1.openstreetmap.de",
                 @"pedestrian");
 
-        NTRouteMatchingRequest *req = [[NTRouteMatchingRequest alloc] initWithPoints:@[
-            [NTLatLon lat:48.8566 lon:2.3522],
-            [NTLatLon lat:48.8600 lon:2.3600],
-            [NTLatLon lat:48.8650 lon:2.3700],
+        MSFRouteMatchingRequest *req = [[MSFRouteMatchingRequest alloc] initWithPoints:@[
+            [MSFLatLon lat:48.8566 lon:2.3522],
+            [MSFLatLon lat:48.8600 lon:2.3600],
+            [MSFLatLon lat:48.8650 lon:2.3700],
         ] accuracy:15.0f];
 
         NSError *error = nil;

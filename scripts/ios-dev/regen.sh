@@ -1,5 +1,5 @@
 #!/bin/sh
-# Regenerate CartoDemo.xcodeproj. Run this after adding a source file.
+# Regenerate MassifDemo.xcodeproj. Run this after adding a source file.
 #
 # The strip is not a one-off: CMake re-emits PBXBuildStyle (an Xcode 2 vestige that Xcode ignores
 # and XcodeGen's parser refuses) every time it reconfigures, which happens on any CMakeLists
