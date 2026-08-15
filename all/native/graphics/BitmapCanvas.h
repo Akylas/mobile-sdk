@@ -31,7 +31,11 @@ namespace massif {
         void setDrawMode(DrawMode mode);
         void setColor(const Color& color);
         void setStrokeWidth(float width);
-        void setFont(const std::string& name, float size);
+        /**
+         * @param names A CSS-like font list, the most preferred name first, entries optionally
+         *              tagged with the platform they are for ("android:Roboto, ios:Helvetica Neue").
+         */
+        void setFont(const std::string& names, float size);
 
         void pushClipRect(const ScreenBounds& clipRect);
         void popClipRect();
@@ -53,7 +57,9 @@ namespace massif {
             virtual void setDrawMode(DrawMode mode) = 0;
             virtual void setColor(const Color& color) = 0;
             virtual void setStrokeWidth(float width) = 0;
-            virtual void setFont(const std::string& name, float size) = 0;
+            // A font already matched to the device: the family name the platform accepts, or - when
+            // the platform has no name for it - the font file. Both empty keeps the default font.
+            virtual void setFont(const std::string& familyName, const std::string& fileName, float size) = 0;
 
             virtual void pushClipRect(const ScreenBounds& clipRect) = 0;
             virtual void popClipRect() = 0;

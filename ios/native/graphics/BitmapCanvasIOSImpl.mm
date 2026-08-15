@@ -48,9 +48,10 @@ namespace massif {
         _strokeWidth = width;
     }
 
-    void BitmapCanvas::IOSImpl::setFont(const std::string& name, float size) {
-        CFUniquePtr<CFStringRef> nameRef(CFStringCreateWithCString(nullptr, name.c_str(), kCFStringEncodingUTF8));
-        _font = CFUniquePtr<CTFontRef>(CTFontCreateWithName(nameRef, size, nullptr));
+    void BitmapCanvas::IOSImpl::setFont(const std::string& familyName, const std::string& fileName, float size) {
+        // fileName is unused: a font CoreText can open it can also name
+        CFUniquePtr<CFStringRef> nameRef(CFStringCreateWithCString(nullptr, familyName.c_str(), kCFStringEncodingUTF8));
+        _font = CFUniquePtr<CTFontRef>(familyName.empty() ? CTFontCreateUIFontForLanguage(kCTFontUIFontSystem, size, nullptr) : CTFontCreateWithName(nameRef, size, nullptr));
         _fontSize = size;
     }
 

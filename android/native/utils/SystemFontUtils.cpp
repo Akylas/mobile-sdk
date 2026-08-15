@@ -11,35 +11,52 @@
 
 #include <dirent.h>
 
+#include <vt/FontNames.h>
+
 namespace massif {
 
     namespace {
 
         const char* const FONT_DIRECTORIES[] = { "/system/fonts", "/product/fonts", "/system/font", "/data/fonts", nullptr };
 
+        struct FontAlias {
+            const char* name;
+            const char* fileCandidates; // font files, for the FreeType path of the vector tile labels
+            const char* androidFamily;  // Typeface family, for the platform text path of the vector elements
+        };
+
         // Generic/foreign font names mapped to the Android font families, in preference order
-        const std::pair<const char*, const char*> FONT_ALIASES[] = {
-            { "arial",          "roboto notosans droidsans" },
-            { "helvetica",      "roboto notosans droidsans" },
-            { "helveticaneue",  "roboto notosans droidsans" },
-            { "verdana",        "roboto notosans droidsans" },
-            { "tahoma",         "roboto notosans droidsans" },
-            { "segoeui",        "roboto notosans droidsans" },
-            { "sansserif",      "roboto notosans droidsans" },
-            { "sans",           "roboto notosans droidsans" },
-            { "timesnewroman",  "notoserif droidserif tinos" },
-            { "times",          "notoserif droidserif tinos" },
-            { "georgia",        "notoserif droidserif tinos" },
-            { "serif",          "notoserif droidserif tinos" },
-            { "couriernew",     "droidsansmono notosansmono cousine" },
-            { "courier",        "droidsansmono notosansmono cousine" },
-            { "consolas",       "droidsansmono notosansmono cousine" },
-            { "monospace",      "droidsansmono notosansmono cousine" },
-            { "mono",           "droidsansmono notosansmono cousine" },
-            { nullptr, nullptr }
+        const FontAlias FONT_ALIASES[] = {
+            { "arial",          "roboto notosans droidsans",        "sans-serif" },
+            { "helvetica",      "roboto notosans droidsans",        "sans-serif" },
+            { "helveticaneue",  "roboto notosans droidsans",        "sans-serif" },
+            { "verdana",        "roboto notosans droidsans",        "sans-serif" },
+            { "tahoma",         "roboto notosans droidsans",        "sans-serif" },
+            { "segoeui",        "roboto notosans droidsans",        "sans-serif" },
+            { "sansserif",      "roboto notosans droidsans",        "sans-serif" },
+            { "sans",           "roboto notosans droidsans",        "sans-serif" },
+            { "roboto",         "roboto notosans droidsans",        "sans-serif" },
+            { "notosans",       "notosans roboto droidsans",        "sans-serif" },
+            { "droidsans",      "droidsans roboto notosans",        "sans-serif" },
+            { "timesnewroman",  "notoserif droidserif tinos",       "serif" },
+            { "times",          "notoserif droidserif tinos",       "serif" },
+            { "georgia",        "notoserif droidserif tinos",       "serif" },
+            { "serif",          "notoserif droidserif tinos",       "serif" },
+            { "notoserif",      "notoserif droidserif tinos",       "serif" },
+            { "droidserif",     "droidserif notoserif tinos",       "serif" },
+            { "couriernew",     "droidsansmono notosansmono cousine", "monospace" },
+            { "courier",        "droidsansmono notosansmono cousine", "monospace" },
+            { "consolas",       "droidsansmono notosansmono cousine", "monospace" },
+            { "monospace",      "droidsansmono notosansmono cousine", "monospace" },
+            { "mono",           "droidsansmono notosansmono cousine", "monospace" },
+            { "cursive",        "dancingscript cutivemono",         "cursive" },
+            { nullptr, nullptr, nullptr }
         };
 
         const char* const STYLE_SUFFIXES[] = { "bolditalic", "boldoblique", "bold", "italic", "oblique", "regular", "book", nullptr };
+
+        // Weights Android exposes as their own family ('sans-serif-light'), unlike the style suffixes
+        const char* const FAMILY_WEIGHT_SUFFIXES[] = { "condensed", "medium", "black", "light", "thin", nullptr };
 
         const char* const DEFAULT_FONTS[] = { "robotoregular", "notosansregular", "droidsans", "robotobold", nullptr };
 
@@ -110,7 +127,20 @@ namespace massif {
             return std::string();
         }
 
-        std::string resolveFontFile(const std::string& name) {
+        // Splits a trailing suffix off the normalized name ('arialbold' -> 'arial' + 'bold')
+        std::string splitSuffix(const std::string& normalizedName, const char* const* suffixes, std::string& family) {
+            family = normalizedName;
+            for (int i = 0; suffixes[i]; i++) {
+                std::string suffix = suffixes[i];
+                if (normalizedName.size() > suffix.size() && normalizedName.compare(normalizedName.size() - suffix.size(), suffix.size(), suffix) == 0) {
+                    family = normalizedName.substr(0, normalizedName.size() - suffix.size());
+                    return suffix;
+                }
+            }
+            return std::string();
+        }
+
+        std::string resolveFontFile(const std::string& name, bool allowFallback) {
             const std::map<std::string, std::string>& fontMap = getSystemFontMap();
             std::string normalizedName = normalizeFontName(name);
 
@@ -119,22 +149,13 @@ namespace massif {
                 return fileName;
             }
 
-            // Split the trailing style ('arialbold' -> 'arial' + 'bold') and try the aliases of the family
-            std::string family = normalizedName;
-            std::string style;
-            for (int i = 0; STYLE_SUFFIXES[i]; i++) {
-                std::string suffix = STYLE_SUFFIXES[i];
-                if (normalizedName.size() > suffix.size() && normalizedName.compare(normalizedName.size() - suffix.size(), suffix.size(), suffix) == 0) {
-                    family = normalizedName.substr(0, normalizedName.size() - suffix.size());
-                    style = suffix;
-                    break;
-                }
-            }
-            for (int i = 0; FONT_ALIASES[i].first; i++) {
-                if (family != FONT_ALIASES[i].first) {
+            std::string family;
+            std::string style = splitSuffix(normalizedName, STYLE_SUFFIXES, family);
+            for (int i = 0; FONT_ALIASES[i].name; i++) {
+                if (family != FONT_ALIASES[i].name) {
                     continue;
                 }
-                std::string candidates = FONT_ALIASES[i].second;
+                std::string candidates = FONT_ALIASES[i].fileCandidates;
                 for (std::size_t pos = 0; pos < candidates.size(); ) {
                     std::size_t spacePos = candidates.find(' ', pos);
                     std::string candidate = candidates.substr(pos, spacePos == std::string::npos ? std::string::npos : spacePos - pos);
@@ -151,6 +172,10 @@ namespace massif {
                 break;
             }
 
+            if (!allowFallback) {
+                return std::string();
+            }
+
             // Unresolved name, use the default system font
             for (int i = 0; DEFAULT_FONTS[i]; i++) {
                 fileName = findFontFile(fontMap, DEFAULT_FONTS[i]);
@@ -161,12 +186,59 @@ namespace massif {
             return fontMap.empty() ? std::string() : fontMap.begin()->second;
         }
 
+        // The Typeface family for a name, empty if Android has no family under that name. Preferred
+        // over the font file: a family keeps the per-script fallback chain a single file does not.
+        std::string resolveFontFamily(const std::string& name) {
+            std::string family;
+            std::string weight = splitSuffix(normalizeFontName(name), FAMILY_WEIGHT_SUFFIXES, family);
+            for (int i = 0; FONT_ALIASES[i].name; i++) {
+                if (family != FONT_ALIASES[i].name) {
+                    continue;
+                }
+                std::string androidFamily = FONT_ALIASES[i].androidFamily;
+                // Android carries the weight variants of its sans family only
+                if (!weight.empty() && androidFamily == "sans-serif") {
+                    return androidFamily + "-" + weight;
+                }
+                return androidFamily;
+            }
+            return std::string();
+        }
+
     }
 
-    std::shared_ptr<BinaryData> SystemFontUtils::LoadFont(const std::string& name) {
-        std::string fileName = resolveFontFile(name);
+    SystemFontUtils::FontMatch SystemFontUtils::MatchFont(const std::string& names) {
+        static std::mutex mutex;
+        static std::map<std::string, FontMatch> matchCache;
+
+        std::lock_guard<std::mutex> lock(mutex);
+        auto it = matchCache.find(names);
+        if (it != matchCache.end()) {
+            return it->second;
+        }
+
+        FontMatch match;
+        for (const std::string& name : vt::parseFontNames(names)) {
+            match.familyName = resolveFontFamily(name);
+            if (!match.familyName.empty()) {
+                break;
+            }
+            match.fileName = resolveFontFile(name, false);
+            if (!match.fileName.empty()) {
+                break;
+            }
+        }
+        matchCache[names] = match;
+        return match;
+    }
+
+    std::shared_ptr<BinaryData> SystemFontUtils::LoadFont(const std::string& name, bool allowFallback) {
+        std::string fileName = resolveFontFile(name, allowFallback);
         if (fileName.empty()) {
-            Log::Errorf("SystemFontUtils::LoadFont: No system font for %s", name.c_str());
+            // Not an error without the fallback: the caller is walking a font list and tries the next name
+            if (allowFallback) {
+                Log::Errorf("SystemFontUtils::LoadFont: No system font for %s", name.c_str());
+            }
             return std::shared_ptr<BinaryData>();
         }
 

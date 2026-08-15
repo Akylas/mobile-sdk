@@ -20,7 +20,7 @@ namespace massif {
         virtual void setDrawMode(DrawMode mode);
         virtual void setColor(const Color& color);
         virtual void setStrokeWidth(float width);
-        virtual void setFont(const std::string& name, float size);
+        virtual void setFont(const std::string& familyName, const std::string& fileName, float size);
 
         virtual void pushClipRect(const ScreenBounds& clipRect);
         virtual void popClipRect();
@@ -47,6 +47,8 @@ namespace massif {
         struct TextUtilsTruncateAtClass;
 
         void ellipsizeText(JNIEnv* jenv, std::string& text, int maxWidth, bool breakLines) const;
+
+        static jobject GetFileTypeface(JNIEnv* jenv, const std::string& fileName);
 
         static std::unique_ptr<RectFClass>& GetRectFClass();
         static std::unique_ptr<BitmapClass>& GetBitmapClass();

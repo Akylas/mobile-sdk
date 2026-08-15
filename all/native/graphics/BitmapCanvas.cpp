@@ -1,4 +1,5 @@
 #include "BitmapCanvas.h"
+#include "utils/SystemFontUtils.h"
 
 #if defined(_WIN32)
 #define MASSIF_BITMAP_CANVAS_IMPL UWPImpl
@@ -35,8 +36,10 @@ namespace massif {
         _impl->setStrokeWidth(width);
     }
 
-    void BitmapCanvas::setFont(const std::string& name, float size) {
-        _impl->setFont(name, size);
+    void BitmapCanvas::setFont(const std::string& names, float size) {
+        // The style names a font list, the platform text API takes one font it knows about
+        SystemFontUtils::FontMatch match = SystemFontUtils::MatchFont(names);
+        _impl->setFont(match.familyName, match.fileName, size);
     }
 
     void BitmapCanvas::pushClipRect(const ScreenBounds& clipRect) {

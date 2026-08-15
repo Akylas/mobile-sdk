@@ -404,6 +404,53 @@ Metres are converted with the mercator stretch at the view's own latitude
 a style author writes in metres. Tangram has no equivalent: their only control is the same per-tile
 zoom filter.
 
+## Font names (fork-specific)
+
+A face name is a **CSS-like list**, most preferred first, and an entry may say which platform it is
+for. `vt::parseFontNames` ([FontNames.cpp](../../libs-massif/vt/src/vt/FontNames.cpp)) is the one
+parser; `TextSymbolizer::getFont` runs it over `text-face-name` and over every name of a font set,
+so a mapnik font set and a single comma-separated name end up as the same chain:
+
+```css
+#poi {
+  text-face-name: "Roboto, Helvetica Neue, sans-serif";        /* one string */
+  text-face-name: "android:Roboto", "ios:Helvetica Neue", "Arial";  /* or a real CSS list */
+}
+```
+
+Names are tried back to front, so the first one that resolves becomes the main font and the rest its
+glyph fallbacks; a list where nothing resolves keeps the style's fallback font. `android:`, `ios:`,
+`macos:` and `windows:` are the tags — an entry tagged for another platform is dropped at parse
+time, an untagged entry is kept everywhere.
+
+**The system loader has to be strict for this to mean anything.** `SystemFontUtils::LoadFont` takes
+an `allowFallback` flag: `MBVectorTileDecoder` installs it as the `FontManager`'s data loader with
+`false`, so a name the device has no font for *fails* and the chain moves on. With the permissive
+behaviour the first entry always resolved — to the platform default — and entries 2..n were dead
+code. The style's fallback font (`Arial`, resolved permissively, outside the loader) still catches a
+chain where nothing matched, so an inline CartoCSS style with no font of its own is unchanged.
+
+Resolution is cached both ways in `FontManager` (`_fontDataMap` for a hit, `_missingFontSet` for a
+miss), so a list costs one lookup per name once per style load, not per tile. That is why there is
+no separate per-platform *option* — the tag inside the list is enough and does not repeat work.
+
+**Vector elements do not use this path.** `BalloonPopup`, `Text` and the popup buttons draw into a
+`BitmapCanvas` with the platform text API (Android `Typeface`, iOS CoreText, UWP DirectWrite), not
+FreeType — none of the alias mapping applied to them before, so `Typeface.create` silently returned
+the default for every name and no font name a style set had any visible effect.
+`BitmapCanvas::setFont` now runs the list through `SystemFontUtils::MatchFont`, which resolves it
+once (cached) to what the platform accepts:
+
+- Android: an alias table (`FONT_ALIASES`) maps the name to a **family** (`sans-serif`,
+  `sans-serif-light`, `serif`, `monospace`) — preferred over a font file, because a family keeps the
+  per-script fallback chain a single `.ttf` does not. Only a font Android has no family name for
+  falls back to `Typeface.createFromFile`, cached, since it re-parses the file on every call.
+- iOS/UWP: the name is checked against CoreText / the DirectWrite collection before use, because
+  both substitute the default font instead of failing.
+
+One visible consequence: the default popup face `HelveticaNeue-Light` now maps to `sans-serif-light`
+on Android instead of rendering as plain Roboto Regular.
+
 ## On the GL thread
 
 - **Fades.** `updateLabel` moves opacity toward `visible ? 1 : 0`; invisible-but-fading labels stay
