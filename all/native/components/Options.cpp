@@ -14,7 +14,7 @@
 
 #include <algorithm>
 
-namespace carto {
+namespace massif {
 
     Options::Options(const std::shared_ptr<CancelableThreadPool>& envelopeThreadPool, const std::shared_ptr<CancelableThreadPool>& tileThreadPool) :
         _ambientLightColor(DEFAULT_AMBIENT_LIGHT_COLOR),

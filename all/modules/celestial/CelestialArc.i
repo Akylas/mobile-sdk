@@ -3,7 +3,7 @@
 
 %module(directors="1") CelestialArc
 
-!proxy_imports(carto::CelestialArc, celestial.CelestialObject, core.DoubleVector)
+!proxy_imports(massif::CelestialArc, celestial.CelestialObject, core.DoubleVector)
 
 %{
 #include "celestial/CelestialArc.h"
@@ -13,20 +13,20 @@
 
 %include <std_shared_ptr.i>
 %include <std_vector.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "celestial/CelestialObject.i"
 %import "core/DoubleVector.i"
 
-!polymorphic_shared_ptr(carto::CelestialArc, celestial.CelestialArc)
+!polymorphic_shared_ptr(massif::CelestialArc, celestial.CelestialArc)
 
-%attribute(carto::CelestialArc, float, Radius, getRadius)
-%attribute(carto::CelestialArc, float, Width, getWidth, setWidth)
-%attribute(carto::CelestialArc, bool, BelowHorizonVisible, isBelowHorizonVisible, setBelowHorizonVisible)
-%attribute(carto::CelestialArc, float, ClickRadius, getClickRadius, setClickRadius)
-%attribute(carto::CelestialArc, bool, Segmented, isSegmented)
-%ignore carto::CelestialArc::buildDirections;
-%std_exceptions(carto::CelestialArc::CelestialArc)
+%attribute(massif::CelestialArc, float, Radius, getRadius)
+%attribute(massif::CelestialArc, float, Width, getWidth, setWidth)
+%attribute(massif::CelestialArc, bool, BelowHorizonVisible, isBelowHorizonVisible, setBelowHorizonVisible)
+%attribute(massif::CelestialArc, float, ClickRadius, getClickRadius, setClickRadius)
+%attribute(massif::CelestialArc, bool, Segmented, isSegmented)
+%ignore massif::CelestialArc::buildDirections;
+%std_exceptions(massif::CelestialArc::CelestialArc)
 
 %include "celestial/CelestialArc.h"
 

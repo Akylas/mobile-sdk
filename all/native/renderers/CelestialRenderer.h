@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_CELESTIALRENDERER_H_
-#define _CARTO_CELESTIALRENDERER_H_
+#ifndef _MASSIF_CELESTIALRENDERER_H_
+#define _MASSIF_CELESTIALRENDERER_H_
 
 #include "renderers/utils/GLContext.h"
 
@@ -16,7 +16,7 @@
 #include <cglib/vec.h>
 #include <cglib/ray.h>
 
-namespace carto {
+namespace massif {
     class Bitmap;
     class CelestialLayer;
     class CelestialObject;

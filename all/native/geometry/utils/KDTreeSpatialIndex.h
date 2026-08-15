@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_KDTREESPATIALINDEX_H_
-#define _CARTO_KDTREESPATIALINDEX_H_
+#ifndef _MASSIF_KDTREESPATIALINDEX_H_
+#define _MASSIF_KDTREESPATIALINDEX_H_
 
 #include "geometry/utils/SpatialIndex.h"
 
 #include <list>
 
-namespace carto {
+namespace massif {
 
     template <typename T>
     class KDTreeSpatialIndex : public SpatialIndex<T> {

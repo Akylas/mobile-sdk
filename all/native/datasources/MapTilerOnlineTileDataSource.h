@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_MAPTILERONLINETILEDATASOURCE_H_
-#define _CARTO_MAPTILERONLINETILEDATASOURCE_H_
+#ifndef _MASSIF_MAPTILERONLINETILEDATASOURCE_H_
+#define _MASSIF_MAPTILERONLINETILEDATASOURCE_H_
 
 #include "datasources/TileDataSource.h"
 #include "network/HTTPClient.h"
@@ -13,7 +13,7 @@
 #include <random>
 #include <vector>
 
-namespace carto {
+namespace massif {
     
     /**
      * An online tile data source that connects to MapTiler Cloud tile server.

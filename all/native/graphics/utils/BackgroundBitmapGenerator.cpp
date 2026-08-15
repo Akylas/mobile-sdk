@@ -3,7 +3,7 @@
 #include <vector>
 #include <algorithm>
 
-namespace carto {
+namespace massif {
 
     std::shared_ptr<Bitmap> BackgroundBitmapGenerator::generateBitmap(const Color& backgroundColor) const {
         unsigned char maxComponent = std::max(backgroundColor.getR(), std::max(backgroundColor.getG(), backgroundColor.getB()));

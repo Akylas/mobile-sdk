@@ -4,7 +4,7 @@
 %module MapBoxElevationDataDecoder
 
 %module(directors="1") MapBoxElevationDataDecoder
-!proxy_imports(carto::MapBoxElevationDataDecoder, graphics.Color, core.MapPos, core.MapPosVector, datasources.TileDataSource, rastertiles.ElevationDecoder)
+!proxy_imports(massif::MapBoxElevationDataDecoder, graphics.Color, core.MapPos, core.MapPosVector, datasources.TileDataSource, rastertiles.ElevationDecoder)
 
 %{
 #include "rastertiles/MapBoxElevationDataDecoder.h"
@@ -12,18 +12,18 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "graphics/Color.i"
 %import "rastertiles/ElevationDecoder.i"
 
-!polymorphic_shared_ptr(carto::MapBoxElevationDataDecoder, rastertiles.MapBoxElevationDataDecoder)
-!standard_equals(carto::MapBoxElevationDataDecoder);
+!polymorphic_shared_ptr(massif::MapBoxElevationDataDecoder, rastertiles.MapBoxElevationDataDecoder)
+!standard_equals(massif::MapBoxElevationDataDecoder);
 
-%feature("director") carto::MapBoxElevationDataDecoder;
+%feature("director") massif::MapBoxElevationDataDecoder;
 
-%ignore carto::MapBoxElevationDataDecoder::getColorComponentCoefficients;
-%ignore carto::MapBoxElevationDataDecoder::getVectorTileScales;
+%ignore massif::MapBoxElevationDataDecoder::getColorComponentCoefficients;
+%ignore massif::MapBoxElevationDataDecoder::getVectorTileScales;
 
 %include "rastertiles/MapBoxElevationDataDecoder.h"
 

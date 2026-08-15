@@ -3,7 +3,7 @@
 
 %module PopupClickInfo
 
-!proxy_imports(carto::PopupClickInfo, core.MapPos, core.ScreenPos, vectorelements.Popup, ui.ClickInfo)
+!proxy_imports(massif::PopupClickInfo, core.MapPos, core.ScreenPos, vectorelements.Popup, ui.ClickInfo)
 
 %{
 #include "ui/PopupClickInfo.h"
@@ -11,22 +11,22 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "ui/ClickInfo.i"
 %import "core/MapPos.i"
 %import "core/ScreenPos.i"
 %import "vectorelements/Popup.i"
 
-!shared_ptr(carto::PopupClickInfo, ui.PopupClickInfo)
+!shared_ptr(massif::PopupClickInfo, ui.PopupClickInfo)
 
-%attribute(carto::PopupClickInfo, carto::ClickType::ClickType, ClickType, getClickType)
-%attributeval(carto::PopupClickInfo, carto::ClickInfo, ClickInfo, getClickInfo)
-%attributeval(carto::PopupClickInfo, carto::MapPos, ClickPos, getClickPos)
-%attributeval(carto::PopupClickInfo, carto::ScreenPos, ElementClickPos, getElementClickPos)
-!attributestring_polymorphic(carto::PopupClickInfo, vectorelements.Popup, Popup, getPopup)
-%ignore carto::PopupClickInfo::PopupClickInfo;
-!standard_equals(carto::PopupClickInfo);
+%attribute(massif::PopupClickInfo, massif::ClickType::ClickType, ClickType, getClickType)
+%attributeval(massif::PopupClickInfo, massif::ClickInfo, ClickInfo, getClickInfo)
+%attributeval(massif::PopupClickInfo, massif::MapPos, ClickPos, getClickPos)
+%attributeval(massif::PopupClickInfo, massif::ScreenPos, ElementClickPos, getElementClickPos)
+!attributestring_polymorphic(massif::PopupClickInfo, vectorelements.Popup, Popup, getPopup)
+%ignore massif::PopupClickInfo::PopupClickInfo;
+!standard_equals(massif::PopupClickInfo);
 
 %include "ui/PopupClickInfo.h"
 

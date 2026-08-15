@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_MEMORYCACHETILEDATASOURCE_H_
-#define _CARTO_MEMORYCACHETILEDATASOURCE_H_
+#ifndef _MASSIF_MEMORYCACHETILEDATASOURCE_H_
+#define _MASSIF_MEMORYCACHETILEDATASOURCE_H_
 
 #include "datasources/CacheTileDataSource.h"
 
 #include <stdext/timed_lru_cache.h>
 
-namespace carto {
+namespace massif {
 
     /**
      * A tile data source that loads tiles from another tile data source

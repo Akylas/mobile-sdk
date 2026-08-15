@@ -5,10 +5,10 @@
  */
 
 
-#ifndef _CARTO_PACKAGEMANAGERTILEDATASOURCE_H_
-#define _CARTO_PACKAGEMANAGERTILEDATASOURCE_H_
+#ifndef _MASSIF_PACKAGEMANAGERTILEDATASOURCE_H_
+#define _MASSIF_PACKAGEMANAGERTILEDATASOURCE_H_
 
-#ifdef _CARTO_PACKAGEMANAGER_SUPPORT
+#ifdef _MASSIF_PACKAGEMANAGER_SUPPORT
 
 #include "datasources/TileDataSource.h"
 #include "packagemanager/PackageManager.h"
@@ -17,7 +17,7 @@
 #include <mutex>
 #include <vector>
 
-namespace carto {
+namespace massif {
     class MapPackageHandler;
 
     /**

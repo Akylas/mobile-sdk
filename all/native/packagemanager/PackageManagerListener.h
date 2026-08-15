@@ -4,17 +4,17 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_PACKAGEMANAGERLISTENER_H_
-#define _CARTO_PACKAGEMANAGERLISTENER_H_
+#ifndef _MASSIF_PACKAGEMANAGERLISTENER_H_
+#define _MASSIF_PACKAGEMANAGERLISTENER_H_
 
-#ifdef _CARTO_PACKAGEMANAGER_SUPPORT
+#ifdef _MASSIF_PACKAGEMANAGER_SUPPORT
 
 #include <string>
 #include <memory>
 
 #include "PackageStatus.h"
 
-namespace carto {
+namespace massif {
 
     namespace PackageErrorType {
         /**

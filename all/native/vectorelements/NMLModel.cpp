@@ -9,7 +9,7 @@
 
 #include <nml/Package.h>
 
-namespace carto {
+namespace massif {
 
     NMLModel::NMLModel(const std::shared_ptr<Billboard>& baseBillboard, const std::shared_ptr<NMLModelStyle>& style) :
         Billboard(baseBillboard),

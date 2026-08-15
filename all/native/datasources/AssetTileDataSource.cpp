@@ -4,7 +4,7 @@
 #include "utils/Log.h"
 #include "utils/GeneralUtils.h"
 
-namespace carto {
+namespace massif {
 
     AssetTileDataSource::AssetTileDataSource(int minZoom, int maxZoom, const std::string& basePath) :
         TileDataSource(minZoom, maxZoom),

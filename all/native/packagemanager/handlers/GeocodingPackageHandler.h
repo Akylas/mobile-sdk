@@ -4,10 +4,10 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_GEOCODINGPACKAGEHANDLER_H_
-#define _CARTO_GEOCODINGPACKAGEHANDLER_H_
+#ifndef _MASSIF_GEOCODINGPACKAGEHANDLER_H_
+#define _MASSIF_GEOCODINGPACKAGEHANDLER_H_
 
-#if defined(_CARTO_GEOCODING_SUPPORT) && defined(_CARTO_PACKAGEMANAGER_SUPPORT)
+#if defined(_MASSIF_GEOCODING_SUPPORT) && defined(_MASSIF_PACKAGEMANAGER_SUPPORT)
 
 #include "packagemanager/handlers/PackageHandler.h"
 
@@ -15,7 +15,7 @@ namespace sqlite3pp {
     class database;
 }
 
-namespace carto {
+namespace massif {
     
     class GeocodingPackageHandler : public PackageHandler {
     public:

@@ -5,7 +5,7 @@
 
 %module BalloonPopupButton
 
-!proxy_imports(carto::BalloonPopupButton, core.Variant, styles.BalloonPopupButtonStyle)
+!proxy_imports(massif::BalloonPopupButton, core.Variant, styles.BalloonPopupButtonStyle)
 
 %{
 #include "vectorelements/BalloonPopupButton.h"
@@ -15,17 +15,17 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/Variant.i"
 %import "styles/BalloonPopupButtonStyle.i"
 
-!polymorphic_shared_ptr(carto::BalloonPopupButton, vectorelements.BalloonPopupButton)
+!polymorphic_shared_ptr(massif::BalloonPopupButton, vectorelements.BalloonPopupButton)
 
-%attributestring(carto::BalloonPopupButton, std::string, Text, getText)
-!attributestring_polymorphic(carto::BalloonPopupButton, styles.BalloonPopupButtonStyle, Style, getStyle)
-%attributeval(carto::BalloonPopupButton, carto::Variant, Tag, getTag, setTag)
-%std_exceptions(carto::BalloonPopupButton::BalloonPopupButton)
+%attributestring(massif::BalloonPopupButton, std::string, Text, getText)
+!attributestring_polymorphic(massif::BalloonPopupButton, styles.BalloonPopupButtonStyle, Style, getStyle)
+%attributeval(massif::BalloonPopupButton, massif::Variant, Tag, getTag, setTag)
+%std_exceptions(massif::BalloonPopupButton::BalloonPopupButton)
 
 %include "vectorelements/BalloonPopupButton.h"
 

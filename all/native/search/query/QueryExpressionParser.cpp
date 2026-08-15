@@ -11,7 +11,7 @@
 #include <boost/spirit/include/qi.hpp>
 #include <boost/spirit/repository/include/qi_distinct.hpp>
 
-namespace carto {
+namespace massif {
     namespace queryexpressionimpl {
         using Skipper = boost::spirit::iso8859_1::space_type;
     

@@ -4,7 +4,7 @@
 #include "geometry/MultiGeometry.h"
 #include "renderers/drawdatas/GeometryCollectionDrawData.h"
 
-namespace carto {
+namespace massif {
 
     GeometryCollection::GeometryCollection(const std::shared_ptr<MultiGeometry>& geometry, const std::shared_ptr<GeometryCollectionStyle>& style) :
         VectorElement(geometry),

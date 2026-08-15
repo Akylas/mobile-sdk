@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_VTRENDERER_H_
-#define _CARTO_VTRENDERER_H_
+#ifndef _MASSIF_VTRENDERER_H_
+#define _MASSIF_VTRENDERER_H_
 
 #include "renderers/utils/GLResource.h"
 
@@ -13,7 +13,7 @@
 
 #include <vt/GLTileRenderer.h>
 
-namespace carto {
+namespace massif {
     
     class VTRenderer : public GLResource {
     public:

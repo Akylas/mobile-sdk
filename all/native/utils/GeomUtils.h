@@ -4,12 +4,12 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_GEOMUTILS_H_
-#define _CARTO_GEOMUTILS_H_
+#ifndef _MASSIF_GEOMUTILS_H_
+#define _MASSIF_GEOMUTILS_H_
 
 #include <vector>
 
-namespace carto {
+namespace massif {
     class MapBounds;
     class MapPos;
     class MapVec;

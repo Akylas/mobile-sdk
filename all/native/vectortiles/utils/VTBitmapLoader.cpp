@@ -13,7 +13,7 @@
 #define NANOSVGRAST_IMPLEMENTATION
 #include <nanosvgrast.h>
 
-namespace carto {
+namespace massif {
     
     VTBitmapLoader::VTBitmapLoader(const std::string& basePath, const std::shared_ptr<AssetPackage>& assetPackage) :
         _basePath(basePath),

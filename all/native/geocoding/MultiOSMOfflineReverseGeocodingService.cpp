@@ -1,15 +1,15 @@
-#if defined(_CARTO_GEOCODING_SUPPORT) && defined(_CARTO_OFFLINE_SUPPORT)
+#if defined(_MASSIF_GEOCODING_SUPPORT) && defined(_MASSIF_OFFLINE_SUPPORT)
 
 #include "MultiOSMOfflineReverseGeocodingService.h"
 #include "components/Exceptions.h"
-#include "geocoding/utils/CartoGeocodingProxy.h"
+#include "geocoding/utils/MassifGeocodingProxy.h"
 #include "packagemanager/handlers/GeocodingPackageHandler.h"
 
 #include <geocoding/RevGeocoder.h>
 
 #include <sqlite3pp.h>
 
-namespace carto {
+namespace massif {
 
     MultiOSMOfflineReverseGeocodingService::MultiOSMOfflineReverseGeocodingService() :
         _language(),
@@ -98,7 +98,7 @@ namespace carto {
                 _cachedRevGeocoder = revGeocoder;
             }
 
-            results = CartoGeocodingProxy::CalculateAddresses(_cachedRevGeocoder, request);
+            results = MassifGeocodingProxy::CalculateAddresses(_cachedRevGeocoder, request);
         });
         return results;
     }

@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_UTFGRIDTILE_H_
-#define _CARTO_UTFGRIDTILE_H_
+#ifndef _MASSIF_UTFGRIDTILE_H_
+#define _MASSIF_UTFGRIDTILE_H_
 
 #include "core/Variant.h"
 
@@ -14,7 +14,7 @@
 #include <vector>
 #include <string>
 
-namespace carto {
+namespace massif {
     class BinaryData;
         
     class UTFGridTile {

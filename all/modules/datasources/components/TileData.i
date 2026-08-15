@@ -3,7 +3,7 @@
 
 %module TileData
 
-!proxy_imports(carto::TileData, core.BinaryData)
+!proxy_imports(massif::TileData, core.BinaryData)
 
 %{
 #include "datasources/components/TileData.h"
@@ -11,20 +11,20 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/BinaryData.i"
 
-!shared_ptr(carto::TileData, datasources.components.TileData)
+!shared_ptr(massif::TileData, datasources.components.TileData)
 
-%attribute(carto::TileData, long long, MaxAge, getMaxAge, setMaxAge)
-%attribute(carto::TileData, bool, ReplaceWithParent, isReplaceWithParent, setReplaceWithParent)
-%attributestring(carto::TileData, std::shared_ptr<carto::BinaryData>, Data, getData)
+%attribute(massif::TileData, long long, MaxAge, getMaxAge, setMaxAge)
+%attribute(massif::TileData, bool, ReplaceWithParent, isReplaceWithParent, setReplaceWithParent)
+%attributestring(massif::TileData, std::shared_ptr<massif::BinaryData>, Data, getData)
 
-%ignore carto::TileData::getMetadata;
-%ignore carto::TileData::setMetadata;
+%ignore massif::TileData::getMetadata;
+%ignore massif::TileData::setMetadata;
 
-!standard_equals(carto::TileData);
+!standard_equals(massif::TileData);
 
 %include "datasources/components/TileData.h"
 

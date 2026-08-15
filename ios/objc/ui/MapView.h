@@ -4,7 +4,7 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifdef _CARTO_USE_METALANGLE
+#ifdef _MASSIF_USE_METALANGLE
 
 #import "MGLKit.h"
 

@@ -4,7 +4,7 @@
 #include "geometry/PolygonGeometry.h"
 #include "renderers/drawdatas/Polygon3DDrawData.h"
 
-namespace carto {
+namespace massif {
 
     Polygon3D::Polygon3D(const std::shared_ptr<PolygonGeometry>& geometry, const std::shared_ptr<Polygon3DStyle>& style, float height) :
         VectorElement(geometry),

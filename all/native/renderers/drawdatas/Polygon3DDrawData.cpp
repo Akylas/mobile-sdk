@@ -16,7 +16,7 @@
 
 #include <tesselator.h>
 
-namespace carto {
+namespace massif {
 
     Polygon3DDrawData::Polygon3DDrawData(const Polygon3D& polygon3D, const Polygon3DStyle& style, const Projection& projection, const std::shared_ptr<ProjectionSurface>& projectionSurface) :
         VectorElementDrawData(style.getColor(), projectionSurface),

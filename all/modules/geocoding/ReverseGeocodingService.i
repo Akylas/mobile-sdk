@@ -6,9 +6,9 @@
 
 %module(directors="1") ReverseGeocodingService
 
-#ifdef _CARTO_GEOCODING_SUPPORT
+#ifdef _MASSIF_GEOCODING_SUPPORT
 
-!proxy_imports(carto::ReverseGeocodingService, geocoding.ReverseGeocodingRequest, geocoding.GeocodingResult)
+!proxy_imports(massif::ReverseGeocodingService, geocoding.ReverseGeocodingRequest, geocoding.GeocodingResult)
 
 %{
 #include "geocoding/ReverseGeocodingService.h"
@@ -18,18 +18,18 @@
 
 %include <std_string.i>
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "geocoding/ReverseGeocodingRequest.i"
 %import "geocoding/GeocodingResult.i"
 
-!polymorphic_shared_ptr(carto::ReverseGeocodingService, geocoding.ReverseGeocodingService)
+!polymorphic_shared_ptr(massif::ReverseGeocodingService, geocoding.ReverseGeocodingService)
 
-%attributestring(carto::ReverseGeocodingService, std::string, Language, getLanguage, setLanguage)
-%std_exceptions(carto::ReverseGeocodingService::setLanguage)
-%std_io_exceptions(carto::ReverseGeocodingService::calculateAddresses)
+%attributestring(massif::ReverseGeocodingService, std::string, Language, getLanguage, setLanguage)
+%std_exceptions(massif::ReverseGeocodingService::setLanguage)
+%std_io_exceptions(massif::ReverseGeocodingService::calculateAddresses)
 
-%feature("director") carto::ReverseGeocodingService;
+%feature("director") massif::ReverseGeocodingService;
 
 %include "geocoding/ReverseGeocodingService.h"
 

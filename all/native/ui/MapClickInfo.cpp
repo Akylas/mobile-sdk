@@ -1,6 +1,6 @@
 #include "MapClickInfo.h"
 
-namespace carto {
+namespace massif {
 
     MapClickInfo::MapClickInfo(const ClickInfo& clickInfo, const MapPos& clickPos) :
         _clickInfo(clickInfo),

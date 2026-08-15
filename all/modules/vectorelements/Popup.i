@@ -3,8 +3,8 @@
 
 %module Popup
 
-!proxy_imports(carto::Popup, core.MapPos, core.ScreenPos, graphics.Bitmap, geometry.Geometry, geometry.PointGeometry, styles.PopupStyle, ui.ClickInfo, vectorelements.Billboard)
-!java_imports(carto::Popup, com.carto.ui.ClickType)
+!proxy_imports(massif::Popup, core.MapPos, core.ScreenPos, graphics.Bitmap, geometry.Geometry, geometry.PointGeometry, styles.PopupStyle, ui.ClickInfo, vectorelements.Billboard)
+!java_imports(massif::Popup, com.carto.ui.ClickType)
 
 %{
 #include "vectorelements/Popup.h"
@@ -13,7 +13,7 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/MapPos.i"
 %import "core/ScreenPos.i"
@@ -22,14 +22,14 @@
 %import "ui/ClickInfo.i"
 %import "vectorelements/Billboard.i"
 
-!polymorphic_shared_ptr(carto::Popup, vectorelements.Popup)
+!polymorphic_shared_ptr(massif::Popup, vectorelements.Popup)
 
-%attribute(carto::Popup, float, AnchorPointX, getAnchorPointX, setAnchorPointX)
-%attribute(carto::Popup, float, AnchorPointY, getAnchorPointY, setAnchorPointY)
-!attributestring_polymorphic(carto::Popup, styles.PopupStyle, Style, getStyle, setStyle)
-%std_exceptions(carto::Popup::Popup)
-%std_exceptions(carto::Popup::setStyle)
-!objc_rename(setAnchorPointX) carto::Popup::setAnchorPoint;
+%attribute(massif::Popup, float, AnchorPointX, getAnchorPointX, setAnchorPointX)
+%attribute(massif::Popup, float, AnchorPointY, getAnchorPointY, setAnchorPointY)
+!attributestring_polymorphic(massif::Popup, styles.PopupStyle, Style, getStyle, setStyle)
+%std_exceptions(massif::Popup::Popup)
+%std_exceptions(massif::Popup::setStyle)
+!objc_rename(setAnchorPointX) massif::Popup::setAnchorPoint;
 
 %include "vectorelements/Popup.h"
 

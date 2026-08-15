@@ -3,7 +3,7 @@
 
 %module MultiLineGeometry
 
-!proxy_imports(carto::MultiLineGeometry, geometry.Geometry, geometry.MultiGeometry, geometry.LineGeometry, geometry.LineGeometryVector)
+!proxy_imports(massif::MultiLineGeometry, geometry.Geometry, geometry.MultiGeometry, geometry.LineGeometry, geometry.LineGeometryVector)
 
 %{
 #include "geometry/MultiLineGeometry.h"
@@ -12,15 +12,15 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "geometry/Geometry.i"
 %import "geometry/LineGeometry.i"
 %import "geometry/MultiGeometry.i"
 
-!polymorphic_shared_ptr(carto::MultiLineGeometry, geometry.MultiLineGeometry)
+!polymorphic_shared_ptr(massif::MultiLineGeometry, geometry.MultiLineGeometry)
 
-%std_exceptions(carto::MultiLineGeometry::getGeometry)
+%std_exceptions(massif::MultiLineGeometry::getGeometry)
 
 %include "geometry/MultiLineGeometry.h"
 

@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_TORQUETILELAYER_H_
-#define _CARTO_TORQUETILELAYER_H_
+#ifndef _MASSIF_TORQUETILELAYER_H_
+#define _MASSIF_TORQUETILELAYER_H_
 
 #include "layers/VectorTileLayer.h"
 
 #include <memory>
 
-namespace carto {
+namespace massif {
     class TorqueTileDecoder;
 
     /**

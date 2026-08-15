@@ -8,17 +8,17 @@
 %}
 
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
-!value_type(carto::Color, graphics.Color)
+!value_type(massif::Color, graphics.Color)
 
-%attribute(carto::Color, int, ARGB, getARGB)
-%attribute(carto::Color, unsigned char, R, getR)
-%attribute(carto::Color, unsigned char, G, getG)
-%attribute(carto::Color, unsigned char, B, getB)
-%attribute(carto::Color, unsigned char, A, getA)
-!custom_equals(carto::Color);
-!custom_tostring(carto::Color);
+%attribute(massif::Color, int, ARGB, getARGB)
+%attribute(massif::Color, unsigned char, R, getR)
+%attribute(massif::Color, unsigned char, G, getG)
+%attribute(massif::Color, unsigned char, B, getB)
+%attribute(massif::Color, unsigned char, A, getA)
+!custom_equals(massif::Color);
+!custom_tostring(massif::Color);
 
 %include "graphics/Color.h"
 

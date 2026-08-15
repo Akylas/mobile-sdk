@@ -1,4 +1,4 @@
-#ifdef _CARTO_ROUTING_SUPPORT
+#ifdef _MASSIF_ROUTING_SUPPORT
 
 #include "RoutingResult.h"
 #include "components/Exceptions.h"
@@ -9,7 +9,7 @@
 #include <iomanip>
 #include <sstream>
 
-namespace carto {
+namespace massif {
 
     RoutingResult::RoutingResult(const std::shared_ptr<Projection>& projection, std::vector<MapPos> points, std::vector<RoutingInstruction> instructions, const std::string rawResult) :
         _projection(projection),

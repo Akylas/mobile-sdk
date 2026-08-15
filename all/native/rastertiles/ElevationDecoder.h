@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_ELEVATIONDECODER_H_
-#define _CARTO_ELEVATIONDECODER_H_
+#ifndef _MASSIF_ELEVATIONDECODER_H_
+#define _MASSIF_ELEVATIONDECODER_H_
 
 #include "graphics/Color.h"
 
@@ -19,7 +19,7 @@
 
 #include <mapnikvt/Map.h>
 
-namespace carto {
+namespace massif {
     /**
      * Abstract base class for raster elevation decoders.
      */

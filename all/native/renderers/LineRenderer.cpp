@@ -15,7 +15,7 @@
 #include <cglib/mat.h>
 #include <cglib/vec.h>
 
-namespace carto {
+namespace massif {
     
     LineRenderer::LineRenderer() :
         _mapRenderer(),

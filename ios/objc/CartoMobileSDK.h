@@ -10,7 +10,7 @@
 #import "NTOptions.h"
 #import "NTLayers.h"
 
-#ifdef _CARTO_GEOCODING_SUPPORT
+#ifdef _MASSIF_GEOCODING_SUPPORT
 #import "NTAddress.h"
 #endif
 #import "NTMapBounds.h"
@@ -155,17 +155,17 @@
 #import "NTVectorTileFeatureCollection.h"
 
 
-#ifdef _CARTO_OFFLINE_SUPPORT
+#ifdef _MASSIF_OFFLINE_SUPPORT
 #import "NTMBTilesTileDataSource.h"
 #import "NTPersistentCacheTileDataSource.h"
 #endif
 
-#ifdef _CARTO_PACKAGEMANAGER_SUPPORT
+#ifdef _MASSIF_PACKAGEMANAGER_SUPPORT
 #import "NTPackageManagerTileDataSource.h"
 
-#ifdef _CARTO_ROUTING_SUPPORT
+#ifdef _MASSIF_ROUTING_SUPPORT
 #import "NTPackageManagerRoutingService.h"
-#ifdef _CARTO_VALHALLA_ROUTING_SUPPORT
+#ifdef _MASSIF_VALHALLA_ROUTING_SUPPORT
 #import "NTPackageManagerValhallaRoutingService.h"
 #endif
 #endif
@@ -176,7 +176,7 @@
 #import "NTPackageManager.h"
 #endif
 
-#ifdef _CARTO_GEOCODING_SUPPORT
+#ifdef _MASSIF_GEOCODING_SUPPORT
 #import "NTGeocodingAddress.h"
 #import "NTGeocodingRequest.h"
 #import "NTGeocodingResult.h"
@@ -197,14 +197,14 @@
 #import "NTMultiOSMOfflineReverseGeocodingService.h"
 #endif
 
-#ifdef _CARTO_SEARCH_SUPPORT
+#ifdef _MASSIF_SEARCH_SUPPORT
 #import "NTSearchRequest.h"
 #import "NTFeatureCollectionSearchService.h"
 #import "NTVectorElementSearchService.h"
 #import "NTVectorTileSearchService.h"
 #endif
 
-#ifdef _CARTO_ROUTING_SUPPORT
+#ifdef _MASSIF_ROUTING_SUPPORT
 #import "NTRoutingInstruction.h"
 #import "NTRoutingRequest.h"
 #import "NTRoutingResult.h"
@@ -214,18 +214,18 @@
 #import "NTOSRMOfflineRoutingService.h"
 #import "NTSGREOfflineRoutingService.h"
 #import "NTValhallaOnlineRoutingService.h"
-#ifdef _CARTO_VALHALLA_ROUTING_SUPPORT
+#ifdef _MASSIF_VALHALLA_ROUTING_SUPPORT
 #import "NTMultiValhallaOfflineRoutingService.h"
 #import "NTValhallaOfflineRoutingService.h"
 #endif
 #endif
 
-#ifdef _CARTO_EDITABLE_SUPPORT
+#ifdef _MASSIF_EDITABLE_SUPPORT
 #import "NTEditableVectorLayer.h"
 #import "NTVectorEditEventListener.h"
 #endif
 
-#ifdef _CARTO_WKBT_SUPPORT
+#ifdef _MASSIF_WKBT_SUPPORT
 #import "NTWKTGeometryReader.h"
 #import "NTWKTGeometryWriter.h"
 #import "NTWKBGeometryReader.h"

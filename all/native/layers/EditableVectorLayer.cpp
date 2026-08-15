@@ -1,4 +1,4 @@
-#ifdef _CARTO_EDITABLE_SUPPORT
+#ifdef _MASSIF_EDITABLE_SUPPORT
 
 #include "EditableVectorLayer.h"
 #include "components/CancelableThreadPool.h"
@@ -39,7 +39,7 @@
 
 #include <vector>
 
-namespace carto {
+namespace massif {
 
     EditableVectorLayer::EditableVectorLayer(const std::shared_ptr<VectorDataSource>& dataSource) :
         VectorLayer(dataSource),

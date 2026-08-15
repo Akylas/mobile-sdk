@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_GENERALUTILS_H_
-#define _CARTO_GENERALUTILS_H_
+#ifndef _MASSIF_GENERALUTILS_H_
+#define _MASSIF_GENERALUTILS_H_
 
 #include <string>
 #include <vector>
 #include <map>
 
-namespace carto {
+namespace massif {
 
     class GeneralUtils {
     public:

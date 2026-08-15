@@ -1,6 +1,6 @@
 #include "VectorTileFeature.h"
 
-namespace carto {
+namespace massif {
 
     VectorTileFeature::VectorTileFeature(long long id, const MapTile& mapTile, const std::string& layerName, const std::shared_ptr<Geometry>& geometry, Variant properties) :
         Feature(geometry, std::move(properties)),

@@ -5,7 +5,7 @@
 
 %module VectorTileDecoder
 
-!proxy_imports(carto::VectorTileDecoder, core.BinaryData, graphics.Color)
+!proxy_imports(massif::VectorTileDecoder, core.BinaryData, graphics.Color)
 
 %{
 #include "vectortiles/VectorTileDecoder.h"
@@ -13,27 +13,27 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/BinaryData.i"
 %import "graphics/Color.i"
 
-!polymorphic_shared_ptr(carto::VectorTileDecoder, vectortiles.VectorTileDecoder)
+!polymorphic_shared_ptr(massif::VectorTileDecoder, vectortiles.VectorTileDecoder)
 
-%csmethodmodifiers carto::VectorTileDecoder::MinZoom "public virtual"
-%attribute(carto::VectorTileDecoder, int, MinZoom, getMinZoom)
-%csmethodmodifiers carto::VectorTileDecoder::MaxZoom "public virtual"
-%attribute(carto::VectorTileDecoder, int, MaxZoom, getMaxZoom)
-%ignore carto::VectorTileDecoder::decodeFeature;
-%ignore carto::VectorTileDecoder::decodeFeatures;
-%ignore carto::VectorTileDecoder::decodeTile;
-%ignore carto::VectorTileDecoder::getMapSettings;
-%ignore carto::VectorTileDecoder::getSymbolizerContextSettings;
-%ignore carto::VectorTileDecoder::setPixelScale;
-%ignore carto::VectorTileDecoder::OnChangeListener;
-%ignore carto::VectorTileDecoder::registerOnChangeListener;
-%ignore carto::VectorTileDecoder::unregisterOnChangeListener;
-!standard_equals(carto::VectorTileDecoder);
+%csmethodmodifiers massif::VectorTileDecoder::MinZoom "public virtual"
+%attribute(massif::VectorTileDecoder, int, MinZoom, getMinZoom)
+%csmethodmodifiers massif::VectorTileDecoder::MaxZoom "public virtual"
+%attribute(massif::VectorTileDecoder, int, MaxZoom, getMaxZoom)
+%ignore massif::VectorTileDecoder::decodeFeature;
+%ignore massif::VectorTileDecoder::decodeFeatures;
+%ignore massif::VectorTileDecoder::decodeTile;
+%ignore massif::VectorTileDecoder::getMapSettings;
+%ignore massif::VectorTileDecoder::getSymbolizerContextSettings;
+%ignore massif::VectorTileDecoder::setPixelScale;
+%ignore massif::VectorTileDecoder::OnChangeListener;
+%ignore massif::VectorTileDecoder::registerOnChangeListener;
+%ignore massif::VectorTileDecoder::unregisterOnChangeListener;
+!standard_equals(massif::VectorTileDecoder);
 
 %include "vectortiles/VectorTileDecoder.h"
 

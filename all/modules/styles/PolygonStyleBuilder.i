@@ -3,7 +3,7 @@
 
 %module PolygonStyleBuilder
 
-!proxy_imports(carto::PolygonStyleBuilder, styles.PolygonStyle, styles.StyleBuilder)
+!proxy_imports(massif::PolygonStyleBuilder, styles.PolygonStyle, styles.StyleBuilder)
 
 %{
 #include "styles/PolygonStyleBuilder.h"
@@ -11,14 +11,14 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "styles/PolygonStyle.i"
 %import "styles/StyleBuilder.i"
 
-!polymorphic_shared_ptr(carto::PolygonStyleBuilder, styles.PolygonStyleBuilder)
+!polymorphic_shared_ptr(massif::PolygonStyleBuilder, styles.PolygonStyleBuilder)
 
-%attributestring(carto::PolygonStyleBuilder, std::shared_ptr<carto::LineStyle>, LineStyle, getLineStyle, setLineStyle)
+%attributestring(massif::PolygonStyleBuilder, std::shared_ptr<massif::LineStyle>, LineStyle, getLineStyle, setLineStyle)
 
 %include "styles/PolygonStyleBuilder.h"
 

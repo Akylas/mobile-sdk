@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_MARKERSTYLE_H_
-#define _CARTO_MARKERSTYLE_H_
+#ifndef _MASSIF_MARKERSTYLE_H_
+#define _MASSIF_MARKERSTYLE_H_
 
 #include "styles/BillboardStyle.h"
 
 #include <memory>
 
-namespace carto {
+namespace massif {
     class Bitmap;
     
     /**

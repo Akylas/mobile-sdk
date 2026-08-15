@@ -213,7 +213,7 @@ if args.androidndkpath == 'auto' and args.target == 'android':
 args.defines += ';' + getProfile(args.profile).get('defines', '')
 args.defines += ';' + 'TARGET_XAMARIN'
 if args.metalangle and args.target == 'ios':
-  args.defines += ';' + '_CARTO_USE_METALANGLE'
+  args.defines += ';' + '_MASSIF_USE_METALANGLE'
   print('Metal ANGLE rendering backend currently not supported for Xamarin/iOS')
   sys.exit(-1)
 args.cmakeoptions += ';' + getProfile(args.profile).get('cmake-options', '')

@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_FEATURE_H_
-#define _CARTO_FEATURE_H_
+#ifndef _MASSIF_FEATURE_H_
+#define _MASSIF_FEATURE_H_
 
 #include "core/Variant.h"
 
 #include <memory>
 
-namespace carto {
+namespace massif {
     class Geometry;
 
     /**

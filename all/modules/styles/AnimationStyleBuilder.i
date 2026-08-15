@@ -3,7 +3,7 @@
 
 %module AnimationStyleBuilder
 
-!proxy_imports(carto::AnimationStyleBuilder, styles.AnimationStyle)
+!proxy_imports(massif::AnimationStyleBuilder, styles.AnimationStyle)
 
 %{
 #include "styles/AnimationStyleBuilder.h"
@@ -12,17 +12,17 @@
 
 %include <std_shared_ptr.i>
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "styles/AnimationStyle.i"
 
-!polymorphic_shared_ptr(carto::AnimationStyleBuilder, styles.AnimationStyleBuilder)
+!polymorphic_shared_ptr(massif::AnimationStyleBuilder, styles.AnimationStyleBuilder)
 
-%attribute(carto::AnimationStyleBuilder, float, RelativeSpeed, getRelativeSpeed, setRelativeSpeed)
-%attribute(carto::AnimationStyleBuilder, float, PhaseInDuration, getPhaseInDuration, setPhaseInDuration)
-%attribute(carto::AnimationStyleBuilder, float, PhaseOutDuration, getPhaseOutDuration, setPhaseOutDuration)
-%attribute(carto::AnimationStyleBuilder, carto::AnimationType::AnimationType, FadeAnimationType, getFadeAnimationType, setFadeAnimationType)
-%attribute(carto::AnimationStyleBuilder, carto::AnimationType::AnimationType, SizeAnimationType, getSizeAnimationType, setSizeAnimationType)
+%attribute(massif::AnimationStyleBuilder, float, RelativeSpeed, getRelativeSpeed, setRelativeSpeed)
+%attribute(massif::AnimationStyleBuilder, float, PhaseInDuration, getPhaseInDuration, setPhaseInDuration)
+%attribute(massif::AnimationStyleBuilder, float, PhaseOutDuration, getPhaseOutDuration, setPhaseOutDuration)
+%attribute(massif::AnimationStyleBuilder, massif::AnimationType::AnimationType, FadeAnimationType, getFadeAnimationType, setFadeAnimationType)
+%attribute(massif::AnimationStyleBuilder, massif::AnimationType::AnimationType, SizeAnimationType, getSizeAnimationType, setSizeAnimationType)
 
 %include "styles/AnimationStyleBuilder.h"
 

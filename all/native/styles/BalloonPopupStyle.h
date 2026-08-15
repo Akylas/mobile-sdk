@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_BALLOONPOPUPSTYLE_H_
-#define _CARTO_BALLOONPOPUPSTYLE_H_
+#ifndef _MASSIF_BALLOONPOPUPSTYLE_H_
+#define _MASSIF_BALLOONPOPUPSTYLE_H_
 
 #include "styles/PopupStyle.h"
 
 #include <string>
 
-namespace carto {
+namespace massif {
     class Bitmap;
 
     /**

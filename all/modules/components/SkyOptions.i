@@ -3,7 +3,7 @@
 
 %module SkyOptions
 
-!proxy_imports(carto::SkyOptions, graphics.Color)
+!proxy_imports(massif::SkyOptions, graphics.Color)
 
 %{
 #include "components/SkyOptions.h"
@@ -13,25 +13,25 @@
 
 %include <std_shared_ptr.i>
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "graphics/Color.i"
 
-!shared_ptr(carto::SkyOptions, components.SkyOptions)
+!shared_ptr(massif::SkyOptions, components.SkyOptions)
 
-%attribute(carto::SkyOptions, bool, Enabled, isEnabled, setEnabled)
-%attributeval(carto::SkyOptions, carto::Color, SkyColor, getSkyColor, setSkyColor)
-%attributeval(carto::SkyOptions, carto::Color, HorizonColor, getHorizonColor, setHorizonColor)
-%attributeval(carto::SkyOptions, carto::Color, GroundColor, getGroundColor, setGroundColor)
-%attribute(carto::SkyOptions, float, HorizonBlend, getHorizonBlend, setHorizonBlend)
-%attribute(carto::SkyOptions, float, FogBlend, getFogBlend, setFogBlend)
-%attribute(carto::SkyOptions, float, FogHorizon, getFogHorizon, setFogHorizon)
-%attribute(carto::SkyOptions, bool, SunDiscEnabled, isSunDiscEnabled, setSunDiscEnabled)
-%attributestring(carto::SkyOptions, std::string, ShaderSource, getShaderSource, setShaderSource)
+%attribute(massif::SkyOptions, bool, Enabled, isEnabled, setEnabled)
+%attributeval(massif::SkyOptions, massif::Color, SkyColor, getSkyColor, setSkyColor)
+%attributeval(massif::SkyOptions, massif::Color, HorizonColor, getHorizonColor, setHorizonColor)
+%attributeval(massif::SkyOptions, massif::Color, GroundColor, getGroundColor, setGroundColor)
+%attribute(massif::SkyOptions, float, HorizonBlend, getHorizonBlend, setHorizonBlend)
+%attribute(massif::SkyOptions, float, FogBlend, getFogBlend, setFogBlend)
+%attribute(massif::SkyOptions, float, FogHorizon, getFogHorizon, setFogHorizon)
+%attribute(massif::SkyOptions, bool, SunDiscEnabled, isSunDiscEnabled, setSunDiscEnabled)
+%attributestring(massif::SkyOptions, std::string, ShaderSource, getShaderSource, setShaderSource)
 
-%ignore carto::SkyOptions::OnChangeListener;
-%ignore carto::SkyOptions::registerOnChangeListener;
-%ignore carto::SkyOptions::unregisterOnChangeListener;
+%ignore massif::SkyOptions::OnChangeListener;
+%ignore massif::SkyOptions::registerOnChangeListener;
+%ignore massif::SkyOptions::unregisterOnChangeListener;
 
 %include "components/SkyOptions.h"
 

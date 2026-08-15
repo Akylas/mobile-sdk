@@ -3,7 +3,7 @@
 
 #include <algorithm>
 
-namespace carto {
+namespace massif {
 
     CelestialSprite::CelestialSprite() :
         CelestialObject(),

@@ -5,8 +5,8 @@
  */
 
 
-#ifndef _CARTO_LOCALPACKAGEMANAGERTILEDATASOURCE_H_
-#define _CARTO_LOCALPACKAGEMANAGERTILEDATASOURCE_H_
+#ifndef _MASSIF_LOCALPACKAGEMANAGERTILEDATASOURCE_H_
+#define _MASSIF_LOCALPACKAGEMANAGERTILEDATASOURCE_H_
 
 #include "datasources/TileDataSource.h"
 #include "packagemanager/PackageTileMask.h"
@@ -16,7 +16,7 @@
 #include <vector>
 #include <optional>
 
-namespace carto {
+namespace massif {
 
     /**
      * A tile data source that handles multiple data sources.

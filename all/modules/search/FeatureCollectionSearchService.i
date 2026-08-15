@@ -6,9 +6,9 @@
 
 %module(directors="1") FeatureCollectionSearchService
 
-#ifdef _CARTO_SEARCH_SUPPORT
+#ifdef _MASSIF_SEARCH_SUPPORT
 
-!proxy_imports(carto::FeatureCollectionSearchService, search.SearchRequest, geometry.FeatureCollection, projections.Projection)
+!proxy_imports(massif::FeatureCollectionSearchService, search.SearchRequest, geometry.FeatureCollection, projections.Projection)
 
 %{
 #include "search/FeatureCollectionSearchService.h"
@@ -17,21 +17,21 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "search/SearchRequest.i"
 %import "geometry/FeatureCollection.i"
 %import "projections/Projection.i"
 
-!polymorphic_shared_ptr(carto::FeatureCollectionSearchService, search.FeatureCollectionSearchService)
+!polymorphic_shared_ptr(massif::FeatureCollectionSearchService, search.FeatureCollectionSearchService)
 
-%attributestring(carto::FeatureCollectionSearchService, std::shared_ptr<carto::Projection>, Projection, getProjection)
-%attributestring(carto::FeatureCollectionSearchService, std::shared_ptr<carto::FeatureCollection>, FeatureCollection, getFeatureCollection)
-%attribute(carto::FeatureCollectionSearchService, int, MaxResults, getMaxResults, setMaxResults)
-%std_exceptions(carto::FeatureCollectionSearchService::FeatureCollectionSearchService)
-%std_exceptions(carto::FeatureCollectionSearchService::findFeatures)
+%attributestring(massif::FeatureCollectionSearchService, std::shared_ptr<massif::Projection>, Projection, getProjection)
+%attributestring(massif::FeatureCollectionSearchService, std::shared_ptr<massif::FeatureCollection>, FeatureCollection, getFeatureCollection)
+%attribute(massif::FeatureCollectionSearchService, int, MaxResults, getMaxResults, setMaxResults)
+%std_exceptions(massif::FeatureCollectionSearchService::FeatureCollectionSearchService)
+%std_exceptions(massif::FeatureCollectionSearchService::findFeatures)
 
-%feature("director") carto::FeatureCollectionSearchService;
+%feature("director") massif::FeatureCollectionSearchService;
 
 %include "search/FeatureCollectionSearchService.h"
 

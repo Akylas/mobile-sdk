@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <iterator>
 
-namespace carto {
+namespace massif {
     
     MultiPolygonGeometry::MultiPolygonGeometry(const std::vector<std::shared_ptr<PolygonGeometry> >& geometries) :
         MultiGeometry(geometries.begin(), geometries.end())

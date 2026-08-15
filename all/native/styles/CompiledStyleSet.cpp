@@ -2,7 +2,7 @@
 #include "utils/AssetPackage.h"
 #include "utils/Log.h"
 
-namespace carto {
+namespace massif {
     
     CompiledStyleSet::CompiledStyleSet(const std::shared_ptr<AssetPackage>& assetPackage) :
         _styleName(),

@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_CULLWORKER_H_
-#define _CARTO_CULLWORKER_H_
+#ifndef _MASSIF_CULLWORKER_H_
+#define _MASSIF_CULLWORKER_H_
 
 #include "components/ThreadWorker.h"
 #include "core/MapEnvelope.h"
@@ -18,7 +18,7 @@
 #include <thread>
 #include <vector>
 
-namespace carto {
+namespace massif {
     class EnvelopeLayer;
     class Layer;
     class MapRenderer;

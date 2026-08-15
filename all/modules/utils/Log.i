@@ -3,28 +3,28 @@
 
 %module Log
 
-!proxy_imports(carto::Log, utils.LogEventListener)
+!proxy_imports(massif::Log, utils.LogEventListener)
 
 %{
 #include "utils/Log.h"
 %}
 
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "utils/LogEventListener.i"
 
-%staticattribute(carto::Log, bool, ShowError, IsShowError, SetShowError)
-%staticattribute(carto::Log, bool, ShowWarn, IsShowWarn, SetShowWarn)
-%staticattribute(carto::Log, bool, ShowInfo, IsShowInfo, SetShowInfo)
-%staticattribute(carto::Log, bool, ShowDebug, IsShowDebug, SetShowDebug)
-%staticattributestring(carto::Log, std::string, Tag, GetTag, SetTag)
-!staticattributestring_polymorphic(carto::Log, utils.LogEventListener, LogEventListener, GetLogEventListener, SetLogEventListener)
-%ignore carto::Log::Fatalf;
-%ignore carto::Log::Errorf;
-%ignore carto::Log::Warnf;
-%ignore carto::Log::Infof;
-%ignore carto::Log::Debugf;
+%staticattribute(massif::Log, bool, ShowError, IsShowError, SetShowError)
+%staticattribute(massif::Log, bool, ShowWarn, IsShowWarn, SetShowWarn)
+%staticattribute(massif::Log, bool, ShowInfo, IsShowInfo, SetShowInfo)
+%staticattribute(massif::Log, bool, ShowDebug, IsShowDebug, SetShowDebug)
+%staticattributestring(massif::Log, std::string, Tag, GetTag, SetTag)
+!staticattributestring_polymorphic(massif::Log, utils.LogEventListener, LogEventListener, GetLogEventListener, SetLogEventListener)
+%ignore massif::Log::Fatalf;
+%ignore massif::Log::Errorf;
+%ignore massif::Log::Warnf;
+%ignore massif::Log::Infof;
+%ignore massif::Log::Debugf;
 
 %include "utils/Log.h"
 

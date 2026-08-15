@@ -15,7 +15,7 @@
 #include <windows.h>
 #endif
 
-namespace carto {
+namespace massif {
 
 #ifdef __ANDROID__
     enum LogType { LOG_TYPE_FATAL = ANDROID_LOG_ERROR, LOG_TYPE_ERROR = ANDROID_LOG_ERROR, LOG_TYPE_WARNING = ANDROID_LOG_WARN, LOG_TYPE_INFO = ANDROID_LOG_INFO, LOG_TYPE_DEBUG = ANDROID_LOG_DEBUG };
@@ -174,7 +174,7 @@ namespace carto {
     bool Log::_ShowInfo = true;
     bool Log::_ShowDebug = false;
 
-    std::string Log::_Tag = "carto-mobile-sdk";
+    std::string Log::_Tag = "massif";
 
     DirectorPtr<LogEventListener> Log::_LogEventListener;
 

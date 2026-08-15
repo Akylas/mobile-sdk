@@ -1,4 +1,4 @@
-#ifdef _CARTO_WKBT_SUPPORT
+#ifdef _MASSIF_WKBT_SUPPORT
 
 #include "WKTGeometryWriter.h"
 #include "components/Exceptions.h"
@@ -13,7 +13,7 @@
 #include "geometry/utils/WKTGeometryGenerator.h"
 #include "utils/Log.h"
 
-namespace carto {
+namespace massif {
 
     WKTGeometryWriter::WKTGeometryWriter() :
         _z(false),

@@ -10,7 +10,7 @@
 #include <cinttypes>
 #include <algorithm>
 
-namespace carto {
+namespace massif {
 
     HTTPTileDataSource::HTTPTileDataSource(int minZoom, int maxZoom, const std::string& baseURL) :
         TileDataSource(minZoom, maxZoom),

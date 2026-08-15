@@ -4,10 +4,10 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_WKBGEOMETRYENUMS_H_
-#define _CARTO_WKBGEOMETRYENUMS_H_
+#ifndef _MASSIF_WKBGEOMETRYENUMS_H_
+#define _MASSIF_WKBGEOMETRYENUMS_H_
 
-namespace carto {
+namespace massif {
     
     enum WKBGeometryType {
         WKB_POINT = 1,

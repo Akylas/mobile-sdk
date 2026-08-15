@@ -1,6 +1,6 @@
 #include "Polygon3DStyle.h"
 
-namespace carto {
+namespace massif {
 
     Polygon3DStyle::Polygon3DStyle(const Color& color, const Color& sideColor) :
         Style(color),

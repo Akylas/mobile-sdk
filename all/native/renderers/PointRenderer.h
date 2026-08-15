@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_POINTRENDERER_H_
-#define _CARTO_POINTRENDERER_H_
+#ifndef _MASSIF_POINTRENDERER_H_
+#define _MASSIF_POINTRENDERER_H_
 
 #include "renderers/utils/GLContext.h"
 #include "renderers/utils/BitmapTextureCache.h"
@@ -18,7 +18,7 @@
 #include <cglib/vec.h>
 #include <cglib/ray.h>
 
-namespace carto {
+namespace massif {
     class Options;
     class MapRenderer;
     class Bitmap;

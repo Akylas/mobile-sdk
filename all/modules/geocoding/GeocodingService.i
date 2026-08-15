@@ -6,9 +6,9 @@
 
 %module(directors="1") GeocodingService
 
-#ifdef _CARTO_GEOCODING_SUPPORT
+#ifdef _MASSIF_GEOCODING_SUPPORT
 
-!proxy_imports(carto::GeocodingService, geocoding.GeocodingRequest, geocoding.GeocodingResult)
+!proxy_imports(massif::GeocodingService, geocoding.GeocodingRequest, geocoding.GeocodingResult)
 
 %{
 #include "geocoding/GeocodingService.h"
@@ -18,22 +18,22 @@
 
 %include <std_string.i>
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "geocoding/GeocodingRequest.i"
 %import "geocoding/GeocodingResult.i"
 
-!polymorphic_shared_ptr(carto::GeocodingService, geocoding.GeocodingService)
+!polymorphic_shared_ptr(massif::GeocodingService, geocoding.GeocodingService)
 
-%attribute(carto::GeocodingService, bool, Autocomplete, isAutocomplete, setAutocomplete)
-%attributestring(carto::GeocodingService, std::string, Language, getLanguage, setLanguage)
-%attribute(carto::GeocodingService, int, MaxResults, getMaxResults, setMaxResults)
-%std_exceptions(carto::GeocodingService::setAutocomplete)
-%std_exceptions(carto::GeocodingService::setLanguage)
-%std_exceptions(carto::GeocodingService::setNumResults)
-%std_io_exceptions(carto::GeocodingService::calculateAddresses)
+%attribute(massif::GeocodingService, bool, Autocomplete, isAutocomplete, setAutocomplete)
+%attributestring(massif::GeocodingService, std::string, Language, getLanguage, setLanguage)
+%attribute(massif::GeocodingService, int, MaxResults, getMaxResults, setMaxResults)
+%std_exceptions(massif::GeocodingService::setAutocomplete)
+%std_exceptions(massif::GeocodingService::setLanguage)
+%std_exceptions(massif::GeocodingService::setNumResults)
+%std_io_exceptions(massif::GeocodingService::calculateAddresses)
 
-%feature("director") carto::GeocodingService;
+%feature("director") massif::GeocodingService;
 
 %include "geocoding/GeocodingService.h"
 

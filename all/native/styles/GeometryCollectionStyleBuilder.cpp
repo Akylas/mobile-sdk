@@ -4,7 +4,7 @@
 #include "PolygonStyleBuilder.h"
 #include "styles/GeometryCollectionStyle.h"
 
-namespace carto {
+namespace massif {
     
     GeometryCollectionStyleBuilder::GeometryCollectionStyleBuilder() :
         StyleBuilder(),

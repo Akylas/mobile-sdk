@@ -3,24 +3,24 @@
 
 %module MapEnvelope
 
-!proxy_imports(carto::MapEnvelope, core.MapBounds, core.MapPosVector)
+!proxy_imports(massif::MapEnvelope, core.MapBounds, core.MapPosVector)
 
 %{
 #include "core/MapEnvelope.h"
 %}
 
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/MapPos.i"
 %import "core/MapBounds.i"
 
-!value_type(carto::MapEnvelope, core.MapEnvelope)
+!value_type(massif::MapEnvelope, core.MapEnvelope)
 
-%attributeval(carto::MapEnvelope, carto::MapBounds, Bounds, getBounds)
-%attributeval(carto::MapEnvelope, std::vector<carto::MapPos>, ConvexHull, getConvexHull)
-!custom_equals(carto::MapEnvelope);
-!custom_tostring(carto::MapEnvelope);
+%attributeval(massif::MapEnvelope, massif::MapBounds, Bounds, getBounds)
+%attributeval(massif::MapEnvelope, std::vector<massif::MapPos>, ConvexHull, getConvexHull)
+!custom_equals(massif::MapEnvelope);
+!custom_tostring(massif::MapEnvelope);
 
 %include "core/MapEnvelope.h"
 

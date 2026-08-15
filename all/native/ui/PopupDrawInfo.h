@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_POPUPDRAWINFO_H_
-#define _CARTO_POPUPDRAWINFO_H_
+#ifndef _MASSIF_POPUPDRAWINFO_H_
+#define _MASSIF_POPUPDRAWINFO_H_
 
 #include "core/ScreenPos.h"
 #include "core/ScreenBounds.h"
@@ -13,7 +13,7 @@
 
 #include <memory>
 
-namespace carto {
+namespace massif {
     
     /**
      * A container class that provides information how to draw the popup.

@@ -3,7 +3,7 @@
 #include "LineStyle.h"
 #include "PolygonStyle.h"
 
-namespace carto {
+namespace massif {
     
     GeometryCollectionStyle::GeometryCollectionStyle(const std::shared_ptr<PointStyle>& pointStyle, const std::shared_ptr<LineStyle>& lineStyle, const std::shared_ptr<PolygonStyle>& polygonStyle) :
         Style(Color()),

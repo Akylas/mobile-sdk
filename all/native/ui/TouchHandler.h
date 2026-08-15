@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_TOUCHHANDLER_H_
-#define _CARTO_TOUCHHANDLER_H_
+#ifndef _MASSIF_TOUCHHANDLER_H_
+#define _MASSIF_TOUCHHANDLER_H_
 
 #include "core/MapPos.h"
 #include "core/ScreenPos.h"
@@ -21,7 +21,7 @@
 
 #include <cglib/vec.h>
 
-namespace carto {
+namespace massif {
     class ClickHandlerWorker;
     class Options;
     class MapEventListener;

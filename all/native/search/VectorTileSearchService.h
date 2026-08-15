@@ -4,10 +4,10 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_VECTORTILESEARCHSERVICE_H_
-#define _CARTO_VECTORTILESEARCHSERVICE_H_
+#ifndef _MASSIF_VECTORTILESEARCHSERVICE_H_
+#define _MASSIF_VECTORTILESEARCHSERVICE_H_
 
-#ifdef _CARTO_SEARCH_SUPPORT
+#ifdef _MASSIF_SEARCH_SUPPORT
 
 #include "search/SearchRequest.h"
 
@@ -15,7 +15,7 @@
 #include <mutex>
 #include <vector>
 
-namespace carto {
+namespace massif {
     class Projection;
     class TileDataSource;
     class VectorTileDecoder;

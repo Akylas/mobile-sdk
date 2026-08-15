@@ -1,8 +1,8 @@
-#ifdef _CARTO_GEOCODING_SUPPORT
+#ifdef _MASSIF_GEOCODING_SUPPORT
 
 #include "GeocodingAddress.h"
 
-namespace carto {
+namespace massif {
 
     GeocodingAddress::GeocodingAddress() :
         Address()

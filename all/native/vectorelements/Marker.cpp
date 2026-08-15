@@ -3,7 +3,7 @@
 #include "styles/MarkerStyle.h"
 #include "renderers/drawdatas/MarkerDrawData.h"
 
-namespace carto {
+namespace massif {
     
     Marker::Marker(const std::shared_ptr<Billboard>& baseBillboard,
                    const std::shared_ptr<MarkerStyle>& style) :

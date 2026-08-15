@@ -3,7 +3,7 @@
 
 %module Projection
 
-!proxy_imports(carto::Projection, core.MapBounds, core.MapPos)
+!proxy_imports(massif::Projection, core.MapBounds, core.MapPos)
 
 %{
 #include "projections/Projection.h"
@@ -11,19 +11,19 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/MapBounds.i"
 %import "core/MapPos.i"
 
-!polymorphic_shared_ptr(carto::Projection, projections.Projection)
+!polymorphic_shared_ptr(massif::Projection, projections.Projection)
 
-%attributeval(carto::Projection, carto::MapBounds, Bounds, getBounds)
-%attributestring(carto::Projection, std::string, Name, getName)
-!objc_rename(fromLat) carto::Projection::fromLatLong;
-%ignore carto::Projection::fromInternal;
-%ignore carto::Projection::toInternal;
-!standard_equals(carto::Projection);
+%attributeval(massif::Projection, massif::MapBounds, Bounds, getBounds)
+%attributestring(massif::Projection, std::string, Name, getName)
+!objc_rename(fromLat) massif::Projection::fromLatLong;
+%ignore massif::Projection::fromInternal;
+%ignore massif::Projection::toInternal;
+!standard_equals(massif::Projection);
 
 %include "projections/Projection.h"
 

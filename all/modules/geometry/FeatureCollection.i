@@ -3,7 +3,7 @@
 
 %module FeatureCollection
 
-!proxy_imports(carto::FeatureCollection, geometry.Feature, geometry.FeatureVector)
+!proxy_imports(massif::FeatureCollection, geometry.Feature, geometry.FeatureVector)
 
 %{
 #include "geometry/FeatureCollection.h"
@@ -12,14 +12,14 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "geometry/Feature.i"
 
-!polymorphic_shared_ptr(carto::FeatureCollection, geometry.FeatureCollection)
+!polymorphic_shared_ptr(massif::FeatureCollection, geometry.FeatureCollection)
 
-%attribute(carto::FeatureCollection, int, FeatureCount, getFeatureCount)
-%std_exceptions(carto::FeatureCollection::getFeature)
+%attribute(massif::FeatureCollection, int, FeatureCount, getFeatureCount)
+%std_exceptions(massif::FeatureCollection::getFeature)
 
 %include "geometry/FeatureCollection.h"
 

@@ -3,9 +3,9 @@
 
 %module(directors="1") PackageManagerListener
 
-#ifdef _CARTO_PACKAGEMANAGER_SUPPORT
+#ifdef _MASSIF_PACKAGEMANAGER_SUPPORT
 
-!proxy_imports(carto::PackageManagerListener, packagemanager.PackageStatus)
+!proxy_imports(massif::PackageManagerListener, packagemanager.PackageStatus)
 
 %{
 #include "packagemanager/PackageManagerListener.h"	
@@ -17,10 +17,10 @@
 
 %import "packagemanager/PackageStatus.i"
 
-!enum(carto::PackageErrorType::PackageErrorType)
-!polymorphic_shared_ptr(carto::PackageManagerListener, packagemanager.PackageManagerListener)
+!enum(massif::PackageErrorType::PackageErrorType)
+!polymorphic_shared_ptr(massif::PackageManagerListener, packagemanager.PackageManagerListener)
 
-%feature("director") carto::PackageManagerListener;
+%feature("director") massif::PackageManagerListener;
 
 %include "packagemanager/PackageManagerListener.h"
 

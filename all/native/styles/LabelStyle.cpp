@@ -1,6 +1,6 @@
 #include "LabelStyle.h"
 
-namespace carto {
+namespace massif {
 
     LabelStyle::LabelStyle(const Color& color,
                            float attachAnchorPointX,

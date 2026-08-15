@@ -3,7 +3,7 @@
 
 %module BaseMapView
 
-!proxy_imports(carto::BaseMapView, core.MapPos, core.MapVec, core.MapBounds, core.ScreenPos, core.ScreenBounds, components.Options, components.Layers, renderers.MapRenderer, renderers.RedrawRequestListener, ui.MapEventListener)
+!proxy_imports(massif::BaseMapView, core.MapPos, core.MapVec, core.MapBounds, core.ScreenPos, core.ScreenBounds, components.Options, components.Layers, renderers.MapRenderer, renderers.RedrawRequestListener, ui.MapEventListener)
 
 %{
 #include "ui/BaseMapView.h"
@@ -11,7 +11,7 @@
 #include "core/ScreenPos.h"
 %}
 
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/MapPos.i"
 %import "core/MapBounds.i"

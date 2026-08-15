@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_VECTORELEMENT_H_
-#define _CARTO_VECTORELEMENT_H_
+#ifndef _MASSIF_VECTORELEMENT_H_
+#define _MASSIF_VECTORELEMENT_H_
 
 #include "core/MapBounds.h"
 #include "core/Variant.h"
@@ -15,7 +15,7 @@
 #include <mutex>
 #include <string>
 
-namespace carto {
+namespace massif {
     class Geometry;
     class Layer;
     class VectorDataSource;

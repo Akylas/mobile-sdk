@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_SKYOPTIONS_H_
-#define _CARTO_SKYOPTIONS_H_
+#ifndef _MASSIF_SKYOPTIONS_H_
+#define _MASSIF_SKYOPTIONS_H_
 
 #include "graphics/Color.h"
 
@@ -15,7 +15,7 @@
 #include <string>
 #include <vector>
 
-namespace carto {
+namespace massif {
 
     /**
      * Shader-based sky configuration, attached to the map via Options::setSkyOptions.

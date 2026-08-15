@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_DYNAMICMERGEDMBVTTILEDATASOURCE_H_
-#define _CARTO_DYNAMICMERGEDMBVTTILEDATASOURCE_H_
+#ifndef _MASSIF_DYNAMICMERGEDMBVTTILEDATASOURCE_H_
+#define _MASSIF_DYNAMICMERGEDMBVTTILEDATASOURCE_H_
 
 #include "datasources/TileDataSource.h"
 #include "components/DirectorPtr.h"
@@ -15,7 +15,7 @@
 #include <utility>
 #include <vector>
 
-namespace carto {
+namespace massif {
 
     /**
      * A tile data source that merges a fixed base MBVT/protobuf source with a dynamically

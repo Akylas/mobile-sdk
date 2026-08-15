@@ -4,15 +4,15 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_BILLBOARDSTYLEBUILDER_H_
-#define _CARTO_BILLBOARDSTYLEBUILDER_H_
+#ifndef _MASSIF_BILLBOARDSTYLEBUILDER_H_
+#define _MASSIF_BILLBOARDSTYLEBUILDER_H_
 
 #include "styles/BillboardStyle.h"
 #include "styles/StyleBuilder.h"
 
 #include <memory>
 
-namespace carto {
+namespace massif {
     class AnimationStyle;
 
     /**

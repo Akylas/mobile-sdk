@@ -6,7 +6,7 @@
 #include <memory>
 #include <algorithm>
 
-namespace carto {
+namespace massif {
     
     OrderedTileDataSource::OrderedTileDataSource(const std::shared_ptr<TileDataSource>& dataSource1, const std::shared_ptr<TileDataSource>& dataSource2) :
         TileDataSource(),

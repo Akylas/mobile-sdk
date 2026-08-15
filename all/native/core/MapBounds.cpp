@@ -7,7 +7,7 @@
 #include <sstream>
 #include <functional>
 
-namespace carto {
+namespace massif {
 
     MapBounds::MapBounds() :
         _min(std::numeric_limits<double>::infinity(), std::numeric_limits<double>::infinity(), std::numeric_limits<double>::infinity()),

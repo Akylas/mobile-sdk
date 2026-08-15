@@ -28,13 +28,13 @@
 #include <vt/TileTransformer.h>
 #include <vt/RenderStats.h>
 
-namespace carto {
+namespace massif {
 
 #ifdef __ANDROID__
     static bool isLineSourceDensityForced() {
         static const bool forced = [] {
             char property[PROP_VALUE_MAX] = { 0 };
-            return __system_property_get("debug.carto.linesourcedensity", property) > 0 && property[0] == '1';
+            return __system_property_get("debug.massif.linesourcedensity", property) > 0 && property[0] == '1';
         }();
         return forced;
     }
@@ -43,11 +43,11 @@ namespace carto {
     // subdivides 1/factor^2, see TerrainTileTransformer.h) and it is on for correctness, not for
     // speed - an un-subdivided fill floats above the ground and hides every ground-shaped draw
     // stacked after it. Off = the shipped behaviour.
-    //   adb shell setprop debug.carto.areasourcedensity 1
+    //   adb shell setprop debug.massif.areasourcedensity 1
     static bool isAreaSourceDensityForced() {
         static const bool forced = [] {
             char property[PROP_VALUE_MAX] = { 0 };
-            return __system_property_get("debug.carto.areasourcedensity", property) > 0 && property[0] == '1';
+            return __system_property_get("debug.massif.areasourcedensity", property) > 0 && property[0] == '1';
         }();
         return forced;
     }

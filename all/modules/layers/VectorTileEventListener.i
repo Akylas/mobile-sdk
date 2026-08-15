@@ -3,7 +3,7 @@
 
 %module(directors="1") VectorTileEventListener
 
-!proxy_imports(carto::VectorTileEventListener, ui.VectorTileClickInfo)
+!proxy_imports(massif::VectorTileEventListener, ui.VectorTileClickInfo)
 
 %{
 #include "layers/VectorTileEventListener.h"
@@ -11,13 +11,13 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "ui/VectorTileClickInfo.i"
 
-!polymorphic_shared_ptr(carto::VectorTileEventListener, layers.VectorTileEventListener)
+!polymorphic_shared_ptr(massif::VectorTileEventListener, layers.VectorTileEventListener)
 
-%feature("director") carto::VectorTileEventListener;
+%feature("director") massif::VectorTileEventListener;
 
 %include "layers/VectorTileEventListener.h"
 

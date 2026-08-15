@@ -4,13 +4,13 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_IOSUTILS_H_
-#define _CARTO_IOSUTILS_H_
+#ifndef _MASSIF_IOSUTILS_H_
+#define _MASSIF_IOSUTILS_H_
 
 #include <mutex>
 #include <string>
 
-namespace carto {
+namespace massif {
 
     /**
      * IOSUtils is an internal class of the SDK.

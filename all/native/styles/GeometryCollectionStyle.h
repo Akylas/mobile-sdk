@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_GEOMETRYCOLLECTIONSTYLE_H_
-#define _CARTO_GEOMETRYCOLLECTIONSTYLE_H_
+#ifndef _MASSIF_GEOMETRYCOLLECTIONSTYLE_H_
+#define _MASSIF_GEOMETRYCOLLECTIONSTYLE_H_
 
 #include "styles/Style.h"
 
 #include <memory>
 
-namespace carto {
+namespace massif {
     class PointStyle;
     class LineStyle;
     class PolygonStyle;

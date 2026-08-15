@@ -4,7 +4,7 @@
 #include "renderers/utils/Texture.h"
 #include "utils/Log.h"
 
-namespace carto {
+namespace massif {
     
     BitmapTextureCache::~BitmapTextureCache() {
     }

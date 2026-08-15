@@ -6,7 +6,7 @@
 
 #include <cmath>
 
-namespace carto {
+namespace massif {
 
     Projection::~Projection() {
     }

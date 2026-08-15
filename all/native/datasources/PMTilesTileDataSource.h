@@ -4,10 +4,10 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_PMTILESTILEDATASOURCE_H_
-#define _CARTO_PMTILESTILEDATASOURCE_H_
+#ifndef _MASSIF_PMTILESTILEDATASOURCE_H_
+#define _MASSIF_PMTILESTILEDATASOURCE_H_
 
-#ifdef _CARTO_OFFLINE_SUPPORT
+#ifdef _MASSIF_OFFLINE_SUPPORT
 
 #include "datasources/TileDataSource.h"
 #include "datasources/components/PMTilesUtils.h"
@@ -19,7 +19,7 @@
 #include <fstream>
 #include <unordered_map>
 
-namespace carto {
+namespace massif {
     
     /**
      * A tile data source that loads tiles from a PMTiles v3 archive file.

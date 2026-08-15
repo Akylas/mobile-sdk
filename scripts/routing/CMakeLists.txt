@@ -9,7 +9,7 @@ option(SINGLE_LIBRARY "Compile as single library" OFF)
 # Directories (mirroring scripts/build/CMakeLists.txt)
 set(SDK_BASE_DIR "${PROJECT_SOURCE_DIR}/../..")
 set(SDK_EXTERNAL_LIBS_DIR "${SDK_BASE_DIR}/libs-external")
-set(SDK_CARTO_LIBS_DIR "${SDK_BASE_DIR}/libs-carto")
+set(SDK_MASSIF_LIBS_DIR "${SDK_BASE_DIR}/libs-carto")
 set(ROUTING_SRC_DIR "${SDK_BASE_DIR}/routing-lib")
 
 # Library type
@@ -78,7 +78,7 @@ set(ROUTING_EXTERNAL_SUBPROJECTS sqlite sqlite3pp zstd date protobuf valhalla)
 # subproject is added so this default wins over the ON default there.
 option(VALHALLA_SERVICES "Build the Valhalla service actions beyond routing and map matching" OFF)
 if(VALHALLA_SERVICES)
-  add_definitions("-D_CARTO_VALHALLA_SERVICES")
+  add_definitions("-D_MASSIF_VALHALLA_SERVICES")
 endif()
 
 foreach(SDK_SUBPROJECT IN ITEMS ${ROUTING_EXTERNAL_SUBPROJECTS})

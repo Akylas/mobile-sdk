@@ -6,7 +6,7 @@
 #include <sstream>
 #include <functional>
 
-namespace carto {
+namespace massif {
 
     MapTile::MapTile() :
         _x(0),

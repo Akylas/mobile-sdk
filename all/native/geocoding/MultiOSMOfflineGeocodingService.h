@@ -4,10 +4,10 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_MULTIOSMOFFILINEGEOCODINGSERVICE_H_
-#define _CARTO_MULTIOSMOFFILINEGEOCODINGSERVICE_H_
+#ifndef _MASSIF_MULTIOSMOFFILINEGEOCODINGSERVICE_H_
+#define _MASSIF_MULTIOSMOFFILINEGEOCODINGSERVICE_H_
 
-#if defined(_CARTO_GEOCODING_SUPPORT) && defined(_CARTO_OFFLINE_SUPPORT)
+#if defined(_MASSIF_GEOCODING_SUPPORT) && defined(_MASSIF_OFFLINE_SUPPORT)
 
 #include "geocoding/GeocodingService.h"
 #include "packagemanager/handlers/GeocodingPackageHandler.h"
@@ -16,7 +16,7 @@ namespace sqlite3pp {
     class database;
 }
 
-namespace carto {
+namespace massif {
     namespace geocoding {
         class Geocoder;
     }

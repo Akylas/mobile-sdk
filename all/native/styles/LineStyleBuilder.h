@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_LINESTYLEBUILDER_H_
-#define _CARTO_LINESTYLEBUILDER_H_
+#ifndef _MASSIF_LINESTYLEBUILDER_H_
+#define _MASSIF_LINESTYLEBUILDER_H_
 
 #include "styles/LineStyle.h"
 #include "styles/StyleBuilder.h"
@@ -13,7 +13,7 @@
 #include <memory>
 #include <mutex>
 
-namespace carto {
+namespace massif {
     class Bitmap;
     class LineStyle;
     

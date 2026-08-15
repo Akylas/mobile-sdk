@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_GEOMETRYCOLLECTIONRENDERER_H_
-#define _CARTO_GEOMETRYCOLLECTIONRENDERER_H_
+#ifndef _MASSIF_GEOMETRYCOLLECTIONRENDERER_H_
+#define _MASSIF_GEOMETRYCOLLECTIONRENDERER_H_
 
 #include "renderers/LineRenderer.h"
 #include "renderers/PointRenderer.h"
@@ -15,7 +15,7 @@
 #include <memory>
 #include <mutex>
 
-namespace carto {
+namespace massif {
     class Bitmap;
     class GeometryCollection;
     class GeometryCollectionDrawData;

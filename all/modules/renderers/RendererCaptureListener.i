@@ -3,7 +3,7 @@
 
 %module(directors="1") RendererCaptureListener
 
-!proxy_imports(carto::RendererCaptureListener, graphics.Bitmap)
+!proxy_imports(massif::RendererCaptureListener, graphics.Bitmap)
 
 %{
 #include "renderers/RendererCaptureListener.h"
@@ -11,13 +11,13 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "graphics/Bitmap.i"
 
-!polymorphic_shared_ptr(carto::RendererCaptureListener, renderers.RendererCaptureListener)
+!polymorphic_shared_ptr(massif::RendererCaptureListener, renderers.RendererCaptureListener)
 
-%feature("director") carto::RendererCaptureListener;
+%feature("director") massif::RendererCaptureListener;
 
 %include "renderers/RendererCaptureListener.h"
 

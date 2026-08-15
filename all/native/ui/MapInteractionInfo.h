@@ -4,10 +4,10 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_MAPINTERACTIONINFO_H_
-#define _CARTO_MAPINTERACTIONINFO_H_
+#ifndef _MASSIF_MAPINTERACTIONINFO_H_
+#define _MASSIF_MAPINTERACTIONINFO_H_
 
-namespace carto {
+namespace massif {
 
     /**
      * A container class that provides information about a map interaction performed from UI.

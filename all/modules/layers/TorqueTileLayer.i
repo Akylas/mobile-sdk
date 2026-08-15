@@ -3,7 +3,7 @@
 
 %module TorqueTileLayer
 
-!proxy_imports(carto::TorqueTileLayer, layers.VectorTileLayer, datasources.TileDataSource, vectortiles.TorqueTileDecoder)
+!proxy_imports(massif::TorqueTileLayer, layers.VectorTileLayer, datasources.TileDataSource, vectortiles.TorqueTileDecoder)
 
 %{
 #include "layers/TorqueTileLayer.h"
@@ -12,14 +12,14 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "layers/VectorTileLayer.i"
 %import "vectortiles/TorqueTileDecoder.i"
 
-!polymorphic_shared_ptr(carto::TorqueTileLayer, layers.TorqueTileLayer)
+!polymorphic_shared_ptr(massif::TorqueTileLayer, layers.TorqueTileLayer)
 
-%std_exceptions(carto::TorqueTileLayer::TorqueTileLayer)
+%std_exceptions(massif::TorqueTileLayer::TorqueTileLayer)
 
 %include "layers/TorqueTileLayer.h"
 

@@ -4,15 +4,15 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_CLUSTERELEMENTBUILDER_H_
-#define _CARTO_CLUSTERELEMENTBUILDER_H_
+#ifndef _MASSIF_CLUSTERELEMENTBUILDER_H_
+#define _MASSIF_CLUSTERELEMENTBUILDER_H_
 
 #include "core/MapPos.h"
 
 #include <vector>
 #include <memory>
 
-namespace carto {
+namespace massif {
     class VectorElement;
 
     namespace ClusterBuilderMode {

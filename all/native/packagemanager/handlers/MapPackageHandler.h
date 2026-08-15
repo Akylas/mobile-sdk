@@ -4,10 +4,10 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_MAPPACKAGEHANDLER_H_
-#define _CARTO_MAPPACKAGEHANDLER_H_
+#ifndef _MASSIF_MAPPACKAGEHANDLER_H_
+#define _MASSIF_MAPPACKAGEHANDLER_H_
 
-#if defined(_CARTO_PACKAGEMANAGER_SUPPORT)
+#if defined(_MASSIF_PACKAGEMANAGER_SUPPORT)
 
 #include "core/MapTile.h"
 #include "packagemanager/handlers/PackageHandler.h"
@@ -21,7 +21,7 @@ namespace sqlite3pp {
     }
 }
 
-namespace carto {
+namespace massif {
     class BinaryData;
     
     class MapPackageHandler : public PackageHandler {

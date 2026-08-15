@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_POLYGONSTYLE_H_
-#define _CARTO_POLYGONSTYLE_H_
+#ifndef _MASSIF_POLYGONSTYLE_H_
+#define _MASSIF_POLYGONSTYLE_H_
 
 #include "styles/Style.h"
 
 #include <memory>
 
-namespace carto {
+namespace massif {
     class Bitmap;
     class LineStyle;
     

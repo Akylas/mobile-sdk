@@ -6,9 +6,9 @@
 
 %module PackageManager
 
-#ifdef _CARTO_PACKAGEMANAGER_SUPPORT
+#ifdef _MASSIF_PACKAGEMANAGER_SUPPORT
 
-!proxy_imports(carto::PackageManager, core.MapPos, core.MapBounds, packagemanager.PackageInfo, packagemanager.PackageMetaInfo, packagemanager.PackageStatus, packagemanager.PackageManagerListener, packagemanager.PackageInfoVector, projections.Projection)
+!proxy_imports(massif::PackageManager, core.MapPos, core.MapBounds, packagemanager.PackageInfo, packagemanager.PackageMetaInfo, packagemanager.PackageStatus, packagemanager.PackageManagerListener, packagemanager.PackageInfoVector, projections.Projection)
 
 %{
 #include "packagemanager/PackageManager.h"
@@ -18,7 +18,7 @@
 
 %include <stdint.i>
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/MapPos.i"
 %import "core/MapBounds.i"
@@ -30,21 +30,21 @@
 
 using std::uint64_t;
 
-!polymorphic_shared_ptr(carto::PackageManager, packagemanager.PackageManager)
+!polymorphic_shared_ptr(massif::PackageManager, packagemanager.PackageManager)
 
-%attributeval(carto::PackageManager, std::vector<std::shared_ptr<carto::PackageInfo> >, ServerPackages, getServerPackages)
-%attributeval(carto::PackageManager, std::vector<std::shared_ptr<carto::PackageInfo> >, LocalPackages, getLocalPackages)
-%attribute(carto::PackageManager, int, ServerPackageListAge, getServerPackageListAge)
-%attributestring(carto::PackageManager, std::shared_ptr<carto::PackageMetaInfo>, ServerPackageListMetaInfo, getServerPackageListMetaInfo)
-!attributestring_polymorphic(carto::PackageManager, packagemanager.PackageManagerListener, PackageManagerListener, getPackageManagerListener, setPackageManagerListener)
-%std_io_exceptions(carto::PackageManager::PackageManager)
-%ignore carto::PackageManager::PackageManager(const std::string&, const std::string&, const std::string&, const std::string&, const std::shared_ptr<Logger>&);
-%ignore carto::PackageManager::OnChangeListener;
-%ignore carto::PackageManager::registerOnChangeListener;
-%ignore carto::PackageManager::unregisterOnChangeListener;
-%ignore carto::PackageManager::getSchema;
-%ignore carto::PackageManager::accessLocalPackages;
-!standard_equals(carto::PackageManager);
+%attributeval(massif::PackageManager, std::vector<std::shared_ptr<massif::PackageInfo> >, ServerPackages, getServerPackages)
+%attributeval(massif::PackageManager, std::vector<std::shared_ptr<massif::PackageInfo> >, LocalPackages, getLocalPackages)
+%attribute(massif::PackageManager, int, ServerPackageListAge, getServerPackageListAge)
+%attributestring(massif::PackageManager, std::shared_ptr<massif::PackageMetaInfo>, ServerPackageListMetaInfo, getServerPackageListMetaInfo)
+!attributestring_polymorphic(massif::PackageManager, packagemanager.PackageManagerListener, PackageManagerListener, getPackageManagerListener, setPackageManagerListener)
+%std_io_exceptions(massif::PackageManager::PackageManager)
+%ignore massif::PackageManager::PackageManager(const std::string&, const std::string&, const std::string&, const std::string&, const std::shared_ptr<Logger>&);
+%ignore massif::PackageManager::OnChangeListener;
+%ignore massif::PackageManager::registerOnChangeListener;
+%ignore massif::PackageManager::unregisterOnChangeListener;
+%ignore massif::PackageManager::getSchema;
+%ignore massif::PackageManager::accessLocalPackages;
+!standard_equals(massif::PackageManager);
 
 %include "packagemanager/PackageManager.h"
 

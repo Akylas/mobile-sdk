@@ -5,7 +5,7 @@
 
 #include <cmath>
 
-namespace carto {
+namespace massif {
 
     void StyleEnvironment::mergeMissing(const StyleEnvironment& other) {
         auto take = [](auto& value, const auto& otherValue) {

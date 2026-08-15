@@ -371,7 +371,7 @@ if 'all' in args.iosarch or args.iosarch == []:
 args.defines += ';' + 'ZSTD_STATIC_LINKING_ONLY'
 args.defines += ';' + getProfile(args.profile).get('defines', '')
 if args.metalangle:
-  args.defines += ';' + '_CARTO_USE_METALANGLE'
+  args.defines += ';' + '_MASSIF_USE_METALANGLE'
 else:
   if list(filter(lambda arch: arch.endswith('-maccatalyst'), args.iosarch)):
     print('Mac Catalyst builds are only supported with MetalANGLE')

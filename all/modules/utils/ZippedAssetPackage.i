@@ -3,7 +3,7 @@
 
 %module(directors="1") ZippedAssetPackage
 
-!proxy_imports(carto::ZippedAssetPackage, core.BinaryData, core.StringVector, utils.AssetPackage)
+!proxy_imports(massif::ZippedAssetPackage, core.BinaryData, core.StringVector, utils.AssetPackage)
 
 %{
 #include "utils/ZippedAssetPackage.h"
@@ -13,16 +13,16 @@
 
 %include <std_shared_ptr.i>
 %include <std_vector.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/BinaryData.i"
 %import "core/StringVector.i"
 %import "utils/AssetPackage.i"
 
-!polymorphic_shared_ptr(carto::ZippedAssetPackage, utils.ZippedAssetPackage)
+!polymorphic_shared_ptr(massif::ZippedAssetPackage, utils.ZippedAssetPackage)
 
-%attributeval(carto::ZippedAssetPackage, %arg(std::vector<std::string>), LocalAssetNames, getLocalAssetNames)
-%std_exceptions(carto::ZippedAssetPackage::ZippedAssetPackage)
+%attributeval(massif::ZippedAssetPackage, %arg(std::vector<std::string>), LocalAssetNames, getLocalAssetNames)
+%std_exceptions(massif::ZippedAssetPackage::ZippedAssetPackage)
 
 %include "utils/ZippedAssetPackage.h"
 

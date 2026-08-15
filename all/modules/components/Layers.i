@@ -3,7 +3,7 @@
 
 %module Layers
 
-!proxy_imports(carto::Layers, layers.Layer, layers.LayerVector)
+!proxy_imports(massif::Layers, layers.Layer, layers.LayerVector)
 
 %{
 #include "components/Layers.h"
@@ -12,23 +12,23 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "layers/Layer.i"
 
-!shared_ptr(carto::Layers, components.Layers)
+!shared_ptr(massif::Layers, components.Layers)
 
-%typemap(cscode) carto::Layers %{ public Layer this[int index] { get { return Get(index); } set { Set(index, value); } } %}
+%typemap(cscode) massif::Layers %{ public Layer this[int index] { get { return Get(index); } set { Set(index, value); } } %}
 
-%csmethodmodifiers carto::Layers::get "private";
-%csmethodmodifiers carto::Layers::set "private";
+%csmethodmodifiers massif::Layers::get "private";
+%csmethodmodifiers massif::Layers::set "private";
 
-%attribute(carto::Layers, int, Count, count)
-%std_exceptions(carto::Layers::get)
-%std_exceptions(carto::Layers::set)
-%std_exceptions(carto::Layers::insert)
-%ignore carto::Layers::Layers;
-!standard_equals(carto::Layers);
+%attribute(massif::Layers, int, Count, count)
+%std_exceptions(massif::Layers::get)
+%std_exceptions(massif::Layers::set)
+%std_exceptions(massif::Layers::insert)
+%ignore massif::Layers::Layers;
+!standard_equals(massif::Layers);
 
 %include "components/Layers.h"
 

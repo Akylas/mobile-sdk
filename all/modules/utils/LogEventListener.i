@@ -11,9 +11,9 @@
 %include <std_shared_ptr.i>
 %include <std_string.i>
 
-!polymorphic_shared_ptr(carto::LogEventListener, utils.LogEventListener)
+!polymorphic_shared_ptr(massif::LogEventListener, utils.LogEventListener)
 
-%feature("director") carto::LogEventListener;
+%feature("director") massif::LogEventListener;
 
 %include "utils/LogEventListener.h"
 

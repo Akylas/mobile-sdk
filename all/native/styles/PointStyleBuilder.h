@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_POINTSTYLEBUILDER_H_
-#define _CARTO_POINTSTYLEBUILDER_H_
+#ifndef _MASSIF_POINTSTYLEBUILDER_H_
+#define _MASSIF_POINTSTYLEBUILDER_H_
 
 #include "styles/StyleBuilder.h"
 
 #include <memory>
 
-namespace carto {
+namespace massif {
     class Bitmap;
     class PointStyle;
     

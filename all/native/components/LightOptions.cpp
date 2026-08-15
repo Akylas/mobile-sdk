@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace carto {
+namespace massif {
 
     LightOptions::LightOptions() :
         _sunAzimuth(315.0f),

@@ -4,10 +4,10 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_CARTOGEOCODINGPROXY_H_
-#define _CARTO_CARTOGEOCODINGPROXY_H_
+#ifndef _MASSIF_GEOCODINGPROXY_H_
+#define _MASSIF_GEOCODINGPROXY_H_
 
-#ifdef _CARTO_GEOCODING_SUPPORT
+#ifdef _MASSIF_GEOCODING_SUPPORT
 
 #include "geocoding/GeocodingService.h"
 #include "geocoding/ReverseGeocodingService.h"
@@ -15,7 +15,7 @@
 #include <memory>
 #include <vector>
 
-namespace carto {
+namespace massif {
     namespace geocoding {
         struct Address;
         class Geometry;
@@ -28,14 +28,14 @@ namespace carto {
     class Feature;
     class FeatureCollection;
     
-    class CartoGeocodingProxy {
+    class MassifGeocodingProxy {
     public:
         static std::vector<std::shared_ptr<GeocodingResult> > CalculateAddresses(const std::shared_ptr<geocoding::Geocoder>& geocoder, const std::shared_ptr<GeocodingRequest>& request);
 
         static std::vector<std::shared_ptr<GeocodingResult> > CalculateAddresses(const std::shared_ptr<geocoding::RevGeocoder>& revGeocoder, const std::shared_ptr<ReverseGeocodingRequest>& request);
 
     private:
-        CartoGeocodingProxy();
+        MassifGeocodingProxy();
 
         static std::shared_ptr<GeocodingResult> TranslateAddress(const std::shared_ptr<Projection>& proj, const geocoding::Address& addr, float rank);
 

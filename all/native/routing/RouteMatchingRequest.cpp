@@ -1,4 +1,4 @@
-#ifdef _CARTO_ROUTING_SUPPORT
+#ifdef _MASSIF_ROUTING_SUPPORT
 
 #include "RouteMatchingRequest.h"
 #include "components/Exceptions.h"
@@ -8,7 +8,7 @@
 
 #include <boost/algorithm/string.hpp>
 
-namespace carto {
+namespace massif {
 
     RouteMatchingRequest::RouteMatchingRequest(const std::shared_ptr<Projection>& projection, const std::vector<MapPos>& points, float accuracy) :
         _projection(projection),

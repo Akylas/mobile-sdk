@@ -2,7 +2,7 @@
 
 #include <sstream>
 
-namespace carto {
+namespace massif {
 
     long long GeneralUtils::IntPow(int x, unsigned int p) {
         if (p == 0) return 1;

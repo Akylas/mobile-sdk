@@ -3,7 +3,7 @@
 
 %module HillshadeRasterTileLayer
 
-!proxy_imports(carto::HillshadeRasterTileLayer, core.MapPos, core.MapVec, core.MapPosVector, core.DoubleVector, datasources.TileDataSource, rastertiles.ElevationDecoder, graphics.Color, layers.CustomRasterTileLayer)
+!proxy_imports(massif::HillshadeRasterTileLayer, core.MapPos, core.MapVec, core.MapPosVector, core.DoubleVector, datasources.TileDataSource, rastertiles.ElevationDecoder, graphics.Color, layers.CustomRasterTileLayer)
 
 %{
 #include "layers/HillshadeRasterTileLayer.h"
@@ -12,7 +12,7 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "datasources/TileDataSource.i"
 %import "rastertiles/ElevationDecoder.i"
@@ -20,29 +20,29 @@
 %import "layers/CustomRasterTileLayer.i"
 %import "core/DoubleVector.i"
 
-!enum(carto::HillshadeMethod::HillshadeMethod)
-!polymorphic_shared_ptr(carto::HillshadeRasterTileLayer, layers.HillshadeRasterTileLayer)
+!enum(massif::HillshadeMethod::HillshadeMethod)
+!polymorphic_shared_ptr(massif::HillshadeRasterTileLayer, layers.HillshadeRasterTileLayer)
 
-%attribute(carto::HillshadeRasterTileLayer, float, Contrast, getContrast, setContrast)
-%attribute(carto::HillshadeRasterTileLayer, float, HeightScale, getHeightScale, setHeightScale)
-%attribute(carto::HillshadeRasterTileLayer, float, Exaggeration, getExaggeration, setExaggeration)
-%attribute(carto::HillshadeRasterTileLayer, carto::MapVec, IlluminationDirection, getIlluminationDirection, setIlluminationDirection)
-%attribute(carto::HillshadeRasterTileLayer, bool, IlluminationMapRotationEnabled, getIlluminationMapRotationEnabled, setIlluminationMapRotationEnabled)
-%attribute(carto::HillshadeRasterTileLayer, bool, ExagerateHeightScaleEnabled, getExagerateHeightScaleEnabled, setExagerateHeightScaleEnabled)
-%attribute(carto::HillshadeRasterTileLayer, bool, LegacyHeightScaleEnabled, isLegacyHeightScaleEnabled, setLegacyHeightScaleEnabled)
-%attribute(carto::HillshadeRasterTileLayer, carto::HillshadeMethod::HillshadeMethod, HillshadeMethod, getHillshadeMethod, setHillshadeMethod)
-%attributeval(carto::HillshadeRasterTileLayer, carto::Color, ShadowColor, getShadowColor, setShadowColor)
-%attributeval(carto::HillshadeRasterTileLayer, carto::Color, HighlightColor, getHighlightColor, setHighlightColor)
-%attributeval(carto::HillshadeRasterTileLayer, carto::Color, AccentColor, getAccentColor, setAccentColor)
-%attributeval(carto::HillshadeRasterTileLayer, std::string, NormalMapLightingShader, getNormalMapLightingShader, setNormalMapLightingShader)
-%attribute(carto::HillshadeRasterTileLayer, bool, ElevationEncodingEnabled, isElevationEncodingEnabled, setElevationEncodingEnabled)
-%attribute(carto::HillshadeRasterTileLayer, bool, ContourEnabled, isContourEnabled, setContourEnabled)
-%attribute(carto::HillshadeRasterTileLayer, float, ContourInterval, getContourInterval, setContourInterval)
-%attributeval(carto::HillshadeRasterTileLayer, carto::Color, ContourColor, getContourColor, setContourColor)
-%attribute(carto::HillshadeRasterTileLayer, float, ContourWidth, getContourWidth, setContourWidth)
-%attribute(carto::HillshadeRasterTileLayer, bool, TerrainPaintEnabled, isTerrainPaintEnabled, setTerrainPaintEnabled)
-%attribute(carto::HillshadeRasterTileLayer, bool, TerrainPaintFullDetailEnabled, isTerrainPaintFullDetailEnabled, setTerrainPaintFullDetailEnabled)
-%std_exceptions(carto::HillshadeRasterTileLayer::HillshadeRasterTileLayer)
+%attribute(massif::HillshadeRasterTileLayer, float, Contrast, getContrast, setContrast)
+%attribute(massif::HillshadeRasterTileLayer, float, HeightScale, getHeightScale, setHeightScale)
+%attribute(massif::HillshadeRasterTileLayer, float, Exaggeration, getExaggeration, setExaggeration)
+%attribute(massif::HillshadeRasterTileLayer, massif::MapVec, IlluminationDirection, getIlluminationDirection, setIlluminationDirection)
+%attribute(massif::HillshadeRasterTileLayer, bool, IlluminationMapRotationEnabled, getIlluminationMapRotationEnabled, setIlluminationMapRotationEnabled)
+%attribute(massif::HillshadeRasterTileLayer, bool, ExagerateHeightScaleEnabled, getExagerateHeightScaleEnabled, setExagerateHeightScaleEnabled)
+%attribute(massif::HillshadeRasterTileLayer, bool, LegacyHeightScaleEnabled, isLegacyHeightScaleEnabled, setLegacyHeightScaleEnabled)
+%attribute(massif::HillshadeRasterTileLayer, massif::HillshadeMethod::HillshadeMethod, HillshadeMethod, getHillshadeMethod, setHillshadeMethod)
+%attributeval(massif::HillshadeRasterTileLayer, massif::Color, ShadowColor, getShadowColor, setShadowColor)
+%attributeval(massif::HillshadeRasterTileLayer, massif::Color, HighlightColor, getHighlightColor, setHighlightColor)
+%attributeval(massif::HillshadeRasterTileLayer, massif::Color, AccentColor, getAccentColor, setAccentColor)
+%attributeval(massif::HillshadeRasterTileLayer, std::string, NormalMapLightingShader, getNormalMapLightingShader, setNormalMapLightingShader)
+%attribute(massif::HillshadeRasterTileLayer, bool, ElevationEncodingEnabled, isElevationEncodingEnabled, setElevationEncodingEnabled)
+%attribute(massif::HillshadeRasterTileLayer, bool, ContourEnabled, isContourEnabled, setContourEnabled)
+%attribute(massif::HillshadeRasterTileLayer, float, ContourInterval, getContourInterval, setContourInterval)
+%attributeval(massif::HillshadeRasterTileLayer, massif::Color, ContourColor, getContourColor, setContourColor)
+%attribute(massif::HillshadeRasterTileLayer, float, ContourWidth, getContourWidth, setContourWidth)
+%attribute(massif::HillshadeRasterTileLayer, bool, TerrainPaintEnabled, isTerrainPaintEnabled, setTerrainPaintEnabled)
+%attribute(massif::HillshadeRasterTileLayer, bool, TerrainPaintFullDetailEnabled, isTerrainPaintFullDetailEnabled, setTerrainPaintFullDetailEnabled)
+%std_exceptions(massif::HillshadeRasterTileLayer::HillshadeRasterTileLayer)
 
 %include "layers/HillshadeRasterTileLayer.h"
 

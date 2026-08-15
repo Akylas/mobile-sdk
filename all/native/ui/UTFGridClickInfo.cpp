@@ -1,6 +1,6 @@
 #include "UTFGridClickInfo.h"
 
-namespace carto {
+namespace massif {
 
     UTFGridClickInfo::UTFGridClickInfo(const ClickInfo& clickInfo, const MapPos& clickPos, const Variant& elementInfo, const std::shared_ptr<Layer>& layer) :
         _clickInfo(clickInfo),

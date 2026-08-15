@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_TERRAINDEPTHWORKER_H_
-#define _CARTO_TERRAINDEPTHWORKER_H_
+#ifndef _MASSIF_TERRAINDEPTHWORKER_H_
+#define _MASSIF_TERRAINDEPTHWORKER_H_
 
 #include <atomic>
 #include <condition_variable>
@@ -18,7 +18,7 @@
 
 #include <cglib/mat.h>
 
-namespace carto {
+namespace massif {
 
     /**
      * One read-back of the packed terrain depth (RGB = linear eye depth relative to the far
@@ -88,7 +88,7 @@ namespace carto {
         /**
          * Minimum interval (ms) between jobs while the camera moves, so the two contexts do not
          * contend on every frame. Overridable for measurement with
-         * 'adb shell setprop debug.carto.asyncdepthms N'.
+         * 'adb shell setprop debug.massif.asyncdepthms N'.
          */
         static int getMovingSubmitInterval(int defaultInterval);
 

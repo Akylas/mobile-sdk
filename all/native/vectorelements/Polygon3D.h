@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_POLYGON3D_H_
-#define _CARTO_POLYGON3D_H_
+#ifndef _MASSIF_POLYGON3D_H_
+#define _MASSIF_POLYGON3D_H_
 
 #include "vectorelements/VectorElement.h"
 
 #include <vector>
 
-namespace carto {
+namespace massif {
     class Polygon3DDrawData;
     class Polygon3DStyle;
     class PolygonGeometry;

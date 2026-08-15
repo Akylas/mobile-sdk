@@ -4,16 +4,16 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_SEARCHREQUEST_H_
-#define _CARTO_SEARCHREQUEST_H_
+#ifndef _MASSIF_SEARCHREQUEST_H_
+#define _MASSIF_SEARCHREQUEST_H_
 
-#ifdef _CARTO_SEARCH_SUPPORT
+#ifdef _MASSIF_SEARCH_SUPPORT
 
 #include <memory>
 #include <mutex>
 #include <string>
 
-namespace carto {
+namespace massif {
     class Geometry;
     class Projection;
 

@@ -1,4 +1,4 @@
-#ifdef _CARTO_PACKAGEMANAGER_SUPPORT
+#ifdef _MASSIF_PACKAGEMANAGER_SUPPORT
 
 #include "PackageManagerTileDataSource.h"
 #include "core/MapTile.h"
@@ -9,7 +9,7 @@
 
 #include <memory>
 
-namespace carto {
+namespace massif {
 
     PackageManagerTileDataSource::PackageManagerTileDataSource(const std::shared_ptr<PackageManager>& packageManager) :
         TileDataSource(0, Const::MAX_SUPPORTED_ZOOM_LEVEL),

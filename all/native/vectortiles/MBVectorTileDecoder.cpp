@@ -37,7 +37,7 @@
 #include <mapnikvt/MLTFeatureDecoder.h>
 #include <mapnikvt/LayerTileReader.h>
 #include <mapnikvt/MapParser.h>
-#include <mapnikvt/NutiParameterResolver.h>
+#include <mapnikvt/StyleParameterResolver.h>
 #include <cartocss/CartoCSSMapLoader.h>
 
 #include <functional>
@@ -46,7 +46,7 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
 
-namespace carto {
+namespace massif {
 
     namespace {
         // A style parameter may hold an object or an array (a table the style reads with get()),
@@ -259,7 +259,7 @@ namespace carto {
         std::lock_guard<std::mutex> lock(_mutex);
     
         std::vector<std::string> params;
-        for (auto it = _map->getNutiParameterMap().begin(); it != _map->getNutiParameterMap().end(); it++) {
+        for (auto it = _map->getStyleParameterMap().begin(); it != _map->getStyleParameterMap().end(); it++) {
             params.push_back(it->first);
         }
         return params;
@@ -268,13 +268,13 @@ namespace carto {
     std::string MBVectorTileDecoder::getStyleParameter(const std::string& param) const {
         std::lock_guard<std::mutex> lock(_mutex);
 
-        auto it = _map->getNutiParameterMap().find(param);
-        if (it == _map->getNutiParameterMap().end()) {
+        auto it = _map->getStyleParameterMap().find(param);
+        if (it == _map->getStyleParameterMap().end()) {
             throw InvalidArgumentException("Could not find parameter");
         }
-        const mvt::NutiParameter& nutiParam = it->second;
+        const mvt::StyleParameter& styleParam = it->second;
         
-        mvt::Value value = nutiParam.getDefaultValue();
+        mvt::Value value = styleParam.getDefaultValue();
         {
             auto it2 = _parameterValueMap.find(param);
             if (it2 != _parameterValueMap.end()) {
@@ -286,8 +286,8 @@ namespace carto {
             return convertValueToJSON(value).serialize(); // a table parameter reads back as JSON
         }
 
-        if (!nutiParam.getEnumMap().empty()) {
-            for (auto it2 = nutiParam.getEnumMap().begin(); it2 != nutiParam.getEnumMap().end(); it2++) {
+        if (!styleParam.getEnumMap().empty()) {
+            for (auto it2 = styleParam.getEnumMap().begin(); it2 != styleParam.getEnumMap().end(); it2++) {
                 if (it2->second == value) {
                     return it2->first;
                 }
@@ -341,7 +341,7 @@ namespace carto {
         // The style defaults, overlaid with whatever the app has set. The store is never replaced,
         // only its values are - the decoded tiles read through it.
         std::map<std::string, mvt::Value> parameterValues;
-        for (auto it = _map->getNutiParameterMap().begin(); it != _map->getNutiParameterMap().end(); it++) {
+        for (auto it = _map->getStyleParameterMap().begin(); it != _map->getStyleParameterMap().end(); it++) {
             parameterValues[it->first] = it->second.getDefaultValue();
         }
         for (auto it = _parameterValueMap.begin(); it != _parameterValueMap.end(); it++) {
@@ -389,21 +389,21 @@ namespace carto {
     }
 
     bool MBVectorTileDecoder::setStyleParameterInternal(const std::string& param, const std::string& value) {
-        auto it = _map->getNutiParameterMap().find(param);
-        if (it == _map->getNutiParameterMap().end()) {
+        auto it = _map->getStyleParameterMap().find(param);
+        if (it == _map->getStyleParameterMap().end()) {
             Log::Errorf("MBVectorTileDecoder::setStyleParameter: Could not find parameter: %s", param.c_str());
             return false;
         }
-        const mvt::NutiParameter& nutiParam = it->second;
+        const mvt::StyleParameter& styleParam = it->second;
 
-        if (!nutiParam.getEnumMap().empty()) {
-            auto it2 = nutiParam.getEnumMap().find(value);
-            if (it2 == nutiParam.getEnumMap().end()) {
+        if (!styleParam.getEnumMap().empty()) {
+            auto it2 = styleParam.getEnumMap().find(value);
+            if (it2 == styleParam.getEnumMap().end()) {
                 Log::Errorf("MBVectorTileDecoder::setStyleParameter: Illegal enum value for parameter: %s/%s", param.c_str(), value.c_str());
                 return false;
             }
             _parameterValueMap[param] = it2->second;
-        } else if (isContainerValue(nutiParam.getDefaultValue())) {
+        } else if (isContainerValue(styleParam.getDefaultValue())) {
             // An object/array parameter is set as JSON, and its shape must match what the style
             // declared - a style reading get(table, key) must not be handed a scalar.
             picojson::value jsonValue;
@@ -413,14 +413,14 @@ namespace carto {
                 return false;
             }
             mvt::Value val = convertJSONValue(jsonValue);
-            if (val.index() != nutiParam.getDefaultValue().index()) {
+            if (val.index() != styleParam.getDefaultValue().index()) {
                 Log::Errorf("MBVectorTileDecoder::setStyleParameter: Value of parameter %s does not match the declared object/array type", param.c_str());
                 return false;
             }
             _parameterValueMap[param] = val;
         } else {
             try {
-                mvt::Value val = nutiParam.getDefaultValue();
+                mvt::Value val = styleParam.getDefaultValue();
                 if (std::get_if<bool>(&val)) {
                     if (value == "true") {
                         val = mvt::Value(true);
@@ -905,7 +905,7 @@ namespace carto {
         // Both are properties of the compiled map alone, and classifying the parameters is ~38 ms
         // on a 23-layer style - updateSymbolizerContext also runs when only the pixel scale or a
         // fallback font changed, and the map is the same one there.
-        _liveParameters = mvt::resolveLiveNutiParameters(*_map);
+        _liveParameters = mvt::resolveLiveStyleParameters(*_map);
         _selectionParameter = _map->getSelectionParameter() ? _map->getSelectionParameter()->name : std::string();
 
         updateSymbolizerContext();
@@ -986,22 +986,22 @@ namespace carto {
                 // Styles without any font (inline CartoCSS, for example) still need a font for their labels
                 fallbackFont = fontManager->getFont(DEFAULT_FALLBACK_FONT_NAME, fallbackFont);
             }
-            mvt::SymbolizerContext::Settings settings(DEFAULT_TILE_SIZE, std::make_shared<mvt::NutiParameterStore>(), fallbackFont, _pixelScale);
+            mvt::SymbolizerContext::Settings settings(DEFAULT_TILE_SIZE, std::make_shared<mvt::StyleParameterStore>(), fallbackFont, _pixelScale);
             symbolizerContext = std::make_shared<mvt::SymbolizerContext>(bitmapManager, fontManager, strokeMap, glyphMap, settings);
         }
 
         for (auto it = _parameterValueMap.begin(); it != _parameterValueMap.end(); ) {
-            auto it2 = map->getNutiParameterMap().find(it->first);
-            if (it2 == map->getNutiParameterMap().end()) {
+            auto it2 = map->getStyleParameterMap().find(it->first);
+            if (it2 == map->getStyleParameterMap().end()) {
                 it = _parameterValueMap.erase(it);
                 continue;
             }
-            const mvt::NutiParameter& nutiParam = it2->second;
+            const mvt::StyleParameter& styleParam = it2->second;
 
-            bool valid = nutiParam.getDefaultValue().index() == it->second.index();
-            if (!nutiParam.getEnumMap().empty()) {
+            bool valid = styleParam.getDefaultValue().index() == it->second.index();
+            if (!styleParam.getEnumMap().empty()) {
                 valid = false;
-                for (std::pair<std::string, mvt::Value> enumValue : nutiParam.getEnumMap()) {
+                for (std::pair<std::string, mvt::Value> enumValue : styleParam.getEnumMap()) {
                     if (enumValue.second == it->second) {
                         valid = true;
                         break;
@@ -1017,7 +1017,7 @@ namespace carto {
         }
 
         if (!_parameterStore) {
-            _parameterStore = std::make_shared<mvt::NutiParameterStore>();
+            _parameterStore = std::make_shared<mvt::StyleParameterStore>();
         }
         updateParameterStore();
         updateSelectionState();

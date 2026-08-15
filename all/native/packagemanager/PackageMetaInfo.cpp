@@ -1,8 +1,8 @@
-#ifdef _CARTO_PACKAGEMANAGER_SUPPORT
+#ifdef _MASSIF_PACKAGEMANAGER_SUPPORT
 
 #include "PackageMetaInfo.h"
 
-namespace carto {
+namespace massif {
 
     PackageMetaInfo::PackageMetaInfo(const Variant& var) :
         _variant(var)

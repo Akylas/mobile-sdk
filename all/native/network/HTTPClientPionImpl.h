@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_HTTPCLIENTPIONIMPL_H_
-#define _CARTO_HTTPCLIENTPIONIMPL_H_
+#ifndef _MASSIF_HTTPCLIENTPIONIMPL_H_
+#define _MASSIF_HTTPCLIENTPIONIMPL_H_
 
 #include <asio.hpp>
 #include <pion/http/parser.hpp>
@@ -14,7 +14,7 @@
 
 #include "network/HTTPClient.h"
 
-namespace carto {
+namespace massif {
 
     class HTTPClient::PionImpl : public HTTPClient::Impl {
     public:

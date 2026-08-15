@@ -1,6 +1,6 @@
 #include "utils/FrameProfiler.h"
 
-#if CARTO_FRAME_PROFILER
+#if MASSIF_FRAME_PROFILER
 
 #include "utils/Log.h"
 
@@ -15,7 +15,7 @@
 #include <sys/system_properties.h>
 #endif
 
-namespace carto {
+namespace massif {
 
 #ifdef GL_EXT_disjoint_timer_query
 
@@ -59,10 +59,10 @@ namespace carto {
 
 #ifdef __ANDROID__
             // The queries themselves cost frame time on a tiler, so the profiled build must be
-            // able to run without them: 'adb shell setprop debug.carto.gputimer 0'.
+            // able to run without them: 'adb shell setprop debug.massif.gputimer 0'.
             char property[PROP_VALUE_MAX] = { 0 };
-            if (__system_property_get("debug.carto.gputimer", property) > 0 && property[0] == '0') {
-                Log::Info("GpuFrameProfiler: disabled by debug.carto.gputimer");
+            if (__system_property_get("debug.massif.gputimer", property) > 0 && property[0] == '0') {
+                Log::Info("GpuFrameProfiler: disabled by debug.massif.gputimer");
                 return;
             }
 #endif

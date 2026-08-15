@@ -4,12 +4,12 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_CFUNIQUEPTR_H_
-#define _CARTO_CFUNIQUEPTR_H_
+#ifndef _MASSIF_CFUNIQUEPTR_H_
+#define _MASSIF_CFUNIQUEPTR_H_
 
 #include <CoreFoundation/CoreFoundation.h>
 
-namespace carto {
+namespace massif {
 
     template <typename T>
     struct CFUniquePtr {

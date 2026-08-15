@@ -1,7 +1,7 @@
 #include "Feature.h"
 #include "geometry/Geometry.h"
 
-namespace carto {
+namespace massif {
 
     Feature::Feature(const std::shared_ptr<Geometry>& geometry, Variant properties) :
         _geometry(geometry),

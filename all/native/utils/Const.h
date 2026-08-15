@@ -4,10 +4,10 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_CONST_H_
-#define _CARTO_CONST_H_
+#ifndef _MASSIF_CONST_H_
+#define _MASSIF_CONST_H_
 
-namespace carto {
+namespace massif {
 
     class Const {
     public:

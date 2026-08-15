@@ -4,12 +4,12 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_THREADUTILS_H
-#define _CARTO_THREADUTILS_H
+#ifndef _MASSIF_THREADUTILS_H
+#define _MASSIF_THREADUTILS_H
 
 #include <thread>
 
-namespace carto {
+namespace massif {
 
     namespace ThreadPriority {
         enum ThreadPriority {

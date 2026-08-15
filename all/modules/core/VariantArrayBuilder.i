@@ -3,7 +3,7 @@
 
 %module VariantArrayBuilder
 
-!proxy_imports(carto::VariantArrayBuider, core.Variant)
+!proxy_imports(massif::VariantArrayBuider, core.Variant)
 
 %{
 #include "core/VariantArrayBuilder.h"
@@ -11,13 +11,13 @@
 %}
 
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/Variant.i"
 
-!value_type(carto::VariantArrayBuilder, core.VariantArrayBuilder)
+!value_type(massif::VariantArrayBuilder, core.VariantArrayBuilder)
 
-!standard_equals(carto::VariantArrayBuilder);
+!standard_equals(massif::VariantArrayBuilder);
 
 %include "core/VariantArrayBuilder.h"
 

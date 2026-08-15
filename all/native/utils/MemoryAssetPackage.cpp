@@ -3,7 +3,7 @@
 
 #include <algorithm>
 
-namespace carto {
+namespace massif {
 
     MemoryAssetPackage::MemoryAssetPackage(const std::map<std::string, std::shared_ptr<BinaryData> >& localAssets) :
         _localAssets(localAssets),

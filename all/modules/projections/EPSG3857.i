@@ -3,7 +3,7 @@
 
 %module EPSG3857
 
-!proxy_imports(carto::EPSG3857, core.MapBounds, core.MapPos, projections.Projection)
+!proxy_imports(massif::EPSG3857, core.MapBounds, core.MapPos, projections.Projection)
 
 %{
 #include "projections/EPSG3857.h"
@@ -11,11 +11,11 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "projections/Projection.i"
 
-!polymorphic_shared_ptr(carto::EPSG3857, projections.EPSG3857)
+!polymorphic_shared_ptr(massif::EPSG3857, projections.EPSG3857)
 
 %include "projections/EPSG3857.h"
 

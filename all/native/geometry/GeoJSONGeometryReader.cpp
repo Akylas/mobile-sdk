@@ -51,7 +51,7 @@ namespace {
 
 }
 
-namespace carto {
+namespace massif {
 
     GeoJSONGeometryReader::GeoJSONGeometryReader() :
         _targetProjection(),

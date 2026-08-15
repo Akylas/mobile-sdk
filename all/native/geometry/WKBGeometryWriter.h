@@ -4,10 +4,10 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_WKBGEOMETRYWRITER_H_
-#define _CARTO_WKBGEOMETRYWRITER_H_
+#ifndef _MASSIF_WKBGEOMETRYWRITER_H_
+#define _MASSIF_WKBGEOMETRYWRITER_H_
 
-#ifdef _CARTO_WKBT_SUPPORT
+#ifdef _MASSIF_WKBT_SUPPORT
 
 #include "core/MapPos.h"
 
@@ -17,7 +17,7 @@
 #include <vector>
 #include <stack>
 
-namespace carto {
+namespace massif {
     class BinaryData;
     class Geometry;
 

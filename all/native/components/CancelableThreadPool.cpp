@@ -4,7 +4,7 @@
 
 #include <limits>
 
-namespace carto {
+namespace massif {
 
     CancelableThreadPool::CancelableThreadPool() :
         _poolSize(0),

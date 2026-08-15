@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_MBVECTORTILEDECODER_H_
-#define _CARTO_MBVECTORTILEDECODER_H_
+#ifndef _MASSIF_MBVECTORTILEDECODER_H_
+#define _MASSIF_MBVECTORTILEDECODER_H_
 
 #include "vectortiles/VectorTileDecoder.h"
 
@@ -19,10 +19,10 @@
 #include <variant>
 
 #include <mapnikvt/Value.h>
-#include <mapnikvt/NutiParameterStore.h>
+#include <mapnikvt/StyleParameterStore.h>
 #include <mapnikvt/LayerConfigResolver.h>
 
-namespace carto {
+namespace massif {
     namespace mvt {
         class Map;
         class LayerFeatureDecoder;
@@ -150,7 +150,7 @@ namespace carto {
 
         /**
          * Evaluates the config symbolizer(s) of the named style layer (raster / hillshade /
-         * contour) at the given fractional view zoom and the current style parameter (nuti)
+         * contour) at the given fractional view zoom and the current style parameter
          * state, without decoding a tile. Honors rule zoom ranges and filter predicates.
          * Used by CompositeVectorTileLayer to drive external data source settings per frame.
          * Note: for internal use, not exposed to the public API.
@@ -275,7 +275,7 @@ namespace carto {
         std::variant<std::shared_ptr<CompiledStyleSet>, std::shared_ptr<CartoCSSStyleSet> > _styleSet;
         std::string _styleAssetName; // what the current _map was loaded from, so the symbolizer
         std::shared_ptr<AssetPackage> _styleAssetPackage; // context can be rebuilt without it
-        std::shared_ptr<mvt::NutiParameterStore> _parameterStore; // the values the decoded tiles read
+        std::shared_ptr<mvt::StyleParameterStore> _parameterStore; // the values the decoded tiles read
         std::set<std::string> _liveParameters; // those of them that only a per-frame function reads
         std::string _selectionParameter; // the one that selects a feature, if the style has one
         // Its value, hashed: the tiles read it while they are drawn, so setting the selection is a

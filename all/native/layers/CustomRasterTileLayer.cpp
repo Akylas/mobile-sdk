@@ -11,7 +11,7 @@
 #include <vt/TileLayerBuilder.h>
 #include <vt/TileTransformer.h>
 
-namespace carto {
+namespace massif {
 
     CustomRasterTileLayer::CustomRasterTileLayer(const std::shared_ptr<TileDataSource>& dataSource) :
         RasterTileLayer(dataSource),

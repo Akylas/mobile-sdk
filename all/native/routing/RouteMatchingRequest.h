@@ -4,10 +4,10 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_ROUTEMATCHINGREQUEST_H_
-#define _CARTO_ROUTEMATCHINGREQUEST_H_
+#ifndef _MASSIF_ROUTEMATCHINGREQUEST_H_
+#define _MASSIF_ROUTEMATCHINGREQUEST_H_
 
-#ifdef _CARTO_ROUTING_SUPPORT
+#ifdef _MASSIF_ROUTING_SUPPORT
 
 #include "core/MapPos.h"
 #include "core/Variant.h"
@@ -17,7 +17,7 @@
 #include <vector>
 #include <map>
 
-namespace carto {
+namespace massif {
     class Projection;
 
     /**

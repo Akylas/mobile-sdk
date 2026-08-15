@@ -1,6 +1,6 @@
 #include "BalloonPopupButtonStyleBuilder.h"
 
-namespace carto {
+namespace massif {
 
     BalloonPopupButtonStyleBuilder::BalloonPopupButtonStyleBuilder() :
         _buttonWidth(-1),

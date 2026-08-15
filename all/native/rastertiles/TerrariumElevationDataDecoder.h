@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_TERRARIUMELEVATIONDATADECODER_H_
-#define _CARTO_TERRARIUMELEVATIONDATADECODER_H_
+#ifndef _MASSIF_TERRARIUMELEVATIONDATADECODER_H_
+#define _MASSIF_TERRARIUMELEVATIONDATADECODER_H_
 
 #include "rastertiles/ElevationDecoder.h"
 
@@ -14,7 +14,7 @@
 #include <map>
 #include <string>
 
-namespace carto {
+namespace massif {
 
     /**
      * A decoder for Terrarium encoded elevation tiles

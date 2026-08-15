@@ -1,6 +1,6 @@
 #include "PostProcessEffect.h"
 
-namespace carto {
+namespace massif {
 
     PostProcessEffect::PostProcessEffect(const std::string& name, const std::string& fragmentShader) :
         _name(name),

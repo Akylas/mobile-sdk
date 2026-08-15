@@ -3,9 +3,9 @@
 
 %module(directors="1") OSRMOfflineRoutingService
 
-#if defined(_CARTO_ROUTING_SUPPORT) && defined(_CARTO_OFFLINE_SUPPORT)
+#if defined(_MASSIF_ROUTING_SUPPORT) && defined(_MASSIF_OFFLINE_SUPPORT)
 
-!proxy_imports(carto::OSRMOfflineRoutingService, routing.RoutingService, routing.RoutingRequest, routing.RoutingResult, routing.RouteMatchingRequest, routing.RouteMatchingResult)
+!proxy_imports(massif::OSRMOfflineRoutingService, routing.RoutingService, routing.RoutingRequest, routing.RoutingResult, routing.RouteMatchingRequest, routing.RouteMatchingResult)
 
 %{
 #include "routing/OSRMOfflineRoutingService.h"
@@ -14,17 +14,17 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "routing/RoutingService.i"
 
-!polymorphic_shared_ptr(carto::OSRMOfflineRoutingService, routing.OSRMOfflineRoutingService)
+!polymorphic_shared_ptr(massif::OSRMOfflineRoutingService, routing.OSRMOfflineRoutingService)
 
-%std_io_exceptions(carto::OSRMOfflineRoutingService::OSRMOfflineRoutingService)
-%std_io_exceptions(carto::OSRMOfflineRoutingService::matchRoute)
-%std_io_exceptions(carto::OSRMOfflineRoutingService::calculateRoute)
+%std_io_exceptions(massif::OSRMOfflineRoutingService::OSRMOfflineRoutingService)
+%std_io_exceptions(massif::OSRMOfflineRoutingService::matchRoute)
+%std_io_exceptions(massif::OSRMOfflineRoutingService::calculateRoute)
 
-%feature("director") carto::OSRMOfflineRoutingService;
+%feature("director") massif::OSRMOfflineRoutingService;
 
 %include "routing/OSRMOfflineRoutingService.h"
 

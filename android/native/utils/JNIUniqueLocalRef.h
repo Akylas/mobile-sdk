@@ -4,12 +4,12 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_JNIUNIQUELOCALREF_H_
-#define _CARTO_JNIUNIQUELOCALREF_H_
+#ifndef _MASSIF_JNIUNIQUELOCALREF_H_
+#define _MASSIF_JNIUNIQUELOCALREF_H_
 
 #include <jni.h>
 
-namespace carto {
+namespace massif {
 
     template <typename T>
     struct JNIUniqueLocalRef {

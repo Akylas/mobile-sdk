@@ -4,19 +4,19 @@
 // __ANDROID__ (always set by the NDK) rather than TARGET_OS_ANDROID: the latter is only passed
 // for standalone syntax checks, so keying off it silently compiled the worker out of the build.
 #if defined(__ANDROID__)
-#define _CARTO_TERRAINDEPTHWORKER_EGL 1
+#define _MASSIF_TERRAINDEPTHWORKER_EGL 1
 #endif
 
-#if _CARTO_TERRAINDEPTHWORKER_EGL
+#if _MASSIF_TERRAINDEPTHWORKER_EGL
 #include <EGL/egl.h>
 #include <GLES2/gl2.h>
 #include <sys/system_properties.h>
 #include <cstdlib>
 #endif
 
-namespace carto {
+namespace massif {
 
-#if _CARTO_TERRAINDEPTHWORKER_EGL
+#if _MASSIF_TERRAINDEPTHWORKER_EGL
 
     namespace {
         GLuint CompileShader(GLenum type, const std::string& source) {
@@ -37,10 +37,10 @@ namespace carto {
 
     bool TerrainDepthWorker::isSupported() {
         // The synchronous read-back stays reachable at runtime, so the two can be compared on
-        // one device: 'adb shell setprop debug.carto.asyncdepth 0'.
+        // one device: 'adb shell setprop debug.massif.asyncdepth 0'.
         static const bool enabled = [] {
             char property[PROP_VALUE_MAX] = { 0 };
-            return !(__system_property_get("debug.carto.asyncdepth", property) > 0 && property[0] == '0');
+            return !(__system_property_get("debug.massif.asyncdepth", property) > 0 && property[0] == '0');
         }();
         return enabled;
     }
@@ -48,7 +48,7 @@ namespace carto {
     int TerrainDepthWorker::getMovingSubmitInterval(int defaultInterval) {
         static const int interval = [defaultInterval] {
             char property[PROP_VALUE_MAX] = { 0 };
-            if (__system_property_get("debug.carto.asyncdepthms", property) > 0) {
+            if (__system_property_get("debug.massif.asyncdepthms", property) > 0) {
                 int value = std::atoi(property);
                 if (value >= 0) {
                     return value;

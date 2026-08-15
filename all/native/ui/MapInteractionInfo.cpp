@@ -1,6 +1,6 @@
 #include "MapInteractionInfo.h"
 
-namespace carto {
+namespace massif {
 
     MapInteractionInfo::MapInteractionInfo(bool panAction, bool zoomAction, bool rotateAction, bool tiltAction, bool animationStarted) :
         _panAction(panAction),

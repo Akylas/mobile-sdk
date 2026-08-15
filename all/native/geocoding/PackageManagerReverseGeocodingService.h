@@ -4,10 +4,10 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_PACKAGEMANAGERREVERSEGEOCODINGSERVICE_H_
-#define _CARTO_PACKAGEMANAGERREVERSEGEOCODINGSERVICE_H_
+#ifndef _MASSIF_PACKAGEMANAGERREVERSEGEOCODINGSERVICE_H_
+#define _MASSIF_PACKAGEMANAGERREVERSEGEOCODINGSERVICE_H_
 
-#if defined(_CARTO_GEOCODING_SUPPORT) && defined(_CARTO_PACKAGEMANAGER_SUPPORT)
+#if defined(_MASSIF_GEOCODING_SUPPORT) && defined(_MASSIF_PACKAGEMANAGER_SUPPORT)
 
 #include "geocoding/ReverseGeocodingService.h"
 #include "packagemanager/PackageManager.h"
@@ -16,7 +16,7 @@ namespace sqlite3pp {
     class database;
 }
 
-namespace carto {
+namespace massif {
     namespace geocoding {
         class RevGeocoder;
     }

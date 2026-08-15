@@ -6,7 +6,7 @@
 
 #include <cmath>
 
-namespace carto {
+namespace massif {
 
     ClickHandlerWorker::ClickHandlerWorker(const std::shared_ptr<Options>& options) :
         _running(false),

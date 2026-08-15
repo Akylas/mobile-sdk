@@ -13,7 +13,7 @@
 #include <zstd.h>
 #endif
 
-namespace carto {
+namespace massif {
 namespace pmtiles {
 
     namespace {
@@ -349,4 +349,4 @@ namespace pmtiles {
     }
 
 } // namespace pmtiles
-} // namespace carto
+} // namespace massif

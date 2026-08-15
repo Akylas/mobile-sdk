@@ -1,4 +1,4 @@
-#if defined(_CARTO_ROUTING_SUPPORT) && defined(_CARTO_OFFLINE_SUPPORT)
+#if defined(_MASSIF_ROUTING_SUPPORT) && defined(_MASSIF_OFFLINE_SUPPORT)
 
 #include "OSRMOfflineRoutingService.h"
 #include "components/Exceptions.h"
@@ -13,7 +13,7 @@
 #include <osrm/Instruction.h>
 #include <osrm/RouteFinder.h>
 
-namespace carto {
+namespace massif {
 
     OSRMOfflineRoutingService::OSRMOfflineRoutingService(const std::string& path) :
         RoutingService(),

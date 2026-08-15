@@ -3,7 +3,7 @@
 
 %module(directors="1") RasterTileEventListener
 
-!proxy_imports(carto::RasterTileEventListener, ui.RasterTileClickInfo)
+!proxy_imports(massif::RasterTileEventListener, ui.RasterTileClickInfo)
 
 %{
 #include "layers/RasterTileEventListener.h"
@@ -11,13 +11,13 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "ui/RasterTileClickInfo.i"
 
-!polymorphic_shared_ptr(carto::RasterTileEventListener, layers.RasterTileEventListener)
+!polymorphic_shared_ptr(massif::RasterTileEventListener, layers.RasterTileEventListener)
 
-%feature("director") carto::RasterTileEventListener;
+%feature("director") massif::RasterTileEventListener;
 
 %include "layers/RasterTileEventListener.h"
 

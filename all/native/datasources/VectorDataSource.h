@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_VECTORDATASOURCE_H_
-#define _CARTO_VECTORDATASOURCE_H_
+#ifndef _MASSIF_VECTORDATASOURCE_H_
+#define _MASSIF_VECTORDATASOURCE_H_
 
 #include "core/MapBounds.h"
 #include "datasources/components/VectorData.h"
@@ -14,7 +14,7 @@
 #include <mutex>
 #include <vector>
 
-namespace carto {
+namespace massif {
     class ViewState;
     class CullState;
     class Projection;

@@ -1,7 +1,7 @@
 #include "GLResourceManager.h"
 #include "utils/Log.h"
 
-namespace carto {
+namespace massif {
 
     GLResourceManager::GLResourceManager() :
         _glThreadId(),

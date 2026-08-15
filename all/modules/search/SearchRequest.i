@@ -5,9 +5,9 @@
 
 %module SearchRequest
 
-#ifdef _CARTO_SEARCH_SUPPORT
+#ifdef _MASSIF_SEARCH_SUPPORT
 
-!proxy_imports(carto::SearchRequest, geometry.Geometry, projections.Projection)
+!proxy_imports(massif::SearchRequest, geometry.Geometry, projections.Projection)
 
 %{
 #include "search/SearchRequest.h"
@@ -17,20 +17,20 @@
 
 %include <std_string.i>
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "geometry/Geometry.i"
 %import "projections/Projection.i"
 
-!shared_ptr(carto::SearchRequest, search.SearchRequest)
+!shared_ptr(massif::SearchRequest, search.SearchRequest)
 
-%attributestring(carto::SearchRequest, std::string, FilterExpression, getFilterExpression, setFilterExpression)
-%attributestring(carto::SearchRequest, std::string, RegexFilter, getRegexFilter, setRegexFilter)
-%attributestring(carto::SearchRequest, std::shared_ptr<carto::Geometry>, Geometry, getGeometry, setGeometry)
-%attributestring(carto::SearchRequest, std::shared_ptr<carto::Projection>, Projection, getProjection, setProjection)
-%attribute(carto::SearchRequest, float, SearchRadius, getSearchRadius, setSearchRadius)
-!standard_equals(carto::SearchRequest);
-!custom_tostring(carto::SearchRequest);
+%attributestring(massif::SearchRequest, std::string, FilterExpression, getFilterExpression, setFilterExpression)
+%attributestring(massif::SearchRequest, std::string, RegexFilter, getRegexFilter, setRegexFilter)
+%attributestring(massif::SearchRequest, std::shared_ptr<massif::Geometry>, Geometry, getGeometry, setGeometry)
+%attributestring(massif::SearchRequest, std::shared_ptr<massif::Projection>, Projection, getProjection, setProjection)
+%attribute(massif::SearchRequest, float, SearchRadius, getSearchRadius, setSearchRadius)
+!standard_equals(massif::SearchRequest);
+!custom_tostring(massif::SearchRequest);
 
 %include "search/SearchRequest.h"
 

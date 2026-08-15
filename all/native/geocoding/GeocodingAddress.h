@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_GEOCODINGADDRESS_H_
-#define _CARTO_GEOCODINGADDRESS_H_
+#ifndef _MASSIF_GEOCODINGADDRESS_H_
+#define _MASSIF_GEOCODINGADDRESS_H_
 
-#ifdef _CARTO_GEOCODING_SUPPORT
+#ifdef _MASSIF_GEOCODING_SUPPORT
 
 #include "core/Address.h"
 
-namespace carto {
+namespace massif {
 
     /**
      * A geographical address describing country, region, county and other information.

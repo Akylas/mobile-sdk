@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_POSTPROCESSEFFECT_H_
-#define _CARTO_POSTPROCESSEFFECT_H_
+#ifndef _MASSIF_POSTPROCESSEFFECT_H_
+#define _MASSIF_POSTPROCESSEFFECT_H_
 
 #include "graphics/Color.h"
 
@@ -14,7 +14,7 @@
 #include <mutex>
 #include <string>
 
-namespace carto {
+namespace massif {
     /**
      * A full-screen post-processing effect. When attached to the map via
      * MapRenderer::setPostProcessEffect, the map is rendered into an offscreen buffer

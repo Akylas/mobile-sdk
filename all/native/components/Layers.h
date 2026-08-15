@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_LAYERS_H_
-#define _CARTO_LAYERS_H_
+#ifndef _MASSIF_LAYERS_H_
+#define _MASSIF_LAYERS_H_
 
 #include <memory>
 #include <mutex>
 #include <vector>
 
-namespace carto {
+namespace massif {
     class Options;
     class Layer;
     class MapRenderer;

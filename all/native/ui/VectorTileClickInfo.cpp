@@ -1,6 +1,6 @@
 #include "VectorTileClickInfo.h"
 
-namespace carto {
+namespace massif {
 
     VectorTileClickInfo::VectorTileClickInfo(const ClickInfo& clickInfo, const MapPos& clickPos, const MapPos& featureClickPos,
                                              const std::shared_ptr<VectorTileFeature>& feature,

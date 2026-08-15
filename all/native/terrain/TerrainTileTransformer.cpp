@@ -11,12 +11,12 @@
 #include <sys/system_properties.h>
 #endif
 
-namespace carto {
+namespace massif {
 
     // Surface cells a fill subdivides to: indices fall as 1/N^2, chord error grows as N^2, and the
     // usable value is whatever the depth budget still clears - a measurement, not a derivation
     // (the ladder is in docs/rendering/02-tiles.md).
-    //   adb shell setprop debug.carto.areathreshold 4
+    //   adb shell setprop debug.massif.areathreshold 4
     static constexpr float AREA_THRESHOLD_CELLS = 2.0f;
 
     // How far a draped line may chord away from the terrain, in METRES. Chosen for margin, not for
@@ -26,14 +26,14 @@ namespace carto {
 #ifdef __ANDROID__
     // The same for LINES - the expensive half over a city, since they are drawn as terrain geometry
     // every frame while the fills are baked once.
-    //   adb shell setprop debug.carto.linethreshold 4
+    //   adb shell setprop debug.massif.linethreshold 4
     // Relief (metres in the tile) under which the LATTICE split is skipped: the cell fold it guards
     // against is a fraction of the relief, so on a valley floor it protects against nothing.
-    //   adb shell setprop debug.carto.latticerelief 50
+    //   adb shell setprop debug.massif.latticerelief 50
     static float latticeReliefThreshold() {
         static const float relief = [] {
             char property[PROP_VALUE_MAX] = { 0 };
-            if (__system_property_get("debug.carto.latticerelief", property) > 0) {
+            if (__system_property_get("debug.massif.latticerelief", property) > 0) {
                 float value = static_cast<float>(std::atof(property));
                 if (value >= 0.0f) {
                     return value;
@@ -48,11 +48,11 @@ namespace carto {
     // clearance that lifts these lines (uDepthClearance, see 04-terrain.md), so the two agree on
     // what "close enough to the ground" means. 0 goes back to the old lattice / threshold split,
     // which is how the two are A/B'd:
-    //   adb shell setprop debug.carto.linesag 0
+    //   adb shell setprop debug.massif.linesag 0
     static float lineSagToleranceMeters() {
         static const float tolerance = [] {
             char property[PROP_VALUE_MAX] = { 0 };
-            if (__system_property_get("debug.carto.linesag", property) > 0) {
+            if (__system_property_get("debug.massif.linesag", property) > 0) {
                 float value = static_cast<float>(std::atof(property));
                 if (value >= 0.0f) {
                     return value;
@@ -66,7 +66,7 @@ namespace carto {
     static float lineThresholdScale() {
         static const float scale = [] {
             char property[PROP_VALUE_MAX] = { 0 };
-            if (__system_property_get("debug.carto.linethreshold", property) > 0) {
+            if (__system_property_get("debug.massif.linethreshold", property) > 0) {
                 float value = static_cast<float>(std::atof(property));
                 if (value > 0.0f) {
                     return value;
@@ -80,7 +80,7 @@ namespace carto {
     static float areaThresholdScale() {
         static const float scale = [] {
             char property[PROP_VALUE_MAX] = { 0 };
-            if (__system_property_get("debug.carto.areathreshold", property) > 0) {
+            if (__system_property_get("debug.massif.areathreshold", property) > 0) {
                 float value = static_cast<float>(std::atof(property));
                 if (value > 0.0f) {
                     return value;

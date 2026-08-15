@@ -9,23 +9,23 @@
 
 %include <std_string.i>
 %include <std_vector.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
-!value_type(carto::ScreenPos, core.ScreenPos)
-!value_type(std::vector<carto::ScreenPos>, core.ScreenPosVector)
+!value_type(massif::ScreenPos, core.ScreenPos)
+!value_type(std::vector<massif::ScreenPos>, core.ScreenPosVector)
 
-%attribute(carto::ScreenPos, float, X, getX)
-%attribute(carto::ScreenPos, float, Y, getY)
-%rename(get) carto::ScreenPos::operator[] const;
-%ignore carto::ScreenPos::operator[];
-%ignore carto::ScreenPos::setX;
-%ignore carto::ScreenPos::setY;
-%ignore carto::ScreenPos::setCoords;
-!custom_equals(carto::ScreenPos);
-!custom_tostring(carto::ScreenPos);
+%attribute(massif::ScreenPos, float, X, getX)
+%attribute(massif::ScreenPos, float, Y, getY)
+%rename(get) massif::ScreenPos::operator[] const;
+%ignore massif::ScreenPos::operator[];
+%ignore massif::ScreenPos::setX;
+%ignore massif::ScreenPos::setY;
+%ignore massif::ScreenPos::setCoords;
+!custom_equals(massif::ScreenPos);
+!custom_tostring(massif::ScreenPos);
 
 %include "core/ScreenPos.h"
 
-!value_template(std::vector<carto::ScreenPos>, core.ScreenPosVector)
+!value_template(std::vector<massif::ScreenPos>, core.ScreenPosVector)
 
 #endif

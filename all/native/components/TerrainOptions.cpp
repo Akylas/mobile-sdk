@@ -5,7 +5,7 @@
 
 #include <algorithm>
 
-namespace carto {
+namespace massif {
 
     const std::string TerrainOptions::DEFAULT_NO_DRAPE_LAYER_FILTER = "^contour.*";
 

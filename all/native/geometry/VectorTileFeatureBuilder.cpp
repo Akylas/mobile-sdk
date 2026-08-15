@@ -1,7 +1,7 @@
 #include "VectorTileFeatureBuilder.h"
 #include "geometry/VectorTileFeature.h"
 
-namespace carto {
+namespace massif {
 
     VectorTileFeatureBuilder::VectorTileFeatureBuilder() :
         FeatureBuilder(),

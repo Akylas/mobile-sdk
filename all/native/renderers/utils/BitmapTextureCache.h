@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_BITMAPTEXTURECACHE_H_
-#define _CARTO_BITMAPTEXTURECACHE_H_
+#ifndef _MASSIF_BITMAPTEXTURECACHE_H_
+#define _MASSIF_BITMAPTEXTURECACHE_H_
 
 #include "renderers/utils/GLResource.h"
 
@@ -14,7 +14,7 @@
 
 #include <stdext/timed_lru_cache.h>
 
-namespace carto {
+namespace massif {
     class Bitmap;
     class Texture;
     

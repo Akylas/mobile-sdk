@@ -4,10 +4,10 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_REVERSEGEOCODINGSERVICE_H_
-#define _CARTO_REVERSEGEOCODINGSERVICE_H_
+#ifndef _MASSIF_REVERSEGEOCODINGSERVICE_H_
+#define _MASSIF_REVERSEGEOCODINGSERVICE_H_
 
-#ifdef _CARTO_GEOCODING_SUPPORT
+#ifdef _MASSIF_GEOCODING_SUPPORT
 
 #include "geocoding/ReverseGeocodingRequest.h"
 #include "geocoding/GeocodingResult.h"
@@ -15,7 +15,7 @@
 #include <memory>
 #include <vector>
 
-namespace carto {
+namespace massif {
 
     /**
      * An abstract base class for reverse geocoding services.

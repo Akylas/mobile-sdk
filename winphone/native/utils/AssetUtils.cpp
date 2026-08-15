@@ -6,7 +6,7 @@
 
 #include <stdio.h>
 
-namespace carto {
+namespace massif {
 
     std::shared_ptr<BinaryData> AssetUtils::LoadAsset(const std::string& path) {
         std::wstring wpath;

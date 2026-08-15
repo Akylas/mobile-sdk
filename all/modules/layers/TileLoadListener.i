@@ -11,9 +11,9 @@
 %include <std_string.i>
 %include <std_shared_ptr.i>
 
-!polymorphic_shared_ptr(carto::TileLoadListener, layers.TileLoadListener)
+!polymorphic_shared_ptr(massif::TileLoadListener, layers.TileLoadListener)
 
-%feature("director") carto::TileLoadListener;
+%feature("director") massif::TileLoadListener;
 
 %include "layers/TileLoadListener.h"
 

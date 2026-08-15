@@ -4,13 +4,13 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_EXCEPTIONS_H_
-#define _CARTO_EXCEPTIONS_H_
+#ifndef _MASSIF_EXCEPTIONS_H_
+#define _MASSIF_EXCEPTIONS_H_
 
 #include <stdexcept>
 #include <string>
 
-namespace carto {
+namespace massif {
 
     class NullArgumentException : public std::invalid_argument {
     public:

@@ -1,6 +1,6 @@
 #include "PointStyle.h"
 
-namespace carto {
+namespace massif {
 
     PointStyle::PointStyle(const Color& color, const std::shared_ptr<Bitmap>& bitmap, float clickSize, float size) :
         Style(color),

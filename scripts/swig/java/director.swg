@@ -105,7 +105,7 @@ namespace Swig {
   };
 
   /* director base class */
-  class Director : public carto::Director {
+  class Director : public massif::Director {
     /* pointer to Java virtual machine */
     JavaVM *swig_jvm_;
     /* Ref counter */
@@ -242,7 +242,7 @@ namespace Swig {
         swig_java_change_ownership(jnienv.getJNIEnv(), jself, true);
         jnienv.getJNIEnv()->DeleteLocalRef(jself);
       } else if (counter < 0) {
-        carto::Log::Errorf("Director::release: Reference counter = %d!", counter);
+        massif::Log::Errorf("Director::release: Reference counter = %d!", counter);
       }
     }
 

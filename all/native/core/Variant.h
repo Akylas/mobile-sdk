@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_VARIANT_H_
-#define _CARTO_VARIANT_H_
+#ifndef _MASSIF_VARIANT_H_
+#define _MASSIF_VARIANT_H_
 
 #include <cstdint>
 #include <memory>
@@ -15,7 +15,7 @@
 
 #include <picojson/picojson.h>
 
-namespace carto {
+namespace massif {
 
     namespace VariantType {
         /**

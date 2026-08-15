@@ -3,7 +3,7 @@
 
 %module MultiPointGeometry
 
-!proxy_imports(carto::MultiPointGeometry, geometry.Geometry, geometry.MultiGeometry, geometry.PointGeometry, geometry.PointGeometryVector)
+!proxy_imports(massif::MultiPointGeometry, geometry.Geometry, geometry.MultiGeometry, geometry.PointGeometry, geometry.PointGeometryVector)
 
 %{
 #include "geometry/MultiPointGeometry.h"
@@ -12,15 +12,15 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "geometry/Geometry.i"
 %import "geometry/PointGeometry.i"
 %import "geometry/MultiGeometry.i"
 
-!polymorphic_shared_ptr(carto::MultiPointGeometry, geometry.MultiPointGeometry)
+!polymorphic_shared_ptr(massif::MultiPointGeometry, geometry.MultiPointGeometry)
 
-%std_exceptions(carto::MultiPointGeometry::getGeometry)
+%std_exceptions(massif::MultiPointGeometry::getGeometry)
 
 %include "geometry/MultiPointGeometry.h"
 

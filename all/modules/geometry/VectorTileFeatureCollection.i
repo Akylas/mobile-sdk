@@ -3,7 +3,7 @@
 
 %module VectorTileFeatureCollection
 
-!proxy_imports(carto::VectorTileFeatureCollection, geometry.FeatureCollection, geometry.VectorTileFeature, geometry.VectorTileFeatureVector)
+!proxy_imports(massif::VectorTileFeatureCollection, geometry.FeatureCollection, geometry.VectorTileFeature, geometry.VectorTileFeatureVector)
 
 %{
 #include "geometry/VectorTileFeatureCollection.h"
@@ -12,14 +12,14 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "geometry/FeatureCollection.i"
 %import "geometry/VectorTileFeature.i"
 
-!polymorphic_shared_ptr(carto::VectorTileFeatureCollection, geometry.VectorTileFeatureCollection)
+!polymorphic_shared_ptr(massif::VectorTileFeatureCollection, geometry.VectorTileFeatureCollection)
 
-%std_exceptions(carto::VectorTileFeatureCollection::getFeature)
+%std_exceptions(massif::VectorTileFeatureCollection::getFeature)
 
 %include "geometry/VectorTileFeatureCollection.h"
 

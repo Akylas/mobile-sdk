@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_TILERENDERER_H_
-#define _CARTO_TILERENDERER_H_
+#ifndef _MASSIF_TILERENDERER_H_
+#define _MASSIF_TILERENDERER_H_
 
 #include "graphics/Color.h"
 #include "components/StyleEnvironment.h"
@@ -30,7 +30,7 @@
 #include <vt/Styles.h>
 #include <vt/GLTileRenderer.h>
 
-namespace carto {
+namespace massif {
     class ElevationTextureCache;
     class Options;
     class MapRenderer;
@@ -107,7 +107,7 @@ namespace carto {
         // Metres a draped line is drawn in front of the ground (see GLTileRenderer::setTerrainLineClearance).
         static float terrainLineClearanceMeters();
         // Style layers kept out of the drape bake and drawn live instead: the application's
-        // TerrainOptions::NoDrapeLayerFilter, overridden by debug.carto.nodrapelayers ("none" to
+        // TerrainOptions::NoDrapeLayerFilter, overridden by debug.massif.nodrapelayers ("none" to
         // drape everything). Compiled once per distinct pattern. See
         // GLTileRenderer::setNoDrapeLayerFilter.
         static std::optional<std::regex> noDrapeLayerFilter(const std::string& optionFilter);
@@ -167,7 +167,7 @@ namespace carto {
 
         bool initializeRenderer();
         bool isPlanarProjectionMode() const;
-        // Tangram-model measurement switch, read once from debug.carto.depthshift (Android only).
+        // Tangram-model measurement switch, read once from debug.massif.depthshift (Android only).
         static float getTerrainContentDepthShift();
         // tangram res/scenes/terrain-3d.yaml: depth_shift = -0.02*u_proj[2][3], and [2][3] is -1.
         static constexpr float TERRAIN_TANGRAM_DEPTH_SHIFT = 0.02f;
@@ -182,16 +182,16 @@ namespace carto {
         static constexpr int DEFAULT_PAINT_DETAIL_LEVELS = 0;
         static int terrainPaintDetailLevels();
         // Measurement switch for tangram's arrangement: the paint drawn AS the ground rather than
-        // as its layer's own surface over it. debug.carto.groundpaint 1. Read once (Android only).
+        // as its layer's own surface over it. debug.massif.groundpaint 1. Read once (Android only).
         static bool isTerrainPaintOnGroundForced();
-        // Texture fetches per terrain vertex, debug.carto.demtaps. Read once (Android only).
+        // Texture fetches per terrain vertex, debug.massif.demtaps. Read once (Android only).
         static int terrainDemTaps();
-        // debug.carto.tilebg 1 keeps the per-tile per-layer background meshes. Read once (Android).
+        // debug.massif.tilebg 1 keeps the per-tile per-layer background meshes. Read once (Android).
         static bool isTerrainTileBackgroundsForced();
-        // debug.carto.tilemasks forces the stencil tile masks on (1) or off (0) instead of the
+        // debug.massif.tilemasks forces the stencil tile masks on (1) or off (0) instead of the
         // renderer's own rule. Read once (Android only).
         static int tileMasksMode();
-        // debug.carto.inline3d 0 sends the 3D extrusions back through the per-layer 3D overlay
+        // debug.massif.inline3d 0 sends the 3D extrusions back through the per-layer 3D overlay
         // instead of drawing them inline in the main framebuffer. Read once (Android only).
         static bool isInline3DEnabled();
         void updateLabelOcclusionTest(const std::shared_ptr<vt::GLTileRenderer>& tileRenderer, const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions);

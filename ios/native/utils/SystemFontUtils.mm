@@ -6,7 +6,7 @@
 #import <Foundation/Foundation.h>
 #import <CoreText/CoreText.h>
 
-namespace carto {
+namespace massif {
 
     std::shared_ptr<BinaryData> SystemFontUtils::LoadFont(const std::string& name) {
         NSString* nsName = [NSString stringWithUTF8String:name.c_str()];

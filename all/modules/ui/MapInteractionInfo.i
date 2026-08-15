@@ -3,7 +3,7 @@
 
 %module MapInteractionInfo
 
-!proxy_imports(carto::MapInteractionInfo)
+!proxy_imports(massif::MapInteractionInfo)
 
 %{
 #include "ui/MapInteractionInfo.h"
@@ -11,17 +11,17 @@
 %}
 
 %import <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
-!shared_ptr(carto::MapInteractionInfo, ui.MapInteractionInfo)
+!shared_ptr(massif::MapInteractionInfo, ui.MapInteractionInfo)
 
-%attribute(carto::MapInteractionInfo, bool, PanAction, isPanAction)
-%attribute(carto::MapInteractionInfo, bool, ZoomAction, isZoomAction)
-%attribute(carto::MapInteractionInfo, bool, RotateAction, isRotateAction)
-%attribute(carto::MapInteractionInfo, bool, TiltAction, isTiltAction)
-%attribute(carto::MapInteractionInfo, bool, AnimationStarted, isAnimationStarted)
-%ignore carto::MapInteractionInfo::MapInteractionInfo;
-!standard_equals(carto::MapInteractionInfo);
+%attribute(massif::MapInteractionInfo, bool, PanAction, isPanAction)
+%attribute(massif::MapInteractionInfo, bool, ZoomAction, isZoomAction)
+%attribute(massif::MapInteractionInfo, bool, RotateAction, isRotateAction)
+%attribute(massif::MapInteractionInfo, bool, TiltAction, isTiltAction)
+%attribute(massif::MapInteractionInfo, bool, AnimationStarted, isAnimationStarted)
+%ignore massif::MapInteractionInfo::MapInteractionInfo;
+!standard_equals(massif::MapInteractionInfo);
 
 %include "ui/MapInteractionInfo.h"
 

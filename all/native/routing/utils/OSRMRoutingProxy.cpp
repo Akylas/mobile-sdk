@@ -1,4 +1,4 @@
-#ifdef _CARTO_ROUTING_SUPPORT
+#ifdef _MASSIF_ROUTING_SUPPORT
 
 #include "OSRMRoutingProxy.h"
 #include "core/BinaryData.h"
@@ -25,7 +25,7 @@
 #include <osrm/Instruction.h>
 #include <osrm/RouteFinder.h>
 
-namespace carto {
+namespace massif {
 
     std::shared_ptr<RoutingResult> OSRMRoutingProxy::CalculateRoute(const std::shared_ptr<osrm::RouteFinder>& routeFinder, const std::shared_ptr<RoutingRequest>& request) {
         std::shared_ptr<Projection> proj = request->getProjection();

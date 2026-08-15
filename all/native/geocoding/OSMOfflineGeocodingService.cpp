@@ -1,14 +1,14 @@
-#if defined(_CARTO_GEOCODING_SUPPORT) && defined(_CARTO_OFFLINE_SUPPORT)
+#if defined(_MASSIF_GEOCODING_SUPPORT) && defined(_MASSIF_OFFLINE_SUPPORT)
 
 #include "OSMOfflineGeocodingService.h"
 #include "components/Exceptions.h"
-#include "geocoding/utils/CartoGeocodingProxy.h"
+#include "geocoding/utils/MassifGeocodingProxy.h"
 
 #include <geocoding/Geocoder.h>
 
 #include <sqlite3pp.h>
 
-namespace carto {
+namespace massif {
 
     OSMOfflineGeocodingService::OSMOfflineGeocodingService(const std::string& path) :
         _geocoder()
@@ -57,7 +57,7 @@ namespace carto {
             throw NullArgumentException("Null request");
         }
 
-        return CartoGeocodingProxy::CalculateAddresses(_geocoder, request);
+        return MassifGeocodingProxy::CalculateAddresses(_geocoder, request);
     }
     
 }

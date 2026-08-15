@@ -6,7 +6,7 @@
 
 #include <stdext/utf8_filesystem.h>
 
-namespace carto {
+namespace massif {
 
     std::shared_ptr<Bitmap> BitmapUtils::LoadBitmapFromAssets(const std::string& assetPath) {
         std::shared_ptr<BinaryData> data = AssetUtils::LoadAsset(assetPath);

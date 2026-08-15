@@ -16,7 +16,7 @@
 #include <cmath>
 #include <limits>
 
-namespace carto {
+namespace massif {
 
     static const std::size_t DEFAULT_CACHE_CAPACITY = 64 * 1024 * 1024;
     // A grid COUNT, not a byte budget - one terrain view needs 122-167 distinct grids whatever the

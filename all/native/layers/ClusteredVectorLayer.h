@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_CLUSTEREDVECTORLAYER_H_
-#define _CARTO_CLUSTEREDVECTORLAYER_H_
+#ifndef _MASSIF_CLUSTEREDVECTORLAYER_H_
+#define _MASSIF_CLUSTEREDVECTORLAYER_H_
 
 #include "core/MapPos.h"
 #include "components/DirectorPtr.h"
@@ -23,7 +23,7 @@
 
 #include <cglib/bbox.h>
 
-namespace carto {
+namespace massif {
     class VectorElement;
     class LocalVectorDataSource;
     class ProjectionSurface;

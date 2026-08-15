@@ -20,7 +20,7 @@
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/document.h>
 
-namespace carto {
+namespace massif {
 
     GeoJSONGeometryWriter::GeoJSONGeometryWriter() :
         _sourceProjection(),

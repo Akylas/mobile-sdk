@@ -6,9 +6,9 @@
 
 %module(directors="1") PackageManagerReverseGeocodingService
 
-#if defined(_CARTO_GEOCODING_SUPPORT) && defined(_CARTO_PACKAGEMANAGER_SUPPORT)
+#if defined(_MASSIF_GEOCODING_SUPPORT) && defined(_MASSIF_PACKAGEMANAGER_SUPPORT)
 
-!proxy_imports(carto::PackageManagerReverseGeocodingService, geocoding.ReverseGeocodingService, geocoding.ReverseGeocodingRequest, geocoding.GeocodingResult, packagemanager.PackageManager, projections.Projection)
+!proxy_imports(massif::PackageManagerReverseGeocodingService, geocoding.ReverseGeocodingService, geocoding.ReverseGeocodingRequest, geocoding.GeocodingResult, packagemanager.PackageManager, projections.Projection)
 
 %{
 #include "geocoding/PackageManagerReverseGeocodingService.h"
@@ -17,17 +17,17 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "geocoding/ReverseGeocodingService.i"
 %import "packagemanager/PackageManager.i"
 
-!polymorphic_shared_ptr(carto::PackageManagerReverseGeocodingService, geocoding.PackageManagerReverseGeocodingService)
+!polymorphic_shared_ptr(massif::PackageManagerReverseGeocodingService, geocoding.PackageManagerReverseGeocodingService)
 
-%std_exceptions(carto::PackageManagerReverseGeocodingService::PackageManagerReverseGeocodingService)
-%std_io_exceptions(carto::PackageManagerReverseGeocodingService::calculateAddresses)
+%std_exceptions(massif::PackageManagerReverseGeocodingService::PackageManagerReverseGeocodingService)
+%std_io_exceptions(massif::PackageManagerReverseGeocodingService::calculateAddresses)
 
-%feature("director") carto::PackageManagerReverseGeocodingService;
+%feature("director") massif::PackageManagerReverseGeocodingService;
 
 %include "geocoding/PackageManagerReverseGeocodingService.h"
 

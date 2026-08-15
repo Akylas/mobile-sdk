@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_NMLRESOURCES_H_
-#define _CARTO_NMLRESOURCES_H_
+#ifndef _MASSIF_NMLRESOURCES_H_
+#define _MASSIF_NMLRESOURCES_H_
 
 #include "renderers/utils/GLResource.h"
 
@@ -13,7 +13,7 @@
 
 #include <nml/GLResourceManager.h>
 
-namespace carto {
+namespace massif {
     
     class NMLResources : public GLResource {
     public:

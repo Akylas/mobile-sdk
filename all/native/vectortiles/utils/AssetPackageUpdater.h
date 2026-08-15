@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_ASSETPACKAGEUPDATER_H_
-#define _CARTO_ASSETPACKAGEUPDATER_H_
+#ifndef _MASSIF_ASSETPACKAGEUPDATER_H_
+#define _MASSIF_ASSETPACKAGEUPDATER_H_
 
 #include <string>
 #include <vector>
@@ -14,7 +14,7 @@
 
 #include <picojson/picojson.h>
 
-namespace carto {
+namespace massif {
     class BinaryData;
     class AssetPackage;
     class MemoryAssetPackage;

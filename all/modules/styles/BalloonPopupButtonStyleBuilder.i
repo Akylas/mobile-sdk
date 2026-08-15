@@ -3,7 +3,7 @@
 
 %module BalloonPopupButtonStyleBuilder
 
-!proxy_imports(carto::BalloonPopupButtonStyleBuilder, graphics.Color, styles.StyleBuilder, styles.BalloonPopupStyle, styles.BalloonPopupButtonStyle, styles.BalloonPopupMargins)
+!proxy_imports(massif::BalloonPopupButtonStyleBuilder, graphics.Color, styles.StyleBuilder, styles.BalloonPopupStyle, styles.BalloonPopupButtonStyle, styles.BalloonPopupMargins)
 
 %{
 #include "styles/BalloonPopupButtonStyleBuilder.h"
@@ -12,24 +12,24 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "graphics/Color.i"
 %import "styles/StyleBuilder.i"
 %import "styles/BalloonPopupButtonStyle.i"
 %import "styles/BalloonPopupStyle.i"
 
-!polymorphic_shared_ptr(carto::BalloonPopupButtonStyleBuilder, styles.BalloonPopupButtonStyleBuilder)
+!polymorphic_shared_ptr(massif::BalloonPopupButtonStyleBuilder, styles.BalloonPopupButtonStyleBuilder)
 
-%attribute(carto::BalloonPopupButtonStyleBuilder, int, ButtonWidth, getButtonWidth, setButtonWidth)
-%attribute(carto::BalloonPopupButtonStyleBuilder, int, CornerRadius, getCornerRadius, setCornerRadius)
-%attributeval(carto::BalloonPopupButtonStyleBuilder, carto::Color, TextColor, getTextColor, setTextColor)
-%attributestring(carto::BalloonPopupButtonStyleBuilder, std::string, TextFontName, getTextFontName, setTextFontName)
-%attribute(carto::BalloonPopupButtonStyleBuilder, int, TextFontSize, getTextFontSize, setTextFontSize)
-%attributeval(carto::BalloonPopupButtonStyleBuilder, carto::BalloonPopupMargins, TextMargins, getTextMargins, setTextMargins)
-%attributeval(carto::BalloonPopupButtonStyleBuilder, carto::Color, StrokeColor, getStrokeColor, setStrokeColor)
-%attribute(carto::BalloonPopupButtonStyleBuilder, int, StrokeWidth, getStrokeWidth, setStrokeWidth)
-%csmethodmodifiers carto::BalloonPopupButtonStyleBuilder::buildStyle "public new";
+%attribute(massif::BalloonPopupButtonStyleBuilder, int, ButtonWidth, getButtonWidth, setButtonWidth)
+%attribute(massif::BalloonPopupButtonStyleBuilder, int, CornerRadius, getCornerRadius, setCornerRadius)
+%attributeval(massif::BalloonPopupButtonStyleBuilder, massif::Color, TextColor, getTextColor, setTextColor)
+%attributestring(massif::BalloonPopupButtonStyleBuilder, std::string, TextFontName, getTextFontName, setTextFontName)
+%attribute(massif::BalloonPopupButtonStyleBuilder, int, TextFontSize, getTextFontSize, setTextFontSize)
+%attributeval(massif::BalloonPopupButtonStyleBuilder, massif::BalloonPopupMargins, TextMargins, getTextMargins, setTextMargins)
+%attributeval(massif::BalloonPopupButtonStyleBuilder, massif::Color, StrokeColor, getStrokeColor, setStrokeColor)
+%attribute(massif::BalloonPopupButtonStyleBuilder, int, StrokeWidth, getStrokeWidth, setStrokeWidth)
+%csmethodmodifiers massif::BalloonPopupButtonStyleBuilder::buildStyle "public new";
 
 %include "styles/BalloonPopupButtonStyleBuilder.h"
 

@@ -3,7 +3,7 @@
 
 %module(directors="1") ContourTileDataSource
 
-!proxy_imports(carto::ContourTileDataSource, core.MapTile, core.MapBounds, datasources.TileDataSource, datasources.components.TileData, rastertiles.ElevationDecoder, components.TerrainOptions)
+!proxy_imports(massif::ContourTileDataSource, core.MapTile, core.MapBounds, datasources.TileDataSource, datasources.components.TileData, rastertiles.ElevationDecoder, components.TerrainOptions)
 
 %{
 #include "datasources/ContourTileDataSource.h"
@@ -14,28 +14,28 @@
 
 %include <std_shared_ptr.i>
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "datasources/TileDataSource.i"
 %import "datasources/components/TileData.i"
 %import "rastertiles/ElevationDecoder.i"
 %import "components/TerrainOptions.i"
 
-!polymorphic_shared_ptr(carto::ContourTileDataSource, datasources.ContourTileDataSource)
+!polymorphic_shared_ptr(massif::ContourTileDataSource, datasources.ContourTileDataSource)
 
-%attributestring(carto::ContourTileDataSource, std::string, LayerName, getLayerName, setLayerName)
-%attribute(carto::ContourTileDataSource, float, BaseInterval, getBaseInterval, setBaseInterval)
-%attribute(carto::ContourTileDataSource, int, Resolution, getResolution, setResolution)
-%attribute(carto::ContourTileDataSource, int, MinVisibleZoom, getMinVisibleZoom, setMinVisibleZoom)
-%attribute(carto::ContourTileDataSource, bool, SeamlessEdgesEnabled, isSeamlessEdgesEnabled, setSeamlessEdgesEnabled)
-%attributestring(carto::ContourTileDataSource, std::shared_ptr<carto::TerrainOptions>, TerrainOptions, getTerrainOptions, setTerrainOptions)
-%attribute(carto::ContourTileDataSource, bool, LabelStubsEnabled, isLabelStubsEnabled, setLabelStubsEnabled)
-%attribute(carto::ContourTileDataSource, float, LabelInterval, getLabelInterval, setLabelInterval)
-%attribute(carto::ContourTileDataSource, float, SimplifyTolerance, getSimplifyTolerance, setSimplifyTolerance)
+%attributestring(massif::ContourTileDataSource, std::string, LayerName, getLayerName, setLayerName)
+%attribute(massif::ContourTileDataSource, float, BaseInterval, getBaseInterval, setBaseInterval)
+%attribute(massif::ContourTileDataSource, int, Resolution, getResolution, setResolution)
+%attribute(massif::ContourTileDataSource, int, MinVisibleZoom, getMinVisibleZoom, setMinVisibleZoom)
+%attribute(massif::ContourTileDataSource, bool, SeamlessEdgesEnabled, isSeamlessEdgesEnabled, setSeamlessEdgesEnabled)
+%attributestring(massif::ContourTileDataSource, std::shared_ptr<massif::TerrainOptions>, TerrainOptions, getTerrainOptions, setTerrainOptions)
+%attribute(massif::ContourTileDataSource, bool, LabelStubsEnabled, isLabelStubsEnabled, setLabelStubsEnabled)
+%attribute(massif::ContourTileDataSource, float, LabelInterval, getLabelInterval, setLabelInterval)
+%attribute(massif::ContourTileDataSource, float, SimplifyTolerance, getSimplifyTolerance, setSimplifyTolerance)
 
-%std_exceptions(carto::ContourTileDataSource::ContourTileDataSource)
+%std_exceptions(massif::ContourTileDataSource::ContourTileDataSource)
 
-%feature("director") carto::ContourTileDataSource;
+%feature("director") massif::ContourTileDataSource;
 
 %include "datasources/ContourTileDataSource.h"
 

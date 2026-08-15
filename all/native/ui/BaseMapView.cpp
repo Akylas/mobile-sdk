@@ -30,7 +30,7 @@ namespace {
     const float FLIGHT_RHO = 1.42f;
 }
 
-namespace carto {
+namespace massif {
 
     std::string BaseMapView::GetSDKVersion() {
         std::stringstream ss;

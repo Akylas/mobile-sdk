@@ -1,10 +1,10 @@
-#if defined(_CARTO_ROUTING_SUPPORT) && defined(_CARTO_PACKAGEMANAGER_SUPPORT)
+#if defined(_MASSIF_ROUTING_SUPPORT) && defined(_MASSIF_PACKAGEMANAGER_SUPPORT)
 
 #include "RoutingPackageHandler.h"
 #include "packagemanager/PackageTileMask.h"
 #include "utils/Log.h"
 
-namespace carto {
+namespace massif {
 
     RoutingPackageHandler::RoutingPackageHandler(const std::string& fileName) :
         PackageHandler(fileName),

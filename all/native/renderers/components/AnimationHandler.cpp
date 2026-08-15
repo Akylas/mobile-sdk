@@ -7,7 +7,7 @@
 
 #include <cmath>
 
-namespace carto {
+namespace massif {
 
     AnimationHandler::AnimationHandler(MapRenderer& mapRenderer) :
         _panStarted(false),

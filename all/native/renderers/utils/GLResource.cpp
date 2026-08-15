@@ -3,7 +3,7 @@
 
 #include <thread>
 
-namespace carto {
+namespace massif {
 
     GLResource::~GLResource() {
     }

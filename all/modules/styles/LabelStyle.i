@@ -3,7 +3,7 @@
 
 %module LabelStyle
 
-!proxy_imports(carto::LabelStyle, graphics.Color, styles.BillboardStyle)
+!proxy_imports(massif::LabelStyle, graphics.Color, styles.BillboardStyle)
 
 %{
 #include "styles/LabelStyle.h"
@@ -11,20 +11,20 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "graphics/Bitmap.i"
 %import "styles/BillboardStyle.i"
 
-!polymorphic_shared_ptr(carto::LabelStyle, styles.LabelStyle)
+!polymorphic_shared_ptr(massif::LabelStyle, styles.LabelStyle)
 
-%attribute(carto::LabelStyle, carto::BillboardOrientation::BillboardOrientation, OrientationMode, getOrientationMode)
-%attribute(carto::LabelStyle, carto::BillboardScaling::BillboardScaling, ScalingMode, getScalingMode)
-%attribute(carto::LabelStyle, float, RenderScale, getRenderScale)
-%attribute(carto::LabelStyle, bool, Flippable, isFlippable)
-%attribute(carto::LabelStyle, float, AnchorPointX, getAnchorPointX)
-%attribute(carto::LabelStyle, float, AnchorPointY, getAnchorPointY)
-%ignore carto::LabelStyle::LabelStyle;
+%attribute(massif::LabelStyle, massif::BillboardOrientation::BillboardOrientation, OrientationMode, getOrientationMode)
+%attribute(massif::LabelStyle, massif::BillboardScaling::BillboardScaling, ScalingMode, getScalingMode)
+%attribute(massif::LabelStyle, float, RenderScale, getRenderScale)
+%attribute(massif::LabelStyle, bool, Flippable, isFlippable)
+%attribute(massif::LabelStyle, float, AnchorPointX, getAnchorPointX)
+%attribute(massif::LabelStyle, float, AnchorPointY, getAnchorPointY)
+%ignore massif::LabelStyle::LabelStyle;
 
 %include "styles/LabelStyle.h"
 

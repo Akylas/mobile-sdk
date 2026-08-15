@@ -1,7 +1,7 @@
 #include "VectorData.h"
 #include "vectorelements/VectorElement.h"
 
-namespace carto {
+namespace massif {
     
     VectorData::VectorData(std::vector<std::shared_ptr<VectorElement> > elements) :
         _elements(std::move(elements))

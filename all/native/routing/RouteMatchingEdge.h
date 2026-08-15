@@ -4,17 +4,17 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_ROUTEMATCHINGEDGE_H_
-#define _CARTO_ROUTEMATCHINGEDGE_H_
+#ifndef _MASSIF_ROUTEMATCHINGEDGE_H_
+#define _MASSIF_ROUTEMATCHINGEDGE_H_
 
-#ifdef _CARTO_ROUTING_SUPPORT
+#ifdef _MASSIF_ROUTING_SUPPORT
 
 #include "core/Variant.h"
 
 #include <string>
 #include <map>
 
-namespace carto {
+namespace massif {
 
     /**
      * A class that defines a route matching result edge.

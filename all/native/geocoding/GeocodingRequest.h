@@ -4,10 +4,10 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_GEOCODINGREQUEST_H_
-#define _CARTO_GEOCODINGREQUEST_H_
+#ifndef _MASSIF_GEOCODINGREQUEST_H_
+#define _MASSIF_GEOCODINGREQUEST_H_
 
-#ifdef _CARTO_GEOCODING_SUPPORT
+#ifdef _MASSIF_GEOCODING_SUPPORT
 
 #include <memory>
 #include <mutex>
@@ -16,7 +16,7 @@
 #include "core/MapPos.h"
 #include "core/Variant.h"
 
-namespace carto {
+namespace massif {
     class Projection;
 
     /**

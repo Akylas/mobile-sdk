@@ -5,9 +5,9 @@
 
 %module RouteMatchingResult
 
-#ifdef _CARTO_ROUTING_SUPPORT
+#ifdef _MASSIF_ROUTING_SUPPORT
 
-!proxy_imports(carto::RouteMatchingResult, core.MapPos, core.MapPosVector, projections.Projection, routing.RouteMatchingPoint, routing.RouteMatchingEdge)
+!proxy_imports(massif::RouteMatchingResult, core.MapPos, core.MapPosVector, projections.Projection, routing.RouteMatchingPoint, routing.RouteMatchingEdge)
 
 %{
 #include "routing/RouteMatchingResult.h"
@@ -16,23 +16,23 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/MapPos.i"
 %import "projections/Projection.i"
 %import "routing/RouteMatchingPoint.i"
 %import "routing/RouteMatchingEdge.i"
 
-!shared_ptr(carto::RouteMatchingResult, routing.RouteMatchingResult)
+!shared_ptr(massif::RouteMatchingResult, routing.RouteMatchingResult)
 
-%attributestring(carto::RouteMatchingResult, std::shared_ptr<carto::Projection>, Projection, getProjection)
-%attributeval(carto::RouteMatchingResult, std::vector<carto::MapPos>, Points, getPoints)
-%attributeval(carto::RouteMatchingResult, std::vector<carto::RouteMatchingEdge>, MatchingEdges, getMatchingEdges)
-%attributeval(carto::RouteMatchingResult, std::vector<carto::RouteMatchingPoint>, MatchingPoints, getMatchingPoints)
-%attributestring(carto::RouteMatchingResult, std::string, RawResult, getRawResult)
-%std_exceptions(carto::RouteMatchingResult::RouteMatchingResult)
-!standard_equals(carto::RouteMatchingResult);
-!custom_tostring(carto::RouteMatchingResult);
+%attributestring(massif::RouteMatchingResult, std::shared_ptr<massif::Projection>, Projection, getProjection)
+%attributeval(massif::RouteMatchingResult, std::vector<massif::MapPos>, Points, getPoints)
+%attributeval(massif::RouteMatchingResult, std::vector<massif::RouteMatchingEdge>, MatchingEdges, getMatchingEdges)
+%attributeval(massif::RouteMatchingResult, std::vector<massif::RouteMatchingPoint>, MatchingPoints, getMatchingPoints)
+%attributestring(massif::RouteMatchingResult, std::string, RawResult, getRawResult)
+%std_exceptions(massif::RouteMatchingResult::RouteMatchingResult)
+!standard_equals(massif::RouteMatchingResult);
+!custom_tostring(massif::RouteMatchingResult);
 
 %include "routing/RouteMatchingResult.h"
 

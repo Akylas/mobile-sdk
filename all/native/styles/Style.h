@@ -4,12 +4,12 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_STYLE_H_
-#define _CARTO_STYLE_H_
+#ifndef _MASSIF_STYLE_H_
+#define _MASSIF_STYLE_H_
 
 #include "graphics/Color.h"
 
-namespace carto {
+namespace massif {
 
     /**
      * A base class for other Style objects.

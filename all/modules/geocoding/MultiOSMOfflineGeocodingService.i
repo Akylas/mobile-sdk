@@ -6,9 +6,9 @@
 
 %module(directors="1") MultiOSMOfflineGeocodingService
 
-#if defined(_CARTO_GEOCODING_SUPPORT) && defined(_CARTO_OFFLINE_SUPPORT)
+#if defined(_MASSIF_GEOCODING_SUPPORT) && defined(_MASSIF_OFFLINE_SUPPORT)
 
-!proxy_imports(carto::MultiOSMOfflineGeocodingService, geocoding.GeocodingService, geocoding.GeocodingRequest, geocoding.GeocodingResult, projections.Projection)
+!proxy_imports(massif::MultiOSMOfflineGeocodingService, geocoding.GeocodingService, geocoding.GeocodingRequest, geocoding.GeocodingResult, projections.Projection)
 
 %{
 #include "geocoding/MultiOSMOfflineGeocodingService.h"
@@ -17,18 +17,18 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "geocoding/GeocodingService.i"
 %import "geocoding/GeocodingRequest.i"
 %import "geocoding/GeocodingResult.i"
 
-!polymorphic_shared_ptr(carto::MultiOSMOfflineGeocodingService, geocoding.MultiOSMOfflineGeocodingService)
+!polymorphic_shared_ptr(massif::MultiOSMOfflineGeocodingService, geocoding.MultiOSMOfflineGeocodingService)
 
-%std_io_exceptions(carto::MultiOSMOfflineGeocodingService::MultiOSMOfflineGeocodingService)
-%std_io_exceptions(carto::MultiOSMOfflineGeocodingService::calculateAddresses)
+%std_io_exceptions(massif::MultiOSMOfflineGeocodingService::MultiOSMOfflineGeocodingService)
+%std_io_exceptions(massif::MultiOSMOfflineGeocodingService::calculateAddresses)
 
-%feature("director") carto::MultiOSMOfflineGeocodingService;
+%feature("director") massif::MultiOSMOfflineGeocodingService;
 
 %include "geocoding/MultiOSMOfflineGeocodingService.h"
 

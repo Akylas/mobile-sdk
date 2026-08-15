@@ -11,27 +11,27 @@
 
 namespace {
 
-    carto::Variant rapidJSONToVariant(const rapidjson::Value& value) {
+    massif::Variant rapidJSONToVariant(const rapidjson::Value& value) {
         if (value.IsString()) {
-            return carto::Variant(value.GetString());
+            return massif::Variant(value.GetString());
         } else if (value.IsInt()) {
-            return carto::Variant(static_cast<long long>(value.GetInt()));
+            return massif::Variant(static_cast<long long>(value.GetInt()));
         } else if (value.IsUint()) {
-            return carto::Variant(static_cast<long long>(value.GetUint()));
+            return massif::Variant(static_cast<long long>(value.GetUint()));
         } else if (value.IsInt64()) {
-            return carto::Variant(static_cast<long long>(value.GetInt64()));
+            return massif::Variant(static_cast<long long>(value.GetInt64()));
         } else if (value.IsUint64()) {
-            return carto::Variant(static_cast<long long>(value.GetUint64()));
+            return massif::Variant(static_cast<long long>(value.GetUint64()));
         } else if (value.IsNumber()) {
-            return carto::Variant(value.GetDouble());
+            return massif::Variant(value.GetDouble());
         } else if (value.IsArray()) {
-            std::vector<carto::Variant> values;
+            std::vector<massif::Variant> values;
             for (rapidjson::Value::ConstValueIterator it = value.Begin(); it != value.End(); it++) {
                 values.push_back(rapidJSONToVariant(*it));
             }
-            return carto::Variant(values);
+            return massif::Variant(values);
         } else if (value.IsObject()) {
-            std::map<std::string, carto::Variant> valueMap;
+            std::map<std::string, massif::Variant> valueMap;
             for (rapidjson::Value::ConstMemberIterator it = value.MemberBegin(); it != value.MemberEnd(); it++) {
                 if (!it->name.IsString()) {
                     continue;
@@ -39,14 +39,14 @@ namespace {
           
                 valueMap[it->name.GetString()] = rapidJSONToVariant(it->value);
             }
-            return carto::Variant(valueMap);
+            return massif::Variant(valueMap);
         }
-        return carto::Variant();
+        return massif::Variant();
     }
 
 }
 
-namespace carto {
+namespace massif {
 
     std::shared_ptr<UTFGridTile> UTFGridTile::DecodeUTFTile(const std::shared_ptr<BinaryData>& tileData) {
         if (!tileData) {

@@ -3,9 +3,9 @@
 
 %module WKBGeometryWriter
 
-#ifdef _CARTO_WKBT_SUPPORT
+#ifdef _MASSIF_WKBT_SUPPORT
 
-!proxy_imports(carto::WKBGeometryWriter, core.BinaryData, geometry.Geometry)
+!proxy_imports(massif::WKBGeometryWriter, core.BinaryData, geometry.Geometry)
 
 %{
 #include "geometry/WKBGeometryWriter.h"
@@ -14,14 +14,14 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/BinaryData.i"
 %import "geometry/Geometry.i"
 
-%attribute(carto::WKBGeometryWriter, bool, Z, getZ, setZ)
-%attribute(carto::WKBGeometryWriter, bool, BigEndian, getBigEndian, setBigEndian)
-%std_exceptions(carto::WKBGeometryWriter::writeGeometry)
+%attribute(massif::WKBGeometryWriter, bool, Z, getZ, setZ)
+%attribute(massif::WKBGeometryWriter, bool, BigEndian, getBigEndian, setBigEndian)
+%std_exceptions(massif::WKBGeometryWriter::writeGeometry)
 
 %include "geometry/WKBGeometryWriter.h"
 

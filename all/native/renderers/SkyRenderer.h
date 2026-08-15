@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_SKYRENDERER_H_
-#define _CARTO_SKYRENDERER_H_
+#ifndef _MASSIF_SKYRENDERER_H_
+#define _MASSIF_SKYRENDERER_H_
 
 #include "renderers/utils/GLContext.h"
 
@@ -13,7 +13,7 @@
 #include <memory>
 #include <string>
 
-namespace carto {
+namespace massif {
     class Options;
     class Shader;
     class GLResourceManager;

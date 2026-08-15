@@ -51,7 +51,7 @@ POLYMORPHIC_SHARED_PTR_TEMPLATE = SHARED_PTR_TEMPLATE + """
 %{
 #include "components/ClassRegistry.h"
 #include "components/Director.h"
-static carto::ClassRegistry::Entry $TYPE$RegistryEntry(typeid(const $CLASSNAME$&), "$RAWTYPE$");
+static massif::ClassRegistry::Entry $TYPE$RegistryEntry(typeid(const $CLASSNAME$&), "$RAWTYPE$");
 %}
 
 %extend $CLASSNAME$ {
@@ -60,7 +60,7 @@ static carto::ClassRegistry::Entry $TYPE$RegistryEntry(typeid(const $CLASSNAME$&
    * @return The class name of this object.
    */
   std::string swigGetClassName() const {
-    std::string className = carto::ClassRegistry::GetClassName(typeid(*$self));
+    std::string className = massif::ClassRegistry::GetClassName(typeid(*$self));
     if (className.empty()) {
       className = "$RAWTYPE$";
     }
@@ -72,7 +72,7 @@ static carto::ClassRegistry::Entry $TYPE$RegistryEntry(typeid(const $CLASSNAME$&
    * @return The pointer to the connected director object or null if director is not connected.
    */
   void* swigGetDirectorObject() const {
-    if (auto director = dynamic_cast<const carto::Director*>($self)) {
+    if (auto director = dynamic_cast<const massif::Director*>($self)) {
       return director->getDirectorObject();
     }
     return 0;
@@ -235,7 +235,7 @@ def transformSwigFile(sourcePath, outPath, moduleDirs, headerDirs):
   stl_wrapper = False
   for line in lines_in:
 
-    match = re.search(r'(?:^\s*(?:#ifdef )(_CARTO_[^\s]*_SUPPORT)$|(?:defined\((_CARTO_[^\s]*_SUPPORT)\)))', line)
+    match = re.search(r'(?:^\s*(?:#ifdef )(_MASSIF_[^\s]*_SUPPORT)$|(?:defined\((_MASSIF_[^\s]*_SUPPORT)\)))', line)
     if match:
       if(match.group(1) and not match.group(1) in argsDefines ):
         print("ignoredSourceFiles %s for define: %s" % (sourcePath, match.group(1)))
@@ -392,11 +392,11 @@ def transformSwigFile(sourcePath, outPath, moduleDirs, headerDirs):
     if match:
       includeName = match.group(1)
       if not stl_wrapper and includeName != "NutiSwig.i":
-        # This is a huge hack: we will capitalize all method names starting with lower case letters. But we will do this only for carto:: classes
+        # This is a huge hack: we will capitalize all method names starting with lower case letters. But we will do this only for massif:: classes
         for n in range(ord('a'), ord('z') + 1):
           c = chr(n)
-          lines_out.append('%%rename("%%(regex:/::%s([^:]*)$/%s\\\\1/)s", fullname=1, regextarget=1, %%$isfunction) "^carto::.+::%s[^:]*$";' % (c.upper(), c, c.upper()))
-        lines_out.append('%rename("description", fullname=1, regextarget=1, %$isfunction)  "^carto::.+::toString()$";')
+          lines_out.append('%%rename("%%(regex:/::%s([^:]*)$/%s\\\\1/)s", fullname=1, regextarget=1, %%$isfunction) "^massif::.+::%s[^:]*$";' % (c.upper(), c, c.upper()))
+        lines_out.append('%rename("description", fullname=1, regextarget=1, %$isfunction)  "^massif::.+::toString()$";')
         lines_out.append('%rename("NT%s", %$isclass) "";')
         lines_out.append('%rename("NT%s", %$isenum) "";')
         lines_out.append('%rename("NT_%s", %$isenumitem) "";')

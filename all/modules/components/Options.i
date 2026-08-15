@@ -6,7 +6,7 @@
 
 %module Options
 
-!proxy_imports(carto::Options, core.MapBounds, core.MapRange, core.MapVec, core.ScreenPos, components.TerrainOptions, components.SkyOptions, components.LightOptions, graphics.Bitmap, graphics.Color, projections.Projection)
+!proxy_imports(massif::Options, core.MapBounds, core.MapRange, core.MapVec, core.ScreenPos, components.TerrainOptions, components.SkyOptions, components.LightOptions, graphics.Bitmap, graphics.Color, projections.Projection)
 
 %{
 #include "components/Options.h"
@@ -15,14 +15,14 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
-!enum(carto::RenderProjectionMode::RenderProjectionMode)
-!enum(carto::PanningMode::PanningMode)
-!enum(carto::PivotMode::PivotMode)
-!enum(carto::FreeRoamMode::FreeRoamMode)
-!enum(carto::PanningSpeedMode::PanningSpeedMode)
-!shared_ptr(carto::Options, components.Options)
+!enum(massif::RenderProjectionMode::RenderProjectionMode)
+!enum(massif::PanningMode::PanningMode)
+!enum(massif::PivotMode::PivotMode)
+!enum(massif::FreeRoamMode::FreeRoamMode)
+!enum(massif::PanningSpeedMode::PanningSpeedMode)
+!shared_ptr(massif::Options, components.Options)
 
 %import "core/MapBounds.i"
 %import "core/MapRange.i"
@@ -35,59 +35,59 @@
 %import "graphics/Color.i"
 %import "projections/Projection.i"
 
-%attribute(carto::Options, int, FieldOfViewY, getFieldOfViewY, setFieldOfViewY)
-%attribute(carto::Options, bool, KineticZoom, isKineticZoom, setKineticZoom)
-%attribute(carto::Options, bool, Rotatable, isRotatable, setRotatable)
-%attribute(carto::Options, bool, UserInput, isUserInput, setUserInput)
-%attribute(carto::Options, carto::PanningSpeedMode::PanningSpeedMode, PanningSpeedMode, getPanningSpeedMode, setPanningSpeedMode)
-%attribute(carto::Options, carto::FreeRoamMode::FreeRoamMode, FreeRoamMode, getFreeRoamMode, setFreeRoamMode)
-%attribute(carto::Options, float, FreeRoamLookSensitivity, getFreeRoamLookSensitivity, setFreeRoamLookSensitivity)
-%attribute(carto::Options, float, FreeRoamMoveSpeed, getFreeRoamMoveSpeed, setFreeRoamMoveSpeed)
-%attribute(carto::Options, bool, DebugTileBorders, isDebugTileBorders, setDebugTileBorders)
-%attribute(carto::Options, bool, ClickTypeDetection, isClickTypeDetection, setClickTypeDetection)
-%attribute(carto::Options, bool, DoubleClickDetection, isDoubleClickDetection, setDoubleClickDetection)
-%attribute(carto::Options, float, LongClickDuration, getLongClickDuration, setLongClickDuration)
-%attribute(carto::Options, float, DoubleClickMaxDuration, getDoubleClickMaxDuration, setDoubleClickMaxDuration)
-%attribute(carto::Options, bool, KineticPan, isKineticPan, setKineticPan)
-%attribute(carto::Options, bool, KineticRotation, isKineticRotation, setKineticRotation)
-%attribute(carto::Options, bool, SeamlessPanning, isSeamlessPanning, setSeamlessPanning)
-%attribute(carto::Options, bool, RestrictedPanning, isRestrictedPanning, setRestrictedPanning)
-%attribute(carto::Options, bool, TiltGestureReversed, isTiltGestureReversed, setTiltGestureReversed)
-%attribute(carto::Options, bool, ZoomGestures, isZoomGestures, setZoomGestures)
-%attribute(carto::Options, bool, LayersLabelsProcessedInReverseOrder, isLayersLabelsProcessedInReverseOrder, setLayersLabelsProcessedInReverseOrder)
-%attributeval(carto::Options, carto::MapRange, ZoomRange, getZoomRange, setZoomRange)
-%attributeval(carto::Options, carto::MapRange, TiltRange, getTiltRange, setTiltRange)
-%attributeval(carto::Options, carto::MapBounds, PanBounds, getPanBounds, setPanBounds)
-%attributeval(carto::Options, carto::ScreenPos, FocusPointOffset, getFocusPointOffset, setFocusPointOffset)
-%attributeval(carto::Options, carto::Color, AmbientLightColor, getAmbientLightColor, setAmbientLightColor)
-%attributeval(carto::Options, carto::Color, MainLightColor, getMainLightColor, setMainLightColor)
-%attributeval(carto::Options, carto::MapVec, MainLightDirection, getMainLightDirection, setMainLightDirection)
-!attributestring_polymorphic(carto::Options, projections.Projection, BaseProjection, getBaseProjection, setBaseProjection)
-%attribute(carto::Options, carto::RenderProjectionMode::RenderProjectionMode, RenderProjectionMode, getRenderProjectionMode, setRenderProjectionMode)
-%attribute(carto::Options, carto::PanningMode::PanningMode, PanningMode, getPanningMode, setPanningMode)
-%attribute(carto::Options, carto::PivotMode::PivotMode, PivotMode, getPivotMode, setPivotMode)
-%attributeval(carto::Options, carto::Color, ClearColor, getClearColor, setClearColor)
-%attributeval(carto::Options, carto::Color, SkyColor, getSkyColor, setSkyColor)
-%attributestring(carto::Options, std::shared_ptr<carto::Bitmap>, BackgroundBitmap, getBackgroundBitmap, setBackgroundBitmap)
-%attribute(carto::Options, int, EnvelopeThreadPoolSize, getEnvelopeThreadPoolSize, setEnvelopeThreadPoolSize)
-%attribute(carto::Options, int, TileThreadPoolSize, getTileThreadPoolSize, setTileThreadPoolSize)
-%attribute(carto::Options, int, TileDrawSize, getTileDrawSize, setTileDrawSize)
-%attribute(carto::Options, float, TileLODFactor, getTileLODFactor, setTileLODFactor)
-%attribute(carto::Options, float, DPI, getDPI, setDPI)
-%attribute(carto::Options, float, DrawDistance, getDrawDistance, setDrawDistance)
-%std_exceptions(carto::Options::setBaseProjection)
-%std_exceptions(carto::Options::setTiltRange)
-%std_exceptions(carto::Options::setZoomRange)
-%std_exceptions(carto::Options::setPanBounds)
-%ignore carto::Options::Options;
-%ignore carto::Options::getProjectionSurface;
-%ignore carto::Options::getSkyBitmap;
-%ignore carto::Options::getAdjustedInternalPanBounds;
-%ignore carto::Options::OnChangeListener;
-%ignore carto::Options::registerOnChangeListener;
-%ignore carto::Options::unregisterOnChangeListener;
-%ignore carto::Options::GetDefaultBackgroundBitmap;
-!standard_equals(carto::Options);
+%attribute(massif::Options, int, FieldOfViewY, getFieldOfViewY, setFieldOfViewY)
+%attribute(massif::Options, bool, KineticZoom, isKineticZoom, setKineticZoom)
+%attribute(massif::Options, bool, Rotatable, isRotatable, setRotatable)
+%attribute(massif::Options, bool, UserInput, isUserInput, setUserInput)
+%attribute(massif::Options, massif::PanningSpeedMode::PanningSpeedMode, PanningSpeedMode, getPanningSpeedMode, setPanningSpeedMode)
+%attribute(massif::Options, massif::FreeRoamMode::FreeRoamMode, FreeRoamMode, getFreeRoamMode, setFreeRoamMode)
+%attribute(massif::Options, float, FreeRoamLookSensitivity, getFreeRoamLookSensitivity, setFreeRoamLookSensitivity)
+%attribute(massif::Options, float, FreeRoamMoveSpeed, getFreeRoamMoveSpeed, setFreeRoamMoveSpeed)
+%attribute(massif::Options, bool, DebugTileBorders, isDebugTileBorders, setDebugTileBorders)
+%attribute(massif::Options, bool, ClickTypeDetection, isClickTypeDetection, setClickTypeDetection)
+%attribute(massif::Options, bool, DoubleClickDetection, isDoubleClickDetection, setDoubleClickDetection)
+%attribute(massif::Options, float, LongClickDuration, getLongClickDuration, setLongClickDuration)
+%attribute(massif::Options, float, DoubleClickMaxDuration, getDoubleClickMaxDuration, setDoubleClickMaxDuration)
+%attribute(massif::Options, bool, KineticPan, isKineticPan, setKineticPan)
+%attribute(massif::Options, bool, KineticRotation, isKineticRotation, setKineticRotation)
+%attribute(massif::Options, bool, SeamlessPanning, isSeamlessPanning, setSeamlessPanning)
+%attribute(massif::Options, bool, RestrictedPanning, isRestrictedPanning, setRestrictedPanning)
+%attribute(massif::Options, bool, TiltGestureReversed, isTiltGestureReversed, setTiltGestureReversed)
+%attribute(massif::Options, bool, ZoomGestures, isZoomGestures, setZoomGestures)
+%attribute(massif::Options, bool, LayersLabelsProcessedInReverseOrder, isLayersLabelsProcessedInReverseOrder, setLayersLabelsProcessedInReverseOrder)
+%attributeval(massif::Options, massif::MapRange, ZoomRange, getZoomRange, setZoomRange)
+%attributeval(massif::Options, massif::MapRange, TiltRange, getTiltRange, setTiltRange)
+%attributeval(massif::Options, massif::MapBounds, PanBounds, getPanBounds, setPanBounds)
+%attributeval(massif::Options, massif::ScreenPos, FocusPointOffset, getFocusPointOffset, setFocusPointOffset)
+%attributeval(massif::Options, massif::Color, AmbientLightColor, getAmbientLightColor, setAmbientLightColor)
+%attributeval(massif::Options, massif::Color, MainLightColor, getMainLightColor, setMainLightColor)
+%attributeval(massif::Options, massif::MapVec, MainLightDirection, getMainLightDirection, setMainLightDirection)
+!attributestring_polymorphic(massif::Options, projections.Projection, BaseProjection, getBaseProjection, setBaseProjection)
+%attribute(massif::Options, massif::RenderProjectionMode::RenderProjectionMode, RenderProjectionMode, getRenderProjectionMode, setRenderProjectionMode)
+%attribute(massif::Options, massif::PanningMode::PanningMode, PanningMode, getPanningMode, setPanningMode)
+%attribute(massif::Options, massif::PivotMode::PivotMode, PivotMode, getPivotMode, setPivotMode)
+%attributeval(massif::Options, massif::Color, ClearColor, getClearColor, setClearColor)
+%attributeval(massif::Options, massif::Color, SkyColor, getSkyColor, setSkyColor)
+%attributestring(massif::Options, std::shared_ptr<massif::Bitmap>, BackgroundBitmap, getBackgroundBitmap, setBackgroundBitmap)
+%attribute(massif::Options, int, EnvelopeThreadPoolSize, getEnvelopeThreadPoolSize, setEnvelopeThreadPoolSize)
+%attribute(massif::Options, int, TileThreadPoolSize, getTileThreadPoolSize, setTileThreadPoolSize)
+%attribute(massif::Options, int, TileDrawSize, getTileDrawSize, setTileDrawSize)
+%attribute(massif::Options, float, TileLODFactor, getTileLODFactor, setTileLODFactor)
+%attribute(massif::Options, float, DPI, getDPI, setDPI)
+%attribute(massif::Options, float, DrawDistance, getDrawDistance, setDrawDistance)
+%std_exceptions(massif::Options::setBaseProjection)
+%std_exceptions(massif::Options::setTiltRange)
+%std_exceptions(massif::Options::setZoomRange)
+%std_exceptions(massif::Options::setPanBounds)
+%ignore massif::Options::Options;
+%ignore massif::Options::getProjectionSurface;
+%ignore massif::Options::getSkyBitmap;
+%ignore massif::Options::getAdjustedInternalPanBounds;
+%ignore massif::Options::OnChangeListener;
+%ignore massif::Options::registerOnChangeListener;
+%ignore massif::Options::unregisterOnChangeListener;
+%ignore massif::Options::GetDefaultBackgroundBitmap;
+!standard_equals(massif::Options);
 
 %include "components/Options.h"
 

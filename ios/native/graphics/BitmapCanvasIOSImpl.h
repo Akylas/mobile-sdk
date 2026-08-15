@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_BITMAPCANVASIOSIMPL_H_
-#define _CARTO_BITMAPCANVASIOSIMPL_H_
+#ifndef _MASSIF_BITMAPCANVASIOSIMPL_H_
+#define _MASSIF_BITMAPCANVASIOSIMPL_H_
 
 #include "graphics/BitmapCanvas.h"
 #include "utils/CFUniquePtr.h"
@@ -13,7 +13,7 @@
 #import <CoreGraphics/CoreGraphics.h>
 #import <CoreText/CoreText.h>
 
-namespace carto {
+namespace massif {
 
     class BitmapCanvas::IOSImpl : public BitmapCanvas::Impl {
     public:

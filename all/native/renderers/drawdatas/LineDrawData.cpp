@@ -14,7 +14,7 @@
 #include <cmath>
 #include <unordered_map>
 
-namespace carto {
+namespace massif {
 
     LineDrawData::LineDrawData(const LineGeometry& geometry, const LineStyle& style, const Projection& projection, const std::shared_ptr<ProjectionSurface>& projectionSurface) :
         VectorElementDrawData(style.getColor(), projectionSurface),

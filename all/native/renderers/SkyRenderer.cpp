@@ -17,7 +17,7 @@
 
 #include <cglib/mat.h>
 
-namespace carto {
+namespace massif {
 
     SkyRenderer::SkyRenderer(const Options& options) :
         _shader(),
@@ -112,13 +112,13 @@ namespace carto {
         return true;
     }
 
-    // Measurement switch: debug.carto.skyclip 0 draws the sky over the whole screen again, which
+    // Measurement switch: debug.massif.skyclip 0 draws the sky over the whole screen again, which
     // is what it did before the quad was clipped to the horizon. Read once (Android only).
 #ifdef __ANDROID__
     bool SkyRenderer::isHorizonClipEnabled() {
         static const bool enabled = [] {
             char property[PROP_VALUE_MAX] = { 0 };
-            return !(__system_property_get("debug.carto.skyclip", property) > 0 && property[0] == '0');
+            return !(__system_property_get("debug.massif.skyclip", property) > 0 && property[0] == '0');
         }();
         return enabled;
     }

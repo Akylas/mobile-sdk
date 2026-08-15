@@ -9,7 +9,7 @@
 #include <utility>
 #include <cmath>
 
-namespace carto {
+namespace massif {
 
     double GeomUtils::DistanceFromPoint(const MapPos& pos, const MapPos& p) {
         MapVec diff(p - pos);

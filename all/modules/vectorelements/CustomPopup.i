@@ -3,8 +3,8 @@
 
 %module CustomPopup
 
-!proxy_imports(carto::CustomPopup, core.MapPos, core.ScreenPos, graphics.Bitmap, geometry.Geometry, geometry.PointGeometry, styles.PopupStyle, ui.ClickInfo, ui.PopupDrawInfo, ui.PopupClickInfo, vectorelements.Billboard, vectorelements.CustomPopupHandler)
-!java_imports(carto::CustomPopup, com.carto.ui.ClickType)
+!proxy_imports(massif::CustomPopup, core.MapPos, core.ScreenPos, graphics.Bitmap, geometry.Geometry, geometry.PointGeometry, styles.PopupStyle, ui.ClickInfo, ui.PopupDrawInfo, ui.PopupClickInfo, vectorelements.Billboard, vectorelements.CustomPopupHandler)
+!java_imports(massif::CustomPopup, com.carto.ui.ClickType)
 
 %{
 #include "vectorelements/CustomPopup.h"
@@ -13,7 +13,7 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/MapPos.i"
 %import "core/ScreenPos.i"
@@ -24,10 +24,10 @@
 %import "vectorelements/Billboard.i"
 %import "vectorelements/CustomPopupHandler.i"
 
-!polymorphic_shared_ptr(carto::CustomPopup, vectorelements.CustomPopup)
+!polymorphic_shared_ptr(massif::CustomPopup, vectorelements.CustomPopup)
 
-!attributestring_polymorphic(carto::CustomPopup, vectorelements.CustomPopupHandler, PopupHandler, getPopupHandler)
-%std_exceptions(carto::CustomPopup::CustomPopup)
+!attributestring_polymorphic(massif::CustomPopup, vectorelements.CustomPopupHandler, PopupHandler, getPopupHandler)
+%std_exceptions(massif::CustomPopup::CustomPopup)
 
 %include "vectorelements/CustomPopup.h"
 

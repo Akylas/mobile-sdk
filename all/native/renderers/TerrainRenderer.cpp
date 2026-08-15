@@ -18,7 +18,7 @@
 #include <limits>
 #include <cmath>
 
-namespace carto {
+namespace massif {
 
     struct TerrainRenderer::TileMesh {
         std::vector<float> vertices; // x, y in tile coordinates [0..1], z in tile-local units

@@ -4,15 +4,15 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_ANIMATIONSTYLEBUILDER_H_
-#define _CARTO_ANIMATIONSTYLEBUILDER_H_
+#ifndef _MASSIF_ANIMATIONSTYLEBUILDER_H_
+#define _MASSIF_ANIMATIONSTYLEBUILDER_H_
 
 #include "styles/AnimationStyle.h"
 
 #include <memory>
 #include <mutex>
 
-namespace carto {
+namespace massif {
 
     /**
      * A builder for AnimationStyle instances.

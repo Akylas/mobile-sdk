@@ -6,9 +6,9 @@
 
 %module(directors="1") TomTomOnlineReverseGeocodingService
 
-#if defined(_CARTO_GEOCODING_SUPPORT)
+#if defined(_MASSIF_GEOCODING_SUPPORT)
 
-!proxy_imports(carto::TomTomOnlineReverseGeocodingService, geocoding.ReverseGeocodingService, geocoding.ReverseGeocodingRequest, geocoding.GeocodingResult, projections.Projection)
+!proxy_imports(massif::TomTomOnlineReverseGeocodingService, geocoding.ReverseGeocodingService, geocoding.ReverseGeocodingRequest, geocoding.GeocodingResult, projections.Projection)
 
 %{
 #include "geocoding/TomTomOnlineReverseGeocodingService.h"
@@ -18,18 +18,18 @@
 
 %include <std_shared_ptr.i>
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "geocoding/ReverseGeocodingService.i"
 %import "geocoding/ReverseGeocodingRequest.i"
 %import "geocoding/GeocodingResult.i"
 
-!polymorphic_shared_ptr(carto::TomTomOnlineReverseGeocodingService, geocoding.TomTomOnlineReverseGeocodingService)
+!polymorphic_shared_ptr(massif::TomTomOnlineReverseGeocodingService, geocoding.TomTomOnlineReverseGeocodingService)
 
-%attributestring(carto::TomTomOnlineReverseGeocodingService, std::string, CustomServiceURL, getCustomServiceURL, setCustomServiceURL)
-%std_io_exceptions(carto::TomTomOnlineReverseGeocodingService::calculateAddresses)
+%attributestring(massif::TomTomOnlineReverseGeocodingService, std::string, CustomServiceURL, getCustomServiceURL, setCustomServiceURL)
+%std_io_exceptions(massif::TomTomOnlineReverseGeocodingService::calculateAddresses)
 
-%feature("director") carto::TomTomOnlineReverseGeocodingService;
+%feature("director") massif::TomTomOnlineReverseGeocodingService;
 
 %include "geocoding/TomTomOnlineReverseGeocodingService.h"
 

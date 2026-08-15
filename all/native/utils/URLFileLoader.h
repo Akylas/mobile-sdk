@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_URLFILELOADER_H_
-#define _CARTO_URLFILELOADER_H_
+#ifndef _MASSIF_URLFILELOADER_H_
+#define _MASSIF_URLFILELOADER_H_
 
 #include <cstdint>
 #include <memory>
@@ -15,7 +15,7 @@
 #include <mutex>
 #include <functional>
 
-namespace carto {
+namespace massif {
     class BinaryData;
     
     class URLFileLoader {

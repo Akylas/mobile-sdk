@@ -4,7 +4,7 @@
 #include "projections/EPSG3857.h"
 #include "utils/GeomUtils.h"
 
-namespace carto {
+namespace massif {
     
     CullState::CullState(const MapEnvelope& envelope, const ViewState& viewState) :
         _envelope(envelope),

@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_UTFGRIDCLICKINFO_H_
-#define _CARTO_UTFGRIDCLICKINFO_H_
+#ifndef _MASSIF_UTFGRIDCLICKINFO_H_
+#define _MASSIF_UTFGRIDCLICKINFO_H_
 
 #include "core/MapPos.h"
 #include "core/Variant.h"
@@ -15,7 +15,7 @@
 #include <string>
 #include <map>
 
-namespace carto {
+namespace massif {
     class Layer;
     
     /**

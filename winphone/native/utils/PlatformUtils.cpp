@@ -5,7 +5,7 @@
 
 #include <utf8.h>
 
-namespace carto {
+namespace massif {
 
     PlatformType::PlatformType PlatformUtils::GetPlatformType() {
         return PlatformType::PLATFORM_TYPE_WINDOWS_PHONE;

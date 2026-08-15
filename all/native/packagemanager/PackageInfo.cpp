@@ -1,9 +1,9 @@
-#ifdef _CARTO_PACKAGEMANAGER_SUPPORT
+#ifdef _MASSIF_PACKAGEMANAGER_SUPPORT
 
 #include "PackageInfo.h"
 #include "packagemanager/PackageMetaInfo.h"
 
-namespace carto {
+namespace massif {
 
     std::string PackageInfo::getName() const {
         Variant nameMetaInfo;

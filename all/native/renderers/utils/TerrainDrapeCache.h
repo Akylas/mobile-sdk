@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_TERRAINDRAPECACHE_H_
-#define _CARTO_TERRAINDRAPECACHE_H_
+#ifndef _MASSIF_TERRAINDRAPECACHE_H_
+#define _MASSIF_TERRAINDRAPECACHE_H_
 
 #include <cstddef>
 #include <map>
@@ -13,7 +13,7 @@
 
 #include <vt/TileId.h>
 
-namespace carto {
+namespace massif {
 
     /**
      * Shared render-to-texture drape target for 3D terrain.
@@ -79,7 +79,7 @@ namespace carto {
         // resolution is chosen against it (TileRenderer::resolveDrapeResolution): the two have to
         // agree, or the cache evicts what the resolution assumed would stay.
         static const std::size_t MAX_BYTES;
-        // debug.carto.drapebudget 0 restores the pre-budget behaviour - a tile COUNT cap and an
+        // debug.massif.drapebudget 0 restores the pre-budget behaviour - a tile COUNT cap and an
         // uncapped bake resolution - so the two can be measured against each other in one build.
         static bool isBudgetEnabled();
 

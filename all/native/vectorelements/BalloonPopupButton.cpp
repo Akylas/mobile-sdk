@@ -4,7 +4,7 @@
 #include "styles/BalloonPopupButtonStyle.h"
 #include "utils/Log.h"
 
-namespace carto {
+namespace massif {
     
     BalloonPopupButton::BalloonPopupButton(const std::shared_ptr<BalloonPopupButtonStyle>& style, const std::string& text) :
         _style(style),

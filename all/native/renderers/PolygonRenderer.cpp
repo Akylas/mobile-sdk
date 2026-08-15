@@ -14,7 +14,7 @@
 
 #include <cglib/mat.h>
 
-namespace carto {
+namespace massif {
 
     PolygonRenderer::PolygonRenderer() :
         _mapRenderer(),

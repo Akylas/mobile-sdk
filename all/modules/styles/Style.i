@@ -3,7 +3,7 @@
 
 %module Style
 
-!proxy_imports(carto::Style, graphics.Color)
+!proxy_imports(massif::Style, graphics.Color)
 
 %{
 #include "styles/Style.h"
@@ -11,14 +11,14 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "graphics/Color.i"
 
-!polymorphic_shared_ptr(carto::Style, styles.Style)
+!polymorphic_shared_ptr(massif::Style, styles.Style)
 
-%attributeval(carto::Style, carto::Color, Color, getColor)
-!standard_equals(carto::Style);
+%attributeval(massif::Style, massif::Color, Color, getColor)
+!standard_equals(massif::Style);
 
 %include "styles/Style.h"
 

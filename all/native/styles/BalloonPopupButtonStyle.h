@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_BALLOONPOPUPBUTTONSTYLE_H_
-#define _CARTO_BALLOONPOPUPBUTTONSTYLE_H_
+#ifndef _MASSIF_BALLOONPOPUPBUTTONSTYLE_H_
+#define _MASSIF_BALLOONPOPUPBUTTONSTYLE_H_
 
 #include "styles/BalloonPopupStyle.h"
 
 #include <string>
 
-namespace carto {
+namespace massif {
 
     /**
      * A style for balloon popup buttons. Contains attributes for configuring how the balloon popup is drawn on the screen.

@@ -4,15 +4,15 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_ASSETPACKAGE_H_
-#define _CARTO_ASSETPACKAGE_H_
+#ifndef _MASSIF_ASSETPACKAGE_H_
+#define _MASSIF_ASSETPACKAGE_H_
 
 #include <string>
 #include <map>
 #include <vector>
 #include <memory>
 
-namespace carto {
+namespace massif {
     class BinaryData;
 
     /**

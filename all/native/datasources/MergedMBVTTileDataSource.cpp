@@ -4,7 +4,7 @@
 #include "components/Exceptions.h"
 #include "utils/Log.h"
 
-#ifdef _CARTO_OFFLINE_SUPPORT
+#ifdef _MASSIF_OFFLINE_SUPPORT
 #include "datasources/MBTilesTileDataSource.h"
 #endif
 
@@ -14,7 +14,7 @@
 
 #include <mapnikvt/CompressionUtils.h>
 
-namespace carto {
+namespace massif {
     
     MergedMBVTTileDataSource::MergedMBVTTileDataSource(const std::shared_ptr<TileDataSource>& dataSource1, const std::shared_ptr<TileDataSource>& dataSource2) :
         TileDataSource(),
@@ -55,7 +55,7 @@ namespace carto {
 
 
     std::string MergedMBVTTileDataSource::getTileMask() const {
-#ifdef _CARTO_OFFLINE_SUPPORT
+#ifdef _MASSIF_OFFLINE_SUPPORT
         if (auto mbtilesDatasource = std::dynamic_pointer_cast<MBTilesTileDataSource>(_dataSource1.get())) {
             return mbtilesDatasource->getTileMask();
         }
@@ -100,17 +100,17 @@ namespace carto {
             // Use fast header-based detection where possible to avoid expensive trial decompression.
             const unsigned char* bytes1 = data1->empty() ? nullptr : data1->data();
             std::size_t size1 = data1->size();
-            if (bytes1 && carto::mvt::compression::is_gzip(bytes1, size1)) {
+            if (bytes1 && massif::mvt::compression::is_gzip(bytes1, size1)) {
                 zlib::inflate_gzip(bytes1, size1, uncompressedData1);
                 mergedData.insert(mergedData.end(), uncompressedData1.begin(), uncompressedData1.end());
 #ifdef HAVE_ZSTD
-            } else if (bytes1 && carto::mvt::compression::is_zstd(bytes1, size1)) {
-                carto::mvt::compression::inflate_zstd(bytes1, size1, uncompressedData1);
+            } else if (bytes1 && massif::mvt::compression::is_zstd(bytes1, size1)) {
+                massif::mvt::compression::inflate_zstd(bytes1, size1, uncompressedData1);
                 mergedData.insert(mergedData.end(), uncompressedData1.begin(), uncompressedData1.end());
 #endif
 #ifdef HAVE_BROTLI
-            } else if (carto::mvt::compression::is_brotli(bytes1, size1)) {
-                carto::mvt::compression::inflate_brotli(bytes1, size1, uncompressedData1);
+            } else if (massif::mvt::compression::is_brotli(bytes1, size1)) {
+                massif::mvt::compression::inflate_brotli(bytes1, size1, uncompressedData1);
                 mergedData.insert(mergedData.end(), uncompressedData1.begin(), uncompressedData1.end());
 #endif
             } else {
@@ -122,17 +122,17 @@ namespace carto {
             // Use fast header-based detection where possible to avoid expensive trial decompression.
             const unsigned char* bytes2 = data2->empty() ? nullptr : data2->data();
             std::size_t size2 = data2->size();
-            if (bytes2 && carto::mvt::compression::is_gzip(bytes2, size2)) {
+            if (bytes2 && massif::mvt::compression::is_gzip(bytes2, size2)) {
                 zlib::inflate_gzip(bytes2, size2, uncompressedData2);
                 mergedData.insert(mergedData.end(), uncompressedData2.begin(), uncompressedData2.end());
 #ifdef HAVE_ZSTD
-            } else if (bytes2 && carto::mvt::compression::is_zstd(bytes2, size2)) {
-                carto::mvt::compression::inflate_zstd(bytes2, size2, uncompressedData2);
+            } else if (bytes2 && massif::mvt::compression::is_zstd(bytes2, size2)) {
+                massif::mvt::compression::inflate_zstd(bytes2, size2, uncompressedData2);
                 mergedData.insert(mergedData.end(), uncompressedData2.begin(), uncompressedData2.end());
 #endif
 #ifdef HAVE_BROTLI
-            } else if (carto::mvt::compression::is_brotli(bytes2, size2)) {
-                carto::mvt::compression::inflate_brotli(bytes2, size2, uncompressedData1);
+            } else if (massif::mvt::compression::is_brotli(bytes2, size2)) {
+                massif::mvt::compression::inflate_brotli(bytes2, size2, uncompressedData1);
                 mergedData.insert(mergedData.end(), uncompressedData2.begin(), uncompressedData2.end());
 #endif
             } else {

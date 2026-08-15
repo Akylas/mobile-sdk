@@ -348,7 +348,7 @@ namespace {
 
 }
 
-namespace carto {
+namespace massif {
 
     ContourTileDataSource::ContourTileDataSource(const std::shared_ptr<TileDataSource>& dataSource, const std::shared_ptr<ElevationDecoder>& elevationDecoder) :
         TileDataSource(),

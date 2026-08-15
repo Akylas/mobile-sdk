@@ -4,15 +4,15 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_RAYINTERSECTEDELEMENTCOMPARATOR_H_
-#define _CARTO_RAYINTERSECTEDELEMENTCOMPARATOR_H_
+#ifndef _MASSIF_RAYINTERSECTEDELEMENTCOMPARATOR_H_
+#define _MASSIF_RAYINTERSECTEDELEMENTCOMPARATOR_H_
 
 #include "graphics/ViewState.h"
 #include "renderers/components/RayIntersectedElement.h"
 #include "renderers/drawdatas/BillboardDrawData.h"
 #include "vectorelements/Billboard.h"
 
-namespace carto {
+namespace massif {
 
     class RayIntersectedElementComparator {
     public:

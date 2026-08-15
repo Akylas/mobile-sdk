@@ -4,7 +4,7 @@
 
 #include <algorithm>
 
-namespace carto {
+namespace massif {
 
     MultiGeometry::MultiGeometry(std::vector<std::shared_ptr<Geometry> > geometries) :
         Geometry(),

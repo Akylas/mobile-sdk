@@ -11,7 +11,7 @@
 
 #include <cmath>
 
-namespace carto {
+namespace massif {
 
     VTLabelPlacementWorker::VTLabelPlacementWorker() :
         _stop(false),

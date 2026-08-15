@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_ZIPPEDASSETPACKAGE_H_
-#define _CARTO_ZIPPEDASSETPACKAGE_H_
+#ifndef _MASSIF_ZIPPEDASSETPACKAGE_H_
+#define _MASSIF_ZIPPEDASSETPACKAGE_H_
 
 #include "utils/AssetPackage.h"
 
 #include <mutex>
 
-namespace carto {
+namespace massif {
 
     /**
      * An asset package based on ZIP archived.

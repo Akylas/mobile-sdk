@@ -4,17 +4,17 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_PACKAGEHANDLERFACTORY_H_
-#define _CARTO_PACKAGEHANDLERFACTORY_H_
+#ifndef _MASSIF_PACKAGEHANDLERFACTORY_H_
+#define _MASSIF_PACKAGEHANDLERFACTORY_H_
 
-#if defined(_CARTO_PACKAGEMANAGER_SUPPORT)
+#if defined(_MASSIF_PACKAGEMANAGER_SUPPORT)
 
 #include "packagemanager/PackageInfo.h"
 
 #include <memory>
 #include <string>
 
-namespace carto {
+namespace massif {
     class PackageHandler;
     
     class PackageHandlerFactory {

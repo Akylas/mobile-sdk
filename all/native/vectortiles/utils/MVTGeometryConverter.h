@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_MVTGEOMETRYCONVERTER_H_
-#define _CARTO_MVTGEOMETRYCONVERTER_H_
+#ifndef _MASSIF_MVTGEOMETRYCONVERTER_H_
+#define _MASSIF_MVTGEOMETRYCONVERTER_H_
 
 #include "core/MapPos.h"
 #include "core/MapBounds.h"
@@ -26,7 +26,7 @@
 #include <algorithm>
 #include <functional>
 
-namespace carto {
+namespace massif {
 
     struct MVTGeometryConverter {
         typedef std::function<MapPos(const cglib::vec2<float>& pos)> PointConversionFunc;

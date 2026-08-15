@@ -17,7 +17,7 @@
 #include <cmath>
 #include <algorithm>
 
-namespace carto {
+namespace massif {
     
     BalloonPopup::BalloonPopup(const std::shared_ptr<Billboard>& baseBillboard, const std::shared_ptr<BalloonPopupStyle>& style,
                                const std::string& title, const std::string& desc) :

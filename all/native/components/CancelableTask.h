@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_CANCELABLETASK_H_
-#define _CARTO_CANCELABLETASK_H_
+#ifndef _MASSIF_CANCELABLETASK_H_
+#define _MASSIF_CANCELABLETASK_H_
 
 #include "components/Task.h"
 
 #include <atomic>
 
-namespace carto {
+namespace massif {
 
     class CancelableTask : public Task {
     public:

@@ -4,13 +4,13 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_MULTILINEGEOMETRY_H_
-#define _CARTO_MULTILINEGEOMETRY_H_
+#ifndef _MASSIF_MULTILINEGEOMETRY_H_
+#define _MASSIF_MULTILINEGEOMETRY_H_
 
 #include "geometry/MultiGeometry.h"
 #include "geometry/LineGeometry.h"
 
-namespace carto {
+namespace massif {
     
     /**
      * A multiline container.

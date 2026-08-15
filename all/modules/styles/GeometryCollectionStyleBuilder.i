@@ -3,7 +3,7 @@
 
 %module GeometryCollectionStyleBuilder
 
-!proxy_imports(carto::GeometryCollectionStyleBuilder, styles.GeometryCollectionStyle, styles.PointStyle, styles.LineStyle, styles.PolygonStyle, styles.StyleBuilder)
+!proxy_imports(massif::GeometryCollectionStyleBuilder, styles.GeometryCollectionStyle, styles.PointStyle, styles.LineStyle, styles.PolygonStyle, styles.StyleBuilder)
 
 %{
 #include "styles/GeometryCollectionStyleBuilder.h"
@@ -11,7 +11,7 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "styles/GeometryCollectionStyle.i"
 %import "styles/PointStyle.i"
@@ -19,11 +19,11 @@
 %import "styles/PolygonStyle.i"
 %import "styles/StyleBuilder.i"
 
-!polymorphic_shared_ptr(carto::GeometryCollectionStyleBuilder, styles.GeometryCollectionStyleBuilder)
+!polymorphic_shared_ptr(massif::GeometryCollectionStyleBuilder, styles.GeometryCollectionStyleBuilder)
 
-%attributestring(carto::GeometryCollectionStyleBuilder, std::shared_ptr<carto::PointStyle>, PointStyle, getPointStyle, setPointStyle)
-%attributestring(carto::GeometryCollectionStyleBuilder, std::shared_ptr<carto::LineStyle>, LineStyle, getLineStyle, setLineStyle)
-%attributestring(carto::GeometryCollectionStyleBuilder, std::shared_ptr<carto::PolygonStyle>, PolygonStyle, getPolygonStyle, setPolygonStyle)
+%attributestring(massif::GeometryCollectionStyleBuilder, std::shared_ptr<massif::PointStyle>, PointStyle, getPointStyle, setPointStyle)
+%attributestring(massif::GeometryCollectionStyleBuilder, std::shared_ptr<massif::LineStyle>, LineStyle, getLineStyle, setLineStyle)
+%attributestring(massif::GeometryCollectionStyleBuilder, std::shared_ptr<massif::PolygonStyle>, PolygonStyle, getPolygonStyle, setPolygonStyle)
 
 %include "styles/GeometryCollectionStyleBuilder.h"
 

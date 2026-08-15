@@ -3,7 +3,7 @@
 
 %module UTFGridClickInfo
 
-!proxy_imports(carto::UTFGridClickInfo, core.MapPos, core.Variant, layers.Layer, ui.ClickInfo)
+!proxy_imports(massif::UTFGridClickInfo, core.MapPos, core.Variant, layers.Layer, ui.ClickInfo)
 
 %{
 #include "ui/UTFGridClickInfo.h"
@@ -12,22 +12,22 @@
 
 %include <std_shared_ptr.i>
 %include <std_map.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "ui/ClickInfo.i"
 %import "core/MapPos.i"
 %import "core/Variant.i"
 %import "layers/Layer.i"
 
-!shared_ptr(carto::UTFGridClickInfo, ui.UTFGridClickInfo)
+!shared_ptr(massif::UTFGridClickInfo, ui.UTFGridClickInfo)
 
-%attribute(carto::UTFGridClickInfo, carto::ClickType::ClickType, ClickType, getClickType)
-%attributeval(carto::UTFGridClickInfo, carto::ClickInfo, ClickInfo, getClickInfo)
-%attributeval(carto::UTFGridClickInfo, carto::MapPos, ClickPos, getClickPos)
-%attributeval(carto::UTFGridClickInfo, carto::Variant, ElementInfo, getElementInfo)
-!attributestring_polymorphic(carto::UTFGridClickInfo, layers.Layer, Layer, getLayer)
-%ignore carto::UTFGridClickInfo::UTFGridClickInfo;
-!standard_equals(carto::UTFGridClickInfo);
+%attribute(massif::UTFGridClickInfo, massif::ClickType::ClickType, ClickType, getClickType)
+%attributeval(massif::UTFGridClickInfo, massif::ClickInfo, ClickInfo, getClickInfo)
+%attributeval(massif::UTFGridClickInfo, massif::MapPos, ClickPos, getClickPos)
+%attributeval(massif::UTFGridClickInfo, massif::Variant, ElementInfo, getElementInfo)
+!attributestring_polymorphic(massif::UTFGridClickInfo, layers.Layer, Layer, getLayer)
+%ignore massif::UTFGridClickInfo::UTFGridClickInfo;
+!standard_equals(massif::UTFGridClickInfo);
 
 %include "ui/UTFGridClickInfo.h"
 

@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace carto {
+namespace massif {
 
     ElevationTileGrid::ElevationTileGrid(const MapTile& tile, const MapBounds& internalBounds, const std::shared_ptr<Bitmap>& bitmap, const std::array<double, 4>& coeffs) :
         _tile(tile),

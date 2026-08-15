@@ -13,7 +13,7 @@
 
 #include <cglib/mat.h>
 
-namespace carto {
+namespace massif {
 
     SolidRenderer::SolidRenderer() :
         _mapRenderer(),

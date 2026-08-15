@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_TILEDRAWDATA_H_
-#define _CARTO_TILEDRAWDATA_H_
+#ifndef _MASSIF_TILEDRAWDATA_H_
+#define _MASSIF_TILEDRAWDATA_H_
 
 #include <memory>
 
 #include <vt/TileId.h>
 
-namespace carto {
+namespace massif {
     namespace vt {
         class Tile;
     }

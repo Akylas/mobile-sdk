@@ -15,7 +15,7 @@
 #include <utility>
 #include <algorithm>
 
-namespace carto {
+namespace massif {
     
     GeometryCollectionDrawData::GeometryCollectionDrawData(const MultiGeometry& geometry, const GeometryCollectionStyle& style, const Projection& projection, const std::shared_ptr<ProjectionSurface>& projectionSurface) :
         VectorElementDrawData(Color(), projectionSurface),

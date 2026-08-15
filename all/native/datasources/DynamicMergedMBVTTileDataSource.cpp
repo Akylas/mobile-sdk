@@ -5,7 +5,7 @@
 
 #include <algorithm>
 
-namespace carto {
+namespace massif {
 
     DynamicMergedMBVTTileDataSource::DynamicMergedMBVTTileDataSource(const std::shared_ptr<TileDataSource>& baseDataSource) :
         TileDataSource(),

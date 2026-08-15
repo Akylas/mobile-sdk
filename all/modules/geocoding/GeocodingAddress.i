@@ -5,9 +5,9 @@
 
 %module GeocodingAddress
 
-#ifdef _CARTO_GEOCODING_SUPPORT
+#ifdef _MASSIF_GEOCODING_SUPPORT
 
-!proxy_imports(carto::GeocodingAddress, core.Address, core.StringVector)
+!proxy_imports(massif::GeocodingAddress, core.Address, core.StringVector)
 
 %{
 #include "geocoding/GeocodingAddress.h"
@@ -15,13 +15,13 @@
 
 %include <std_string.i>
 %include <std_vector.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/StringVector.i"
 %import "core/Address.i"
 
-!value_type(carto::GeocodingAddress, geocoding.GeocodingAddress)
-!custom_tostring(carto::GecodingAddress);
+!value_type(massif::GeocodingAddress, geocoding.GeocodingAddress)
+!custom_tostring(massif::GecodingAddress);
 
 %include "geocoding/GeocodingAddress.h"
 

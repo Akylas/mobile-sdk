@@ -1,8 +1,8 @@
-#if defined(_CARTO_GEOCODING_SUPPORT) && defined(_CARTO_PACKAGEMANAGER_SUPPORT)
+#if defined(_MASSIF_GEOCODING_SUPPORT) && defined(_MASSIF_PACKAGEMANAGER_SUPPORT)
 
 #include "PackageManagerGeocodingService.h"
 #include "components/Exceptions.h"
-#include "geocoding/utils/CartoGeocodingProxy.h"
+#include "geocoding/utils/MassifGeocodingProxy.h"
 #include "packagemanager/PackageInfo.h"
 #include "packagemanager/handlers/GeocodingPackageHandler.h"
 
@@ -10,7 +10,7 @@
 
 #include <sqlite3pp.h>
 
-namespace carto {
+namespace massif {
 
     PackageManagerGeocodingService::PackageManagerGeocodingService(const std::shared_ptr<PackageManager>& packageManager) :
         _packageManager(packageManager),
@@ -112,7 +112,7 @@ namespace carto {
                 _cachedGeocoder = geocoder;
             }
 
-            results = CartoGeocodingProxy::CalculateAddresses(_cachedGeocoder, request);
+            results = MassifGeocodingProxy::CalculateAddresses(_cachedGeocoder, request);
         });
         return results;
     }

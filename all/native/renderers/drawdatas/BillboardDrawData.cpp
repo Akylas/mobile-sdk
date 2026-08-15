@@ -10,7 +10,7 @@
 
 #include <algorithm>
 
-namespace carto {
+namespace massif {
 
     BillboardDrawData::~BillboardDrawData() {
     }

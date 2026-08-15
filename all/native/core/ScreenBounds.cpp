@@ -6,7 +6,7 @@
 #include <sstream>
 #include <functional>
 
-namespace carto {
+namespace massif {
     
     ScreenBounds::ScreenBounds() :
         _min(std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity()),

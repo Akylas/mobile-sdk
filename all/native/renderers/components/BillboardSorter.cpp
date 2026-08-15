@@ -9,7 +9,7 @@
 
 #include <functional>
 
-namespace carto {
+namespace massif {
 
     BillboardSorter::BillboardSorter(std::vector<std::shared_ptr<BillboardDrawData> >& billboardDrawDatas) :
         _billboardDrawDatas(billboardDrawDatas)

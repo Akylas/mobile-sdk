@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_QUERYEXPRESSIONIMPL_H_
-#define _CARTO_QUERYEXPRESSIONIMPL_H_
+#ifndef _MASSIF_QUERYEXPRESSIONIMPL_H_
+#define _MASSIF_QUERYEXPRESSIONIMPL_H_
 
 #include "search/query/QueryContext.h"
 #include "search/query/QueryExpression.h"
@@ -17,7 +17,7 @@
 
 #include <stdext/unistring.h>
 
-namespace carto {
+namespace massif {
     namespace queryexpressionimpl {
         using Value = Variant;
 

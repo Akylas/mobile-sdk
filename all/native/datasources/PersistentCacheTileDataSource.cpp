@@ -1,4 +1,4 @@
-#ifdef _CARTO_OFFLINE_SUPPORT
+#ifdef _MASSIF_OFFLINE_SUPPORT
 
 #include "PersistentCacheTileDataSource.h"
 #include "core/BinaryData.h"
@@ -8,7 +8,7 @@
 
 #include <sqlite3pp.h>
 
-namespace carto {
+namespace massif {
     
     PersistentCacheTileDataSource::PersistentCacheTileDataSource(const std::shared_ptr<TileDataSource>& dataSource, const std::string& databasePath) :
         CacheTileDataSource(dataSource),

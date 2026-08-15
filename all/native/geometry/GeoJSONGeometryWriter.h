@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_GEOJSONGEOMETRYWRITER_H_
-#define _CARTO_GEOJSONGEOMETRYWRITER_H_
+#ifndef _MASSIF_GEOJSONGEOMETRYWRITER_H_
+#define _MASSIF_GEOJSONGEOMETRYWRITER_H_
 
 #include "core/MapPos.h"
 #include "core/Variant.h"
@@ -24,7 +24,7 @@ namespace rapidjson {
     typedef GenericValue<UTF8<char>, MemoryPoolAllocator<CrtAllocator> > Value;
 }
 
-namespace carto {
+namespace massif {
     class Feature;
     class FeatureCollection;
     class Geometry;

@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_NMLMODELDRAWDATA_H_
-#define _CARTO_NMLMODELDRAWDATA_H_
+#ifndef _MASSIF_NMLMODELDRAWDATA_H_
+#define _MASSIF_NMLMODELDRAWDATA_H_
 
 #include "renderers/drawdatas/BillboardDrawData.h"
 
@@ -14,7 +14,7 @@
 #include <cglib/mat.h>
 #include <cglib/bbox.h>
 
-namespace carto {
+namespace massif {
     class NMLModel;
     class NMLModelStyle;
     class Projection;

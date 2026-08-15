@@ -4,7 +4,7 @@
 
 #include <cmath>
 
-namespace carto {
+namespace massif {
 
     EPSG4326::EPSG4326() :
         Projection(MapBounds(MapPos(-180.0, -90.0), MapPos(180.0, 90.0)))

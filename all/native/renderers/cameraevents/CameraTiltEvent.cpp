@@ -11,7 +11,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace carto {
+namespace massif {
 
     CameraTiltEvent::CameraTiltEvent() :
         _keepRotation(false),

@@ -4,10 +4,10 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_TERRAINSHADOWMAP_H_
-#define _CARTO_TERRAINSHADOWMAP_H_
+#ifndef _MASSIF_TERRAINSHADOWMAP_H_
+#define _MASSIF_TERRAINSHADOWMAP_H_
 
-namespace carto {
+namespace massif {
 
     /**
      * Offscreen target for the directional shadow caster pass.

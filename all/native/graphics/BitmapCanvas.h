@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_BITMAPCANVAS_H_
-#define _CARTO_BITMAPCANVAS_H_
+#ifndef _MASSIF_BITMAPCANVAS_H_
+#define _MASSIF_BITMAPCANVAS_H_
 
 #include "core/ScreenPos.h"
 #include "core/ScreenBounds.h"
@@ -16,7 +16,7 @@
 #include <string>
 #include <vector>
 
-namespace carto {
+namespace massif {
 
     class BitmapCanvas {
     public:

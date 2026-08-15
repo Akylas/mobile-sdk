@@ -4,15 +4,15 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_BITMAPUTILS_H_
-#define _CARTO_BITMAPUTILS_H_
+#ifndef _MASSIF_BITMAPUTILS_H_
+#define _MASSIF_BITMAPUTILS_H_
 
 #include <memory>
 #include <string>
 
 #include <jni.h>
 
-namespace carto {
+namespace massif {
     class Bitmap;
 
     /**

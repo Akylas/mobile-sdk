@@ -7,7 +7,7 @@
 #include <sstream>
 #include <functional>
 
-namespace carto {
+namespace massif {
 
     MapEnvelope::MapEnvelope() :
         _bounds(),

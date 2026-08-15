@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <sstream>
 
-namespace carto {
+namespace massif {
 
     BinaryData::BinaryData() :
         _dataPtr(std::make_shared<std::vector<unsigned char> >())

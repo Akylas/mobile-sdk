@@ -3,9 +3,9 @@
 
 %module(directors="1") SGREOfflineRoutingService
 
-#if defined(_CARTO_ROUTING_SUPPORT) && defined(_CARTO_OFFLINE_SUPPORT)
+#if defined(_MASSIF_ROUTING_SUPPORT) && defined(_MASSIF_OFFLINE_SUPPORT)
 
-!proxy_imports(carto::SGREOfflineRoutingService, core.Variant, geometry.FeatureCollection, projections.Projection, routing.RoutingService, routing.RoutingRequest, routing.RoutingResult, routing.RouteMatchingRequest, routing.RouteMatchingResult)
+!proxy_imports(massif::SGREOfflineRoutingService, core.Variant, geometry.FeatureCollection, projections.Projection, routing.RoutingService, routing.RoutingRequest, routing.RoutingResult, routing.RouteMatchingRequest, routing.RouteMatchingResult)
 
 %{
 #include "routing/SGREOfflineRoutingService.h"
@@ -15,20 +15,20 @@
 
 %include <std_shared_ptr.i>
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "routing/RoutingService.i"
 %import "core/Variant.i"
 %import "geometry/FeatureCollection.i"
 %import "projections/Projection.i"
 
-!polymorphic_shared_ptr(carto::SGREOfflineRoutingService, routing.SGREOfflineRoutingService)
+!polymorphic_shared_ptr(massif::SGREOfflineRoutingService, routing.SGREOfflineRoutingService)
 
-%std_io_exceptions(carto::SGREOfflineRoutingService::SGREOfflineRoutingService)
-%std_io_exceptions(carto::SGREOfflineRoutingService::matchRoute)
-%std_io_exceptions(carto::SGREOfflineRoutingService::calculateRoute)
+%std_io_exceptions(massif::SGREOfflineRoutingService::SGREOfflineRoutingService)
+%std_io_exceptions(massif::SGREOfflineRoutingService::matchRoute)
+%std_io_exceptions(massif::SGREOfflineRoutingService::calculateRoute)
 
-%feature("director") carto::SGREOfflineRoutingService;
+%feature("director") massif::SGREOfflineRoutingService;
 
 %include "routing/SGREOfflineRoutingService.h"
 

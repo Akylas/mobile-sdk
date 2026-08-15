@@ -35,17 +35,17 @@
 #include <vt/NormalMapBuilder.h>
 #include <vt/TileLayerBuilder.h>
 
-namespace carto
+namespace massif
 {
 
 #ifdef __ANDROID__
     // Interleaved A/B of the paint against the normal-map tile set, without a rebuild and
     // without reaching into a composite layer's internal hillshade child:
-    //   adb shell setprop debug.carto.terrainpaint 0
+    //   adb shell setprop debug.massif.terrainpaint 0
     static bool isTerrainPaintDisabledByProperty() {
         static const bool disabled = [] {
             char property[PROP_VALUE_MAX] = { 0 };
-            return __system_property_get("debug.carto.terrainpaint", property) > 0 && property[0] == '0';
+            return __system_property_get("debug.massif.terrainpaint", property) > 0 && property[0] == '0';
         }();
         return disabled;
     }
@@ -560,4 +560,4 @@ namespace carto
     {
         return getElevationManager()->getElevations(poses);
     }
-} // namespace carto
+} // namespace massif

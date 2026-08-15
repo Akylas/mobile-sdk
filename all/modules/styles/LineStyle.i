@@ -3,7 +3,7 @@
 
 %module LineStyle
 
-!proxy_imports(carto::LineStyle, graphics.Bitmap, graphics.Color, styles.Style)
+!proxy_imports(massif::LineStyle, graphics.Bitmap, graphics.Color, styles.Style)
 
 %{
 #include "styles/LineStyle.h"
@@ -11,22 +11,22 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "graphics/Bitmap.i"
 %import "styles/Style.i"
 
-!enum(carto::LineEndType::LineEndType)
-!enum(carto::LineJoinType::LineJoinType)
-!polymorphic_shared_ptr(carto::LineStyle, styles.LineStyle)
+!enum(massif::LineEndType::LineEndType)
+!enum(massif::LineJoinType::LineJoinType)
+!polymorphic_shared_ptr(massif::LineStyle, styles.LineStyle)
 
-%attribute(carto::LineStyle, float, Width, getWidth)
-%attribute(carto::LineStyle, float, ClickWidth, getClickWidth)
-%attribute(carto::LineStyle, float, StretchFactor, getStretchFactor)
-%attribute(carto::LineStyle, carto::LineJoinType::LineJoinType, LineJoinType, getLineJoinType)
-%attribute(carto::LineStyle, carto::LineEndType::LineEndType, LineEndType, getLineEndType)
-%attributestring(carto::LineStyle, std::shared_ptr<carto::Bitmap>, Bitmap, getBitmap)
-%ignore carto::LineStyle::LineStyle;
+%attribute(massif::LineStyle, float, Width, getWidth)
+%attribute(massif::LineStyle, float, ClickWidth, getClickWidth)
+%attribute(massif::LineStyle, float, StretchFactor, getStretchFactor)
+%attribute(massif::LineStyle, massif::LineJoinType::LineJoinType, LineJoinType, getLineJoinType)
+%attribute(massif::LineStyle, massif::LineEndType::LineEndType, LineEndType, getLineEndType)
+%attributestring(massif::LineStyle, std::shared_ptr<massif::Bitmap>, Bitmap, getBitmap)
+%ignore massif::LineStyle::LineStyle;
 
 %include "styles/LineStyle.h"
 

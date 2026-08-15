@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_MAPBOXELEVATIONDATADECODER_H_
-#define _CARTO_MAPBOXELEVATIONDATADECODER_H_
+#ifndef _MASSIF_MAPBOXELEVATIONDATADECODER_H_
+#define _MASSIF_MAPBOXELEVATIONDATADECODER_H_
 
 #include "rastertiles/ElevationDecoder.h"
 
@@ -14,7 +14,7 @@
 #include <map>
 #include <string>
 
-namespace carto {
+namespace massif {
 
     /**
      * A decoder for MapBox encoded elevation tiles

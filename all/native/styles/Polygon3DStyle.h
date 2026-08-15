@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_POLYGON3DSTYLE_H_
-#define _CARTO_POLYGON3DSTYLE_H_
+#ifndef _MASSIF_POLYGON3DSTYLE_H_
+#define _MASSIF_POLYGON3DSTYLE_H_
 
 #include "styles/Style.h"
 
 #include <memory>
 
-namespace carto {
+namespace massif {
 
     /**
      * A style for 3d polygons. Contains attributes for configuring how the 3d polygon is drawn on the screen.

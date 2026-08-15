@@ -4,7 +4,7 @@
 #include "components/Exceptions.h"
 #include "styles/NMLModelStyle.h"
 
-namespace carto {
+namespace massif {
 
     NMLModelStyleBuilder::NMLModelStyleBuilder() :
         BillboardStyleBuilder(),

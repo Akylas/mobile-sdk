@@ -6,7 +6,7 @@
 
 #import <Foundation/NSThread.h>
 
-namespace carto {
+namespace massif {
 
     void ThreadUtils::SetThreadPriority(ThreadPriority::ThreadPriority priority) {
         NSThread* nsThread = [NSThread currentThread];

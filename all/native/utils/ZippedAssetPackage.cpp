@@ -7,7 +7,7 @@
 
 #include <string.h>
 
-namespace carto {
+namespace massif {
 
     ZippedAssetPackage::ZippedAssetPackage(const std::shared_ptr<BinaryData>& zipData) :
         _zipData(zipData),

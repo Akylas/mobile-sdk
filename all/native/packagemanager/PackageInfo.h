@@ -4,17 +4,17 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_PACKAGEINFO_H_
-#define _CARTO_PACKAGEINFO_H_
+#ifndef _MASSIF_PACKAGEINFO_H_
+#define _MASSIF_PACKAGEINFO_H_
 
-#ifdef _CARTO_PACKAGEMANAGER_SUPPORT
+#ifdef _MASSIF_PACKAGEMANAGER_SUPPORT
 
 #include <cstdint>
 #include <string>
 #include <vector>
 #include <memory>
 
-namespace carto {
+namespace massif {
     class PackageMetaInfo;
     class PackageTileMask;
     

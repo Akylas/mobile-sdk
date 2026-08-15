@@ -1,10 +1,10 @@
-#ifdef _CARTO_ROUTING_SUPPORT
+#ifdef _MASSIF_ROUTING_SUPPORT
 
 #include "RouteMatchingEdge.h"
 
 #include <sstream>
 
-namespace carto {
+namespace massif {
 
     RouteMatchingEdge::RouteMatchingEdge() :
         _attributes()

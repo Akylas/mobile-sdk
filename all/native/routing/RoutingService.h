@@ -4,10 +4,10 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_ROUTINGSERVICE_H_
-#define _CARTO_ROUTINGSERVICE_H_
+#ifndef _MASSIF_ROUTINGSERVICE_H_
+#define _MASSIF_ROUTINGSERVICE_H_
 
-#ifdef _CARTO_ROUTING_SUPPORT
+#ifdef _MASSIF_ROUTING_SUPPORT
 
 #include "routing/RoutingRequest.h"
 #include "routing/RoutingResult.h"
@@ -16,7 +16,7 @@
 
 #include <memory>
 
-namespace carto {
+namespace massif {
 
     /**
      * An abstract base class for routing services (either online or offline).

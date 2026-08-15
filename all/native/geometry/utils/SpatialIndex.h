@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_SPATIALINDEX_H_
-#define _CARTO_SPATIALINDEX_H_
+#ifndef _MASSIF_SPATIALINDEX_H_
+#define _MASSIF_SPATIALINDEX_H_
 
 #include <vector>
 
@@ -13,7 +13,7 @@
 #include <cglib/bbox.h>
 #include <cglib/frustum3.h>
 
-namespace carto {
+namespace massif {
     
     template <typename T>
     class SpatialIndex {

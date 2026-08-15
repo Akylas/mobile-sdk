@@ -1,6 +1,6 @@
 #include "VariantArrayBuilder.h"
 
-namespace carto {
+namespace massif {
 
     VariantArrayBuilder::VariantArrayBuilder() :
         _elements(),

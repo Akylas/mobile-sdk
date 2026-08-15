@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_TEXTSTYLE_H_
-#define _CARTO_TEXTSTYLE_H_
+#ifndef _MASSIF_TEXTSTYLE_H_
+#define _MASSIF_TEXTSTYLE_H_
 
 #include "styles/LabelStyle.h"
 
 #include <string>
 
-namespace carto {
+namespace massif {
 
     /**
      * Margins info for text.

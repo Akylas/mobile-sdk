@@ -3,7 +3,7 @@
 
 %module ElevationDecoder
 
-!proxy_imports(carto::ElevationDecoder, graphics.Color)
+!proxy_imports(massif::ElevationDecoder, graphics.Color)
 
 %{
 #include "rastertiles/ElevationDecoder.h"
@@ -11,15 +11,15 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "graphics/Color.i"
 
-!polymorphic_shared_ptr(carto::ElevationDecoder, rastertiles.ElevationDecoder)
+!polymorphic_shared_ptr(massif::ElevationDecoder, rastertiles.ElevationDecoder)
 
-!standard_equals(carto::ElevationDecoder);
-%ignore carto::ElevationDecoder::getColorComponentCoefficients;
-%ignore carto::ElevationDecoder::getVectorTileScales;
+!standard_equals(massif::ElevationDecoder);
+%ignore massif::ElevationDecoder::getColorComponentCoefficients;
+%ignore massif::ElevationDecoder::getVectorTileScales;
 
 %include "rastertiles/ElevationDecoder.h"
 

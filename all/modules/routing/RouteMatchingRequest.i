@@ -5,9 +5,9 @@
 
 %module RouteMatchingRequest
 
-#ifdef _CARTO_ROUTING_SUPPORT
+#ifdef _MASSIF_ROUTING_SUPPORT
 
-!proxy_imports(carto::RouteMatchingRequest, core.MapPos, core.MapPosVector, core.Variant, projections.Projection)
+!proxy_imports(massif::RouteMatchingRequest, core.MapPos, core.MapPosVector, core.Variant, projections.Projection)
 
 %{
 #include "routing/RouteMatchingRequest.h"
@@ -18,22 +18,22 @@
 %include <std_shared_ptr.i>
 %include <std_string.i>
 %include <std_map.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/MapPos.i"
 %import "core/Variant.i"
 %import "projections/Projection.i"
 
-!shared_ptr(carto::RouteMatchingRequest, routing.RouteMatchingRequest)
+!shared_ptr(massif::RouteMatchingRequest, routing.RouteMatchingRequest)
 
-%attributestring(carto::RouteMatchingRequest, std::shared_ptr<carto::Projection>, Projection, getProjection)
-%attributeval(carto::RouteMatchingRequest, std::vector<carto::MapPos>, Points, getPoints)
-%attribute(carto::RouteMatchingRequest, float, Accuracy, getAccuracy)
-%ignore carto::RouteMatchingRequest::getPointParameters;
-%ignore carto::RouteMatchingRequest::getCustomParameters;
-%std_exceptions(carto::RouteMatchingRequest::RouteMatchingRequest)
-!standard_equals(carto::RouteMatchingRequest);
-!custom_tostring(carto::RouteMatchingRequest);
+%attributestring(massif::RouteMatchingRequest, std::shared_ptr<massif::Projection>, Projection, getProjection)
+%attributeval(massif::RouteMatchingRequest, std::vector<massif::MapPos>, Points, getPoints)
+%attribute(massif::RouteMatchingRequest, float, Accuracy, getAccuracy)
+%ignore massif::RouteMatchingRequest::getPointParameters;
+%ignore massif::RouteMatchingRequest::getCustomParameters;
+%std_exceptions(massif::RouteMatchingRequest::RouteMatchingRequest)
+!standard_equals(massif::RouteMatchingRequest);
+!custom_tostring(massif::RouteMatchingRequest);
 
 %include "routing/RouteMatchingRequest.h"
 

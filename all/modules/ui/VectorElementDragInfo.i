@@ -3,9 +3,9 @@
 
 %module VectorElementDragInfo
 
-#ifdef _CARTO_EDITABLE_SUPPORT
+#ifdef _MASSIF_EDITABLE_SUPPORT
 
-!proxy_imports(carto::VectorElementDragInfo, core.MapPos, core.ScreenPos, vectorelements.VectorElement)
+!proxy_imports(massif::VectorElementDragInfo, core.MapPos, core.ScreenPos, vectorelements.VectorElement)
 
 %{
 #include "ui/VectorElementDragInfo.h"
@@ -13,21 +13,21 @@
 %}
 
 %import <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/MapPos.i"
 %import "core/ScreenPos.i"
 %import "vectorelements/VectorElement.i"
 
-!enum(carto::VectorElementDragMode::VectorElementDragMode)
-!shared_ptr(carto::VectorElementDragInfo, ui.VectorElementDragInfo)
+!enum(massif::VectorElementDragMode::VectorElementDragMode)
+!shared_ptr(massif::VectorElementDragInfo, ui.VectorElementDragInfo)
 
-%attributeval(carto::VectorElementDragInfo, carto::ScreenPos, ScreenPos, getScreenPos)
-%attributeval(carto::VectorElementDragInfo, carto::MapPos, MapPos, getMapPos)
-%attribute(carto::VectorElementDragInfo, carto::VectorElementDragMode::VectorElementDragMode, VectorElementDragMode, getDragMode)
-!attributestring_polymorphic(carto::VectorElementDragInfo, vectorelements.VectorElement, VectorElement, getVectorElement)
-%ignore carto::VectorElementDragInfo::VectorElementDragInfo;
-!standard_equals(carto::VectorElementDragInfo);
+%attributeval(massif::VectorElementDragInfo, massif::ScreenPos, ScreenPos, getScreenPos)
+%attributeval(massif::VectorElementDragInfo, massif::MapPos, MapPos, getMapPos)
+%attribute(massif::VectorElementDragInfo, massif::VectorElementDragMode::VectorElementDragMode, VectorElementDragMode, getDragMode)
+!attributestring_polymorphic(massif::VectorElementDragInfo, vectorelements.VectorElement, VectorElement, getVectorElement)
+%ignore massif::VectorElementDragInfo::VectorElementDragInfo;
+!standard_equals(massif::VectorElementDragInfo);
 
 %include "ui/VectorElementDragInfo.h"
 

@@ -17,7 +17,7 @@
 
 #include <boost/lexical_cast.hpp>
 
-namespace carto {
+namespace massif {
     
     TorqueTileDecoder::TorqueTileDecoder(const std::shared_ptr<CartoCSSStyleSet>& styleSet) :
         _logger(std::make_shared<MVTLogger>("TorqueTileDecoder")),
@@ -178,7 +178,7 @@ namespace carto {
             std::string fontName = fontManager->loadFontData(*fontData->getDataPtr());
             fallbackFont = fontManager->getFont(fontName, fallbackFont);
         }
-        auto symbolizerContextSettings = std::make_shared<mvt::SymbolizerContext::Settings>(DEFAULT_TILE_SIZE, std::make_shared<mvt::NutiParameterStore>(), fallbackFont);
+        auto symbolizerContextSettings = std::make_shared<mvt::SymbolizerContext::Settings>(DEFAULT_TILE_SIZE, std::make_shared<mvt::StyleParameterStore>(), fallbackFont);
         auto symbolizerContext = std::make_shared<mvt::SymbolizerContext>(bitmapManager, fontManager, strokeMap, glyphMap, *symbolizerContextSettings);
 
         _map = map;

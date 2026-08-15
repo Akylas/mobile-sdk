@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_NMLMODELSTYLE_H_
-#define _CARTO_NMLMODELSTYLE_H_
+#ifndef _MASSIF_NMLMODELSTYLE_H_
+#define _MASSIF_NMLMODELSTYLE_H_
 
 #include "styles/BillboardStyle.h"
 
 #include <memory>
 
-namespace carto {
+namespace massif {
     class BinaryData;
     namespace nml {
         class Model;

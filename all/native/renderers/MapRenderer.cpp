@@ -62,12 +62,12 @@
 #include <string>
 #include <vector>
 
-namespace carto {
+namespace massif {
 
-#if CARTO_VT_RENDER_STATS
+#if MASSIF_VT_RENDER_STATS
     namespace {
         // Diagnostic dump of the vt label/tile churn counters, compiled in together with the
-        // counters themselves (see vt/RenderStats.h - CARTO_VT_RENDER_STATS is the only
+        // counters themselves (see vt/RenderStats.h - MASSIF_VT_RENDER_STATS is the only
         // switch). Everything except 'live' is a per-interval delta. Only called from the GL
         // thread, so the previous values need no synchronization; the counters themselves are
         // atomic because the placement worker and the tile threads also increment them.
@@ -960,7 +960,7 @@ namespace carto {
         FRAME_PROF_GPU_BEGIN(SECTION_BACKGROUND);
         // Measurement switch: tangram draws no background geometry at all - their map background
         // is the framebuffer clear colour (core/src/map.cpp) - so this is what that would save.
-        //   adb shell setprop debug.carto.background 0
+        //   adb shell setprop debug.massif.background 0
         if (isBackgroundEnabled()) {
             _backgroundRenderer.onDrawFrame(viewState, !skyDrawn);
         }
@@ -1001,7 +1001,7 @@ namespace carto {
             _lastFrameTime.reset();
         }
 
-#if CARTO_VT_RENDER_STATS
+#if MASSIF_VT_RENDER_STATS
         logRenderStats();
 #endif
 
@@ -1012,7 +1012,7 @@ namespace carto {
     bool MapRenderer::isBackgroundEnabled() {
         static const bool enabled = [] {
             char property[PROP_VALUE_MAX] = { 0 };
-            return !(__system_property_get("debug.carto.background", property) > 0 && property[0] == '0');
+            return !(__system_property_get("debug.massif.background", property) > 0 && property[0] == '0');
         }();
         return enabled;
     }

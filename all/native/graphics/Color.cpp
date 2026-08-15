@@ -3,7 +3,7 @@
 #include <sstream>
 #include <functional>
 
-namespace carto {
+namespace massif {
 
     Color::Color() :
         _r(0),

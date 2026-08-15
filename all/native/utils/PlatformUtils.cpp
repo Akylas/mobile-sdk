@@ -3,7 +3,7 @@
 #define EXPAND(str) #str
 #define STRINGIFY(str) EXPAND(str)
 
-namespace carto {
+namespace massif {
 
     std::string PlatformUtils::GetPlatformId() {
         switch (GetPlatformType()) {
@@ -23,7 +23,7 @@ namespace carto {
     }
 
     std::string PlatformUtils::GetSDKVersion() {
-        return STRINGIFY(_CARTO_MOBILE_SDK_VERSION);
+        return STRINGIFY(_MASSIF_MOBILE_SDK_VERSION);
     }
 
 }

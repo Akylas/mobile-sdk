@@ -3,8 +3,8 @@
 
 %module BalloonPopup
 
-!proxy_imports(carto::BalloonPopup, core.MapPos, core.ScreenPos, graphics.Bitmap, geometry.Geometry, styles.BalloonPopupStyle, ui.ClickInfo, vectorelements.BalloonPopupButton, vectorelements.BalloonPopupEventListener, vectorelements.Popup)
-!java_imports(carto::BalloonPopup, com.carto.ui.ClickType)
+!proxy_imports(massif::BalloonPopup, core.MapPos, core.ScreenPos, graphics.Bitmap, geometry.Geometry, styles.BalloonPopupStyle, ui.ClickInfo, vectorelements.BalloonPopupButton, vectorelements.BalloonPopupEventListener, vectorelements.Popup)
+!java_imports(massif::BalloonPopup, com.carto.ui.ClickType)
 
 %{
 #include "vectorelements/BalloonPopup.h"
@@ -13,7 +13,7 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/ScreenPos.i"
 %import "graphics/Bitmap.i"
@@ -21,17 +21,17 @@
 %import "vectorelements/BalloonPopupEventListener.i"
 %import "vectorelements/Popup.i"
 
-!polymorphic_shared_ptr(carto::BalloonPopup, vectorelements.BalloonPopup)
+!polymorphic_shared_ptr(massif::BalloonPopup, vectorelements.BalloonPopup)
 
-%attributestring(carto::BalloonPopup, std::string, Title, getTitle, setTitle)
-%attributestring(carto::BalloonPopup, std::string, Description, getDescription, setDescription)
-%csmethodmodifiers carto::BalloonPopup::Style "public new";
-!attributestring_polymorphic(carto::BalloonPopup, styles.BalloonPopupStyle, Style, getStyle, setStyle)
-!attributestring_polymorphic(carto::BalloonPopup, vectorelements.BalloonPopupEventListener, BalloonPopupEventListener, getBalloonPopupEventListener, setBalloonPopupEventListener)
-%std_exceptions(carto::BalloonPopup::BalloonPopup)
-%std_exceptions(carto::BalloonPopup::setStyle)
-%std_exceptions(carto::BalloonPopup::addButton)
-%std_exceptions(carto::BalloonPopup::removeButton)
+%attributestring(massif::BalloonPopup, std::string, Title, getTitle, setTitle)
+%attributestring(massif::BalloonPopup, std::string, Description, getDescription, setDescription)
+%csmethodmodifiers massif::BalloonPopup::Style "public new";
+!attributestring_polymorphic(massif::BalloonPopup, styles.BalloonPopupStyle, Style, getStyle, setStyle)
+!attributestring_polymorphic(massif::BalloonPopup, vectorelements.BalloonPopupEventListener, BalloonPopupEventListener, getBalloonPopupEventListener, setBalloonPopupEventListener)
+%std_exceptions(massif::BalloonPopup::BalloonPopup)
+%std_exceptions(massif::BalloonPopup::setStyle)
+%std_exceptions(massif::BalloonPopup::addButton)
+%std_exceptions(massif::BalloonPopup::removeButton)
 
 %include "vectorelements/BalloonPopup.h"
 

@@ -1,4 +1,4 @@
-#ifdef _CARTO_SEARCH_SUPPORT
+#ifdef _MASSIF_SEARCH_SUPPORT
 
 #include "SearchRequest.h"
 #include "components/Exceptions.h"
@@ -8,7 +8,7 @@
 
 #include <sstream>
 
-namespace carto {
+namespace massif {
 
     SearchRequest::SearchRequest() :
         _filterExpr(),

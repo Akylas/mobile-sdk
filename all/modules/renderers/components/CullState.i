@@ -3,7 +3,7 @@
 
 %module CullState
 
-!proxy_imports(carto::CullState, core.MapEnvelope, core.MapPos, graphics.ViewState, projections.Projection)
+!proxy_imports(massif::CullState, core.MapEnvelope, core.MapPos, graphics.ViewState, projections.Projection)
 
 %{
 #include "components/Exceptions.h"
@@ -12,19 +12,19 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/MapEnvelope.i"
 %import "core/MapPos.i"
 %import "graphics/ViewState.i"
 %import "projections/Projection.i"
 
-!shared_ptr(carto::CullState, renderers.components.CullState)
+!shared_ptr(massif::CullState, renderers.components.CullState)
 
-%attributeval(carto::CullState, carto::ViewState, ViewState, getViewState)
-%std_exceptions(carto::CullState::getProjectionEnvelope)
-%ignore carto::CullState::getEnvelope;
-!standard_equals(carto::CullState);
+%attributeval(massif::CullState, massif::ViewState, ViewState, getViewState)
+%std_exceptions(massif::CullState::getProjectionEnvelope)
+%ignore massif::CullState::getEnvelope;
+!standard_equals(massif::CullState);
 
 %include "renderers/components/CullState.h"
 

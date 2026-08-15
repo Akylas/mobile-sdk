@@ -95,7 +95,7 @@
     }
 }
 
-#ifdef _CARTO_IGNORE_SSL_CERTS
+#ifdef _MASSIF_IGNORE_SSL_CERTS
 -(void)URLSession:(NSURLSession*)session didReceiveChallenge:(NSURLAuthenticationChallenge*)challenge completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition, NSURLCredential*))completionHandler {
     if ([[challenge protectionSpace] authenticationMethod] == NSURLAuthenticationMethodServerTrust) {
         NSURLCredential* credential = [NSURLCredential credentialForTrust:challenge.protectionSpace.serverTrust];
@@ -114,7 +114,7 @@
 
 @end
 
-namespace carto {
+namespace massif {
 
     HTTPClient::IOSImpl::IOSImpl(bool log) :
         _log(log),

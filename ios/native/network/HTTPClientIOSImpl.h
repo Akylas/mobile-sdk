@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_HTTPCLIENTIOSIMPL_H_
-#define _CARTO_HTTPCLIENTIOSIMPL_H_
+#ifndef _MASSIF_HTTPCLIENTIOSIMPL_H_
+#define _MASSIF_HTTPCLIENTIOSIMPL_H_
 
 #include "network/HTTPClient.h"
 
 #include <atomic>
 
-namespace carto {
+namespace massif {
 
     class HTTPClient::IOSImpl : public HTTPClient::Impl {
     public:

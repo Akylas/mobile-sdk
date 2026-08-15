@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_MVTVALUECONVERTER_H_
-#define _CARTO_MVTVALUECONVERTER_H_
+#ifndef _MASSIF_MVTVALUECONVERTER_H_
+#define _MASSIF_MVTVALUECONVERTER_H_
 
 #include "core/Variant.h"
 
 #include <mapnikvt/Value.h>
 
-namespace carto {
+namespace massif {
 
     struct MVTValueConverter {
         Variant operator() (std::monostate) const { return Variant(); }

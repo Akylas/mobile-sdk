@@ -3,7 +3,7 @@
 
 %module Marker
 
-!proxy_imports(carto::Marker, core.MapPos, graphics.Bitmap, geometry.Geometry, styles.MarkerStyle, vectorelements.Billboard)
+!proxy_imports(massif::Marker, core.MapPos, graphics.Bitmap, geometry.Geometry, styles.MarkerStyle, vectorelements.Billboard)
 
 %{
 #include "vectorelements/Marker.h"
@@ -12,16 +12,16 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "styles/MarkerStyle.i"
 %import "vectorelements/Billboard.i"
 
-!polymorphic_shared_ptr(carto::Marker, vectorelements.Marker)
+!polymorphic_shared_ptr(massif::Marker, vectorelements.Marker)
 
-%attributestring(carto::Marker, std::shared_ptr<carto::MarkerStyle>, Style, getStyle, setStyle)
-%std_exceptions(carto::Marker::Marker)
-%std_exceptions(carto::Marker::setStyle)
+%attributestring(massif::Marker, std::shared_ptr<massif::MarkerStyle>, Style, getStyle, setStyle)
+%std_exceptions(massif::Marker::Marker)
+%std_exceptions(massif::Marker::setStyle)
 
 %include "vectorelements/Marker.h"
 

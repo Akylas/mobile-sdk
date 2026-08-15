@@ -4,10 +4,10 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_VALHALLAONLINEROUTINGSERVICE_H_
-#define _CARTO_VALHALLAONLINEROUTINGSERVICE_H_
+#ifndef _MASSIF_VALHALLAONLINEROUTINGSERVICE_H_
+#define _MASSIF_VALHALLAONLINEROUTINGSERVICE_H_
 
-#ifdef _CARTO_ROUTING_SUPPORT
+#ifdef _MASSIF_ROUTING_SUPPORT
 
 #include "routing/RoutingService.h"
 
@@ -19,11 +19,11 @@ namespace sqlite3pp {
     class database;
 }
 
-namespace carto {
+namespace massif {
 
     /**
      * An online routing service that uses MapBox Valhalla routing service.
-     * As the class connects to an external (non-CARTO) service, this class is provided "as-is",   
+     * As the class connects to an external (non-Massif) service, this class is provided "as-is",   
      * future changes from the service provider may not be compatible with the implementation.
      * Routing and route matching perform network requests and must be executed in non-UI background thread.
      * Be sure to read the Terms and Conditions of your Valhalla service provider to see if the

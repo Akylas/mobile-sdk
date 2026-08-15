@@ -4,7 +4,7 @@
 #include "utils/Log.h"
 #include "utils/AssetPackage.h"
 
-namespace carto {
+namespace massif {
     
     CartoCSSAssetLoader::CartoCSSAssetLoader(const std::string& basePath, const std::shared_ptr<AssetPackage>& assetPackage) :
         _basePath(basePath),

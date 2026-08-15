@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_LIGHTOPTIONS_H_
-#define _CARTO_LIGHTOPTIONS_H_
+#ifndef _MASSIF_LIGHTOPTIONS_H_
+#define _MASSIF_LIGHTOPTIONS_H_
 
 #include "graphics/Color.h"
 
@@ -17,7 +17,7 @@
 
 #include <cglib/vec.h>
 
-namespace carto {
+namespace massif {
 
     /**
      * Directional light (sun) configuration, attached to the map via Options::setLightOptions.

@@ -1,22 +1,22 @@
 #include "BitmapCanvas.h"
 
 #if defined(_WIN32)
-#define CARTO_BITMAP_CANVAS_IMPL UWPImpl
+#define MASSIF_BITMAP_CANVAS_IMPL UWPImpl
 #include "graphics/BitmapCanvasUWPImpl.h"
 #elif defined(__APPLE__)
-#define CARTO_BITMAP_CANVAS_IMPL IOSImpl
+#define MASSIF_BITMAP_CANVAS_IMPL IOSImpl
 #include "graphics/BitmapCanvasIOSImpl.h"
 #elif defined(__ANDROID__)
-#define CARTO_BITMAP_CANVAS_IMPL AndroidImpl
+#define MASSIF_BITMAP_CANVAS_IMPL AndroidImpl
 #include "graphics/BitmapCanvasAndroidImpl.h"
 #else
 #error "Unsupported platform"
 #endif
 
-namespace carto {
+namespace massif {
 
     BitmapCanvas::BitmapCanvas(int width, int height) :
-        _impl(std::make_unique<CARTO_BITMAP_CANVAS_IMPL>(width, height))
+        _impl(std::make_unique<MASSIF_BITMAP_CANVAS_IMPL>(width, height))
     {
     }
 

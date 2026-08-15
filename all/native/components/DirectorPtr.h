@@ -4,15 +4,15 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_DIRECTORPTR_H_
-#define _CARTO_DIRECTORPTR_H_
+#ifndef _MASSIF_DIRECTORPTR_H_
+#define _MASSIF_DIRECTORPTR_H_
 
 #include "components/Director.h"
 
 #include <memory>
 #include <mutex>
 
-namespace carto {
+namespace massif {
 
     template <typename T>
     class DirectorPtr;
@@ -164,8 +164,8 @@ namespace carto {
 namespace std {
 
     template <typename T>
-    struct hash<carto::DirectorPtr<T> > {
-        size_t operator() (const carto::DirectorPtr<T>& directorPtr) const {
+    struct hash<massif::DirectorPtr<T> > {
+        size_t operator() (const massif::DirectorPtr<T>& directorPtr) const {
             return hash<shared_ptr<T> >()(directorPtr.get());
         }
     };

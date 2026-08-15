@@ -3,7 +3,7 @@
 #include "styles/LabelStyle.h"
 #include "renderers/drawdatas/LabelDrawData.h"
 
-namespace carto {
+namespace massif {
 
     Label::Label(const std::shared_ptr<Billboard>& baseBillboard, const std::shared_ptr<LabelStyle>& style) :
         Billboard(baseBillboard),

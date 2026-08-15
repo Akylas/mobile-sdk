@@ -90,7 +90,7 @@
   try {
     $action
   }
-  catch (const carto::NullArgumentException& e) {
+  catch (const massif::NullArgumentException& e) {
 #if SWIGJAVA
     SWIG_JavaException(jenv, SWIG_JavaNullPointerException, e.what());
 #endif
@@ -110,7 +110,7 @@
   try {
     $action
   }
-  catch (const carto::NullArgumentException& e) {
+  catch (const massif::NullArgumentException& e) {
 #if SWIGJAVA
     SWIG_JavaException(jenv, SWIG_JavaNullPointerException, e.what());
 #endif
@@ -121,11 +121,11 @@
     SWIG_ObjcThrowException(SWIG_ObjcNullPointerException, e.what());
 #endif
   }
-  catch (const carto::FileException& e) {
+  catch (const massif::FileException& e) {
     SWIG_exception(SWIG_IOError, e.what());
     return $null;
   }
-  catch (const carto::NetworkException& e) {
+  catch (const massif::NetworkException& e) {
     SWIG_exception(SWIG_IOError, e.what());
     return $null;
   }

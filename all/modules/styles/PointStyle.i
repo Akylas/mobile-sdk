@@ -3,7 +3,7 @@
 
 %module PointStyle
 
-!proxy_imports(carto::PointStyle, graphics.Bitmap, graphics.Color, styles.Style)
+!proxy_imports(massif::PointStyle, graphics.Bitmap, graphics.Color, styles.Style)
 
 %{
 #include "styles/PointStyle.h"
@@ -11,17 +11,17 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "graphics/Bitmap.i"
 %import "styles/Style.i"
 
-!polymorphic_shared_ptr(carto::PointStyle, styles.PointStyle)
+!polymorphic_shared_ptr(massif::PointStyle, styles.PointStyle)
 
-%attribute(carto::PointStyle, float, Size, getSize)
-%attribute(carto::PointStyle, float, ClickSize, getClickSize)
-%attributestring(carto::PointStyle, std::shared_ptr<carto::Bitmap>, Bitmap, getBitmap)
-%ignore carto::PointStyle::PointStyle;
+%attribute(massif::PointStyle, float, Size, getSize)
+%attribute(massif::PointStyle, float, ClickSize, getClickSize)
+%attributestring(massif::PointStyle, std::shared_ptr<massif::Bitmap>, Bitmap, getBitmap)
+%ignore massif::PointStyle::PointStyle;
 
 %include "styles/PointStyle.h"
 

@@ -1,7 +1,7 @@
 #include "Polygon3DStyleBuilder.h"
 #include "styles/Polygon3DStyle.h"
 
-namespace carto {
+namespace massif {
 
     Polygon3DStyleBuilder::Polygon3DStyleBuilder() :
         StyleBuilder(),

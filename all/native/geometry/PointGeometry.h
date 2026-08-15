@@ -4,12 +4,12 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_POINTGEOMETRY_H_
-#define _CARTO_POINTGEOMETRY_H_
+#ifndef _MASSIF_POINTGEOMETRY_H_
+#define _MASSIF_POINTGEOMETRY_H_
 
 #include "geometry/Geometry.h"
 
-namespace carto {
+namespace massif {
 
     /**
      * Point geometry. Geometry is defined by a single map position.

@@ -5,8 +5,8 @@
 
 %module Layer
 
-!proxy_imports(carto::Layer, core.MapRange, core.ScreenPos, core.Variant, core.StringVariantMap, graphics.ViewState, renderers.components.CullState, ui.ClickInfo)
-!java_imports(carto::Layer, com.carto.ui.ClickType)
+!proxy_imports(massif::Layer, core.MapRange, core.ScreenPos, core.Variant, core.StringVariantMap, graphics.ViewState, renderers.components.CullState, ui.ClickInfo)
+!java_imports(massif::Layer, com.carto.ui.ClickType)
 
 %{
 #include "layers/Layer.h"
@@ -14,7 +14,7 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/MapRange.i"
 %import "core/ScreenPos.i"
@@ -23,30 +23,30 @@
 %import "renderers/components/CullState.i"
 %import "ui/ClickInfo.i"
 
-!polymorphic_shared_ptr(carto::Layer, layers.Layer)
-!value_type(std::vector<std::shared_ptr<carto::Layer> >, layers.LayerVector)
+!polymorphic_shared_ptr(massif::Layer, layers.Layer)
+!value_type(std::vector<std::shared_ptr<massif::Layer> >, layers.LayerVector)
 
-%attributeval(carto::Layer, %arg(std::map<std::string, carto::Variant>), MetaData, getMetaData, setMetaData)
-%attribute(carto::Layer, int, UpdatePriority, getUpdatePriority, setUpdatePriority)
-%attribute(carto::Layer, int, CullDelay, getCullDelay, setCullDelay)
-%attribute(carto::Layer, bool, Visible, isVisible, setVisible)
-%attributeval(carto::Layer, carto::MapRange, VisibleZoomRange, getVisibleZoomRange, setVisibleZoomRange)
-%attribute(carto::Layer, float, Opacity, getOpacity, setOpacity)
-%attribute(carto::Layer, bool, PostProcessed, isPostProcessed, setPostProcessed)
-%ignore carto::Layer::onDrawFrame;
-%ignore carto::Layer::onDrawFrame3D;
-%ignore carto::Layer::getBackgroundBitmap;
-%ignore carto::Layer::getStyleEnvironment;
-%ignore carto::Layer::getSkyBitmap;
-%ignore carto::Layer::calculateRayIntersectedElements;
-%ignore carto::Layer::registerDataSourceListener;
-%ignore carto::Layer::unregisterDataSourceListener;
-%ignore carto::Layer::getCullDelay;
-%ignore carto::Layer::getLastCullState;
-!standard_equals(carto::Layer);
+%attributeval(massif::Layer, %arg(std::map<std::string, massif::Variant>), MetaData, getMetaData, setMetaData)
+%attribute(massif::Layer, int, UpdatePriority, getUpdatePriority, setUpdatePriority)
+%attribute(massif::Layer, int, CullDelay, getCullDelay, setCullDelay)
+%attribute(massif::Layer, bool, Visible, isVisible, setVisible)
+%attributeval(massif::Layer, massif::MapRange, VisibleZoomRange, getVisibleZoomRange, setVisibleZoomRange)
+%attribute(massif::Layer, float, Opacity, getOpacity, setOpacity)
+%attribute(massif::Layer, bool, PostProcessed, isPostProcessed, setPostProcessed)
+%ignore massif::Layer::onDrawFrame;
+%ignore massif::Layer::onDrawFrame3D;
+%ignore massif::Layer::getBackgroundBitmap;
+%ignore massif::Layer::getStyleEnvironment;
+%ignore massif::Layer::getSkyBitmap;
+%ignore massif::Layer::calculateRayIntersectedElements;
+%ignore massif::Layer::registerDataSourceListener;
+%ignore massif::Layer::unregisterDataSourceListener;
+%ignore massif::Layer::getCullDelay;
+%ignore massif::Layer::getLastCullState;
+!standard_equals(massif::Layer);
 
 %include "layers/Layer.h"
 
-!value_template(std::vector<std::shared_ptr<carto::Layer> >, layers.LayerVector)
+!value_template(std::vector<std::shared_ptr<massif::Layer> >, layers.LayerVector)
 
 #endif

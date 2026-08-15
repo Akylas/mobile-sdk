@@ -4,17 +4,17 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_VECTOREDITEVENTLISTENER_H_
-#define _CARTO_VECTOREDITEVENTLISTENER_H_
+#ifndef _MASSIF_VECTOREDITEVENTLISTENER_H_
+#define _MASSIF_VECTOREDITEVENTLISTENER_H_
 
-#ifdef _CARTO_EDITABLE_SUPPORT
+#ifdef _MASSIF_EDITABLE_SUPPORT
 
 #include "core/ScreenPos.h"
 #include "ui/VectorElementDragInfo.h"
 
 #include <memory>
 
-namespace carto {
+namespace massif {
     class Geometry;
     class PointStyle;
     class VectorElement;

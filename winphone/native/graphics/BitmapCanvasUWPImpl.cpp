@@ -6,7 +6,7 @@
 
 #include <utf8.h>
 
-namespace carto {
+namespace massif {
 
     BitmapCanvas::UWPImpl::UWPImpl(int width, int height) :
         _width(width),

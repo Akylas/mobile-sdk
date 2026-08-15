@@ -3,28 +3,28 @@
 
 %module RouteMatchingEdge
 
-#ifdef _CARTO_ROUTING_SUPPORT
+#ifdef _MASSIF_ROUTING_SUPPORT
 
-!proxy_imports(carto::RouteMatchingEdge, core.Variant, core.StringVariantMap)
+!proxy_imports(massif::RouteMatchingEdge, core.Variant, core.StringVariantMap)
 
 %{
 #include "routing/RouteMatchingEdge.h"
 %}
 
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/Variant.i"
 
-!value_type(carto::RouteMatchingEdge, routing.RouteMatchingEdge)
-!value_type(std::vector<carto::RouteMatchingEdge>, routing.RouteMatchingEdgeVector)
+!value_type(massif::RouteMatchingEdge, routing.RouteMatchingEdge)
+!value_type(std::vector<massif::RouteMatchingEdge>, routing.RouteMatchingEdgeVector)
 
-!standard_equals(carto::RouteMatchingEdge);
-!custom_tostring(carto::RouteMatchingEdge);
+!standard_equals(massif::RouteMatchingEdge);
+!custom_tostring(massif::RouteMatchingEdge);
 
 %include "routing/RouteMatchingEdge.h"
 
-!value_template(std::vector<carto::RouteMatchingEdge>, routing.RouteMatchingEdgeVector);
+!value_template(std::vector<massif::RouteMatchingEdge>, routing.RouteMatchingEdgeVector);
 
 #endif
 

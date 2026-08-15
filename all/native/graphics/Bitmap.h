@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_BITMAP_H_
-#define _CARTO_BITMAP_H_
+#ifndef _MASSIF_BITMAP_H_
+#define _MASSIF_BITMAP_H_
 
 #include <memory>
 #include <string>
 #include <vector>
 
-namespace carto {
+namespace massif {
     class BinaryData;
     
     namespace ColorFormat {

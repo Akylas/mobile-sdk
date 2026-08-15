@@ -5,9 +5,9 @@
 
 %module GeocodingResult
 
-#ifdef _CARTO_GEOCODING_SUPPORT
+#ifdef _MASSIF_GEOCODING_SUPPORT
 
-!proxy_imports(carto::GeocodingResult, geocoding.GeocodingAddress, geometry.FeatureCollection, projections.Projection)
+!proxy_imports(massif::GeocodingResult, geocoding.GeocodingAddress, geometry.FeatureCollection, projections.Projection)
 
 %{
 #include "geocoding/GeocodingResult.h"
@@ -17,25 +17,25 @@
 
 %include <std_shared_ptr.i>
 %include <std_vector.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "geocoding/GeocodingAddress.i"
 %import "geometry/FeatureCollection.i"
 %import "projections/Projection.i"
 
-!shared_ptr(carto::GeocodingResult, geocoding.GeocodingResult)
+!shared_ptr(massif::GeocodingResult, geocoding.GeocodingResult)
 
-%attributestring(carto::GeocodingResult, std::shared_ptr<carto::Projection>, Projection, getProjection)
-%attributestring(carto::GeocodingResult, std::shared_ptr<carto::FeatureCollection>, FeatureCollection, getFeatureCollection)
-%attributeval(carto::GeocodingResult, carto::GeocodingAddress, Address, getAddress)
-%attribute(carto::GeocodingResult, float, Rank, getRank)
-%std_exceptions(carto::GeocodingResult::GeocodingResult)
-!standard_equals(carto::GeocodingResult);
-!custom_tostring(carto::GeocodingResult);
+%attributestring(massif::GeocodingResult, std::shared_ptr<massif::Projection>, Projection, getProjection)
+%attributestring(massif::GeocodingResult, std::shared_ptr<massif::FeatureCollection>, FeatureCollection, getFeatureCollection)
+%attributeval(massif::GeocodingResult, massif::GeocodingAddress, Address, getAddress)
+%attribute(massif::GeocodingResult, float, Rank, getRank)
+%std_exceptions(massif::GeocodingResult::GeocodingResult)
+!standard_equals(massif::GeocodingResult);
+!custom_tostring(massif::GeocodingResult);
 
 %include "geocoding/GeocodingResult.h"
 
-!value_template(std::vector<std::shared_ptr<carto::GeocodingResult> >, geocoding.GeocodingResultVector);
+!value_template(std::vector<std::shared_ptr<massif::GeocodingResult> >, geocoding.GeocodingResultVector);
 
 #endif
 

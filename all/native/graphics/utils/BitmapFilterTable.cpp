@@ -1,6 +1,6 @@
 #include "BitmapFilterTable.h"
 
-namespace carto {
+namespace massif {
 
     const int BitmapFilterTable::GAUSS_TABLE_SIZE = 64;
 

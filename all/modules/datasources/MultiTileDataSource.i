@@ -3,7 +3,7 @@
 
 %module(directors="1") MultiTileDataSource
 
-!proxy_imports(carto::MultiTileDataSource, core.MapTile, core.MapBounds, core.StringMap, datasources.TileDataSource,  datasources.components.TileData)
+!proxy_imports(massif::MultiTileDataSource, core.MapTile, core.MapBounds, core.StringMap, datasources.TileDataSource,  datasources.components.TileData)
 %{
 #include "datasources/MultiTileDataSource.h"
 #include "components/Exceptions.h"
@@ -12,24 +12,24 @@
 
 %include <std_shared_ptr.i>
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/MapTile.i"
 %import "core/StringMap.i"
 %import "datasources/TileDataSource.i"
-#ifdef _CARTO_OFFLINE_SUPPORT
+#ifdef _MASSIF_OFFLINE_SUPPORT
 %import "datasources/MBTilesTileDataSource.i"
 %import "datasources/PMTilesTileDataSource.i"
 #endif
 %import "datasources/components/TileData.i"
 
-!polymorphic_shared_ptr(carto::MultiTileDataSource, datasources.MultiTileDataSource)
+!polymorphic_shared_ptr(massif::MultiTileDataSource, datasources.MultiTileDataSource)
 
-%std_exceptions(carto::MultiTileDataSource::MultiTileDataSource)
-%std_exceptions(carto::LocalVectorDataSource::add)
-%std_exceptions(carto::LocalVectorDataSource::remove)
+%std_exceptions(massif::MultiTileDataSource::MultiTileDataSource)
+%std_exceptions(massif::LocalVectorDataSource::add)
+%std_exceptions(massif::LocalVectorDataSource::remove)
 
-%feature("director") carto::MultiTileDataSource;
+%feature("director") massif::MultiTileDataSource;
 
 %include "datasources/MultiTileDataSource.h"
 

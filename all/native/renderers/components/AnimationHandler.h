@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_ANIMATIONHANDLER_H_
-#define _CARTO_ANIMATIONHANDLER_H_
+#ifndef _MASSIF_ANIMATIONHANDLER_H_
+#define _MASSIF_ANIMATIONHANDLER_H_
 
 #include "core/MapPos.h"
 #include "renderers/cameraevents/CameraPanEvent.h"
@@ -17,7 +17,7 @@
 #include <memory>
 #include <mutex>
 
-namespace carto {
+namespace massif {
     class MapRenderer;
     class ViewState;
     

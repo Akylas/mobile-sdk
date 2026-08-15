@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_ELEVATIONPROVIDER_H_
-#define _CARTO_ELEVATIONPROVIDER_H_
+#ifndef _MASSIF_ELEVATIONPROVIDER_H_
+#define _MASSIF_ELEVATIONPROVIDER_H_
 
 #include "core/MapTile.h"
 
 #include <cglib/ray.h>
 
-namespace carto {
+namespace massif {
     /**
      * Internal interface for terrain elevation lookups.
      * All coordinates are in the internal planar coordinate system.

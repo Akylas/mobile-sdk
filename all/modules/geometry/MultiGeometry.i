@@ -3,7 +3,7 @@
 
 %module MultiGeometry
 
-!proxy_imports(carto::MultiGeometry, core.MapPos, geometry.Geometry, geometry.GeometryVector)
+!proxy_imports(massif::MultiGeometry, core.MapPos, geometry.Geometry, geometry.GeometryVector)
 
 %{
 #include "geometry/MultiGeometry.h"
@@ -12,15 +12,15 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/MapPos.i"
 %import "geometry/Geometry.i"
 
-!polymorphic_shared_ptr(carto::MultiGeometry, geometry.MultiGeometry)
+!polymorphic_shared_ptr(massif::MultiGeometry, geometry.MultiGeometry)
 
-%attribute(carto::MultiGeometry, int, GeometryCount, getGeometryCount)
-%std_exceptions(carto::MultiGeometry::getGeometry)
+%attribute(massif::MultiGeometry, int, GeometryCount, getGeometryCount)
+%std_exceptions(massif::MultiGeometry::getGeometry)
 
 %include "geometry/MultiGeometry.h"
 

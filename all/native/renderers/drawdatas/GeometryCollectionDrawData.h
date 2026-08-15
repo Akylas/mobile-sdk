@@ -4,15 +4,15 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_GEOMETRYCOLLECTIONDRAWDATA_H_
-#define _CARTO_GEOMETRYCOLLECTIONDRAWDATA_H_
+#ifndef _MASSIF_GEOMETRYCOLLECTIONDRAWDATA_H_
+#define _MASSIF_GEOMETRYCOLLECTIONDRAWDATA_H_
 
 #include "renderers/drawdatas/VectorElementDrawData.h"
 
 #include <memory>
 #include <vector>
 
-namespace carto {
+namespace massif {
     class Bitmap;
     class Geometry;
     class MultiGeometry;

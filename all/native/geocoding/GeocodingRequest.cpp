@@ -1,4 +1,4 @@
-#ifdef _CARTO_GEOCODING_SUPPORT
+#ifdef _MASSIF_GEOCODING_SUPPORT
 
 #include "GeocodingRequest.h"
 #include "components/Exceptions.h"
@@ -11,7 +11,7 @@
 
 #include <boost/algorithm/string.hpp>
 
-namespace carto {
+namespace massif {
 
     GeocodingRequest::GeocodingRequest(const std::shared_ptr<Projection>& projection, const std::string& query) :
         _query(query),

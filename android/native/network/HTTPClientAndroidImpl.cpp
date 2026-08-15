@@ -12,7 +12,7 @@
 
 #include <boost/lexical_cast.hpp>
 
-namespace carto {
+namespace massif {
     
     struct HTTPClient::AndroidImpl::URLClass {
         JNIUniqueGlobalRef<jclass> clazz;

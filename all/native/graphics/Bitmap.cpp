@@ -31,11 +31,11 @@ namespace {
     };
 
     void reportPNGErrorCallback(png_structp pngPtr, png_const_charp message) {
-        carto::Log::Errorf("Bitmap: Error while loading PNG: %s", message);
+        massif::Log::Errorf("Bitmap: Error while loading PNG: %s", message);
     }    
 
     void reportPNGWarningCallback(png_structp pngPtr, png_const_charp message) {
-        carto::Log::Warnf("Bitmap: Warning while loading PNG: %s", message);
+        massif::Log::Warnf("Bitmap: Warning while loading PNG: %s", message);
     }    
 
     void readPNGCallback(png_structp pngPtr, png_bytep data, png_size_t length) {
@@ -86,7 +86,7 @@ namespace {
 
 }
 
-namespace carto {
+namespace massif {
     
     Bitmap::Bitmap(const std::shared_ptr<BinaryData>& pixelData, unsigned int width, unsigned int height,
                            ColorFormat::ColorFormat colorFormat, int bytesPerRow) :
@@ -540,16 +540,16 @@ namespace carto {
 
 
             bool decoded = false;
-            if (carto::mvt::compression::is_gzip(compressedData, dataSize)) {
+            if (massif::mvt::compression::is_gzip(compressedData, dataSize)) {
                 decoded = zlib::inflate_gzip(compressedData, dataSize, uncompressedData);
             }
 #ifdef HAVE_ZSTD
-            else if (carto::mvt::compression::is_zstd(compressedData, dataSize)) {
-                decoded = carto::mvt::compression::inflate_zstd(compressedData, dataSize, uncompressedData);
+            else if (massif::mvt::compression::is_zstd(compressedData, dataSize)) {
+                decoded = massif::mvt::compression::inflate_zstd(compressedData, dataSize, uncompressedData);
         }
 #endif
 #ifdef HAVE_BROTLI
-            else if (carto::mvt::compression::is_brotli(compressedData, dataSize)) {
+            else if (massif::mvt::compression::is_brotli(compressedData, dataSize)) {
                 decoded = compression::inflate_brotli(compressedData, dataSize, uncompressedData);
             }
 #endif

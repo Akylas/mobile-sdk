@@ -4,15 +4,15 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_TEXT_H_
-#define _CARTO_TEXT_H_
+#ifndef _MASSIF_TEXT_H_
+#define _MASSIF_TEXT_H_
 
 #include "vectorelements/Label.h"
 
 #include <memory>
 #include <string>
 
-namespace carto {
+namespace massif {
     class TextStyle;
 
     /**

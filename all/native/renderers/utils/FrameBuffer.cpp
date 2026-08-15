@@ -2,7 +2,7 @@
 #include "renderers/utils/GLResourceManager.h"
 #include "utils/Log.h"
 
-namespace carto {
+namespace massif {
 
     FrameBuffer::~FrameBuffer() {
     }

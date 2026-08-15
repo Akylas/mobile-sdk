@@ -3,7 +3,7 @@
 
 %module(directors="1") VectorElementEventListener
 
-!proxy_imports(carto::VectorElementEventListener, ui.VectorElementClickInfo)
+!proxy_imports(massif::VectorElementEventListener, ui.VectorElementClickInfo)
 
 %{
 #include "layers/VectorElementEventListener.h"
@@ -11,13 +11,13 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "ui/VectorElementClickInfo.i"
 
-!polymorphic_shared_ptr(carto::VectorElementEventListener, layers.VectorElementEventListener)
+!polymorphic_shared_ptr(massif::VectorElementEventListener, layers.VectorElementEventListener)
 
-%feature("director") carto::VectorElementEventListener;
+%feature("director") massif::VectorElementEventListener;
 
 %include "layers/VectorElementEventListener.h"
 

@@ -3,7 +3,7 @@
 #include "components/Exceptions.h"
 #include "graphics/Bitmap.h"
 
-namespace carto {
+namespace massif {
 
     LineStyleBuilder::LineStyleBuilder() :
         StyleBuilder(),

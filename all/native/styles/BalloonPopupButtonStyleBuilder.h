@@ -4,15 +4,15 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_BALLOONPOPUPBUTTONSTYLEBUILDER_H_
-#define _CARTO_BALLOONPOPUPBUTTONSTYLEBUILDER_H_
+#ifndef _MASSIF_BALLOONPOPUPBUTTONSTYLEBUILDER_H_
+#define _MASSIF_BALLOONPOPUPBUTTONSTYLEBUILDER_H_
 
 #include "styles/StyleBuilder.h"
 #include "styles/BalloonPopupButtonStyle.h"
 
 #include <memory>
 
-namespace carto {
+namespace massif {
 
     /**
      * A builder class for BalloonPopupButtonStyle.

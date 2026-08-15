@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_TILEDATASOURCE_H_
-#define _CARTO_TILEDATASOURCE_H_
+#ifndef _MASSIF_TILEDATASOURCE_H_
+#define _MASSIF_TILEDATASOURCE_H_
 
 #include "core/MapTile.h"
 #include "core/MapBounds.h"
@@ -17,7 +17,7 @@
 #include <vector>
 #include <map>
 
-namespace carto {
+namespace massif {
     class Projection;
 
     /**

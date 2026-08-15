@@ -3,7 +3,7 @@
 
 %module ClusteredVectorLayer
 
-!proxy_imports(carto::ClusteredVectorLayer, datasources.LocalVectorDataSource, layers.VectorLayer, vectorelements.VectorElement, layers.ClusterElementBuilder)
+!proxy_imports(massif::ClusteredVectorLayer, datasources.LocalVectorDataSource, layers.VectorLayer, vectorelements.VectorElement, layers.ClusterElementBuilder)
 
 %{
 #include "layers/ClusteredVectorLayer.h"
@@ -12,19 +12,19 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "datasources/LocalVectorDataSource.i"
 %import "layers/VectorLayer.i"
 %import "layers/ClusterElementBuilder.i"
 
-!polymorphic_shared_ptr(carto::ClusteredVectorLayer, layers.ClusteredVectorLayer)
+!polymorphic_shared_ptr(massif::ClusteredVectorLayer, layers.ClusteredVectorLayer)
 
-%attribute(carto::ClusteredVectorLayer, float, MinimumClusterDistance, getMinimumClusterDistance, setMinimumClusterDistance)
-%attribute(carto::ClusteredVectorLayer, float, MaximumClusterZoom, getMaximumClusterZoom, setMaximumClusterZoom)
-%attribute(carto::ClusteredVectorLayer, bool, AnimatedClusters, isAnimatedClusters, setAnimatedClusters)
-!attributestring_polymorphic(carto::ClusteredVectorLayer, layers.ClusterElementBuilder, ClusterElementBuilder, getClusterElementBuilder)
-%std_exceptions(carto::ClusteredVectorLayer::ClusteredVectorLayer)
+%attribute(massif::ClusteredVectorLayer, float, MinimumClusterDistance, getMinimumClusterDistance, setMinimumClusterDistance)
+%attribute(massif::ClusteredVectorLayer, float, MaximumClusterZoom, getMaximumClusterZoom, setMaximumClusterZoom)
+%attribute(massif::ClusteredVectorLayer, bool, AnimatedClusters, isAnimatedClusters, setAnimatedClusters)
+!attributestring_polymorphic(massif::ClusteredVectorLayer, layers.ClusterElementBuilder, ClusterElementBuilder, getClusterElementBuilder)
+%std_exceptions(massif::ClusteredVectorLayer::ClusteredVectorLayer)
 
 %include "layers/ClusteredVectorLayer.h"
 

@@ -4,15 +4,15 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_CUSTOMRASTERTILELAYER_H_
-#define _CARTO_CUSTOMRASTERTILELAYER_H_
+#ifndef _MASSIF_CUSTOMRASTERTILELAYER_H_
+#define _MASSIF_CUSTOMRASTERTILELAYER_H_
 
 #include "layers/RasterTileLayer.h"
 
 #include <mutex>
 #include <string>
 
-namespace carto {
+namespace massif {
 
     /**
      * A raster tile layer that renders each tile through a custom GLSL fragment shader ("filter").

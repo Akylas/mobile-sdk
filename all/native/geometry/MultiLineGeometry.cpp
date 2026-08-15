@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <iterator>
 
-namespace carto {
+namespace massif {
     
     MultiLineGeometry::MultiLineGeometry(const std::vector<std::shared_ptr<LineGeometry> >& geometries) :
         MultiGeometry(geometries.begin(), geometries.end())

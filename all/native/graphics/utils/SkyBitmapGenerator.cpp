@@ -3,7 +3,7 @@
 #include <vector>
 #include <algorithm>
 
-namespace carto {
+namespace massif {
 
     SkyBitmapGenerator::SkyBitmapGenerator(int width, int height) :
         _width(width),

@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_LABELSTYLEBUILDER_H_
-#define _CARTO_LABELSTYLEBUILDER_H_
+#ifndef _MASSIF_LABELSTYLEBUILDER_H_
+#define _MASSIF_LABELSTYLEBUILDER_H_
 
 #include "styles/BillboardStyleBuilder.h"
 
 #include <memory>
 
-namespace carto {
+namespace massif {
     class LabelStyle;
     
     /**

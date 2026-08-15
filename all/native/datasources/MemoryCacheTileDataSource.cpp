@@ -5,7 +5,7 @@
 
 #include <memory>
 
-namespace carto {
+namespace massif {
     
     MemoryCacheTileDataSource::MemoryCacheTileDataSource(const std::shared_ptr<TileDataSource>& dataSource) :
         CacheTileDataSource(dataSource),

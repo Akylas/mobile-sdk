@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_CANCELABLETHREADPOOL_H_
-#define _CARTO_CANCELABLETHREADPOOL_H_
+#ifndef _MASSIF_CANCELABLETHREADPOOL_H_
+#define _MASSIF_CANCELABLETHREADPOOL_H_
 
 #include "components/CancelableTask.h"
 #include "components/ThreadWorker.h"
@@ -15,7 +15,7 @@
 #include <queue>
 #include <thread>
 
-namespace carto {
+namespace massif {
 
     class CancelableThreadPool : public std::enable_shared_from_this<CancelableThreadPool> {
     public:

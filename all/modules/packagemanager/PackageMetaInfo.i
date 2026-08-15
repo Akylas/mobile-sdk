@@ -3,9 +3,9 @@
 
 %module PackageMetaInfo
 
-#ifdef _CARTO_PACKAGEMANAGER_SUPPORT
+#ifdef _MASSIF_PACKAGEMANAGER_SUPPORT
 
-!proxy_imports(carto::PackageMetaInfo, core.Variant)
+!proxy_imports(massif::PackageMetaInfo, core.Variant)
 
 %{
 #include "packagemanager/PackageMetaInfo.h"
@@ -14,14 +14,14 @@
 
 %include <std_shared_ptr.i>
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/Variant.i"
 
-!shared_ptr(carto::PackageMetaInfo, packagemanager.PackageMetaInfo)
+!shared_ptr(massif::PackageMetaInfo, packagemanager.PackageMetaInfo)
 
-%attributeval(carto::PackageMetaInfo, carto::Variant, Variant, getVariant)
-!standard_equals(carto::PackageMetaInfo);
+%attributeval(massif::PackageMetaInfo, massif::Variant, Variant, getVariant)
+!standard_equals(massif::PackageMetaInfo);
 
 %include "packagemanager/PackageMetaInfo.h"
 

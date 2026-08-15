@@ -1,6 +1,6 @@
 #include "PointGeometry.h"
 
-namespace carto {
+namespace massif {
 
     PointGeometry::PointGeometry(const MapPos& pos) :
         Geometry(),

@@ -3,7 +3,7 @@
 
 %module Bitmap
 
-!proxy_imports(carto::Bitmap, core.BinaryData)
+!proxy_imports(massif::Bitmap, core.BinaryData)
 
 %{
 #include "graphics/Bitmap.h"
@@ -13,25 +13,25 @@
 
 %include <std_shared_ptr.i>
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/BinaryData.i"
 
-!enum(carto::ColorFormat::ColorFormat)
-!shared_ptr(carto::Bitmap, graphics.Bitmap)
+!enum(massif::ColorFormat::ColorFormat)
+!shared_ptr(massif::Bitmap, graphics.Bitmap)
 
-%attribute(carto::Bitmap, unsigned int, Width, getWidth)
-%attribute(carto::Bitmap, unsigned int, Height, getHeight)
-%attribute(carto::Bitmap, carto::ColorFormat::ColorFormat, ColorFormat, getColorFormat)
-%attribute(carto::Bitmap, unsigned int, BytesPerPixel, getBytesPerPixel)
-%std_exceptions(carto::Bitmap::Bitmap)
-%std_exceptions(carto::Bitmap::CreateFromCompressed)
-%ignore carto::Bitmap::Bitmap(const unsigned char*, std::size_t);
-%ignore carto::Bitmap::Bitmap(const unsigned char*, unsigned int, unsigned int, ColorFormat::ColorFormat, int);
-%ignore carto::Bitmap::getPixelData;
-%rename(getPixelData) carto::Bitmap::getPixelDataPtr;
-%ignore carto::Bitmap::CreateFromCompressed(const unsigned char*, std::size_t);
-!standard_equals(carto::Bitmap);
+%attribute(massif::Bitmap, unsigned int, Width, getWidth)
+%attribute(massif::Bitmap, unsigned int, Height, getHeight)
+%attribute(massif::Bitmap, massif::ColorFormat::ColorFormat, ColorFormat, getColorFormat)
+%attribute(massif::Bitmap, unsigned int, BytesPerPixel, getBytesPerPixel)
+%std_exceptions(massif::Bitmap::Bitmap)
+%std_exceptions(massif::Bitmap::CreateFromCompressed)
+%ignore massif::Bitmap::Bitmap(const unsigned char*, std::size_t);
+%ignore massif::Bitmap::Bitmap(const unsigned char*, unsigned int, unsigned int, ColorFormat::ColorFormat, int);
+%ignore massif::Bitmap::getPixelData;
+%rename(getPixelData) massif::Bitmap::getPixelDataPtr;
+%ignore massif::Bitmap::CreateFromCompressed(const unsigned char*, std::size_t);
+!standard_equals(massif::Bitmap);
 
 %include "graphics/Bitmap.h"
 

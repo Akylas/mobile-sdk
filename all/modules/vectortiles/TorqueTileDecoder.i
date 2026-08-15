@@ -3,7 +3,7 @@
 
 %module TorqueTileDecoder
 
-!proxy_imports(carto::TorqueTileDecoder, core.BinaryData, graphics.Color, styles.CartoCSSStyleSet, vectortiles.VectorTileDecoder)
+!proxy_imports(massif::TorqueTileDecoder, core.BinaryData, graphics.Color, styles.CartoCSSStyleSet, vectortiles.VectorTileDecoder)
 
 %{
 #include "vectortiles/TorqueTileDecoder.h"
@@ -12,25 +12,25 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/BinaryData.i"
 %import "styles/CartoCSSStyleSet.i"
 %import "vectortiles/VectorTileDecoder.i"
 
-!polymorphic_shared_ptr(carto::TorqueTileDecoder, vectortiles.TorqueTileDecoder)
+!polymorphic_shared_ptr(massif::TorqueTileDecoder, vectortiles.TorqueTileDecoder)
 
-%attribute(carto::TorqueTileDecoder, int, FrameCount, getFrameCount)
-%attribute(carto::TorqueTileDecoder, int, Resolution, getResolution)
-%attribute(carto::TorqueTileDecoder, float, AnimationDuration, getAnimationDuration)
-%attributestring(carto::TorqueTileDecoder, std::shared_ptr<carto::CartoCSSStyleSet>, StyleSet, getStyleSet, setStyleSet)
-%std_exceptions(carto::TorqueTileDecoder::TorqueTileDecoder)
-%std_exceptions(carto::TorqueTileDecoder::setStyleSet)
-%ignore carto::TorqueTileDecoder::decodeFeature;
-%ignore carto::TorqueTileDecoder::decodeFeatures;
-%ignore carto::TorqueTileDecoder::decodeTile;
-%ignore carto::TorqueTileDecoder::getMapSettings;
-%ignore carto::TorqueTileDecoder::getSymbolizerContextSettings;
+%attribute(massif::TorqueTileDecoder, int, FrameCount, getFrameCount)
+%attribute(massif::TorqueTileDecoder, int, Resolution, getResolution)
+%attribute(massif::TorqueTileDecoder, float, AnimationDuration, getAnimationDuration)
+%attributestring(massif::TorqueTileDecoder, std::shared_ptr<massif::CartoCSSStyleSet>, StyleSet, getStyleSet, setStyleSet)
+%std_exceptions(massif::TorqueTileDecoder::TorqueTileDecoder)
+%std_exceptions(massif::TorqueTileDecoder::setStyleSet)
+%ignore massif::TorqueTileDecoder::decodeFeature;
+%ignore massif::TorqueTileDecoder::decodeFeatures;
+%ignore massif::TorqueTileDecoder::decodeTile;
+%ignore massif::TorqueTileDecoder::getMapSettings;
+%ignore massif::TorqueTileDecoder::getSymbolizerContextSettings;
 
 %include "vectortiles/TorqueTileDecoder.h"
 

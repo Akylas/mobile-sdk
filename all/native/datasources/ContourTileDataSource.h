@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_CONTOURTILEDATASOURCE_H_
-#define _CARTO_CONTOURTILEDATASOURCE_H_
+#ifndef _MASSIF_CONTOURTILEDATASOURCE_H_
+#define _MASSIF_CONTOURTILEDATASOURCE_H_
 
 #include "datasources/TileDataSource.h"
 #include "components/DirectorPtr.h"
@@ -17,7 +17,7 @@
 #include <utility>
 #include <vector>
 
-namespace carto {
+namespace massif {
     class Bitmap;
     class TerrainOptions;
     class ElevationDecoder;

@@ -10,20 +10,20 @@
 %}
 
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
-!value_type(carto::MapTile, core.MapTile)
+!value_type(massif::MapTile, core.MapTile)
 
-%attribute(carto::MapTile, int, X, getX)
-%attribute(carto::MapTile, int, Y, getY)
-%attribute(carto::MapTile, int, Zoom, getZoom)
-%attribute(carto::MapTile, int, FrameNr, getFrameNr)
-%attribute(carto::MapTile, long long, TileId, getTileId)
-%ignore carto::MapTile::getParent;
-%ignore carto::MapTile::getChild;
-%ignore carto::MapTile::getFlipped;
-!custom_equals(carto::MapTile);
-!custom_tostring(carto::MapTile);
+%attribute(massif::MapTile, int, X, getX)
+%attribute(massif::MapTile, int, Y, getY)
+%attribute(massif::MapTile, int, Zoom, getZoom)
+%attribute(massif::MapTile, int, FrameNr, getFrameNr)
+%attribute(massif::MapTile, long long, TileId, getTileId)
+%ignore massif::MapTile::getParent;
+%ignore massif::MapTile::getChild;
+%ignore massif::MapTile::getFlipped;
+!custom_equals(massif::MapTile);
+!custom_tostring(massif::MapTile);
 
 %include "core/MapTile.h"
 

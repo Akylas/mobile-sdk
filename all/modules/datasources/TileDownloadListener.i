@@ -3,7 +3,7 @@
 
 %module(directors="1") TileDownloadListener
 
-!proxy_imports(carto::TileDownloadListener, core.MapTile)
+!proxy_imports(massif::TileDownloadListener, core.MapTile)
 
 %{
 #include "datasources/TileDownloadListener.h"
@@ -11,13 +11,13 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/MapTile.i"
 
-!polymorphic_shared_ptr(carto::TileDownloadListener, datasources.TileDownloadListener)
+!polymorphic_shared_ptr(massif::TileDownloadListener, datasources.TileDownloadListener)
 
-%feature("director") carto::TileDownloadListener;
+%feature("director") massif::TileDownloadListener;
 
 %include "datasources/TileDownloadListener.h"
 

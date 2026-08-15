@@ -112,7 +112,7 @@ android {
                 // draw/label/tile counters (vt/RenderStats.h), both printed to logcat as 'PROF'
                 // and 'RenderStats' lines. Neither exists in the binary otherwise.
                 if (project.hasProperty('profileRender')) {
-                    arguments "-DCMAKE_CXX_FLAGS=-DCARTO_FRAME_PROFILER=1 -DCARTO_VT_RENDER_STATS=1"
+                    arguments "-DCMAKE_CXX_FLAGS=-DMASSIF_FRAME_PROFILER=1 -DMASSIF_VT_RENDER_STATS=1"
                 }
                 // Native optimization, ON by default - including from Android Studio, which
                 // passes no properties. AGP sets no CMAKE_BUILD_TYPE for the debug variant, so

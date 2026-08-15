@@ -8,19 +8,19 @@
 %}
 
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
-!value_type(carto::MapRange, core.MapRange)
+!value_type(massif::MapRange, core.MapRange)
 
-%attribute(carto::MapRange, float, Max, getMax)
-%attribute(carto::MapRange, float, Min, getMin)
-%attribute(carto::MapRange, float, Midrange, getMidrange)
-%attribute(carto::MapRange, float, Length, length)
-%ignore carto::MapRange::setRange;
-%ignore carto::MapRange::setMin;
-%ignore carto::MapRange::setMax;
-!custom_equals(carto::MapRange);
-!custom_tostring(carto::MapRange);
+%attribute(massif::MapRange, float, Max, getMax)
+%attribute(massif::MapRange, float, Min, getMin)
+%attribute(massif::MapRange, float, Midrange, getMidrange)
+%attribute(massif::MapRange, float, Length, length)
+%ignore massif::MapRange::setRange;
+%ignore massif::MapRange::setMin;
+%ignore massif::MapRange::setMax;
+!custom_equals(massif::MapRange);
+!custom_tostring(massif::MapRange);
 
 %include "core/MapRange.h"
 

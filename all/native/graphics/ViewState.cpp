@@ -11,7 +11,7 @@
 #include <limits>
 #include <cglib/mat.h>
 
-namespace carto {
+namespace massif {
 
     // Tangram's constants (core/src/view/view.cpp): the far-plane factor on the camera height,
     // and the LOD depth whose 2^(d+1)-1 = 127 tile widths cap how far tiles are ever walked.
@@ -1002,7 +1002,7 @@ namespace carto {
         return cglib::lookat4_matrix(_cameraPos, _cameraPos + cglib::transform_vector(viewVec, transform), cglib::transform_vector(_upVec, transform));
     }
     
-    cglib::mat4x4<double> ViewState::calculateModelViewMat(const carto::Options& options) const {
+    cglib::mat4x4<double> ViewState::calculateModelViewMat(const massif::Options& options) const {
         if (_cameraChanged) {
             // Camera has changed, but the matrices have not been updated yet from the render thread. Calculate far and near distances
             float near = 0;

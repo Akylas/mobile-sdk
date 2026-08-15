@@ -3,7 +3,7 @@
 
 %module CompiledStyleSet
 
-!proxy_imports(carto::CompiledStyleSet, utils.AssetPackage)
+!proxy_imports(massif::CompiledStyleSet, utils.AssetPackage)
 
 %{
 #include "styles/CompiledStyleSet.h"
@@ -13,17 +13,17 @@
 
 %include <std_string.i>
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "utils/AssetPackage.i"
 
-!shared_ptr(carto::CompiledStyleSet, styles.CompiledStyleSet)
+!shared_ptr(massif::CompiledStyleSet, styles.CompiledStyleSet)
 
-%attributestring(carto::CompiledStyleSet, std::string, StyleName, getStyleName)
-%attributestring(carto::CompiledStyleSet, std::string, StyleAssetName, getStyleAssetName)
-%attributestring(carto::CompiledStyleSet, std::shared_ptr<carto::AssetPackage>, AssetPackage, getAssetPackage)
-%std_exceptions(carto::CompiledStyleSet::CompiledStyleSet)
-!standard_equals(carto::CompiledStyleSet);
+%attributestring(massif::CompiledStyleSet, std::string, StyleName, getStyleName)
+%attributestring(massif::CompiledStyleSet, std::string, StyleAssetName, getStyleAssetName)
+%attributestring(massif::CompiledStyleSet, std::shared_ptr<massif::AssetPackage>, AssetPackage, getAssetPackage)
+%std_exceptions(massif::CompiledStyleSet::CompiledStyleSet)
+!standard_equals(massif::CompiledStyleSet);
 
 %include "styles/CompiledStyleSet.h"
 

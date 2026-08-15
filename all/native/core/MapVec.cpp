@@ -8,7 +8,7 @@
 #include <stdexcept>
 #include <functional>
 
-namespace carto {
+namespace massif {
 
     MapVec::MapVec() : _x(0), _y(0), _z(0)
     {

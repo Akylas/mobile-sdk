@@ -4,15 +4,15 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_MULTIGEOMETRY_H_
-#define _CARTO_MULTIGEOMETRY_H_
+#ifndef _MASSIF_MULTIGEOMETRY_H_
+#define _MASSIF_MULTIGEOMETRY_H_
 
 #include "geometry/Geometry.h"
 
 #include <memory>
 #include <vector>
 
-namespace carto {
+namespace massif {
 
     /**
      * A generic multi geometry container.

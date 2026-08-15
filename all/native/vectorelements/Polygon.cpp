@@ -5,7 +5,7 @@
 #include "renderers/drawdatas/PolygonDrawData.h"
 #include "styles/PolygonStyle.h"
 
-namespace carto {
+namespace massif {
 
     Polygon::Polygon(const std::shared_ptr<PolygonGeometry>& geometry, const std::shared_ptr<PolygonStyle>& style) :
         VectorElement(geometry),

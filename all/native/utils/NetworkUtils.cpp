@@ -18,7 +18,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 
-namespace carto {
+namespace massif {
 
     bool NetworkUtils::GetHTTP(const std::string& url, std::string& responseString, bool log) {
         std::map<std::string, std::string> requestHeaders;

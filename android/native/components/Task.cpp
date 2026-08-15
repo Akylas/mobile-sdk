@@ -1,6 +1,6 @@
 #include "components/Task.h"
 
-namespace carto {
+namespace massif {
 
     void Task::operator()() {
         run();

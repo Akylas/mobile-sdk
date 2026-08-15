@@ -7,7 +7,7 @@
 #include "utils/Log.h"
 #include "utils/GeneralUtils.h"
 
-namespace carto {
+namespace massif {
 
     CameraRotationEvent::CameraRotationEvent() :
         _rotation(0),

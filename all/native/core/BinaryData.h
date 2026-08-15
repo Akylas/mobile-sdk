@@ -4,15 +4,15 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_BINARYDATA_H_
-#define _CARTO_BINARYDATA_H_
+#ifndef _MASSIF_BINARYDATA_H_
+#define _MASSIF_BINARYDATA_H_
 
 #include <memory>
 #include <vector>
 #include <string>
 #include <mutex>
 
-namespace carto {
+namespace massif {
     
     /**
      * A wrapper class for binary data (Blob).

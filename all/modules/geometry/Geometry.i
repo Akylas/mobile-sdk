@@ -3,7 +3,7 @@
 
 %module Geometry
 
-!proxy_imports(carto::Geometry, core.MapPos, core.MapBounds)
+!proxy_imports(massif::Geometry, core.MapPos, core.MapBounds)
 
 %{
 #include "geometry/Geometry.h"
@@ -12,20 +12,20 @@
 
 %include <std_shared_ptr.i>
 %include <std_vector.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/MapPos.i"
 %import "core/MapBounds.i"
 
-!polymorphic_shared_ptr(carto::Geometry, geometry.Geometry)
-!value_type(std::vector<std::shared_ptr<carto::Geometry> >, geometry.GeometryVector)
+!polymorphic_shared_ptr(massif::Geometry, geometry.Geometry)
+!value_type(std::vector<std::shared_ptr<massif::Geometry> >, geometry.GeometryVector)
 
-%attributeval(carto::Geometry, carto::MapBounds, Bounds, getBounds)
-%attributeval(carto::Geometry, carto::MapPos, CenterPos, getCenterPos)
-!standard_equals(carto::Geometry);
+%attributeval(massif::Geometry, massif::MapBounds, Bounds, getBounds)
+%attributeval(massif::Geometry, massif::MapPos, CenterPos, getCenterPos)
+!standard_equals(massif::Geometry);
 
 %include "geometry/Geometry.h"
 
-!value_template(std::vector<std::shared_ptr<carto::Geometry> >, geometry.GeometryVector)
+!value_template(std::vector<std::shared_ptr<massif::Geometry> >, geometry.GeometryVector)
 
 #endif

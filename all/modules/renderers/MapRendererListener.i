@@ -11,9 +11,9 @@
 %include <std_string.i>
 %include <std_shared_ptr.i>
 
-!polymorphic_shared_ptr(carto::MapRendererListener, renderers.MapRendererListener)
+!polymorphic_shared_ptr(massif::MapRendererListener, renderers.MapRendererListener)
 
-%feature("director") carto::MapRendererListener;
+%feature("director") massif::MapRendererListener;
 
 %include "renderers/MapRendererListener.h"
 

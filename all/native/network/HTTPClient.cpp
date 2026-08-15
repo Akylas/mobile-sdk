@@ -11,24 +11,24 @@
 #include <boost/lexical_cast.hpp>
 
 #if defined(_WIN32)
-#define CARTO_HTTP_SOCKET_IMPL WinSockImpl
+#define MASSIF_HTTP_SOCKET_IMPL WinSockImpl
 #include "network/HTTPClientWinSockImpl.h"
 #elif defined(__APPLE__)
-#define CARTO_HTTP_SOCKET_IMPL IOSImpl
+#define MASSIF_HTTP_SOCKET_IMPL IOSImpl
 #include "network/HTTPClientIOSImpl.h"
 #elif defined(__ANDROID__)
-#define CARTO_HTTP_SOCKET_IMPL AndroidImpl
+#define MASSIF_HTTP_SOCKET_IMPL AndroidImpl
 #include "network/HTTPClientAndroidImpl.h"
 #else
-#define CARTO_HTTP_SOCKET_IMPL PionImpl
+#define MASSIF_HTTP_SOCKET_IMPL PionImpl
 #include "HTTPClientPionImpl.h"
 #endif
 
-namespace carto {
+namespace massif {
 
     HTTPClient::HTTPClient(bool log) :
         _log(log),
-        _impl(std::make_unique<CARTO_HTTP_SOCKET_IMPL>(log))
+        _impl(std::make_unique<MASSIF_HTTP_SOCKET_IMPL>(log))
     {
     }
 

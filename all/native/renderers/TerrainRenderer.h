@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_TERRAINRENDERER_H_
-#define _CARTO_TERRAINRENDERER_H_
+#ifndef _MASSIF_TERRAINRENDERER_H_
+#define _MASSIF_TERRAINRENDERER_H_
 
 #include "components/StyleEnvironment.h"
 #include "core/MapTile.h"
@@ -22,7 +22,7 @@
 #include <cglib/vec.h>
 #include <cglib/mat.h>
 
-namespace carto {
+namespace massif {
     class Bitmap;
     class ElevationManager;
     class ElevationTileGrid;

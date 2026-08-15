@@ -21,7 +21,7 @@
 
 #include <algorithm>
 
-namespace carto {
+namespace massif {
 
     TouchHandler::TouchHandler(const std::shared_ptr<MapRenderer>& mapRenderer, const std::shared_ptr<Options>& options) :
         _gestureMode(SINGLE_POINTER_CLICK_GUESS),

@@ -18,7 +18,7 @@
 
 #include <cglib/mat.h>
 
-namespace carto {
+namespace massif {
 
     BackgroundRenderer::BackgroundRenderer(const Options& options, const Layers& layers) :
         _backgroundBitmap(),

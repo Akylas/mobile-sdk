@@ -3,7 +3,7 @@
 
 %module ManeuverArrowBuilder
 
-!proxy_imports(carto::ManeuverArrowBuilder, core.MapPos, core.MapPosVector, geometry.FeatureCollection, projections.Projection)
+!proxy_imports(massif::ManeuverArrowBuilder, core.MapPos, core.MapPosVector, geometry.FeatureCollection, projections.Projection)
 
 %{
 #include "geometry/ManeuverArrowBuilder.h"
@@ -12,18 +12,18 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/MapPos.i"
 %import "geometry/FeatureCollection.i"
 %import "projections/Projection.i"
 
-!shared_ptr(carto::ManeuverArrowBuilder, geometry.ManeuverArrowBuilder)
+!shared_ptr(massif::ManeuverArrowBuilder, geometry.ManeuverArrowBuilder)
 
-%attribute(carto::ManeuverArrowBuilder, float, LengthBefore, getLengthBefore, setLengthBefore)
-%attribute(carto::ManeuverArrowBuilder, float, LengthAfter, getLengthAfter, setLengthAfter)
-%std_exceptions(carto::ManeuverArrowBuilder::buildArrow)
-%std_exceptions(carto::ManeuverArrowBuilder::buildArrowAtIndex)
+%attribute(massif::ManeuverArrowBuilder, float, LengthBefore, getLengthBefore, setLengthBefore)
+%attribute(massif::ManeuverArrowBuilder, float, LengthAfter, getLengthAfter, setLengthAfter)
+%std_exceptions(massif::ManeuverArrowBuilder::buildArrow)
+%std_exceptions(massif::ManeuverArrowBuilder::buildArrowAtIndex)
 
 %include "geometry/ManeuverArrowBuilder.h"
 

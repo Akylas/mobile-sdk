@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_MVTLOGGER_H_
-#define _CARTO_MVTLOGGER_H_
+#ifndef _MASSIF_MVTLOGGER_H_
+#define _MASSIF_MVTLOGGER_H_
 
 #include "utils/Log.h"
 
 #include <mapnikvt/Logger.h>
 
-namespace carto {
+namespace massif {
     
     class MVTLogger : public mvt::Logger {
     public:

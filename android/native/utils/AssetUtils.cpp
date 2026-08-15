@@ -6,7 +6,7 @@
 
 #include <android/asset_manager_jni.h>
 
-namespace carto {
+namespace massif {
 
     void AssetUtils::SetAssetManagerPointer(jobject androidAssetManager) {
         std::lock_guard<std::mutex> lock(_Mutex);

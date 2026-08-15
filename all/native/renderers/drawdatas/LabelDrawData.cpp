@@ -5,7 +5,7 @@
 #include "utils/Const.h"
 #include "vectorelements/Label.h"
 
-namespace carto {
+namespace massif {
 
     LabelDrawData::LabelDrawData(const Label& label, const LabelStyle& style, const Projection& projection, const std::shared_ptr<ProjectionSurface>& projectionSurface, const ViewState& viewState) :
         BillboardDrawData(label,

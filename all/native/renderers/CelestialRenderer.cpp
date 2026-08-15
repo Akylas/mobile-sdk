@@ -19,7 +19,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace carto {
+namespace massif {
 
     const double CelestialRenderer::INFINITE_DISTANCE_FACTOR = 0.9;
 

@@ -3,7 +3,7 @@
 
 %module VectorLayer
 
-!proxy_imports(carto::VectorLayer, datasources.VectorDataSource, layers.Layer, layers.VectorElementEventListener)
+!proxy_imports(massif::VectorLayer, datasources.VectorDataSource, layers.Layer, layers.VectorElementEventListener)
 
 %{
 #include "layers/VectorLayer.h"
@@ -12,18 +12,18 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "layers/VectorElementEventListener.i"
 %import "layers/Layer.i"
 %import "datasources/VectorDataSource.i"
 
-!polymorphic_shared_ptr(carto::VectorLayer, layers.VectorLayer)
+!polymorphic_shared_ptr(massif::VectorLayer, layers.VectorLayer)
 
-!attributestring_polymorphic(carto::VectorLayer, datasources.VectorDataSource, DataSource, getDataSource)
-!attributestring_polymorphic(carto::VectorLayer, layers.VectorElementEventListener, VectorElementEventListener, getVectorElementEventListener, setVectorElementEventListener)
-%attribute(carto::VectorLayer, bool, ZBuffering, isZBuffering, setZBuffering)
-%std_exceptions(carto::VectorLayer::VectorLayer)
+!attributestring_polymorphic(massif::VectorLayer, datasources.VectorDataSource, DataSource, getDataSource)
+!attributestring_polymorphic(massif::VectorLayer, layers.VectorElementEventListener, VectorElementEventListener, getVectorElementEventListener, setVectorElementEventListener)
+%attribute(massif::VectorLayer, bool, ZBuffering, isZBuffering, setZBuffering)
+%std_exceptions(massif::VectorLayer::VectorLayer)
 
 %include "layers/VectorLayer.h"
 

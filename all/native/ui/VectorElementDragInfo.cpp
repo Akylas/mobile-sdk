@@ -1,8 +1,8 @@
-#ifdef _CARTO_EDITABLE_SUPPORT
+#ifdef _MASSIF_EDITABLE_SUPPORT
 
 #include "VectorElementDragInfo.h"
 
-namespace carto {
+namespace massif {
     
     VectorElementDragInfo::VectorElementDragInfo(const std::shared_ptr<VectorElement>& vectorElement, VectorElementDragMode::VectorElementDragMode dragMode, const ScreenPos& screenPos, const MapPos& mapPos) :
         _dragMode(dragMode),

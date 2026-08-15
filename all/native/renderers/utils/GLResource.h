@@ -4,15 +4,15 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_GLRESOURCE_H_
-#define _CARTO_GLRESOURCE_H_
+#ifndef _MASSIF_GLRESOURCE_H_
+#define _MASSIF_GLRESOURCE_H_
 
 #include "renderers/utils/GLContext.h"
 
 #include <memory>
 #include <vector>
 
-namespace carto {
+namespace massif {
     class GLResourceManager;
     
     class GLResource {

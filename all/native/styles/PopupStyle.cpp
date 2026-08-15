@@ -1,6 +1,6 @@
 #include "PopupStyle.h"
 
-namespace carto {
+namespace massif {
 
     PopupStyle::PopupStyle(const Color& color,
                            float attachAnchorPointX,

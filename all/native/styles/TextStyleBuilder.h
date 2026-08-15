@@ -5,15 +5,15 @@
  */
 
 
-#ifndef _CARTO_TEXTSTYLEBUILDER_H_
-#define _CARTO_TEXTSTYLEBUILDER_H_
+#ifndef _MASSIF_TEXTSTYLEBUILDER_H_
+#define _MASSIF_TEXTSTYLEBUILDER_H_
 
 #include "styles/LabelStyleBuilder.h"
 #include "styles/TextStyle.h"
 
 #include <memory>
 
-namespace carto {
+namespace massif {
 
     /**
      * A builder class for TextStyle.

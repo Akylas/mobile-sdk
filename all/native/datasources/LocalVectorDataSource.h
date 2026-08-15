@@ -4,15 +4,15 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_LOCALVECTORDATASOURCE_H_
-#define _CARTO_LOCALVECTORDATASOURCE_H_
+#ifndef _MASSIF_LOCALVECTORDATASOURCE_H_
+#define _MASSIF_LOCALVECTORDATASOURCE_H_
 
 #include "datasources/VectorDataSource.h"
 #include "geometry/utils/SpatialIndex.h"
 
 #include <memory>
 
-namespace carto {
+namespace massif {
 
     namespace LocalSpatialIndexType {
         /**

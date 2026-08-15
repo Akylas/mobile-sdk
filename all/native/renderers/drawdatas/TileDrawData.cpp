@@ -2,7 +2,7 @@
 
 #include <vt/Tile.h>
 
-namespace carto {
+namespace massif {
 
     TileDrawData::TileDrawData(const vt::TileId& vtTileId, const std::shared_ptr<const vt::Tile>& vtTile, long long tileId, bool preloadingTile) :
         _vtTileId(vtTileId),

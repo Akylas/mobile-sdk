@@ -3,7 +3,7 @@
 
 %module(directors="1") CacheTileDataSource
 
-!proxy_imports(carto::CacheTileDataSource, core.MapTile, core.MapBounds, core.StringMap, datasources.TileDataSource, datasources.components.TileData)
+!proxy_imports(massif::CacheTileDataSource, core.MapTile, core.MapBounds, core.StringMap, datasources.TileDataSource, datasources.components.TileData)
 
 %{
 #include "datasources/CacheTileDataSource.h"
@@ -12,17 +12,17 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "datasources/TileDataSource.i"
 
-!polymorphic_shared_ptr(carto::CacheTileDataSource, datasources.CacheTileDataSource)
+!polymorphic_shared_ptr(massif::CacheTileDataSource, datasources.CacheTileDataSource)
 
-!attributestring_polymorphic(carto::CacheTileDataSource, datasources.TileDataSource, DataSource, getDataSource)
-%attribute(carto::CacheTileDataSource, std::size_t, Capacity, getCapacity, setCapacity)
-%std_exceptions(carto::CacheTileDataSource::CacheTileDataSource)
+!attributestring_polymorphic(massif::CacheTileDataSource, datasources.TileDataSource, DataSource, getDataSource)
+%attribute(massif::CacheTileDataSource, std::size_t, Capacity, getCapacity, setCapacity)
+%std_exceptions(massif::CacheTileDataSource::CacheTileDataSource)
 
-%feature("director") carto::CacheTileDataSource;
+%feature("director") massif::CacheTileDataSource;
 
 %include "datasources/CacheTileDataSource.h"
 

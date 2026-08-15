@@ -3,9 +3,9 @@
 
 %module(directors="1") VectorEditEventListener
 
-#ifdef _CARTO_EDITABLE_SUPPORT
+#ifdef _MASSIF_EDITABLE_SUPPORT
 
-!proxy_imports(carto::VectorEditEventListener, core.ScreenPos, geometry.Geometry, vectorelements.VectorElement, styles.PointStyle, ui.VectorElementDragInfo)
+!proxy_imports(massif::VectorEditEventListener, core.ScreenPos, geometry.Geometry, vectorelements.VectorElement, styles.PointStyle, ui.VectorElementDragInfo)
 
 %{
 #include "layers/VectorEditEventListener.h"
@@ -13,7 +13,7 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/ScreenPos.i"
 %import "geometry/Geometry.i"
@@ -21,11 +21,11 @@
 %import "styles/PointStyle.i"
 %import "ui/VectorElementDragInfo.i"
 
-!enum(carto::VectorElementDragPointStyle::VectorElementDragPointStyle)
-!enum(carto::VectorElementDragResult::VectorElementDragResult)
-!polymorphic_shared_ptr(carto::VectorEditEventListener, layers.VectorEditEventListener)
+!enum(massif::VectorElementDragPointStyle::VectorElementDragPointStyle)
+!enum(massif::VectorElementDragResult::VectorElementDragResult)
+!polymorphic_shared_ptr(massif::VectorEditEventListener, layers.VectorEditEventListener)
 
-%feature("director") carto::VectorEditEventListener;
+%feature("director") massif::VectorEditEventListener;
 
 %include "layers/VectorEditEventListener.h"
 

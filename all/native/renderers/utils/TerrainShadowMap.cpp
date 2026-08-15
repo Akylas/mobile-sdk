@@ -4,7 +4,7 @@
 
 #include <algorithm>
 
-namespace carto {
+namespace massif {
 
     TerrainShadowMap::TerrainShadowMap() :
         _size(1024),

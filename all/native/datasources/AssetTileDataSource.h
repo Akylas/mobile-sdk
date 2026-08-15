@@ -4,14 +4,14 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_ASSETTILEDATASOURCE_H_
-#define _CARTO_ASSETTILEDATASOURCE_H_
+#ifndef _MASSIF_ASSETTILEDATASOURCE_H_
+#define _MASSIF_ASSETTILEDATASOURCE_H_
 
 #include "datasources/TileDataSource.h"
 
 #include <string>
 
-namespace carto {
+namespace massif {
     
     /**
      * A tile data source where each map tile is a seperate image file bundled with the application.

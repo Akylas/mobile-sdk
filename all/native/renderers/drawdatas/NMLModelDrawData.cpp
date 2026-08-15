@@ -8,7 +8,7 @@
 
 #include <nml/Package.h>
 
-namespace carto {
+namespace massif {
 
     NMLModelDrawData::NMLModelDrawData(const NMLModel& model, const NMLModelStyle& style, const Projection& projection, const std::shared_ptr<ProjectionSurface>& projectionSurface) :
         BillboardDrawData(model,

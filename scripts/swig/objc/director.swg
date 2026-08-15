@@ -19,7 +19,7 @@
 namespace Swig {
 
   /* director base class */
-  class Director : public carto::Director {
+  class Director : public massif::Director {
   protected:
     __weak id swig_weak_ptr_;
     id swig_strong_ptr_;
@@ -67,7 +67,7 @@ namespace Swig {
       if (counter == 0) {
         swig_objc_change_ownership(swig_weak_ptr_, true);
       } else if (counter < 0) {
-        carto::Log::Errorf("Director::release: Reference counter = %d!", counter);
+        massif::Log::Errorf("Director::release: Reference counter = %d!", counter);
       }
     }
 

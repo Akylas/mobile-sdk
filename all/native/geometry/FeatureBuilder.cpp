@@ -2,7 +2,7 @@
 #include "geometry/Feature.h"
 #include "geometry/Geometry.h"
 
-namespace carto {
+namespace massif {
 
     FeatureBuilder::FeatureBuilder() :
         _geometry(),

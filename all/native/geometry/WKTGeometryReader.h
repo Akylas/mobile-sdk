@@ -4,15 +4,15 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_WKTGEOMETRYREADER_H_
-#define _CARTO_WKTGEOMETRYREADER_H_
+#ifndef _MASSIF_WKTGEOMETRYREADER_H_
+#define _MASSIF_WKTGEOMETRYREADER_H_
 
-#ifdef _CARTO_WKBT_SUPPORT
+#ifdef _MASSIF_WKBT_SUPPORT
 
 #include <memory>
 #include <string>
 
-namespace carto {
+namespace massif {
     class Geometry;
 
     /**

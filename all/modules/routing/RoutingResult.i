@@ -5,9 +5,9 @@
 
 %module RoutingResult
 
-#ifdef _CARTO_ROUTING_SUPPORT
+#ifdef _MASSIF_ROUTING_SUPPORT
 
-!proxy_imports(carto::RoutingResult, core.MapPos, core.MapPosVector, projections.Projection, routing.RoutingInstruction, routing.RoutingInstructionVector)
+!proxy_imports(massif::RoutingResult, core.MapPos, core.MapPosVector, projections.Projection, routing.RoutingInstruction, routing.RoutingInstructionVector)
 
 %{
 #include "routing/RoutingResult.h"
@@ -16,23 +16,23 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/MapPos.i"
 %import "projections/Projection.i"
 %import "routing/RoutingInstruction.i"
 
-!shared_ptr(carto::RoutingResult, routing.RoutingResult)
+!shared_ptr(massif::RoutingResult, routing.RoutingResult)
 
-%attributestring(carto::RoutingResult, std::shared_ptr<carto::Projection>, Projection, getProjection)
-%attributeval(carto::RoutingResult, std::vector<carto::MapPos>, Points, getPoints)
-%attributeval(carto::RoutingResult, std::vector<carto::RoutingInstruction>, Instructions, getInstructions)
-%attribute(carto::RoutingResult, double, TotalDistance, getTotalDistance)
-%attribute(carto::RoutingResult, double, TotalTime, getTotalTime)
-%attributestring(carto::RoutingResult, std::string, RawResult, getRawResult)
-%std_exceptions(carto::RoutingResult::RoutingResult)
-!standard_equals(carto::RoutingResult);
-!custom_tostring(carto::RoutingResult);
+%attributestring(massif::RoutingResult, std::shared_ptr<massif::Projection>, Projection, getProjection)
+%attributeval(massif::RoutingResult, std::vector<massif::MapPos>, Points, getPoints)
+%attributeval(massif::RoutingResult, std::vector<massif::RoutingInstruction>, Instructions, getInstructions)
+%attribute(massif::RoutingResult, double, TotalDistance, getTotalDistance)
+%attribute(massif::RoutingResult, double, TotalTime, getTotalTime)
+%attributestring(massif::RoutingResult, std::string, RawResult, getRawResult)
+%std_exceptions(massif::RoutingResult::RoutingResult)
+!standard_equals(massif::RoutingResult);
+!custom_tostring(massif::RoutingResult);
 
 %include "routing/RoutingResult.h"
 

@@ -3,9 +3,9 @@
 
 %module(directors="1") PackageManagerValhallaRoutingService
 
-#if defined(_CARTO_ROUTING_SUPPORT) && defined(_CARTO_VALHALLA_ROUTING_SUPPORT) && defined(_CARTO_PACKAGEMANAGER_SUPPORT)
+#if defined(_MASSIF_ROUTING_SUPPORT) && defined(_MASSIF_VALHALLA_ROUTING_SUPPORT) && defined(_MASSIF_PACKAGEMANAGER_SUPPORT)
 
-!proxy_imports(carto::PackageManagerValhallaRoutingService, packagemanager.PackageManager, core.Variant, routing.RoutingService, routing.RoutingRequest, routing.RoutingResult, routing.RouteMatchingRequest, routing.RouteMatchingResult)
+!proxy_imports(massif::PackageManagerValhallaRoutingService, packagemanager.PackageManager, core.Variant, routing.RoutingService, routing.RoutingRequest, routing.RoutingResult, routing.RouteMatchingRequest, routing.RouteMatchingResult)
 
 %{
 #include "routing/PackageManagerValhallaRoutingService.h"
@@ -15,19 +15,19 @@
 
 %include <std_shared_ptr.i>
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/Variant.i"
 %import "routing/RoutingService.i"
 %import "packagemanager/PackageManager.i"
 
-!polymorphic_shared_ptr(carto::PackageManagerValhallaRoutingService, routing.PackageManagerValhallaRoutingService)
+!polymorphic_shared_ptr(massif::PackageManagerValhallaRoutingService, routing.PackageManagerValhallaRoutingService)
 
-%std_exceptions(carto::PackageManagerValhallaRoutingService::PackageManagerValhallaRoutingService)
-%std_io_exceptions(carto::PackageManagerValhallaRoutingService::matchRoute)
-%std_io_exceptions(carto::PackageManagerValhallaRoutingService::calculateRoute)
+%std_exceptions(massif::PackageManagerValhallaRoutingService::PackageManagerValhallaRoutingService)
+%std_io_exceptions(massif::PackageManagerValhallaRoutingService::matchRoute)
+%std_io_exceptions(massif::PackageManagerValhallaRoutingService::calculateRoute)
 
-%feature("director") carto::PackageManagerValhallaRoutingService;
+%feature("director") massif::PackageManagerValhallaRoutingService;
 
 %include "routing/PackageManagerValhallaRoutingService.h"
 

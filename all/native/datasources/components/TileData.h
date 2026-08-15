@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_TILEDATA_H_
-#define _CARTO_TILEDATA_H_
+#ifndef _MASSIF_TILEDATA_H_
+#define _MASSIF_TILEDATA_H_
 
 #include <chrono>
 #include <memory>
@@ -14,7 +14,7 @@
 #include <map>
 #include <string>
 
-namespace carto {
+namespace massif {
     class BinaryData;
     class Variant;
     

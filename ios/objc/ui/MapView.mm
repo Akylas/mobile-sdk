@@ -34,7 +34,7 @@ static const int NATIVE_NO_COORDINATE = -1;
 
 +(void)initialize {
     if (self == [NTMapView class]) {
-        carto::IOSUtils::InitializeLog();
+        massif::IOSUtils::InitializeLog();
 
         // Because iOS uses static library, we must explicitly refer to all polymorphic classes created via reflection; otherwise linking may leave them from the build
         initNTPolymorphicClasses();
@@ -65,7 +65,7 @@ static const int NATIVE_NO_COORDINATE = -1;
     _activeDrawableSize = CGSizeMake(0, 0);
     _scale = [[UIScreen mainScreen] scale];
     // In case of MetalANGLE build, use the original scale value
-#ifndef _CARTO_USE_METALANGLE
+#ifndef _MASSIF_USE_METALANGLE
     if ([[UIScreen mainScreen] respondsToSelector:@selector(nativeScale)]) {
         _scale = [[UIScreen mainScreen] nativeScale];
     }
@@ -73,7 +73,7 @@ static const int NATIVE_NO_COORDINATE = -1;
     self.contentScaleFactor = _scale;
 
     _baseMapView = [[NTBaseMapView alloc] init];
-    [[_baseMapView getOptions] setDPI:carto::Const::UNSCALED_DPI * _scale];
+    [[_baseMapView getOptions] setDPI:massif::Const::UNSCALED_DPI * _scale];
 
     NTMapRedrawRequestListener* redrawRequestListener = [[NTMapRedrawRequestListener alloc] initWithView:self];
     [_baseMapView setRedrawRequestListener:redrawRequestListener];
@@ -94,26 +94,26 @@ static const int NATIVE_NO_COORDINATE = -1;
 -(void)initContext {
     // Prefer an OpenGL ES 3.0 context: the rendering code uses the ES 2.0 API subset,
     // but ES3-class contexts guarantee vertex texture fetch (GPU terrain draping).
-#ifdef _CARTO_USE_METALANGLE
+#ifdef _MASSIF_USE_METALANGLE
     NTGLContext* context = [[NTGLContext alloc] initWithAPI:kMGLRenderingAPIOpenGLES3];
     if (!context) {
-        carto::Log::Warn("MapView::initContext: Failed to create OpenGL ES 3.0 context, falling back to ES 2.0");
+        massif::Log::Warn("MapView::initContext: Failed to create OpenGL ES 3.0 context, falling back to ES 2.0");
         context = [[NTGLContext alloc] initWithAPI:kMGLRenderingAPIOpenGLES2];
     }
 #else
     NTGLContext* context = [[NTGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES3];
     if (!context) {
-        carto::Log::Warn("MapView::initContext: Failed to create OpenGL ES 3.0 context, falling back to ES 2.0");
+        massif::Log::Warn("MapView::initContext: Failed to create OpenGL ES 3.0 context, falling back to ES 2.0");
         context = [[NTGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
     }
 #endif
     if (!context) {
-        carto::Log::Fatal("MapView::initContext: Failed to create OpenGL ES context");
+        massif::Log::Fatal("MapView::initContext: Failed to create OpenGL ES context");
     }
 
     self.context = context;
     self.multipleTouchEnabled = YES;
-#ifdef _CARTO_USE_METALANGLE
+#ifdef _MASSIF_USE_METALANGLE
     self.drawableColorFormat = MGLDrawableColorFormatRGBA8888;
     self.drawableDepthFormat = MGLDrawableDepthFormat24;
     self.drawableMultisample = MGLDrawableMultisampleNone;
@@ -141,9 +141,9 @@ static const int NATIVE_NO_COORDINATE = -1;
     [super willMoveToWindow:newWindow];
 
     if (newWindow == nil) {
-        carto::Log::Info("MapView::willMoveToWindow: null");
+        massif::Log::Info("MapView::willMoveToWindow: null");
     } else {
-        carto::Log::Info("MapView::willMoveToWindow: nonnull");
+        massif::Log::Info("MapView::willMoveToWindow: nonnull");
 
         @synchronized (self) {
             if (!_active) {
@@ -162,7 +162,7 @@ static const int NATIVE_NO_COORDINATE = -1;
     [super didMoveToWindow];
 
     if (self.window == nil) {
-        carto::Log::Info("MapView::didMoveToWindow: null");
+        massif::Log::Info("MapView::didMoveToWindow: null");
 
         @synchronized (self) {
             if (_active) {
@@ -175,7 +175,7 @@ static const int NATIVE_NO_COORDINATE = -1;
             }
         }
     } else {
-        carto::Log::Info("MapView::didMoveToWindow: nonnull");
+        massif::Log::Info("MapView::didMoveToWindow: nonnull");
 
         [self setNeedsDisplay];
     }
@@ -190,7 +190,7 @@ static const int NATIVE_NO_COORDINATE = -1;
 -(void)drawRect:(CGRect)rect {
     @synchronized (self) {
         if (_active) {
-#ifdef _CARTO_USE_METALANGLE
+#ifdef _MASSIF_USE_METALANGLE
             NTGLContext* context = [NTGLContext currentContext];
             [NTGLContext setCurrentContext:self.context forLayer:self.glLayer];
 #endif
@@ -201,7 +201,7 @@ static const int NATIVE_NO_COORDINATE = -1;
                 _surfaceCreated = YES;
             }
 
-#ifdef _CARTO_USE_METALANGLE
+#ifdef _MASSIF_USE_METALANGLE
             CGFloat drawableWidth = self.drawableSize.width;
             CGFloat drawableHeight = self.drawableSize.height;
 #else
@@ -215,7 +215,7 @@ static const int NATIVE_NO_COORDINATE = -1;
 
             [_baseMapView onDrawFrame];
 
-#ifdef _CARTO_USE_METALANGLE
+#ifdef _MASSIF_USE_METALANGLE
             [self.context present:self.glLayer];
             if (context != self.context) {
                 [NTGLContext setCurrentContext:context];
@@ -248,7 +248,7 @@ static const int NATIVE_NO_COORDINATE = -1;
 }
 
 -(void)appWillResignActive {
-    carto::Log::Info("MapView::appWillResignActive");
+    massif::Log::Info("MapView::appWillResignActive");
 
     @synchronized (self) {
         if (_active) {
@@ -268,7 +268,7 @@ static const int NATIVE_NO_COORDINATE = -1;
 }
 
 -(void)appDidBecomeActive {
-    carto::Log::Info("MapView::appDidBecomeActive");
+    massif::Log::Info("MapView::appDidBecomeActive");
 
     @synchronized (self) {
         _active = YES;
@@ -278,7 +278,7 @@ static const int NATIVE_NO_COORDINATE = -1;
 }
 
 -(void)appDidEnterBackground {
-    carto::Log::Info("MapView::appDidEnterBackground");
+    massif::Log::Info("MapView::appDidEnterBackground");
 
     @synchronized (self) {
         _active = NO;
@@ -286,7 +286,7 @@ static const int NATIVE_NO_COORDINATE = -1;
 }
 
 -(void)appWillEnterForeground {
-    carto::Log::Info("MapView::appWillEnterForeground");
+    massif::Log::Info("MapView::appWillEnterForeground");
 
     @synchronized (self) {
         _active = YES;

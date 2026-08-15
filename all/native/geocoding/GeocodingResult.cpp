@@ -1,4 +1,4 @@
-#ifdef _CARTO_GEOCODING_SUPPORT
+#ifdef _MASSIF_GEOCODING_SUPPORT
 
 #include "GeocodingResult.h"
 #include "components/Exceptions.h"
@@ -8,7 +8,7 @@
 #include <iomanip>
 #include <sstream>
 
-namespace carto {
+namespace massif {
 
     GeocodingResult::GeocodingResult(const std::shared_ptr<Projection>& projection, const GeocodingAddress& address, float rank, const std::shared_ptr<FeatureCollection>& featureCollection) :
         _address(address),

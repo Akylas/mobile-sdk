@@ -20,7 +20,7 @@
 
 namespace Swig {
   /* Director base class */
-  class Director : public carto::Director {
+  class Director : public massif::Director {
   public:
     enum { RELEASE_HANDLE = 0, WEAK_HANDLE = 1, STRONG_HANDLE = 2 };
     typedef void* (SWIGSTDCALL *SWIG_gchandle_delegate)(void *, int);
@@ -72,7 +72,7 @@ namespace Swig {
       if (counter == 0) {
         swig_csharp_change_ownership(swig_self_, false);
       } else if (counter < 0) {
-        carto::Log::Errorf("Director::release: Reference counter = %d!", counter);
+        massif::Log::Errorf("Director::release: Reference counter = %d!", counter);
       }
     }
 

@@ -3,7 +3,7 @@
 
 %module MarkerStyleBuilder
 
-!proxy_imports(carto::MarkerStyleBuilder, graphics.Bitmap, styles.BillboardStyleBuilder, styles.MarkerStyle)
+!proxy_imports(massif::MarkerStyleBuilder, graphics.Bitmap, styles.BillboardStyleBuilder, styles.MarkerStyle)
 
 %{
 #include "styles/MarkerStyleBuilder.h"
@@ -12,22 +12,22 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "styles/BillboardStyleBuilder.i"
 %import "styles/MarkerStyle.i"
 
-!polymorphic_shared_ptr(carto::MarkerStyleBuilder, styles.MarkerStyleBuilder)
+!polymorphic_shared_ptr(massif::MarkerStyleBuilder, styles.MarkerStyleBuilder)
 
-%attribute(carto::MarkerStyleBuilder, float, Size, getSize, setSize)
-%attribute(carto::MarkerStyleBuilder, float, ClickSize, getClickSize, setClickSize)
-%attribute(carto::MarkerStyleBuilder, carto::BillboardOrientation::BillboardOrientation, OrientationMode, getOrientationMode, setOrientationMode)
-%attribute(carto::MarkerStyleBuilder, carto::BillboardScaling::BillboardScaling, ScalingMode, getScalingMode, setScalingMode)
-%attribute(carto::MarkerStyleBuilder, float, AnchorPointX, getAnchorPointX, setAnchorPointX)
-%attribute(carto::MarkerStyleBuilder, float, AnchorPointY, getAnchorPointY, setAnchorPointY)
-%attributestring(carto::MarkerStyleBuilder, std::shared_ptr<carto::Bitmap>, Bitmap, getBitmap, setBitmap)
-%std_exceptions(carto::MarkerStyleBuilder::setBitmap)
-!objc_rename(setAnchorPointX) carto::MarkerStyleBuilder::setAnchorPoint(float, float);
+%attribute(massif::MarkerStyleBuilder, float, Size, getSize, setSize)
+%attribute(massif::MarkerStyleBuilder, float, ClickSize, getClickSize, setClickSize)
+%attribute(massif::MarkerStyleBuilder, massif::BillboardOrientation::BillboardOrientation, OrientationMode, getOrientationMode, setOrientationMode)
+%attribute(massif::MarkerStyleBuilder, massif::BillboardScaling::BillboardScaling, ScalingMode, getScalingMode, setScalingMode)
+%attribute(massif::MarkerStyleBuilder, float, AnchorPointX, getAnchorPointX, setAnchorPointX)
+%attribute(massif::MarkerStyleBuilder, float, AnchorPointY, getAnchorPointY, setAnchorPointY)
+%attributestring(massif::MarkerStyleBuilder, std::shared_ptr<massif::Bitmap>, Bitmap, getBitmap, setBitmap)
+%std_exceptions(massif::MarkerStyleBuilder::setBitmap)
+!objc_rename(setAnchorPointX) massif::MarkerStyleBuilder::setAnchorPoint(float, float);
 
 %include "styles/MarkerStyleBuilder.h"
 

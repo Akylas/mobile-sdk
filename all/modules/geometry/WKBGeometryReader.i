@@ -3,9 +3,9 @@
 
 %module WKBGeometryReader
 
-#ifdef _CARTO_WKBT_SUPPORT
+#ifdef _MASSIF_WKBT_SUPPORT
 
-!proxy_imports(carto::WKBGeometryReader, core.BinaryData, geometry.Geometry)
+!proxy_imports(massif::WKBGeometryReader, core.BinaryData, geometry.Geometry)
 
 %{
 #include "geometry/WKBGeometryReader.h"
@@ -14,12 +14,12 @@
 %}
 
 %include <std_shared_ptr.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "core/BinaryData.i"
 %import "geometry/Geometry.i"
 
-%std_exceptions(carto::WKBGeometryReader::readGeometry)
+%std_exceptions(massif::WKBGeometryReader::readGeometry)
 
 %include "geometry/WKBGeometryReader.h"
 

@@ -3,7 +3,7 @@
 
 %module BinaryData
 
-!proxy_imports(carto::BinaryData)
+!proxy_imports(massif::BinaryData)
 
 %{
 #include "core/BinaryData.h"
@@ -18,24 +18,24 @@
 %include <std_shared_ptr.i>
 %include <std_vector.i>
 %include <carrays.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
-!shared_ptr(carto::BinaryData, core.BinaryData)
+!shared_ptr(massif::BinaryData, core.BinaryData)
 
 #ifdef SWIGCSHARP
-%rename(GetData) carto::BinaryData::data;
+%rename(GetData) massif::BinaryData::data;
 #else
-%rename(getData) carto::BinaryData::data;
+%rename(getData) massif::BinaryData::data;
 #endif
-%attribute(carto::BinaryData, std::size_t, Size, size)
-%ignore carto::BinaryData::BinaryData(std::vector<unsigned char>);
-%ignore carto::BinaryData::empty;
-%ignore carto::BinaryData::getDataPtr;
-%ignore carto::BinaryData::operator==;
-%ignore carto::BinaryData::operator!=;
-%ignore carto::BinaryData::hash;
-!standard_equals(carto::BinaryData);
-!custom_tostring(carto::BinaryData);
+%attribute(massif::BinaryData, std::size_t, Size, size)
+%ignore massif::BinaryData::BinaryData(std::vector<unsigned char>);
+%ignore massif::BinaryData::empty;
+%ignore massif::BinaryData::getDataPtr;
+%ignore massif::BinaryData::operator==;
+%ignore massif::BinaryData::operator!=;
+%ignore massif::BinaryData::hash;
+!standard_equals(massif::BinaryData);
+!custom_tostring(massif::BinaryData);
 
 #if SWIGJAVA
 %typemap(jtype) (const unsigned char* dataPtr, std::size_t size) "byte[]"
@@ -65,8 +65,8 @@
 }
 #endif
 #if SWIGCSHARP
-%typemap(cscode) carto::BinaryData %{  public BinaryData(byte[] data) : this(data, (uint)data.Length) { } %}
-%csmethodmodifiers carto::BinaryData::BinaryData(const unsigned char*, std::size_t) "private";
+%typemap(cscode) massif::BinaryData %{  public BinaryData(byte[] data) : this(data, (uint)data.Length) { } %}
+%csmethodmodifiers massif::BinaryData::BinaryData(const unsigned char*, std::size_t) "private";
 %apply unsigned char INPUT[] { const unsigned char* dataPtr }
 
 %typemap(ctype) const unsigned char* data "void*"

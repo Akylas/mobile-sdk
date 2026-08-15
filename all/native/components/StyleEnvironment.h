@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_STYLEENVIRONMENT_H_
-#define _CARTO_STYLEENVIRONMENT_H_
+#ifndef _MASSIF_STYLEENVIRONMENT_H_
+#define _MASSIF_STYLEENVIRONMENT_H_
 
 #include "graphics/Color.h"
 
@@ -14,7 +14,7 @@
 
 #include <cglib/vec.h>
 
-namespace carto {
+namespace massif {
     class TerrainOptions;
     class LightOptions;
 

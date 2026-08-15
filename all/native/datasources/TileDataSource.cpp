@@ -9,7 +9,7 @@
 
 #include <boost/lexical_cast.hpp>
 
-namespace carto {
+namespace massif {
 
     TileDataSource::~TileDataSource() {
     }

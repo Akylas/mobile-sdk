@@ -64,14 +64,14 @@ targets:
         # gates whole feature blocks on these.
         GCC_PREPROCESSOR_DEFINITIONS:
           - $(inherited)
-          - _CARTO_SEARCH_SUPPORT=1
-          - _CARTO_OFFLINE_SUPPORT=1
-          - _CARTO_EDITABLE_SUPPORT=1
-          - _CARTO_PACKAGEMANAGER_SUPPORT=1
-          - _CARTO_ROUTING_SUPPORT=1
-          - _CARTO_VALHALLA_ROUTING_SUPPORT=1
-          - _CARTO_GEOCODING_SUPPORT=1
-          - _CARTO_USE_METALANGLE=1
+          - _MASSIF_SEARCH_SUPPORT=1
+          - _MASSIF_OFFLINE_SUPPORT=1
+          - _MASSIF_EDITABLE_SUPPORT=1
+          - _MASSIF_PACKAGEMANAGER_SUPPORT=1
+          - _MASSIF_ROUTING_SUPPORT=1
+          - _MASSIF_VALHALLA_ROUTING_SUPPORT=1
+          - _MASSIF_GEOCODING_SUPPORT=1
+          - _MASSIF_USE_METALANGLE=1
         # -ObjC so the categories in the static SDK library are loaded. MetalANGLE is linked by
         # path rather than as a dependency: it is a bare .a, and a project reference does not carry
         # CMake's target_link_libraries through to the app.

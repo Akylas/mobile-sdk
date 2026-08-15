@@ -3,7 +3,7 @@
 
 %module GeoJSONGeometryWriter
 
-!proxy_imports(carto::GeoJSONGeometryWriter, geometry.Feature, geometry.FeatureCollection, geometry.Geometry, projections.Projection)
+!proxy_imports(massif::GeoJSONGeometryWriter, geometry.Feature, geometry.FeatureCollection, geometry.Geometry, projections.Projection)
 
 %{
 #include "geometry/GeoJSONGeometryWriter.h"
@@ -13,18 +13,18 @@
 
 %include <std_shared_ptr.i>
 %include <std_string.i>
-%include <cartoswig.i>
+%include <massifswig.i>
 
 %import "geometry/Feature.i"
 %import "geometry/FeatureCollection.i"
 %import "geometry/Geometry.i"
 %import "projections/Projection.i"
 
-!attributestring_polymorphic(carto::GeoJSONGeometryWriter, projections.Projection, SourceProjection, getSourceProjection, setSourceProjection)
-%attribute(carto::GeoJSONGeometryWriter, bool, Z, getZ, setZ)
-%std_exceptions(carto::GeoJSONGeometryWriter::writeGeometry)
-%std_exceptions(carto::GeoJSONGeometryWriter::writeFeature)
-%std_exceptions(carto::GeoJSONGeometryWriter::writeFeatureCollection)
+!attributestring_polymorphic(massif::GeoJSONGeometryWriter, projections.Projection, SourceProjection, getSourceProjection, setSourceProjection)
+%attribute(massif::GeoJSONGeometryWriter, bool, Z, getZ, setZ)
+%std_exceptions(massif::GeoJSONGeometryWriter::writeGeometry)
+%std_exceptions(massif::GeoJSONGeometryWriter::writeFeature)
+%std_exceptions(massif::GeoJSONGeometryWriter::writeFeatureCollection)
 
 %include "geometry/GeoJSONGeometryWriter.h"
 

@@ -4,8 +4,8 @@
  * to license terms, as given in https://cartodb.com/terms/
  */
 
-#ifndef _CARTO_RASTERTILELAYER_H_
-#define _CARTO_RASTERTILELAYER_H_
+#ifndef _MASSIF_RASTERTILELAYER_H_
+#define _MASSIF_RASTERTILELAYER_H_
 
 #include "core/MapTile.h"
 #include "components/CancelableTask.h"
@@ -22,7 +22,7 @@
 #include <vt/Tile.h>
 #include <vt/Styles.h>
 
-namespace carto {
+namespace massif {
     class TileDrawData;
     class RasterTileEventListener;
     
