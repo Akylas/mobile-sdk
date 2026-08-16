@@ -41,6 +41,9 @@ runs:
           if [ "$attempt" -eq 3 ]; then echo "All clone attempts failed"; exit 1; fi
         done
         cd mobile-swig
+        if command -v brew >/dev/null 2>&1; then
+          export PATH="$(brew --prefix autoconf)/bin:$(brew --prefix automake)/bin:$(brew --prefix libtool)/bin:$PATH"
+        fi
         # Download PCRE2 with retry
         PCRE2_URL="https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.44/pcre2-10.44.tar.gz"
         for attempt in 1 2 3; do
