@@ -8,11 +8,6 @@ sidebar_position: 7
 One directional light and one shader sky, shared by the ground, the terrain, the buildings and the
 fog — so the map, the horizon and the haze all agree on where the sun is.
 
-:::info Fork feature
-`SkyOptions` and `LightOptions` are additions of the Akylas fork, attached through
-`Options.setSkyOptions()` / `Options.setLightOptions()`. Both classes are marked experimental.
-Technical notes: [`docs/internals/rendering/08-lighting-sky-fog.md`](/docs/internals/rendering/lighting-sky-fog).
-:::
 
 <figure class="docs-figure">
 

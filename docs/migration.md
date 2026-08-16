@@ -127,4 +127,3 @@ These name data or upstream work, not this SDK:
 - **CartoCSS** — the style language, MapBox's and CARTO's, which this SDK implements rather than
   owns.
 - **The CartoDB copyright headers and LICENSE attribution.**
-- **`tiles.akylas.fr` URLs, the HTTP user agent and CI addresses** — infrastructure, not branding.

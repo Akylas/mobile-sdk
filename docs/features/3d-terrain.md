@@ -8,13 +8,6 @@ sidebar_position: 1
 Render the map draped over **real elevation**, with correct depth occlusion (near ridges hide
 far slopes), fill draping and fast zooming.
 
-:::info Fork feature
-3D terrain is an addition of the Akylas fork. It is configured through
-`TerrainOptions`, attached to the map via `Options.setTerrainOptions()`.
-See PR [#21](https://github.com/massif-maps/MassifMaps/pull/21) and the design notes in
-[`docs/internals/rendering/04-terrain.md`](/docs/internals/rendering/terrain).
-:::
-
 <figure class="docs-figure">
 
 ![3D terrain over the Chartreuse massif, Grenoble](/img/features/terrain-hero.jpg)

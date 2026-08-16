@@ -5,9 +5,6 @@ sidebar_position: 1
 
 # Installation
 
-The Akylas fork is published under **new artifact coordinates** — the API namespace stays
-`com.massifmaps.*`, but the packages come from the fork, not from Massif's original distribution.
-
 :::tip Version
 Always use the latest version from the
 [Releases page](https://github.com/massif-maps/MassifMaps/releases). The `5.x` line below is an example.
