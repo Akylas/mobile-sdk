@@ -97,7 +97,7 @@ jobs:
         profile: ${{ fromJson(needs.prepare.outputs.profiles) }}
     runs-on: ${{ matrix.variant == 'android' && 'ubuntu-latest' || 'macos-latest' }}
     needs: [create-release, prepare, release-preflight]
-    if: always()
+    if: always() && (needs.create-release.result == 'success' || needs.create-release.result == 'skipped') && (needs.release-preflight.result == 'success' || needs.release-preflight.result == 'skipped')
     name: "MassifMaps ${{ matrix.variant }} - Profile: ${{ matrix.profile }}"
     steps:
       - name: Runner platform name
@@ -337,7 +337,7 @@ jobs:
         variant: ["android", "ios"]
     runs-on: ${{ matrix.variant == 'android' && 'ubuntu-latest' || 'macos-latest' }}
     needs: [create-release, prepare, release-preflight]
-    if: always()
+    if: always() && (needs.create-release.result == 'success' || needs.create-release.result == 'skipped') && (needs.release-preflight.result == 'success' || needs.release-preflight.result == 'skipped')
     name: "ValhallaRouting ${{ matrix.variant }}"
     steps:
       - uses: actions/checkout@v4
