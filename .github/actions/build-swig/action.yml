@@ -21,7 +21,9 @@ runs:
       id: cache-swig
       uses: actions/cache@v4
       with:
-        path: mobile-swig/swig
+        path: |
+          mobile-swig/swig
+          mobile-swig/Lib
         key: mobile-swig-${{ runner.os }}-${{ steps.swig-sha.outputs.sha }}
 
     - name: Clone and build mobile-swig
