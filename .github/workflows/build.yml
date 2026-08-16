@@ -105,9 +105,11 @@ jobs:
           script: |
             const expected = process.env.EXPECTED_TAG
             const { owner, repo } = context.repo
-            const { data } = await github.rest.repos.listTags({ owner, repo, per_page: 100 })
-            const wellFormed = data.filter(t => /^v\d/.test(t.name))
-            const latest = wellFormed?.[0]?.name
+            let latest = null
+            for await (const page of github.paginate.iterator(github.rest.repos.listTags, { owner, repo, per_page: 100 })) {
+              const match = page.data.find(t => /^v\d/.test(t.name))
+              if (match) { latest = match.name; break }
+            }
             if (!latest) {
               core.setFailed(`No well-formed tags found while validating expected tag ${expected}.`)
               return
