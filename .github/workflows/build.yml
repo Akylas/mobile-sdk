@@ -227,20 +227,6 @@ jobs:
         run: |
           sudo apt-get install -y autoconf automake libtool build-essential
 
-      - name: Cache Homebrew packages
-        if: matrix.variant == 'ios'
-        uses: actions/cache@v6
-        with:
-          path: |
-            ~/Library/Caches/Homebrew
-            /usr/local/Cellar/autoconf
-            /usr/local/Cellar/automake
-            /usr/local/Cellar/libtool
-            /opt/homebrew/Cellar/autoconf
-            /opt/homebrew/Cellar/automake
-            /opt/homebrew/Cellar/libtool
-          key: brew-${{ runner.os }}-autoconf-automake-libtool
-
       - name: Install build tools (iOS)
         if: matrix.variant == 'ios'
         run: |
