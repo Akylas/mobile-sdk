@@ -43,6 +43,17 @@ runs:
         if command -v brew >/dev/null 2>&1; then
           export PATH="$(brew --prefix autoconf)/bin:$(brew --prefix automake)/bin:$(brew --prefix libtool)/bin:$PATH"
         fi
+
+        echo "PATH=$PATH"
+        echo "autoconf: $(command -v autoconf)"
+        echo "automake: $(command -v automake)"
+        echo "aclocal: $(command -v aclocal)"
+        echo "libtoolize: $(command -v glibtoolize || command -v libtoolize)"
+        echo
+        autoconf --version
+        automake --version
+        aclocal --version
+
         # Download PCRE2 with retry
         PCRE2_URL="https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.44/pcre2-10.44.tar.gz"
         for attempt in 1 2 3; do
