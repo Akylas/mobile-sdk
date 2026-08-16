@@ -60,6 +60,55 @@ jobs:
           name: v${{ steps.get_version_or_prompt.outputs.result }}
           draft: true
           token: ${{ secrets.GITHUB_TOKEN }}
+
+  release-preflight:
+    runs-on: ubuntu-latest
+    needs: [create-release]
+    if: github.event.inputs.publish == 'true'
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure release tag exists
+        run: |
+          git fetch --tags --force
+          TAG="${{ needs.create-release.outputs.VERSION_TAG }}"
+          git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null || {
+            echo "::error::Release tag ${TAG} was not found after create-release."
+            exit 1
+          }
+
+      - name: Ensure release tag is latest tag
+        uses: actions/github-script@v7
+        env:
+          EXPECTED_TAG: ${{ needs.create-release.outputs.VERSION_TAG }}
+        with:
+          script: |
+            const expected = process.env.EXPECTED_TAG
+            const { owner, repo } = context.repo
+            const { data } = await github.rest.repos.listTags({ owner, repo, per_page: 1 })
+            const latest = data?.[0]?.name
+            if (!latest) {
+              core.setFailed(`No tags found while validating expected tag ${expected}.`)
+              return
+            }
+            core.info(`Latest tag from API: ${latest}`)
+            if (latest !== expected) {
+              core.setFailed(`Expected latest tag ${expected}, but latest is ${latest}.`)
+            }
+
+      - name: Validate changelog generation preflight
+        uses: requarks/changelog-action@v1
+        with:
+          useGitmojis: false
+          excludeTypes: build,docs,other,style,chore,perf,doc
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ needs.create-release.outputs.VERSION_TAG }}
+          writeToFile: false
+
   build:
     permissions:
       contents: write
@@ -68,8 +117,8 @@ jobs:
         variant: ${{ fromJson(needs.prepare.outputs.variants) }}
         profile: ${{ fromJson(needs.prepare.outputs.profiles) }}
     runs-on: ${{ matrix.variant == 'android' && 'ubuntu-latest' || 'macos-latest' }}
-    needs: [create-release, prepare]
-    if: always()
+    needs: [create-release, prepare, release-preflight]
+    if: always() && (needs.create-release.result == 'success' || needs.create-release.result == 'skipped') && (needs.release-preflight.result == 'success' || needs.release-preflight.result == 'skipped')
     name: "MassifMaps ${{ matrix.variant }} - Profile: ${{ matrix.profile }}"
     steps:
       - name: Runner platform name
@@ -308,8 +357,8 @@ jobs:
       matrix:
         variant: ["android", "ios"]
     runs-on: ${{ matrix.variant == 'android' && 'ubuntu-latest' || 'macos-latest' }}
-    needs: [create-release, prepare]
-    if: always()
+    needs: [create-release, prepare, release-preflight]
+    if: always() && (needs.create-release.result == 'success' || needs.create-release.result == 'skipped') && (needs.release-preflight.result == 'success' || needs.release-preflight.result == 'skipped')
     name: "ValhallaRouting ${{ matrix.variant }}"
     steps:
       - uses: actions/checkout@v4
@@ -649,7 +698,7 @@ jobs:
           useGitmojis: false
           excludeTypes: build,docs,other,style,chore,perf,doc
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag: v${{ github.event.inputs.version }}
+          tag: ${{ needs.create-release.outputs.VERSION_TAG }}
 
       - name: Commit CHANGELOG.md
         uses: stefanzweifel/git-auto-commit-action@v4
