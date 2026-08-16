@@ -60,6 +60,34 @@ jobs:
           name: v${{ steps.get_version_or_prompt.outputs.result }}
           draft: true
           token: ${{ secrets.GITHUB_TOKEN }}
+
+  release-preflight:
+    runs-on: ubuntu-latest
+    needs: [create-release]
+    if: github.event.inputs.publish == 'true'
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure release tag exists
+        run: |
+          git fetch --tags --force
+          TAG="${{ needs.create-release.outputs.VERSION_TAG }}"
+          git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null || {
+            echo "::error::Release tag ${TAG} was not found after create-release."
+            exit 1
+          }
+
+      - name: Validate changelog generation preflight
+        uses: requarks/changelog-action@v1
+        with:
+          useGitmojis: false
+          excludeTypes: build,docs,other,style,chore,perf,doc
+          token: ${{ secrets.GITHUB_TOKEN }}
+
   build:
     permissions:
       contents: write
@@ -68,7 +96,7 @@ jobs:
         variant: ${{ fromJson(needs.prepare.outputs.variants) }}
         profile: ${{ fromJson(needs.prepare.outputs.profiles) }}
     runs-on: ${{ matrix.variant == 'android' && 'ubuntu-latest' || 'macos-latest' }}
-    needs: [create-release, prepare]
+    needs: [create-release, prepare, release-preflight]
     if: always()
     name: "MassifMaps ${{ matrix.variant }} - Profile: ${{ matrix.profile }}"
     steps:
@@ -308,7 +336,7 @@ jobs:
       matrix:
         variant: ["android", "ios"]
     runs-on: ${{ matrix.variant == 'android' && 'ubuntu-latest' || 'macos-latest' }}
-    needs: [create-release, prepare]
+    needs: [create-release, prepare, release-preflight]
     if: always()
     name: "ValhallaRouting ${{ matrix.variant }}"
     steps:
@@ -649,7 +677,6 @@ jobs:
           useGitmojis: false
           excludeTypes: build,docs,other,style,chore,perf,doc
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag: v${{ github.event.inputs.version }}
 
       - name: Commit CHANGELOG.md
         uses: stefanzweifel/git-auto-commit-action@v4
