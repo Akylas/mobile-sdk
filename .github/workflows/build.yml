@@ -442,7 +442,6 @@ jobs:
         with:
           python-version: 3.12
           check-latest: false
-          cache: pip
 
       - name: Cache apt packages
         if: matrix.variant == 'android'
