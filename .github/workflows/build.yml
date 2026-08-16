@@ -117,6 +117,7 @@ jobs:
 
       # TODO revisit after some updates of nttld/setup-ndk
       - name: Restore Android Symlinks
+        if: matrix.variant == 'android'
         run: |
           directory="${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin"
           find "$directory" -type l | while read link; do
@@ -127,42 +128,82 @@ jobs:
           done
       
       - name: Setup Gradle
+        if: matrix.variant == 'android'
         uses: gradle/actions/setup-gradle@v4
         with: 
           gradle-version: "8.14.3"
+
+      - name: Cache Maven local repository
+        if: matrix.variant == 'android'
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/settings.gradle*') }}
+          restore-keys: |
+            maven-${{ runner.os }}-
 
       - name: Install Python
         uses: actions/setup-python@v5
         with:
           python-version: 3.12
+          cache: pip
+
+      - name: Cache apt packages
+        if: matrix.variant == 'android'
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/apt/archives
+          key: apt-${{ runner.os }}-autoconf-automake-libtool-build-essential
+
+      - name: Install build tools (Android)
+        if: matrix.variant == 'android'
+        run: |
+          sudo apt-get install -y autoconf automake libtool build-essential
+
+      - name: Cache Homebrew packages
+        if: matrix.variant == 'ios'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/Homebrew
+            /usr/local/Cellar/autoconf
+            /usr/local/Cellar/automake
+            /usr/local/Cellar/libtool
+            /opt/homebrew/Cellar/autoconf
+            /opt/homebrew/Cellar/automake
+            /opt/homebrew/Cellar/libtool
+          key: brew-${{ runner.os }}-autoconf-automake-libtool
+
+      - name: Install build tools (iOS)
+        if: matrix.variant == 'ios'
+        run: |
+          brew install autoconf automake libtool
 
       - name: ensure dist
         run: |
-          mkdir dist
+          mkdir -p dist
 
       - name: fetch externals
         run: |
           git submodule update --init --remote --recursive
 
-      - name: Install build tools
-        if: matrix.variant == 'android'
-        run: |
-          sudo apt-get install autoconf automake libtool build-essential
+      - name: Prepare Boost
+        uses: ./.github/actions/prepare-boost
 
-      - name: Install build tools
-        if: matrix.variant == 'ios'
-        run: |
-          brew install autoconf automake libtool
+      - name: Setup ccache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.ccache
+            ~/Library/Caches/ccache
+          key: ccache-${{ matrix.variant }}-${{ matrix.profile }}-${{ github.sha }}
+          restore-keys: |
+            ccache-${{ matrix.variant }}-${{ matrix.profile }}-
 
-      - name: prepare boost
-        run: |
-          wget -q -O boost_1_89_0.zip https://sourceforge.net/projects/boost/files/boost/1.89.0/boost_1_89_0.zip
-          unzip -q boost_1_89_0.zip
-          ln -s ../boost_1_89_0 libs-external/boost
-          cd boost_1_89_0
-          ./bootstrap.sh
-          ./b2 headers
-      
+      - name: Build SWIG
+        id: swig
+        uses: ./.github/actions/build-swig
+
       - name: Build CSS2XML
         if: matrix.profile == 'lite'
         run: |
@@ -173,39 +214,17 @@ jobs:
           mv css2xml css2xml_${{ env.PLATFORM }}
           zip ../../../../dist/css2xml_${{ env.PLATFORM }}.zip css2xml_${{ env.PLATFORM }}
 
-      - name: Build swig
-        if: matrix.variant == 'android'
-        run: |
-          git clone https://github.com/farfromrefug/mobile-swig.git
-          cd mobile-swig
-          wget https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.44/pcre2-10.44.tar.gz
-          ./Tools/pcre-build.sh
-          ./autogen.sh
-          ./configure
-          make
-          
-      - name: Build swig
-        if: matrix.variant == 'ios'
-        run: |
-          git clone https://github.com/farfromrefug/mobile-swig.git
-          cd mobile-swig
-          wget https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.44/pcre2-10.44.tar.gz
-          ./Tools/pcre-build.sh
-          ./autogen.sh
-          ./configure
-          make
-
       - name: Build swig-objc
         if: matrix.variant == 'ios'
         run: |
           cd scripts
-          python swigpp-objc.py --profile ${{ matrix.profile }} --swig ../mobile-swig/swig 
+          python swigpp-objc.py --profile ${{ matrix.profile }} --swig ${{ steps.swig.outputs.swig-path }}
 
       - name: Build swig-java
         if: matrix.variant == 'android'
         run: |
           cd scripts
-          python swigpp-java.py --profile ${{ matrix.profile }} --swig ../mobile-swig/swig
+          python swigpp-java.py --profile ${{ matrix.profile }} --swig ${{ steps.swig.outputs.swig-path }}
 
       - name: Build Massif for Android
         if: matrix.variant == 'android'
@@ -342,15 +361,51 @@ jobs:
         with:
           gradle-version: "8.14.3"
 
+      - name: Cache Maven local repository
+        if: matrix.variant == 'android'
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/settings.gradle*') }}
+          restore-keys: |
+            maven-${{ runner.os }}-
+
       - name: Install Python
         uses: actions/setup-python@v5
         with:
           python-version: 3.12
-      
-      - name: Install build tools
+          cache: pip
+
+      - name: Cache apt packages
+        if: matrix.variant == 'android'
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/apt/archives
+          key: apt-${{ runner.os }}-autoconf-automake-libtool-build-essential
+
+      - name: Install build tools (Android)
         if: matrix.variant == 'android'
         run: |
-          sudo apt-get install autoconf automake libtool build-essential
+          sudo apt-get install -y autoconf automake libtool build-essential
+
+      - name: Cache Homebrew packages
+        if: matrix.variant == 'ios'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/Homebrew
+            /usr/local/Cellar/autoconf
+            /usr/local/Cellar/automake
+            /usr/local/Cellar/libtool
+            /opt/homebrew/Cellar/autoconf
+            /opt/homebrew/Cellar/automake
+            /opt/homebrew/Cellar/libtool
+          key: brew-${{ runner.os }}-autoconf-automake-libtool
+
+      - name: Install build tools (iOS)
+        if: matrix.variant == 'ios'
+        run: |
+          brew install autoconf automake libtool
 
       - name: ensure dist
         run: mkdir -p dist
@@ -358,15 +413,19 @@ jobs:
       - name: fetch externals
         run: |
           git submodule update --init --remote --recursive
-      
-      - name: prepare boost
-        run: |
-          wget -q -O boost_1_89_0.zip https://sourceforge.net/projects/boost/files/boost/1.89.0/boost_1_89_0.zip
-          unzip -q boost_1_89_0.zip
-          ln -s ../boost_1_89_0 libs-external/boost
-          cd boost_1_89_0
-          ./bootstrap.sh
-          ./b2 headers
+
+      - name: Prepare Boost
+        uses: ./.github/actions/prepare-boost
+
+      - name: Setup ccache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.ccache
+            ~/Library/Caches/ccache
+          key: ccache-${{ matrix.variant }}-routing-${{ github.sha }}
+          restore-keys: |
+            ccache-${{ matrix.variant }}-routing-
 
       - name: Build ValhallaRouting for Android
         if: matrix.variant == 'android'
