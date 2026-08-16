@@ -214,6 +214,7 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: 3.12
+          check-latest: false
 
       - name: Cache apt packages
         if: matrix.variant == 'android'
@@ -428,7 +429,6 @@ jobs:
         with:
           python-version: 3.12
           check-latest: false
-          cache: pip
 
       - name: Cache apt packages
         if: matrix.variant == 'android'
