@@ -36,10 +36,70 @@ to! we want to copy it", "use their model ALL THE WAY".)
 - **Verify against latest code.** Never act on assumption — read the current file, run the check, confirm the state. Files under `scripts/android-dev` carry the user's uncommitted local edits: read before touching, keep changes additive, never restore from a backup or an older commit.
 - **Minimum code.** Write what's needed now. No speculative features, no hypothetical abstractions.
 - **No spaghetti.** A fix on top of a fix is a signal to restructure, not to add another branch. Code has to stay readable and maintainable after the third round of changes: one responsibility per function, no flag that only makes sense together with two others, no logic duplicated between the build path and the draw path.
-- **Short comments — shorter than you think.** Say why, in **one line, two at most**. Never restate what the code already says, never write a paragraph where a clause does. Standing correction from Martin (2026-08-13): AI-written comments here are consistently far too long. A measurement belongs in `docs/rendering/`, not above the constant it produced — the code keeps the number and one clause of why; the doc keeps the table, the camera, the dead ends. Same for a comment that re-explains a mechanism already documented: link the page or name the function, do not restate it.
+- **Short comments — shorter than you think.** Say why, in **one line, two at most**. Never restate what the code already says, never write a paragraph where a clause does. Standing correction from Martin (2026-08-13): AI-written comments here are consistently far too long. A measurement belongs in `docs/internals/rendering/`, not above the constant it produced — the code keeps the number and one clause of why; the doc keeps the table, the camera, the dead ends. Same for a comment that re-explains a mechanism already documented: link the page or name the function, do not restate it.
 - **Observed or unverified — never blur the two.** A syntax check is not a render result; an emulator pass is not a device pass. Say which you actually have. A measurement is only evidence if it measures what you claim — state the method, and retract plainly when it turns out not to.
-- **Update [`docs/rendering/`](../docs/rendering/README.md) in the same change.** It is the technical documentation for the render path, and a change that alters behaviour, adds a uniform or option, or invalidates something written there ships with the doc edit in the SAME commit — not as a follow-up. Record what was ruled out and what the failure looked like, not only the fix: the debugging cost of these bugs is in the diagnosis, and the next person pays it again otherwise. Pick the page by subsystem (frame, tiles, vt renderer, terrain, depth, labels, hillshade, lighting, composite, performance, tangram diff, vector elements); cross-link rather than duplicating. A behaviour difference from tangram or maplibre belongs in [`11-tangram-diff.md`](../docs/rendering/11-tangram-diff.md).
-- **Maintenance docs are maintained like technical docs.** A procedure that had to be rediscovered — upgrading a vendored dependency, regenerating checked-in artefacts, bumping a toolchain floor — gets a page under [`docs/maintenance/`](../docs/maintenance/README.md), written or updated in the SAME commit as the work. Same bar as `docs/rendering/`: exact commands, the versions they were run with, what breaks when a step is skipped, and the dead ends. Every fork patch that a future upgrade must re-apply is listed there, not left to `grep CARTOHACK`.
+- **Documentation ships in the same commit** — see the section below.
+
+## Documentation — every change updates it
+
+`docs/` is **one tree**, the source of truth, browsable on GitHub and published verbatim at
+<https://massif-maps.github.io/MassifMaps/> (Docusaurus reads `path: '../docs'`). There is no second
+copy to sync. A change that alters behaviour, adds an option or a uniform, or invalidates something
+written there ships with the doc edit in the **SAME commit** — never as a follow-up.
+
+### Pick the home first
+
+| What you learned | Where it goes |
+|---|---|
+| why this code is weird / non-obvious | one-line comment next to the code |
+| what a public API does, its unit, default and when it takes effect | doc comment in `all/modules/*.i` (becomes Javadoc/Jazzy) |
+| an app-facing capability | `docs/features/<feature>.md` |
+| how a subsystem works, for the next maintainer | `docs/internals/rendering/<subsystem>.md` |
+| how the *whole* thing fits together | `docs/internals/index.mdx` |
+| a number that came from a bench | `docs/internals/performance-log.md`, with camera and method |
+| a procedure that had to be rediscovered | `docs/maintenance/<topic>.md` |
+| a rename, a removal, a breaking change | `docs/migration.md` |
+| a design that was tried and dropped | move the page to `docs/_archive/`, never leave two live versions |
+| a debugging technique or invariant an agent needs | root [`CLAUDE.md`](../CLAUDE.md) |
+
+A behaviour difference from tangram or maplibre belongs in
+[`11-tangram-diff.md`](../docs/internals/rendering/11-tangram-diff.md), whichever page also changed.
+
+### The bar for a technical page
+
+- **Short.** The point is: how it works, how it compares to tangram/maplibre, why the choice was
+  made, and enough to maintain or improve it. Not a narrative.
+- **Record the dead ends, not only the fix.** The debugging cost of these bugs is in the diagnosis;
+  the next reader pays it again otherwise.
+- **One subsystem per page, scope stated at the top, cross-link instead of repeating.** A reader —
+  human or agent — must be able to open one page and stop. Keep the routing tables in
+  [`docs/internals/index.mdx`](../docs/internals/index.mdx) and
+  [`rendering/index.mdx`](../docs/internals/rendering/index.mdx) correct when adding a page; they are
+  how anything finds the right file without reading the set.
+- **End with what is still open.** A "What could be better" / "Known gaps" section is part of the
+  page, not a TODO comment in the code.
+- **Exact commands, with the versions they were run with**, for anything under `docs/maintenance/`;
+  list every fork patch a future upgrade must re-apply rather than leaving it to `grep CARTOHACK`.
+
+### Mechanics
+
+- Front matter (`title`, `description`, `sidebar_position`) on every published page. **Quote any
+  value containing a colon** or the YAML parse fails the build.
+- **Mermaid only renders in `.mdx`** (`markdown.format: 'detect'` parses `.md` as CommonMark). A page
+  that needs a diagram is renamed to `.mdx`, and every link pointing at it updated.
+- Link to another doc with a **relative file path** (`04-terrain.md`) — Docusaurus resolves and
+  checks it, and it works on GitHub. Link to **source files with full GitHub URLs**: a relative path
+  out of `docs/` resolves to a broken site link.
+- `docs/_archive/**` is excluded from the site and is not maintained. Never cite it as current.
+- **Verify with a production build, not the dev server.** `npm start` hot-reloads `../docs` and
+  renders mermaid, but it does **not** check route links (`/docs/…`) and it has no search index
+  (*"The search index is only available when you run docusaurus build!"*).
+  ```sh
+  cd website && npm run build 2>&1 | tail -30
+  ```
+  `onBrokenLinks` is `'warn'`, so **`[SUCCESS]` alone does not mean the links are good** — the run is
+  only clean when there is no `Exhaustive list of all broken links found` block after it. Details in
+  [`website/README.md`](../website/README.md).
 
 ## Security — untrusted external data
 
@@ -105,4 +165,4 @@ There is no formatter or linter for the C++ here — **the surrounding file is t
 
 ## Library documentation
 
-`libs-massif/` and `libs-external/` are checked out and authoritative — read the source (cglib, vt, freetype, harfbuzz, protobuf, valhalla) instead of guessing at an API. Use the Context7 MCP only for genuinely external libraries with published docs. For the SDK itself, prefer the root `CLAUDE.md`, `BUILDING.md` and `website/docs/`.
+`libs-massif/` and `libs-external/` are checked out and authoritative — read the source (cglib, vt, freetype, harfbuzz, protobuf, valhalla) instead of guessing at an API. Use the Context7 MCP only for genuinely external libraries with published docs. For the SDK itself, prefer the root `CLAUDE.md`, `BUILDING.md` and `docs/`.

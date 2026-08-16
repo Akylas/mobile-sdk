@@ -755,7 +755,7 @@ namespace massif {
         // Tangram's content depth shift (res/scenes/terrain-3d.yaml, a flat 0.02), verbatim and
         // unscaled: it separates COPLANAR STYLE LAYERS, one step each - it is not a budget to spend,
         // and scaling it up is what let far content over a near ridge. An un-subdivided fill gets
-        // its clearance from the geometry-sized slack instead. docs/rendering/05-depth-model.md.
+        // its clearance from the geometry-sized slack instead. docs/internals/rendering/05-depth-model.md.
         //   adb shell setprop debug.massif.depthshift <value>   (measurement override)
         float contentDepthShift = getTerrainContentDepthShift();
         if (_terrainGroundActive && contentDepthShift == 0.0f) {

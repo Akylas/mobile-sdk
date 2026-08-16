@@ -14,6 +14,26 @@ Valhalla routing, custom label rules, PMTiles, ...).
 | `libs-external/` | **git submodule** (massif-maps/massif-external-libs): third-party deps (cglib, freetype, harfbuzz, `mlt` = maplibre-tile-spec, decoder only, ...). `boost` is expected as a symlink here (see BUILDING.md) |
 | `android/`, `ios/`, `dotnet/`, `winphone/` | Platform glue code |
 | `scripts/` | Build scripts (`build-android.py`, `build-ios.py`, `swigpp-*.py`, CMake in `scripts/build/`) |
+| `docs/` | **All documentation, one tree** — also published as-is at massif-maps.github.io/MassifMaps |
+| `website/` | The Docusaurus shell only (config, theme, React pages). It reads `../docs`; no content lives here |
+
+## Where the documentation is
+
+Read the page, do not re-derive it. `docs/` is the source of truth and the published site.
+
+| Need | Path |
+|---|---|
+| how a render subsystem works | `docs/internals/rendering/` — [index](docs/internals/rendering/index.mdx) routes by subsystem |
+| whole-SDK map, threads, data flow | [`docs/internals/index.mdx`](docs/internals/index.mdx) |
+| what was measured and what failed | [`docs/internals/performance-log.md`](docs/internals/performance-log.md) |
+| binary size, build time, ccache/ninja | [`docs/internals/build-and-size.md`](docs/internals/build-and-size.md) |
+| upgrade a vendored dep, platform quirks | [`docs/maintenance/`](docs/maintenance/index.md) |
+| what an app developer sees | `docs/features/`, `docs/guides/`, `docs/getting-started/` |
+| renames from the CARTO SDK | [`docs/migration.md`](docs/migration.md) |
+| superseded designs — **not current** | `docs/_archive/` |
+
+Rules for keeping them correct are in
+[`.claude/CLAUDE.md`](.claude/CLAUDE.md#documentation--every-change-updates-it).
 
 **Submodule gotcha:** changes under `libs-massif/` or `libs-external/` must be committed
 inside the submodule (branch `develop`), then the submodule pointer updated in the main
@@ -134,7 +154,7 @@ regenerate). SWIG is never run by gradle — any change to `all/modules/*.i` nee
 **`generated/` is gitignored, not tracked.** There is no `git checkout` that brings it back: a
 `swigpp-java.py` run overwrites the tree's wrappers with whatever `--profile` you passed (322 files
 for the full profile, 256 for `standard`, 236 for `lite`), and the only way back is to run it again
-with the profile you develop against. Size per profile is in [`docs/build-size.md`](docs/build-size.md).
+with the profile you develop against. Size per profile is in [`docs/internals/build-and-size.md`](docs/internals/build-and-size.md).
 
 `gh pr create` needs `--repo massif-maps/MassifMaps` (or `--repo massif-maps/massif-maps-libs`).
 Both repos are forks of the archived CartoDB originals, and without `--repo` gh targets the
@@ -252,7 +272,7 @@ containment); `frustum3::inside(bbox)` = *intersects frustum*.
 
 ## Rendering architecture (vector tiles + labels)
 
-**Full technical documentation lives in [`docs/rendering/`](docs/rendering/README.md)**, split by
+**Full technical documentation lives in [`docs/internals/rendering/`](docs/internals/rendering/index.mdx)**, split by
 subsystem so one page can be read without the rest: the frame and threads, tiles and LOD, the GL
 draw path, 3D terrain, the depth model, labels, hillshade/contours, lighting/sky/fog, the composite
 layer, performance method, and the tangram comparison. The summary below is the orientation; that

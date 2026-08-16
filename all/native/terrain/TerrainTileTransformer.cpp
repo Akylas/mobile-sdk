@@ -15,13 +15,13 @@ namespace massif {
 
     // Surface cells a fill subdivides to: indices fall as 1/N^2, chord error grows as N^2, and the
     // usable value is whatever the depth budget still clears - a measurement, not a derivation
-    // (the ladder is in docs/rendering/02-tiles.md).
+    // (the ladder is in docs/internals/rendering/02-tiles.md).
     //   adb shell setprop debug.massif.areathreshold 4
     static constexpr float AREA_THRESHOLD_CELLS = 2.0f;
 
     // How far a draped line may chord away from the terrain, in METRES. Chosen for margin, not for
     // speed: 0.5-4 m all measure the same, and a draped line is lifted 25 m off the surface anyway
-    // (DEFAULT_LINE_CLEARANCE_METERS). Numbers in docs/rendering/04-terrain.md.
+    // (DEFAULT_LINE_CLEARANCE_METERS). Numbers in docs/internals/rendering/04-terrain.md.
     static constexpr float DEFAULT_LINE_SAG_METERS = 2.0f;
 #ifdef __ANDROID__
     // The same for LINES - the expensive half over a city, since they are drawn as terrain geometry
@@ -193,7 +193,7 @@ namespace massif {
         // threshold - the profile a run follows cannot carry more detail than the surface it is
         // laid on. Halve to the SURFACE cell instead. Every vertex dropped here is an elevation
         // sample dropped from every terrain re-anchor, which is the most expensive thing on the
-        // render thread over 3D terrain (docs/rendering/06-labels.md). Measured: with no line
+        // render thread over 3D terrain (docs/internals/rendering/06-labels.mdx). Measured: with no line
         // subdivision at all, 'prepare' goes 154 -> 68 ms on the north pan.
         if (count > 0) {
             tesselatedPoints.append(points[0]);

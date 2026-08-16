@@ -6,7 +6,7 @@ name: Docs
 # Runs on pushes to master that touch the docs/SDK API, on every published
 # release, and on manual dispatch. The API-reference jobs are best-effort: if the
 # SWIG toolchain build fails, the site still deploys (the API sections 404 until
-# fixed — see website/docs/contributing-docs.md).
+# fixed — see docs/contributing/docs-site.md).
 
 on:
   push:
@@ -119,6 +119,9 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        # Full history: showLastUpdateTime reads each doc's last commit date.
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '20'

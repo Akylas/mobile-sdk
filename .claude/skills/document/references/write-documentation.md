@@ -1,13 +1,17 @@
 # Writing documentation in mobile-sdk
 
-Four distinct homes, four different bars. Pick the home first — most changes need **none** of them.
+Pick the home first — most changes need **none** of them. The full routing table and the bar for
+each kind of page are in [`.claude/CLAUDE.md`](../../../CLAUDE.md#documentation--every-change-updates-it);
+this page is the how-to-write guidance behind it.
 
 | What you learned                                  | Where it goes                                           |
 | ------------------------------------------------- | ------------------------------------------------------- |
 | Why this code is weird / non-obvious              | a comment next to the code                              |
 | What a public API does and how an app calls it    | doc comment in the SWIG `.i` (it becomes Javadoc/Jazzy) |
-| How a subsystem works, for the next maintainer    | the relevant section of the root `CLAUDE.md`            |
-| A user-facing feature, guide, or config reference | `website/docs/` (Docusaurus site)                       |
+| A debugging technique or invariant an agent needs | the relevant section of the root `CLAUDE.md`            |
+| How a subsystem works, for the next maintainer    | `docs/internals/rendering/<subsystem>.md`               |
+| A procedure that had to be rediscovered           | `docs/maintenance/<topic>.md`                           |
+| A user-facing feature, guide, or config reference | `docs/features/`, `docs/guides/`                        |
 
 ## Code comments — WHY only
 
@@ -39,19 +43,33 @@ The root `CLAUDE.md` is the maintainer-facing map: repository layout, the demo-a
 - A debugging technique that actually worked, and what it distinguished ("A/B per screen row band separated 'tile never loaded' from 'tile drawn but depth-rejected'").
 - A trap with a misleading symptom (camera clearance clamp auto-zooming out looks like a broken renderer).
 
-Keep it additive and terse, in the existing voice. Do not paste a plan, a diff summary, or an experiment log — those go in `docs/*-plan.md` if anywhere.
+Keep it additive and terse, in the existing voice. A measurement log goes in `docs/internals/performance-log.md`; a superseded plan goes to `docs/_archive/`.
 
-## User-facing docs — `website/docs/`
+## Technical docs — `docs/internals/`, `docs/maintenance/`
 
-Docusaurus site (`cd website && npm start`), deployed on pushes to `master` that touch `website/**`, `docs/**` or `scripts/docs/**`.
+One page per subsystem, scope stated at the top, cross-links instead of repetition — a reader must be able to open one page and stop.
 
-- Feature/guide pages live under `website/docs/{getting-started,guides,features}/` with front-matter (`title`, `sidebar_position`, `slug`).
-- Show the app-facing call, not the C++ internals: the option, its default, its unit, and a short snippet.
+- **Answer four things**: how it works, how it compares to tangram/maplibre, why the choice was made, and what a maintainer needs to change it safely. Nothing else.
+- **Record the dead ends.** What was ruled out and what the failure looked like is the expensive part; the fix alone is not enough.
+- **End with what is still open** — a "What could be better" section, not a TODO in the code.
+- **Numbers carry their method**: the camera, the device, the build flavour. A number without one is not evidence.
+- Update the routing table in `docs/internals/index.mdx` (and `rendering/index.mdx`) when adding a page — that table is how the right file gets found without reading the set.
+
+## User-facing docs — `docs/features/`, `docs/guides/`, `docs/getting-started/`
+
+- Show the app-facing call, not the C++ internals: the option, its default, its unit, and a short snippet. Link to the internals page for the mechanism.
 - Screenshots come from the demo app via `scripts/docs/capture-screenshots.sh` into `website/static/img/features/` — reference existing images rather than inventing paths.
-- `docs/guides/*.md` are the converted legacy CARTO guides (`scripts/docs/convert-guides.py`); edit the converted output under `website/docs/` for new content, not the legacy source, unless you re-run the converter.
+- `docs/guides/*.mdx` are **generated** from the legacy CARTO sources in `scripts/docs/vendor-guides/guides/` by `scripts/docs/convert-guides.py`. Edit the generated output for new content; re-running the converter overwrites it.
+
+## Mechanics that fail the build
+
+- Front matter on every published page: `title`, `description`, `sidebar_position`. **Quote any value containing a colon.**
+- Mermaid renders only in `.mdx` — `markdown.format: 'detect'` parses `.md` as CommonMark and silently drops the diagram.
+- Relative file links (`04-terrain.md`) between docs; full GitHub URLs for source files.
+- `cd website && npm run build` is the only real check: the dev server skips route links and has no search index. `onBrokenLinks` is `'warn'`, so `[SUCCESS]` alone proves nothing — the run is clean only when no `Exhaustive list of all broken links found` block follows it. See [`website/README.md`](../../../../website/README.md).
 
 ## What NOT to document
 
 - Anything the code, the git history, or a test already states.
-- Speculative future work (that is an issue, not a doc).
+- Speculative future work beyond a named "what could be better" item (that is an issue, not a doc).
 - A summary of the change you just made — the commit message and PR body carry that.

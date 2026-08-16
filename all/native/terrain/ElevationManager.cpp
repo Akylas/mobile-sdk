@@ -21,7 +21,7 @@ namespace massif {
     static const std::size_t DEFAULT_CACHE_CAPACITY = 64 * 1024 * 1024;
     // A grid COUNT, not a byte budget - one terrain view needs 122-167 distinct grids whatever the
     // source resolution, and every grid past the limit evicts one still in use.
-    // See docs/rendering/04-terrain.md for the measured ladder.
+    // See docs/internals/rendering/04-terrain.md for the measured ladder.
     static const std::size_t MIN_CACHED_GRIDS = 192;
     static const int FAILED_TILE_TTL_MILLISECONDS = 30 * 1000;
     static const int MAX_ANCESTOR_SEARCH_DEPTH = 8;
@@ -332,7 +332,7 @@ namespace massif {
                 // Record WHICH tile changed, under the same lock as the insert, so a consumer that
                 // sees the new version sees the grid and the log entry. The DATA version moves too:
                 // a decoded tile IS new data, and standing still made every load read as scale-only
-                // (the blanket invalidation). See docs/rendering/04-terrain.md, the two versions.
+                // (the blanket invalidation). See docs/internals/rendering/04-terrain.md, the two versions.
                 _dataVersion++;
                 unsigned int version = _version.fetch_add(1) + 1;
                 _changeLog.emplace_back(version, grid->getTile());
@@ -671,7 +671,7 @@ namespace massif {
         // Tangram's rule verbatim (RasterSource::addRasterTask): the render tile's own z/x/y,
         // adjusted by the source's zoom bias and capped by its max zoom - nothing else.
         // Deliberately NOT idempotent: applying it to an elevation tile again costs another level
-        // per hop, so those entry points use clampDataTileZoom. docs/rendering/04-terrain.md.
+        // per hop, so those entry points use clampDataTileZoom. docs/internals/rendering/04-terrain.md.
         MapTile tile = mapTile;
         for (int size = _gridSizeHint.load(); size > DEM_TEXELS_PER_TILE_UNIT && tile.getZoom() > 0; size /= 2) {
             tile = tile.getParent();

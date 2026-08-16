@@ -729,7 +729,7 @@ namespace massif {
     double ContourTileDataSource::getIntervalForZoom(int zoom) const {
         // What the tile CARRIES, not what is drawn - the style filters on 'div' per camera zoom.
         // A cost rule, and the rungs must NEST or a line stops dead at a tile border.
-        // See docs/rendering/07-hillshade-contours.md; the defaults are a starting point, the app
+        // See docs/internals/rendering/07-hillshade-contours.md; the defaults are a starting point, the app
         // sets its own with setIntervalMultiplier.
         return _baseInterval * getIntervalMultiplier(zoom);
     }

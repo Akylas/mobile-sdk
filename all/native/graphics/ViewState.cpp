@@ -796,7 +796,7 @@ namespace massif {
 
         // Floor the near plane at camera height / 50, tangram's `near = m_pos.z / 50.0`: taken from
         // the nearest visible ground it reaches centimetres against a slope, and that far/near ratio
-        // is the mechanism behind every see-through. docs/rendering/04-terrain.md.
+        // is the mechanism behind every see-through. docs/internals/rendering/04-terrain.md.
         double viewDistance = calculateViewDistance(options);
         // Tangram's near is a fiftieth of the camera's distance to what it looks at, and their
         // camera is held a distance away from the TERRAIN (view.cpp: the depth at the screen

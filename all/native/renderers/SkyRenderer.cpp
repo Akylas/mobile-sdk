@@ -163,7 +163,7 @@ namespace massif {
         ResolvedFog fog = resolveFog(_options.getTerrainOptions(), StyleEnvironment(), lighting);
         float fogBlend = fog.active() ? static_cast<float>(skyOptions->getFogBlend() * Const::DEG_TO_RAD) : 0.0f;
         // Haze starts fading at the angle of the highest terrain the view can hold, not at the
-        // mathematical horizon - see docs/rendering/08-lighting-sky-fog.md.
+        // mathematical horizon - see docs/internals/rendering/08-lighting-sky-fog.md.
         float fogHorizonSetting = skyOptions->getFogHorizon();
         float fogHorizon = (fogHorizonSetting > 0 ? static_cast<float>(fogHorizonSetting * Const::DEG_TO_RAD) : 0.0f);
         if (fogBlend > 0.0f && fogHorizonSetting < 0) {
@@ -243,7 +243,7 @@ namespace massif {
         }
 
         // Start the quad at the horizon plus a margin for the fog band - everything below is drawn
-        // over anyway (docs/rendering/08-lighting-sky-fog.md). Not applied when the terrain path
+        // over anyway (docs/internals/rendering/08-lighting-sky-fog.md). Not applied when the terrain path
         // draws the sky although the flat horizon says it is not visible.
         float quadBottom = -1.0f;
         if (viewState.isSkyVisible() && isHorizonClipEnabled()) {

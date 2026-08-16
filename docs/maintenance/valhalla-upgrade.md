@@ -1,3 +1,9 @@
+---
+title: Upgrading Valhalla
+description: Merging an upstream Valhalla release, regenerating protos/locales/tz, and the fork patches that must survive.
+sidebar_position: 1
+---
+
 # Upgrading Valhalla
 
 Last run: **3.5.1 → 3.8.3**, 2026-08-15. 536 upstream commits, 23 conflicts, ~1 day of work.

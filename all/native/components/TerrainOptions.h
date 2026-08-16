@@ -185,7 +185,7 @@ namespace massif {
          * Draped lines are baked into the per-tile texture: they follow the terrain exactly and cost
          * no per-frame geometry (a city pan runs at twice the frame rate), but they resolve at the
          * drape resolution rather than the screen's. Layers matching NoDrapeLayerFilter stay sharp
-         * either way. See docs/rendering/04-terrain.md.
+         * either way. See docs/internals/rendering/04-terrain.md.
          * @param enabled True to drape tile lines too, false to keep them as sharp geometry.
          */
         void setDrapeLinesEnabled(bool enabled);
