@@ -1,3 +1,9 @@
+---
+title: Mac Catalyst builds
+description: Why the Catalyst slices are a macOS project in disguise, what that breaks at link time, and the workaround.
+sidebar_position: 2
+---
+
 # Mac Catalyst builds
 
 The Catalyst slices (`x86_64-maccatalyst`, `arm64-maccatalyst`) are not a real Catalyst build. They

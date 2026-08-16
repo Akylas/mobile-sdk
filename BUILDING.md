@@ -83,7 +83,7 @@ directory — CMake refuses to reconfigure a Makefiles tree as Ninja. Raise the 
 run — `ccache --max-size 30G` — because one ABI writes ~1 GB of objects and the 5 GB default makes
 the four ABIs evict each other. Measured on one arm64 Release build with a warm private cache:
 **13.8 s** against 70.9 s cold. Where the binary size and the build time actually go is measured in
-[`docs/build-size.md`](docs/build-size.md).
+[`docs/internals/build-and-size.md`](docs/internals/build-and-size.md).
 
 Go to 'scripts' library where the actual build scripts are located:
 
@@ -128,7 +128,7 @@ python build-winphone.py --profile standard
 
 The archived CartoDB sample apps ([android](https://github.com/CartoDB/mobile-android-samples),
 [ios](https://github.com/CartoDB/mobile-ios-samples), [dotnet](https://github.com/CartoDB/mobile-dotnet-samples))
-still build against the pre-rebrand API. See [`docs/migration-massif.md`](docs/migration-massif.md)
+still build against the pre-rebrand API. See [`docs/migration.md`](docs/migration.md)
 for what to rename.
 
 # Support, Questions?

@@ -1,0 +1,8 @@
+{
+  "label": "Maintenance",
+  "position": 6,
+  "link": {
+    "type": "doc",
+    "id": "maintenance/index"
+  }
+}

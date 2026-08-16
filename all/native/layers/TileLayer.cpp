@@ -310,7 +310,7 @@ namespace massif {
             int terrainMeshResolution = terrainOptions ? terrainOptions->getMeshResolution() : 0;
             int terrainMinZoom = terrainOptions ? terrainOptions->getMinZoom() : 0;
             // Fills stay subdivided even under draping, because draping is decided per tile at
-            // render time and this density globally at decode time - see docs/rendering/02-tiles.md.
+            // render time and this density globally at decode time - see docs/internals/rendering/02-tiles.md.
             // MUST match what resetTileTransformer() passes, or tiles decoded for the other mode
             // stay in the cache forever.
             bool terrainTangramContent = terrainEnabled && terrainOptions && !terrainOptions->isDrapeFillsEnabled();
@@ -639,7 +639,7 @@ namespace massif {
         }
 
         // A coarsening floor and a view distance are set independently and multiply into the tile
-        // count; relax the floor rather than shorten the view (docs/rendering/02-tiles.md).
+        // count; relax the floor rather than shorten the view (docs/internals/rendering/02-tiles.md).
         if (_terrainMinTileZoom > 0 && _maxVisibleDistance > 0) {
             // Tiles across the covered ground, worst case (a square of side 2 * distance):
             //     (2 * distance / tileWidth)^2 <= budget,   tileWidth = WORLD_SIZE / 2^zoom
@@ -655,7 +655,7 @@ namespace massif {
         }
 
         // Screen-centre elevation for the whole cull, like tangram's View::getTileScreenArea - it
-        // moves with the camera, not with the tile (docs/rendering/02-tiles.md, the LOD rule).
+        // moves with the camera, not with the tile (docs/internals/rendering/02-tiles.md, the LOD rule).
         _lodElevation = 0;
         if (auto options = getOptions()) {
             if (auto terrainOptions = options->getTerrainOptions()) {

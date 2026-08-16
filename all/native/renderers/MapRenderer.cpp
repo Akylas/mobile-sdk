@@ -1469,7 +1469,7 @@ namespace massif {
         }
         lighting = resolveLighting(_options->getLightOptions(), styleEnvironment);
         // Floor the sun altitude for the SHADOW pass alone: a lower sun stretches the light box
-        // past the drawn cover and the cascades go coarse (docs/rendering/08-lighting-sky-fog.md).
+        // past the drawn cover and the cascades go coarse (docs/internals/rendering/08-lighting-sky-fog.md).
         cglib::vec3<float> shadowSunDir = lighting.sunDir;
         {
             static const float MIN_SHADOW_SUN_SIN = 0.2588f; // sin(15 degrees)
@@ -1878,7 +1878,7 @@ namespace massif {
 
         // Normalize the per-layer union to a non-overlapping quadtree partition, keeping the
         // finest tile for any ground - overlapping surfaces of different tesselations fight.
-        // See docs/rendering/04-terrain.md, "Normalizing the cover to a quadtree partition".
+        // See docs/internals/rendering/04-terrain.md, "Normalizing the cover to a quadtree partition".
         std::vector<vt::TileId> pending;
         for (auto it = collectedTiles.begin(); it != collectedTiles.end(); it++) {
             bool hasCoarserTile = false;
@@ -2056,7 +2056,7 @@ namespace massif {
                     // fights whatever drives the camera down and oscillates. This per-frame
                     // correction covers only the paths that change height without a zoom event
                     // (pan into a hillside, tilt, elevation arriving) and, like tangram's
-                    // View::updateMatrices, only ever zooms OUT. See docs/rendering/04-terrain.md.
+                    // View::updateMatrices, only ever zooms OUT. See docs/internals/rendering/04-terrain.md.
                     float cameraClearance = terrainOptions->getCameraClearance();
                     float clampDuration = terrainOptions->getCameraClampDuration();
                     if (cameraClearance > 0) {
@@ -2230,7 +2230,7 @@ namespace massif {
 
                         // Tangram's proxy depth (tileManager.cpp). The `m_proxyCounter > 0` guard is
                         // the point: only a stand-in gets a depth, a live coarse tile takes zero.
-                        // See docs/rendering/05-depth-model.md, "Proxy depth".
+                        // See docs/internals/rendering/05-depth-model.md, "Proxy depth".
                         int groundCoverZoom = 0;
                         for (const vt::TileId& tileId : groundTileIds) {
                             groundCoverZoom = std::max(groundCoverZoom, tileId.zoom);
@@ -2260,7 +2260,7 @@ namespace massif {
                         // One dense ordinal range per layer, in draw order, starting at 1 (ordinal 0
                         // is the ground). Dense because the TOTAL span sets the leak threshold, so a
                         // fixed stride reaches it within a few layers. A frame of lag in the counts
-                        // is harmless - they only have to be consistent. docs/rendering/05-depth-model.md.
+                        // is harmless - they only have to be consistent. docs/internals/rendering/05-depth-model.md.
                         int ordinalBase = 1;
                         for (const std::shared_ptr<TileLayer>& tileLayer : groundLayers) {
                             tileLayer->setExternalDrapeTarget(false);
@@ -2520,7 +2520,7 @@ namespace massif {
                     // Per-frame bake budget, three urgency classes (hole / stand-in / merely
                     // stale). A bake is ~16 ms at 1024, so the budget IS the frame time - raising it
                     // to clear a renamed cover in one frame measured 128 ms -> 300 ms worst frame.
-                    // docs/rendering/04-terrain.md, "The drape cache".
+                    // docs/internals/rendering/04-terrain.md, "The drape cache".
                     static const int DRAPE_BAKE_BUDGET_BLANK = 8;
                     static const int DRAPE_BAKE_BUDGET_STANDIN = 3;
                     // A tile MISSING A WHOLE LAYER is a fourth case, and it is not the mild one the
@@ -2554,7 +2554,7 @@ namespace massif {
                     // No elevation for this tile: stand on the previous generation rather than draw
                     // it flat at sea level, and draw nothing if there is no stand-in - a false
                     // ground writes depth and hides what is behind it. Flat stays only when NOTHING
-                    // has elevation. See docs/rendering/04-terrain.md, "Stand-ins".
+                    // has elevation. See docs/internals/rendering/04-terrain.md, "Stand-ins".
                     int displacedLeaves = 0;
                     for (auto it = drapeTiles.begin(); it != drapeTiles.end(); it++) {
                         displacedLeaves += leafElevation[it->first] ? 1 : 0;

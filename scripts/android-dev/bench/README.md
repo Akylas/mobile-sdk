@@ -1,6 +1,6 @@
 # Render benchmark scripts
 
-Used for every number in [`docs/render-performance.md`](../../../docs/render-performance.md). They
+Used for every number in [`docs/internals/performance-log.md`](../../../docs/internals/performance-log.md). They
 read the `PROF` / `RenderStats` logcat lines, so build with the profilers on:
 
 ```sh

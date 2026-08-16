@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Convert the vendored Jekyll-flavoured CARTO guides (docs/guides/*.md) into
-Docusaurus MDX (website/docs/guides/*.mdx).
+"""Convert the vendored Jekyll-flavoured CARTO guides
+(scripts/docs/vendor-guides/guides/*.md) into Docusaurus MDX (docs/guides/*.mdx).
 
 - `{% highlight LANG %}` / `{% endhighlight %}` -> fenced code blocks
 - the original language tab groups (``<div class="js-tabs">`` … ``<div id="tab-java">`` …)
@@ -15,8 +15,8 @@ Feature-specific and install pages are authored by hand (as .md / CommonMark).
 import os
 import re
 
-SRC = os.path.join(os.path.dirname(__file__), "..", "..", "docs", "guides")
-DST = os.path.join(os.path.dirname(__file__), "..", "..", "website", "docs", "guides")
+SRC = os.path.join(os.path.dirname(__file__), "vendor-guides", "guides")
+DST = os.path.join(os.path.dirname(__file__), "..", "..", "docs", "guides")
 
 # NN prefix -> (slug, Title). sidebar_position = NN.
 TITLES = {

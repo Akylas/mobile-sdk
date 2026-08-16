@@ -70,9 +70,9 @@ export const Contributing = [
   {
     title: 'Document in the same change',
     body:
-      'Anything that changes render behaviour ships with its `docs/rendering/` edit in the same ' +
-      'commit — including what was ruled out, not only the fix.',
-    href: 'https://github.com/massif-maps/MassifMaps/tree/master/docs/rendering',
-    linkLabel: 'docs/rendering',
+      'Anything that changes render behaviour ships with its `docs/internals/rendering/` edit in the ' +
+      'same commit — including what was ruled out, not only the fix.',
+    href: '/docs/internals/',
+    linkLabel: 'Internals docs',
   },
 ];

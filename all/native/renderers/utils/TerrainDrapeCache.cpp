@@ -12,7 +12,7 @@ namespace massif {
     const std::size_t TerrainDrapeCache::MAX_POOLED_TEXTURES = 32;
     // Keep a generation of tiles past the visible cover: a zoom or pan walks back over the same
     // tiles and re-acquiring means re-baking every layer of each. A BYTE budget, not a tile count -
-    // 160 entries are 10 MB at 128 and 640 MB at 1024. docs/rendering/04-terrain.md.
+    // 160 entries are 10 MB at 128 and 640 MB at 1024. docs/internals/rendering/04-terrain.md.
 const std::size_t TerrainDrapeCache::MAX_BYTES = 96 * 1024 * 1024;
 const std::size_t TerrainDrapeCache::MIN_ENTRIES = 24;
 const std::size_t TerrainDrapeCache::MAX_ENTRIES = 160;

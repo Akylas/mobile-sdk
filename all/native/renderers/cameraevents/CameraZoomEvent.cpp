@@ -94,7 +94,7 @@ namespace massif {
             // The pivot moves the map ALONG the surface only, like tangram's View::translate: the
             // full 3D offset drags the focus down by the terrain height under the finger on every
             // zoom out, and dist(camera, focus) is what the zoom is calibrated on.
-            // See docs/rendering/04-terrain.md, "The zoom pivot sank the focus".
+            // See docs/internals/rendering/04-terrain.md, "The zoom pivot sank the focus".
             MapPos targetMapPos = _targetPos;
             targetMapPos.setZ(projectionSurface->calculateMapPos(focusPos).getZ());
             targetPos = projectionSurface->calculatePosition(targetMapPos);

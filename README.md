@@ -1,20 +1,41 @@
 # Massif Maps
 
-Massif Maps is a maintained fork of the CARTO Mobile SDK, which CARTO stopped maintaining.
-It was renamed in 2026 — see [`docs/migration-massif.md`](docs/migration-massif.md) for every
-renamed namespace, package and style token.
-If you like the project and want me to keep on maintaining it. Please support it.
+**An open, multi-platform map SDK for Android and iOS** — a high-performance vector-tile renderer
+with 3D terrain, built-in routing (street and indoor) and geocoding, driven from a single C++ core.
 
-📚 **Documentation: https://massif-maps.github.io/MassifMaps/** — installation, guides, feature docs
-(3D terrain, contours, hillshade, composite layers, PMTiles, sky/sun/shadows, sky-anchored objects,
-post-processing effects, shields & font icons, live style parameters, GeoJSON tiling, maneuver
-arrows) and the Android/iOS API reference.
-The site lives in [`website/`](website/) and rebuilds automatically on release
-(see [Building the docs](website/docs/contributing-docs.md)).
-
-Massif Maps is an open, multi-platform framework for visualizing maps and providing location based services on mobile devices like smartphones or tablets. It includes high performance and flexible vector tile renderer, multiple built-in routing engines (for both indoor and street maps) plus built-in geocoding and reverse geocoding support.
+Massif Maps is a maintained fork of the CARTO Mobile SDK, which CARTO stopped maintaining. It was
+renamed in 2026 — see the [migration guide](docs/migration.md) for every renamed namespace, package
+and style token. If you like the project and want it to keep being maintained, please
+[support it](https://massif-maps.github.io/MassifMaps/sponsors).
 
 ![Liverpool](media/massif-animated.gif)
+
+## 📚 Documentation
+
+Everything is on **https://massif-maps.github.io/MassifMaps/** — and the same pages live in
+[`docs/`](docs/) in this repo, so they read on GitHub too.
+
+| | |
+|---|---|
+| **[Getting started](docs/getting-started/installation.md)** | install the SDK, put a first map on screen |
+| **[Guides](docs/guides/)** | the map view, layers & data sources, vector objects, offline maps, routing, geocoding |
+| **[Features](docs/features/)** | what this fork adds: 3D terrain, contours, hillshade, composite layers, PMTiles, sky/sun/shadows, post-processing, shields & font icons, live style parameters, GeoJSON tiling, maneuver arrows, MapLibre Tiles |
+| **[Internals](docs/internals/index.mdx)** | how it works inside — the [render pipeline](docs/internals/rendering/index.mdx), [binary size & build time](docs/internals/build-and-size.md), the [performance lab notebook](docs/internals/performance-log.md) |
+| **[Maintenance](docs/maintenance/index.md)** | upgrading vendored dependencies, regenerating artefacts, platform quirks |
+| **[Migration](docs/migration.md)** | moving an app off the CARTO Mobile SDK |
+| **[API reference](https://massif-maps.github.io/MassifMaps/api/android/)** | Javadoc (Android) and Jazzy (iOS), generated from the SWIG bindings |
+
+The site is built with Docusaurus from [`website/`](website/) and redeploys on every push to
+`master` that touches the docs.
+
+```bash
+cd website && npm install
+npm start        # dev server + hot reload (also watches ../docs)
+npm run build    # what CI runs — the only thing that checks links and builds the search index
+```
+
+See [`website/README.md`](website/README.md) for what works in the dev server vs the build, and
+[Building the docs](docs/contributing/docs-site.md) for the rest of the pipeline.
 
 ## Features
 
@@ -30,17 +51,17 @@ Massif Maps is an open, multi-platform framework for visualizing maps and provid
 
 ### Added by this fork
 
-* 3D terrain from RGB elevation tiles, with draping, depth occlusion and terrain-aware labels
-* On-the-fly contour lines, advanced hillshade and custom raster shaders
-* Composite vector tile layers — external raster/vector sources woven into one CartoCSS style
-* Sun lighting, a shader sky, fog and cascaded shadow maps
-* Sky-anchored objects (sun, moon, stars, aircraft) and a free-roam / look-up camera
-* Full-screen post-processing effects with access to the terrain depth
-* Shield anchors, SDF font icons, label plates and panorama callout labels
-* Live style parameters, including a feature selection that repaints instead of re-decoding
-* GeoJSON tiled through a geojson-vt pyramid, and navigation maneuver arrows built from a route
-* MapLibre Tiles (MLT) alongside MVT, in the same decoder and the same styles
-* PMTiles (local and HTTP)
+* [3D terrain](docs/features/3d-terrain.md) from RGB elevation tiles, with depth occlusion and terrain-aware labels
+* [On-the-fly contour lines](docs/features/contours.md), [advanced hillshade](docs/features/hillshade.md) and [custom raster shaders](docs/features/custom-raster-shaders.md)
+* [Composite vector tile layers](docs/features/composite-vector-tile-layer.md) — external raster/vector sources woven into one CartoCSS style
+* [Sun lighting, a shader sky, fog and cascaded shadow maps](docs/features/sky-sun-shadows.md)
+* [Sky-anchored objects](docs/features/celestial-objects.md) (sun, moon, stars, aircraft) and a free-roam / look-up camera
+* [Full-screen post-processing effects](docs/features/post-processing.md) with access to the terrain depth
+* [Shield anchors, SDF font icons, label plates and panorama callout labels](docs/features/label-styling.md)
+* [Live style parameters](docs/features/style-parameters.md), including a feature selection that repaints instead of re-decoding
+* [GeoJSON tiled through a geojson-vt pyramid](docs/features/geojson-vector-tiles.md), and [navigation maneuver arrows](docs/features/maneuver-arrows.md) built from a route
+* [MapLibre Tiles (MLT)](docs/features/maplibre-tiles.md) alongside MVT, in the same decoder and the same styles
+* [PMTiles](docs/features/pmtiles.md) (local and HTTP)
 
 ## Requirements
 
@@ -212,7 +233,7 @@ For custom builds, please read the [building guide](./BUILDING.md).
 
 The archived CartoDB sample apps ([android](https://github.com/CartoDB/mobile-android-samples),
 [ios](https://github.com/CartoDB/mobile-ios-samples), [dotnet](https://github.com/CartoDB/mobile-dotnet-samples))
-still build against the pre-rebrand API; [`docs/migration-massif.md`](docs/migration-massif.md)
+still build against the pre-rebrand API; [`docs/migration.md`](docs/migration.md)
 lists what to rename.
 
 ## Support, Questions?
@@ -225,4 +246,8 @@ lists what to rename.
 
 ## Developing & Contributing
 
-* See [our contributing doc](CONTRIBUTING.md).
+* Start with [CONTRIBUTING.md](CONTRIBUTING.md), then [BUILDING.md](BUILDING.md).
+* Before changing the renderer, read [`docs/internals/rendering/`](docs/internals/rendering/index.mdx)
+  — it is written so one page covers one subsystem.
+* **A change ships with its documentation update in the same commit.** Which page, and the bar for
+  each kind of doc, is in [`.claude/CLAUDE.md`](.claude/CLAUDE.md#documentation--every-change-updates-it).

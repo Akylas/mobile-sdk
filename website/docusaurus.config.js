@@ -16,12 +16,13 @@ const config = {
   trailingSlash: false,
 
   onBrokenLinks: 'warn',
-  onBrokenMarkdownLinks: 'warn',
 
   markdown: {
     // Parse .md as CommonMark (safe for vendored guides), .mdx as MDX.
+    // Mermaid diagrams therefore only render in .mdx pages.
     format: 'detect',
     mermaid: true,
+    hooks: {onBrokenMarkdownLinks: 'warn'},
   },
   themes: ['@docusaurus/theme-mermaid'],
 
@@ -36,9 +37,16 @@ const config = {
       /** @type {import('@docusaurus/preset-classic').Options} */
       ({
         docs: {
+          // Single source of truth: the repo-root docs/ tree, browsable on GitHub and
+          // published here. See docs/contributing/docs-site.md.
+          path: '../docs',
+          exclude: ['_archive/**'],
           sidebarPath: './sidebars.js',
           routeBasePath: 'docs',
-          editUrl: 'https://github.com/massif-maps/MassifMaps/edit/master/website/',
+          // docsDirPath is relative to the site dir ('../docs'), so build the URL
+          // from the repo-root path instead of letting Docusaurus concatenate it.
+          editUrl: ({docPath}) =>
+            `https://github.com/massif-maps/MassifMaps/edit/master/docs/${docPath}`,
           showLastUpdateTime: true,
         },
         blog: false,
@@ -60,6 +68,7 @@ const config = {
       ({
         hashed: true,
         indexBlog: false,
+        docsDir: '../docs',
         docsRouteBasePath: '/docs',
         highlightSearchTermsOnTargetPage: true,
       }),
@@ -88,6 +97,7 @@ const config = {
             label: 'Documentation',
           },
           {to: '/docs/features/3d-terrain', label: 'Features', position: 'left'},
+          {to: '/docs/internals/', label: 'Internals', position: 'left'},
           {to: '/platforms', label: 'Platforms', position: 'left'},
           {to: '/roadmap', label: 'Roadmap', position: 'left'},
           {
@@ -129,6 +139,9 @@ const config = {
               {label: 'Getting Started', to: '/docs/getting-started/installation'},
               {label: 'Guides', to: '/docs/guides/map-view'},
               {label: 'Features', to: '/docs/features/3d-terrain'},
+              {label: 'Internals', to: '/docs/internals/'},
+              {label: 'Maintenance', to: '/docs/maintenance/'},
+              {label: 'Migration', to: '/docs/migration'},
             ],
           },
           {
