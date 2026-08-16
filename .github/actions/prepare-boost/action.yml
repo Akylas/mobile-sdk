@@ -42,7 +42,7 @@ runs:
         BOOST_ZIP="boost_${{ inputs.boost-version }}.zip"
         BOOST_URL="https://sourceforge.net/projects/boost/files/boost/${{ inputs.boost-dot-version }}/${BOOST_ZIP}"
         # Known SHA256 for boost_1_89_0.zip
-        BOOST_SHA256="d2db6bbb26e2c66d6e33e7ccf5d74b22ff46a14d54b82dfec19e79d1cda17ded"
+        BOOST_SHA256="77bee48e32cabab96a3fd2589ec3ab9a17798d330220fdd8bde6ff5611b4ccde"
 
         echo "Downloading Boost from $BOOST_URL ..."
         for attempt in 1 2 3 4 5; do
