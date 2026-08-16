@@ -66,54 +66,6 @@ gh pr create --repo massif-maps/MassifMaps --title "feat: your title here" ...
 ```
 (Without `--repo` the command targets the archived CartoDB upstream and fails.)
 
-## Release workflow
-
-When creating a new release:
-
-1. Update `CHANGELOG.md` — add a new version section (e.g. `## [v5.1.0] - YYYY-MM-DD`) by
-   aggregating conventional commits since the last tag. Include `### New Features` and
-   `### Bug Fixes` sub-sections as appropriate. Keep the `## [Unreleased]` section at the top.
-2. Tag the commit: `git tag v5.1.0 && git push origin v5.1.0` (via `engine-tools-report_progress`).
-3. Create the GitHub release. The release body must contain:
-   a. The full diff section from `CHANGELOG.md` for that version.
-   b. An **Installation** section at the end with the exact version number substituted in:
-
-```markdown
----
-
-## Installation
-
-### Android
-
-```groovy
-repositories {
-    mavenCentral()
-    maven { url 'https://jitpack.io' }
-}
-dependencies {
-    implementation 'com.github.massif-maps:MassifMaps-android-aar:v5.1.0'
-}
-```
-
-Add the INTERNET permission to `AndroidManifest.xml`:
-
-```xml
-<uses-permission android:name="android.permission.INTERNET"/>
-```
-
-### iOS
-
-Use Swift Package Manager:
-
-1. In Xcode: **File → Add Packages…**
-2. Paste the package URL: `https://github.com/massif-maps/MassifMaps-ios-swift`
-3. Select version `v5.1.0` and add it to your target.
-
-Or download the prebuilt framework attached to this release.
-```
-
-Replace `v5.1.0` with the actual release tag in the snippet above.
-
 ## Working in this checkout
 
 `scripts/android-dev` is the live test bench. It is ONE composable demo, not a set of examples:
