@@ -2,6 +2,391 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [v6.0.0] - 2026-08-16
+### BREAKING CHANGES
+- due to [`af6557d`](https://github.com/massif-maps/MassifMaps/commit/af6557df7bd9d625f50b9bcd0fdcbe060fb79229) - stop draping vt lines, and trace contour tiles in one pass *(PR [#47](https://github.com/massif-maps/MassifMaps/pull/47) by [@farfromrefug](https://github.com/farfromrefug))*:
+
+  vt tile lines over 3D terrain are drawn as geometry instead of  
+  being baked into the drape texture. They are sharp and keep their style width at  
+  any slope, but they no longer thin out with distance and they carry a polygon  
+  offset against the surface. Call TerrainOptions.setDrapeLinesEnabled(true) to  
+  restore the previous rendering.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  ---------
+
+- due to [`0d3cf89`](https://github.com/massif-maps/MassifMaps/commit/0d3cf89305f99edd0a8b191efde742019c5627c6) - make panning a 3D terrain map affordable again *(PR [#49](https://github.com/massif-maps/MassifMaps/pull/49) by [@farfromrefug](https://github.com/farfromrefug))*:
+
+  TerrainOptions gains FarPlaneFactor, defaulting to 2 rather than to the previous  
+  behaviour, so a terrain app's far plane moves unless it sets the factor to 0. Every binding needs  
+  its wrappers regenerated (gradle never runs SWIG).  
+  Also adds the %ignore entries for TileLayer's internal terrain and drape methods. They were public  
+  on the class but never in the ignore list, and since generated/ is gitignored the stale wrappers  
+  hid it - a regeneration exposed renderTerrainGround(Color) and broke the Java build.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * test(terrain): switch for the per-vertex DEM tap count  
+  debug.carto.demtaps 16|4|1. 16 (the default) keeps today's lattice clamp, 1 is what tangram's  
+  terrain vertex does. Measured on the Crosscall with SurfaceFlinger timestats, north pan, background  
+  + hillshade only: 11.2 / 12.2 / 13.6 fps.  
+  Requires libs-carto (vt: make the per-vertex DEM tap count switchable).  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * perf(terrain): retire the per-tile background meshes under a shared ground  
+  Pointer bump plus the debug.carto.tilebg switch that restores them for measurement.  
+  Requires libs-carto (vt: drop the per-tile background mesh under a shared ground).  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * docs(renderers): the head-to-head with tangram, and what it ruled out  
+  First session measuring our fps and tangram's on the same device, in the same motion, with the same  
+  instrument. Terrain is at parity (16.2 vs 17.9); with roads and labels we are 2.2x slower (8.3 vs  
+  18.1) while drawing less, so the whole gap is the layer pass.  
+  Most of it is negative results, which is the point - four things we were about to optimise are  
+  measured not to matter: geometry volume (3x fewer indices buys 6.5%), per-vertex DEM taps (nothing  
+  once content is on), tile LOD granularity (supersedes the +11% in section 7.2, measured with the  
+  wrong instrument), and paint-as-ground (nothing, twice - so the hillshade keeps its place in the  
+  layer order for free). The GPU finishes in 38-53 ms of a 120-175 ms frame: we are CPU-bound.  
+  What the probes found instead: the terrain state block of TileRenderer::onDrawFrame costs 0.10 ms  
+  when nothing changes and up to 20.98 ms when a DEM tile lands, because invalidateTileSurfaces  
+  rebuilds tile surfaces on the render thread. That is the pan hang Martin reported. Tangram never  
+  rebuilds - their surface is one static shared grid and elevation only replaces a texture.  
+  Also records tangram's contour labels (contourTextStyle.cpp: a 4x4 seed grid marched along the  
+  elevation gradient, no contour geometry or tile source at all) against ours, which still drags in a  
+  whole contour tile set for the labels while the lines are already a free fragment block.  
+  And the measurement rules the session had to learn the hard way: PROF is not comparable across apps,  
+  their 3D chip does not survive a restart, and the device throttles enough that only interleaved arms  
+  inside one run mean anything.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * docs(renderers): how tangram avoids the render-thread surface rebuild  
+  The pan hang (section 11.5) needs their design, not a patch of ours, so record it: RasterStyle::build  
+  creates ONE 64x64 grid of 2 x GL_SHORT vertices at scene load and never rebuilds it, so a DEM tile  
+  arriving is a texture upload and nothing else - there is no per-tile terrain mesh to invalidate.  
+  Everything needing elevation on the CPU reads the texture instead: ElevationManager::elevationLerp  
+  over tex.bufferData() with a one-entry memo for labels, markers and the contour label builder, and  
+  renderTerrainDepth + getDepth(screenpos) for occlusion and picking.  
+  Ours already has the shared grid and the draw path uses it in regular-grid mode  
+  (GLTileRenderer.cpp:3528), but setVisibleTiles still builds per-tile CPU surfaces and every  
+  elevation change throws them away - geometry the renderer does not draw in that mode. Their only  
+  remaining consumers are the raycast path and the non-grid draw path.  
+  Names the three steps in their order, and the detail that makes it a stall: resetTileSurfaces is  
+  debounced by SURFACE_RESET_DELAY, invalidateTileSurfaces is not.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * test(renderers): print the tile surface build and invalidate counters  
+  RenderStats collected tileSurfacesBuilt/tileSurfacesInvalidated but printed neither, so  
+  "the render thread rebuilds tile surfaces" went unchecked for a session. They read 0 in  
+  every terrain configuration we ship.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * perf(terrain): build the elevation texture's bitmap on the encode worker, not the render thread  
+  Bitmap::loadFromUncompressedBytes copies the padded 514x514 RGBA texture byte by byte;  
+  doing it in uploadReadyTextures put that copy, and the free of the encode buffer, on the  
+  render thread - 37% of it (simpleperf, Crosscall, north pan). The worker now hands over  
+  the Bitmap and keeps one scratch buffer for every job, so the render thread only uploads.  
+  Interleaved device A/B, north pan, hillshade + contours, 3 repeats per arm: 7.3 -> 8.7 fps  
+  median, frame 118.6 -> 96.4 ms, layers 49.5 -> 26.0 ms, p25 3.9 -> 8.1 fps. Ridge camera  
+  screenshot diff 0.71% of pixels, mean 0.36/255 - label placement timing, not rendering.  
+  Requires libs-carto fd20973 (vt: sort key once per tile).  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * docs(renderers): the render thread, profiled - and the dead end it killed  
+  Record how to run simpleperf against the render thread (per-tid, symfs mirroring the  
+  device path), what it found, and that the per-tile surface rebuild §11.5 blamed for the  
+  pan hang does not happen at all in grid mode.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * build(demo): let the bench build the native SDK optimized  
+  The debug variant sets no CMAKE_BUILD_TYPE for the native side, so clang compiles the  
+  whole SDK at -O0 - which is what every perf number taken from this demo has measured.  
+  -PnativeOpt builds it RelWithDebInfo instead, keeping -g so simpleperf still symbolizes.  
+  Interleaved on the device, same commit, north pan: 8.6 -> 12.8 fps median, frame  
+  97.3 -> 41.6 ms, prelude 17.5 -> 1.7 ms, layers 26.2 -> 8.8 ms.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * docs(renderers): every number so far was measured on an unoptimized build  
+  Record the -O0 finding, what -PnativeOpt changes, and which earlier conclusions it  
+  invalidates - the tangram head-to-head compared their release APK to our -O0 one, and a  
+  hot list taken at -O0 over-weights whatever the optimizer would have inlined.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * build(demo): optimize the native SDK by default, not behind a flag  
+  Android Studio passes no gradle properties, so -PnativeOpt left every run from the IDE  
+  at -O0 - which is where the perf numbers come from as often as from the command line.  
+  RelWithDebInfo is the default now; -PnativeOpt=false restores -O0 for native debugging.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * feat(datasources): generate contour LABEL STUBS instead of contour geometry  
+  Port of tangram's ContourTextStyleBuilder (core/src/style/contourTextStyle.cpp), their  
+  algorithm and their constants: a 4x4 grid of seeds per tile, each walked down the  
+  elevation gradient onto round(elev/interval)*interval - at most 12 iterations,  
+  interpolating straight onto the level once it is bracketed - then along the contour  
+  tangent until the stub is long enough to lay the elevation text along.  
+  The point is what the tile then carries: a handful of ~20 point polylines instead of the  
+  full traced contour geometry, for a stack that draws the contour LINES in the terrain  
+  shader (HillshadeRasterTileLayer.setContourEnabled, free) and only needs geometry for the  
+  labels. Emulator counters at the ridge camera: geometry draws 2035 -> 1217, indices  
+  51.6M -> 29.4M, render tiles 1197 -> 712.  
+  The features keep the layer name and the 'ele'/'div' attributes, so existing '#contour'  
+  text rules style them unchanged, and carry 'stub' (1 stub / 0 traced) so a style keeps its  
+  line rules with a [stub=0] filter. Both modes set it: an undefined attribute does not  
+  compare equal to 0, so a one-sided property would drop the traced lines instead.  
+  CompositeVectorTileLayer applies 'contour-label-stubs' / 'contour-label-interval' from the  
+  style, like the other generation parameters of a merged contour source.  
+  The stub levels must match the interval the shader draws or the labels sit between the  
+  lines - the same note tangram carries in their source.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * feat(demo): switch the contour source to label stubs, with the lines from the shader  
+  --es contourStubs true --es contourStubInterval 100 --es hsContours true, plus the style  
+  side of both: the composite hillshade slot reads its contour settings from the STYLE  
+  (hillshade-contour-interval), not from the HillshadeRasterTileLayer setters, which only  
+  reach a stand-alone layer - so the demo's hsContours flag drew no lines at all in the  
+  composite base until the inline style carried it.  
+  The inline '#contour' line rules move under [stub=0] so the stubs are not painted as  
+  dashes, and the block passes contour-label-stubs / contour-label-interval through.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * docs(renderers): contour labels without contour geometry  
+  What the port does, the two traps (levels must match the shader's interval; the composite  
+  hillshade slot is style-driven), the emulator counters, and that the device A/B is still  
+  to take.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * docs(renderers): a full technical documentation set for the rendering path  
+  docs/rendering/, split by subsystem so a reader - human or AI - can open one page and  
+  get a whole area without loading the rest: the frame and its threads, tiles and LOD, the  
+  GL draw path, 3D terrain, the depth model, labels, hillshade/contours, lighting/sky/fog,  
+  the composite layer, the performance method, and the tangram comparison.  
+  Every page states how it is implemented, how tangram does it, and why we differ where we  
+  do - with the measurements that decided it. The RTT drape is deliberately not documented:  
+  it is being removed, and the docs say so rather than leaving a reader to find out.  
+  render-performance.md becomes explicitly the lab notebook (rounds, dead ends, numbers) and  
+  points at the design set; CLAUDE.md points there too.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * docs(renderers): vector elements, billboards and picking  
+  The last uncovered area: the per-kind element renderers, billboard placement and terrain  
+  occlusion fading, the depth rules that differ from tile content and why, and the picking  
+  path - including the gap that in regular-grid mode the bitmap intersection finds nothing  
+  because the per-tile CPU surfaces it walks are never built.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * docs(renderers): say what the rendering set does not cover  
+  Startup, spherical projection, post-process effects and platform specifics are not  
+  documented; a reader should not have to discover that by searching for them.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * perf(terrain): patch an elevation texture's border ring instead of re-encoding it whole  
+  A neighbour DEM grid landing changes only the 2-texel ring of a tile's padded texture -  
+  the border itself, and this grid's outermost row/column where a coarser neighbour  
+  box-filters it. Everything else comes from the tile's own grid and cannot change. The ring  
+  is now encoded on the worker and patched into the texture that is already on the GPU  
+  (glTexSubImage2D) and into the bitmap behind it, which is what the texture is rebuilt from  
+  after a context loss.  
+  Measured on device over a cold load plus a zoom sequence: full re-encodes 353 -> 24, with  
+  118 border patches instead - 93% of the megabyte re-encodes gone.  
+  It does NOT move the frame rate, at any camera tried (north pan 14.6 vs 15.0, cold load  
+  10.5 vs 10.6, full DEM detail 10.1 vs 10.7 - all inside the noise): the encode already ran  
+  on a worker and the upload is already budgeted, so the render thread never saw it. What is  
+  saved is worker CPU, memory bandwidth and battery. In steady state the pipeline is idle  
+  either way - a warm pan measured ZERO full encodes, which is worth knowing on its own.  
+  The single texel sampler is now shared by the full encode and the ring encode, so the two  
+  cannot disagree about a border value. Switchable for A/B:  
+    adb shell setprop debug.carto.demborderpatch 0  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * docs(renderers): the contour stubs on device, and what the DEM path actually costs  
+  Stubs measured +14% on the Crosscall. The elevation texture pipeline turns out to be idle  
+  in steady state (zero encodes over a warm pan), so the ~9% the profile attributes to it is  
+  lookup, not encode - and the border patch, which removes 93% of the re-encodes on a cold  
+  load, moves no frame rate at all. Full DEM detail is now -25% rather than -63%.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * docs(renderers): fold the device results into the terrain and performance pages  
+  The border patch and, more importantly, the fact that the elevation texture pipeline is  
+  idle in a warm pan - so that nobody optimises an encode that does not run.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * fix(terrain): identify elevation grids by their TILE, not by the pointer behind them  
+  The elevation grid cache is an LRU: the same DEM tile can be decoded into a new object at  
+  any time. The texture cache compared shared_ptr identity, so a re-decode of unchanged data  
+  looked like new data and re-encoded (since border patching, re-patched) a texture whose  
+  content was identical - work with no visible result, and a plausible source of terrain that  
+  keeps re-stitching while nothing changes.  
+  Grids are now compared by tile id, which is stable across re-decodes; a data source change  
+  clears the cache outright, so nothing depends on the pointer any more.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * fix(labels): glyph SDF fringe - libs-carto pointer bump  
+  Requires libs-carto ac4ebba (vt: render the glyph SDF over the full range it is encoded  
+  in). Fixes the grey smears hanging off letters, reported at 45.161809/5.709411 z16.34.
+
+- due to [`89ed94e`](https://github.com/massif-maps/MassifMaps/commit/89ed94e2d8bd461f6a4e10592344e167c917583c) - objects in the sky, a camera that can look at them, and the demo rebuilt around it *(PR [#55](https://github.com/massif-maps/MassifMaps/pull/55) by [@farfromrefug](https://github.com/farfromrefug))*:
+
+  Options.setFreeRoam(bool) is replaced by  
+  Options.setFreeRoamMode(FreeRoamMode). setFreeRoam(true) becomes  
+  setFreeRoamMode(FREE_ROAM_MODE_LOOK).  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * chore(demo): pick the free roam mode, and drive a two-finger gesture from the panel  
+  '--es freeRoam off|look|fps' (the old true/false still maps onto off/look), with sliders for the  
+  look sensitivity and the move speed.  
+  A two-finger gesture cannot be synthesized with adb - input sends one pointer, and the  
+  emulator's touch devices are not writable from the shell - so the panel gets a button that feeds  
+  MapView.onTouchEvent a real two-pointer MotionEvent sequence, through the same entry point a  
+  finger uses. It logs the focus before and after, which is how the move was measured: a forward  
+  drag walks 444 m north, a strafe 355 m west, with no cross-axis drift.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * fix(ui): stop the near plane clipping near content when the view pitches up  
+  In free roam, looking above the horizon made tiles close to the camera disappear, and the higher  
+  the view went the more went with them. The near plane is taken from where the sampled rays MEET  
+  THE GROUND, and as the view pitches up those hits walk off into the distance - so the near plane  
+  follows them out and clips everything in front of the camera. What is near the camera does not  
+  move when the view turns, so a pitched view caps near with the rule that does not depend on the  
+  view direction at all: tangram's camera height / 50.  
+  Also: PanningSpeedMode, because the same tilted view makes a one-finger pan change speed while  
+  the finger is down. The exact grab-the-world pan re-derives its scale from wherever the finger  
+  is now, so a drag that starts close to the camera and travels up the screen accelerates -  
+  measured at z15 tilt 65, the same 1300 px drag moved 2160 m that way against 1186 m at the speed  
+  it started with. ANCHORED (the new default) measures the scale where the gesture starts and  
+  keeps it; CONSTANT measures at the centre of the screen, so it depends on nothing; MAP is the  
+  old exact behaviour. The two new modes pan by the screen delta in the ground frame, so they also  
+  work with the view on the sky, where a map pan has no ground under the touch to hold on to.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * chore(demo): rebuild the demo UI around a filterable settings sheet  
+  The flat list of every knob had grown past the point of being findable. Now they live in  
+  collapsible sections - opening one closes the others, so the list of titles is short enough to  
+  read at a glance - and a filter box matches the label of every row across all sections and shows  
+  the matches expanded: typing "shadow" beats remembering which section it is in.  
+  The rest of the screen: no action bar (the map is the screen), edge to edge with the overlay  
+  insetting itself from the system bars and from the keyboard, the readout moved off the status  
+  bar to a pill at the bottom left - with the position in it, not just zoom and tilt - and the  
+  gear button opposite it, hidden while the sheet is open.  
+  Also: constellation names drawn IN the sky, as sprites with a bitmap the demo paints, which is  
+  what makes them themeable from the app; and '--es panSpeed map|anchored|constant'.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  ---------
+
+- due to [`0038ee7`](https://github.com/massif-maps/MassifMaps/commit/0038ee7363ce146dfe10c24071c10f82a64e9baf) - keep the map movable with the camera against the ground *(PR [#77](https://github.com/massif-maps/MassifMaps/pull/77) by [@farfromrefug](https://github.com/farfromrefug))*:
+
+  ViewState.setTerrainMinCameraZ is replaced by  
+  setTerrainCameraReference(terrainZ, minCameraZ) and %ignore'd - it is renderer  
+  plumbing published every frame, not something an app calls.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * fix(demo): stop the tilt going under the ground  
+  The demo asked for a tilt range starting at -max(30, lookUp) unconditionally, so  
+  a drag could take the view to the horizon and past it on a plain map, where the  
+  camera ends up grazing or under the terrain. The range is 30..90 now, and only  
+  the two modes that are about looking up - free roam and the star sky - open it.  
+  applyLookRange is re-applied when the star sky is left, so the map goes back to  
+  30 with it.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  ---------
+
+- due to [`dfddae6`](https://github.com/massif-maps/MassifMaps/commit/dfddae677ea6232345f865afd9c33c63e06ca02a) - drop the code the fork will not use *(PR [#88](https://github.com/massif-maps/MassifMaps/pull/88) by [@farfromrefug](https://github.com/farfromrefug))*:
+
+  TerrainOptions loses PainterOrderDepthEnabled, RegularGridEnabled and  
+  ElementTerrainSlack. All three were already pinned to their only working values; drop the  
+  calls.  
+  Syntax-checked, SWIG wrappers regenerated. No on-device render check ran - the terrain  
+  depth path needs one at a tilted camera over relief before this is called proven.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * chore: delete the NMLModelLODTree and GDAL/OGR sources  
+  Neither has been in a built profile for the life of this fork: the nmlmodellodtree  
+  profile is unreferenced by every build script, and _CARTO_GDAL_SUPPORT is defined by no  
+  profile at all. The 42 files still compiled - CMake globs all/native, so every ABI paid  
+  23 empty translation units per build - and they still had to be read past.  
+  StyleSelector goes with them: it lives under the GDAL guard and OGRVectorDataSource is  
+  its only consumer.  
+  removes NMLModelLODTreeLayer, On/OfflineNMLModelLODTreeDataSource,  
+  NMLModelLODTreeEventListener, NMLModelLODTreeClickInfo, GDALRasterTileDataSource,  
+  OGRVectorDataSource, OGRVectorDataBase, StyleSelector and StyleSelectorBuilder, plus the  
+  nmlmodellodtree build profile. None of them could be built before, so no working app  
+  binds them. NMLModel (the vector element) and libs-carto/nml are untouched.  
+  SWIG wrappers regenerated.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * docs(rendering): move the render-path measurements out of the code comments  
+  93 comment blocks of 9 lines or more across all/native and libs-carto, 1201 lines, most of  
+  them measurement logs and dead-end records rather than an explanation of the code under  
+  them. Now 5 blocks and 50 lines. Each is one or two lines of why; what was only in the  
+  comment moved into docs/rendering/, which is where a measurement belongs:  
+  - 02-tiles.md: why fills stay subdivided under draping, the screen-centre LOD elevation,  
+    and what tangram's shader displacement costs in index throughput.  
+  - 04-terrain.md: normalizing the layer union to a quadtree partition, the drape cache  
+    budget / seeding / completeness rules, and how a render tile picks its DEM tile.  
+  - 08-lighting-sky-fog.md: the sky quad's horizon clip and the haze start angle.  
+  Nothing but comment lines is removed - verified by filtering the diff. Every touched  
+  translation unit syntax-checks.  
+  Requires libs-carto 22d5ade (vt: the same sweep, plus two commented-out loops deleted).  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * chore: remove twelve accessors nothing calls  
+  Declared and defined, referenced by nothing in all/native, all/modules, generated/ or the  
+  platform glue: TileRenderer::isDrapeEnabled / isPlanarTerrainMode /  
+  isTerrainPaintFullDetailAllowed, TileLayer::calculateInternalTileBounds,  
+  BillboardDrawData::getScreenBottomDistance, FrameBuffer::isColor / isDepth / isStencil,  
+  Texture::isMipmaps / isRepeat, PMTilesUtils::tileIdToZxy, and  
+  HillshadeRasterTileLayer::getMapTileBitmap, which was declared and never even defined.  
+  Found with a symbol-frequency sweep; every hit was then checked against its real call  
+  sites, which is what kept convertPointsLists, getSamples, getTileData and the rest of the  
+  inline header accessors - a one-line inline definition looks the same as a dead  
+  declaration plus definition to a naive count.  
+  Members and their setters stay where something still writes them: _screenBottomDistance is  
+  read by the billboard sort comparator, and rotateQuadrant by zxyToTileId.  
+  None of these are public API (no all/modules entry), so no binding changes.  
+  Syntax-checked. PMTilesUtils only parses against a brotli stub - the nested brotli  
+  submodule is not checked out here - and its single remaining error is the stub's missing  
+  enum value, not this change.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  ---------
+
+
+### New Features
+- [`5d755cf`](https://github.com/massif-maps/MassifMaps/commit/5d755cf65e1fa079fd7ee8ea8c1c6ca8eaf39d04) - shared regular-grid terrain surfaces + TerrainOptions.RegularGridEnabled *(commit by [@farfromrefug](https://github.com/farfromrefug))*
+- [`718b2a2`](https://github.com/massif-maps/MassifMaps/commit/718b2a22b7438c1191ec4ecc3e9ddca4c43cda75) - lattice-clamp draped geometry in regular-grid terrain mode *(commit by [@farfromrefug](https://github.com/farfromrefug))*
+- [`a196c18`](https://github.com/massif-maps/MassifMaps/commit/a196c1881d6be5f8f1466b58cf1ea4318bd4cbe2) - skip vector geometry subdivision in regular-grid terrain mode *(commit by [@farfromrefug](https://github.com/farfromrefug))*
+- [`5c5a99e`](https://github.com/massif-maps/MassifMaps/commit/5c5a99e6ae8c5c550fcf3509c657735ec169edbc) - painter-order terrain depth model + TerrainOptions.PainterOrderDepthEnabled (Phase D.1) *(commit by [@farfromrefug](https://github.com/farfromrefug))*
+- [`a95042b`](https://github.com/massif-maps/MassifMaps/commit/a95042b75e36ec8a1b2e65aaa9733c181a73ccc4) - painter-order surface back-push (experiment A) *(commit by [@farfromrefug](https://github.com/farfromrefug))*
+- [`64b5701`](https://github.com/massif-maps/MassifMaps/commit/64b570106ac13d8e206ae5ab350ebdd5d188b4fc) - vector elements draw at real depth in painter-order mode (D.2) *(commit by [@farfromrefug](https://github.com/farfromrefug))*
+- [`f3f3240`](https://github.com/massif-maps/MassifMaps/commit/f3f324097144f67b349c6080d28d8dcd3165b359) - **datasources**: ContourTileDataSource - on-the-fly contour lines from a DEM *(commit by [@farfromrefug](https://github.com/farfromrefug))*
+- [`c85c997`](https://github.com/massif-maps/MassifMaps/commit/c85c997d403ad2c0997bcb34c4a3eeed8b2f98e7) - **layers**: shader contour lines + CustomRasterTileLayer (custom raster shaders) *(commit by [@farfromrefug](https://github.com/farfromrefug))*
+- [`3a317a6`](https://github.com/massif-maps/MassifMaps/commit/3a317a6e2987c3cb0d4fe4630219d82dfe89c526) - on-the-fly contours (ContourTileDataSource) + shader contours + CustomRasterTileLayer *(PR [#18](https://github.com/massif-maps/MassifMaps/pull/18) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`bc303b0`](https://github.com/massif-maps/MassifMaps/commit/bc303b0168c3f59a629428a2a4cc21eef6dd3905) - **layers**: CompositeVectorTileLayer — mix external sources into a vector-tile style *(PR [#19](https://github.com/massif-maps/MassifMaps/pull/19) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`d5a3427`](https://github.com/massif-maps/MassifMaps/commit/d5a34270fe66d2e2488275849411c9c0e7c635df) - **terrain**: sky, sun lighting, cascaded shadows and cross-layer draping *(PR [#27](https://github.com/massif-maps/MassifMaps/pull/27) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`599ec81`](https://github.com/massif-maps/MassifMaps/commit/599ec81abd9ae4acf8e989231cdecba02331c8c4) - DirAssetPackage + AndroidAssetPackage + unified android-dev demo app *(PR [#42](https://github.com/massif-maps/MassifMaps/pull/42) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`d6e85e5`](https://github.com/massif-maps/MassifMaps/commit/d6e85e5d58400bc17ebb3f6757557d04372069a2) - **vectortiles**: load fonts from the system when the style does not package them *(PR [#45](https://github.com/massif-maps/MassifMaps/pull/45) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`89ed94e`](https://github.com/massif-maps/MassifMaps/commit/89ed94e2d8bd461f6a4e10592344e167c917583c) - **ui**: objects in the sky, a camera that can look at them, and the demo rebuilt around it *(PR [#55](https://github.com/massif-maps/MassifMaps/pull/55) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`ae12bdb`](https://github.com/massif-maps/MassifMaps/commit/ae12bdb453bcfcfe6f0ac37f3921415802582380) - **labels**: shield names on the free side, font icons, and a POI test style *(PR [#57](https://github.com/massif-maps/MassifMaps/pull/57) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`8abb080`](https://github.com/massif-maps/MassifMaps/commit/8abb080ea84041aa2d10ba7357760fb401abc355) - **geometry**: navigation maneuver arrows, cut from a route and drawn as a line *(PR [#61](https://github.com/massif-maps/MassifMaps/pull/61) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`51799a0`](https://github.com/massif-maps/MassifMaps/commit/51799a0456f6961cfae24bdf2d7fe2048b292c21) - **ios**: add an iOS demo bench mirroring scripts/android-dev *(PR [#68](https://github.com/massif-maps/MassifMaps/pull/68) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`2c83f5e`](https://github.com/massif-maps/MassifMaps/commit/2c83f5ea9d956ac41be0f5034455881eb9e727a8) - **vectortiles**: change a colour-only style parameter without decoding the tiles again *(PR [#73](https://github.com/massif-maps/MassifMaps/pull/73) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`62aaaaa`](https://github.com/massif-maps/MassifMaps/commit/62aaaaa036f8af6862d8ae0970be8ae83068293f) - **vectortiles**: answer a selection style parameter with a repaint instead of a decode *(PR [#76](https://github.com/massif-maps/MassifMaps/pull/76) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`952d323`](https://github.com/massif-maps/MassifMaps/commit/952d3233b1601ea07c12fc7a5d05b9074a765fa1) - **vectortiles**: read MapLibre Tiles (MLT) *(PR [#90](https://github.com/massif-maps/MassifMaps/pull/90) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`f3c38ee`](https://github.com/massif-maps/MassifMaps/commit/f3c38eec765b5964e7ce910c1b842ee46d080941) - **labels**: font name lists for marker popups and vector elements *(PR [#101](https://github.com/massif-maps/MassifMaps/pull/101) by [@farfromrefug](https://github.com/farfromrefug))*
+  - *addresses issue [#4](https://github.com/massif-maps/MassifMaps/issues/4) opened by [@mrpham](https://github.com/mrpham)*
+
+### Bug Fixes
+- [`961f7f2`](https://github.com/massif-maps/MassifMaps/commit/961f7f27c1b265dc254c2c3e80f84743ce74a3ba) - stabilize vector-tile label placement while panning *(commit by [@farfromrefug](https://github.com/farfromrefug))*
+- [`6bca2c8`](https://github.com/massif-maps/MassifMaps/commit/6bca2c889c5649d0fbafa5854f33564715a30cee) - subdivide draped geometry to the grid cell in regular-grid mode *(commit by [@farfromrefug](https://github.com/farfromrefug))*
+- [`a846b2d`](https://github.com/massif-maps/MassifMaps/commit/a846b2d270dd0e83139b283509bf4fd6653edbdc) - painter-order content constant forward offset (Phase D.1 device fix) *(commit by [@farfromrefug](https://github.com/farfromrefug))*
+- [`0d4fea5`](https://github.com/massif-maps/MassifMaps/commit/0d4fea5b218d32b95b69e2aaca50787b3145dabf) - allow 0-90 tilt *(commit by [@farfromrefug](https://github.com/farfromrefug))*
+- [`b406de5`](https://github.com/massif-maps/MassifMaps/commit/b406de5f018b7d28c84d63e94b1cc110345d832d) - **terrain**: always subdivide fills; source-density was unsafe *(commit by [@farfromrefug](https://github.com/farfromrefug))*
+- [`0a1375f`](https://github.com/massif-maps/MassifMaps/commit/0a1375f8f4c5d116ec0603ac9be5b92878798148) - **terrain**: make camera clearance a zoom bound instead of a corrective event *(PR [#23](https://github.com/massif-maps/MassifMaps/pull/23) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`2c5a145`](https://github.com/massif-maps/MassifMaps/commit/2c5a145b8fe092c85fb7f14463477018541d4467) - **datasources**: do not dereference a failed tile in PersistentCacheTileDataSource *(PR [#24](https://github.com/massif-maps/MassifMaps/pull/24) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`abe7d09`](https://github.com/massif-maps/MassifMaps/commit/abe7d09ef5aba86733182a1b541a21411ec2d356) - **network**: report the underlying Java exception on Android HTTP failures *(PR [#26](https://github.com/massif-maps/MassifMaps/pull/26) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`a541d7f`](https://github.com/massif-maps/MassifMaps/commit/a541d7fe284c39e988bc22f87ed0b52c200e23c2) - **datasources**: attach tile metadata in MemoryCacheTileDataSource *(PR [#25](https://github.com/massif-maps/MassifMaps/pull/25) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`9a8b823`](https://github.com/massif-maps/MassifMaps/commit/9a8b823a1bdc74ad667eb3a9963f1cce40a0e955) - **layers**: match style attachments in composite group filters *(PR [#28](https://github.com/massif-maps/MassifMaps/pull/28) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`348491e`](https://github.com/massif-maps/MassifMaps/commit/348491e50d70f60420dd94ff8cbef694a70ea2af) - **terrain**: stop the drape flashing white and rebuilding itself on zoom out *(PR [#30](https://github.com/massif-maps/MassifMaps/pull/30) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`245acb3`](https://github.com/massif-maps/MassifMaps/commit/245acb3bc08e59fb9d3353bf13022b7538f32a22) - **terrain**: stop landcover fills disappearing in non-draped terrain mode *(commit by [@farfromrefug](https://github.com/farfromrefug))*
+- [`14086c4`](https://github.com/massif-maps/MassifMaps/commit/14086c407b79d57d3fb9394cb71228ed46d09e59) - **terrain**: stop landcover fills disappearing in non-draped terrain mode *(PR [#32](https://github.com/massif-maps/MassifMaps/pull/32) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`c802bfa`](https://github.com/massif-maps/MassifMaps/commit/c802bfaba9862a022c610e1a34fe7ad5df186ff2) - **terrain**: stabilize 3D terrain labels and cut the label/tile churn behind them *(PR [#31](https://github.com/massif-maps/MassifMaps/pull/31) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`6e53a02`](https://github.com/massif-maps/MassifMaps/commit/6e53a022b5fc2378aa57566925055e6523513652) - **terrain**: floor the shadow sun altitude for the shadow pass *(PR [#29](https://github.com/massif-maps/MassifMaps/pull/29) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`ed7a7a4`](https://github.com/massif-maps/MassifMaps/commit/ed7a7a499bf987b50ecfc4eca9aa97f92a85b380) - **terrain**: apply the view distance right away and fog the ground behind it *(PR [#39](https://github.com/massif-maps/MassifMaps/pull/39) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`67801a4`](https://github.com/massif-maps/MassifMaps/commit/67801a4cc26569d1502ba2eb85533c5b50a769ba) - **terrain**: stop far tiles rendering flat by re-clamping the elevation level *(PR [#38](https://github.com/massif-maps/MassifMaps/pull/38) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`0c4b691`](https://github.com/massif-maps/MassifMaps/commit/0c4b6916d3ded7229594d1656fe0d07ac6c24fed) - **terrain**: drop drape textures baked from a previous layer stack *(PR [#43](https://github.com/massif-maps/MassifMaps/pull/43) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`fe8e74f`](https://github.com/massif-maps/MassifMaps/commit/fe8e74f0664bf35fd25d00ac128a6081ff57eef8) - **labels**: place the labels of composite child layers *(PR [#46](https://github.com/massif-maps/MassifMaps/pull/46) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`af6557d`](https://github.com/massif-maps/MassifMaps/commit/af6557df7bd9d625f50b9bcd0fdcbe060fb79229) - **terrain**: stop draping vt lines, and trace contour tiles in one pass *(PR [#47](https://github.com/massif-maps/MassifMaps/pull/47) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`221ddde`](https://github.com/massif-maps/MassifMaps/commit/221ddde37f9bf7e5814ad5f0818781961f13e0d4) - **terrain**: stop labels blinking against the terrain depth buffer *(PR [#48](https://github.com/massif-maps/MassifMaps/pull/48) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`0612174`](https://github.com/massif-maps/MassifMaps/commit/061217428be15d38fe8e0393b63e6fcf24463060) - **vt**: line joins, and contours that stay meaningful zoomed out *(PR [#50](https://github.com/massif-maps/MassifMaps/pull/50) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`5d8319d`](https://github.com/massif-maps/MassifMaps/commit/5d8319d7e84da603f390130915accdc0346cb2ad) - **layers**: stop a long view distance paving the horizon in fine tiles *(PR [#59](https://github.com/massif-maps/MassifMaps/pull/59) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`28137f9`](https://github.com/massif-maps/MassifMaps/commit/28137f91f51c2c0c781e805677c9870c818b6ba7) - **ui**: stop the pan axes going arbitrary at a vertical tilt *(PR [#60](https://github.com/massif-maps/MassifMaps/pull/60) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`48b826d`](https://github.com/massif-maps/MassifMaps/commit/48b826d2ed02c197a10a6ea8fef46977162ccfd0) - **components**: request a redraw after Layers::setAll *(PR [#69](https://github.com/massif-maps/MassifMaps/pull/69) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`872449f`](https://github.com/massif-maps/MassifMaps/commit/872449fbbadb63e720983b838c2f35eaa52ad220) - **vt**: cap a terrain line against the unpacked binormal *(PR [#74](https://github.com/massif-maps/MassifMaps/pull/74) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`0038ee7`](https://github.com/massif-maps/MassifMaps/commit/0038ee7363ce146dfe10c24071c10f82a64e9baf) - **terrain**: keep the map movable with the camera against the ground *(PR [#77](https://github.com/massif-maps/MassifMaps/pull/77) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`7987602`](https://github.com/massif-maps/MassifMaps/commit/798760233630820897e20bf58063340e8be05b98) - **labels**: bump libs-carto for the callout band, leader line and plate box *(PR [#78](https://github.com/massif-maps/MassifMaps/pull/78) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`9c6b6b7`](https://github.com/massif-maps/MassifMaps/commit/9c6b6b7fd549c77bbf394503e954827506b67254) - **labels**: query the terrain occlusion depth with the camera it was rendered from *(PR [#87](https://github.com/massif-maps/MassifMaps/pull/87) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`f7217e6`](https://github.com/massif-maps/MassifMaps/commit/f7217e69484f21fa23f4088ea819d188008b366f) - **terrain**: keep the shadow caster set a partition of the ground, and cut the shadow cost *(PR [#92](https://github.com/massif-maps/MassifMaps/pull/92) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`8bc68ec`](https://github.com/massif-maps/MassifMaps/commit/8bc68ec0a59727c5360bacc1c934ebb28a08d3fc) - **ios**: repair the iOS framework build and the published API reference *(PR [#100](https://github.com/massif-maps/MassifMaps/pull/100) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`08c67ee`](https://github.com/massif-maps/MassifMaps/commit/08c67ee027680559e48b8d302c076b411e9af732) - **ci**: repair the Android API reference and the iOS framework build *(PR [#102](https://github.com/massif-maps/MassifMaps/pull/102) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`6d27b44`](https://github.com/massif-maps/MassifMaps/commit/6d27b4406ede304af0127b0b93e212742157d75c) - **ios**: unbreak the Mac Catalyst archive *(PR [#104](https://github.com/massif-maps/MassifMaps/pull/104) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`dcaa148`](https://github.com/massif-maps/MassifMaps/commit/dcaa1486b5c02c7db5dd7b4c53e371641163c70d) - **ios**: stop prelinking the Mac Catalyst slices *(PR [#106](https://github.com/massif-maps/MassifMaps/pull/106) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`37cc2b3`](https://github.com/massif-maps/MassifMaps/commit/37cc2b35198be3c36c05235a39224e2c8ac366c2) - **ios**: pull in date's ios.mm for the timezone symbols *(PR [#107](https://github.com/massif-maps/MassifMaps/pull/107) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`31645f0`](https://github.com/massif-maps/MassifMaps/commit/31645f074274c82c51a14132c0c6458227a6563a) - **ci**: fail fast on release-tag drift and restore changelog tag contract *(PR [#111](https://github.com/massif-maps/MassifMaps/pull/111) by [@Copilot](https://github.com/apps/copilot-swe-agent))*
+- [`1374252`](https://github.com/massif-maps/MassifMaps/commit/13742520465e3590de3d0e9fb4d0d51ee63cc12f) - create git tag explicitly before draft release to unblock release-preflight *(PR [#112](https://github.com/massif-maps/MassifMaps/pull/112) by [@Copilot](https://github.com/apps/copilot-swe-agent))*
+- [`f477146`](https://github.com/massif-maps/MassifMaps/commit/f4771469a926af6e7e545f41e21a742701353f5f) - strip leading `v` from version input and filter malformed tags in release-preflight *(PR [#113](https://github.com/massif-maps/MassifMaps/pull/113) by [@Copilot](https://github.com/apps/copilot-swe-agent))*
+- [`556debd`](https://github.com/massif-maps/MassifMaps/commit/556debd47c6b50a3b288ac9bf5a94c7a79b47c31) - **ci**: remove pip cache from setup-python (no requirements.txt) *(PR [#115](https://github.com/massif-maps/MassifMaps/pull/115) by [@Copilot](https://github.com/apps/copilot-swe-agent))*
+- [`2da8dd4`](https://github.com/massif-maps/MassifMaps/commit/2da8dd48db54795588a25fef599c8f2b83aaad5a) - **ci**: correct Boost archive checksum in iOS full profile workflow *(PR [#116](https://github.com/massif-maps/MassifMaps/pull/116) by [@Copilot](https://github.com/apps/copilot-swe-agent))*
+- [`230a985`](https://github.com/massif-maps/MassifMaps/commit/230a985cd2702c03bb566de4136f66c45a89151f) - cache swig Lib directory alongside binary in build-swig action *(PR [#117](https://github.com/massif-maps/MassifMaps/pull/117) by [@Copilot](https://github.com/apps/copilot-swe-agent))*
+- [`3bf99ab`](https://github.com/massif-maps/MassifMaps/commit/3bf99ab7afeafcaf5de953e825d86c68de518a15) - restore SWIG autotools discovery in iOS CI builds *(PR [#118](https://github.com/massif-maps/MassifMaps/pull/118) by [@Copilot](https://github.com/apps/copilot-swe-agent))*
+
+
 ## [Unreleased]
 ### New Features
 - **3D terrain support** (experimental): the map surface can be displaced by a DEM elevation tile source (mapbox/terrarium RGB encoding, the same sources used by `HillshadeRasterTileLayer`).
@@ -1310,3 +1695,4 @@ Release notes for next releases can be found from [Releases section](https://git
 [v5.0.0-rc.11]: https://github.com/Akylas/mobile-sdk/compare/v5.0.0-rc.10...v5.0.0-rc.11
 [v5.0.0-rc.12]: https://github.com/Akylas/mobile-sdk/compare/v5.0.0-rc.11...v5.0.0-rc.12
 [v5.0.0-rc.13]: https://github.com/Akylas/mobile-sdk/compare/v5.0.0-rc.12...v5.0.0-rc.13
+[v6.0.0]: https://github.com/massif-maps/MassifMaps/compare/v5.2.3...v6.0.0
