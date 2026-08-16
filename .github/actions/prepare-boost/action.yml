@@ -1,0 +1,82 @@
+name: Prepare Boost
+description: Download (with retry), cache, and bootstrap Boost headers
+
+inputs:
+  boost-version:
+    description: Boost version string, e.g. 1_89_0
+    required: false
+    default: '1_89_0'
+  boost-dot-version:
+    description: Boost version with dots, e.g. 1.89.0
+    required: false
+    default: '1.89.0'
+
+outputs:
+  boost-root:
+    description: Absolute path to the boost source directory
+    value: ${{ steps.vars.outputs.boost-root }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set boost variables
+      id: vars
+      shell: bash
+      run: |
+        echo "boost-root=${{ github.workspace }}/boost_${{ inputs.boost-version }}" >> "$GITHUB_OUTPUT"
+        echo "BOOST_VERSION=${{ inputs.boost-version }}" >> "$GITHUB_ENV"
+        echo "BOOST_DOT_VERSION=${{ inputs.boost-dot-version }}" >> "$GITHUB_ENV"
+
+    - name: Cache Boost
+      id: cache-boost
+      uses: actions/cache@v4
+      with:
+        path: boost_${{ inputs.boost-version }}
+        key: boost-${{ inputs.boost-version }}-headers-${{ runner.os }}
+
+    - name: Download and bootstrap Boost
+      if: steps.cache-boost.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        BOOST_ZIP="boost_${{ inputs.boost-version }}.zip"
+        BOOST_URL="https://sourceforge.net/projects/boost/files/boost/${{ inputs.boost-dot-version }}/${BOOST_ZIP}"
+        # Known SHA256 for boost_1_89_0.zip
+        BOOST_SHA256="d2db6bbb26e2c66d6e33e7ccf5d74b22ff46a14d54b82dfec19e79d1cda17ded"
+
+        echo "Downloading Boost from $BOOST_URL ..."
+        for attempt in 1 2 3 4 5; do
+          if curl --retry 5 --retry-delay 10 --retry-connrefused -fsSL -o "$BOOST_ZIP" "$BOOST_URL"; then
+            echo "Download succeeded on attempt $attempt"
+            break
+          fi
+          echo "Attempt $attempt failed, retrying in 15s..."
+          sleep 15
+          if [ "$attempt" -eq 5 ]; then
+            echo "All download attempts failed"
+            exit 1
+          fi
+        done
+
+        echo "Verifying checksum..."
+        echo "${BOOST_SHA256}  ${BOOST_ZIP}" | sha256sum -c -
+        echo "Checksum OK. Extracting..."
+        unzip -q "$BOOST_ZIP"
+        rm -f "$BOOST_ZIP"
+
+        echo "Bootstrapping Boost headers..."
+        cd "boost_${{ inputs.boost-version }}"
+        ./bootstrap.sh
+        ./b2 headers
+
+    - name: Link Boost into libs-external
+      shell: bash
+      run: |
+        BOOST_DIR="${{ github.workspace }}/boost_${{ inputs.boost-version }}"
+        LINK_PATH="${{ github.workspace }}/libs-external/boost"
+        if [ ! -e "$LINK_PATH" ]; then
+          ln -s "$BOOST_DIR" "$LINK_PATH"
+          echo "Created symlink: $LINK_PATH -> $BOOST_DIR"
+        else
+          echo "Symlink/dir already exists at $LINK_PATH"
+        fi
