@@ -45,7 +45,7 @@ jobs:
           result-encoding: string
           script: |
             if ("${{ github.event.inputs.version }}".length) {
-             return "${{ github.event.inputs.version }}";
+             return "${{ github.event.inputs.version }}".replace(/^v/, '');
             }
 
       - uses: actions/checkout@v4
@@ -105,13 +105,16 @@ jobs:
           script: |
             const expected = process.env.EXPECTED_TAG
             const { owner, repo } = context.repo
-            const { data } = await github.rest.repos.listTags({ owner, repo, per_page: 1 })
-            const latest = data?.[0]?.name
+            let latest = null
+            for await (const page of github.paginate.iterator(github.rest.repos.listTags, { owner, repo, per_page: 100 })) {
+              const match = page.data.find(t => /^v\d/.test(t.name))
+              if (match) { latest = match.name; break }
+            }
             if (!latest) {
-              core.setFailed(`No tags found while validating expected tag ${expected}.`)
+              core.setFailed(`No well-formed tags found while validating expected tag ${expected}.`)
               return
             }
-            core.info(`Latest tag from API: ${latest}`)
+            core.info(`Latest well-formed tag from API: ${latest}`)
             if (latest !== expected) {
               core.setFailed(`Expected latest tag ${expected}, but latest is ${latest}.`)
             }
