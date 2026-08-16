@@ -36,7 +36,7 @@ concurrency:
 
 env:
   # SWIG fork used to generate the bindings. Override the repo/ref if you maintain a fork.
-  SWIG_REPO: https://github.com/farfromrefug/mobile-swig.git
+  SWIG_REPO: https://github.com//massif-maps/mobile-swig.git
   SWIG_PROFILE: standard+valhalla+geocoding+routing+packagemanager
 
 jobs:

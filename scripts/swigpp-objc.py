@@ -572,7 +572,7 @@ args.defines += ';' + getProfile(args.profile).get('defines', '')
 argsDefines = args.defines.split(";")
 
 if not checkExecutable(args.swig, '-help'):
-  print('Unable to find SWIG executable. Use --swig argument to specify its location. The supported version is available from https://github.com/farfromrefug/mobile-swig')
+  print('Unable to find SWIG executable. Use --swig argument to specify its location. The supported version is available from https://github.com//massif-maps/mobile-swig')
   sys.exit(-1)
 
 if os.path.isdir(args.wrapperDir):

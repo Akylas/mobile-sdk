@@ -44,7 +44,7 @@ Special **swig** version (swig-2.0.11-nutiteq branch) is needed for generating l
 
 ```
 brew install autoconf automake libtool
-git clone https://github.com/farfromrefug/mobile-swig.git
+git clone https://github.com//massif-maps/mobile-swig.git
 cd mobile-swig
 wget https://github.com/PhilipHazel/pcre2/releases/download/pcre2-10.44/pcre2-10.44.tar.gz
 ./Tools/pcre-build.sh

@@ -13,7 +13,7 @@ runs:
       id: swig-sha
       shell: bash
       run: |
-        SHA=$(git ls-remote https://github.com/farfromrefug/mobile-swig.git HEAD | awk '{print $1}')
+        SHA=$(git ls-remote https://github.com//massif-maps/mobile-swig.git HEAD | awk '{print $1}')
         echo "sha=$SHA" >> "$GITHUB_OUTPUT"
         echo "SWIG_CACHE_KEY=mobile-swig-${{ runner.os }}-${SHA}" >> "$GITHUB_ENV"
 
@@ -22,8 +22,7 @@ runs:
       uses: actions/cache@v4
       with:
         path: |
-          mobile-swig/swig
-          mobile-swig/Lib
+          mobile-swig
         key: mobile-swig-${{ runner.os }}-${{ steps.swig-sha.outputs.sha }}
 
     - name: Clone and build mobile-swig
@@ -33,7 +32,7 @@ runs:
         set -euo pipefail
         # Clone with retry
         for attempt in 1 2 3; do
-          if git clone --depth=1 https://github.com/farfromrefug/mobile-swig.git; then
+          if git clone --depth=1 https://github.com//massif-maps/mobile-swig.git; then
             break
           fi
           echo "Clone attempt $attempt failed, retrying in 10s..."
