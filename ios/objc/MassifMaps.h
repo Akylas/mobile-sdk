@@ -39,6 +39,7 @@
 #import "MSFTileDownloadListener.h"
 #import "MSFMultiTileDataSource.h"
 #import "MSFPMTilesTileDataSource.h"
+#import "MSFPContourTileDataSource.h"
 
 #import "MSFFeature.h"
 #import "MSFFeatureCollection.h"
@@ -58,6 +59,12 @@
 #import "MSFColor.h"
 #import "MSFViewState.h"
 
+#import "MSFManeuverArrowBuilder.h"
+
+#import "MSFCelestialLayer.h"
+#import "MSFCelestialSprite.h"
+#import "MSFCelestialArc.h"
+
 #import "MSFSolidLayer.h"
 #import "MSFRasterTileEventListener.h"
 #import "MSFRasterTileLayer.h"
@@ -70,6 +77,7 @@
 #import "MSFVectorLayer.h"
 #import "MSFVectorTileEventListener.h"
 #import "MSFVectorTileLayer.h"
+#import "MSFCompositeVectorTileLayer.h"
 #import "MSFTorqueTileLayer.h"
 #import "MSFClusteredVectorLayer.h"
 #import "MSFClusterElementBuilder.h"
