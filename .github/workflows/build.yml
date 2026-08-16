@@ -107,6 +107,7 @@ jobs:
           excludeTypes: build,docs,other,style,chore,perf,doc
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ needs.create-release.outputs.VERSION_TAG }}
+          writeToFile: false
 
   build:
     permissions:
