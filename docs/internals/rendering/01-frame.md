@@ -87,7 +87,22 @@ The renderer is **not** a free-running loop. A frame is drawn when something cal
 progress, a drape/ground cover change, an elevation version change. `MapRenderer::logRedrawSources`
 exists to find out who is asking when the map will not settle.
 
-Two consequences worth knowing:
+**One requested frame is not enough to change what is on screen.** The surface is double-buffered
+and `RENDERMODE_WHEN_DIRTY` draws exactly as many frames as were asked for, so a single frame lands
+in the back buffer and the front one — the previous state — is what stays visible until something
+else happens to draw again. `requestRedraw()` therefore owes a **follow-up frame**
+(`_redrawExtraFrames`, taken at the end of `onDrawFrame` before the idle callback).
+
+This was found on a state change with no camera movement behind it: toggling `FogOptions` from adb
+(`DemoLive`, see the root `CLAUDE.md`), about one change in eight never appeared, permanently — a
+second screenshot four seconds later was byte-identical — while a probe on the render thread logged
+the correct fog for the frame it did draw. The misses correlated exactly with the changes that drew
+**one** frame; every change that drew two appeared. The others only worked because a cull pass
+happened to request a second redraw behind them, which is why the symptom looked intermittent and
+partial ("only the sky updated"): different passes cache differently, so a stale front buffer shows
+a mixture.
+
+Two more consequences worth knowing:
 
 - **fps is meaningless when the map is idle** — the bench scripts drive a scripted pan for exactly
   this reason ([10-performance.md](10-performance.md)).

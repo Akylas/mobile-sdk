@@ -237,46 +237,6 @@ namespace massif {
         void setMinZoom(int minZoom);
 
         /**
-         * Returns the fog color.
-         * @return The fog color. The default is transparent (no fog).
-         */
-        Color getFogColor() const;
-        /**
-         * Sets the color distant terrain, rasters, geometry and 3D extrusions fade towards.
-         * The alpha channel is how opaque the fog gets at full distance, so a fully transparent
-         * color (the default) means no fog at all. Fog is what makes a long view distance look
-         * like distance rather than like a hard cut, and it is what hides the edge of the terrain
-         * when the maximum visible distance is limited.
-         * A style can set this itself with the Map property "fog-color".
-         * @param color The new fog color.
-         */
-        void setFogColor(const Color& color);
-
-        /**
-         * Returns the distance at which the fog starts.
-         * @return The fog start distance in meters. The default is 0.
-         */
-        float getFogStartDistance() const;
-        /**
-         * Sets the distance from the camera at which the fog starts, in meters. Nothing nearer
-         * than this is fogged at all. Style property: "fog-start-distance".
-         * @param distance The new fog start distance in meters.
-         */
-        void setFogStartDistance(float distance);
-
-        /**
-         * Returns the distance at which the fog reaches full strength.
-         * @return The fog distance in meters. The default is 0 (no fog).
-         */
-        float getFogDistance() const;
-        /**
-         * Sets the distance from the camera at which the fog reaches its full strength, in
-         * meters. 0 (the default) turns the fog off. Style property: "fog-distance".
-         * @param distance The new fog distance in meters.
-         */
-        void setFogDistance(float distance);
-
-        /**
          * Returns the factor applied to the view distance.
          * @return The view distance factor. The default is 1, which is exactly tangram's rule.
          */
@@ -593,9 +553,6 @@ namespace massif {
         std::atomic<float> _cameraClampDuration;
         std::atomic<bool> _billboardOcclusionEnabled;
         std::atomic<float> _billboardOcclusionTolerance;
-        std::atomic<int> _fogColorARGB;
-        std::atomic<float> _fogStartDistance;
-        std::atomic<float> _fogDistance;
         std::atomic<float> _viewDistanceFactor;
         std::atomic<float> _viewDistance;
         std::atomic<int> _maxTileZoomCoarsening;

@@ -8,6 +8,7 @@ import android.util.Log;
 import com.massifmaps.components.LightOptions;
 import com.massifmaps.components.Options;
 import com.massifmaps.components.SkyOptions;
+import com.massifmaps.components.FogOptions;
 import com.massifmaps.components.TerrainOptions;
 import com.massifmaps.core.MapPos;
 import com.massifmaps.core.MapPosVector;
@@ -124,6 +125,7 @@ public class DemoMap {
     public TerrainOptions terrainOptions;
     public LightOptions lightOptions;
     public SkyOptions skyOptions;
+    public FogOptions fogOptions;
     public HillshadeRasterTileLayer hillshadeLayer;      // stand-alone hillshade layer, when built
     public VectorTileLayer baseLayer;                    // base map layer, whatever the mode
     public CompositeVectorTileLayer compositeLayer;      // same object as baseLayer in COMPOSITE mode
@@ -1349,10 +1351,8 @@ public class DemoMap {
             terrainOptions.setMaxTileZoomOffset(DemoConfig.TERRAIN_MAX_TILE_ZOOM_OFFSET);
         }
         // Fog and view distance go together: the distance ENDS the ground, the fog is what makes
-        // it fade out instead of being cut off.
-        terrainOptions.setFogColor(new Color(DemoConfig.FOG_ENABLED ? DemoConfig.FOG_COLOR_ARGB : 0));
-        terrainOptions.setFogStartDistance(DemoConfig.FOG_START_DISTANCE);
-        terrainOptions.setFogDistance(DemoConfig.FOG_DISTANCE);
+        // it fade out instead of being cut off. The fog itself lives on FogOptions now.
+        applyFogOptions();
         terrainOptions.setViewDistanceFactor(DemoConfig.VIEW_DISTANCE_FACTOR);
         terrainOptions.setViewDistance(DemoConfig.VIEW_DISTANCE_METERS);
         terrainOptions.setMaxTileZoomCoarsening(DemoConfig.TERRAIN_MAX_TILE_ZOOM_COARSENING);
@@ -1423,6 +1423,30 @@ public class DemoMap {
         updateSky();
     }
 
+    /** Fog is its own options object and is independent of the terrain - it fogs a plain 2D map too. */
+    public void applyFogOptions() {
+        if (fogOptions == null) {
+            fogOptions = new FogOptions();
+            mapView.getOptions().setFogOptions(fogOptions);
+        }
+        fogOptions.setEnabled(DemoConfig.FOG_ENABLED);
+        // STYLE mode leaves every value at its default so nothing but the style's Map block can be
+        // responsible for what is on screen - the point being to show the style winning, and that
+        // it can make the fog zoom-dependent, which the options cannot.
+        boolean fromStyle = DemoConfig.FOG_SOURCE_STYLE.equals(DemoConfig.FOG_SOURCE);
+        fogOptions.setColor(new Color(fromStyle ? 0 : DemoConfig.FOG_COLOR_ARGB));
+        fogOptions.setRangeStart(DemoConfig.FOG_RANGE_START);
+        fogOptions.setRangeEnd(DemoConfig.FOG_RANGE_END);
+        fogOptions.setHighColor(new Color(fromStyle ? 0 : DemoConfig.FOG_HIGH_COLOR_ARGB));
+        fogOptions.setSpaceColor(new Color(fromStyle ? 0 : DemoConfig.FOG_SPACE_COLOR_ARGB));
+        fogOptions.setStarIntensity(fromStyle ? 0 : DemoConfig.FOG_STAR_INTENSITY);
+        // How much of the sky the haze takes: HorizonBlend is the fade width, HorizonAngle the
+        // angle it is still at full strength at (negative = from the terrain, 0 = from the horizon).
+        fogOptions.setHorizonBlend(DemoConfig.FOG_HORIZON_BLEND);
+        fogOptions.setHorizonAngle(DemoConfig.FOG_HORIZON_ANGLE);
+        mapView.requestRender();
+    }
+
     /** The sky is always attached so the panel can toggle it live; disabled = no sky at all. */
     public void applySkyOptions() {
         if (skyOptions == null) {
@@ -1430,10 +1454,6 @@ public class DemoMap {
             mapView.getOptions().setSkyOptions(skyOptions);
         }
         skyOptions.setEnabled(DemoConfig.SKY_ENABLED);
-        // How much of the sky the terrain haze takes: FogBlend is the fade width, FogHorizon the
-        // angle it is still at full strength at (negative = from the terrain, 0 = from the horizon).
-        skyOptions.setFogBlend(DemoConfig.SKY_FOG_BLEND);
-        skyOptions.setFogHorizon(DemoConfig.SKY_FOG_HORIZON);
         // In the relief view the sky is part of the palette: a light one over the paper, a night
         // one over the ink. Alpha 0 makes it see-through, which is what an AR overlay wants.
         if (DemoConfig.RELIEF_SURFACE || DemoConfig.PEAK_FINDER) {

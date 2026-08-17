@@ -141,6 +141,31 @@ the product. There is **no renamed equivalent**; bring your own source.
 Guides carried over from the CARTO documentation that still use these classes carry a warning
 banner at the top.
 
+## Breaking changes after 6.0.0
+
+### Fog moved to its own `FogOptions`
+
+Fog was three fields on `TerrainOptions` and two on `SkyOptions`. It is not a terrain feature — it
+fogs a plain 2D map too — so it is now one object on `Options`, modelled on the Mapbox `fog` style
+property. See [Sky, Sun & Shadows](/docs/features/sky-sun-shadows).
+
+| Before | After |
+|---|---|
+| `terrainOptions.fogColor` | `fogOptions.color` |
+| `terrainOptions.fogStartDistance` (metres) | `fogOptions.rangeStart` (**multiples of the camera-to-focus distance**) |
+| `terrainOptions.fogDistance` (metres) | `fogOptions.rangeEnd` (same unit) |
+| `skyOptions.fogBlend` (degrees) | `fogOptions.horizonBlend` (fraction of a quarter turn: `degrees / 90`) |
+| `skyOptions.fogHorizon` | `fogOptions.horizonAngle` (unchanged, degrees) |
+| style `fog-start-distance` / `fog-distance` | style `fog-range-start` / `fog-range-end` |
+
+**The range unit changed, so the numbers do not carry over.** Metres had to be retuned for every
+zoom; the camera-to-focus distance is a function of the zoom alone, so one setting now holds
+everywhere. Start from the defaults (`0.8` to `8`) rather than converting.
+
+New with it: `enabled` (a real switch — no more toggling fog by driving a distance to `0`),
+`highColor`, `spaceColor`, `starIntensity` (Mapbox `high-color` / `space-color` / `star-intensity`),
+and `shaderSource` for a custom fog blend across map and sky.
+
 ## Deliberately NOT renamed
 
 These name data or upstream work, not this SDK:

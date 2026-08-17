@@ -209,6 +209,12 @@ namespace massif {
 
         // postProcessing tells whether an effect is going to run this frame: only then are the
         // layers that opted out of it held back for drawOverlayLayers.
+        // Every tile layer's Map-block opinion, merged - the first layer to define a property
+        // wins. Collected ONCE per frame, before the sky draws, because the sky, the background
+        // plane, the terrain surface and the tile content must all fog the same way and the sky
+        // is drawn long before drawLayers would have gathered it.
+        StyleEnvironment collectStyleEnvironment(const ViewState& viewState) const;
+
         void drawLayers(float deltaSeconds, const ViewState& viewState, bool postProcessing);
 
         // The layers drawLayers held back because they opted out of post-processing, drawn once
@@ -308,6 +314,11 @@ namespace massif {
         std::vector<std::shared_ptr<Layer> > _overlayLayers;
         bool _postProcessSecondaryActive = false;
 
+        // Render thread only: this frame's merged style opinion and the fog resolved from it,
+        // computed before the sky and reused by every consumer so they cannot disagree.
+        StyleEnvironment _frameStyleEnvironment;
+        ResolvedFog _frameFog;
+
         BackgroundRenderer _backgroundRenderer;
         SkyRenderer _skyRenderer;
         
@@ -326,6 +337,9 @@ namespace massif {
         mutable std::atomic<bool> _surfaceChanged;
         mutable std::atomic<bool> _billboardsChanged;
         mutable std::atomic<bool> _redrawPending;
+        // Frames still owed after a redraw request, so a change reaches the FRONT buffer and not
+        // only the back one (see requestRedraw).
+        mutable std::atomic<int> _redrawExtraFrames;
 
         ThreadSafeDirectorPtr<RedrawRequestListener> _redrawRequestListener;
 

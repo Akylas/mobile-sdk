@@ -226,19 +226,70 @@ public final class DemoConfig {
 
     // Fog / view distance: they belong together, the distance ENDS the ground and the fog is what
     // makes it fade out instead of being cut off.
+    /** The master switch on FogOptions - values stay configured while it is off. '--es fog false'. */
     public static boolean FOG_ENABLED = false;
+    /** Where the fog values come from: DIRECT = this config on FogOptions, STYLE = the inline
+     *  style's Map block (mapbox-shaped, and the only one that can be zoom-dependent). The style
+     *  wins over the options wherever it declares a property, which is what STYLE demonstrates.
+     *  Only the inline style carries it - '--es style inline --es fogSource style'. */
+    public static final String FOG_SOURCE_DIRECT = "direct";
+    public static final String FOG_SOURCE_STYLE = "style";
+    public static String FOG_SOURCE = FOG_SOURCE_DIRECT;
     public static int FOG_COLOR_ARGB = 0xffb8c6d8;
-    public static float FOG_START_DISTANCE = 1500f;
-    public static float FOG_DISTANCE = 0f;          // 0 = off
+    /** Fog range, in multiples of the camera-to-focus distance (mapbox 'range'). Zoom-independent,
+     *  so one pair holds everywhere. '--es fogRangeStart 0.8 --es fogRangeEnd 8'. */
+    public static float FOG_RANGE_START = 0.8f;
+    public static float FOG_RANGE_END = 8f;
+    /** Mapbox high-color / space-color: the upper atmosphere and the zenith. 0 = leave the
+     *  SkyOptions gradient alone. '--es fogHigh #245bde --es fogSpace #000000'. */
+    public static int FOG_HIGH_COLOR_ARGB = 0;
+    public static int FOG_SPACE_COLOR_ARGB = 0;
+    /** Mapbox star-intensity, 0..1. '--es fogStars 0.15'. */
+    public static float FOG_STAR_INTENSITY = 0f;
     /** How far the map is drawn AND where the far plane sits, as a factor on tangram's own rule
      *  (far = 2 * cameraHeight / cos(pitch + fovy/2), capped at 127 tile widths). 1 is their rule
      *  verbatim; 0 falls back to the visible ground, which reaches the horizon.
      *  '--es viewDistance 0.5' halves it. */
-    /** Degrees above the fog horizon the sky haze fades out over ('--es fogBlend 12'). */
-    public static float SKY_FOG_BLEND = 12f;
+    /** Fraction of a quarter turn the sky haze fades out over - mapbox horizon-blend
+     *  ('--es fogBlend 0.133'). */
+    public static float FOG_HORIZON_BLEND = 12f / 90f;
     /** Elevation angle the sky haze is still full at: -1 = from the terrain skyline (capped at half
      *  the blend), 0 = from the mathematical horizon, >0 = pinned. '--es fogHorizon 0'. */
-    public static float SKY_FOG_HORIZON = -1f;
+    public static float FOG_HORIZON_ANGLE = -1f;
+
+    /** Named looks, '--es fogPreset mapbox'. Each one sets every FOG_* field below, so a preset is
+     *  a starting point the sliders then move - not a mode. HAZE is the plain neutral distance fog
+     *  with no atmosphere; the other three are the mapbox 'fog' documentation values and two
+     *  variations on them. */
+    public static final String[] FOG_PRESETS = { "haze", "mapbox", "dusk", "space" };
+    public static String FOG_PRESET = "";
+
+    /** Writes a preset into the FOG_* fields. Unknown names leave them alone. */
+    public static void applyFogPreset(String preset) {
+        if (preset == null) {
+            return;
+        }
+        FOG_PRESET = preset;
+        if ("haze".equals(preset)) {
+            FOG_COLOR_ARGB = 0xffb8c6d8; FOG_RANGE_START = 0.4f; FOG_RANGE_END = 4f;
+            FOG_HIGH_COLOR_ARGB = 0; FOG_SPACE_COLOR_ARGB = 0;
+            FOG_HORIZON_BLEND = 12f / 90f; FOG_STAR_INTENSITY = 0f;
+        } else if ("mapbox".equals(preset)) {
+            // The values from the mapbox fog documentation, verbatim.
+            FOG_COLOR_ARGB = 0xffdc9f9f; FOG_RANGE_START = 0.8f; FOG_RANGE_END = 8f;
+            FOG_HIGH_COLOR_ARGB = 0xff245bde; FOG_SPACE_COLOR_ARGB = 0xff000000;
+            FOG_HORIZON_BLEND = 0.5f; FOG_STAR_INTENSITY = 0.15f;
+        } else if ("dusk".equals(preset)) {
+            FOG_COLOR_ARGB = 0xffe8a87c; FOG_RANGE_START = 0.3f; FOG_RANGE_END = 5f;
+            FOG_HIGH_COLOR_ARGB = 0xff3b5998; FOG_SPACE_COLOR_ARGB = 0xff0b1026;
+            FOG_HORIZON_BLEND = 0.35f; FOG_STAR_INTENSITY = 0.35f;
+        } else if ("space".equals(preset)) {
+            // The zoomed-out look: a thin atmosphere over a black sky, stars well up.
+            FOG_COLOR_ARGB = 0xffa8c0d8; FOG_RANGE_START = 0.2f; FOG_RANGE_END = 3f;
+            FOG_HIGH_COLOR_ARGB = 0xff245bde; FOG_SPACE_COLOR_ARGB = 0xff000000;
+            FOG_HORIZON_BLEND = 0.2f; FOG_STAR_INTENSITY = 0.6f;
+        }
+    }
     public static float VIEW_DISTANCE_FACTOR = 1f;
     /** Absolute view distance in METRES, whatever the camera's height or pitch. 0 = the factor
      *  rule above (tangram's, which shortens the view as the camera comes down to the ground -
@@ -983,14 +1034,23 @@ public final class DemoConfig {
         }
 
         // fog / distance
-        if (DemoCfg.cfg("fog") != null) {
+        // The preset first: the individual extras below then override whatever it set.
+        if (DemoCfg.cfg("fogPreset") != null) {
+            applyFogPreset(DemoCfg.cfg("fogPreset"));
             FOG_ENABLED = true;
+        }
+        if (DemoCfg.cfg("fog") != null) {
+            FOG_ENABLED = !"false".equals(DemoCfg.cfg("fog"));
             FOG_COLOR_ARGB = DemoCfg.cfgColorInt("fog", FOG_COLOR_ARGB);
         }
-        FOG_START_DISTANCE = DemoCfg.cfgFloat("fogStart", FOG_START_DISTANCE);
-        FOG_DISTANCE = DemoCfg.cfgFloat("fogDistance", FOG_DISTANCE);
-        SKY_FOG_BLEND = DemoCfg.cfgFloat("fogBlend", SKY_FOG_BLEND);
-        SKY_FOG_HORIZON = DemoCfg.cfgFloat("fogHorizon", SKY_FOG_HORIZON);
+        FOG_SOURCE = DemoCfg.cfgStr("fogSource", FOG_SOURCE);
+        FOG_RANGE_START = DemoCfg.cfgFloat("fogRangeStart", FOG_RANGE_START);
+        FOG_RANGE_END = DemoCfg.cfgFloat("fogRangeEnd", FOG_RANGE_END);
+        FOG_HIGH_COLOR_ARGB = DemoCfg.cfgColorInt("fogHigh", FOG_HIGH_COLOR_ARGB);
+        FOG_SPACE_COLOR_ARGB = DemoCfg.cfgColorInt("fogSpace", FOG_SPACE_COLOR_ARGB);
+        FOG_STAR_INTENSITY = DemoCfg.cfgFloat("fogStars", FOG_STAR_INTENSITY);
+        FOG_HORIZON_BLEND = DemoCfg.cfgFloat("fogBlend", FOG_HORIZON_BLEND);
+        FOG_HORIZON_ANGLE = DemoCfg.cfgFloat("fogHorizon", FOG_HORIZON_ANGLE);
         VIEW_DISTANCE_FACTOR = DemoCfg.cfgFloat("viewDistance", VIEW_DISTANCE_FACTOR);
         VIEW_DISTANCE_METERS = DemoCfg.cfgFloat("viewDistanceMeters", VIEW_DISTANCE_METERS);
         TERRAIN_MAX_TILE_ZOOM_COARSENING = DemoCfg.cfgInt("coarsening", TERRAIN_MAX_TILE_ZOOM_COARSENING);

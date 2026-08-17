@@ -215,10 +215,19 @@ public final class DemoStyles {
                .append(" building-ambient: " + DemoConfig.INLINE_BUILDING_AMBIENT + ";")
                .append(" shadow-strength: 0.8;")
                .append(" shadow-softness: 1;")
-               .append(" fog-color: #b8c6d8;")
-               .append(" fog-start-distance: 1500;")
-               .append(" fog-distance: linear([view::zoom], (11, 60000), (15, 12000));")
                .append(" terrain-max-visible-distance: 40000;");
+        }
+        if (DemoConfig.FOG_SOURCE_STYLE.equals(DemoConfig.FOG_SOURCE)) {
+            // The mapbox 'fog' property set, written in the style. The range is in multiples of the
+            // camera-to-focus distance, so it needs no per-zoom expression - fog-range-end is one
+            // here only to show that the style CAN make it zoom-dependent and the options cannot.
+            map.append(" fog-color: #dc9f9f;")
+               .append(" fog-range-start: 0.8;")
+               .append(" fog-range-end: linear([view::zoom], (11, 8), (15, 4));")
+               .append(" fog-high-color: #245bde;")
+               .append(" fog-space-color: #000000;")
+               .append(" fog-horizon-blend: 0.5;")
+               .append(" fog-star-intensity: 0.15;");
         }
         map.append(" }");
 

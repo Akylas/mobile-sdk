@@ -8,6 +8,7 @@
 #define _MASSIF_SKYRENDERER_H_
 
 #include "renderers/utils/GLContext.h"
+#include "components/StyleEnvironment.h"
 
 #include <chrono>
 #include <memory>
@@ -32,9 +33,10 @@ namespace massif {
         void onSurfaceCreated(const std::shared_ptr<GLResourceManager>& resourceManager);
         /**
          * Draws the sky. Returns true if anything was drawn, in which case the legacy sky
-         * band must not be drawn on top of it.
+         * band must not be drawn on top of it. The fog is resolved by the owner and shared with
+         * the ground, so the two meet at the horizon whether it came from the options or a style.
          */
-        bool onDrawFrame(const ViewState& viewState);
+        bool onDrawFrame(const ViewState& viewState, const ResolvedFog& fog);
         void onSurfaceDestroyed();
 
     protected:
@@ -44,6 +46,7 @@ namespace massif {
         static const std::string SKY_FRAGMENT_SHADER_PREFIX;
         static const std::string SKY_FRAGMENT_SHADER_MAIN;
         static const std::string SKY_FRAGMENT_SHADER_BUILTIN;
+        static const std::string SKY_FRAGMENT_SHADER_FOG_BUILTIN;
 
         static const float QUAD_COORDS[8];
         // How far below the horizon the sky quad still reaches, in normalized device units: the sky
@@ -53,6 +56,7 @@ namespace massif {
 
         std::shared_ptr<Shader> _shader;
         std::string _shaderSource;      // the SkyOptions source the current shader was built from
+        std::string _fogShaderSource;   // the FogOptions source it was built with
         bool _shaderFailed;             // custom source failed to compile; do not retry it
 
         // Uniform locations are queried directly, not through Shader::getUniformLoc: a custom
@@ -76,6 +80,10 @@ namespace massif {
         GLint _u_fogColor;
         GLint _u_fogBlend;
         GLint _u_fogHorizon;
+        GLint _u_fogHighColor;
+        GLint _u_fogSpaceColor;
+        GLint _u_fogParams;
+        GLint _u_starIntensity;
 
         std::chrono::steady_clock::time_point _startTime;
 

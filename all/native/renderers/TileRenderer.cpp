@@ -4,6 +4,7 @@
 #include "components/Options.h"
 #include "components/LightOptions.h"
 #include "components/TerrainOptions.h"
+#include "components/FogOptions.h"
 #include "components/ThreadWorker.h"
 #include "graphics/ViewState.h"
 #include "projections/ProjectionSurface.h"
@@ -820,14 +821,17 @@ namespace massif {
                 terrainLighting.ambientIntensity = lighting.ambientIntensity;
             }
 
-            // Distance fog, lit by the same sun as the ground (see resolveFog). Metric in the API
-            // and in the style, internal units in the renderer: the conversion is the equator one,
-            // the same the shadow distance uses.
-            ResolvedFog fog = resolveFog(options->getTerrainOptions(), _styleEnvironment, lighting);
-            double metersToInternal = static_cast<double>(Const::WORLD_SIZE) / Const::EARTH_CIRCUMFERENCE;
+            // Distance fog, lit by the same sun as the ground (see resolveFog). The range is
+            // camera-relative, so resolveFog already returns internal units - it needs no terrain,
+            // and this is what fogs a plain 2D map as well.
+            ResolvedFog fog = resolveFog(options->getFogOptions(), _styleEnvironment, lighting, viewState.calculateCameraDistance());
             tileRenderer->setFog(vt::Color(fog.color.getR() / 255.0f, fog.color.getG() / 255.0f, fog.color.getB() / 255.0f, fog.color.getA() / 255.0f),
-                                 static_cast<float>(fog.startDistance * metersToInternal),
-                                 static_cast<float>(fog.distance * metersToInternal));
+                                 fog.startDistance, fog.distance, fog.rangeScale);
+            tileRenderer->setFogColors(vt::Color(fog.highColor.getR() / 255.0f, fog.highColor.getG() / 255.0f, fog.highColor.getB() / 255.0f, fog.highColor.getA() / 255.0f),
+                                       vt::Color(fog.spaceColor.getR() / 255.0f, fog.spaceColor.getG() / 255.0f, fog.spaceColor.getB() / 255.0f, fog.spaceColor.getA() / 255.0f));
+            if (std::shared_ptr<FogOptions> fogOptions = options->getFogOptions()) {
+                tileRenderer->setFogShaderSource(fogOptions->getShaderSource());
+            }
         }
         tileRenderer->setTerrainLighting(terrainLighting);
         tileRenderer->setTerrainDepthWrite(terrainMode && _terrainDepthWriteMode);

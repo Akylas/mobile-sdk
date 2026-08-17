@@ -100,8 +100,7 @@ mapView.getOptions()?.setTerrainOptions(terrain)
 | `TileEdgeStitchingEnabled` | `true` | Stitch the mesh across tiles of different levels. |
 | `BackgroundColor` | transparent | Fill color drawn before tiles (works even with zero tile layers). |
 | `BackgroundBitmapEnabled` | `false` | Drape `Options.getBackgroundBitmap()` over the terrain (world-anchored, repeats). |
-| `FogColor` / `FogStartDistance` / `FogDistance` | transparent / `0` / `0` | Metres. Transparent colour or distance 0 = no fog. |
-| `ViewDistanceFactor` / `ViewDistance` | `1.0` / `0` | Where the ground ends; `ViewDistance` overrides in metres. |
+| `ViewDistanceFactor` / `ViewDistance` | `1.0` / `0` | Where the ground ends; `ViewDistance` overrides in metres. Pair it with fog ([FogOptions](/docs/features/sky-sun-shadows)). |
 | `MaxTileZoomCoarsening` | `3` | How much coarser far tiles may get. |
 | `BillboardOcclusionEnabled` / `…Tolerance` | `true` / `0.02` | Hide markers and popups behind a ridge. |
 | `SurfaceShaderSource` | — | Replace the terrain surface shader ([post-processing](/docs/features/post-processing)). |

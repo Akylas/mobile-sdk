@@ -88,7 +88,6 @@ mapView.options.skyOptions = sky
 | `SkyColor` / `HorizonColor` | blue / pale blue | Zenith and horizon of the built-in gradient. |
 | `GroundColor` | horizon color | Only shows in the wedge between the drawn map and the mathematical horizon. Transparent leaves the clear color. |
 | `HorizonBlend` | `12` | Degrees of blend between horizon and sky. |
-| `FogBlend` / `FogHorizon` | `12` / `-1` | How the fog band meets the sky; `-1` = derived from the terrain in view. |
 | `SunDiscEnabled` | `true` | Draw the sun disc and its glow. |
 | `ShaderSource` | — | Replace the whole appearance (below). |
 
@@ -115,28 +114,92 @@ usual reason a custom sky "does nothing".
 | `vec4 u_skyColor`, `u_horizonColor`, `u_groundColor` | the configured colours |
 | `float u_horizonBlend`, `u_sunDisc` | the configured blend / sun-disc switch |
 | `vec4 u_fogColor`, `float u_fogBlend`, `u_fogHorizon` | the resolved fog, already lit by the sun |
+| `vec4 u_fogHighColor`, `u_fogSpaceColor`, `float u_starIntensity` | the atmosphere colours and the star field |
 | `float u_time`, `u_zoom`, `u_cameraHeight` | seconds since the view was created, fractional zoom, metres |
 | `vec2 u_resolution` | viewport size in pixels |
 
-## Fog
+## Fog (the atmosphere)
 
-Fog is not a separate subsystem: it is resolved once per frame from `TerrainOptions` and the style's
-`Map` block, **lit by the same sun** (dark at night, warm at a low sun), and handed to the ground
-shaders, the background plane and the sky. That single resolution point is why the ground and the
-horizon match.
+`FogOptions` is modelled on the Mapbox `fog` style property, so a value tuned for a Mapbox style
+transfers directly. It is resolved once per frame from the options and the style's `Map` block,
+**lit by the same sun** (dark at night, warm at a low sun), and handed to the tile content, the
+background plane and the sky. That single resolution point is why the ground and the horizon match.
+
+Fog does **not** need 3D terrain: it fogs a plain 2D map, and it fogs the background plane past the
+loaded tiles, which is what fills the far distance.
 
 ```kotlin
-terrain.fogColor = Color(0xFFB8C6D0.toInt())   // alpha = how opaque the fog gets; transparent = no fog
-terrain.fogStartDistance = 8000f               // metres from the camera; nothing nearer is fogged
-terrain.fogDistance = 40000f                   // metres at which it reaches full strength; 0 = off
-terrain.viewDistanceFactor = 1.0f              // where the ground ends — pair it with fog
+val fog = FogOptions().apply {
+    color = Color(0xFFDC9F9F.toInt())  // alpha = how opaque the fog gets; transparent = no fog
+    rangeStart = 0.8f                  // multiples of the camera-to-focus distance
+    rangeEnd = 8.0f                    // where it reaches full strength
+    highColor = Color(0xFF245BDE.toInt())
+    spaceColor = Color(0xFF000000.toInt())
+    horizonBlend = 0.5f
+    starIntensity = 0.15f
+}
+mapView.options.fogOptions = fog
+terrain.viewDistanceFactor = 1.0f      // where the ground ends — pair it with fog
 ```
 
-A style can set the same three from its `Map` block (`fog-color`, `fog-start-distance`,
-`fog-distance`); the style wins where it has an opinion.
+| Property | Default | Mapbox | Notes |
+|---|---|---|---|
+| `Enabled` | `true` | — | The switch. Off keeps every value configured, so a UI toggle never has to drive a colour or a range through zero. |
+| `Color` | transparent | `color` | Alpha = strength at full distance. Transparent = no fog. |
+| `RangeStart` / `RangeEnd` | `0.8` / `8` | `range` | **Multiples of the camera-to-focus distance**, not metres. That distance is a function of the zoom alone, so one setting holds at every zoom. |
+| `HighColor` | transparent | `high-color` | The lit upper atmosphere. Transparent leaves the `SkyOptions` gradient alone. |
+| `SpaceColor` | transparent | `space-color` | The zenith, beyond the atmosphere. |
+| `HorizonBlend` | `0.133` | `horizon-blend` | Fraction of a quarter turn the haze fades out over. |
+| `HorizonAngle` | `-1` | — | Degrees the haze is still at full strength at. `-1` derives it from the terrain in view. |
+| `StarIntensity` | `0` | `star-intensity` | Drawn by the built-in sky shader only. |
+| `ShaderSource` | — | — | Replace the blend (below). |
+
+A style sets the same from its `Map` block — `fog-enabled`, `fog-color`, `fog-range-start`,
+`fog-range-end`, `fog-high-color`, `fog-space-color`, `fog-horizon-blend`, `fog-star-intensity` —
+and the style wins where it has an opinion. Only the style can make any of them zoom-dependent:
+
+```css
+Map {
+  fog-color: #dc9f9f;
+  fog-range-start: 0.8;
+  fog-range-end: linear([view::zoom], (11, 8), (15, 4));
+  fog-high-color: #245bde;
+  fog-space-color: #000000;
+  fog-horizon-blend: 0.5;
+  fog-star-intensity: 0.15;
+}
+```
 
 `ViewDistanceFactor` ends the ground (tangram's rule: `2 × camera height / cos(pitch + fovy/2)`,
 capped at 127 tile widths; `1` = their rule verbatim). Without fog it ends on a hard edge.
+
+### A custom fog shader
+
+`FogOptions.setShaderSource` takes GLSL ES 1.00 defining one function, and it is compiled into
+**every** pass that fogs — the tile content, the background plane and the sky — so one function
+covers the whole frame in 2D and in 3D:
+
+```glsl
+vec4 applyFog(vec4 color, float amount, float dist) {
+    // color is PREMULTIPLIED; amount is the built-in factor for this fragment, already scaled by
+    // uFogColor.a; dist is in the same units as the range.
+    vec3 tint = mix(uFogColor.rgb, uFogHighColor.rgb, clamp(dist / uFogParams.w, 0.0, 1.0));
+    return vec4(mix(color.rgb, tint * color.a, amount), color.a);
+}
+```
+
+| Uniform | Meaning |
+|---|---|
+| `vec4 uFogColor` | the resolved fog colour, already lit by the sun |
+| `vec4 uFogHighColor`, `uFogSpaceColor` | the atmosphere colours |
+| `vec4 uFogParams` | range start, `1 / (end - start)`, internal → range units, range end |
+
+The sky calls it too, with its angular haze as `amount` and the range end as `dist`. A source that
+fails to compile falls back to the built-in blend and logs the error. Changing it rebuilds every
+shader program, so set it once rather than per frame.
+
+For an effect that needs the whole composited frame instead — including the layers drawn above the
+ground — see [Post-processing](/docs/features/post-processing).
 
 ## See also
 

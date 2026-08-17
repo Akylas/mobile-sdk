@@ -74,6 +74,9 @@ namespace massif {
         if (_skyOptions && _skyOptionsListener) {
             _skyOptions->unregisterOnChangeListener(_skyOptionsListener);
         }
+        if (_fogOptions && _fogOptionsListener) {
+            _fogOptions->unregisterOnChangeListener(_fogOptionsListener);
+        }
         if (_lightOptions && _lightOptionsListener) {
             _lightOptions->unregisterOnChangeListener(_lightOptionsListener);
         }
@@ -879,6 +882,41 @@ namespace massif {
             }
         }
         notifyOptionChanged("SkyOptions");
+    }
+
+    std::shared_ptr<FogOptions> Options::getFogOptions() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        return _fogOptions;
+    }
+
+    void Options::setFogOptions(const std::shared_ptr<FogOptions>& fogOptions) {
+        struct FogOptionsListener : FogOptions::OnChangeListener {
+            explicit FogOptionsListener(Options& options) : _options(options) { }
+
+            virtual void onFogOptionChanged(const std::string& optionName) override {
+                _options.notifyOptionChanged("FogOptions." + optionName);
+            }
+
+        private:
+            Options& _options;
+        };
+
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            if (_fogOptions == fogOptions) {
+                return;
+            }
+            if (_fogOptions && _fogOptionsListener) {
+                _fogOptions->unregisterOnChangeListener(_fogOptionsListener);
+                _fogOptionsListener.reset();
+            }
+            _fogOptions = fogOptions;
+            if (_fogOptions) {
+                _fogOptionsListener = std::make_shared<FogOptionsListener>(*this);
+                _fogOptions->registerOnChangeListener(_fogOptionsListener);
+            }
+        }
+        notifyOptionChanged("FogOptions");
     }
 
     std::shared_ptr<LightOptions> Options::getLightOptions() const {

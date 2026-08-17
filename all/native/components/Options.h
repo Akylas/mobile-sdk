@@ -12,6 +12,7 @@
 #include "core/ScreenPos.h"
 #include "components/TerrainOptions.h"
 #include "components/SkyOptions.h"
+#include "components/FogOptions.h"
 #include "components/LightOptions.h"
 #include "graphics/Color.h"
 
@@ -725,6 +726,18 @@ namespace massif {
         void setSkyOptions(const std::shared_ptr<SkyOptions>& skyOptions);
 
         /**
+         * Returns the fog (atmosphere) options. May be null.
+         * @return The fog options.
+         */
+        std::shared_ptr<FogOptions> getFogOptions() const;
+        /**
+         * Sets the fog options - the haze distant ground fades into and the colours it carries
+         * into the sky. Setting null, or leaving the fog color transparent, means no fog.
+         * @param fogOptions The new fog options. Can be null.
+         */
+        void setFogOptions(const std::shared_ptr<FogOptions>& fogOptions);
+
+        /**
          * Returns the light (sun) options. May be null.
          * @return The light options.
          */
@@ -846,6 +859,9 @@ namespace massif {
 
         std::shared_ptr<SkyOptions> _skyOptions;
         std::shared_ptr<SkyOptions::OnChangeListener> _skyOptionsListener;
+
+        std::shared_ptr<FogOptions> _fogOptions;
+        std::shared_ptr<FogOptions::OnChangeListener> _fogOptionsListener;
 
         std::shared_ptr<LightOptions> _lightOptions;
         std::shared_ptr<LightOptions::OnChangeListener> _lightOptionsListener;

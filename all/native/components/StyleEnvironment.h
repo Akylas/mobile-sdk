@@ -17,6 +17,7 @@
 namespace massif {
     class TerrainOptions;
     class LightOptions;
+    class FogOptions;
 
     /**
      * The sun, shadow, fog and terrain-distance values a vector tile style provides in its Map
@@ -44,9 +45,14 @@ namespace massif {
         std::optional<int> shadowMapSize;
         std::optional<int> shadowCascades;
         std::optional<int> shadowCasterMargin;
+        std::optional<bool> fogEnabled;
         std::optional<Color> fogColor;
-        std::optional<float> fogStartDistance;
-        std::optional<float> fogDistance;
+        std::optional<float> fogRangeStart;
+        std::optional<float> fogRangeEnd;
+        std::optional<Color> fogHighColor;
+        std::optional<Color> fogSpaceColor;
+        std::optional<float> fogHorizonBlend;
+        std::optional<float> fogStarIntensity;
         std::optional<float> terrainMaxVisibleDistance;
 
         /**
@@ -86,14 +92,23 @@ namespace massif {
     ResolvedLighting resolveLighting(const std::shared_ptr<LightOptions>& lightOptions, const StyleEnvironment& env);
 
     /**
-     * The distance fog to actually render with: TerrainOptions, with every value the style
-     * defines substituted in, and the colour lit by the sun when terrain lighting is on.
-     * Distances are in meters, as in the API.
+     * The distance fog to actually render with: FogOptions, with every value the style defines
+     * substituted in, and the colour lit by the sun when terrain lighting is on.
+     * The API expresses the range in multiples of the camera-to-focus distance; the distances
+     * here are the resolved product, in INTERNAL units, which is what every shader wants.
      */
     struct ResolvedFog {
         Color color = Color(0, 0, 0, 0);
-        float startDistance = 0.0f;
+        Color highColor = Color(0, 0, 0, 0);
+        Color spaceColor = Color(0, 0, 0, 0);
+        float rangeStart = 0.0f; // multiples of the camera-to-focus distance, as the API states it
+        float rangeEnd = 0.0f;
+        float rangeScale = 1.0f; // internal units per range unit
+        float startDistance = 0.0f; // rangeStart * rangeScale, i.e. internal units
         float distance = 0.0f;
+        float horizonBlend = 0.0f;
+        float horizonAngle = -1.0f;
+        float starIntensity = 0.0f;
 
         /**
          * True when there is a fog to draw at all: a visible colour over a positive range.
@@ -106,8 +121,11 @@ namespace massif {
      * Without this a fog tuned for daylight stays bright white through the night, floating over a
      * dark map. Only applied when terrain lighting is on - otherwise there is no sun to speak of
      * and the configured colour is used as-is.
+     *
+     * cameraDistance is ViewState::calculateCameraDistance() in internal units, which the range is
+     * measured in. It is a function of the zoom alone, so one range setting holds at every zoom.
      */
-    ResolvedFog resolveFog(const std::shared_ptr<TerrainOptions>& terrainOptions, const StyleEnvironment& env, const ResolvedLighting& lighting);
+    ResolvedFog resolveFog(const std::shared_ptr<FogOptions>& fogOptions, const StyleEnvironment& env, const ResolvedLighting& lighting, double cameraDistance);
 
 }
 

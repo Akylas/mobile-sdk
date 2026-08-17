@@ -1,8 +1,10 @@
 #include "StyleEnvironment.h"
 #include "components/TerrainOptions.h"
 #include "components/LightOptions.h"
+#include "components/FogOptions.h"
 #include "utils/Const.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace massif {
@@ -28,16 +30,22 @@ namespace massif {
         take(shadowMapSize, other.shadowMapSize);
         take(shadowCascades, other.shadowCascades);
         take(shadowCasterMargin, other.shadowCasterMargin);
+        take(fogEnabled, other.fogEnabled);
         take(fogColor, other.fogColor);
-        take(fogStartDistance, other.fogStartDistance);
-        take(fogDistance, other.fogDistance);
+        take(fogRangeStart, other.fogRangeStart);
+        take(fogRangeEnd, other.fogRangeEnd);
+        take(fogHighColor, other.fogHighColor);
+        take(fogSpaceColor, other.fogSpaceColor);
+        take(fogHorizonBlend, other.fogHorizonBlend);
+        take(fogStarIntensity, other.fogStarIntensity);
         take(terrainMaxVisibleDistance, other.terrainMaxVisibleDistance);
     }
 
     bool StyleEnvironment::empty() const {
         return !(sunAzimuth || sunAltitude || sunColor || sunIntensity || ambientIntensity || buildingLightIntensity || buildingAmbient || terrainLightingEnabled ||
                  shadowStrength || shadowBias || shadowSoftness || shadowDistance || shadowMapSize || shadowCascades ||
-                 shadowCasterMargin || fogColor || fogStartDistance || fogDistance || terrainMaxVisibleDistance);
+                 shadowCasterMargin || fogEnabled || fogColor || fogRangeStart || fogRangeEnd || fogHighColor || fogSpaceColor ||
+                 fogHorizonBlend || fogStarIntensity || terrainMaxVisibleDistance);
     }
 
     ResolvedLighting resolveLighting(const std::shared_ptr<LightOptions>& lightOptions, const StyleEnvironment& env) {
@@ -119,22 +127,54 @@ namespace massif {
     }
 
 
-    ResolvedFog resolveFog(const std::shared_ptr<TerrainOptions>& terrainOptions, const StyleEnvironment& env, const ResolvedLighting& lighting) {
+    ResolvedFog resolveFog(const std::shared_ptr<FogOptions>& fogOptions, const StyleEnvironment& env, const ResolvedLighting& lighting, double cameraDistance) {
         ResolvedFog fog;
-        if (terrainOptions) {
-            fog.color = terrainOptions->getFogColor();
-            fog.startDistance = terrainOptions->getFogStartDistance();
-            fog.distance = terrainOptions->getFogDistance();
+        if (!fogOptions) {
+            return fog;
         }
+        // The switch comes first. Unlike every value below, it is ANDed rather than overridden:
+        // the style saying "fog" must not re-enable a fog the application switched off, which is
+        // what an app-side UI toggle means. A default-constructed ResolvedFog is not active(), so
+        // every consumer stops fogging together without any value being driven to zero.
+        if (!fogOptions->isEnabled() || (env.fogEnabled && !*env.fogEnabled)) {
+            return fog;
+        }
+        float rangeStart = fogOptions->getRangeStart();
+        float rangeEnd = fogOptions->getRangeEnd();
+        fog.color = fogOptions->getColor();
+        fog.highColor = fogOptions->getHighColor();
+        fog.spaceColor = fogOptions->getSpaceColor();
+        fog.horizonBlend = fogOptions->getHorizonBlend();
+        fog.horizonAngle = fogOptions->getHorizonAngle();
+        fog.starIntensity = fogOptions->getStarIntensity();
         if (env.fogColor) {
             fog.color = *env.fogColor;
         }
-        if (env.fogStartDistance) {
-            fog.startDistance = *env.fogStartDistance;
+        if (env.fogRangeStart) {
+            rangeStart = *env.fogRangeStart;
         }
-        if (env.fogDistance) {
-            fog.distance = *env.fogDistance;
+        if (env.fogRangeEnd) {
+            rangeEnd = *env.fogRangeEnd;
         }
+        if (env.fogHighColor) {
+            fog.highColor = *env.fogHighColor;
+        }
+        if (env.fogSpaceColor) {
+            fog.spaceColor = *env.fogSpaceColor;
+        }
+        if (env.fogHorizonBlend) {
+            fog.horizonBlend = *env.fogHorizonBlend;
+        }
+        if (env.fogStarIntensity) {
+            fog.starIntensity = *env.fogStarIntensity;
+        }
+        // The range is in multiples of the camera-to-focus distance - a function of the zoom
+        // alone, so a style tuned once holds at every zoom instead of needing an expression.
+        fog.rangeStart = rangeStart;
+        fog.rangeEnd = rangeEnd;
+        fog.rangeScale = static_cast<float>(std::max(1.0e-9, cameraDistance));
+        fog.startDistance = rangeStart * fog.rangeScale;
+        fog.distance = rangeEnd * fog.rangeScale;
 
         // Light the fog. Haze is lit air: at noon it is the bright band the reference renderers
         // show at the horizon, at night it is a dark one, and near sunset it takes the sun's
