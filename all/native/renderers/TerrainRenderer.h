@@ -189,6 +189,9 @@ namespace massif {
         // rendering path and the offscreen depth job start from this, so they always draw the
         // same terrain.
         void collectTileMeshes(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, int meshResolutionCap, std::vector<std::pair<MapTile, std::shared_ptr<TileMesh> > >& tileMeshes);
+        // Drops the oldest meshes until the cache is back under its cap, sparing everything the
+        // current pass already drew.
+        void evictLeastRecentlyUsedMeshes(unsigned int pass);
         bool updateDepthBufferAsync(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions);
         bool updateDepthBufferSync(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, const std::shared_ptr<GLResourceManager>& glResourceManager);
         void calculateVisibleTiles(const ViewState& viewState, const std::shared_ptr<ElevationManager>& elevationManager, const MapTile& tile, std::vector<MapTile>& tiles) const;
@@ -218,6 +221,7 @@ namespace massif {
         // tiles at a coarser grid than the rendered terrain, and a tile-only key would make
         // the two passes rebuild every mesh in turn.
         std::map<std::pair<long long, int>, MeshCacheEntry> _meshCache;
+        unsigned int _meshCacheClock = 0; // incremented per collectTileMeshes pass; stamps MeshCacheEntry::lastUsed
 
         // The occlusion depth is written by whichever path produced it and read by the label
         // placement worker, so it is published as a whole immutable snapshot: a reader either

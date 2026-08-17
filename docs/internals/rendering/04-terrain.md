@@ -114,6 +114,13 @@ adaptive path is only reached on a GPU without vertex texture fetch (no elevatio
 Because the grid is regular, it also means picking through `_tileSurfaceMap` finds nothing in grid
 mode — the pick path is the one consumer left that would need a lazily built surface.
 
+`TerrainRenderer` keeps its own mesh cache keyed by `(tile id, mesh grid size)` — the occlusion
+depth pass draws the same tiles at a coarser grid, and a tile-only key would make the two passes
+rebuild every mesh in turn. It evicts **least-recently-used**, sparing anything the current pass
+already drew. It used to `clear()` the whole cache on overflow, which rebuilt every mesh of every
+pass whenever the working set crossed the cap — i.e. exactly during a multi-level zoom, for the same
+reason `ElevationTextureCache` had already moved off a full flush.
+
 ### Edge stitching
 
 A coarser neighbour interpolates the DEM between its own (2^k wider) lattice nodes, so a fine tile
