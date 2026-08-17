@@ -27,6 +27,23 @@ public final class DemoCfg {
         sIntent = intent;
     }
 
+    /**
+     * Merges extras over the launch ones, so {@link DemoConfig#applyIntentOverrides()} can be run
+     * again and see the union. This is what makes a knob changeable at RUNTIME - see
+     * {@link DemoLive}, which is how a scripted run toggles something and screenshots the result
+     * without relaunching the app (a relaunch rebuilds every cache and hides exactly the
+     * stale-redraw bugs worth testing).
+     */
+    public static void merge(android.os.Bundle extras) {
+        if (extras == null) {
+            return;
+        }
+        if (sIntent == null) {
+            sIntent = new Intent();
+        }
+        sIntent.putExtras(extras);
+    }
+
     /** Raw extra value, or null when the extra was not passed. */
     public static String cfg(String key) {
         try {
