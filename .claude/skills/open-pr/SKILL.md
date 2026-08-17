@@ -46,7 +46,11 @@ Order:
    git -C libs-massif push -u origin <branch>
    gh pr create --repo massif-maps/massif-maps-libs --base develop --draft --title "fix(vt): ..." --body "..."
    ```
-3. **Open the main-repo PR**, whose branch carries the pointer bump. **Cross-link both ways**: the main PR body gets a `## Depends on` line with the submodule PR URL; the submodule PR body gets "Consumed by <main PR URL>".
+3. **Open the main-repo PR**, whose branch carries the pointer bump. Its title is the CHANGELOG
+   entry for this work — the diff is one line, the title is not: name the user-visible outcome, not
+   the bump. Rules and examples in the root [`CLAUDE.md`](../../../CLAUDE.md#a-massifmaps-pr-title-is-the-changelog-entry).
+   **Cross-link both ways**: the main PR body gets a `## Depends on` line with the submodule PR URL;
+   the submodule PR body gets "Consumed by <main PR URL>".
 4. **Never merge in the wrong order** — submodule PR merges first, then the pointer bump is rebased onto the merged submodule commit (not the branch commit) before the main PR merges. Point this out in the main PR body; only the user merges.
 
 ## Writing the description
