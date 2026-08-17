@@ -81,10 +81,17 @@ gh pr create --repo massif-maps/MassifMaps --title "feat: your title here" ...
 | `demo/DemoTests.java` | one-shot actions (routing, search, GeoJSON) |
 | `ui/main/SecondFragment.java` | Android glue only (view, permissions, map listener) |
 
-Layers (`base`, `satellite`, `hillshade`, `hypso`, `contour`, `contourTiles`, `routes`, `elements`) toggle live
+Layers (`base`, `satellite`, `hillshade`, `hypso`, `contour`, `contourTiles`, `routes`, `elements`, `bugs`) toggle live
 from the panel or with `--es <name> true|false`; the base map has `--es base plain|composite` and
 `--es style dir|zip|inline|project`. `dir` reads the style from a FOLDER via `DirAssetPackage`
 (`/sdcard/alpimaps_mbtiles/osm`), falling back to `osm.zip` then to inline CartoCSS.
+
+`bugs` is the STYLE REGRESSION repro layer (`DemoStyles.bugStyle`, `DemoMap.createBugsLayer`):
+synthetic GeoJSON on the start camera, one feature per reported symptom, each with its A/B knob —
+`bugLabelSize` (two label attachments, text gone at <= 10), `bugBackOpacity` (a `back/` instance
+punches the main line out), `bugLineColor` (a translucent line breaks at its joins),
+`bugAllowOverlap`/`bugTextClip` (allow-overlap alone routes line labels onto the clipped
+geometry path). `--es bugs true --es ui false` is enough to see all four.
 
 Change defaults in `DemoConfig` only — those fields are also what the panel mutates. These files
 may carry **uncommitted** local edits (camera, per-demo knobs): read before touching, keep changes

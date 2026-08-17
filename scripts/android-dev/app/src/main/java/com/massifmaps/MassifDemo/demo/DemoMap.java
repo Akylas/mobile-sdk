@@ -88,7 +88,7 @@ public class DemoMap {
 
     /** One switchable layer of the demo. */
     public enum Feature {
-        CELESTIAL, STARS, BASE, SATELLITE, HILLSHADE, HYPSO, CONTOUR, CONTOUR_TILES, ROUTES, ROUTE_TEST, ROUTE_SELECT, MANEUVERS, ELEMENTS, PEAKS
+        CELESTIAL, STARS, BASE, SATELLITE, HILLSHADE, HYPSO, CONTOUR, CONTOUR_TILES, ROUTES, ROUTE_TEST, ROUTE_SELECT, MANEUVERS, ELEMENTS, BUGS, PEAKS
     }
 
     /** Bottom -> top draw order. Toggling a layer never reorders the others. */
@@ -98,6 +98,7 @@ public class DemoMap {
         Feature.CELESTIAL, Feature.STARS,
         Feature.BASE, Feature.SATELLITE, Feature.HILLSHADE, Feature.HYPSO,
         Feature.CONTOUR, Feature.CONTOUR_TILES, Feature.ROUTES, Feature.ROUTE_TEST, Feature.ROUTE_SELECT, Feature.MANEUVERS, Feature.ELEMENTS,
+        Feature.BUGS,
         // Last: the summit names go over everything the map draws.
         Feature.PEAKS
     };
@@ -244,6 +245,7 @@ public class DemoMap {
             case ROUTE_SELECT: return DemoConfig.LAYER_ROUTE_SELECT;
             case MANEUVERS: return DemoConfig.LAYER_MANEUVERS;
             case ELEMENTS: return DemoConfig.LAYER_ELEMENTS;
+            case BUGS: return DemoConfig.LAYER_BUGS;
             case PEAKS: return DemoConfig.LAYER_PEAKS;
             default: return false;
         }
@@ -264,6 +266,7 @@ public class DemoMap {
             case ROUTE_SELECT: DemoConfig.LAYER_ROUTE_SELECT = enabled; break;
             case MANEUVERS: DemoConfig.LAYER_MANEUVERS = enabled; break;
             case ELEMENTS: DemoConfig.LAYER_ELEMENTS = enabled; break;
+            case BUGS: DemoConfig.LAYER_BUGS = enabled; break;
             case PEAKS: DemoConfig.LAYER_PEAKS = enabled; break;
         }
         rebuildLayers();
@@ -325,6 +328,7 @@ public class DemoMap {
             case ROUTE_SELECT: return createRouteSelectLayer();
             case MANEUVERS: return createManeuversLayer();
             case ELEMENTS: return createElementsLayer();
+            case BUGS: return createBugsLayer();
             case PEAKS: return createPeaksLayer();
             default: return null;
         }
@@ -758,6 +762,71 @@ public class DemoMap {
             return null;
         }
         return new VectorTileLayer(source, decoder);
+    }
+
+    /**
+     * The STYLE REGRESSION repros: three synthetic features around the start position, one per
+     * reported symptom, styled by DemoStyles.bugStyle. GeoJSON vector tiles rather than vector
+     * elements, so everything goes through the SAME decoder, tesselator, label pipeline and
+     * shaders the reported styles do.
+     *
+     *   bugpoints  3 points, each carrying an icon glyph and a short label -> the two-attachment
+     *              label case. Drop 'bugLabelSize' to 10 and the label text goes.
+     *   bugsel     one line -> the 'back/' instance case. 'bugBackOpacity' -1 removes the property.
+     *   bugline    one zigzag -> the translucent-line join case, and the line-label case.
+     */
+    private Layer createBugsLayer() {
+        MBVectorTileDecoder decoder = DemoStyles.createBugDecoder();
+        GeoJSONVectorTileDataSource source = new GeoJSONVectorTileDataSource(0, 24);
+        // No simplification: a join artifact has to be looked at on the vertices the style gave.
+        source.setSimplifyTolerance(0);
+        try {
+            source.setLayerGeoJSONString(source.createLayer("bugline"), buildBugLineGeoJSON());
+            source.setLayerGeoJSONString(source.createLayer("bugsel"), buildBugSelGeoJSON());
+            source.setLayerGeoJSONString(source.createLayer("bugpoints"), buildBugPointsGeoJSON());
+        } catch (IOException e) {
+            Log.w(TAG, "bug repro geojson rejected: " + e.getMessage());
+            return null;
+        }
+        return new VectorTileLayer(source, decoder);
+    }
+
+    /** A zigzag across the view: every vertex is a join, which is where the break shows. */
+    private String buildBugLineGeoJSON() {
+        double lon = DemoConfig.START_LON, lat = DemoConfig.START_LAT - 0.0010;
+        StringBuilder coords = new StringBuilder();
+        for (int i = 0; i <= 6; i++) {
+            coords.append(i > 0 ? "," : "")
+                  .append('[').append(lon - 0.0030 + i * 0.0010).append(',')
+                  .append(lat + (i % 2 == 0 ? 0.0 : 0.00045)).append(']');
+        }
+        return "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\","
+                + "\"properties\":{\"class\":\"waypointline\",\"text\":\"367 m\"},"
+                + "\"geometry\":{\"type\":\"LineString\",\"coordinates\":[" + coords + "]}}]}";
+    }
+
+    /** One straight line for the 'back/' instance case - no joins, so only the instance is in play. */
+    private String buildBugSelGeoJSON() {
+        double lon = DemoConfig.START_LON, lat = DemoConfig.START_LAT + 0.0012;
+        return "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"properties\":{\"id\":1},"
+                + "\"geometry\":{\"type\":\"LineString\",\"coordinates\":["
+                + "[" + (lon - 0.0025) + "," + lat + "],"
+                + "[" + (lon + 0.0025) + "," + (lat + 0.0002) + "]]}}]}";
+    }
+
+    /** Three points, far enough apart that no culling decision can be mistaken for the bug. */
+    private String buildBugPointsGeoJSON() {
+        double lon = DemoConfig.START_LON, lat = DemoConfig.START_LAT + 0.0004;
+        StringBuilder json = new StringBuilder("{\"type\":\"FeatureCollection\",\"features\":[");
+        String[] labels = { "12", "34", "56" };
+        for (int i = 0; i < labels.length; i++) {
+            json.append(i > 0 ? "," : "")
+                .append("{\"type\":\"Feature\",\"properties\":{\"icon\":\"")
+                .append(DemoStyles.BUG_ICON_GLYPH).append("\",\"label\":\"").append(labels[i]).append("\"},")
+                .append("\"geometry\":{\"type\":\"Point\",\"coordinates\":[")
+                .append(lon - 0.0018 + i * 0.0018).append(',').append(lat).append("]}}");
+        }
+        return json.append("]}").toString();
     }
 
     /**

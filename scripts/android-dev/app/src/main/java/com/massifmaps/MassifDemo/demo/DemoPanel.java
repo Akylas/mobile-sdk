@@ -205,6 +205,7 @@ public final class DemoPanel {
         buildContourSection(context, demo);
         buildRouteTestSection(context, demo);
         buildRouteSelectSection(context, demo);
+        buildBugSection(context, demo);
         buildSunSection(context, demo);
         buildCelestialSection(context, demo);
         buildSkyFogSection(context, demo);
@@ -671,6 +672,76 @@ public final class DemoPanel {
     /** The style is baked into the decoder, so the layer is rebuilt from scratch. */
     private static void reloadRouteTest(DemoMap demo) {
         demo.invalidate(DemoMap.Feature.ROUTE_TEST);
+        demo.rebuildLayers();
+    }
+
+    /**
+     * The four reported style regressions, each with the A/B the report gives. Turn the layer on
+     * with the 'bugs' checkbox in LAYERS (or --es bugs true); the features sit on the start camera.
+     */
+    private static void buildBugSection(Context context, final DemoMap demo) {
+        header(context, "STYLE BUGS");
+
+        // 1. two label attachments on one point.
+        final String[] iconModes = { "glyph", "empty", "none" };
+        choice(context, "::icon", iconModes, indexOf(iconModes, DemoConfig.BUG_ICON_MODE), new IntSetting() {
+            public void set(int index) { DemoConfig.BUG_ICON_MODE = iconModes[index]; reloadBugs(demo); }
+        });
+        final String[] labelModes = { "attachment", "inline" };
+        choice(context, "label in", labelModes, indexOf(labelModes, DemoConfig.BUG_LABEL_MODE), new IntSetting() {
+            public void set(int index) { DemoConfig.BUG_LABEL_MODE = labelModes[index]; reloadBugs(demo); }
+        });
+        slider(context, "label size", 6, 24, DemoConfig.BUG_LABEL_SIZE, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.BUG_LABEL_SIZE = value; reloadBugs(demo); }
+        });
+        slider(context, "icon size", 6, 40, DemoConfig.BUG_ICON_SIZE, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.BUG_ICON_SIZE = value; reloadBugs(demo); }
+        });
+
+        // 2. a 'back/' instance under the main line. -1 = no back/line-opacity at all.
+        slider(context, "back/line-opacity (-1 off)", -1f, 1f, DemoConfig.BUG_BACK_OPACITY, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.BUG_BACK_OPACITY = value; reloadBugs(demo); }
+        });
+        slider(context, "selection width", 1, 20, DemoConfig.BUG_SEL_WIDTH, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.BUG_SEL_WIDTH = value; reloadBugs(demo); }
+        });
+
+        // 3+4. the translucent line and its labels.
+        slider(context, "line width", 1, 30, DemoConfig.BUG_LINE_WIDTH, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.BUG_LINE_WIDTH = value; reloadBugs(demo); }
+        });
+        final String[] lineColors = { "#00000077", "#000000ff" };
+        choice(context, "line colour", lineColors, indexOf(lineColors, DemoConfig.BUG_LINE_COLOR), new IntSetting() {
+            public void set(int index) { DemoConfig.BUG_LINE_COLOR = lineColors[index]; reloadBugs(demo); }
+        });
+        check(context, "line labels", DemoConfig.BUG_LINE_LABEL, new BoolSetting() {
+            public void set(boolean value) { DemoConfig.BUG_LINE_LABEL = value; reloadBugs(demo); }
+        });
+        check(context, "text-allow-overlap", DemoConfig.BUG_TEXT_ALLOW_OVERLAP, new BoolSetting() {
+            public void set(boolean value) { DemoConfig.BUG_TEXT_ALLOW_OVERLAP = value; reloadBugs(demo); }
+        });
+        final String[] placements = { "line", "billboard-line", "billboard", "point" };
+        choice(context, "text-placement", placements, indexOf(placements, DemoConfig.BUG_TEXT_PLACEMENT), new IntSetting() {
+            public void set(int index) { DemoConfig.BUG_TEXT_PLACEMENT = placements[index]; reloadBugs(demo); }
+        });
+        final String[] clipModes = { "unset", "true", "false" };
+        choice(context, "text-clip", clipModes, indexOf(clipModes, DemoConfig.BUG_TEXT_CLIP), new IntSetting() {
+            public void set(int index) { DemoConfig.BUG_TEXT_CLIP = clipModes[index]; reloadBugs(demo); }
+        });
+        slider(context, "text size", 6, 30, DemoConfig.BUG_TEXT_SIZE, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.BUG_TEXT_SIZE = value; reloadBugs(demo); }
+        });
+        slider(context, "text-spacing (0 = off)", 0, 400, DemoConfig.BUG_TEXT_SPACING, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.BUG_TEXT_SPACING = value; reloadBugs(demo); }
+        });
+        slider(context, "text-min-distance (0 = off)", 0, 200, DemoConfig.BUG_TEXT_MIN_DISTANCE, true, new FloatSetting() {
+            public void set(float value) { DemoConfig.BUG_TEXT_MIN_DISTANCE = value; reloadBugs(demo); }
+        });
+    }
+
+    /** The style is baked into the decoder, so the layer is rebuilt from scratch. */
+    private static void reloadBugs(DemoMap demo) {
+        demo.invalidate(DemoMap.Feature.BUGS);
         demo.rebuildLayers();
     }
 
