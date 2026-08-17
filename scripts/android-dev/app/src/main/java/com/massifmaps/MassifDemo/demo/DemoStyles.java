@@ -703,6 +703,132 @@ public final class DemoStyles {
         return mss.toString();
     }
 
+    // =============================================================================================
+    // STYLE REGRESSION REPROS (DemoConfig.LAYER_BUGS)
+    // The reported rules, kept as close to the report as they can be - the point is that the
+    // CartoCSS shape is the same, not that it looks good. Every A/B the report names is a knob.
+    // =============================================================================================
+
+    /** A PUA glyph of assets/style/fonts/osm.ttf, standing in for the reported '[style.icon]'. */
+    public static final String BUG_ICON_GLYPH = ICON_PEAK;
+
+    /**
+     * Style of the REGRESSION REPRO layer. Three rules, one per reported symptom:
+     *
+     *   #bugpoints  two label attachments on one point. The ::label text is reported to vanish at
+     *               text-size <= 10 and to draw at 11, and to draw either way once the ::icon
+     *               attachment is gone or the text moves out of ::label (BUG_ICON_MODE /
+     *               BUG_LABEL_MODE are those two controls).
+     *   #bugsel     the selection rule: a 'back/' instance under the main line. Adding
+     *               back/line-opacity is reported to stop the main line being drawn - both live in
+     *               ONE attachment, so they are one vt layer.
+     *   #bugline    a translucent wide line (breaks at the joins), carrying line labels. Note what
+     *               text-clip does here: mapnikvt defaults it to text-allow-overlap, so
+     *               allow-overlap alone moves the text off the label path onto the clipped
+     *               geometry path.
+     */
+    public static String bugStyle() {
+        StringBuilder mss = new StringBuilder();
+
+        // --- 1. two label attachments on one point -------------------------------------------
+        mss.append("#bugpoints {\n");
+        if (!"none".equalsIgnoreCase(DemoConfig.BUG_ICON_MODE)) {
+            String iconName = "empty".equalsIgnoreCase(DemoConfig.BUG_ICON_MODE) ? "''" : "[icon]";
+            mss.append("  ::icon {\n")
+               .append("    text-placement: billboard;\n")
+               .append("    text-placement-priority: 9;\n")
+               .append("    text-name: ").append(iconName).append(";\n")
+               .append("    text-size: ").append(DemoConfig.BUG_ICON_SIZE).append(";\n")
+               .append("    text-face-name: 'osm';\n")
+               .append("    text-halo-fill: #ffffff;\n")
+               .append("    text-halo-radius: 1;\n")
+               .append("    text-fill: #c0392b;\n")
+               .append("    text-allow-overlap: true;\n")
+               .append("    text-clip: false;\n")
+               .append("  }\n");
+        }
+        boolean labelInAttachment = !"inline".equalsIgnoreCase(DemoConfig.BUG_LABEL_MODE);
+        String labelIndent = labelInAttachment ? "    " : "  ";
+        if (labelInAttachment) {
+            mss.append("  ::label {\n");
+        }
+        mss.append(labelIndent).append("text-name: [label];\n")
+           .append(labelIndent).append("text-size: ").append(DemoConfig.BUG_LABEL_SIZE).append(";\n")
+           .append(labelIndent).append("text-face-name: 'osm';\n")
+           .append(labelIndent).append("text-dx: 0;\n")
+           .append(labelIndent).append("text-dy: 0;\n")
+           .append(labelIndent).append("text-horizontal-alignment: middle;\n")
+           .append(labelIndent).append("text-vertical-alignment: middle;\n")
+           .append(labelIndent).append("text-placement-priority: 9;\n")
+           .append(labelIndent).append("text-placement: billboard;\n")
+           .append(labelIndent).append("text-fill: #1a1a1a;\n")
+           .append(labelIndent).append("text-allow-overlap: true;\n")
+           .append(labelIndent).append("text-clip: false;\n");
+        if (labelInAttachment) {
+            mss.append("  }\n");
+        }
+        mss.append("}\n");
+
+        // --- 2. a 'back/' instance under the main line ----------------------------------------
+        float width = DemoConfig.BUG_SEL_WIDTH;
+        mss.append("#bugsel::selected {\n")
+           .append("  back/line-color: ").append(DemoConfig.BUG_BACK_COLOR).append(";\n")
+           .append("  back/line-width: ").append(width + 5f).append(";\n")
+           .append("  back/line-join: round;\n")
+           .append("  back/line-cap: round;\n");
+        if (DemoConfig.BUG_BACK_OPACITY >= 0) {
+            mss.append("  back/line-opacity: ").append(DemoConfig.BUG_BACK_OPACITY).append(";\n");
+        }
+        mss.append("  line-join: miter;\n")
+           .append("  line-cap: round;\n")
+           .append("  line-color: #e2001a;\n")
+           .append("  line-width: ").append(width + 2f).append(";\n")
+           .append("}\n");
+
+        // --- 3+4. a translucent line, and its line labels --------------------------------------
+        mss.append("#bugline {\n")
+           .append("  line-color: ").append(DemoConfig.BUG_LINE_COLOR).append(";\n")
+           .append("  line-width: ").append(DemoConfig.BUG_LINE_WIDTH).append(";\n")
+           .append("  line-join: round;\n")
+           .append("  line-cap: round;\n");
+        if (DemoConfig.BUG_LINE_LABEL) {
+            mss.append("  text-name: [text];\n")
+               .append("  text-placement: ").append(DemoConfig.BUG_TEXT_PLACEMENT).append(";\n")
+               .append("  text-fill: black;\n")
+               .append("  text-spacing: 40;\n")
+               .append("  text-wrap-before: true;\n")
+               .append("  text-face-name: 'DIN Pro Medium';\n")
+               .append("  text-size: ").append(DemoConfig.BUG_TEXT_SIZE).append(";\n")
+               .append("  text-halo-fill: #ffffff;\n")
+               .append("  text-halo-radius: 2;\n")
+               .append("  text-dy: ").append(DemoConfig.BUG_TEXT_DY).append(";\n");
+            if (DemoConfig.BUG_TEXT_SPACING > 0) {
+                mss.append("  text-spacing: ").append(DemoConfig.BUG_TEXT_SPACING).append(";\n");
+            }
+            if (DemoConfig.BUG_TEXT_MIN_DISTANCE > 0) {
+                mss.append("  text-min-distance: ").append(DemoConfig.BUG_TEXT_MIN_DISTANCE).append(";\n");
+            }
+            if (DemoConfig.BUG_TEXT_ALLOW_OVERLAP) {
+                mss.append("  text-allow-overlap: true;\n");
+            }
+            if (!"unset".equalsIgnoreCase(DemoConfig.BUG_TEXT_CLIP)) {
+                mss.append("  text-clip: ").append(DemoConfig.BUG_TEXT_CLIP).append(";\n");
+            }
+        }
+        mss.append("}");
+        return mss.toString();
+    }
+
+    /** The CartoCSS is written here, the FONTS come from the APK asset package (as the POI style). */
+    public static MBVectorTileDecoder createBugDecoder() {
+        String css = bugStyle();
+        Log.i(TAG, "bug repro style:\n" + css);
+        AssetPackage pack = openAppAssets();
+        return pack != null
+                ? new MBVectorTileDecoder(new CartoCSSStyleSet(css, pack))
+                : new MBVectorTileDecoder(new CartoCSSStyleSet(css));
+    }
+
     /**
      * Style of the MANEUVER ARROW layer (DemoConfig.LAYER_MANEUVERS). ManeuverArrowBuilder
      * serves one LINE per arrow; the head is 'line-end-arrow', which the vt line tesselator builds

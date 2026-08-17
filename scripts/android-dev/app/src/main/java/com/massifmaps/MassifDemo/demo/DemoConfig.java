@@ -547,6 +547,60 @@ public final class DemoConfig {
     public static String ROUTE_TEST_OPACITY_MODE = "geom";
 
     // =============================================================================================
+    // STYLE REGRESSION REPROS (LAYER_BUGS)
+    // Four reported style regressions, on synthetic GeoJSON around the start position, each with
+    // the A/B switch the report gives. See DemoStyles.bugStyle for the CartoCSS.
+    //
+    //   #bugpoints  two label attachments on one point (BUG_ICON_MODE / BUG_LABEL_MODE):
+    //               the ::label text disappears below a size the ::icon one does not.
+    //   #bugsel     a 'back/' instance under the main line (BUG_BACK_OPACITY):
+    //               back/line-opacity and the main line stops being drawn.
+    //   #bugline    one translucent wide line (BUG_LINE_COLOR / BUG_LINE_WIDTH): breaks at joins,
+    //               plus line labels (BUG_TEXT_ALLOW_OVERLAP / BUG_TEXT_CLIP) - allow-overlap
+    //               alone routes the text down the CLIP path (no culler, tile-clipped).
+    // =============================================================================================
+
+    /** Style regression repro layer (synthetic GeoJSON + DemoStyles.bugStyle). */
+    public static boolean LAYER_BUGS = false;
+
+    /** ::icon attachment: glyph = a real icon under the label, empty = text-name '' as reported,
+     *  none = no ::icon attachment at all (the reported "works" control). */
+    public static String BUG_ICON_MODE = "glyph";
+    /** Where the small text lives: attachment = ::label, inline = the same properties on the rule
+     *  (the other reported "works" control). */
+    public static String BUG_LABEL_MODE = "attachment";
+    public static float BUG_ICON_SIZE = 20f;
+    /** The reported threshold: <= 10 the ::label text is gone, 11 and up it draws. */
+    public static float BUG_LABEL_SIZE = 10f;
+
+    /** 'back/' instance width bump over the main line, as the reported rule has it. */
+    public static float BUG_SEL_WIDTH = 6f;
+    /** The report has this white; on a light basemap a punched-out red line over an invisible white
+     *  one looks like nothing was drawn at all, so the demo paints the back line. */
+    public static String BUG_BACK_COLOR = "#1f6feb";
+    /** back/line-opacity. < 0 omits the property, which is the case that draws correctly. */
+    public static float BUG_BACK_OPACITY = 0.6f;
+
+    /** Translucent on purpose: alpha < 1 is what turns the vt single-blend stencil pass on. */
+    public static String BUG_LINE_COLOR = "#00000077";
+    public static float BUG_LINE_WIDTH = 10f;
+    /** Line labels along #bugline (the text-allow-overlap case). */
+    public static boolean BUG_LINE_LABEL = true;
+    public static float BUG_TEXT_SIZE = 14f;
+    public static boolean BUG_TEXT_ALLOW_OVERLAP = true;
+    /** unset | true | false. Unset is the reported case: mapnikvt defaults clip to allow-overlap. */
+    public static String BUG_TEXT_CLIP = "unset";
+    /** text-placement of the line labels: 'line' lies flat on the map, 'billboard-line' follows the
+     *  same line but stays upright. Tilt the camera - at tilt 90 (top down) they look the same. */
+    public static String BUG_TEXT_PLACEMENT = "line";
+    public static float BUG_TEXT_DY = 12f;
+    /** text-spacing: 0 (the CartoCSS default) is ONE label for the whole line on the label path,
+     *  and one per SEGMENT on the clip path. Above 0 both repeat every spacing + text width. */
+    public static float BUG_TEXT_SPACING = 0f;
+    /** text-min-distance. Only does anything on the label path with allow-overlap off. */
+    public static float BUG_TEXT_MIN_DISTANCE = 0f;
+
+    // =============================================================================================
     // ROUTE SELECTION BENCH (LAYER_ROUTE_SELECT)
     // Many routes served as GeoJSON vector tiles, with ONE of them selected through a style
     // parameter that is compared with a feature field - the shape every real route style uses:
@@ -856,6 +910,26 @@ public final class DemoConfig {
         ROUTE_SELECT_CYCLE_MS = DemoCfg.cfgInt("routeSelectCycle", ROUTE_SELECT_CYCLE_MS);
         ROUTE_SELECT_WIDTH = DemoCfg.cfgFloat("routeSelectWidth", ROUTE_SELECT_WIDTH);
         LAYER_MANEUVERS = DemoCfg.cfgBool("maneuvers", LAYER_MANEUVERS);
+        LAYER_BUGS = DemoCfg.cfgBool("bugs", LAYER_BUGS);
+
+        // style regression repros
+        BUG_ICON_MODE = DemoCfg.cfgStr("bugIcon", BUG_ICON_MODE);
+        BUG_LABEL_MODE = DemoCfg.cfgStr("bugLabel", BUG_LABEL_MODE);
+        BUG_ICON_SIZE = DemoCfg.cfgFloat("bugIconSize", BUG_ICON_SIZE);
+        BUG_LABEL_SIZE = DemoCfg.cfgFloat("bugLabelSize", BUG_LABEL_SIZE);
+        BUG_SEL_WIDTH = DemoCfg.cfgFloat("bugSelWidth", BUG_SEL_WIDTH);
+        BUG_BACK_COLOR = DemoCfg.cfgColor("bugBackColor", BUG_BACK_COLOR);
+        BUG_BACK_OPACITY = DemoCfg.cfgFloat("bugBackOpacity", BUG_BACK_OPACITY);
+        BUG_LINE_COLOR = DemoCfg.cfgColor("bugLineColor", BUG_LINE_COLOR);
+        BUG_LINE_WIDTH = DemoCfg.cfgFloat("bugLineWidth", BUG_LINE_WIDTH);
+        BUG_LINE_LABEL = DemoCfg.cfgBool("bugLineLabel", BUG_LINE_LABEL);
+        BUG_TEXT_SIZE = DemoCfg.cfgFloat("bugTextSize", BUG_TEXT_SIZE);
+        BUG_TEXT_ALLOW_OVERLAP = DemoCfg.cfgBool("bugAllowOverlap", BUG_TEXT_ALLOW_OVERLAP);
+        BUG_TEXT_CLIP = DemoCfg.cfgStr("bugTextClip", BUG_TEXT_CLIP);
+        BUG_TEXT_PLACEMENT = DemoCfg.cfgStr("bugTextPlacement", BUG_TEXT_PLACEMENT);
+        BUG_TEXT_DY = DemoCfg.cfgFloat("bugTextDy", BUG_TEXT_DY);
+        BUG_TEXT_SPACING = DemoCfg.cfgFloat("bugTextSpacing", BUG_TEXT_SPACING);
+        BUG_TEXT_MIN_DISTANCE = DemoCfg.cfgFloat("bugTextMinDistance", BUG_TEXT_MIN_DISTANCE);
 
         // composite slots ('hs', 'sat', 'contour' are the historical keys)
         COMPOSITE_HILLSHADE = DemoCfg.cfgBool("hs", COMPOSITE_HILLSHADE);

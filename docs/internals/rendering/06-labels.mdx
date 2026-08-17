@@ -59,6 +59,13 @@ tile set — and a placement rebuilt from a differently clipped copy of a line c
 "labels jump and disappear while panning" looked like. Keep the invariant when touching `Label` or
 `LabelCuller`.
 
+**Draw order is one list per pass**, sorted by priority → layer index → global id, and the batch
+changes glyph atlas mid-list. Grouping the labels by atlas first — which is what a
+`unordered_map<Bitmap, ...>` did — put two labels from different atlases in **pointer-hash order**,
+so an icon and the small label meant to sit on it were drawn in whichever order the allocator
+happened to give. It only showed below the raster-ladder boundary, where the smaller label lands in
+another atlas than the icon: `text-size: 11` drew over the icon and `text-size: 10` under it.
+
 Known remaining cost: `buildLabelMaps` reallocates every label on every tile-set change during
 panning. Reusing unchanged labels is the next win here, and it is delicate — it relies on fresh
 caches and `snapPlacement` semantics.
@@ -86,6 +93,113 @@ is what stops labels flickering when the camera moves slightly.
 Fork-specific rules, all comparing the **placement's** `localId` (hence the stability invariant
 above): `allowOverlapSameFeatureId`, `sameFeatureIdDependent`, and group ids with
 `minimumGroupDistance`.
+
+### Line runs: `line` lies flat, `billboard-line` stays upright
+
+Both orientations lay the glyph run out **along the line** (`Label::isLineRun`); they differ only in
+the plane it is laid out in, which `buildLineVertexData` picks:
+
+| `text-placement` | `LabelOrientation` | run laid out on | drawn as |
+|---|---|---|---|
+| `line` | `LINE` | the placement's own tangent frame (`placement->xAxis/yAxis`), no projection | flat on the surface, `WORLD_OFFSET` |
+| `billboard-line` | `LINE_BILLBOARD_3D` | the camera axes, through the view-projection | upright, `CAMERA_AXIS_OFFSET` |
+
+`line` is the map-like one: the text lies in the ground plane like the line it names, so it tilts and
+foreshortens with the map. `billboard-line` keeps its size and its shape at any tilt, at the cost of
+no longer lying on the surface — which is what a road name usually wants and a route distance usually
+does not.
+
+**This was a regression between 5.x and 6.0.** `LINE` was moved to the camera-axis layout wholesale
+("lay line labels out in screen space"), so `text-placement: line` silently became a billboard and
+there was no way back to the flat run; the only thing still drawing text flat was `text-clip`, which
+is not a label at all (see below). The two layouts are now separate orientations, `line` is flat
+again, and `billboard-line` — which used to place one upright point label per `text-spacing` step,
+ignoring the line direction — takes the run that follows the line.
+
+Consequences of the split, all keyed on `isLineRun()` / `isScreenLineRun()`:
+
+- The layout cache is keyed on the **view-projection only for a screen run**. A flat run does not
+  depend on the camera, so keying it on the view rebuilt it every frame for nothing.
+- The envelope is the run's bounds put back on **the label's own axes** (`setupCoordinateSystem`),
+  which is the camera basis for one and the tangent frame for the other.
+- Anchor pixel-snapping is skipped for both: it snaps the anchor to a quarter-pixel grid, which is
+  meaningless once the glyphs are laid out along a line rather than in a box.
+- `TextSymbolizer` feeds both the same way — the anchors, `text-spacing` and the measured run length
+  a line placement needs (`linePlacement`). It used to hand `billboard-line` a bare vertex with an
+  empty vertex list, which is exactly why that placement could not follow anything.
+
+**A layout fails in two different ways, and they are held differently** (`Label::LineLayout`):
+
+- `NO_ROOM` — the run does not fit, or nothing projects. That is a transient of this camera: fit is
+  judged on the projected line, from two different view states (the culler works on its pass's
+  snapshot, the renderer on the current camera), so a run at the edge of what fits alternates
+  between them and blinks at frame rate. A run already on screen rides out `LINE_LAYOUT_FAILURE_GRACE`
+  of these.
+- `UNREADABLE` — the glyphs turn far enough to pile up on the inside of a corner
+  (`MIN_LINE_SEGMENT_DOTPRODUCT`, `MAX_LINE_RUN_ANGLE_SPREAD`), or the run doubles back. That is a
+  property of the line's shape at this scale, not of the camera. It gets **no grace**, and its quads
+  are dropped rather than kept: the grace used to cover both, so a run the layout had just measured
+  as illegible stayed on screen for several passes — the reported "characters over each other at a
+  bend".
+
+**`text-spacing: 0` means one run for the WHOLE line on both paths.** The clip path used to restart
+the pen at the middle of every segment, so the same style drew one label per line when it was culled
+and one per bend when it was clipped (`generateLinePoints`). A segment outside the tile now still
+advances the pen, so the spacing is constant along the line instead of restarting at each tile
+border. Clipped text still gets one run per TILE the line crosses — the geometry is per tile and
+there is no label to merge them.
+
+`text-spacing` places anchors by **ground** distance, as mapbox's `symbol-spacing` does; under tilt
+they project closer together in the far field. The screen-space guarantee is `text-min-distance`,
+which gives the label a group id the culler enforces in pixels.
+
+**A candidate stretch of line is measured in the plane its run will be laid out in**, and the same
+measure both ranks the candidates and decides whether the run fits (`findClippedLinePlacement`). A
+screen run has to be compared on screen — a line running away from a tilted camera is worth a
+fraction of its ground length there, and measured on the ground it wins the placement and then does
+not fit. A flat run is compared on the ground, because that is where it lies: it used to be judged
+against a screen-HORIZONTAL run of the same world length, which asks for several times the room it
+needs as soon as the view tilts. That is what "the label only appears if I zoom in a lot, and once
+it is gone I have to zoom much further to get it back" was — the asymmetry is the layout hysteresis
+(`LINE_LAYOUT_FAILURE_GRACE`, `*_KEEP` thresholds) holding a placed run that a fresh search could no
+longer win.
+
+### Text drawn as geometry (`text-clip`)
+
+`text-clip` takes the text off the label pipeline entirely: `TextSymbolizer` builds `vt::TextStyle`
+glyph quads into the tile geometry (`createTextProcessor`), clipped to the tile. What that costs is
+everything the label pipeline is:
+
+| | label path | `text-clip: true` |
+|---|---|---|
+| culling, `text-allow-overlap`, `text-min-distance` | yes | **none** — there is no `vt::Label` to cull |
+| placement along the line | per glyph, follows the run (`buildLineVertexData`) | whole run rotated by its segment's angle |
+| `text-spacing: 0` (the default) | ONE label for the whole line | one at the **midpoint of every segment** |
+| orientation | `line` / `billboard-line` / `billboard` / `point` | always flat — geometry has no camera basis |
+| tile border | the label is placed across it | glyphs are **cut**, that is what clip means |
+
+**It used to default to `text-allow-overlap`** (upstream, 2019, no rationale recorded), so a style
+that only wanted its labels to overlap silently got the geometry path — and with it every row of that
+table. It now defaults to `false`, its own declared default, and the same applies to
+`shield-clip`. `marker-clip` is left coupled: an icon has no run to lay out and no name to place, and
+`marker-allow-overlap: true` on a dense POI layer is exactly the case the geometry path is cheap for.
+
+Under clip, `billboard-line` is treated as `line` — the run is rotated by its segment's angle rather
+than left horizontal. Clipped text cannot be a billboard at all, and leaving it unrotated was the one
+combination that neither followed the line nor stayed upright.
+
+Over 3D terrain its glyph quads take the line shader's rule: the terrain is sampled at the
+**extruded corner** (`applyTerrain(pos + delta)` in `pointVsh`), not at the anchor. A quad placed at
+the anchor's height and then offset sideways is a flat plate, and on a slope its uphill half sits
+under the ground, where the depth test against the terrain surface eats it — letters cut in half.
+The line shader learned the same lesson earlier, on a route casing breaking up on a cross-slope.
+
+That path shares the SDF encoding with labels and has to be kept in step with it: its antialias ramp
+is `2 · GLYPH_SDF_UNIT · (glyphRenderSize − GLYPH_RENDER_SPREAD) / _fullResolution`, the same rule
+`renderLabelBatch` uses, and its halo is converted with `HALO_PIXELS_PER_UNIT` like a label's. The
+form written for the single 27-texel raster and a spread of 4 survived the raster ladder and the
+spread change (4 → 8) and ended up measuring a ramp up to **six screen pixels**, which is a glyph
+dissolving into its own halo.
 
 ### Label size and the camera (fork-specific)
 
