@@ -33,6 +33,7 @@ namespace massif {
         float exaggeration = 1.0f;
         int gridSize = 0;
         std::shared_ptr<TileMesh> mesh;
+        unsigned int lastUsed = 0; // _meshCacheClock value of the last pass that drew this mesh
     };
 
     TerrainRenderer::TerrainRenderer() :
@@ -607,6 +608,29 @@ namespace massif {
         }
     }
 
+    void TerrainRenderer::evictLeastRecentlyUsedMeshes(unsigned int pass) {
+        // Evict the least-recently-used entries, NOT the whole cache - same reasoning as
+        // ElevationTextureCache::evictLeastRecentlyUsed. A full flush rebuilt every mesh of every
+        // pass whenever the working set crossed the cap, which is exactly what a multi-level zoom
+        // out does. Meshes already drawn in this pass are never victims: dropping one would give
+        // the tile a flat mesh for the rest of the frame.
+        while (_meshCache.size() >= MAX_CACHED_MESHES) {
+            auto lru = _meshCache.end();
+            for (auto entryIt = _meshCache.begin(); entryIt != _meshCache.end(); entryIt++) {
+                if (entryIt->second.lastUsed >= pass) {
+                    continue;
+                }
+                if (lru == _meshCache.end() || entryIt->second.lastUsed < lru->second.lastUsed) {
+                    lru = entryIt;
+                }
+            }
+            if (lru == _meshCache.end()) {
+                break; // every entry belongs to this pass: let the cache exceed the cap for one pass
+            }
+            _meshCache.erase(lru);
+        }
+    }
+
     void TerrainRenderer::collectTileMeshes(const ViewState& viewState, const std::shared_ptr<TerrainOptions>& terrainOptions, int meshResolutionCap, std::vector<std::pair<MapTile, std::shared_ptr<TileMesh> > >& tileMeshes) {
         std::shared_ptr<ElevationManager> elevationManager = terrainOptions->getElevationManager();
 
@@ -621,6 +645,8 @@ namespace massif {
             meshResolution = std::min(meshResolution, meshResolutionCap);
         }
 
+        unsigned int pass = ++_meshCacheClock;
+
         tileMeshes.reserve(tiles.size());
         for (const MapTile& tile : tiles) {
             long long tileId = tile.getTileId();
@@ -634,17 +660,18 @@ namespace massif {
             // every cached mesh each time a new elevation tile arrives during loading.
             auto it = _meshCache.find(std::make_pair(tileId, gridSize));
             if (it == _meshCache.end() || it->second.grid != grid || it->second.exaggeration != exaggeration || it->second.gridSize != gridSize) {
-                if (_meshCache.size() >= MAX_CACHED_MESHES) {
-                    _meshCache.clear(); // simple full flush; meshes are cheap to rebuild
-                    it = _meshCache.end();
+                if (it == _meshCache.end() && _meshCache.size() >= MAX_CACHED_MESHES) {
+                    evictLeastRecentlyUsedMeshes(pass);
                 }
                 MeshCacheEntry entry;
                 entry.grid = grid;
                 entry.exaggeration = exaggeration;
                 entry.gridSize = gridSize;
                 entry.mesh = buildTileMesh(tile, grid, elevationManager, gridSize);
+                entry.lastUsed = pass;
                 it = _meshCache.insert_or_assign(std::make_pair(tileId, gridSize), std::move(entry)).first;
             }
+            it->second.lastUsed = pass;
             tileMeshes.emplace_back(tile, it->second.mesh);
         }
     }

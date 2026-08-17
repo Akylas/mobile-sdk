@@ -114,6 +114,13 @@ adaptive path is only reached on a GPU without vertex texture fetch (no elevatio
 Because the grid is regular, it also means picking through `_tileSurfaceMap` finds nothing in grid
 mode — the pick path is the one consumer left that would need a lazily built surface.
 
+`TerrainRenderer` keeps its own mesh cache keyed by `(tile id, mesh grid size)` — the occlusion
+depth pass draws the same tiles at a coarser grid, and a tile-only key would make the two passes
+rebuild every mesh in turn. It evicts **least-recently-used**, sparing anything the current pass
+already drew. It used to `clear()` the whole cache on overflow, which rebuilt every mesh of every
+pass whenever the working set crossed the cap — i.e. exactly during a multi-level zoom, for the same
+reason `ElevationTextureCache` had already moved off a full flush.
+
 ### Edge stitching
 
 A coarser neighbour interpolates the DEM between its own (2^k wider) lattice nodes, so a fine tile
@@ -232,10 +239,61 @@ Three things then keep the bakes off the critical path:
   second the vector layers need. That is **the flash**. A tile counts as usable only when every
   layer that has something for it is in it.
 
+A bake pins the layer *blend* to 1 on purpose — a cached texture must not have a transient fade
+burnt into it — but it also used to pin the style's own layer **opacity** to 1, so a draped layer
+with `opacity: 0.5` baked fully opaque. `calculateDrapeOpacity` now supplies it, matching what the
+on-screen path passes as element opacity. Comp-op layers keep 1: reproducing them needs the overlay
+buffer the bake has no equivalent of.
+
 Stand-ins from the previous generation are pushed **after** the tile's own entry, not before: the
 surfaces coincide and the later draw wins, so pushed first they are buried under the fill they were
 meant to replace — the whole screen going white for a moment on every zoom out. Several levels deep,
 because one gesture crosses several zooms.
+
+A leaf already drawing its **own** bake does not get the finer generation stacked on top of it even
+when that bake is incomplete: it covers this ground and is merely missing a layer, with the re-bake
+already queued. Stacking a finer tesselation over it was a two-frame mesh pop at every integer zoom
+out (`showsOwnBake` in `MapRenderer`, same rule as `showsAncestor` above it).
+
+### The outgoing generation at an integer zoom out
+
+Zooming out z12 → z11, the drape cover moves to z11 while the z12 render tiles are retained and
+faded out. `GLTileRenderer::isTileDraped` used to answer "draped" only for a tile that **covers** a
+drape tile, so those finer tiles counted as undraped and kept drawing themselves in the 3D pass. Two
+separate defects fell out of that, both fixed, both worth knowing about because the path is easy to
+reintroduce:
+
+- **The direct raster draw was neither lit nor fogged.** `renderTileBitmap` built its program with
+  `PATTERN_FLAG | terrainFlag | fogFlag()` — no `TERRAIN_LIGHT_FLAG` — and it was the one draw path
+  in vt that never called `setupFogUniforms`, so the fog code was compiled in with uniforms nobody
+  ever wrote. `colormapFsh` had carried the full `TERRAIN_LIGHT` block all along as dead code. The
+  visible result was the previous zoom's ground flashing **unshaded** over the lit drape beside it —
+  measured as a uniform ×0.62 multiply on all three channels with the sky untouched, which is what
+  a missing shading term looks like and what finally identified it.
+- **The old imagery was drawn at all.** Once shaded identically the flash was gone, but the z12
+  raster was still painted over the z11 drape for the length of the fade — visible as the previous
+  zoom's satellite imagery. `isTileDraped` now answers "draped" in **both** directions: a drape tile
+  that *contains* the render tile covers that ground just as well as one contained by it.
+
+The old comment argued the finer tile had to keep drawing because nothing else covered that ground.
+That holds only while the covering drape tile has no content; vt cannot currently tell, so the risk
+this trades for is a coarser stand-in (not a hole) for the frames a fresh cover tile needs. If a
+blank patch ever appears right after a crossing, that is this trade, and the fix is to plumb
+bake-completeness from `MapRenderer` rather than to restore the old imagery.
+
+Adding the lit variant also moved the cost: it is only ever *asked* for at a crossing, so the lazy
+build put a full compile and link of the largest colormap variant (DEM taps, PCF, cascades) inside
+the gesture — a visible hang. `warmTerrainRasterShader`, called from `startFrame`, builds it on an
+ordinary frame and rebuilds only when the flag set changes.
+
+**Dead ends, in order, each killed by a measurement**: the elevation texture cache; the terrain mesh
+cache; drape cover composition and its 257 ms lag (real, visually inert); fingerprint churn on finer
+tiles; the seed blit; ancestor sub-rect stand-ins; coarse-fed bakes; absent layers; the day cycle;
+raster blending speed; `viewZoomCap`; drape stack stability; the background overpainting the raster;
+two raster generations baked at full opacity; and `TerrainRenderer`'s own background/surface/depth
+passes — which turned out not to run at all once a tile layer owns depth-write
+(`background=0 keepDepth=0 prepass=0 depthWriteAssigned=1`), and eliminating them is what pointed at
+vt's direct draw.
 
 ## Near and far planes
 
