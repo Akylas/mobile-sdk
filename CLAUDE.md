@@ -66,6 +66,34 @@ gh pr create --repo massif-maps/MassifMaps --title "feat: your title here" ...
 ```
 (Without `--repo` the command targets the archived CartoDB upstream and fails.)
 
+### A MassifMaps PR title IS the changelog entry
+
+MassifMaps PRs are squash-merged, so the PR title becomes the commit subject and the changelog
+generator quotes it verbatim (`### BREAKING CHANGES`, `### Bug Fixes`, one line per PR). Whoever
+reads the release notes sees that sentence and nothing else.
+
+This bites hardest on a PR that only carries a **submodule pointer bump** (`libs-massif`,
+`libs-external`), where the diff is one line and the real work is in the other repo. Title it by
+what an SDK USER gets, never by the mechanics:
+
+| ✗ | ✓ |
+|---|---|
+| `chore: bump libs-massif` | `fix(vt): lay a line label flat on the map again, as 5.x did` |
+| `fix: submodule pointer` | `feat(terrain): follow DEM tile borders across zoom levels` |
+| `fix(vt): various label fixes` | `fix(labels): stop a small label being drawn under its own icon` |
+
+- **One user-visible outcome per title**, in the imperative, readable without the diff. If the PR
+  fixes several unrelated things, say the one that matters and let the body carry the rest — or
+  split the PR.
+- **Scope by subsystem** (`vt`, `labels`, `terrain`, `renderers`, `datasources`), not by repo.
+- **`!` / `BREAKING CHANGE:`** whenever a style, an option default or an `all/modules/*.i` signature
+  changes — that is the section a user actually reads before upgrading.
+- The submodule PR keeps its own title, scoped to its module; the two need not match, and the
+  MassifMaps one is the one that ships.
+
+v6.0.0's changelog had to be rewritten by hand because the generated one read as a list of
+mechanics. The fix is the titles, not the generator.
+
 ## Working in this checkout
 
 `scripts/android-dev` is the live test bench. It is ONE composable demo, not a set of examples:
