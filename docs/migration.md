@@ -8,7 +8,7 @@ slug: /migration
 # Migrating from the CARTO Mobile SDK
 
 Massif Maps **is** the CARTO Mobile SDK, forked and kept alive after CARTO stopped maintaining it.
-The 4.x concepts, class shapes and CartoCSS styles all still apply — what changed in 5.0 is the
+The 4.x concepts, class shapes and CartoCSS styles all still apply — what changed in 6.0 is the
 name, in every namespace, package and debug token.
 
 Every rename below is a **hard break** except the CartoCSS ones, which keep parsing the old spelling
@@ -28,7 +28,7 @@ removed entirely — see [What was removed](#what-was-removed).
 // before
 implementation 'com.carto:carto-mobile-sdk:4.4.+'
 // after — JitPack overrides the declared groupId, so the coordinate is the GitHub path
-implementation 'com.github.massif-maps:MassifMaps-android-aar:5.0.0'
+implementation 'com.github.massif-maps:MassifMaps-android-aar:v6.0.0'
 ```
 
 On iOS the CocoaPod is replaced by a Swift package:
