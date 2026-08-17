@@ -176,47 +176,36 @@ from the dot product of consecutive binormals. Three things about it:
   skipped for a plain miter: tangram fans at every angle, but their line shader has no AA ramp and five
   near-degenerate slivers each carrying one is a visible seam.
 
-## Translucent layers: paint every pixel once
+## Translucent layers: no single-blend pass (removed)
 
-A style layer that is translucent must not blend a pixel twice, and no tesselation can guarantee
-that: a line whose vertices sit closer together than it is wide folds at every join, a route doubles
-back inside its own width, and a retained tile cross-fades over the tile that replaced it. Every
-overlap blends again, which reads as darker knots along the line.
+A translucent style layer blends a pixel again wherever its geometry overlaps itself — a line whose
+vertices sit closer together than it is wide folds at every join, a route doubles back inside its own
+width — which reads as darker knots along the line.
 
-`renderGeometry2D` therefore runs a translucent layer as a **single-blend** pass: the top stencil
-bit (`SINGLE_BLEND_STENCIL_BIT`) is cleared for the layer, `glStencilOp(KEEP, KEEP, GL_INVERT)`
-marks each pixel as it is painted, and the `GL_EQUAL` test rejects the second fragment. One bit, one
-masked clear per layer, no extra geometry and no extra pass.
+A **single-blend stencil pass** used to suppress that: one spare stencil bit per layer,
+`glStencilOp(KEEP, KEEP, GL_INVERT)` marking each pixel as it was painted and a `GL_EQUAL` test
+rejecting the second fragment. It was **removed**, because "one blend per pixel" is not a property of
+a pixel but of a symbolizer, and the stencil cannot tell them apart:
 
-- It engages **only where the artifact can exist**: layer opacity below 1, or any evaluated
-  `colorFuncs[i]` alpha below 1. An opaque layer cannot show it, and there a later fragment
-  legitimately covers an earlier one.
-- A `comp-op` layer is excluded — it already composites once through its own buffer.
-- The masks and the paint bit are **separate questions**. The tile masks are dropped in terrain mode
-  and under a shared ground; single blend needs no masks, only a spare bit, so it reads the real
-  stencil size (`maskStencilBits` vs `stencilBits`). Tying it to the masks is how it silently did
-  nothing in exactly the configuration — 3D terrain — where it was wanted.
-- The masks occupy the low bits, so it stands down past 128 target tiles in a frame.
-- **Nothing clears the paint bit when the layer is done**, so every layer after it must compare
-  without it. The per-tile mask test is `GL_EQUAL(stencilValue, mask)`, and with `mask` at 255 that
-  test also demands a zero paint bit — so a layer drawn after a translucent one was rejected in
-  exactly the shape the translucent one had painted. Visible in 2D only: in terrain mode
-  `maskStencilBits` is 0, and the teardown then disables the stencil test outright, which is why the
-  same frame was correct with terrain on. Reported as "casings drawn over the roads at z13–15": the
-  road *fills* were the layer being punched out, leaving the casing under them. The mask is
-  `255 & ~SINGLE_BLEND_STENCIL_BIT` for every layer but the single-blend one itself, where the paint
-  bit IS the rejection. Reproduced at 5.719581/45.186110 z14.60 tilt 90 (top-down), `--es style
-  assets --es terrain false`.
+- **A second symbolizer in the same layer is punched out.** A cartocss instance (`back/line-...`)
+  lives in the SAME attachment, so it is the same vt layer. With `back/line-opacity` set, the wide
+  back line paints first, flips the bit over its whole footprint, and the narrower main line — drawn
+  after, entirely inside it — is rejected everywhere. The reported symptom was "I see the back line,
+  I never see the line".
+- **Every internal join grows a seam.** The first fragment to reach a pixel owns it, so a
+  partial-coverage antialias edge can no longer be filled in by its neighbour. On a translucent
+  `line-width: 10` that reads as the line breaking at each vertex.
+- Tangram and maplibre have no equivalent pass. The same commit that added it also made the join
+  geometry **non-overlapping** (see the join section above), which is what actually removes the
+  common case; what is left is a line genuinely crossing itself, and every renderer blends that
+  twice.
 
-**The trade-off is antialias seams.** The first fragment to reach a pixel owns it, and if that
-fragment was a partial-coverage edge pixel the neighbour can no longer fill it in — faint lighter
-hairlines along internal join boundaries. Where that is unacceptable the alternative is the layer's
-own `opacity` + `comp-op`, which draws the layer opaque into the overlay buffer and composites it
-once: no seams, but a full-screen pass per layer, and that buffer carries no depth, so in 3D terrain
-the layer stops being occluded by ridges. Measured on an Adreno 610, the demo route (casing + fill,
-translucent, scripted pan, two reps of 25 one-second samples): **37.7 fps single-blend against 26.5
-fps through the overlay buffer**, `layers` 2.43 vs 3.62 ms. Single blend is the default for that
-reason.
+A style that really needs one composite still has the layer's own `opacity` + `comp-op`, which draws
+the layer opaque into the overlay buffer and composites it once: no seams, but a full-screen pass per
+layer, and that buffer carries no depth, so in 3D terrain the layer stops being occluded by ridges.
+Measured on an Adreno 610 while the pass existed (demo route, casing + fill, translucent, scripted
+pan, two reps of 25 one-second samples): **37.7 fps with the pass against 26.5 fps through the
+overlay buffer**, `layers` 2.43 vs 3.62 ms — that cost is what the overlay route still carries.
 
 ## Lines over terrain
 

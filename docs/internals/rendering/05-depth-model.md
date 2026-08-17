@@ -103,6 +103,26 @@ Two more from choosing constants instead of copying them: `depth_shift` scaled b
 nothing), then by `|m23|` (dragged a landcover fill in front of the mountain); and an ordinal stride
 of 32 per renderer, which reached the leak range with five layers.
 
+## A flat quad over a curved surface is a DECAL
+
+Lines and points are both chains of flat quads laid over a height field, so neither is coincident
+with it: between its corners a quad chords over relief the ground follows, and under a depth-writing
+ground it is cut away wherever it sags. Both get the same treatment in `renderGeometry2D` — a
+slope-scaled `glPolygonOffset(-2, -8)`, which tracks the sag because the sag scales with the
+primitive's own depth slope, plus `_terrainLineClearance`, a clearance in **metres** (the sag does
+not care how far away the quad is, which neither the clip-constant ordinal pull nor an NDC-constant
+depth bias can express without leaking through ridges at range).
+
+POINT was left out of that for a while and only lines got it, which is the wrong way round: a glyph
+quad of `text-clip` text is tens of metres wide against a line's few. Whole letters disappeared over
+3D terrain — **and only where the ground is draped**, because a draped tile draws its surface at TRUE
+depth and writes it, while an undraped one pushes its pre-pass surface back and leaves clearance by
+accident. Same drop at drape resolution 512 and 2048, absent in 2D: not the raster, the depth.
+
+The vertex shaders match: both sample the terrain at the **extruded** corner (`applyTerrain(pos +
+delta)`), never at the anchor. A quad placed at the anchor's height and then offset sideways is a
+flat plate whose uphill half is under the ground.
+
 ## Rules to keep
 
 1. **Never push the reference surface back.** Slack belongs on the content, forward and test-only. A

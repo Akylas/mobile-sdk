@@ -87,8 +87,34 @@ old spelling will be removed in a later release.
 | `text-placement: nutipoint` | `flat` | flat in the placement plane, no camera facing |
 | `text-placement: nuticallout` | `callout` | screen-aligned with a leader line |
 
-`point` (upright on the ground normal, swivelling to face the camera) and `line` are unchanged.
+`point` (upright on the ground normal, swivelling to face the camera) is unchanged.
 See [Live style parameters](/docs/features/style-parameters) for what `param::` can do now.
+
+### `text-placement: line` lies flat again (behaviour change in 6.0.1)
+
+6.0.0 laid every `line` label out on the camera axes, so the text stayed upright at any tilt instead
+of lying on the map — the 5.x behaviour, and what the same text drawn with `text-clip` still did.
+`line` is flat again, and the upright run moved to `billboard-line`, which now follows the line
+instead of placing one upright label per `text-spacing` step.
+
+| You want | Use |
+|---|---|
+| the 5.x look, text in the ground plane (route distances, contour heights) | `text-placement: line` — no change needed |
+| the 6.0.0 look, text upright and readable at any tilt | `text-placement: billboard-line` |
+
+See [Labels](internals/rendering/06-labels.mdx) for the two layouts.
+
+### `text-clip` / `shield-clip` no longer follow `allow-overlap` (behaviour change in 6.0.1)
+
+`clip` used to default to whatever `allow-overlap` was, so `text-allow-overlap: true` alone moved the
+text off the label pipeline onto the tile geometry: no culler, no `text-min-distance`, no run
+following the line, one copy at the midpoint of **every** segment, and glyphs cut at the tile border.
+Both now default to `false`, which is their own declared default.
+
+- A style that wanted overlapping **labels** needs no change and gets correctly placed ones.
+- A style that relied on the clipped geometry path (usually for its cost, on very dense text) must
+  now say `text-clip: true` explicitly.
+- `marker-clip` is unchanged — `marker-allow-overlap: true` still takes the geometry path.
 
 ## Debug knobs
 

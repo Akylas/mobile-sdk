@@ -106,6 +106,16 @@ The other half — deriving the render zoom from the terrain depth — is not po
 once, and it needs the screen-centre depth every frame (we have the terrain depth buffer, but it is
 read back for billboard occlusion on its own schedule).
 
+### A translucent layer is NOT forced to paint each pixel once
+
+Tangram has no equivalent of the single-blend stencil pass this fork briefly carried, and neither do
+we any more: scoped to a style layer, "one blend per pixel" punches a second symbolizer
+(`back/line-...`) out of the layer that contains it and turns every antialias join edge into a seam.
+The non-overlapping join geometry we took from them is what removes the common case; a line genuinely
+crossing itself blends twice for them too.
+[03-vt-renderer.md](03-vt-renderer.md#translucent-layers-no-single-blend-pass-removed) has the
+measurement and the alternative (`opacity` + `comp-op`).
+
 ### Draped fills (the old path) are being removed, not maintained
 
 Not documented here on purpose; see [the render-pipeline index](index.mdx#two-rules-that-shaped-the-render-code).
