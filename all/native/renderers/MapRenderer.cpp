@@ -2719,7 +2719,12 @@ namespace massif {
                         // which merely looks soft. Prefer the soft one. A tile whose own surface
                         // is skipped has no ancestor draw at all, so it still needs them.
                         bool showsAncestor = !hasContent && draped.texture != 0 && !skipSurface;
-                        if (((!complete && !showsStandIn) || skipSurface) && !showsAncestor) {
+                        // Same rule for a leaf drawing its OWN bake: it already covers this ground
+                        // and is merely missing a layer, with the re-bake queued. Stacking the finer
+                        // generation over it is the second tesselation the comment above warns
+                        // about - measured as a two-frame mesh pop at every integer zoom out.
+                        bool showsOwnBake = hasContent && baked && !skipSurface;
+                        if (((!complete && !showsStandIn) || skipSurface) && !showsAncestor && !showsOwnBake) {
                             // Zooming out the cached tiles are the FINER ones underneath; draw them
                             // over the top, several levels deep. They must come AFTER this tile's own
                             // entry - the surfaces coincide and the later draw wins, so pushed first
