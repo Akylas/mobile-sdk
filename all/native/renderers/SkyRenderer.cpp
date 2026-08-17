@@ -366,17 +366,29 @@ namespace massif {
             return mix(color, u_fogSpaceColor.rgb, u_fogSpaceColor.a * smoothstep(0.35, 1.0, hz));
         }
 
-        // One point per cell of a direction-space lattice, kept only where the atmosphere has
-        // thinned out. Cheap and stable under rotation, which a screen-space noise would not be.
+        float starHash(vec2 p) {
+            return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+        }
+
+        // Cells in (azimuth, elevation), one star per cell at most, placed at a random point
+        // INSIDE its cell and drawn as a soft dot. Lighting the whole cell instead reads as a grid
+        // of grey squares, and laying the cells out in a flat projection (rayDir.xy / rayDir.z)
+        // stretches them into streaks near the horizon. Ported from the demo's day-cycle sky
+        // shader (scripts/android-dev, DemoSky.buildSkyShader), which had both right already.
         float starAmount(vec3 rayDir, float elevation) {
             if (u_starIntensity <= 0.0 || elevation < 0.0) {
                 return 0.0;
             }
-            vec3 p = fract(floor(rayDir * 260.0) * 0.1031);
-            p += dot(p, p.yzx + 33.33);
-            float h = fract((p.x + p.y) * p.z);
-            float visible = smoothstep(0.1, 0.6, clamp(elevation / 1.5707963, 0.0, 1.0));
-            return smoothstep(0.9970, 1.0, h) * visible * u_starIntensity;
+            vec2 sc = vec2(atan(rayDir.y, rayDir.x), elevation) * 320.0;
+            vec2 cell = floor(sc);
+            float pick = starHash(cell);
+            vec2 pos = vec2(starHash(cell + 1.7), starHash(cell + 5.3));
+            float d = length(fract(sc) - pos);
+            // ~1.8% of the cells carry one, each with its own brightness.
+            float star = step(0.982, pick) * smoothstep(0.34, 0.02, d) * (0.4 + 0.6 * fract(pick * 37.0));
+            // 1.7 is the demo's gain: at intensity 1 a star has to beat the sky it sits on, and the
+            // haze near the horizon takes most of it back (they are added before applyFog).
+            return star * smoothstep(0.0, 0.10, rayDir.z) * u_starIntensity * 1.7;
         }
     )GLSL";
 
@@ -409,7 +421,6 @@ namespace massif {
             float t = u_horizonBlend > 0.0 ? clamp(elevation / u_horizonBlend, 0.0, 1.0) : 1.0;
             vec4 color = mix(u_horizonColor, u_skyColor, t);
             color.rgb = atmosphereColor(color.rgb, elevation);
-            color.rgb += vec3(starAmount(rayDir, elevation));
             if (u_sunDisc > 0.5) {
                 // Chord length between the two unit vectors, which is the angle in radians to
                 // within 1% over the few degrees that matter here - and unlike acos/pow it keeps
@@ -434,7 +445,16 @@ namespace massif {
             vec4 color = clamp(skyColor(rayDir), 0.0, 1.0);
             // The sky is at infinity, so it is fogged at the far end of the range; what varies
             // over it is the ANGULAR haze, which is what fogAmount gives.
-            gl_FragColor = applyFog(vec4(color.rgb * color.a, color.a), fogAmount(rayDir), u_fogParams.w);
+            lowp float haze = fogAmount(rayDir);
+            vec4 premul = applyFog(vec4(color.rgb * color.a, color.a), haze, u_fogParams.w);
+            // Stars are added AFTER the haze and take only its square root. Added before it, they
+            // were multiplied by (1 - haze) like everything else and so were wiped out wherever
+            // the fog band reached - which HorizonBlend alone decided, leaving them visible only
+            // in the strip of sky above it. They sit beyond the atmosphere: they should dim into
+            // it, not be erased by it. This is also why they are here and not in skyColor - a
+            // custom sky shader gets them too, and StarIntensity defaults to 0 anyway.
+            premul.rgb += vec3(starAmount(rayDir, asin(clamp(rayDir.z, -1.0, 1.0)))) * sqrt(1.0 - haze) * premul.a;
+            gl_FragColor = premul;
         }
     )GLSL";
 }

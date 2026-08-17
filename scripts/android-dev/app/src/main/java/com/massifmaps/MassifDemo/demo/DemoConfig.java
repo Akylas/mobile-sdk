@@ -270,10 +270,14 @@ public final class DemoConfig {
             return;
         }
         FOG_PRESET = preset;
+        // Every preset sets a high colour: it is the one property with no other way to see it, and
+        // leaving it transparent (which is the API default) makes the preset look like it did
+        // nothing to the sky.
         if ("haze".equals(preset)) {
+            // Daylight, thin: a pale sky over a neutral ground haze, no stars.
             FOG_COLOR_ARGB = 0xffb8c6d8; FOG_RANGE_START = 0.4f; FOG_RANGE_END = 4f;
-            FOG_HIGH_COLOR_ARGB = 0; FOG_SPACE_COLOR_ARGB = 0;
-            FOG_HORIZON_BLEND = 12f / 90f; FOG_STAR_INTENSITY = 0f;
+            FOG_HIGH_COLOR_ARGB = 0xff8fb4dc; FOG_SPACE_COLOR_ARGB = 0xff5b86c4;
+            FOG_HORIZON_BLEND = 0.2f; FOG_STAR_INTENSITY = 0f;
         } else if ("mapbox".equals(preset)) {
             // The values from the mapbox fog documentation, verbatim.
             FOG_COLOR_ARGB = 0xffdc9f9f; FOG_RANGE_START = 0.8f; FOG_RANGE_END = 8f;
@@ -284,10 +288,12 @@ public final class DemoConfig {
             FOG_HIGH_COLOR_ARGB = 0xff3b5998; FOG_SPACE_COLOR_ARGB = 0xff0b1026;
             FOG_HORIZON_BLEND = 0.35f; FOG_STAR_INTENSITY = 0.35f;
         } else if ("space".equals(preset)) {
-            // The zoomed-out look: a thin atmosphere over a black sky, stars well up.
-            FOG_COLOR_ARGB = 0xffa8c0d8; FOG_RANGE_START = 0.2f; FOG_RANGE_END = 3f;
-            FOG_HIGH_COLOR_ARGB = 0xff245bde; FOG_SPACE_COLOR_ARGB = 0xff000000;
-            FOG_HORIZON_BLEND = 0.2f; FOG_STAR_INTENSITY = 0.6f;
+            // Night: a dark ground haze, a deep blue atmosphere over it and near-black at the
+            // zenith, with the stars well up. Pair it with a low sun ('--es sunHour 1') - the fog
+            // colour is LIT, so under a noon sun this still comes out bright.
+            FOG_COLOR_ARGB = 0xff2b3a5c; FOG_RANGE_START = 0.2f; FOG_RANGE_END = 3f;
+            FOG_HIGH_COLOR_ARGB = 0xff0e1c46; FOG_SPACE_COLOR_ARGB = 0xff01030c;
+            FOG_HORIZON_BLEND = 0.3f; FOG_STAR_INTENSITY = 0.9f;
         }
     }
     public static float VIEW_DISTANCE_FACTOR = 1f;
