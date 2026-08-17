@@ -1522,7 +1522,7 @@ public class DemoMap {
         options.setFreeRoamLookSensitivity(DemoConfig.FREE_ROAM_LOOK_SENSITIVITY);
         options.setFreeRoamMoveSpeed(DemoConfig.FREE_ROAM_MOVE_SPEED);
         boolean lookUp = !"off".equals(DemoConfig.FREE_ROAM_MODE) || DemoConfig.STAR_SKY;
-        float minTilt = lookUp ? -Math.max(30f, DemoConfig.LOOK_UP_LIMIT) : 30f;
+        float minTilt = lookUp ? -Math.max(10f, DemoConfig.LOOK_UP_LIMIT) : 10f;
         options.setTiltRange(new com.massifmaps.core.MapRange(minTilt, 90f));
     }
 
