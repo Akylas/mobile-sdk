@@ -168,10 +168,30 @@ adb shell am start -n com.massifmaps.MassifDemo/.MainActivity --es ui false --es
 - `--es demo terrain|project|composite` picks the configuration (default `composite`).
   Every knob in `applyTerrainConfig`/`applyCameraConfig`/`applySkyAndLightConfig` is an intent
   extra, so most experiments need no rebuild: `lon lat zoom tilt rotation`, `drape drapeLines
-  drapeResolution meshResolution exaggeration`, `fog fogStart fogDistance viewDistance`,
+  drapeResolution meshResolution exaggeration`, `viewDistance`,
   `hs sat satZoom contour bld3d stitch`, `daycycle sunHour sunAzimuth sunAltitude shadow`,
   `ui false` (hide the panel), `anim zoom|pan|rotate|zoomseq|approach` (`approach` = dive close,
   pan along the slope, pull back out — the terrain close-approach repro shape).
+- **Change a knob on the RUNNING app** (`demo/DemoLive.java`) instead of relaunching — a relaunch
+  rebuilds every cache, which is exactly what hides a stale-redraw bug:
+  ```sh
+  adb shell am broadcast -a com.massifmaps.MassifDemo.CONFIG --es fog false
+  adb shell am broadcast -a com.massifmaps.MassifDemo.CONFIG --es fogPreset dusk --es zoom 14
+  ```
+  Same keys as the launch extras; only the option groups whose keys arrive are re-applied, and the
+  camera is left alone unless a camera key is sent. This is how the A/B-per-band diff gets run
+  without the tile set changing underneath it.
+- **A screenshot after a state change needs the map to have drawn TWICE.** The surface is
+  double-buffered and WHEN_DIRTY draws exactly what was requested, so one frame lands in the back
+  buffer and the screen keeps the old state — permanently, not briefly. `requestRedraw` now owes a
+  follow-up frame for this; if a change ever looks like it "sometimes does not apply", check the
+  frame count before suspecting the change ([`docs/internals/rendering/01-frame.md`](docs/internals/rendering/01-frame.md)).
+- Fog is `FogOptions`, independent of the terrain (it fogs a plain 2D map too). `--es fog <color>`
+  or `--es fog false` is the master switch; `fogRangeStart fogRangeEnd` are in **multiples of the
+  camera-to-focus distance**, not metres, so one pair holds at every zoom. `fogHigh fogSpace
+  fogStars fogBlend fogHorizon` are the mapbox atmosphere params. `--es fogSource style` takes every
+  value from the inline style's `Map` block instead (needs `--es style inline`) — that is the path
+  that can be zoom-dependent.
 - Relief / peak-finder look: `reliefSurface true` (shaded terrain surface, only visible where no
   tile layer paints - pair it with `--es map false --es hillshade false`), `peakfinder true` (the
   outline effect, `peakfinderDelay` ms), `reliefDark`, `reliefWidth reliefHorizonBoost

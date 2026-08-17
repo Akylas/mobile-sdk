@@ -3,6 +3,7 @@
 #include "terrain/ElevationManager.h"
 #include "components/LightOptions.h"
 #include "components/SkyOptions.h"
+#include "components/FogOptions.h"
 #include "components/StyleEnvironment.h"
 #include "components/TerrainOptions.h"
 #include "graphics/ViewState.h"
@@ -15,6 +16,9 @@
 #include <sys/system_properties.h>
 #endif
 
+#include <algorithm>
+#include <cmath>
+
 #include <cglib/mat.h>
 
 namespace massif {
@@ -22,6 +26,7 @@ namespace massif {
     SkyRenderer::SkyRenderer(const Options& options) :
         _shader(),
         _shaderSource(),
+        _fogShaderSource(),
         _shaderFailed(false),
         _a_coord(0),
         _u_invMVPMat(-1),
@@ -40,6 +45,10 @@ namespace massif {
         _u_fogColor(-1),
         _u_fogBlend(-1),
         _u_fogHorizon(-1),
+        _u_fogHighColor(-1),
+        _u_fogSpaceColor(-1),
+        _u_fogParams(-1),
+        _u_starIntensity(-1),
         _startTime(std::chrono::steady_clock::now()),
         _glResourceManager(),
         _options(options)
@@ -65,25 +74,31 @@ namespace massif {
 
     bool SkyRenderer::updateShader() {
         std::shared_ptr<SkyOptions> skyOptions = _options.getSkyOptions();
+        std::shared_ptr<FogOptions> fogOptions = _options.getFogOptions();
         std::string source = skyOptions ? skyOptions->getShaderSource() : std::string();
-        if (_shader && _shaderSource == source) {
+        std::string fogSource = fogOptions ? fogOptions->getShaderSource() : std::string();
+        if (_shader && _shaderSource == source && _fogShaderSource == fogSource) {
             return true;
         }
 
         // A custom source that failed to compile once must not be retried every frame.
-        if (_shaderFailed && _shaderSource == source) {
+        if (_shaderFailed && _shaderSource == source && _fogShaderSource == fogSource) {
             return static_cast<bool>(_shader);
         }
 
         _shaderSource = source;
+        _fogShaderSource = fogSource;
         _shaderFailed = false;
 
+        // The fog function comes first: the sky body may call applyFog itself, and the built-in
+        // one does.
+        std::string prefix = SKY_FRAGMENT_SHADER_PREFIX + (fogSource.empty() ? SKY_FRAGMENT_SHADER_FOG_BUILTIN : fogSource);
         std::string body = source.empty() ? SKY_FRAGMENT_SHADER_BUILTIN : source;
-        std::shared_ptr<Shader> shader = _glResourceManager->create<Shader>("sky", SKY_VERTEX_SHADER, SKY_FRAGMENT_SHADER_PREFIX + body + SKY_FRAGMENT_SHADER_MAIN);
-        if (shader->getProgId() == 0 && !source.empty()) {
-            Log::Error("SkyRenderer::updateShader: Custom sky shader failed to compile, falling back to the built-in shader");
+        std::shared_ptr<Shader> shader = _glResourceManager->create<Shader>("sky", SKY_VERTEX_SHADER, prefix + body + SKY_FRAGMENT_SHADER_MAIN);
+        if (shader->getProgId() == 0 && !(source.empty() && fogSource.empty())) {
+            Log::Error("SkyRenderer::updateShader: Custom sky/fog shader failed to compile, falling back to the built-in shaders");
             _shaderFailed = true;
-            shader = _glResourceManager->create<Shader>("sky", SKY_VERTEX_SHADER, SKY_FRAGMENT_SHADER_PREFIX + SKY_FRAGMENT_SHADER_BUILTIN + SKY_FRAGMENT_SHADER_MAIN);
+            shader = _glResourceManager->create<Shader>("sky", SKY_VERTEX_SHADER, SKY_FRAGMENT_SHADER_PREFIX + SKY_FRAGMENT_SHADER_FOG_BUILTIN + SKY_FRAGMENT_SHADER_BUILTIN + SKY_FRAGMENT_SHADER_MAIN);
         }
         if (shader->getProgId() == 0) {
             _shader.reset();
@@ -109,6 +124,10 @@ namespace massif {
         _u_fogColor = glGetUniformLocation(progId, "u_fogColor");
         _u_fogBlend = glGetUniformLocation(progId, "u_fogBlend");
         _u_fogHorizon = glGetUniformLocation(progId, "u_fogHorizon");
+        _u_fogHighColor = glGetUniformLocation(progId, "u_fogHighColor");
+        _u_fogSpaceColor = glGetUniformLocation(progId, "u_fogSpaceColor");
+        _u_fogParams = glGetUniformLocation(progId, "u_fogParams");
+        _u_starIntensity = glGetUniformLocation(progId, "u_starIntensity");
         return true;
     }
 
@@ -128,7 +147,7 @@ namespace massif {
     }
 #endif
 
-    bool SkyRenderer::onDrawFrame(const ViewState& viewState) {
+    bool SkyRenderer::onDrawFrame(const ViewState& viewState, const ResolvedFog& fog) {
         std::shared_ptr<SkyOptions> skyOptions = _options.getSkyOptions();
         if (!skyOptions || !skyOptions->isEnabled() || !_glResourceManager) {
             return false;
@@ -157,14 +176,14 @@ namespace massif {
             sunIntensity = lightOptions->getSunIntensity();
         }
 
-        // The terrain fog, resolved and lit exactly as the ground fog is, so the haze the map
-        // fades into carries on into the sky instead of stopping in a band at the skyline.
-        ResolvedLighting lighting = resolveLighting(lightOptions, StyleEnvironment());
-        ResolvedFog fog = resolveFog(_options.getTerrainOptions(), StyleEnvironment(), lighting);
-        float fogBlend = fog.active() ? static_cast<float>(skyOptions->getFogBlend() * Const::DEG_TO_RAD) : 0.0f;
+        // The fog comes from the owner, resolved once for the frame from the same options AND the
+        // same style environment the ground gets - resolving it here from an empty environment is
+        // what left a style-declared fog on the map and out of the sky.
+        // HorizonBlend is a fraction of a quarter turn (Mapbox horizon-blend), the shader wants radians.
+        float fogBlend = fog.active() ? static_cast<float>(fog.horizonBlend * Const::PI * 0.5) : 0.0f;
         // Haze starts fading at the angle of the highest terrain the view can hold, not at the
         // mathematical horizon - see docs/internals/rendering/08-lighting-sky-fog.md.
-        float fogHorizonSetting = skyOptions->getFogHorizon();
+        float fogHorizonSetting = fog.horizonAngle;
         float fogHorizon = (fogHorizonSetting > 0 ? static_cast<float>(fogHorizonSetting * Const::DEG_TO_RAD) : 0.0f);
         if (fogBlend > 0.0f && fogHorizonSetting < 0) {
             if (std::shared_ptr<TerrainOptions> terrainOptions = _options.getTerrainOptions()) {
@@ -173,7 +192,7 @@ namespace massif {
                         double minZ = 0, maxZ = 0;
                         elevationManager->getDisplayHeightRange(viewState.getFocusPos()(1), minZ, maxZ);
                         double above = maxZ - viewState.getCameraPos()(2);
-                        double distance = fog.distance * Const::WORLD_SIZE / Const::EARTH_CIRCUMFERENCE;
+                        double distance = fog.distance; // resolveFog already returns internal units, as maxZ is
                         if (above > 0 && distance > 0) {
                             // Capped at half the blend: the auto angle comes from the HIGHEST ground
                             // the elevation manager has seen, which is a whole massif away from what
@@ -241,6 +260,18 @@ namespace massif {
         if (_u_fogHorizon >= 0) {
             glUniform1f(_u_fogHorizon, fogHorizon);
         }
+        if (_u_fogHighColor >= 0) {
+            glUniform4f(_u_fogHighColor, fog.highColor.getR() / 255.0f, fog.highColor.getG() / 255.0f, fog.highColor.getB() / 255.0f, fog.highColor.getA() / 255.0f);
+        }
+        if (_u_fogSpaceColor >= 0) {
+            glUniform4f(_u_fogSpaceColor, fog.spaceColor.getR() / 255.0f, fog.spaceColor.getG() / 255.0f, fog.spaceColor.getB() / 255.0f, fog.spaceColor.getA() / 255.0f);
+        }
+        if (_u_fogParams >= 0) {
+            glUniform4f(_u_fogParams, fog.rangeStart, 1.0f / std::max(1.0e-9f, fog.rangeEnd - fog.rangeStart), 1.0f / fog.rangeScale, fog.rangeEnd);
+        }
+        if (_u_starIntensity >= 0) {
+            glUniform1f(_u_starIntensity, fog.starIntensity);
+        }
 
         // Start the quad at the horizon plus a margin for the fog band - everything below is drawn
         // over anyway (docs/internals/rendering/08-lighting-sky-fog.md). Not applied when the terrain path
@@ -299,13 +330,24 @@ namespace massif {
         uniform float u_zoom;
         uniform float u_cameraHeight;
         uniform vec2 u_resolution;
-        uniform vec4 u_fogColor;  // the terrain fog, already lit by the sun; a = strength at the horizon
+        uniform vec4 u_fogColor;  // the fog, already lit by the sun; a = strength at the horizon
         uniform float u_fogBlend; // elevation angle (radians) the fog fades out over, measured from u_fogHorizon
         uniform float u_fogHorizon; // elevation angle (radians) the haze is still full at - the skyline, not the horizon
+        uniform vec4 u_fogHighColor;  // the upper atmosphere; transparent leaves the sky gradient alone
+        uniform vec4 u_fogSpaceColor; // the zenith, beyond the atmosphere
+        uniform vec4 u_fogParams;     // range start, 1 / (end - start), internal -> range units, range end
+        uniform float u_starIntensity;
 
-        // The sky's share of the terrain fog for a view ray: full at the horizon, gone by
-        // u_fogBlend. Cubed so the haze hugs the horizon and clears quickly with height instead
-        // of greying half the sky.
+        // The custom fog shader (FogOptions::setShaderSource) is compiled against the vt names.
+        // Aliases rather than a second set of uniforms: same values, one upload.
+        #define uFogColor u_fogColor
+        #define uFogHighColor u_fogHighColor
+        #define uFogSpaceColor u_fogSpaceColor
+        #define uFogParams u_fogParams
+
+        // The sky's share of the fog for a view ray: full at the horizon, gone by u_fogBlend.
+        // Cubed so the haze hugs the horizon and clears quickly with height instead of greying
+        // half the sky.
         float fogAmount(vec3 rayDir) {
             if (u_fogBlend <= 0.0) {
                 return 0.0;
@@ -314,11 +356,55 @@ namespace massif {
             float t = clamp(1.0 - max(elevation - u_fogHorizon, 0.0) / u_fogBlend, 0.0, 1.0);
             return t * t * t * u_fogColor.a;
         }
+
+        // Mapbox's high-color / space-color, over the elevation angle: the atmosphere is what the
+        // fog band fades into, and space is what the atmosphere fades into at the zenith. Both are
+        // transparent by default, and then this is a no-op and SkyOptions' gradient stands alone.
+        vec3 atmosphereColor(vec3 color, float elevation) {
+            float hz = clamp(elevation / 1.5707963, 0.0, 1.0);
+            color = mix(color, u_fogHighColor.rgb, u_fogHighColor.a * smoothstep(0.0, 0.6, hz));
+            return mix(color, u_fogSpaceColor.rgb, u_fogSpaceColor.a * smoothstep(0.35, 1.0, hz));
+        }
+
+        float starHash(vec2 p) {
+            return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+        }
+
+        // Cells in (azimuth, elevation), one star per cell at most, placed at a random point
+        // INSIDE its cell and drawn as a soft dot. Lighting the whole cell instead reads as a grid
+        // of grey squares, and laying the cells out in a flat projection (rayDir.xy / rayDir.z)
+        // stretches them into streaks near the horizon. Ported from the demo's day-cycle sky
+        // shader (scripts/android-dev, DemoSky.buildSkyShader), which had both right already.
+        float starAmount(vec3 rayDir, float elevation) {
+            if (u_starIntensity <= 0.0 || elevation < 0.0) {
+                return 0.0;
+            }
+            vec2 sc = vec2(atan(rayDir.y, rayDir.x), elevation) * 320.0;
+            vec2 cell = floor(sc);
+            float pick = starHash(cell);
+            vec2 pos = vec2(starHash(cell + 1.7), starHash(cell + 5.3));
+            float d = length(fract(sc) - pos);
+            // ~1.8% of the cells carry one, each with its own brightness.
+            float star = step(0.982, pick) * smoothstep(0.34, 0.02, d) * (0.4 + 0.6 * fract(pick * 37.0));
+            // 1.7 is the demo's gain: at intensity 1 a star has to beat the sky it sits on, and the
+            // haze near the horizon takes most of it back (they are added before applyFog).
+            return star * smoothstep(0.0, 0.10, rayDir.z) * u_starIntensity * 1.7;
+        }
     )GLSL";
 
-    // The default appearance: a horizon-to-zenith gradient, a broad glow around the sun and a
-    // sun disc of about 1.5 degrees. Everything below the horizon takes the ground colour,
-    // which is transparent by default so the map/clear colour shows through.
+    // The distance fog, replaced wholesale by FogOptions::setShaderSource. Same contract as the
+    // tile content and the background plane, so one custom function covers the whole frame.
+    const std::string SkyRenderer::SKY_FRAGMENT_SHADER_FOG_BUILTIN = R"GLSL(
+        vec4 applyFog(vec4 color, float amount, float dist) {
+            return vec4(mix(color.rgb, u_fogColor.rgb * color.a, amount), color.a);
+        }
+    )GLSL";
+
+    // The default appearance: a horizon-to-zenith gradient, the atmosphere colours over it, stars,
+    // a broad glow around the sun and a sun disc of about 1.5 degrees. Everything below the
+    // horizon takes the ground colour, which is transparent by default so the map/clear colour
+    // shows through. The fog is NOT mixed in here - main() applies it once, through applyFog, so
+    // a custom fog shader reaches the sky too.
     const std::string SkyRenderer::SKY_FRAGMENT_SHADER_BUILTIN = R"GLSL(
         vec4 skyColor(vec3 rayDir) {
             float elevation = asin(clamp(rayDir.z, -1.0, 1.0));
@@ -328,15 +414,13 @@ namespace massif {
                 // and everything between the two is this ray. Returning the ground colour alone -
                 // transparent by default - left the map's clear colour there, so the hazed ground
                 // met it along a hard line, which is the "fog does not reach the sky" edge seen far
-                // in the distance. Anything down there is beyond the last tile, so it is haze:
-                // fogAmount is at full strength below the horizon by construction.
-                return mix(u_groundColor, vec4(u_fogColor.rgb, 1.0), fogAmount(rayDir));
+                // in the distance. Anything down there is beyond the last tile, so it is haze, and
+                // the haze supplies the coverage the ground colour has none of.
+                return vec4(u_groundColor.rgb, mix(u_groundColor.a, 1.0, fogAmount(rayDir)));
             }
             float t = u_horizonBlend > 0.0 ? clamp(elevation / u_horizonBlend, 0.0, 1.0) : 1.0;
             vec4 color = mix(u_horizonColor, u_skyColor, t);
-            // Blend the ground fog into the sky above the horizon, so the two meet in a gradient
-            // rather than at a hard skyline.
-            color.rgb = mix(color.rgb, u_fogColor.rgb, fogAmount(rayDir));
+            color.rgb = atmosphereColor(color.rgb, elevation);
             if (u_sunDisc > 0.5) {
                 // Chord length between the two unit vectors, which is the angle in radians to
                 // within 1% over the few degrees that matter here - and unlike acos/pow it keeps
@@ -357,9 +441,20 @@ namespace massif {
 
     const std::string SkyRenderer::SKY_FRAGMENT_SHADER_MAIN = R"GLSL(
         void main() {
-            vec4 color = skyColor(normalize(v_rayDir));
-            color = clamp(color, 0.0, 1.0);
-            gl_FragColor = vec4(color.rgb * color.a, color.a);
+            vec3 rayDir = normalize(v_rayDir);
+            vec4 color = clamp(skyColor(rayDir), 0.0, 1.0);
+            // The sky is at infinity, so it is fogged at the far end of the range; what varies
+            // over it is the ANGULAR haze, which is what fogAmount gives.
+            lowp float haze = fogAmount(rayDir);
+            vec4 premul = applyFog(vec4(color.rgb * color.a, color.a), haze, u_fogParams.w);
+            // Stars are added AFTER the haze and take only its square root. Added before it, they
+            // were multiplied by (1 - haze) like everything else and so were wiped out wherever
+            // the fog band reached - which HorizonBlend alone decided, leaving them visible only
+            // in the strip of sky above it. They sit beyond the atmosphere: they should dim into
+            // it, not be erased by it. This is also why they are here and not in skyColor - a
+            // custom sky shader gets them too, and StarIntensity defaults to 0 anyway.
+            premul.rgb += vec3(starAmount(rayDir, asin(clamp(rayDir.z, -1.0, 1.0)))) * sqrt(1.0 - haze) * premul.a;
+            gl_FragColor = premul;
         }
     )GLSL";
 }

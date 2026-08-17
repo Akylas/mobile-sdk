@@ -993,28 +993,52 @@ public final class DemoPanel {
         });
 
         header(context, "FOG / DISTANCE");
+        // The master switch on FogOptions: every value below stays configured while it is off.
         check(context, "fog", DemoConfig.FOG_ENABLED, new BoolSetting() {
             public void set(boolean value) {
                 DemoConfig.FOG_ENABLED = value;
-                if (value && DemoConfig.FOG_DISTANCE <= 0) {
-                    DemoConfig.FOG_DISTANCE = 30000;
-                }
-                demo.applyTerrainOptions();
+                demo.fogOptions.setEnabled(value);
+                demo.mapView.requestRender();
             }
         });
-        slider(context, "fog start (m)", 0, 40000, DemoConfig.FOG_START_DISTANCE, false, new FloatSetting() {
-            public void set(float value) { DemoConfig.FOG_START_DISTANCE = value; demo.terrainOptions.setFogStartDistance(value); }
+        // DIRECT = the sliders below, STYLE = the inline style's Map block (mapbox-shaped, and the
+        // only one that can be zoom-dependent). Rebuilds the layer: the fog is IN the stylesheet.
+        final String[] fogSources = { DemoConfig.FOG_SOURCE_DIRECT, DemoConfig.FOG_SOURCE_STYLE };
+        choice(context, "fog source", fogSources,
+               DemoConfig.FOG_SOURCE_STYLE.equals(DemoConfig.FOG_SOURCE) ? 1 : 0, new IntSetting() {
+            public void set(int index) {
+                DemoConfig.FOG_SOURCE = fogSources[index];
+                demo.applyFogOptions();
+                demo.rebuildBaseLayer();
+            }
         });
-        slider(context, "fog distance (m, 0=off)", 0, 120000, DemoConfig.FOG_DISTANCE, false, new FloatSetting() {
-            public void set(float value) { DemoConfig.FOG_DISTANCE = value < 500 ? 0 : value; demo.terrainOptions.setFogDistance(DemoConfig.FOG_DISTANCE); }
+        // Named looks. Each writes every fog field, so the sliders below are a starting point the
+        // preset resets - they keep their old POSITIONS until the panel is reopened, which is fine
+        // for picking a look and then tuning it.
+        choice(context, "fog preset", DemoConfig.FOG_PRESETS, 0, new IntSetting() {
+            public void set(int index) {
+                DemoConfig.applyFogPreset(DemoConfig.FOG_PRESETS[index]);
+                DemoConfig.FOG_ENABLED = true;
+                demo.applyFogOptions();
+            }
         });
-        // How much of the SKY the same haze takes: the blend is the fade width, the horizon is the
-        // angle it is still full at (below 0 on the slider = follow the terrain skyline).
-        slider(context, "sky fog blend (deg)", 0, 45, DemoConfig.SKY_FOG_BLEND, false, new FloatSetting() {
-            public void set(float value) { DemoConfig.SKY_FOG_BLEND = value; demo.skyOptions.setFogBlend(value); }
+        // The range is in multiples of the camera-to-focus distance, so it holds at every zoom.
+        slider(context, "fog range start (x camera)", 0, 4, DemoConfig.FOG_RANGE_START, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.FOG_RANGE_START = value; demo.fogOptions.setRangeStart(value); }
         });
-        slider(context, "sky fog horizon (deg, <0=auto)", -1, 30, DemoConfig.SKY_FOG_HORIZON, false, new FloatSetting() {
-            public void set(float value) { DemoConfig.SKY_FOG_HORIZON = value; demo.skyOptions.setFogHorizon(value); }
+        slider(context, "fog range end (x camera)", 0, 20, DemoConfig.FOG_RANGE_END, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.FOG_RANGE_END = value; demo.fogOptions.setRangeEnd(value); }
+        });
+        // How much of the SKY the same haze takes: the blend is the fade width, the angle is where
+        // it is still full (below 0 on the slider = follow the terrain skyline).
+        slider(context, "fog horizon blend (0..1)", 0, 1, DemoConfig.FOG_HORIZON_BLEND, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.FOG_HORIZON_BLEND = value; demo.fogOptions.setHorizonBlend(value); }
+        });
+        slider(context, "fog horizon angle (deg, <0=auto)", -1, 30, DemoConfig.FOG_HORIZON_ANGLE, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.FOG_HORIZON_ANGLE = value; demo.fogOptions.setHorizonAngle(value); }
+        });
+        slider(context, "fog stars (0..1)", 0, 1, DemoConfig.FOG_STAR_INTENSITY, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.FOG_STAR_INTENSITY = value; demo.fogOptions.setStarIntensity(value); }
         });
         // Changes the visible tile set, so apply on release only.
         slider(context, "tile LOD (x tangram, 0=finest)", 0, 4, DemoConfig.TILE_LOD_FACTOR, true, new FloatSetting() {

@@ -6,7 +6,7 @@
 
 %module Options
 
-!proxy_imports(massif::Options, core.MapBounds, core.MapRange, core.MapVec, core.ScreenPos, components.TerrainOptions, components.SkyOptions, components.LightOptions, graphics.Bitmap, graphics.Color, projections.Projection)
+!proxy_imports(massif::Options, core.MapBounds, core.MapRange, core.MapVec, core.ScreenPos, components.TerrainOptions, components.SkyOptions, components.FogOptions, components.LightOptions, graphics.Bitmap, graphics.Color, projections.Projection)
 
 %{
 #include "components/Options.h"
@@ -30,6 +30,7 @@
 %import "core/ScreenPos.i"
 %import "components/TerrainOptions.i"
 %import "components/SkyOptions.i"
+%import "components/FogOptions.i"
 %import "components/LightOptions.i"
 %import "graphics/Bitmap.i"
 %import "graphics/Color.i"

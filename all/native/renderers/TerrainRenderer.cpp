@@ -256,7 +256,9 @@ namespace massif {
             glUniform4f(loc, fog.color.getR() / 255.0f, fog.color.getG() / 255.0f, fog.color.getB() / 255.0f, fog.color.getA() / 255.0f);
         }
         if ((loc = glGetUniformLocation(progId, "u_fogRange")) >= 0) {
-            glUniform2f(loc, fog.startDistance, fog.distance);
+            // v_dist is in metres (u_metersPerUnit), the resolved fog is in internal units.
+            float metersPerUnit = static_cast<float>(Const::EARTH_CIRCUMFERENCE / Const::WORLD_SIZE);
+            glUniform2f(loc, fog.startDistance * metersPerUnit, fog.distance * metersPerUnit);
         }
         if ((loc = glGetUniformLocation(progId, "u_time")) >= 0) {
             glUniform1f(loc, std::chrono::duration_cast<std::chrono::duration<float> >(std::chrono::steady_clock::now() - _startTime).count());

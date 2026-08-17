@@ -10,8 +10,6 @@ namespace massif {
         _horizonColorARGB(Color(171, 206, 236, 255).getARGB()),
         _groundColorARGB(Color(171, 206, 236, 255).getARGB()),
         _horizonBlend(12.0f),
-        _fogBlend(12.0f),
-        _fogHorizon(-1.0f),
         _sunDiscEnabled(true),
         _shaderSource(),
         _shaderSourceMutex(),
@@ -71,28 +69,6 @@ namespace massif {
         float clamped = std::max(0.0f, std::min(90.0f, degrees));
         if (_horizonBlend.exchange(clamped) != clamped) {
             notifyOptionChanged("HorizonBlend");
-        }
-    }
-
-    float SkyOptions::getFogHorizon() const {
-        return _fogHorizon.load();
-    }
-
-    void SkyOptions::setFogHorizon(float degrees) {
-        float clamped = std::min(90.0f, degrees);
-        if (_fogHorizon.exchange(clamped) != clamped) {
-            notifyOptionChanged("FogHorizon");
-        }
-    }
-
-    float SkyOptions::getFogBlend() const {
-        return _fogBlend.load();
-    }
-
-    void SkyOptions::setFogBlend(float degrees) {
-        float clamped = std::max(0.0f, std::min(90.0f, degrees));
-        if (_fogBlend.exchange(clamped) != clamped) {
-            notifyOptionChanged("FogBlend");
         }
     }
 

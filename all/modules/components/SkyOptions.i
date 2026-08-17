@@ -24,8 +24,6 @@
 %attributeval(massif::SkyOptions, massif::Color, HorizonColor, getHorizonColor, setHorizonColor)
 %attributeval(massif::SkyOptions, massif::Color, GroundColor, getGroundColor, setGroundColor)
 %attribute(massif::SkyOptions, float, HorizonBlend, getHorizonBlend, setHorizonBlend)
-%attribute(massif::SkyOptions, float, FogBlend, getFogBlend, setFogBlend)
-%attribute(massif::SkyOptions, float, FogHorizon, getFogHorizon, setFogHorizon)
 %attribute(massif::SkyOptions, bool, SunDiscEnabled, isSunDiscEnabled, setSunDiscEnabled)
 %attributestring(massif::SkyOptions, std::string, ShaderSource, getShaderSource, setShaderSource)
 

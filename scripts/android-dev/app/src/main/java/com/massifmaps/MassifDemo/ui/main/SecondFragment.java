@@ -2,7 +2,9 @@ package com.massifmaps.MassifDemo.ui.main;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
@@ -24,6 +26,7 @@ import androidx.fragment.app.Fragment;
 import com.massifmaps.MassifDemo.R;
 import com.massifmaps.MassifDemo.demo.DemoCfg;
 import com.massifmaps.MassifDemo.demo.DemoConfig;
+import com.massifmaps.MassifDemo.demo.DemoLive;
 import com.massifmaps.MassifDemo.demo.DemoMap;
 import com.massifmaps.MassifDemo.demo.DemoPanel;
 import com.massifmaps.components.Options;
@@ -64,6 +67,7 @@ public class SecondFragment extends Fragment {
 
     private MapView mapView;
     private DemoMap demo;
+    private android.content.BroadcastReceiver liveConfigReceiver;
     private TextView zoomText;
 
     @RequiresApi(api = Build.VERSION_CODES.M)
@@ -130,6 +134,7 @@ public class SecondFragment extends Fragment {
                     public void run() {
                         DemoPanel.build(getContext(), demoView.findViewById(R.id.main), demo);
                         installMapListener();
+                        installLiveConfigReceiver();
                         // Re-apply the start camera once the map view has a size: build() sets it
                         // while the view can still be 0x0, and restricted panning then clamps the
                         // focus latitude to 0 - the map opens on the equator with only the
@@ -139,6 +144,34 @@ public class SecondFragment extends Fragment {
                 });
             }
         }, "demo-build").start();
+    }
+
+    /**
+     * Lets adb change any config key on the RUNNING demo (see DemoLive):
+     *   adb shell am broadcast -a com.massifmaps.MassifDemo.CONFIG --es fog false
+     * Exported on purpose - it is a debug bench, and an unexported receiver cannot be reached
+     * from the shell at all.
+     */
+    private void installLiveConfigReceiver() {
+        if (liveConfigReceiver != null || getContext() == null) {
+            return;
+        }
+        liveConfigReceiver = new DemoLive(demo);
+        IntentFilter filter = new IntentFilter(DemoLive.ACTION);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            getContext().registerReceiver(liveConfigReceiver, filter, Context.RECEIVER_EXPORTED);
+        } else {
+            getContext().registerReceiver(liveConfigReceiver, filter);
+        }
+    }
+
+    @Override
+    public void onDestroyView() {
+        if (liveConfigReceiver != null && getContext() != null) {
+            getContext().unregisterReceiver(liveConfigReceiver);
+            liveConfigReceiver = null;
+        }
+        super.onDestroyView();
     }
 
     /**

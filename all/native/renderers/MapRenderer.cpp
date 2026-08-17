@@ -45,6 +45,7 @@
 #include "utils/Const.h"
 #include "utils/FrameProfiler.h"
 #include "utils/Log.h"
+#include "components/FogOptions.h"
 
 #ifdef __ANDROID__
 #include <sys/system_properties.h>
@@ -321,6 +322,7 @@ namespace massif {
         _surfaceChanged(false),
         _billboardsChanged(false),
         _redrawPending(false),
+        _redrawExtraFrames(0),
         _redrawRequestListener(),
         _mapRendererListener(),
         _rendererCaptureListeners(),
@@ -433,6 +435,16 @@ namespace massif {
 
         if (redrawRequestListener) {
             _redrawPending = true;
+            // ONE drawn frame is not enough to put new content on screen. The surface is
+            // double-buffered and RENDERMODE_WHEN_DIRTY draws exactly as many frames as were
+            // requested, so a single frame lands in the back buffer and the front one - the
+            // previous state - is what stays visible until something else happens to draw again.
+            // Measured on the emulator by toggling FogOptions from adb: every change that drew two
+            // frames appeared, and the one in eight that drew a single frame never did, permanently
+            // (a second screenshot four seconds later was byte-identical), while the render thread
+            // logged the correct fog for that frame. Most changes came out right only because a
+            // cull pass happened to request a second redraw behind them.
+            _redrawExtraFrames = 1;
             redrawRequestListener->onRedrawRequested();
         }
     }
@@ -947,13 +959,22 @@ namespace massif {
             clearAndBindScreenFBO(_options->getClearColor(), true, false);
         }
 
+        // The style's opinion for this frame, resolved ONCE and before anything draws. The sky and
+        // the background plane used to resolve their own fog from an empty environment, so a fog
+        // declared by the style reached the tile content and nothing else - hazy ground under a
+        // clear sky, and a fog the style switched off still drawn by the sky.
+        _frameStyleEnvironment = collectStyleEnvironment(viewState);
+        _frameFog = resolveFog(_options->getFogOptions(), _frameStyleEnvironment,
+                               resolveLighting(_options->getLightOptions(), _frameStyleEnvironment),
+                               viewState.calculateCameraDistance());
+
         // Render everything
         FRAME_PROF_NOW(profFrameStart);
         FRAME_PROF_RESET();
         FRAME_PROF_GPU_BEGIN(SECTION_SKY);
         initializeRenderState();
         // The shader sky replaces the legacy sky band when it draws.
-        bool skyDrawn = _skyRenderer.onDrawFrame(viewState);
+        bool skyDrawn = _skyRenderer.onDrawFrame(viewState, _frameFog);
         // Timed apart from the sky: both are full-screen-ish draws at the START of the frame, and
         // the first section of a frame also absorbs whatever the GPU idled waiting for the CPU
         // (see GpuFrameProfiler), so one number for the two says nothing about either.
@@ -962,7 +983,7 @@ namespace massif {
         // is the framebuffer clear colour (core/src/map.cpp) - so this is what that would save.
         //   adb shell setprop debug.massif.background 0
         if (isBackgroundEnabled()) {
-            _backgroundRenderer.onDrawFrame(viewState, !skyDrawn);
+            _backgroundRenderer.onDrawFrame(viewState, _frameFog, !skyDrawn);
         }
         FRAME_PROF_ADD(skyMs, profFrameStart);
         drawLayers(deltaSeconds, viewState, static_cast<bool>(postProcessEffect));
@@ -993,6 +1014,17 @@ namespace massif {
             _billboardPlacementWorker->init(BILLBOARD_PLACEMENT_TASK_DELAY);
         }
         
+        // The follow-up frame for the request this one served (see requestRedraw). Taken before the
+        // idle test, so the map is not announced idle with a frame still owed.
+        if (_redrawExtraFrames.load() > 0) {
+            _redrawExtraFrames--;
+            DirectorPtr<RedrawRequestListener> redrawRequestListener = _redrawRequestListener;
+            if (redrawRequestListener) {
+                _redrawPending = true;
+                redrawRequestListener->onRedrawRequested();
+            }
+        }
+
         // Call listener to inform we are idle now, if no redraw request is pending
         if (!_redrawPending) {
             for (const std::shared_ptr<OnChangeListener>& onChangeListener : onChangeListeners) {
@@ -1458,16 +1490,9 @@ namespace massif {
         std::array<cglib::mat4x4<double>, TerrainShadowMap::MAX_CASCADES> lightViewProjs;
         lightViewProjs.fill(cglib::mat4x4<double>::identity());
         // The styles get a say in every light and shadow property; whatever they do
-        // not mention stays with LightOptions. The first layer to define a property
-        // wins, and the values are re-read every frame so they may follow the zoom.
-        StyleEnvironment styleEnvironment;
-        for (const std::shared_ptr<TileLayer>& tileLayer : tileLayers) {
-            StyleEnvironment layerEnvironment;
-            if (tileLayer->getStyleEnvironment(viewState, layerEnvironment)) {
-                styleEnvironment.mergeMissing(layerEnvironment);
-            }
-        }
-        lighting = resolveLighting(_options->getLightOptions(), styleEnvironment);
+        // not mention stays with LightOptions. Collected once for the frame (see
+        // collectStyleEnvironment) and re-read every frame, so it may follow the zoom.
+        lighting = resolveLighting(_options->getLightOptions(), _frameStyleEnvironment);
         // Floor the sun altitude for the SHADOW pass alone: a lower sun stretches the light box
         // past the drawn cover and the cascades go coarse (docs/internals/rendering/08-lighting-sky-fog.md).
         cglib::vec3<float> shadowSunDir = lighting.sunDir;
@@ -1939,6 +1964,19 @@ namespace massif {
         }
     }
 
+    StyleEnvironment MapRenderer::collectStyleEnvironment(const ViewState& viewState) const {
+        StyleEnvironment styleEnvironment;
+        for (const std::shared_ptr<Layer>& layer : _layers->getAll()) {
+            if (auto tileLayer = std::dynamic_pointer_cast<TileLayer>(layer)) {
+                StyleEnvironment layerEnvironment;
+                if (tileLayer->getStyleEnvironment(viewState, layerEnvironment)) {
+                    styleEnvironment.mergeMissing(layerEnvironment);
+                }
+            }
+        }
+        return styleEnvironment;
+    }
+
     void MapRenderer::drawLayers(float deltaSeconds, const ViewState& viewState, bool postProcessing) {
         FRAME_PROF_NOW(profDrawStart);
         FRAME_PROF_GPU_BEGIN(SECTION_PRELUDE);
@@ -2009,18 +2047,8 @@ namespace massif {
                                     }
                                 }
                             }
-                            StyleEnvironment surfaceEnvironment;
-                            for (const std::shared_ptr<Layer>& layer : layers) {
-                                if (auto tileLayer = std::dynamic_pointer_cast<TileLayer>(layer)) {
-                                    StyleEnvironment layerEnvironment;
-                                    if (tileLayer->getStyleEnvironment(viewState, layerEnvironment)) {
-                                        surfaceEnvironment.mergeMissing(layerEnvironment);
-                                    }
-                                }
-                            }
-                            ResolvedLighting surfaceLighting = resolveLighting(_options->getLightOptions(), surfaceEnvironment);
-                            ResolvedFog surfaceFog = resolveFog(terrainOptions, surfaceEnvironment, surfaceLighting);
-                            backgroundRendered = _terrainRenderer->renderSurface(viewState, terrainOptions, _glResourceManager, surfaceLighting, surfaceFog, keepDepth);
+                            ResolvedLighting surfaceLighting = resolveLighting(_options->getLightOptions(), _frameStyleEnvironment);
+                            backgroundRendered = _terrainRenderer->renderSurface(viewState, terrainOptions, _glResourceManager, surfaceLighting, _frameFog, keepDepth);
                         }
                         if (!backgroundRendered && terrainOptions->isBackgroundBitmapEnabled()) {
                             if (std::shared_ptr<Bitmap> backgroundBitmap = _options->getBackgroundBitmap()) {
@@ -3208,6 +3236,13 @@ namespace massif {
                 // Terrain changes (enabled state, exaggeration, mesh resolution, min zoom)
                 // require a new cull pass so that tile layers detect the configuration change
                 // and rebuild their tiles with/without terrain displacement
+                updateView = true;
+            }
+
+            if (optionName.substr(0, 10) == "FogOptions") {
+                // Fog reaches passes that a bare redraw does not refresh - the drape bake and the
+                // terrain shadow mask are both kept until the content changes - so turning it on
+                // or off left the map half updated. A cull pass refreshes all of them.
                 updateView = true;
             }
 

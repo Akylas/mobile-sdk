@@ -8,6 +8,7 @@
 #define _MASSIF_BACKGROUNDRENDERER_H_
 
 #include "renderers/utils/GLContext.h"
+#include "components/StyleEnvironment.h"
 
 #include <memory>
 #include <vector>
@@ -29,13 +30,16 @@ namespace massif {
         virtual ~BackgroundRenderer();
     
         void onSurfaceCreated(const std::shared_ptr<GLResourceManager>& resourceManager);
-        void onDrawFrame(const ViewState& viewState, bool drawSkyBand = true);
+        // The fog is resolved by the owner and shared with the tile content and the sky, so all
+        // three agree whether it came from FogOptions or from a style's Map block.
+        void onDrawFrame(const ViewState& viewState, const ResolvedFog& fog, bool drawSkyBand = true);
         void onSurfaceDestroyed();
-    
+
     protected:
-        void setupFogUniforms(bool enabled);
-        void drawBackground(const ViewState& viewState);
-        void drawSky(const ViewState& viewState);
+        bool updateShader();
+        void setupFogUniforms(const ResolvedFog& fog, bool enabled);
+        void drawBackground(const ViewState& viewState, const ResolvedFog& fog);
+        void drawSky(const ViewState& viewState, const ResolvedFog& fog);
         void drawContour(const ViewState& viewState);
 
         static void BuildPlanarSky(std::vector<cglib::vec3<float> >& coords, std::vector<cglib::vec2<float> >& texCoords, const cglib::vec3<double>& cameraPos, const cglib::vec3<double>& focusPos, const cglib::vec3<double>& upVec, double height0, double height1, float coordScale);
@@ -55,7 +59,9 @@ namespace massif {
         static const float SKY_HEIGHT_RAMP_SPHERICAL[2];
 
         static const std::string BACKGROUND_VERTEX_SHADER;
-        static const std::string BACKGROUND_FRAGMENT_SHADER;
+        static const std::string BACKGROUND_FRAGMENT_SHADER_PREFIX;
+        static const std::string BACKGROUND_FRAGMENT_SHADER_FOG_BUILTIN;
+        static const std::string BACKGROUND_FRAGMENT_SHADER_MAIN;
 
         std::shared_ptr<Bitmap> _backgroundBitmap;
         std::shared_ptr<Texture> _backgroundTex;
@@ -76,14 +82,18 @@ namespace massif {
         std::vector<cglib::vec3<float> > _contourCoords;
 
         std::shared_ptr<Shader> _shader;
+        std::string _fogShaderSource;
+        bool _fogShaderFailed;
         GLuint _a_coord;
         GLuint _a_normal;
         GLuint _a_texCoord;
         GLuint _u_tex;
         GLuint _u_lightDir;
         GLuint _u_mvpMat;
-        GLuint _u_fogColor;
-        GLuint _u_fogParams;
+        GLint _u_fogColor;
+        GLint _u_fogHighColor;
+        GLint _u_fogSpaceColor;
+        GLint _u_fogParams;
 
         std::shared_ptr<GLResourceManager> _glResourceManager;
     

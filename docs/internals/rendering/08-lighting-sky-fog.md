@@ -16,8 +16,10 @@ merged, and **every consumer must go through it** or the ground and the sky end 
 - `resolveLighting(LightOptions, StyleEnvironment) -> ResolvedLighting` — sun direction, colour,
   intensity, ambient, and the shadow parameters (strength, bias, softness, distance, map size,
   cascade count, caster margin).
-- `resolveFog(TerrainOptions, StyleEnvironment, ResolvedLighting) -> ResolvedFog` — colour, start
-  distance, distance, with the colour **lit by the same sun** (dark at night, warm at a low sun).
+- `resolveFog(FogOptions, StyleEnvironment, ResolvedLighting, cameraDistance) -> ResolvedFog` —
+  colour, atmosphere colours, range and horizon blend, with the colour **lit by the same sun** (dark
+  at night, warm at a low sun). It also turns the camera-relative range into internal units, which
+  is the only place that conversion happens.
 
 The style wins wherever it has an opinion; the rest stays with the options. The first layer to define
 a property wins, values are re-read every frame, so they may depend on the zoom.
@@ -242,12 +244,87 @@ Two more, both about not painting what is covered anyway:
 
 ## Fog and the background plane
 
-Fog is applied by the vt shaders (ground, content, paint) from `setFog(color, startDistance,
-distance)` in internal units, and by the sky through `fogAmount`. Because both come from
-`resolveFog`, the horizon matches.
+Fog lives on its own `FogOptions` (it used to be three fields on `TerrainOptions`), on the Mapbox
+`fog` model: colour, `high-color`, `space-color`, `horizon-blend`, `star-intensity`, and a **range in
+multiples of the camera-to-focus distance** rather than in metres.
+
+Camera-relative is the load-bearing choice. `ViewState::calculateCameraDistance()` is tangram's
+`m_pos.z` — a function of the zoom alone, so it does not move with tilt or with the terrain under the
+camera. A metric range had to be retuned for every zoom, and a range tuned for a city view painted a
+mountain view solid.
+
+**Resolved once per frame, before anything draws.** `MapRenderer::collectStyleEnvironment` merges
+every tile layer's Map-block opinion and `_frameFog` is resolved from it; the sky, the background
+plane and the terrain surface are all handed that value. They used to each call `resolveFog` with an
+**empty** `StyleEnvironment`, which only `TileRenderer` filled in — so a fog declared by a style
+reached the tile content and nothing else: hazy ground under a clear sky, and a `fog-enabled: 0` the
+sky ignored. The collection has to happen before the sky draws, which is long before `drawLayers`
+would have gathered it.
+
+Four consumers, all through the same resolved value, so the horizon matches:
+
+| Consumer | How it fogs |
+|---|---|
+| vt (`setFog` + `applyFog` in `commonFsh`) | per-fragment, `1/gl_FragCoord.w` scaled into range units |
+| `BackgroundRenderer` | the same expression in its plane shader |
+| `SkyRenderer` | angular, `fogAmount(rayDir)` — the sky has no distance |
+| `TerrainRenderer::renderSurface` | the relief surface's `u_fogRange`, which is in **metres** (`v_dist = pos.w * u_metersPerUnit`), so it converts |
+
+**Fog does not depend on the terrain.** `BackgroundRenderer::setupFogUniforms` used to gate on
+`terrainOptions->isEnabled()` while `TileRenderer` did not, so a plain 2D map fogged its tile content
+and left the background plane — everything past the loaded tiles, which is exactly the far distance
+you want fogged — untouched. The gate is gone.
+
+**The drape bake must never fog** (`fogFlag()` returns 0 while `_drapeMVPOverride` is set). The bake
+is flat content baked into a texture that is then painted on the terrain surface and fogged there,
+once; anything fogged in the bake is *burnt into a cached texture* and survives the fog being turned
+off. This used to fall out of the arithmetic — an orthographic pass has `gl_FragCoord.w = 1`, a whole
+world in internal units (2²⁰), which no metric range ever reached — and a camera-relative range does
+reach it at high zoom, where the camera distance approaches 1. The symptom was a fog wash left over
+the tiles after switching fog off, while the sky above the horizon updated correctly.
+
+**`Enabled` is a real switch, not a value driven to zero.** `resolveFog` returns a default
+`ResolvedFog` (which is not `active()`) when it is off, so every consumer stops together and nothing
+has to round-trip a colour or a range through 0.
 
 `BackgroundRenderer` draws the flat z=0 plane that fills the view past the terrain and past
 `TerrainOptions::ViewDistanceFactor`. It uses `Options::getBackgroundBitmap()` — **not** the CartoCSS
 `Map { background-color }`, which is why changing the style background does not tint it.
 
 `ViewDistanceFactor` ends the ground; pair it with fog or it ends on a hard edge.
+
+### The custom fog shader
+
+`FogOptions::setShaderSource` supplies `vec4 applyFog(vec4 color, float amount, float dist)` and it is
+compiled into all three fog paths, so one function covers map and sky in 2D and 3D. Mechanics worth
+knowing before touching it:
+
+- **One uniform naming, everywhere.** vt's names (`uFogColor`, `uFogHighColor`, `uFogSpaceColor`,
+  `uFogParams`) are the contract. `BackgroundRenderer` was renamed to them; `SkyRenderer` keeps its
+  own `u_*` sky-shader contract and adds `#define` aliases rather than a second set of uniforms.
+- **`uFogParams` is in range units** (`start`, `1/(end-start)`, internal→range scale, `end`). Every
+  path converts `gl_FragCoord.w` first, at the cost of one multiply, so the numbers a custom shader
+  sees are the numbers the API and the style are written in.
+- **vt substitutes at `$FOG_BLEND$`** inside `commonFsh` — it has to sit after the uniform
+  declarations it reads and before the `applyFog(color)` that calls it. `setFogShaderSource` deletes
+  every program and clears both caches; it is called from `TileRenderer::onDrawFrame`, i.e. the GL
+  thread, which is what makes that safe.
+- **The built-in sky no longer mixes the fog itself.** `skyColor` returns the unfogged colour (plus
+  the coverage the haze supplies below the horizon) and `main()` applies `applyFog` once, so a custom
+  fog shader reaches the sky instead of being overridden by it.
+
+## Known gaps
+
+- Zoom **blinking with fog on** is reported and not diagnosed: a terrain tile from the zoom being
+  left behind stays drawn and is fogged (or lit) differently. The mismatch is a depth/stand-in
+  problem that fog only makes visible — it also shows with daylight and no fog. Worth re-checking
+  now that the bake no longer burns fog into the cached drape.
+- **`high-color`, `space-color` and stars are only visible well up the sky.** `atmosphereColor`
+  ramps on the elevation angle (`smoothstep(0, 0.6, elevation/90°)` for the high colour), and the
+  demo clamps tilt at 30, where the sky band in frame is a few degrees above the horizon and the
+  ramp is still near zero. They need `--es freeRoam look` and a negative tilt to see at all, and
+  neither has been checked on a device.
+- **What is checked, on the emulator:** fog in 2D with terrain off; no burnt-in wash at z17 with the
+  drape on; a style-declared fog reaching the sky and the ground with no seam; enable/disable
+  toggled from adb over repeated cycles, direct and style source. The last one is what turned up the
+  double-buffer rule in [01-frame.md](01-frame.md) — the fog was only the messenger.

@@ -600,9 +600,16 @@ namespace massif {
         readFloat(mapSettings->shadowBias, env.shadowBias);
         readFloat(mapSettings->shadowSoftness, env.shadowSoftness);
         readFloat(mapSettings->shadowDistance, env.shadowDistance);
+        if (mapSettings->fogEnabled.isDefined()) {
+            env.fogEnabled = TileRenderer::evaluateFloatFunc(mapSettings->fogEnabled.getFunction(context), viewState) != 0.0f;
+        }
         readColor(mapSettings->fogColor, env.fogColor);
-        readFloat(mapSettings->fogStartDistance, env.fogStartDistance);
-        readFloat(mapSettings->fogDistance, env.fogDistance);
+        readFloat(mapSettings->fogRangeStart, env.fogRangeStart);
+        readFloat(mapSettings->fogRangeEnd, env.fogRangeEnd);
+        readColor(mapSettings->fogHighColor, env.fogHighColor);
+        readColor(mapSettings->fogSpaceColor, env.fogSpaceColor);
+        readFloat(mapSettings->fogHorizonBlend, env.fogHorizonBlend);
+        readFloat(mapSettings->fogStarIntensity, env.fogStarIntensity);
         readFloat(mapSettings->terrainMaxVisibleDistance, env.terrainMaxVisibleDistance);
         if (mapSettings->terrainLighting.isDefined()) {
             env.terrainLightingEnabled = TileRenderer::evaluateFloatFunc(mapSettings->terrainLighting.getFunction(context), viewState) != 0.0f;
