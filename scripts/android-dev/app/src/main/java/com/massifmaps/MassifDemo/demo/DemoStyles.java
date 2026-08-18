@@ -310,7 +310,7 @@ public final class DemoStyles {
                         "text-name: [name];",
                         "text-fill: #000000;",
                         " text-spacing: 10;",
-                        "text-placement: line;",
+                        "text-placement: [render::3d] ?billboard-line:line;",
                         "text-size: 10;",
                         DemoConfig.LABEL_MAX_DISTANCE > 0
                             ? "text-max-distance: " + DemoConfig.LABEL_MAX_DISTANCE + ";"
