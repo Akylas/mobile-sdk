@@ -125,6 +125,35 @@ in the log naming the reason** — `selects` never fails silently:
   repaint can build geometry. Write the casing as a width and a colour instead of as a rule;
 - not on a **dashed** line whose width is selected: the dash raster is sized by the width.
 
+## The render-mode variable (`render::3d`)
+
+`render::3d` is **not** a style parameter: the SDK owns it, the app cannot set it. It is `true` while
+the layer draws on 3D terrain (`TerrainOptions.setEnabled(true)`), `false` otherwise — which lets one
+style carry both looks:
+
+```css
+#road_label {
+  text-name: [name];
+  text-orientation-mode: [render::3d] ? billboard-line : line;
+  text-size: [render::3d] ? 12 : 11;
+}
+
+#building['render::3d' = true] { building-height: [render_height]; }
+```
+
+In an expression it is written `[render::3d]`; in a **selector** it must be quoted,
+`['render::3d' = true]`, the same as `['param::x' > 0]` (the selector grammar has no `::` in a bare
+field name).
+
+It is resolved **at decode time**, like a feature field or the zoom — so it works everywhere,
+including on properties no repaint can change (`text-orientation-mode`, `text-name`, marker choice,
+filters), and it costs nothing per frame. Toggling terrain therefore re-decodes the tiles, but that
+already happened: the terrain switch drops every tile cache anyway, so reading `render::3d` is free.
+
+The value comes from the layer's tile transformer (elevation-based or not), which is the same object
+the tile cache is keyed against — a tile can never be drawn with the wrong answer baked in.
+
 ## See also
 
+- [3D Terrain](/docs/features/3d-terrain) — what switches `render::3d`.
 - [Composite Vector Tile Layer](/docs/features/composite-vector-tile-layer) — external sources configured from `param::`-dependent expressions.

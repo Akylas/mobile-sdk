@@ -137,6 +137,12 @@ At low zoom, `VectorLayer` **element** lines (e.g. long routes) can still leak t
 they are CPU-baked to a fine bilinear surface while the low-zoom occluder is coarse, and no depth
 bias wins that case. The fix (render-to-texture element draping across layers) is on the roadmap.
 
+## Styling differently in 3D
+
+A style reads `[render::3d]` to branch on whether it is drawn on terrain — flat labels in 2D,
+billboard ones in 3D, for instance. See
+[Live Style Parameters](/docs/features/style-parameters#the-render-mode-variable-render3d).
+
 ## See also
 
 - [Hillshade](/docs/features/hillshade) — shaded relief from the same DEM.

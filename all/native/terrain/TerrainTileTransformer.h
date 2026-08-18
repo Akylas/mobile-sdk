@@ -81,6 +81,8 @@ namespace massif {
         int getMeshResolution() const { return _meshResolution; }
         int getMinZoom() const { return _minZoom; }
 
+        virtual bool isElevationBased() const override { return true; }
+
         virtual cglib::vec3<double> calculateTileOrigin(const vt::TileId& tileId) const override;
         virtual cglib::bbox3<double> calculateTileBBox(const vt::TileId& tileId) const override;
         virtual cglib::mat4x4<double> calculateTileMatrix(const vt::TileId& tileId, float coordScale) const override;
