@@ -261,6 +261,35 @@ Compile errors now quote the source around the reported line and list the progra
 line number is into the concatenated source, which nothing on disk matches, and without the quote
 every shader error costs a round of guessing.
 
+### Why building shadows are softer than mapbox's, and what to set
+
+At z16 a building's cast shadow is quantised into visible steps. Measured on the Crosscall,
+Grenoble z16 tilt 45, same camera forced by broadcast, identical crops:
+
+| Configuration | fps | GPU drape | Look |
+|---|---|---|---|
+| 1024 x 3 (the default) | 14.1 | 5.8 ms | washed courtyard shadows |
+| 2048 x 2 (mapbox's) | 13.6 | 5.8 ms | tight, defined edges |
+
+**The cause is the texel, not the filter and not the mask.** With the range at 4.5 x the
+camera-to-focus distance (~7 km at z16) split three ways, the near cascade covers ~1.5 km through a
+1024 page — about **1.5 m of ground per texel**, which is metres-wide steps across a street. mapbox
+puts the same near-cascade distance through a 2048 page and spends nothing on a third cascade.
+
+Set `shadowMapSize 2048` + `shadowCascades 2` for the sharp look. It is nearly free: drape is
+unchanged and the 0.5 fps is device drift, because the per-cascade cost is matrices and varyings
+rather than sampling (see the table above — one cascade is *faster* than three). The reason it is
+not the default is memory: 2048 x 2 at D24 is ~33 MB of atlas against ~12.6 MB for 1024 x 3. mapbox
+pays ~16 MB for theirs by using D16; at a 0.75 m texel the precision argument for D24 is weaker than
+it was, so D16 at 2048 is worth trying — **not tested**.
+
+**Dead end: the screen-space mask is not the limiter.** `SHADOW_MASK_DIVISOR = 1` (full resolution)
+was tried on the theory that a quarter-resolution mask was blurring building shadow edges. It made
+them look *worse*: the full-res mask exposed the shadow-map staircase that the quarter-res blur had
+been smoothing over. The mask hides quantisation, it does not cause it. Leave it at 4 — it is one of
+the biggest wins in this file (§"The screen-space shadow mask") and costs no sharpness that the map
+itself can resolve.
+
 ### Normal offset
 
 `LightOptions.ShadowNormalOffset` (default 3, mapbox's) pushes a receiving surface **along its own
