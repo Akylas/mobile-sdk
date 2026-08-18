@@ -1024,6 +1024,10 @@ namespace massif {
         return _tileRenderer->shadowCasterFadeSignature();
     }
 
+    int TileLayer::consumeShadowCastersMissingElevation() {
+        return _tileRenderer->consumeShadowCastersMissingElevation();
+    }
+
     int TileLayer::renderShadowCasters(const std::vector<vt::TileId>& tileIds, const cglib::mat4x4<double>& lightViewProj, bool castGround) {
         return _tileRenderer->renderShadowCasters(tileIds, lightViewProj, castGround);
     }
