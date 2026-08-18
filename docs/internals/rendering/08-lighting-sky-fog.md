@@ -281,15 +281,32 @@ nothing lands in is never drawn) and fewer, larger pages.
 An ESSL 3.00 program that fails to build falls back to its 1.00 form rather than taking the map with
 it (`hasShaderVersionFallback()`).
 
-### An unrelated compile failure this uncovered
+### A compile failure this uncovered, and its fix
 
 Adding the version prelude shifted shader line numbers, which surfaced a **pre-existing** failure:
-`tilecolormap` built with `TERRAIN_LIGHT` + `TERRAIN` calls `terrainNormal()` and reads `uSunDir` /
-`uSunColor` / `uLightParams`, none of which `colormapFsh` declares — they live in `backgroundFsh`,
-a different string, or come from the application's lighting shader when one is installed. Without
-that shader the program does not compile. It is caught by `TileRenderer::prepareFrame` and logged, so
-it is invisible unless you grep for it: **6 occurrences per run on the committed build**, before any
-of this work. Not fixed here.
+`tilecolormap` built with `TERRAIN_LIGHT` + `TERRAIN` never compiled, in either stage. The fragment
+stage calls `terrainNormal()` and reads `uSunDir` / `uSunColor` / `uLightParams`; the vertex stage
+never declared or wrote `vElevUV` / `vElevCosh`. Both sets lived only in `backgroundFsh` /
+`backgroundVsh` — a different pair of strings — so the program failed on the first symbol the
+compiler reached. Caught by `TileRenderer::prepareFrame` and only logged, it was invisible unless
+grepped: **6 occurrences per run**, on every committed build since the flag was passed.
+
+So the feature behind it was dead. A raster drawn **outside** the drape at an integer zoom out
+(`renderTileBitmap`) never took the sun or the shadow of the surface under it — the flash that path
+exists to remove, see [04-terrain.md](04-terrain.md#the-outgoing-generation-at-an-integer-zoom-out).
+
+Fixed by lifting both blocks into `terrainLightVsh` / `terrainLightFsh`, prepended to `background*`
+and `colormap*` alike. `commonVsh` / `commonFsh` cannot host them: `terrainPaintVsh`,
+`terrainPaintFsh` and `terrainPaintPrelude` declare the same names for themselves and also get
+`TERRAIN_LIGHT`, so a shared declaration would collide there.
+
+Verified offline, not on a device. A throwaway harness replicates `buildShaderProgram`'s
+concatenation and `createShaderProgram`'s prelude, emits the variants that reach these strings (lit,
+shadowed, mask in/out, hardware PCF, plus terrain-paint / normal-map / line / polygon as a
+regression check) and runs `glslangValidator` over each: 0 errors after, and the reported error
+reproduced exactly on the unfixed header. Note glslang does **not** flag a fragment varying the
+vertex stage never declares, so which of "link error" or "reads undefined values" a real driver does
+here is untested — either way the vertex writes are what make the lighting correct.
 
 Compile errors now quote the source around the reported line and list the program's defines — the
 line number is into the concatenated source, which nothing on disk matches, and without the quote
