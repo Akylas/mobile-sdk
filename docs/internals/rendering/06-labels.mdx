@@ -645,6 +645,13 @@ on Android instead of rendering as plain Roboto Regular.
   than on a large one, and up to **five times** what the single-raster build drew — a soft white
   glow instead of an outline, reported as "halo huge at radius 2, fine at 1". If halos ever look
   wrong again, check that term before the style.
+- **The glyph atlas can be replaced under the batch loop.** `GlyphMap::getBitmapPattern()` returns
+  the pattern **by value**, and a tile thread loading a new glyph resets `_bitmapPattern` — so the
+  render thread's temporary can be the last owner. `renderLabelPass` bound its `labelBitmap`
+  reference through that temporary's `->`, which extends nothing: the pattern died at the end of the
+  line and the batch then compared and copied a freed `shared_ptr`. Crashed about half of the
+  startups at a label-dense city camera, as either a null `bitmap` in `renderLabelBatch` or a
+  `Scudo ERROR: invalid chunk state`. Hold the pattern in a named `shared_ptr` for the iteration.
 - **Vertex data.** The glyph layout is already cached per label (`_cachedVertices`, `_cachedValid`)
   and the shader already expands the billboard from `offsets` + `uLabelAxisX/Y`. What runs every
   frame is re-emitting the **batch**: the anchor is camera-relative
