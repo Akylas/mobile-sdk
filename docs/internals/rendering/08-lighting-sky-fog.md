@@ -174,6 +174,35 @@ not create them), but the per-cascade cost at z11-z12 has not been measured agai
 Shadows are **present at every tilt** from 90 down to 5 (the demo clamps at 30; `--es freeRoam look`
 opens the range): `shadows ACTIVE`, boxes fitted, no dropouts.
 
+### Normal offset
+
+`LightOptions.ShadowNormalOffset` (default 3, mapbox's) pushes a receiving surface **along its own
+normal** before it looks itself up, by that many shadow-map texels, scaled by
+`min(1 - N.L, 1) * 0.5 + 0.5` — mapbox's curve
+(`3d-style/shaders/_prelude_shadow.vertex.glsl`). It clears acne by moving the sample *sideways*
+rather than lifting its depth, which is what lets the depth bias stay small enough for the shadow to
+stay attached to the foot of the wall casting it.
+
+It applies to **3D extrusions only**. The terrain surface takes its normal per fragment from the DEM
+(`terrainNdl`), and a vertex-stage offset cannot reach that.
+
+Two things that are ours, not mapbox's:
+
+- **The per-cascade offset is CLAMPED to the near cascade's world size.** The offset moves the
+  sample across the shadow map, so on a far cascade — whose texel is metres of ground — three of
+  them walk a roof out of the mountain shadow it stands in, and raising the value takes more of the
+  roof with it. mapbox never sees this: two cascades over a shorter range, so their worst texel is
+  small; we have up to four over 4.5 x the camera distance. Verified on the emulator at Grenoble
+  z17 tilt 40, sun 17.6 UTC, strength 0.9: offset 0 vs **8** (the demo slider's maximum) differs by
+  28,351 px of 2,592,000 with the roof shadows intact.
+- **The texel size is read back off the light matrix** (`2 / (len(row 0) * mapSize)`, the ortho
+  scale, since the light view is a pure rotation) rather than threaded through `MapRenderer`. The
+  offset and the box it belongs to then cannot drift apart.
+
+Known gap: no camera has yet been found where the offset *earns* its artifact — at
+`shadowBias 0` the same views are already acne-free with the offset at 0. It is on by default
+because it is mapbox's default; the case for it is a lower depth bias, which has not been retuned.
+
 ## Buildings
 
 `TileRenderer::LIGHTING_SHADER_3D` lights extrusions, and it is installed **per vertex**

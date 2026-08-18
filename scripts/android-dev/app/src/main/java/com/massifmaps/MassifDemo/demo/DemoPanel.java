@@ -813,6 +813,9 @@ public final class DemoPanel {
         slider(context, "depth bias (m)", 0f, 5f, DemoConfig.SHADOW_BIAS, false, new FloatSetting() {
             public void set(float value) { DemoConfig.SHADOW_BIAS = value; demo.lightOptions.setShadowBias(value); }
         });
+        slider(context, "normal offset (texels)", 0f, 8f, DemoConfig.SHADOW_NORMAL_OFFSET, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.SHADOW_NORMAL_OFFSET = value; demo.lightOptions.setShadowNormalOffset(value); }
+        });
     }
 
     /**

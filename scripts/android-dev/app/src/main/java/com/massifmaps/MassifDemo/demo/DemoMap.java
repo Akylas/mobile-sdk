@@ -1419,6 +1419,7 @@ public class DemoMap {
         lightOptions.setShadowCascades(DemoConfig.SHADOW_CASCADES);
         lightOptions.setShadowBias(DemoConfig.SHADOW_BIAS);
         lightOptions.setShadowDistance(DemoConfig.SHADOW_DISTANCE);
+        lightOptions.setShadowNormalOffset(DemoConfig.SHADOW_NORMAL_OFFSET);
         lightOptions.setShadowCasterMargin(DemoConfig.SHADOW_CASTER_MARGIN);
         updateSky();
     }

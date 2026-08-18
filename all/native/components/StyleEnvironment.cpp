@@ -58,6 +58,7 @@ namespace massif {
             lighting.ambientIntensity = lightOptions->getAmbientIntensity();
             lighting.shadowStrength = lightOptions->getShadowStrength();
             lighting.shadowBias = lightOptions->getShadowBias();
+        lighting.shadowNormalOffset = lightOptions->getShadowNormalOffset();
             lighting.shadowSoftness = lightOptions->getShadowSoftness();
             lighting.shadowDistance = lightOptions->getShadowDistance();
             lighting.shadowMapSize = lightOptions->getShadowMapSize();

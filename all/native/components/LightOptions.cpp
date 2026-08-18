@@ -17,6 +17,7 @@ namespace massif {
         _shadowMapSize(1024),
         _shadowCascades(3),
         _shadowBias(0.25f),
+        _shadowNormalOffset(3.0f),
         _shadowSoftness(1.0f),
         _shadowDistance(0.0f),
         _shadowCasterMargin(3),
@@ -205,6 +206,17 @@ namespace massif {
         bias = std::min(50.0f, std::max(0.0f, bias));
         if (_shadowBias.exchange(bias) != bias) {
             notifyOptionChanged("ShadowBias");
+        }
+    }
+
+    float LightOptions::getShadowNormalOffset() const {
+        return _shadowNormalOffset.load();
+    }
+
+    void LightOptions::setShadowNormalOffset(float offset) {
+        offset = std::min(16.0f, std::max(0.0f, offset));
+        if (_shadowNormalOffset.exchange(offset) != offset) {
+            notifyOptionChanged("ShadowNormalOffset");
         }
     }
 

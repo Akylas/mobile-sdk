@@ -233,6 +233,22 @@ namespace massif {
         void setShadowBias(float bias);
 
         /**
+         * Returns the shadow normal offset.
+         * @return The normal offset in shadow-map texels. The default is 3.
+         */
+        float getShadowNormalOffset() const;
+        /**
+         * Sets how far a receiving surface is pushed along its own normal before it looks itself
+         * up in the shadow map, in shadow-map texels. This is what keeps a wall from shadowing
+         * itself: the sample moves sideways instead of the depth being lifted, so the shadow stays
+         * attached to the foot of the building that casts it, where a depth bias large enough to
+         * clear the same acne detaches it. Applies to 3D extrusions; the terrain surface takes its
+         * normal per fragment and is unaffected. 0 disables it.
+         * @param offset The new normal offset in shadow-map texels (clamped to 0..16).
+         */
+        void setShadowNormalOffset(float offset);
+
+        /**
          * Returns the sun direction as a unit vector in internal map coordinates.
          * The vector points from the surface *towards* the sun. Internal method.
          * @return The unit sun direction.
@@ -263,6 +279,7 @@ namespace massif {
         std::atomic<int> _shadowMapSize;
         std::atomic<int> _shadowCascades;
         std::atomic<float> _shadowBias;
+        std::atomic<float> _shadowNormalOffset;
         std::atomic<float> _shadowSoftness;
         std::atomic<float> _shadowDistance;
         std::atomic<int> _shadowCasterMargin;
