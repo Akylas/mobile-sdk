@@ -208,6 +208,13 @@ instead, so both live in one draw ([03-vt-renderer.md](03-vt-renderer.md#what-sp
 **584 → 363 draws a frame, 17.9 → 20.3 fps**, `layers` CPU 21.9 → 15.1 ms. The floor is one draw per
 (tile, style layer) — 337 — so what is left needs cross-tile batching, which nothing here does.
 
+**An opaque/translucent depth split (maplibre's model) was then built and reverted.** 2D disables the
+depth test entirely, so there is no early-Z at all — but a fragment optimisation cannot move a frame
+whose GPU is idle by 4.4 ms: it measured **20.1 → 19.6 fps**, the GPU saving 0.3 ms and the extra
+pass costing 1.4 ms of CPU. It also unlocks dropping the stencil tile masks (60 draws a frame,
+`layers` CPU −22%), and even that surfaces as +2% — inside this bench's drift.
+[performance-log.md 16.8](../performance-log.md).
+
 2D at the *mountain* camera measures 41 fps and is pinned against the device's 43 Hz present ceiling
 ([performance-log.md 15.6](../performance-log.md)), which is why this was never visible before: the
 conclusion "cutting 2D work cannot show up as frame rate" is true of that camera only.

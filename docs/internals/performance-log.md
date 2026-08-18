@@ -1376,6 +1376,48 @@ targeted and bought **zero frames** ([06-labels.mdx](rendering/06-labels.mdx#a-p
 and was reverted for correctness. Fewer label draws may go the same way — price it against the frame,
 not against the counter.
 
+### 16.8 A depth model for the flat map: built, measured, reverted
+
+The 2D pass disables the depth test entirely, so every fragment of every style layer is shaded and
+nothing can be rejected early. maplibre splits its frame into an opaque pass (depth-writing) and a
+translucent one; this round built that and threw it away.
+
+What was built (`debug.massif.depth2d`, reverted): a `DEPTH_2D` shader flag enabling
+`applyDepthBias`' painter-order term outside terrain mode, a per-style-layer ordinal handed out
+across the whole stack by `MapRenderer::drawLayers` (composite children included, so the ordinals
+span them), and two passes in `renderGeometry2D` — opaque fills first in **reverse** style layer
+order with depth write, everything else after in painter order testing against them, `GL_LEQUAL` in
+both because a layer's background and its geometry are coplanar at the same ordinal. Only a fill can
+be opaque: a line and a point antialias their own edges.
+
+It renders correctly — 0.382% of pixels differ at the city camera, the same order as the label churn
+between two runs of one build.
+
+| arm | fps | CPU frame | `layers` CPU | GPU total | GPU layers | mask draws / frame |
+|---|---|---|---|---|---|---|
+| baseline | 20.1 | 43.4 | 15.3 | 18.4 | 7.8 | 60 |
+| **depth2d** | **19.6** | 44.8 | 14.2 | 18.0 | 7.5 | 60 |
+| depth2d + no masks | 20.5 | 42.0 | **12.0** | 18.1 | 7.4 | 0 |
+
+**Early-Z on its own is a net loss.** It did exactly what it was designed to do — GPU `layers`
+7.8 → 7.5 ms — and that is 0.3 ms off a GPU which [16.2](#162-the-ab-that-proves-it) had already
+shown to be idle by 4.4 ms, while the opaque classification and the second pass put 1.4 ms back on a
+CPU-bound frame. The arithmetic said this before the code was written: **a fragment optimisation
+cannot move a frame whose GPU is not the critical path**, and the right move would have been to stop
+at that sentence.
+
+The second motivation was better founded and still did not pay. In a terrain frame, content writing
+depth is what **replaced the stencil tile masks** ([05-depth-model.md](rendering/05-depth-model.md)),
+and the masks are 60 draws a frame in 2D. Removing them with the depth model underneath is a real
+mechanism — `layers` CPU **15.3 → 12.0, −22%** — but it surfaces as **+2% fps**, and this bench's
+cross-session spread on an unchanged baseline has been 19.1–20.3. Two percent is not distinguishable
+from it.
+
+So the flat map keeps its stencil masks and its painter order. Two things a future attempt should
+know: the proxy-tile behaviour of the mask-less arm was **never checked** (only a pan was run, and
+what the masks protect against is a retained tile painting through the gaps of its replacement
+during a **zoom**), and the early-Z result is specific to a tiler with idle fragment capacity — on
+an immediate-mode GPU it could read differently, which is not measurable from here.
 ---
 
 ## 17. Lighting the undraped 2D content (2026-08-18)
