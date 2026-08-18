@@ -1418,3 +1418,37 @@ know: the proxy-tile behaviour of the mask-less arm was **never checked** (only 
 what the masks protect against is a retained tile painting through the gaps of its replacement
 during a **zoom**), and the early-Z result is specific to a tiler with idle fragment capacity — on
 an immediate-mode GPU it could read differently, which is not measurable from here.
+
+### 16.9 Label draws: the style transform folded into the vertices (-43%)
+
+[16.7](#167-label-batches-the-floor-is-one-glyph-atlas-per-font-render-size) left two reasons a
+label batch ends: the glyph atlas changing (33 a frame) and the style carrying a `transform` (26).
+Both were implemented; only one shipped.
+
+**The transform fold shipped.** The translate was a factor of the batch's `labelMatrix`, so a label
+carrying one was always a draw of its own. Conjugated by the tile matrix it is a *pure world
+translation*, so it is now added to that label's vertices after `calculateVertexData` and the label
+batches normally. Interleaved, three rounds, 58 one-second windows per arm:
+
+| | fps | CPU frame | label draws / frame | `labels2D` |
+|---|---|---|---|---|
+| before | 19.9 | 45.0 | 68.4 | 4.89 ms |
+| after | 20.1 | **43.2** | **38.7** | **4.24** |
+
+The frame rate is inside the noise; the CPU frame and the draw count are not. It also fixes a latent
+bug — consecutive same-style labels *did* share a batch, and its matrix was built from the **first**
+label's tile, so the others were translated by the wrong tile's frame.
+
+**The shared glyph atlas did not ship.** Keying `FontManager::_glyphMapMap` by glyph render size
+instead of by full font name collapses ~32 atlases to the ladder's three and takes the draws to
+**32.9** — and measured **no frame rate change** (CPU frame 43.6 → 43.7 over three rounds). It also
+buys a new failure mode: a 2048² atlas is ~1764 cells at render size 40 against ~200 glyphs per
+family, so shared across six families it runs ~68% full, and `GlyphMap::loadBitmapGlyph` returns 0
+once it is full — the glyph silently disappears. A silent-text-loss risk for an unmeasurable gain is
+the wrong trade; widen the atlas and measure its fill before retrying.
+
+Method note worth keeping: the fold's screenshot diff read **0.536%**, well above the 0.18–0.38% this
+camera usually shows, and it was **entirely label placement churn**. Running the same build twice
+measured **0.533%**, and a second run of it matched the baseline to **0.032%**. At a label-dense
+camera the churn floor is half a percent — establish it with a same-build control before reading a
+screenshot diff as a regression.
