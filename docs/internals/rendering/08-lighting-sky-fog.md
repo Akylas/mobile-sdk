@@ -220,8 +220,29 @@ compare. The texture is bound with `TEXTURE_COMPARE_MODE = COMPARE_REF_TO_TEXTUR
 filtering, which is only meaningful *because* the comparison happens before the filter.
 
 Measured on the emulator, Grenoble z12.53 tilt 26 sun 17.783 UTC: **123,401 px of 2,592,000 differ**
-from the manual-tap path — softer shadow edges, as 2x2 filtered comparisons should be. **Frame time
-has not been measured**, on either device; the win is inferred from the fetch count, not observed.
+from the manual-tap path — softer shadow edges, as 2x2 filtered comparisons should be.
+
+**It buys quality, not speed, and that was measured.** Interleaved A/B on the Crosscall (Adreno 610,
+`-PprofileRender`, Grenoble z13 tilt 30, `base composite`, `shadow 0.6`, panning, medians over 42
+one-second windows):
+
+| Configuration | fps | GPU drape |
+|---|---|---|
+| `shadow 0` | 23.9 | 1.2 ms |
+| `shadow 0.6`, hardware PCF, 4 taps | 14.6 | 6.0 ms |
+| `shadow 0.6`, manual taps, 4 taps | 14.5 | 6.0 ms |
+| `shadow 0.6`, hardware PCF, 1 tap | 14.6 | 6.2 ms |
+| `shadow 0.6`, hardware PCF, 1 cascade | 17.0 | 4.8 ms |
+
+Hardware PCF is **within noise of the manual path**, and so is dropping from four taps to one. The
+tap count was never the cost: four hardware taps are the same four texture fetches, each now doing
+four compares instead of one, so the change is 16 effective samples for the price of 4. What the
+shadow feature actually costs at this camera is ~4.9 ms of drape, and **1.4 ms of it is the cascade
+count** — one shadow matrix per vertex and one `highp vec3` varying per cascade, which is what
+§"Where the shadow cost actually is" already concluded from a different angle.
+
+So the next perf step is cascades, not sampling: mapbox's `computeRequiredCascades` (a cascade
+nothing lands in is never drawn) and fewer, larger pages.
 
 An ESSL 3.00 program that fails to build falls back to its 1.00 form rather than taking the map with
 it (`hasShaderVersionFallback()`).
