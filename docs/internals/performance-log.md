@@ -1175,3 +1175,108 @@ not a multiple of the 16.7 ms the panel reports.
 Crosscall's ceiling for a fullscreen GL surface, not our pacing, and 2D at 41 fps is already
 against it. Two consequences: cutting 2D work on this device cannot show up as frame rate, and
 any future fps comparison has 43, not 60, as its ceiling.
+
+---
+
+## 16. The 2D city frame, profiled for the first time (2026-08-18)
+
+Every 2D number before this round was taken at the mountain camera, where 2D runs at 41 fps against
+the device's 43 Hz present ceiling — so [15.6](#156-the-device-presents-at-43-hz-not-60---and-so-does-tangram)
+concluded that "cutting 2D work on this device cannot show up as frame rate". That holds **only for
+that camera**. The 2D *city* has 20 fps of headroom under the ceiling and had never been measured.
+
+Method: Crosscall HLTE556N, Grenoble 5.724/45.188 z16.22 tilt 26, `--es terrain false --es base
+composite --es style assets`, scripted north pan (`--es anim pan --es animLatDelta 0.06`),
+`bench/city2d.sh`, medians over 38 one-second windows per arm, arms interleaved over two rounds.
+
+### 16.1 It is CPU-bound on draw submission, not on fragments
+
+| | ms |
+|---|---|
+| CPU frame | **51.9** |
+| GPU frame | **20.4** |
+| fps | 17.6 |
+
+CPU sections: swap wait 12.2 · `layers` 21.5 · `layers3D` 10.1.
+GPU sections: sky 5.5 · background 3.4 · layers 9.8.
+
+Per frame: **606 geometry draws**, 1.57 M indices, 74 label draws, 62 stencil mask draws, 23
+per-tile background quads — **765 draws**. Label work on the GL thread is 9.6 ms/frame (2D pass
+4.97, 3D pass 2.14, build 2.50); masks 1.07.
+
+`simpleperf` over the GL thread (4144 of 12 802 samples) puts **60% of it outside our code**:
+
+| shared object | % of the GL thread |
+|---|---|
+| `libGLESv2_adreno.so` | **36.1** |
+| kernel | 24.1 |
+| `libmassif.so` | 23.9 |
+| `libc` | 7.1 |
+
+Inclusive: `renderGeometry2D` 53.8 → `renderTileGeometry` **45.3** · `renderLabels` **25.0**
+(`renderLabelBatch` 11.0, `Label::calculateVertexData` 8.2).
+
+This is the 3D city's answer inverted. There the frame is GPU-bound and the lever was triangles
+([10-performance.md](rendering/10-performance.md#the-undraped-line-cost-is-triangles-not-pixels-and-not-shading));
+here the GPU is idle-ish and the lever is the **number of draws**.
+
+### 16.2 The A/B that proves it
+
+| arm | fps | CPU frame | GPU total |
+|---|---|---|---|
+| base | 17.6 | 51.9 | 20.4 |
+| background plane off (`debug.massif.background 0`) | 18.1 | 50.9 | **16.0** |
+| stencil tile masks off (`debug.massif.tilemasks 0`) | 18.3 | **49.5** | 20.9 |
+| 3D buildings off (`--es bld3d false`) | 17.9 | 49.7 | 20.5 |
+
+Two results, read together:
+
+- Removing the background plane takes **22% off the GPU frame and buys nothing** — 4.4 ms of GPU
+  slack, confirming the frame does not wait on the GPU. The sky and the plane remain what
+  [15.5](#155-where-the-frame-is-not-measured-this-session) said they were: simplicity, not frame rate.
+- Removing the masks removes **62 of 765 draws (8%) and buys 4%** — roughly proportional. Draws are
+  the currency.
+
+**Do not re-run `--es labels false` at this camera**: that knob only strips the *inline* style's
+text rules, and this run uses `--es style assets`, so `labelDraws` was unchanged at 71/frame. The
+arm looked like +5% and measured nothing. Labels are priced by the profile above (25%) instead.
+
+### 16.3 `-PprofileRender` costs 13% — every CPU ms on this page is that much high
+
+`PROF` cannot compare two builds, so this is SurfaceFlinger `totalFrames` over an identical 20 s
+window, three interleaved pairs:
+
+| build | totalFrames |
+|---|---|
+| plain | 415 · 415 · 424 |
+| `-PprofileRender` | 363 · 366 · 371 |
+
+**13%, with no overlap between the arms** — `steady_clock::now()`/`clock_gettime` is 19.4% inclusive
+of the GL thread in the instrumented build. The shipped 2D city therefore sits at **~20 fps**, and
+any absolute CPU figure taken with the profilers on should be discounted by ~13% before it is
+compared with anything else.
+
+### 16.4 Found while benching: the label batch drew from a freed glyph atlas
+
+About half the startups at this camera died, as either a null `bitmap` in `renderLabelBatch` or
+`Scudo ERROR: invalid chunk state when deallocating`. `GlyphMap::getBitmapPattern()` returns the
+pattern **by value** and `renderLabelPass` bound a reference through that temporary's `->`, which
+extends nothing; a tile thread loading a glyph resets the map's pattern, so the render thread's
+temporary could be the last owner. 6/6 clean starts after the fix, 3/6 before.
+(libs-massif `83da937`, mobile-sdk `064ad2254`, [06-labels.mdx](rendering/06-labels.mdx#on-the-gl-thread))
+
+### 16.5 What this round retires, and what is left
+
+Retired as levers for the 2D city on this device:
+
+- **An opaque/translucent depth split** (maplibre's `renderPass` model). 2D disables the depth test
+  entirely, so there is no early-Z at all — but the frame is not fill-bound, and 4.4 ms of GPU slack
+  says early-Z has nothing to win here. Worth revisiting only on an immediate-mode GPU.
+- **The sky quad and the background plane.** 8.9 ms of GPU, 0 fps.
+- **Per-tile background meshes in 2D.** Tangram has none and dropping them is right, but they are
+  23 of 765 draws — 3%, not the frame.
+
+Left, in order: **merge geometry draws** (606 draws for 62 render tiles × 32 style layers is the
+frame), **drop the masks in 2D** (62 draws, +4%, `setTileMasks` already has the switch), and the
+**per-frame label batch rebuild** (25% of the GL thread, already open in
+[06-labels.mdx](rendering/06-labels.mdx#a-persistent-label-batch-and-what-blocks-it)).
