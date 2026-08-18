@@ -175,17 +175,19 @@ namespace massif {
         void setShadowCascades(int cascades);
 
         /**
-         * Returns the shadow distance in meters.
-         * @return The shadow distance. The default is 0 (cover everything visible).
+         * Returns the shadow distance.
+         * @return The shadow distance, in multiples of the camera-to-focus distance. The default
+         *         is 0 (use the built-in 4.5).
          */
         float getShadowDistance() const;
         /**
-         * Sets the radius around the camera focus, in meters, that the shadow map covers.
-         * The shadow map has a fixed resolution, so the larger the ground it spans the coarser
-         * its texels - which is why shadows look sharp looking straight down and pixelated at a
-         * low tilt, where the visible ground reaches to the horizon. Limiting the distance keeps
-         * the texels small; ground beyond it simply has no shadows. 0 covers everything visible.
-         * @param distance The new shadow distance in meters.
+         * Sets how far shadows reach from the camera, in multiples of the camera-to-focus
+         * distance - the same unit FogOptions uses for its range, and mapbox's shadow model. The
+         * shadow map has a fixed resolution, so the further shadows reach the coarser its texels;
+         * ground beyond the distance simply has no shadows, faded out over the last stretch. The
+         * unit is relative on purpose: the camera-to-focus distance follows the zoom, so one value
+         * holds from a city to a massif where a metric radius cannot. 0 uses the built-in 4.5.
+         * @param distance The new shadow distance, in multiples of the camera-to-focus distance.
          */
         void setShadowDistance(float distance);
 

@@ -334,7 +334,7 @@ public final class DemoConfig {
     public static int SHADOW_MAP_SIZE = 1024;
     public static int SHADOW_CASCADES = 3;
     public static float SHADOW_BIAS = 1.0f;
-    public static float SHADOW_DISTANCE = 0f;   // 0 = whole view
+    public static float SHADOW_DISTANCE = 0f;   // multiples of the camera-to-focus distance, 0 = built-in 4.5
     public static int SHADOW_CASTER_MARGIN = 3;
 
     // =============================================================================================

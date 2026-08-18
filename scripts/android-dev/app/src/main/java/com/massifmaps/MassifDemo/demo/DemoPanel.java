@@ -804,8 +804,8 @@ public final class DemoPanel {
         slider(context, "cascades", 1, 4, DemoConfig.SHADOW_CASCADES, true, new FloatSetting() {
             public void set(float value) { DemoConfig.SHADOW_CASCADES = Math.round(value); demo.lightOptions.setShadowCascades(DemoConfig.SHADOW_CASCADES); }
         });
-        slider(context, "distance (m, 0=all)", 0, 20000, DemoConfig.SHADOW_DISTANCE, false, new FloatSetting() {
-            public void set(float value) { DemoConfig.SHADOW_DISTANCE = value < 200 ? 0 : value; demo.lightOptions.setShadowDistance(DemoConfig.SHADOW_DISTANCE); }
+        slider(context, "distance (x focus, 0=auto)", 0, 12, DemoConfig.SHADOW_DISTANCE, false, new FloatSetting() {
+            public void set(float value) { DemoConfig.SHADOW_DISTANCE = value < 0.25f ? 0 : value; demo.lightOptions.setShadowDistance(DemoConfig.SHADOW_DISTANCE); }
         });
         slider(context, "caster margin (tiles)", 0, 6, DemoConfig.SHADOW_CASTER_MARGIN, true, new FloatSetting() {
             public void set(float value) { DemoConfig.SHADOW_CASTER_MARGIN = Math.round(value); demo.lightOptions.setShadowCasterMargin(DemoConfig.SHADOW_CASTER_MARGIN); }

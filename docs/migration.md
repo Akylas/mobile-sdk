@@ -143,6 +143,19 @@ banner at the top.
 
 ## Breaking changes after 6.0.0
 
+### `LightOptions.shadowDistance` is a factor, not metres
+
+| Before | After |
+|---|---|
+| `lightOptions.shadowDistance = 20000` (metres) | `lightOptions.shadowDistance = 4.5` (**multiples of the camera-to-focus distance**) |
+| style `shadow-distance` in metres | style `shadow-distance` in the same multiples |
+
+Same unit as `fogOptions.rangeStart` / `rangeEnd`, and the same reason: the camera-to-focus distance
+is a function of the zoom alone, so one value holds from a city to a massif where a metric radius has
+to be retuned per zoom. The name did not change, so **an app that set metres will not fail to
+compile** — it will ask for thousands of times the view. Drop the setting and let the default (`0`,
+i.e. `4.5`) apply, or scale from there; do not convert.
+
 ### Fog moved to its own `FogOptions`
 
 Fog was three fields on `TerrainOptions` and two on `SkyOptions`. It is not a terrain feature — it

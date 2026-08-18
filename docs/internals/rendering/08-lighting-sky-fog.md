@@ -135,25 +135,41 @@ documents the same trap for the drape bake.
 
 ### How far shadows reach
 
-The shadowed ground is bounded by what the map can **represent**, not only by what the view can see:
-the outer cascade's texel is its extent over the resolution, so shadowing 50 km through a 1024 page
-gives texels wider than the ridges casting into them - a grey wash. `calculateShadowViewProj` caps
-the range at `TARGET_SHADOW_TEXEL_METERS x mapSize` (10 m x the page, so ~10 km at 1024), on top of
-the existing relief-and-view heuristic.
+**The range is a multiple of the camera-to-focus distance, never a number of metres.** mapbox's model
+verbatim (`3d-style/render/shadow_renderer.ts`: `cascadeSplitDist = cameraToCenterDistance * 1.5`,
+`shadowCutoutDist = cascadeSplitDist * 3.0`), which is also the unit `FogOptions` already uses for its
+range. `SHADOW_CUTOUT_DISTANCE_FACTOR = 4.5` in `GLTileRenderer.cpp`; `LightOptions.ShadowDistance`
+overrides it, `0` takes the default.
 
-This is what makes shadows hold up as the view flattens; measured on the Crosscall at z14, per
-cascade, with the caster tile count:
+The camera-to-focus distance follows the **zoom alone** (`ViewState::_zoom0Distance / 2^zoom`), so one
+factor holds from a city to a massif. That is the whole reason for the unit.
 
-| tilt | before | after |
-|---|---|---|
-| 90 | 7.2 / 10.7 / 14.3 m, 162 tiles | unchanged - the cap does not bind |
-| 45 | 5.4 / 14.3 / 28.7 m, 242 tiles | 3.9 / 9.0 / 19.1 m, 176 tiles |
-| 30 | 3.3 / 13.1 / 52.6 m, 205 tiles | 1.3 / 2.7 / 10.7 m, 121 tiles |
+Dead ends this replaced, both of them metric:
 
-Sharper *and* cheaper, because a shorter range is also fewer caster tiles: 9.3 -> 10.6 fps at tilt 30.
-A city view at z16 is untouched (the view-based term is already smaller there). Nothing is visibly
-lost in the distance - past that range the shadows were texels tens of metres wide, and the last
-cascade already fades out over its outer margin.
+- **A texel budget** (`TARGET_SHADOW_TEXEL_METERS x mapSize`, 10 m x the page = ~10 km at 1024). It
+  bounded how far shadows reach by how well they can be drawn, which is the right *idea* and the
+  wrong *quantity*: ~10 km at every camera means a mountain's shadow ends one screen away at z12,
+  and no amount of panning brings it back. That is what this replaces.
+- **A slant clamp on the frustum rays** (`t1 = maxDistance / length`, applied *before* the slab
+  intersection). From a high oblique camera the eye is further from the ground than the cutout is
+  long, so every sampled ray failed `t1 < t0`, the ground range came out empty, and the fit fell
+  back to the **whole tile cover** - one enormous box per cascade, which on screen is long shadows
+  everywhere and square. Panning a little put one ray back across the slab and the normal wedge
+  returned: a flip-flop between "pixelated everything" and "cut too near". The cutout now applies to
+  the resulting ground *range*, and the fallback box is bounded by the cutout radius around the
+  camera instead of by the cover.
+
+The earlier texel-budget measurements (Crosscall, z14, per cascade + caster tiles: tilt 45
+5.4/14.3/28.7 m 242 tiles → 3.9/9.0/19.1 m 176 tiles; tilt 30 3.3/13.1/52.6 m 205 tiles →
+1.3/2.7/10.7 m 121 tiles) are kept for the shape of the effect, not as current numbers - the
+camera-relative range is longer at a low zoom and shorter at a high one. **Not re-measured.**
+
+Shadows are **present at every tilt** from 90 down to 5 (the demo clamps at 30; `--es freeRoam look`
+opens the range): `shadows ACTIVE`, boxes fitted, no dropouts.
+
+Known gap: the caster count still grows with the range at a low zoom, where 4.5 x the camera distance
+is tens of kilometres. It is bounded by the visible tile cover (the box only *culls* casters, it does
+not create them), but the per-cascade cost at z11-z12 has not been measured against the old cap.
 
 Shadows are **present at every tilt** from 90 down to 5 (the demo clamps at 30; `--es freeRoam look`
 opens the range): `shadows ACTIVE`, boxes fitted, no dropouts.
