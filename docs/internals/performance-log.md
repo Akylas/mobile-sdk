@@ -1376,6 +1376,81 @@ targeted and bought **zero frames** ([06-labels.mdx](rendering/06-labels.mdx#a-p
 and was reverted for correctness. Fewer label draws may go the same way — price it against the frame,
 not against the counter.
 
+### 16.8 A depth model for the flat map: built, measured, reverted
+
+The 2D pass disables the depth test entirely, so every fragment of every style layer is shaded and
+nothing can be rejected early. maplibre splits its frame into an opaque pass (depth-writing) and a
+translucent one; this round built that and threw it away.
+
+What was built (`debug.massif.depth2d`, reverted): a `DEPTH_2D` shader flag enabling
+`applyDepthBias`' painter-order term outside terrain mode, a per-style-layer ordinal handed out
+across the whole stack by `MapRenderer::drawLayers` (composite children included, so the ordinals
+span them), and two passes in `renderGeometry2D` — opaque fills first in **reverse** style layer
+order with depth write, everything else after in painter order testing against them, `GL_LEQUAL` in
+both because a layer's background and its geometry are coplanar at the same ordinal. Only a fill can
+be opaque: a line and a point antialias their own edges.
+
+It renders correctly — 0.382% of pixels differ at the city camera, the same order as the label churn
+between two runs of one build.
+
+| arm | fps | CPU frame | `layers` CPU | GPU total | GPU layers | mask draws / frame |
+|---|---|---|---|---|---|---|
+| baseline | 20.1 | 43.4 | 15.3 | 18.4 | 7.8 | 60 |
+| **depth2d** | **19.6** | 44.8 | 14.2 | 18.0 | 7.5 | 60 |
+| depth2d + no masks | 20.5 | 42.0 | **12.0** | 18.1 | 7.4 | 0 |
+
+**Early-Z on its own is a net loss.** It did exactly what it was designed to do — GPU `layers`
+7.8 → 7.5 ms — and that is 0.3 ms off a GPU which [16.2](#162-the-ab-that-proves-it) had already
+shown to be idle by 4.4 ms, while the opaque classification and the second pass put 1.4 ms back on a
+CPU-bound frame. The arithmetic said this before the code was written: **a fragment optimisation
+cannot move a frame whose GPU is not the critical path**, and the right move would have been to stop
+at that sentence.
+
+The second motivation was better founded and still did not pay. In a terrain frame, content writing
+depth is what **replaced the stencil tile masks** ([05-depth-model.md](rendering/05-depth-model.md)),
+and the masks are 60 draws a frame in 2D. Removing them with the depth model underneath is a real
+mechanism — `layers` CPU **15.3 → 12.0, −22%** — but it surfaces as **+2% fps**, and this bench's
+cross-session spread on an unchanged baseline has been 19.1–20.3. Two percent is not distinguishable
+from it.
+
+So the flat map keeps its stencil masks and its painter order. Two things a future attempt should
+know: the proxy-tile behaviour of the mask-less arm was **never checked** (only a pan was run, and
+what the masks protect against is a retained tile painting through the gaps of its replacement
+during a **zoom**), and the early-Z result is specific to a tiler with idle fragment capacity — on
+an immediate-mode GPU it could read differently, which is not measurable from here.
+### 16.9 Label draws: the style transform folded into the vertices (-43%)
+
+[16.7](#167-label-batches-the-floor-is-one-glyph-atlas-per-font-render-size) left two reasons a
+label batch ends: the glyph atlas changing (33 a frame) and the style carrying a `transform` (26).
+Both were implemented; only one shipped.
+
+**The transform fold shipped.** The translate was a factor of the batch's `labelMatrix`, so a label
+carrying one was always a draw of its own. Conjugated by the tile matrix it is a *pure world
+translation*, so it is now added to that label's vertices after `calculateVertexData` and the label
+batches normally. Interleaved, three rounds, 58 one-second windows per arm:
+
+| | fps | CPU frame | label draws / frame | `labels2D` |
+|---|---|---|---|---|
+| before | 19.9 | 45.0 | 68.4 | 4.89 ms |
+| after | 20.1 | **43.2** | **38.7** | **4.24** |
+
+The frame rate is inside the noise; the CPU frame and the draw count are not. It also fixes a latent
+bug — consecutive same-style labels *did* share a batch, and its matrix was built from the **first**
+label's tile, so the others were translated by the wrong tile's frame.
+
+**The shared glyph atlas did not ship.** Keying `FontManager::_glyphMapMap` by glyph render size
+instead of by full font name collapses ~32 atlases to the ladder's three and takes the draws to
+**32.9** — and measured **no frame rate change** (CPU frame 43.6 → 43.7 over three rounds). It also
+buys a new failure mode: a 2048² atlas is ~1764 cells at render size 40 against ~200 glyphs per
+family, so shared across six families it runs ~68% full, and `GlyphMap::loadBitmapGlyph` returns 0
+once it is full — the glyph silently disappears. A silent-text-loss risk for an unmeasurable gain is
+the wrong trade; widen the atlas and measure its fill before retrying.
+
+Method note worth keeping: the fold's screenshot diff read **0.536%**, well above the 0.18–0.38% this
+camera usually shows, and it was **entirely label placement churn**. Running the same build twice
+measured **0.533%**, and a second run of it matched the baseline to **0.032%**. At a label-dense
+camera the churn floor is half a percent — establish it with a same-build control before reading a
+screenshot diff as a regression.
 ---
 
 ## 17. Lighting the undraped 2D content (2026-08-18)
