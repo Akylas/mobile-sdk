@@ -63,6 +63,12 @@ namespace massif {
         void endPass(unsigned int previousFrameBuffer, int viewportWidth, int viewportHeight);
 
         /**
+         * True when the map IS the depth buffer (a sampled depth texture) rather than a packed-RGB
+         * copy of it. Decides which lookup the receiver shaders are compiled for.
+         */
+        bool isDepthTexture() const;
+
+        /**
          * Deletes all GL resources. Must be called on the GL thread while the context is alive.
          */
         void deleteResources();
@@ -70,12 +76,14 @@ namespace massif {
     private:
         bool createResources();
         bool createResourcesAtSize();
+        unsigned int clearMask() const;
 
         int _size;
         int _cascades;
         unsigned int _frameBuffer;
         unsigned int _texture;
         unsigned int _depthBuffer;
+        bool _depthTextureMode;
         bool _failed;
     };
 

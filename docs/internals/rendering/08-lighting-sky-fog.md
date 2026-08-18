@@ -174,6 +174,34 @@ not create them), but the per-cascade cost at z11-z12 has not been measured agai
 Shadows are **present at every tilt** from 90 down to 5 (the demo clamps at 30; `--es freeRoam look`
 opens the range): `shadows ACTIVE`, boxes fitted, no dropouts.
 
+### The map is the depth buffer
+
+Where a depth texture can be sampled — ES3 core, or `GL_OES_depth_texture` / `GL_ANGLE_depth_texture`
+— `TerrainShadowMap` attaches a **`DEPTH_COMPONENT24` texture as the depth attachment and has no
+colour attachment at all**. The caster pass then writes depth alone; before, it wrote depth to a
+renderbuffer *and* a packed-RGB copy of `gl_FragCoord.z` to an RGBA8 target, and the receiver
+unpacked it with a `dot`. The atlas goes from RGBA8 + D16 to D24, the caster fragment shader's
+packing is masked off (`glColorMask(FALSE)`), and the receiver's `shadowDepth()` is a plain `.r`
+read under `SHADOW_DEPTH_TEXTURE`.
+
+24 bits, not 16: the packed path spread `gl_FragCoord.z` over three bytes, so a D16 texture would
+have *lost* precision and bought acne back. ES2 + `OES_depth_texture` has only the unsized form and
+takes `UNSIGNED_SHORT`.
+
+Two things worth knowing:
+
+- **A depth-only framebuffer is complete by the ES3 spec**, and is on the Metal-backed emulator
+  (`OpenGL ES 3.0 (4.1 Metal - 90.5)`). It is not guaranteed on ES2 drivers, so an incomplete
+  status falls back to the packed-colour map rather than to no shadows.
+- **The packed path stays.** iOS builds against MetalANGLE (`libs-external/angle-metal`), whose
+  README records the build being patched down to ES2 for 32-bit devices, and `MapView` still has an
+  ES2 fallback on both platforms.
+
+What this does **not** buy is mapbox's hardware PCF. That needs `sampler2DShadow` / `shadow2DEXT`,
+which GLSL ES 1.00 only has via `GL_EXT_shadow_samplers` — **absent on the emulator here** (logged
+at startup). The four manual taps remain. Making it unconditional means migrating every shader to
+`#version 300 es`; that is a separate job and is the next real perf step.
+
 ### Normal offset
 
 `LightOptions.ShadowNormalOffset` (default 3, mapbox's) pushes a receiving surface **along its own

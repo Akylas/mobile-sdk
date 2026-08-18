@@ -27,6 +27,16 @@ namespace massif {
 
         static bool PACKED_DEPTH_STENCIL;
 
+        // An ES 3.0 context. The shaders stay GLSL ES 1.00 - this says what the API offers, not
+        // what the shading language does.
+        static bool ES3;
+        // A depth texture can be attached to a framebuffer and sampled. ES3 core, otherwise an
+        // extension. Lets the shadow pass drop its packed-RGB colour target.
+        static bool DEPTH_TEXTURE;
+        // Hardware depth comparison from GLSL ES 1.00 (shadow2DEXT): one filtered fetch instead of
+        // four taps and a manual compare. NOT implied by ES3 - the shading language decides.
+        static bool SHADOW_SAMPLERS;
+
         static std::size_t MAX_VERTEXBUFFER_SIZE;
     
         static bool HasGLExtension(const char* extension);
