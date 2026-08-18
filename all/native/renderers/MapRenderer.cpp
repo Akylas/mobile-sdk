@@ -1630,7 +1630,7 @@ namespace massif {
                 std::array<std::vector<vt::TileId>, TerrainShadowMap::MAX_CASCADES> cascadeCasterTiles;
                 for (int cascade = 0; cascade < cascades; cascade++) {
                     double depthRangeMeters = 1.0, texelMeters = 0;
-                    if (tileLayers.front()->calculateShadowViewProj(coverTileIds, casterTileIds, shadowSunDir, tileHeights, minHeight, maxHeight, lighting.shadowDistance, _terrainShadowMap->getSize(), cascade, cascades, cascadeCasterTiles[cascade], depthRangeMeters, texelMeters, lightViewProjs[cascade])) {
+                    if (tileLayers.front()->calculateShadowViewProj(coverTileIds, casterTileIds, shadowSunDir, tileHeights, minHeight, maxHeight, lighting.shadowDistance, cglib::length(viewState.getCameraPos() - viewState.getFocusPos()), _terrainShadowMap->getSize(), cascade, cascades, cascadeCasterTiles[cascade], depthRangeMeters, texelMeters, lightViewProjs[cascade])) {
                         // The bias is metric; the shader wants a fraction of the
                         // normalised light depth, and each cascade's box spans its
                         // own depth. Dividing per cascade is what keeps the shadow

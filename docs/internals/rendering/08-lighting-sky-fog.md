@@ -261,34 +261,50 @@ Compile errors now quote the source around the reported line and list the progra
 line number is into the concatenated source, which nothing on disk matches, and without the quote
 every shader error costs a round of guessing.
 
-### Why building shadows are softer than mapbox's, and what to set
+### The light box is a bounding sphere, so tilt does not change the texel
 
-At z16 a building's cast shadow is quantised into visible steps. Measured on the Crosscall,
-Grenoble z16 tilt 45, same camera forced by broadcast, identical crops:
+Each cascade's box is the **minimum bounding sphere of its slice of the view frustum** — mapbox's
+`createLightMatrix` verbatim, whose own comment says why: *"rotation invariant shadow volume"*.
+The radius is a function of the slice distances and the field of view **alone**:
 
-| Configuration | fps | GPU drape | Look |
-|---|---|---|---|
-| 1024 x 3 (the default) | 14.1 | 5.8 ms | washed courtyard shadows |
-| 2048 x 2 (mapbox's) | 13.6 | 5.8 ms | tight, defined edges |
+```
+k2 = tan(fovX/2)^2 + tan(fovY/2)^2       // tangent to a frustum corner, read off the projection matrix
+radius = 0.5 * sqrt((far-near)^2 + 2*(far^2+near^2)*k2 + (far+near)^2*k2^2)
+```
 
-**The cause is the texel, not the filter and not the mask.** With the range at 4.5 x the
-camera-to-focus distance (~7 km at z16) split three ways, the near cascade covers ~1.5 km through a
-1024 page — about **1.5 m of ground per texel**, which is metres-wide steps across a street. mapbox
-puts the same near-cascade distance through a 2048 page and spends nothing on a third cascade.
+No pitch, no bearing, no sun azimuth, no ground. A sphere projects to the same square from every
+direction, so **one texel is the same size at every camera** — the entire reason mapbox's shadows
+look identical at a low tilt and straight down.
 
-Set `shadowMapSize 2048` + `shadowCascades 2` for the sharp look. It is nearly free: drape is
-unchanged and the 0.5 fps is device drift, because the per-cascade cost is matrices and varyings
-rather than sampling (see the table above — one cascade is *faster* than three). The reason it is
-not the default is memory: 2048 x 2 at D24 is ~33 MB of atlas against ~12.6 MB for 1024 x 3. mapbox
-pays ~16 MB for theirs by using D16; at a 0.75 m texel the precision argument for D24 is weaker than
-it was, so D16 at 2048 is worth trying — **not tested**.
+**What this replaced, and why it was wrong.** The box used to be fitted to the *visible-ground
+polygon*: a wedge sampled from the frustum edges, clipped to the drawn tiles, hulled, then bounded
+in light space. Two things made it tilt-dependent — the wedge stretches towards the horizon as the
+view flattens, and its extent *in light space* also swings with the sun azimuth. The texel size
+followed both, so building shadows went from sharp at tilt 90 to a grey smear by tilt 45. Measured
+at the reported camera (Crosscall, lat 45.188499 lon 5.734500, z16 tilt 45 rotation -15.12,
+`bld3d`, sun 16.5 UTC): the old fit gives shadows with no locatable edge, the sphere fit gives hard
+edges on individual buildings. About 200 lines of wedge machinery went with it — ray sampling,
+annulus sectors, `convexHull2D`, `clipPolygonToRect` — and the empty-footprint fallbacks that
+existed only because a wedge can miss the tiles.
+
+This is the case the working agreement warns about: mapbox had a sphere, this branch invented a
+polygon fit, and every symptom above followed from that one choice.
+
+**The camera-to-focus distance is passed in, not read from `_viewState`.** That field is filled by
+`TileRenderer::onDrawFrame`, which runs *after* the shadow pass, so the fit would read the previous
+frame's value or none at all — the first version of this change failed to fit any box for exactly
+that reason.
+
+**Resolution is a second-order knob, not the fix.** `shadowMapSize 2048` + `shadowCascades 2`
+(mapbox's configuration) is slightly sharper again and nearly free — 13.6 fps / 5.8 ms drape against
+14.1 / 5.8 for 1024 x 3 at z16 tilt 45, i.e. drift — because the per-cascade cost is matrices and
+varyings rather than sampling. Not the default only because of memory: ~33 MB of atlas at D24
+against ~12.6 MB. mapbox pays ~16 MB by using D16, which is worth trying and **untested**.
 
 **Dead end: the screen-space mask is not the limiter.** `SHADOW_MASK_DIVISOR = 1` (full resolution)
 was tried on the theory that a quarter-resolution mask was blurring building shadow edges. It made
-them look *worse*: the full-res mask exposed the shadow-map staircase that the quarter-res blur had
-been smoothing over. The mask hides quantisation, it does not cause it. Leave it at 4 — it is one of
-the biggest wins in this file (§"The screen-space shadow mask") and costs no sharpness that the map
-itself can resolve.
+them look *worse*: the full-res mask exposed the shadow-map staircase the blur had been hiding. The
+mask hides quantisation, it does not cause it. Leave it at 4.
 
 ### Normal offset
 
