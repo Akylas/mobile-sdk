@@ -2,6 +2,231 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [v6.0.1] - 2026-08-18
+### BREAKING CHANGES
+- due to [`40ef746`](https://github.com/massif-maps/MassifMaps/commit/40ef746a9bc32bae03864d89beb3870f92d63744) - fog the whole map in 2D and let an app replace the fog shader *(PR [#123](https://github.com/massif-maps/MassifMaps/pull/123) by [@farfromrefug](https://github.com/farfromrefug))*:
+
+  TerrainOptions.FogColor/FogStartDistance/FogDistance and  
+  SkyOptions.FogBlend/FogHorizon are gone - use FogOptions, whose range is in multiples of the  
+  camera-to-focus distance rather than metres, so the old numbers do not carry over. The style  
+  properties fog-start-distance / fog-distance become fog-range-start / fog-range-end. See  
+  docs/migration.md.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * fix(renderers): draw stars as dots and stop the haze erasing them  
+  Two things were wrong with the star field:  
+  - It lit a whole cell of a direction-space lattice, which reads as a grid of grey squares.  
+    Port the demo day-cycle sky's version (scripts/android-dev, DemoSky.buildSkyShader), which  
+    had it right: cells in (azimuth, elevation) rather than a flat projection that streaks them  
+    near the horizon, one star per cell at most, placed at a random point INSIDE its cell and  
+    drawn as a soft dot with its own brightness.  
+  - They were added before the fog blend, so they were multiplied by (1 - haze) like everything  
+    else and vanished wherever the fog band reached - which HorizonBlend alone decided, leaving  
+    them in the strip of sky above it and nowhere else. They are now added after it and take  
+    only the square root of the haze: they sit beyond the atmosphere, so they dim into it rather  
+    than being erased by it, and they still go where the haze actually saturates. That also puts  
+    them outside skyColor, so a custom sky shader gets them too - StarIntensity defaults to 0.  
+  Give every fog preset a high colour as well - it is the one property with no other way to see  
+  it - and make the 'space' preset a night sky: dark ground haze, deep blue atmosphere,  
+  near-black zenith, stars well up.  
+  Note when testing: a custom sky shader that replaces skyColor still draws its own gradient, and  
+  '--es daycycle true' installs the demo's sky, whose stars are gated on its own day value.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * feat(demo): let the camera tilt down to 10 degrees  
+  The tilt range floored at 30, which is a fairly steep view: the sky is a thin strip at the top  
+  of the screen and the horizon never really opens up. 10 gives enough sky to judge the fog band,  
+  the atmosphere colours and the stars against.  
+  ---------
+
+- due to [`d6f25d2`](https://github.com/massif-maps/MassifMaps/commit/d6f25d26699d70d323b4462f203d5ba2b6596442) - keep long mountain shadows when panning back, in view-relative units *(commit by [@farfromrefug](https://github.com/farfromrefug))*:
+
+  LightOptions.setShadowDistance takes a multiple of the  
+  camera-to-focus distance, not metres. The signature is unchanged, so an app passing  
+  20000 compiles and asks for 20000 times the view. Drop the call and take the  
+  default, or scale from there. See docs/migration.md.
+
+- due to [`35174ea`](https://github.com/massif-maps/MassifMaps/commit/35174eaf545ae0b9f223cb74fc5db0dccd56ff01) - keep mountain and building shadows sharp and present at every zoom and tilt *(PR [#128](https://github.com/massif-maps/MassifMaps/pull/128) by [@farfromrefug](https://github.com/farfromrefug))*:
+
+  LightOptions.setShadowDistance takes a multiple of the  
+  camera-to-focus distance, not metres. The signature is unchanged, so an app passing  
+  20000 compiles and asks for 20000 times the view. Drop the call and take the  
+  default, or scale from there. See docs/migration.md.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * feat(terrain): add LightOptions.shadowNormalOffset for cleaner building shadows  
+  A receiving surface is pushed along its own normal by N shadow-map texels before it looks  
+  itself up, mapbox's model (default 3, theirs). Acne then clears by moving the sample sideways  
+  rather than by lifting its depth, so the depth bias can stay small enough for a shadow to stay  
+  attached to the building casting it. 3D extrusions only - the terrain surface takes its normal  
+  per fragment from the DEM, out of a vertex-stage offset's reach. 0 disables it.  
+  Requires libs-massif 67a0ef7 (vt: the offset itself, and the clamp that stops a far cascade's  
+  offset walking a roof out of the mountain shadow it stands in).  
+  Demo: panel slider, --es shadowNormalOffset, and live over the CONFIG broadcast.  
+  Emulator-verified at Grenoble z17 tilt 40; not checked on the Crosscall. No camera has yet been  
+  found where the offset earns its cost - documented as an open gap in  
+  docs/internals/rendering/08-lighting-sky-fog.md.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * perf(terrain): make the shadow map the depth buffer, not a packed copy of it  
+  TerrainShadowMap attaches a DEPTH_COMPONENT24 texture as the depth attachment and drops the  
+  colour attachment entirely wherever a depth texture can be sampled (ES3 core, or  
+  OES_/ANGLE_depth_texture). The caster pass then writes depth alone: before it wrote depth to a  
+  renderbuffer AND a packed-RGB copy of gl_FragCoord.z to an RGBA8 target, which the receiver  
+  unpacked with a dot. The atlas goes RGBA8 + D16 -> D24 and the packing is masked off.  
+  24 bits and not 16 because the packed path spread gl_FragCoord.z over three bytes - a D16  
+  texture would have LOST precision and bought acne back. ES2 + OES_depth_texture has only the  
+  unsized form.  
+  GLContext gains ES3 / DEPTH_TEXTURE / SHADOW_SAMPLERS detection and logs them at startup. A  
+  depth-only framebuffer is complete by the ES3 spec but is not guaranteed on ES2 drivers, so an  
+  incomplete status falls back to the packed map rather than to no shadows - iOS builds against  
+  MetalANGLE, whose README records the build patched down to ES2 for 32-bit devices.  
+  Requires libs-massif 20d9a43 (vt: the SHADOW_DEPTH_TEXTURE lookup).  
+  Emulator, OpenGL ES 3.0 (4.1 Metal - 90.5): depth texture 1, shadow samplers 0, shadows ACTIVE,  
+  depth-only framebuffer complete, image equivalent to the packed path at Grenoble z12.53 tilt 26.  
+  NOT checked on the Crosscall, and no ES2 device has exercised the fallback.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * perf(terrain): bind the shadow map as a comparison sampler for hardware PCF  
+  TerrainShadowMap sets TEXTURE_COMPARE_MODE = COMPARE_REF_TO_TEXTURE and LINEAR filtering on the  
+  depth texture wherever the shading language can declare a sampler2DShadow - ESSL 3.00, hence an  
+  ES3 context. LINEAR is only meaningful there, because the comparison happens BEFORE the filter:  
+  one fetch returns the bilinear average of four depth compares, where the manual path did a fetch,  
+  an unpack and a compare per tap.  
+  GL_EXT_shadow_samplers reads 0 on the Crosscall (Adreno, OpenGL ES 3.2 V@0502.0) and on the  
+  emulator, because it is an ES2 extension that a driver does not advertise on an ES3 context -  
+  sampler2DShadow being core there. The capability is therefore derived from ES3 + depth texture,  
+  not from the extension string.  
+  Requires libs-massif 0954e2c (vt: the ESSL 3.00 programs and the comparison lookup).  
+  Emulator, OpenGL ES 3.0 (4.1 Metal - 90.5), Grenoble z12.53 tilt 26: shadows ACTIVE, 123,401 px  
+  of 2,592,000 differ from the manual-tap path. FRAME TIME NOT MEASURED on either device - the win  
+  is inferred from the fetch count. NOT run on the Crosscall.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * docs(terrain): record that hardware PCF buys quality, not speed  
+  Interleaved A/B on the Crosscall (Adreno 610, -PprofileRender, Grenoble z13 tilt 30, base  
+  composite, shadow 0.6, panning, medians over 42 one-second windows): hardware PCF 14.6 fps /  
+  6.0 ms drape against manual taps 14.5 / 6.0 - within noise. Four taps against one: also within  
+  noise. The tap count was never the cost.  
+  What the feature costs at that camera is 23.9 -> 14.6 fps and 1.2 -> 6.1 ms of drape, and  
+  1.4 ms of it is the CASCADE COUNT (14.6 -> 17.0 fps at one cascade) - one shadow matrix per  
+  vertex and one highp vec3 varying per cascade. Same conclusion the earlier tap-count experiment  
+  reached from the other side.  
+  Corrects this page's claim that the frame-time win was merely unmeasured: it was measured and it  
+  is zero. What hardware PCF does buy is 16 effective samples for the price of 4.  
+  Next perf step is therefore cascades, not sampling.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * docs(terrain): record why building shadows are softer than mapbox's at z16  
+  The cause is the shadow-map texel, not the filter and not the screen-space mask. With the range at  
+  4.5 x the camera-to-focus distance (~7 km at z16) split three ways, the near cascade covers ~1.5 km  
+  through a 1024 page - about 1.5 m of ground per texel, i.e. metres-wide steps across a street.  
+  mapbox puts the same near-cascade distance through a 2048 page and spends nothing on a third  
+  cascade.  
+  Measured on the Crosscall, Grenoble z16 tilt 45, same camera forced by broadcast: 1024 x 3 gives  
+  14.1 fps / 5.8 ms drape and washed courtyard shadows, 2048 x 2 gives 13.6 / 5.8 and tight edges.  
+  Nearly free, because the per-cascade cost is matrices and varyings rather than sampling. Defaults  
+  are left alone - 2048 x 2 at D24 is ~33 MB of atlas against ~12.6 MB - and the knobs are documented  
+  instead.  
+  Records the dead end too: SHADOW_MASK_DIVISOR = 1 was tried on the theory that the quarter-  
+  resolution mask was blurring building shadow edges. It made them look worse - the full-res mask  
+  exposed the shadow-map staircase the blur had been hiding. The mask hides quantisation, it does not  
+  cause it.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * fix(terrain): keep building shadows sharp as the view tilts  
+  Each shadow cascade is now fitted to the bounding sphere of its view-frustum slice instead of to  
+  the visible-ground wedge, so the texel size no longer depends on the pitch, the bearing or the sun  
+  azimuth. Shadows at a low tilt look like shadows at tilt 90, which is how mapbox behaves and why  
+  theirs stay sharp.  
+  MapRenderer passes the camera-to-focus distance into the fit. It used to be read from the vt view  
+  state, which TileRenderer::onDrawFrame fills AFTER the shadow pass runs - stale at best, absent on  
+  the frames that matter.  
+  Requires libs-massif 9548f46 (vt: the sphere fit itself, and the ~200 lines of wedge machinery it  
+  replaces).  
+  Device-verified on the Crosscall at the reported camera (lat 45.188499 lon 5.734500, z16 tilt 45  
+  rotation -15.12, bld3d, sun 16.5 UTC): shadows with no locatable edge before, hard edges on  
+  individual buildings after. Frame cost not re-measured, and tilt 90 not re-checked for regressions.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * fix(terrain): bound the shadow caster ring by the throw distance, not by a tile count  
+  A mountain's shadow was missing at z16 and appeared as soon as you zoomed out or panned enough to  
+  pull the mountain into the visible cover. The caster ring was a fixed number of tiles at the  
+  cover's own zoom, and a tile count is a DISTANCE THAT SHRINKS WITH THE ZOOM: at z16 a tile is  
+  ~430 m, so the default margin of 3 reached 1.3 km while the mountain casting into the view was  
+  several km away and simply had no caster drawn for it.  
+  The ring is now sized by how far a shadow can physically be thrown - relief / tan(sun altitude),  
+  which the shadow pass's 15-degree floor caps at about 3.7 x the relief. Holding that distance means  
+  dropping the resolution, since 7 km at z16 would be a 35x35 ring: the ring is generated at the  
+  COARSEST tile zoom that still spans the throw in shadowCasterMargin tiles, and the existing  
+  partition logic subdivides whatever overlaps the finer cover.  
+  shadowCasterMargin therefore now sets the ring's RESOLUTION rather than its reach; the reach is  
+  derived and correct at every zoom. Documented on the option and in the rendering notes.  
+  Device-verified on the Crosscall at the reported camera (lat 45.193196 lon 5.735717 z16.04 tilt 90  
+  rotation -15.12, terrain lighting, shadow 0.8): the shadow is now present at the default margin and  
+  matches what the old code only produced at margin 8 (81k px of 1.36M differ, tile-load noise;  
+  against the old margin 3 it is 750k). 22 caster tiles per pass, 1.0 ms per pass; the ring costs  
+  2.3 ms of drape (20.5 fps against 25.4 with no ring at all), where the old fine ring drew up to 49  
+  tiles there and still missed the mountain.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * fix(terrain): size the shadow caster ring from the surrounding massif, not the visible cover  
+  The previous commit bounded the caster ring by the shadow throw, but computed the throw from the  
+  relief of the VISIBLE COVER. At z16 top-down over a valley that cover is a few tiles of flat ground:  
+  metres of relief, a throw of a couple of hundred metres, and a ring that collapses straight back  
+  onto the cover's own zoom - the exact behaviour it was meant to replace. The mountain casting into  
+  the view is outside the cover, so its height was never in that range.  
+  The relief now comes from a coarse ancestor of the cover (SHADOW_RELIEF_ZOOM = 10, ~28 km at  
+  latitude 45), which spans the massif. One elevation query per frame.  
+  FASTER than the broken version, not slower, because the same number of caster tiles now covers the  
+  throw coarsely instead of covering the valley floor finely. Crosscall, lat 45.193196 lon 5.735717  
+  z16.04 tilt 90, terrain lighting, shadow 0.8, panning:  
+    cover relief (broken):  20.5 fps, 4.8 ms drape, 22 caster tiles per pass  
+    massif relief (this):   23.5 fps, 3.5 ms drape, 21 caster tiles per pass  
+    no ring at all:         25.7 fps, 2.3 ms drape  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * feat(terrain): log how many shadow casters were skipped for missing elevation  
+  Added to the periodic shadow line beside the caster tile count and the extrusion draws, because  
+  "the shadow is missing" has three different causes - the caster was never in the list, it was  
+  clipped by the light box, or it had no elevation and was skipped - and nothing on screen tells  
+  them apart.  
+  Requires libs-massif 9c5888a (vt: the counter itself).  
+  Used it straight away to rule out the coarse caster ring asking for DEM tiles that had not been  
+  fetched: at Grenoble lat 45.190410 lon 5.734305 z16.53 tilt 90 the count is 0 per pass with 33  
+  caster tiles drawn, so the remaining truncation reported at that camera is neither the ring's  
+  reach nor a missing DEM.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  * fix(terrain): span the caster tiles with the shadow height slab, not the cover  
+  vt has no per-tile heights for the caster RING - it measures every ring tile at the single range it  
+  is handed - so a ridge taller than that range is clipped out of the caster pass by the light box's  
+  near plane. Its shadow then arrives truncated along an edge that moves with the camera, because the  
+  range follows the cover. Measured at Grenoble lat 45.190410 lon 5.734305 z16.53 tilt 90: the cover's  
+  range was 5.75..17.43 while the caster tiles reached 145.13, eight times taller.  
+  The range is now widened with the caster tiles' own min/max - exact, rather than the coarse-ancestor  
+  guess tried first, which fell short at 120. The per-tile ranges still narrow each cascade's RECEIVER  
+  slab, so the texel size does not pay for it.  
+  Device-confirmed by Martin: reproducible before, not reproducible with this build, reproducible  
+  again after rebuilding without it.  
+  Recorded in the docs because it was nearly lost: a single-frame screenshot A/B scored this fix at  
+  19,425 px of 1,357,952 - noise - and it was reverted as refuted. The symptom only appears while  
+  panning, so a still frame never measured it. Two other candidates were ruled out with the same  
+  method and those refutations stand on their own evidence (0 casters skipped for missing elevation;  
+  ring reach needs 1.76 of its 3 tiles), but a static frame is not a valid detector for a motion  
+  artifact.  
+  Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>  
+  ---------
+
+
+### New Features
+- [`645c736`](https://github.com/massif-maps/MassifMaps/commit/645c736aba439da48d22eb0e54e71d00f953805f) - **demo**: add the style regression repro layer *(commit by [@farfromrefug](https://github.com/farfromrefug))*
+- [`40ef746`](https://github.com/massif-maps/MassifMaps/commit/40ef746a9bc32bae03864d89beb3870f92d63744) - **renderers**: fog the whole map in 2D and let an app replace the fog shader *(PR [#123](https://github.com/massif-maps/MassifMaps/pull/123) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`6f13bb4`](https://github.com/massif-maps/MassifMaps/commit/6f13bb447c0626a4d790a08f70eb9ed1ec356f94) - **terrain**: add LightOptions.shadowNormalOffset for cleaner building shadows *(commit by [@farfromrefug](https://github.com/farfromrefug))*
+- [`525d15b`](https://github.com/massif-maps/MassifMaps/commit/525d15beddace5ed8918d3606318b6a85e7075f2) - **terrain**: log how many shadow casters were skipped for missing elevation *(commit by [@farfromrefug](https://github.com/farfromrefug))*
+- [`f94ef5c`](https://github.com/massif-maps/MassifMaps/commit/f94ef5c1ac0d9f7e10dd5433b99a74bafd5a6be4) - **labels**: let one style pick flat labels in 2D and billboard ones in 3D *(PR [#136](https://github.com/massif-maps/MassifMaps/pull/136) by [@farfromrefug](https://github.com/farfromrefug))*
+
+### Bug Fixes
+- [`97da528`](https://github.com/massif-maps/MassifMaps/commit/97da52894007d067b7cb00e9187c14813ff0fe44) - **vt**: the reported style regressions in labels, lines and clipped text *(commit by [@farfromrefug](https://github.com/farfromrefug))*
+- [`c999149`](https://github.com/massif-maps/MassifMaps/commit/c999149e9fcaceedd5d3673cd2d25d3985387fc7) - **terrain**: stop the previous zoom flashing over the map when zooming out *(PR [#124](https://github.com/massif-maps/MassifMaps/pull/124) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`d6f25d2`](https://github.com/massif-maps/MassifMaps/commit/d6f25d26699d70d323b4462f203d5ba2b6596442) - **terrain**: keep long mountain shadows when panning back, in view-relative units *(commit by [@farfromrefug](https://github.com/farfromrefug))*
+- [`be7f83f`](https://github.com/massif-maps/MassifMaps/commit/be7f83fd93d87ed9712069016cfe5afe6441489c) - **terrain**: keep building shadows sharp as the view tilts *(commit by [@farfromrefug](https://github.com/farfromrefug))*
+- [`1351675`](https://github.com/massif-maps/MassifMaps/commit/1351675e0dd5a957c411b85c9aacf1d301d48fdd) - **terrain**: bound the shadow caster ring by the throw distance, not by a tile count *(commit by [@farfromrefug](https://github.com/farfromrefug))*
+- [`6bf362a`](https://github.com/massif-maps/MassifMaps/commit/6bf362a9576609f182dab4643a8eec2b6d3b6d2c) - **terrain**: size the shadow caster ring from the surrounding massif, not the visible cover *(commit by [@farfromrefug](https://github.com/farfromrefug))*
+- [`0f10837`](https://github.com/massif-maps/MassifMaps/commit/0f10837f2a7c39d44ca2a4641fe6fb6d6a153854) - **terrain**: span the caster tiles with the shadow height slab, not the cover *(commit by [@farfromrefug](https://github.com/farfromrefug))*
+- [`35174ea`](https://github.com/massif-maps/MassifMaps/commit/35174eaf545ae0b9f223cb74fc5db0dccd56ff01) - **terrain**: keep mountain and building shadows sharp and present at every zoom and tilt *(PR [#128](https://github.com/massif-maps/MassifMaps/pull/128) by [@farfromrefug](https://github.com/farfromrefug))*
+- [`ff196c8`](https://github.com/massif-maps/MassifMaps/commit/ff196c8c8dd700fbc5240087f1d8085a142aa013) - shadow strenght was too high *(commit by [@farfromrefug](https://github.com/farfromrefug))*
+- [`fb4b533`](https://github.com/massif-maps/MassifMaps/commit/fb4b5330bdf43f5aa993ce3bf343d5a4dbb5b247) - **terrain**: shade contours with the ground they lie on *(PR [#130](https://github.com/massif-maps/MassifMaps/pull/130) by [@farfromrefug](https://github.com/farfromrefug))*
+
+
 ## [v6.0.0] - 2026-08-16
 
 The first release under the project's own name. The **CARTO Mobile SDK is now Massif Maps**: every
@@ -1675,3 +1900,4 @@ Release notes for next releases can be found from [Releases section](https://git
 [v5.0.0-rc.12]: https://github.com/Akylas/mobile-sdk/compare/v5.0.0-rc.11...v5.0.0-rc.12
 [v5.0.0-rc.13]: https://github.com/Akylas/mobile-sdk/compare/v5.0.0-rc.12...v5.0.0-rc.13
 [v6.0.0]: https://github.com/massif-maps/MassifMaps/compare/v5.2.3...v6.0.0
+[v6.0.1]: https://github.com/massif-maps/MassifMaps/compare/v6.0.0...v6.0.1
