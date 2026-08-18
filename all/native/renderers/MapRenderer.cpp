@@ -1793,7 +1793,7 @@ namespace massif {
         for (const std::shared_ptr<TileLayer>& tileLayer : tileLayers) {
             // The SHADOW sun, not the lighting one: the normal offset is scaled by the angle
             // between the surface and the direction the map was actually rendered from.
-            tileLayer->setTerrainShadowMap(shadowTexture, shadowMapSize, shadowCascades, shadowBiases, shadowStrength, shadowSoftness, _terrainShadowMap && _terrainShadowMap->isDepthTexture(), lighting.shadowNormalOffset, shadowSunDir, lightViewProjs);
+            tileLayer->setTerrainShadowMap(shadowTexture, shadowMapSize, shadowCascades, shadowBiases, shadowStrength, shadowSoftness, _terrainShadowMap && _terrainShadowMap->isDepthTexture(), _terrainShadowMap && _terrainShadowMap->isHardwarePCF(), lighting.shadowNormalOffset, shadowSunDir, lightViewProjs);
             // The sun goes with it, and for the same reason: the surface is drawn a few
             // lines below, while each layer's own onDrawFrame - which also sets this -
             // runs later in the frame. The surface would light itself with the previous

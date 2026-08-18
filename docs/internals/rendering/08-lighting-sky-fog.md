@@ -197,10 +197,48 @@ Two things worth knowing:
   README records the build being patched down to ES2 for 32-bit devices, and `MapView` still has an
   ES2 fallback on both platforms.
 
-What this does **not** buy is mapbox's hardware PCF. That needs `sampler2DShadow` / `shadow2DEXT`,
-which GLSL ES 1.00 only has via `GL_EXT_shadow_samplers` — **absent on the emulator here** (logged
-at startup). The four manual taps remain. Making it unconditional means migrating every shader to
-`#version 300 es`; that is a separate job and is the next real perf step.
+### Hardware PCF, and the ESSL 3.00 programs
+
+`GL_EXT_shadow_samplers` is reported **absent on both the emulator and the Crosscall** (Adreno,
+`OpenGL ES 3.2 V@0502.0`) — for the reason that makes it good news: it is an *ES2* extension, and a
+driver does not advertise it on an ES3 context because `sampler2DShadow` is **core in GLSL ES 3.00**.
+The hardware has it; only the shading language could not reach it.
+
+So the shadow-receiving programs are compiled as **GLSL ES 3.00** (`ESSL3` / `SHADOW_HW` flags), from
+the same shader sources as everything else. The version difference is a prelude in
+`createShaderProgram`: `attribute`→`in`, `varying`→`in`/`out`, `texture2D`→`texture`, and a declared
+`out vec4 glFragColor`. mapbox does exactly this — their fragment shaders write `glFragColor`, which
+is one of those macros.
+
+The one source-level cost: **a fragment shader writes `glFragColor`, never `gl_FragColor`.** A name
+beginning with `gl_` cannot be `#define`d, so that one had to be a real rename (24 sites); the 1.00
+path defines `glFragColor` back to `gl_FragColor`.
+
+`shadowTap()` then becomes one `texture(sampler2DShadow, vec3(uv, ref))` — four depth compares and
+their bilinear average, in the texture unit — where the 1.00 path does a fetch, an unpack and a
+compare. The texture is bound with `TEXTURE_COMPARE_MODE = COMPARE_REF_TO_TEXTURE` and `LINEAR`
+filtering, which is only meaningful *because* the comparison happens before the filter.
+
+Measured on the emulator, Grenoble z12.53 tilt 26 sun 17.783 UTC: **123,401 px of 2,592,000 differ**
+from the manual-tap path — softer shadow edges, as 2x2 filtered comparisons should be. **Frame time
+has not been measured**, on either device; the win is inferred from the fetch count, not observed.
+
+An ESSL 3.00 program that fails to build falls back to its 1.00 form rather than taking the map with
+it (`hasShaderVersionFallback()`).
+
+### An unrelated compile failure this uncovered
+
+Adding the version prelude shifted shader line numbers, which surfaced a **pre-existing** failure:
+`tilecolormap` built with `TERRAIN_LIGHT` + `TERRAIN` calls `terrainNormal()` and reads `uSunDir` /
+`uSunColor` / `uLightParams`, none of which `colormapFsh` declares — they live in `backgroundFsh`,
+a different string, or come from the application's lighting shader when one is installed. Without
+that shader the program does not compile. It is caught by `TileRenderer::prepareFrame` and logged, so
+it is invisible unless you grep for it: **6 occurrences per run on the committed build**, before any
+of this work. Not fixed here.
+
+Compile errors now quote the source around the reported line and list the program's defines — the
+line number is into the concatenated source, which nothing on disk matches, and without the quote
+every shader error costs a round of guessing.
 
 ### Normal offset
 

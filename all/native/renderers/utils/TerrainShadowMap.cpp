@@ -13,6 +13,7 @@ namespace massif {
         _texture(0),
         _depthBuffer(0),
         _depthTextureMode(false),
+        _hardwarePCF(false),
         _failed(false)
     {
     }
@@ -96,11 +97,17 @@ namespace massif {
         } else {
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, _size * _cascades, _size, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
         }
-        // NEAREST: depth is not a filterable quantity - interpolating two different depths gives a
-        // third, meaningless one. Softening is done by the shader's PCF taps instead. (A comparison
-        // sampler is the exception, and it is set up by the caller when it binds the texture.)
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        // A COMPARISON sampler where the shading language can declare one (ESSL 3.00, hence ES3):
+        // the texture unit then does four depth compares per fetch and returns their bilinear
+        // average, so LINEAR is right here. Without it the filter must be NEAREST - depth is not a
+        // filterable quantity, and interpolating two depths gives a third, meaningless one.
+        _hardwarePCF = _depthTextureMode && GLContext::ES3;
+        if (_hardwarePCF) {
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE_EXT, GL_COMPARE_REF_TO_TEXTURE_EXT);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC_EXT, GL_LEQUAL);
+        }
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, _hardwarePCF ? GL_LINEAR : GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, _hardwarePCF ? GL_LINEAR : GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glBindTexture(GL_TEXTURE_2D, 0);
@@ -202,6 +209,10 @@ namespace massif {
 
     bool TerrainShadowMap::isDepthTexture() const {
         return _depthTextureMode;
+    }
+
+    bool TerrainShadowMap::isHardwarePCF() const {
+        return _hardwarePCF;
     }
 
     void TerrainShadowMap::endPass(unsigned int previousFrameBuffer, int viewportWidth, int viewportHeight) {
