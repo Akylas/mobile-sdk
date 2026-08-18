@@ -200,8 +200,13 @@ background), and `simpleperf` puts **60% of the GL thread in the driver and the 
 
 The two experiments that settle it: dropping the background plane takes **22% off the GPU frame and
 buys no fps**, while dropping the stencil masks removes **8% of the draws and buys 4%**. So on this
-camera fragments, triangles and shading are all free, and the only currency is the draw count —
-merging same-style-layer geometry per tile is the lever, not anything on the GPU side.
+camera fragments, triangles and shading are all free, and the only currency is the draw count.
+
+Acting on that: a style layer alternating patterned and plain polygon fills used to split into a
+draw per alternation — 48% of all geometry draws. Each style slot now carries a **pattern flag**
+instead, so both live in one draw ([03-vt-renderer.md](03-vt-renderer.md#what-splits-a-tiles-style-layer-into-several-draws)):
+**584 → 363 draws a frame, 17.9 → 20.3 fps**, `layers` CPU 21.9 → 15.1 ms. The floor is one draw per
+(tile, style layer) — 337 — so what is left needs cross-tile batching, which nothing here does.
 
 2D at the *mountain* camera measures 41 fps and is pinned against the device's 43 Hz present ceiling
 ([performance-log.md 15.6](../performance-log.md)), which is why this was never visible before: the

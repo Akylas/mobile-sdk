@@ -1280,3 +1280,55 @@ Left, in order: **merge geometry draws** (606 draws for 62 render tiles × 32 st
 frame), **drop the masks in 2D** (62 draws, +4%, `setTileMasks` already has the switch), and the
 **per-frame label batch rebuild** (25% of the GL thread, already open in
 [06-labels.mdx](rendering/06-labels.mdx#a-persistent-label-batch-and-what-blocks-it)).
+
+### 16.6 Merging the polygon-pattern draws: 584 -> 363 draws, +13% fps
+
+[16.1](#161-it-is-cpu-bound-on-draw-submission-not-on-fragments) said the currency is draws, so the
+next question was which of them are avoidable. A probe counting draws per (tile, style layer) pair:
+
+| per frame | |
+|---|---|
+| geometry draws | 584 |
+| pairs that drew anything | **337** (the floor a per-tile merge can reach) |
+| extra geometries inside a pair | **285** (49% of the draws) |
+
+and, by why the pair split:
+
+| reason | per frame |
+|---|---|
+| **pattern differs** | **278** |
+| already mergeable | 4 |
+| geometry type differs | 3 |
+| same atlas grown between packs | 0 |
+
+Every sampled pair was the same shape — `type=3 params=1/1 pattern '64x64' -> 'none'` — a POLYGON
+style layer alternating a `polygon-pattern-file` fill with a plain one, one style slot each. Not two
+competing patterns: **a pattern against no pattern**.
+
+That killed the atlas design this was scoped as. An atlas (mapbox's `fill-pattern` model) would have
+needed `fract()` into a sub-rect, 1-texel wrap padding and the loss of `GL_REPEAT` and of the
+mipmaps polygon patterns currently get. A **per-slot pattern flag** removes the same 278 splits with
+none of that: `patternScales` in the style table, `uPatternTable` in the shader, packed into `vUV.z`
+so it costs no extra varying vector, and `mix(vColor, texture2D(...) * vColor, vUV.z)` in the
+fragment shader. Only a second, *different* pattern still splits.
+
+Interleaved, three rounds, ~59 one-second windows per arm:
+
+| | fps | CPU frame | `layers` CPU | GPU total | GPU layers |
+|---|---|---|---|---|---|
+| before | 17.9 | 51.1 | 21.9 | 20.2 | 9.7 |
+| after | **20.3** | **43.2** | **15.1** | 18.4 | 7.6 |
+
+**584 -> 363 draws a frame (-38%), +13.4% fps**, and the `layers` section — the one that submits them
+— down 31%. The GPU moved too (layers 9.7 -> 7.6 ms) because a draw carries its uniform uploads and
+its texture bind with it, but the GPU was never the bound here.
+
+Verification: 0.28% of pixels differ at a landcover camera (z13.5, forest/scrub/water patterns on
+screen), all of it label churn between runs — the same 0.18-0.28% shows up comparing two runs of the
+*same* build. 3D terrain re-checked at the ridge camera on the INLINE style, unchanged;
+assets-over-terrain was not re-shot.
+
+Two notes for whoever goes further. The floor is **one draw per (tile, style layer)**; 363 against a
+floor of 337 means the remaining splits are the type/comp-op/16-slot ones, which are not worth
+chasing. Below the floor needs cross-tile batching (one VBO per style layer with per-vertex tile
+offsets), which nothing in this renderer does and which the tile lifecycle makes expensive.
