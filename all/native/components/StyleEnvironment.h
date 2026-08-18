@@ -82,6 +82,7 @@ namespace massif {
         float buildingAmbient = 0.35f;
         float shadowStrength = 0.0f;
         float shadowBias = 0.25f;
+        float shadowNormalOffset = 3.0f;
         float shadowSoftness = 1.0f;
         float shadowDistance = 0.0f;
         int shadowMapSize = 1024;

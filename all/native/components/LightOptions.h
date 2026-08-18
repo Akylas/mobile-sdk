@@ -175,17 +175,19 @@ namespace massif {
         void setShadowCascades(int cascades);
 
         /**
-         * Returns the shadow distance in meters.
-         * @return The shadow distance. The default is 0 (cover everything visible).
+         * Returns the shadow distance.
+         * @return The shadow distance, in multiples of the camera-to-focus distance. The default
+         *         is 0 (use the built-in 4.5).
          */
         float getShadowDistance() const;
         /**
-         * Sets the radius around the camera focus, in meters, that the shadow map covers.
-         * The shadow map has a fixed resolution, so the larger the ground it spans the coarser
-         * its texels - which is why shadows look sharp looking straight down and pixelated at a
-         * low tilt, where the visible ground reaches to the horizon. Limiting the distance keeps
-         * the texels small; ground beyond it simply has no shadows. 0 covers everything visible.
-         * @param distance The new shadow distance in meters.
+         * Sets how far shadows reach from the camera, in multiples of the camera-to-focus
+         * distance - the same unit FogOptions uses for its range, and mapbox's shadow model. The
+         * shadow map has a fixed resolution, so the further shadows reach the coarser its texels;
+         * ground beyond the distance simply has no shadows, faded out over the last stretch. The
+         * unit is relative on purpose: the camera-to-focus distance follows the zoom, so one value
+         * holds from a city to a massif where a metric radius cannot. 0 uses the built-in 4.5.
+         * @param distance The new shadow distance, in multiples of the camera-to-focus distance.
          */
         void setShadowDistance(float distance);
 
@@ -195,10 +197,15 @@ namespace massif {
          */
         int getShadowCasterMargin() const;
         /**
-         * Sets how many tiles beyond the visible ones are rendered as shadow casters. A mountain
-         * just off screen still casts its shadow into the view, and without a margin that shadow
-         * disappears as you zoom in and the mountain leaves the visible set. Costs one caster
-         * draw per extra tile.
+         * Sets how many tiles wide the ring of extra shadow casters around the visible ones is.
+         * A mountain off screen still casts its shadow into the view, and without the ring that
+         * shadow disappears as you zoom in and the mountain leaves the visible set.
+         *
+         * The ring's REACH is not this value: it is the distance a shadow can be thrown, the
+         * relief over the tangent of the sun altitude. This value sets the ring's RESOLUTION - the
+         * ring is generated at the coarsest tile zoom that still spans that throw in this many
+         * tiles, so the reach holds at every zoom while the count stays bounded. Raising it makes
+         * the distant casters finer and costs one caster draw per extra tile; 0 removes the ring.
          * @param margin The new caster margin in tiles (clamped to 0..8).
          */
         void setShadowCasterMargin(int margin);
@@ -231,6 +238,22 @@ namespace massif {
         void setShadowBias(float bias);
 
         /**
+         * Returns the shadow normal offset.
+         * @return The normal offset in shadow-map texels. The default is 3.
+         */
+        float getShadowNormalOffset() const;
+        /**
+         * Sets how far a receiving surface is pushed along its own normal before it looks itself
+         * up in the shadow map, in shadow-map texels. This is what keeps a wall from shadowing
+         * itself: the sample moves sideways instead of the depth being lifted, so the shadow stays
+         * attached to the foot of the building that casts it, where a depth bias large enough to
+         * clear the same acne detaches it. Applies to 3D extrusions; the terrain surface takes its
+         * normal per fragment and is unaffected. 0 disables it.
+         * @param offset The new normal offset in shadow-map texels (clamped to 0..16).
+         */
+        void setShadowNormalOffset(float offset);
+
+        /**
          * Returns the sun direction as a unit vector in internal map coordinates.
          * The vector points from the surface *towards* the sun. Internal method.
          * @return The unit sun direction.
@@ -261,6 +284,7 @@ namespace massif {
         std::atomic<int> _shadowMapSize;
         std::atomic<int> _shadowCascades;
         std::atomic<float> _shadowBias;
+        std::atomic<float> _shadowNormalOffset;
         std::atomic<float> _shadowSoftness;
         std::atomic<float> _shadowDistance;
         std::atomic<int> _shadowCasterMargin;

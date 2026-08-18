@@ -41,6 +41,12 @@ namespace massif {
 #endif
 
         PACKED_DEPTH_STENCIL = HasGLExtension("GL_OES_packed_depth_stencil");
+
+        const char* version = reinterpret_cast<const char*>(glGetString(GL_VERSION));
+        ES3 = version && std::string(version).find("OpenGL ES 3.") != std::string::npos;
+        DEPTH_TEXTURE = ES3 || HasGLExtension("GL_OES_depth_texture") || HasGLExtension("GL_ANGLE_depth_texture");
+        SHADOW_SAMPLERS = HasGLExtension("GL_EXT_shadow_samplers");
+        Log::Infof("GLContext::LoadExtensions: %s, depth texture %d, shadow samplers %d", version ? version : "?", DEPTH_TEXTURE ? 1 : 0, SHADOW_SAMPLERS ? 1 : 0);
     }
         
     void GLContext::CheckGLError(const char* place) {
@@ -69,6 +75,10 @@ namespace massif {
     bool GLContext::DISCARD_FRAMEBUFFER = false;
 
     bool GLContext::PACKED_DEPTH_STENCIL = false;
+
+    bool GLContext::ES3 = false;
+    bool GLContext::DEPTH_TEXTURE = false;
+    bool GLContext::SHADOW_SAMPLERS = false;
     
     std::size_t GLContext::MAX_VERTEXBUFFER_SIZE = 65535; // Should NOT exceed 64k!
 

@@ -1459,6 +1459,9 @@ namespace massif {
     // quarter of the screen resolution is not visible in the result - measured against a half:
     // the mask pass 14-16 ms -> 8-9 ms, and 8.5 -> 9.6 fps.
     static const int SHADOW_MASK_DIVISOR = 4;
+    // The tile zoom the caster ring's reach is derived from: coarse enough that one tile spans the
+    // massif whose shadow reaches the view, not just the ground under it. ~28 km at latitude 45.
+    static const int SHADOW_RELIEF_ZOOM = 10;
     static const int SHADOW_MAP_MAX_AGE = 30;
     // Frames between two refreshes driven by newly arrived tile content.
     static const int SHADOW_MAP_CONTENT_INTERVAL = 4;
@@ -1473,6 +1476,7 @@ namespace massif {
     static int shadowPasses = 0;
     static int shadowCasterDraws = 0;
     static int shadowExtrusionDraws = 0;
+    static int shadowCastersNoElevation = 0;
     static double shadowMsSum = 0;
 
     void MapRenderer::applyTerrainShadows(const std::vector<std::shared_ptr<TileLayer> >& tileLayers, const std::vector<vt::TileId>& coverTileIds, const std::shared_ptr<TerrainOptions>& terrainOptions, const ViewState& viewState, int prevFBO, bool contentChanged, bool castShadows, ResolvedLighting& lighting, std::array<double, TerrainShadowMap::MAX_CASCADES>& shadowTexelMeters) {
@@ -1580,13 +1584,66 @@ namespace massif {
                         take(tileId);
                         maxCoverZoom = std::max(maxCoverZoom, tileId.zoom);
                     }
-                    // Finest first: a coarse candidate then splits against the fine tiles already
-                    // taken, instead of claiming their ground and being split by nothing.
+                    // The ring is bounded by how far a shadow can be THROWN, not by a fixed number
+                    // of tiles: relief / tan(sun altitude), which the 15-degree floor caps at about
+                    // 3.7 x the relief. A ring counted in tiles is a distance that shrinks with the
+                    // zoom - at z16 a tile is ~430 m, so three of them reach 1.3 km and a mountain
+                    // 5 km away simply has no caster, which is a mountain shadow that appears only
+                    // when you zoom out far enough to pull it into the cover.
+                    //
+                    // Holding the DISTANCE means dropping the RESOLUTION, or the count explodes
+                    // (7 km at z16 is a 35x35 ring). The ring is generated at the coarsest zoom
+                    // that still needs no more than casterMargin tiles to span the throw, and the
+                    // partition logic below subdivides whatever overlaps the finer cover.
+                    // The relief that matters is the terrain AROUND the view, not the cover's own.
+                    // At z16 over a valley floor the cover is a few tiles of flat ground - metres of
+                    // relief, a throw of a couple of hundred metres, and a ring that collapses back
+                    // onto the cover's own zoom. The mountain casting into that view is outside the
+                    // cover entirely, so its height was never in the range. A coarse ancestor spans
+                    // the massif and costs one elevation query.
+                    double relief = std::max(0.0, maxHeight - minHeight);
+                    if (std::shared_ptr<ElevationManager> elevationManager = terrainOptions->getElevationManager()) {
+                        const vt::TileId& sample = coverTileIds[coverTileIds.size() / 2];
+                        int coarseZoom = std::min(sample.zoom, SHADOW_RELIEF_ZOOM);
+                        int shift = sample.zoom - coarseZoom;
+                        double coarseMin = 0, coarseMax = 0;
+                        elevationManager->getMinMaxDisplayHeightExact(MapTile(sample.x >> shift, sample.y >> shift, coarseZoom, 0), coarseMin, coarseMax);
+                        relief = std::max(relief, coarseMax - coarseMin);
+                    }
+                    double sunUp = std::max(0.05f, shadowSunDir(2));
+                    double throwDistance = relief * std::sqrt(std::max(0.0, 1.0 - sunUp * sunUp)) / sunUp;
+                    int ringZoom = maxCoverZoom;
+                    if (throwDistance > 0) {
+                        // 2^z <= casterMargin * WORLD_SIZE / throw
+                        double limit = casterMargin * Const::WORLD_SIZE / throwDistance;
+                        if (limit > 1) {
+                            ringZoom = std::min(maxCoverZoom, static_cast<int>(std::floor(std::log2(limit))));
+                        }
+                        ringZoom = std::max(0, ringZoom);
+                    }
+                    // The cover's footprint at the ring's zoom, widened by the margin.
                     std::vector<vt::TileId> candidates;
-                    for (const vt::TileId& tileId : coverTileIds) {
-                        for (int dy = -casterMargin; dy <= casterMargin; dy++) {
-                            for (int dx = -casterMargin; dx <= casterMargin; dx++) {
-                                candidates.emplace_back(tileId.zoom, tileId.x + dx, tileId.y + dy);
+                    {
+                        int minX = 0, minY = 0, maxX = 0, maxY = 0;
+                        bool first = true;
+                        for (const vt::TileId& tileId : coverTileIds) {
+                            int shift = tileId.zoom - ringZoom;
+                            int x = (shift >= 0 ? tileId.x >> shift : tileId.x << -shift);
+                            int y = (shift >= 0 ? tileId.y >> shift : tileId.y << -shift);
+                            if (first) {
+                                minX = maxX = x;
+                                minY = maxY = y;
+                                first = false;
+                            } else {
+                                minX = std::min(minX, x); maxX = std::max(maxX, x);
+                                minY = std::min(minY, y); maxY = std::max(maxY, y);
+                            }
+                        }
+                        if (!first) {
+                            for (int y = minY - casterMargin; y <= maxY + casterMargin; y++) {
+                                for (int x = minX - casterMargin; x <= maxX + casterMargin; x++) {
+                                    candidates.emplace_back(ringZoom, x, y);
+                                }
                             }
                         }
                     }
@@ -1619,6 +1676,24 @@ namespace massif {
                         }
                     }
                 }
+                // The slab has to hold the CASTERS, and vt has no per-tile heights for the RING -
+                // it measures every ring tile at this range, so a ridge taller than it is clipped
+                // out of the caster pass by the light box's near plane and its shadow arrives
+                // truncated, along an edge that moves with the camera because the range follows the
+                // cover. Measured at Grenoble z16.53 tilt 90: the cover's range was 5.75..17.43
+                // while the ring tiles reached 145.13. Taken from the caster tiles themselves, so
+                // it is exact rather than a guess from an ancestor. The per-tile ranges above still
+                // narrow each cascade's RECEIVER slab, so the texel size does not pay for this.
+                if (std::shared_ptr<ElevationManager> elevationManager = terrainOptions->getElevationManager()) {
+                    for (const vt::TileId& tileId : casterTileIds) {
+                        double casterMin = 0, casterMax = 0;
+                        elevationManager->getMinMaxDisplayHeightExact(MapTile(tileId.x, tileId.y, tileId.zoom, 0), casterMin, casterMax);
+                        if (casterMax > casterMin) {
+                            minHeight = std::min(minHeight, casterMin);
+                            maxHeight = std::max(maxHeight, casterMax);
+                        }
+                    }
+                }
                 // One light box per cascade, near slice first. A single box has to
                 // span everything visible, so at a tilt its texels are metres of
                 // ground and every shadow edge is a staircase; the near cascade
@@ -1630,7 +1705,7 @@ namespace massif {
                 std::array<std::vector<vt::TileId>, TerrainShadowMap::MAX_CASCADES> cascadeCasterTiles;
                 for (int cascade = 0; cascade < cascades; cascade++) {
                     double depthRangeMeters = 1.0, texelMeters = 0;
-                    if (tileLayers.front()->calculateShadowViewProj(coverTileIds, casterTileIds, shadowSunDir, tileHeights, minHeight, maxHeight, lighting.shadowDistance, _terrainShadowMap->getSize(), cascade, cascades, cascadeCasterTiles[cascade], depthRangeMeters, texelMeters, lightViewProjs[cascade])) {
+                    if (tileLayers.front()->calculateShadowViewProj(coverTileIds, casterTileIds, shadowSunDir, tileHeights, minHeight, maxHeight, lighting.shadowDistance, cglib::length(viewState.getCameraPos() - viewState.getFocusPos()), _terrainShadowMap->getSize(), cascade, cascades, cascadeCasterTiles[cascade], depthRangeMeters, texelMeters, lightViewProjs[cascade])) {
                         // The bias is metric; the shader wants a fraction of the
                         // normalised light depth, and each cascade's box spans its
                         // own depth. Dividing per cascade is what keeps the shadow
@@ -1724,6 +1799,7 @@ namespace massif {
                                     // or drawn and then clipped by the light box - and
                                     // only this tells them apart.
                                     shadowExtrusionDraws += draws - (castGround ? static_cast<int>(cascadeCasterTiles[cascade].size()) : 0);
+                                    shadowCastersNoElevation += tileLayer->consumeShadowCastersMissingElevation();
                                 }
                                 _shadowMapViewProjs[cascade] = lightViewProjs[cascade];
                                 _shadowMapBiases[cascade] = shadowBiases[cascade];
@@ -1791,7 +1867,9 @@ namespace massif {
             }
         }
         for (const std::shared_ptr<TileLayer>& tileLayer : tileLayers) {
-            tileLayer->setTerrainShadowMap(shadowTexture, shadowMapSize, shadowCascades, shadowBiases, shadowStrength, shadowSoftness, lightViewProjs);
+            // The SHADOW sun, not the lighting one: the normal offset is scaled by the angle
+            // between the surface and the direction the map was actually rendered from.
+            tileLayer->setTerrainShadowMap(shadowTexture, shadowMapSize, shadowCascades, shadowBiases, shadowStrength, shadowSoftness, _terrainShadowMap && _terrainShadowMap->isDepthTexture(), _terrainShadowMap && _terrainShadowMap->isHardwarePCF(), lighting.shadowNormalOffset, shadowSunDir, lightViewProjs);
             // The sun goes with it, and for the same reason: the surface is drawn a few
             // lines below, while each layer's own onDrawFrame - which also sets this -
             // runs later in the frame. The surface would light itself with the previous
@@ -2968,7 +3046,7 @@ namespace massif {
                         Log::Infof("MapRenderer: RTT drape ACTIVE - layers %d, collected tiles %d, drawn tiles %d, resolution %d, baked %d tiles / %d primitives, surface draws %d (%d unbaked fills)",
                             static_cast<int>(drapeLayers.size()), static_cast<int>(collectedTiles.size()),
                             static_cast<int>(drapedTiles.size()), resolution, bakedTiles, bakedPrimitives, surfaceDraws, filledSurfaces);
-                        Log::Infof("MapRenderer: shadow caster passes %d over %d frames, %d cascades, %d caster tiles per pass, %.1f ms per pass, %d extrusion draws per pass, texels per cascade %.1f/%.1f/%.1f/%.1f m (camera zoom %.2f tilt %.1f)", shadowPasses, drapeStateFrame, _shadowMapCascades, shadowCasterDraws / std::max(1, shadowPasses), shadowMsSum / std::max(1, shadowPasses), shadowExtrusionDraws / std::max(1, shadowPasses), shadowTexelMeters[0], shadowTexelMeters[1], shadowTexelMeters[2], shadowTexelMeters[3], viewState.getZoom(), viewState.getTilt());
+                        Log::Infof("MapRenderer: shadow caster passes %d over %d frames, %d cascades, %d caster tiles per pass, %.1f ms per pass, %d extrusion draws per pass, %d casters skipped for missing elevation per pass, texels per cascade %.1f/%.1f/%.1f/%.1f m (camera zoom %.2f tilt %.1f)", shadowPasses, drapeStateFrame, _shadowMapCascades, shadowCasterDraws / std::max(1, shadowPasses), shadowMsSum / std::max(1, shadowPasses), shadowExtrusionDraws / std::max(1, shadowPasses), shadowCastersNoElevation / std::max(1, shadowPasses), shadowTexelMeters[0], shadowTexelMeters[1], shadowTexelMeters[2], shadowTexelMeters[3], viewState.getZoom(), viewState.getTilt());
                     }
                     }
                     catch (const std::exception& ex) {

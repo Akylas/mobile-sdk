@@ -37,7 +37,7 @@ public final class DemoLive extends BroadcastReceiver {
     };
     private static final String[] LIGHT_KEYS = {
         "daycycle", "sunHour", "sunAzimuth", "sunAltitude", "shadow", "shadowSoftness",
-        "shadowDistance", "shadowCascades"
+        "shadowDistance", "shadowCascades", "shadowNormalOffset"
     };
     private static final String[] SKY_KEYS = { "sky", "skyColor", "horizonColor", "sunDisc" };
     private static final String[] CAMERA_KEYS = { "lon", "lat", "zoom", "tilt", "rotation" };

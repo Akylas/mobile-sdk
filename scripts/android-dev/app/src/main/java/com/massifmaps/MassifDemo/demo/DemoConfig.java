@@ -334,7 +334,8 @@ public final class DemoConfig {
     public static int SHADOW_MAP_SIZE = 1024;
     public static int SHADOW_CASCADES = 3;
     public static float SHADOW_BIAS = 1.0f;
-    public static float SHADOW_DISTANCE = 0f;   // 0 = whole view
+    public static float SHADOW_NORMAL_OFFSET = 3.0f;   // shadow-map texels
+    public static float SHADOW_DISTANCE = 0f;   // multiples of the camera-to-focus distance, 0 = built-in 4.5
     public static int SHADOW_CASTER_MARGIN = 3;
 
     // =============================================================================================
@@ -1110,6 +1111,7 @@ public final class DemoConfig {
         SHADOW_MAP_SIZE = DemoCfg.cfgInt("shadowMapSize", SHADOW_MAP_SIZE);
         SHADOW_CASCADES = DemoCfg.cfgInt("shadowCascades", SHADOW_CASCADES);
         SHADOW_BIAS = DemoCfg.cfgFloat("shadowBias", SHADOW_BIAS);
+        SHADOW_NORMAL_OFFSET = DemoCfg.cfgFloat("shadowNormalOffset", SHADOW_NORMAL_OFFSET);
         SHADOW_DISTANCE = DemoCfg.cfgFloat("shadowDistance", SHADOW_DISTANCE);
         SHADOW_CASTER_MARGIN = DemoCfg.cfgInt("shadowMargin", SHADOW_CASTER_MARGIN);
 

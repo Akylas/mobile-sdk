@@ -60,9 +60,43 @@ Design points, each measured:
   grey wash that appears and disappears with the cover. The **shadow pass alone** floors the sun
   altitude at 15°, keeping the azimuth, which caps shadow length at ~3.7× the relief. N·L lighting
   keeps the true sun, so a low sun still reads as a low sun.
-- **Caster margin.** Casters are taken from the cover plus a ring of neighbours (`shadowCasterMargin`
-  tiles): a mountain just off screen still throws its shadow into the view, and without the margin
-  its shadow vanishes as you zoom in and it leaves the visible set.
+- **Caster margin, bounded by the shadow THROW.** Casters are the cover plus a ring, because a
+  mountain off screen still throws its shadow into the view. The ring's reach is
+  `relief / tan(sun altitude)` — capped at about 3.7 x the relief by the 15-degree floor — and NOT a
+  tile count: a ring counted in tiles is a distance that shrinks with the zoom, so at z16 (tiles
+  ~430 m) the default 3 reached 1.3 km and a mountain 5 km away had no caster at all. Symptom: a
+  mountain shadow missing at z16 that appears as soon as you zoom out or pan enough to pull the
+  mountain into the cover. Holding the distance means dropping the resolution — 7 km at z16 would be
+  a 35x35 ring — so the ring is generated at the **coarsest zoom that spans the throw in
+  `shadowCasterMargin` tiles**, and `shadowCasterMargin` now sets the ring's resolution rather than
+  its reach.
+
+  **The relief is read from a coarse ancestor (`SHADOW_RELIEF_ZOOM = 10`), not from the cover.** This
+  is the part that is easy to get wrong and did not work at first: at z16 top-down over a valley the
+  cover is a few tiles of flat ground, so the cover's own relief is metres, the throw is a couple of
+  hundred metres, and the ring collapses straight back onto the cover's zoom. The mountain casting
+  into that view is *outside* the cover, so its height is never in that range. One elevation query on
+  an ancestor spanning the massif fixes it. Measured on the Crosscall at lat 45.193196 lon 5.735717
+  z16.04 tilt 90: 21 caster tiles per pass, 1.0 ms per pass, 23.5 fps / 3.5 ms drape — *faster* than
+  the cover-relief version (20.5 fps / 4.8 ms, 22 tiles) because the same number of tiles now covers
+  the throw coarsely instead of covering the valley floor finely. Against no ring at all: 25.7 fps /
+  2.3 ms. The original fine ring drew up to 49 tiles and still missed the mountain.
+- **The height slab must span the CASTERS, not the cover.** vt has no per-tile heights for the ring
+  — it measures every ring tile at the one range it is handed — so a ridge taller than that range is
+  clipped out of the caster pass by the light box's near plane, and its shadow arrives truncated
+  along an edge that moves with the camera, because the range follows the cover. Measured at
+  Grenoble z16.53 tilt 90: the cover's range was `5.75..17.43` while the ring tiles reached `145.13`,
+  eight times taller. `MapRenderer` therefore widens the range with the caster tiles' own min/max,
+  which is exact rather than a guess from a coarse ancestor. The per-tile ranges still narrow each
+  cascade's *receiver* slab, so the texel size does not pay for it.
+
+  Worth recording how this was nearly missed: a single-frame screenshot A/B said the fix changed
+  19,425 px of 1,357,952 — noise — and it was reverted as refuted. The symptom only shows while
+  panning, so a static frame did not measure it. Two earlier candidates were ruled out the same way
+  and those refutations stand (0 casters skipped for missing elevation; the ring's reach needs 1.76
+  tiles of the 3 it has, and `shadowMargin` 3 vs 8 is noise), but a still frame is not a valid
+  detector for anything that only appears in motion.
+
 - **The caster set has to stay a partition of the ground.** The cover is a quadtree partition, but the
   ring is generated at each cover tile's own zoom and the cover mixes zooms (up to
   `TerrainMaxTileZoomCoarsening` levels), so the ring around a coarse tile lands on top of the fine
@@ -135,28 +169,205 @@ documents the same trap for the drape bake.
 
 ### How far shadows reach
 
-The shadowed ground is bounded by what the map can **represent**, not only by what the view can see:
-the outer cascade's texel is its extent over the resolution, so shadowing 50 km through a 1024 page
-gives texels wider than the ridges casting into them - a grey wash. `calculateShadowViewProj` caps
-the range at `TARGET_SHADOW_TEXEL_METERS x mapSize` (10 m x the page, so ~10 km at 1024), on top of
-the existing relief-and-view heuristic.
+**The range is a multiple of the camera-to-focus distance, never a number of metres.** mapbox's model
+verbatim (`3d-style/render/shadow_renderer.ts`: `cascadeSplitDist = cameraToCenterDistance * 1.5`,
+`shadowCutoutDist = cascadeSplitDist * 3.0`), which is also the unit `FogOptions` already uses for its
+range. `SHADOW_CUTOUT_DISTANCE_FACTOR = 4.5` in `GLTileRenderer.cpp`; `LightOptions.ShadowDistance`
+overrides it, `0` takes the default.
 
-This is what makes shadows hold up as the view flattens; measured on the Crosscall at z14, per
-cascade, with the caster tile count:
+The camera-to-focus distance follows the **zoom alone** (`ViewState::_zoom0Distance / 2^zoom`), so one
+factor holds from a city to a massif. That is the whole reason for the unit.
 
-| tilt | before | after |
-|---|---|---|
-| 90 | 7.2 / 10.7 / 14.3 m, 162 tiles | unchanged - the cap does not bind |
-| 45 | 5.4 / 14.3 / 28.7 m, 242 tiles | 3.9 / 9.0 / 19.1 m, 176 tiles |
-| 30 | 3.3 / 13.1 / 52.6 m, 205 tiles | 1.3 / 2.7 / 10.7 m, 121 tiles |
+Dead ends this replaced, both of them metric:
 
-Sharper *and* cheaper, because a shorter range is also fewer caster tiles: 9.3 -> 10.6 fps at tilt 30.
-A city view at z16 is untouched (the view-based term is already smaller there). Nothing is visibly
-lost in the distance - past that range the shadows were texels tens of metres wide, and the last
-cascade already fades out over its outer margin.
+- **A texel budget** (`TARGET_SHADOW_TEXEL_METERS x mapSize`, 10 m x the page = ~10 km at 1024). It
+  bounded how far shadows reach by how well they can be drawn, which is the right *idea* and the
+  wrong *quantity*: ~10 km at every camera means a mountain's shadow ends one screen away at z12,
+  and no amount of panning brings it back. That is what this replaces.
+- **A slant clamp on the frustum rays** (`t1 = maxDistance / length`, applied *before* the slab
+  intersection). From a high oblique camera the eye is further from the ground than the cutout is
+  long, so every sampled ray failed `t1 < t0`, the ground range came out empty, and the fit fell
+  back to the **whole tile cover** - one enormous box per cascade, which on screen is long shadows
+  everywhere and square. Panning a little put one ray back across the slab and the normal wedge
+  returned: a flip-flop between "pixelated everything" and "cut too near". The cutout now applies to
+  the resulting ground *range*, and the fallback box is bounded by the cutout radius around the
+  camera instead of by the cover.
+
+The earlier texel-budget measurements (Crosscall, z14, per cascade + caster tiles: tilt 45
+5.4/14.3/28.7 m 242 tiles → 3.9/9.0/19.1 m 176 tiles; tilt 30 3.3/13.1/52.6 m 205 tiles →
+1.3/2.7/10.7 m 121 tiles) are kept for the shape of the effect, not as current numbers - the
+camera-relative range is longer at a low zoom and shorter at a high one. **Not re-measured.**
 
 Shadows are **present at every tilt** from 90 down to 5 (the demo clamps at 30; `--es freeRoam look`
 opens the range): `shadows ACTIVE`, boxes fitted, no dropouts.
+
+Known gap: the caster count still grows with the range at a low zoom, where 4.5 x the camera distance
+is tens of kilometres. It is bounded by the visible tile cover (the box only *culls* casters, it does
+not create them), but the per-cascade cost at z11-z12 has not been measured against the old cap.
+
+Shadows are **present at every tilt** from 90 down to 5 (the demo clamps at 30; `--es freeRoam look`
+opens the range): `shadows ACTIVE`, boxes fitted, no dropouts.
+
+### The map is the depth buffer
+
+Where a depth texture can be sampled — ES3 core, or `GL_OES_depth_texture` / `GL_ANGLE_depth_texture`
+— `TerrainShadowMap` attaches a **`DEPTH_COMPONENT24` texture as the depth attachment and has no
+colour attachment at all**. The caster pass then writes depth alone; before, it wrote depth to a
+renderbuffer *and* a packed-RGB copy of `gl_FragCoord.z` to an RGBA8 target, and the receiver
+unpacked it with a `dot`. The atlas goes from RGBA8 + D16 to D24, the caster fragment shader's
+packing is masked off (`glColorMask(FALSE)`), and the receiver's `shadowDepth()` is a plain `.r`
+read under `SHADOW_DEPTH_TEXTURE`.
+
+24 bits, not 16: the packed path spread `gl_FragCoord.z` over three bytes, so a D16 texture would
+have *lost* precision and bought acne back. ES2 + `OES_depth_texture` has only the unsized form and
+takes `UNSIGNED_SHORT`.
+
+Two things worth knowing:
+
+- **A depth-only framebuffer is complete by the ES3 spec**, and is on the Metal-backed emulator
+  (`OpenGL ES 3.0 (4.1 Metal - 90.5)`). It is not guaranteed on ES2 drivers, so an incomplete
+  status falls back to the packed-colour map rather than to no shadows.
+- **The packed path stays.** iOS builds against MetalANGLE (`libs-external/angle-metal`), whose
+  README records the build being patched down to ES2 for 32-bit devices, and `MapView` still has an
+  ES2 fallback on both platforms.
+
+### Hardware PCF, and the ESSL 3.00 programs
+
+`GL_EXT_shadow_samplers` is reported **absent on both the emulator and the Crosscall** (Adreno,
+`OpenGL ES 3.2 V@0502.0`) — for the reason that makes it good news: it is an *ES2* extension, and a
+driver does not advertise it on an ES3 context because `sampler2DShadow` is **core in GLSL ES 3.00**.
+The hardware has it; only the shading language could not reach it.
+
+So the shadow-receiving programs are compiled as **GLSL ES 3.00** (`ESSL3` / `SHADOW_HW` flags), from
+the same shader sources as everything else. The version difference is a prelude in
+`createShaderProgram`: `attribute`→`in`, `varying`→`in`/`out`, `texture2D`→`texture`, and a declared
+`out vec4 glFragColor`. mapbox does exactly this — their fragment shaders write `glFragColor`, which
+is one of those macros.
+
+The one source-level cost: **a fragment shader writes `glFragColor`, never `gl_FragColor`.** A name
+beginning with `gl_` cannot be `#define`d, so that one had to be a real rename (24 sites); the 1.00
+path defines `glFragColor` back to `gl_FragColor`.
+
+`shadowTap()` then becomes one `texture(sampler2DShadow, vec3(uv, ref))` — four depth compares and
+their bilinear average, in the texture unit — where the 1.00 path does a fetch, an unpack and a
+compare. The texture is bound with `TEXTURE_COMPARE_MODE = COMPARE_REF_TO_TEXTURE` and `LINEAR`
+filtering, which is only meaningful *because* the comparison happens before the filter.
+
+Measured on the emulator, Grenoble z12.53 tilt 26 sun 17.783 UTC: **123,401 px of 2,592,000 differ**
+from the manual-tap path — softer shadow edges, as 2x2 filtered comparisons should be.
+
+**It buys quality, not speed, and that was measured.** Interleaved A/B on the Crosscall (Adreno 610,
+`-PprofileRender`, Grenoble z13 tilt 30, `base composite`, `shadow 0.6`, panning, medians over 42
+one-second windows):
+
+| Configuration | fps | GPU drape |
+|---|---|---|
+| `shadow 0` | 23.9 | 1.2 ms |
+| `shadow 0.6`, hardware PCF, 4 taps | 14.6 | 6.0 ms |
+| `shadow 0.6`, manual taps, 4 taps | 14.5 | 6.0 ms |
+| `shadow 0.6`, hardware PCF, 1 tap | 14.6 | 6.2 ms |
+| `shadow 0.6`, hardware PCF, 1 cascade | 17.0 | 4.8 ms |
+
+Hardware PCF is **within noise of the manual path**, and so is dropping from four taps to one. The
+tap count was never the cost: four hardware taps are the same four texture fetches, each now doing
+four compares instead of one, so the change is 16 effective samples for the price of 4. What the
+shadow feature actually costs at this camera is ~4.9 ms of drape, and **1.4 ms of it is the cascade
+count** — one shadow matrix per vertex and one `highp vec3` varying per cascade, which is what
+§"Where the shadow cost actually is" already concluded from a different angle.
+
+So the next perf step is cascades, not sampling: mapbox's `computeRequiredCascades` (a cascade
+nothing lands in is never drawn) and fewer, larger pages.
+
+An ESSL 3.00 program that fails to build falls back to its 1.00 form rather than taking the map with
+it (`hasShaderVersionFallback()`).
+
+### An unrelated compile failure this uncovered
+
+Adding the version prelude shifted shader line numbers, which surfaced a **pre-existing** failure:
+`tilecolormap` built with `TERRAIN_LIGHT` + `TERRAIN` calls `terrainNormal()` and reads `uSunDir` /
+`uSunColor` / `uLightParams`, none of which `colormapFsh` declares — they live in `backgroundFsh`,
+a different string, or come from the application's lighting shader when one is installed. Without
+that shader the program does not compile. It is caught by `TileRenderer::prepareFrame` and logged, so
+it is invisible unless you grep for it: **6 occurrences per run on the committed build**, before any
+of this work. Not fixed here.
+
+Compile errors now quote the source around the reported line and list the program's defines — the
+line number is into the concatenated source, which nothing on disk matches, and without the quote
+every shader error costs a round of guessing.
+
+### The light box is a bounding sphere, so tilt does not change the texel
+
+Each cascade's box is the **minimum bounding sphere of its slice of the view frustum** — mapbox's
+`createLightMatrix` verbatim, whose own comment says why: *"rotation invariant shadow volume"*.
+The radius is a function of the slice distances and the field of view **alone**:
+
+```
+k2 = tan(fovX/2)^2 + tan(fovY/2)^2       // tangent to a frustum corner, read off the projection matrix
+radius = 0.5 * sqrt((far-near)^2 + 2*(far^2+near^2)*k2 + (far+near)^2*k2^2)
+```
+
+No pitch, no bearing, no sun azimuth, no ground. A sphere projects to the same square from every
+direction, so **one texel is the same size at every camera** — the entire reason mapbox's shadows
+look identical at a low tilt and straight down.
+
+**What this replaced, and why it was wrong.** The box used to be fitted to the *visible-ground
+polygon*: a wedge sampled from the frustum edges, clipped to the drawn tiles, hulled, then bounded
+in light space. Two things made it tilt-dependent — the wedge stretches towards the horizon as the
+view flattens, and its extent *in light space* also swings with the sun azimuth. The texel size
+followed both, so building shadows went from sharp at tilt 90 to a grey smear by tilt 45. Measured
+at the reported camera (Crosscall, lat 45.188499 lon 5.734500, z16 tilt 45 rotation -15.12,
+`bld3d`, sun 16.5 UTC): the old fit gives shadows with no locatable edge, the sphere fit gives hard
+edges on individual buildings. About 200 lines of wedge machinery went with it — ray sampling,
+annulus sectors, `convexHull2D`, `clipPolygonToRect` — and the empty-footprint fallbacks that
+existed only because a wedge can miss the tiles.
+
+This is the case the working agreement warns about: mapbox had a sphere, this branch invented a
+polygon fit, and every symptom above followed from that one choice.
+
+**The camera-to-focus distance is passed in, not read from `_viewState`.** That field is filled by
+`TileRenderer::onDrawFrame`, which runs *after* the shadow pass, so the fit would read the previous
+frame's value or none at all — the first version of this change failed to fit any box for exactly
+that reason.
+
+**Resolution is a second-order knob, not the fix.** `shadowMapSize 2048` + `shadowCascades 2`
+(mapbox's configuration) is slightly sharper again and nearly free — 13.6 fps / 5.8 ms drape against
+14.1 / 5.8 for 1024 x 3 at z16 tilt 45, i.e. drift — because the per-cascade cost is matrices and
+varyings rather than sampling. Not the default only because of memory: ~33 MB of atlas at D24
+against ~12.6 MB. mapbox pays ~16 MB by using D16, which is worth trying and **untested**.
+
+**Dead end: the screen-space mask is not the limiter.** `SHADOW_MASK_DIVISOR = 1` (full resolution)
+was tried on the theory that a quarter-resolution mask was blurring building shadow edges. It made
+them look *worse*: the full-res mask exposed the shadow-map staircase the blur had been hiding. The
+mask hides quantisation, it does not cause it. Leave it at 4.
+
+### Normal offset
+
+`LightOptions.ShadowNormalOffset` (default 3, mapbox's) pushes a receiving surface **along its own
+normal** before it looks itself up, by that many shadow-map texels, scaled by
+`min(1 - N.L, 1) * 0.5 + 0.5` — mapbox's curve
+(`3d-style/shaders/_prelude_shadow.vertex.glsl`). It clears acne by moving the sample *sideways*
+rather than lifting its depth, which is what lets the depth bias stay small enough for the shadow to
+stay attached to the foot of the wall casting it.
+
+It applies to **3D extrusions only**. The terrain surface takes its normal per fragment from the DEM
+(`terrainNdl`), and a vertex-stage offset cannot reach that.
+
+Two things that are ours, not mapbox's:
+
+- **The per-cascade offset is CLAMPED to the near cascade's world size.** The offset moves the
+  sample across the shadow map, so on a far cascade — whose texel is metres of ground — three of
+  them walk a roof out of the mountain shadow it stands in, and raising the value takes more of the
+  roof with it. mapbox never sees this: two cascades over a shorter range, so their worst texel is
+  small; we have up to four over 4.5 x the camera distance. Verified on the emulator at Grenoble
+  z17 tilt 40, sun 17.6 UTC, strength 0.9: offset 0 vs **8** (the demo slider's maximum) differs by
+  28,351 px of 2,592,000 with the roof shadows intact.
+- **The texel size is read back off the light matrix** (`2 / (len(row 0) * mapSize)`, the ortho
+  scale, since the light view is a pure rotation) rather than threaded through `MapRenderer`. The
+  offset and the box it belongs to then cannot drift apart.
+
+Known gap: no camera has yet been found where the offset *earns* its artifact — at
+`shadowBias 0` the same views are already acne-free with the offset at 0. It is on by default
+because it is mapbox's default; the case for it is a lower depth bias, which has not been retuned.
 
 ## Buildings
 

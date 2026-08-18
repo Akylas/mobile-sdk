@@ -12,6 +12,8 @@ namespace massif {
         _frameBuffer(0),
         _texture(0),
         _depthBuffer(0),
+        _depthTextureMode(false),
+        _hardwarePCF(false),
         _failed(false)
     {
     }
@@ -75,33 +77,70 @@ namespace massif {
     }
 
     bool TerrainShadowMap::createResourcesAtSize() {
+        // The DEPTH BUFFER IS THE MAP wherever a depth texture can be sampled: the caster pass then
+        // writes depth alone instead of depth plus a packed-RGB copy of it, the atlas is 16 bits
+        // instead of 32 + 16, and the receiver reads the hardware's own value. The packed-colour
+        // path remains for anything without it - the ES2 MetalANGLE build for 32-bit iOS, mainly.
+        _depthTextureMode = GLContext::DEPTH_TEXTURE;
+
         glGenTextures(1, &_texture);
         glBindTexture(GL_TEXTURE_2D, _texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, _size * _cascades, _size, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-        // NEAREST: the packed depth is not a filterable quantity - interpolating the bytes of
-        // two different depths produces a third, meaningless depth. Softening is done by the
-        // shader's PCF taps instead.
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        if (_depthTextureMode) {
+            // 24 bits where the API allows a sized format. The packed path stored gl_FragCoord.z
+            // across three bytes, so dropping to a 16-bit depth texture would LOSE precision and
+            // buy acne back; ES2 + OES_depth_texture has only the unsized form.
+            if (GLContext::ES3) {
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24_OES, _size * _cascades, _size, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, NULL);
+            } else {
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, _size * _cascades, _size, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT, NULL);
+            }
+        } else {
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, _size * _cascades, _size, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+        }
+        // A COMPARISON sampler where the shading language can declare one (ESSL 3.00, hence ES3):
+        // the texture unit then does four depth compares per fetch and returns their bilinear
+        // average, so LINEAR is right here. Without it the filter must be NEAREST - depth is not a
+        // filterable quantity, and interpolating two depths gives a third, meaningless one.
+        _hardwarePCF = _depthTextureMode && GLContext::ES3;
+        if (_hardwarePCF) {
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE_EXT, GL_COMPARE_REF_TO_TEXTURE_EXT);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC_EXT, GL_LEQUAL);
+        }
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, _hardwarePCF ? GL_LINEAR : GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, _hardwarePCF ? GL_LINEAR : GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glBindTexture(GL_TEXTURE_2D, 0);
 
-        glGenRenderbuffers(1, &_depthBuffer);
-        glBindRenderbuffer(GL_RENDERBUFFER, _depthBuffer);
-        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, _size * _cascades, _size);
-        glBindRenderbuffer(GL_RENDERBUFFER, 0);
+        if (!_depthTextureMode) {
+            glGenRenderbuffers(1, &_depthBuffer);
+            glBindRenderbuffer(GL_RENDERBUFFER, _depthBuffer);
+            glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, _size * _cascades, _size);
+            glBindRenderbuffer(GL_RENDERBUFFER, 0);
+        }
 
         GLint prevFrameBuffer = 0;
         glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFrameBuffer);
         glGenFramebuffers(1, &_frameBuffer);
         glBindFramebuffer(GL_FRAMEBUFFER, _frameBuffer);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, _texture, 0);
-        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, _depthBuffer);
+        if (_depthTextureMode) {
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, _texture, 0);
+        } else {
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, _texture, 0);
+            glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, _depthBuffer);
+        }
         bool complete = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
         glBindFramebuffer(GL_FRAMEBUFFER, prevFrameBuffer);
         if (!complete) {
+            // A depth-only framebuffer is complete by the ES3 spec, but a driver that refuses one
+            // must not mean no shadows: fall back to the packed target rather than to nothing.
+            bool retryPacked = _depthTextureMode;
             deleteResources();
+            if (retryPacked) {
+                Log::Warn("TerrainShadowMap: depth-only framebuffer incomplete, falling back to the packed-colour map");
+                GLContext::DEPTH_TEXTURE = false;
+                return createResourcesAtSize();
+            }
             _failed = true;
             return false;
         }
@@ -120,7 +159,11 @@ namespace massif {
         // Re-attached per pass; endPass detaches it. A texture left attached to a framebuffer is
         // still a render target, and sampling one in the same frame - which every shadowed draw
         // does - is undefined and serialises on this driver.
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, _texture, 0);
+        if (_depthTextureMode) {
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, _texture, 0);
+        } else {
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, _texture, 0);
+        }
         glViewport(0, 0, _size * _cascades, _size);
         glDisable(GL_BLEND);
         glDisable(GL_STENCIL_TEST);
@@ -137,9 +180,12 @@ namespace massif {
         glPolygonOffset(1.0f, 2.0f);
         // White = depth 1 = nothing in the way, which is what an untouched texel must mean.
         glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+        // Nothing is written to colour in depth-texture mode - there is no colour attachment - and
+        // masking it also spares the caster fragment shader's packing every fragment.
+        glColorMask(_depthTextureMode ? GL_FALSE : GL_TRUE, _depthTextureMode ? GL_FALSE : GL_TRUE, _depthTextureMode ? GL_FALSE : GL_TRUE, _depthTextureMode ? GL_FALSE : GL_TRUE);
         if (clearAll) {
             glDisable(GL_SCISSOR_TEST);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            glClear(clearMask());
         }
         return true;
     }
@@ -154,12 +200,25 @@ namespace massif {
     }
 
     void TerrainShadowMap::clearCascade() {
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glClear(clearMask());
+    }
+
+    unsigned int TerrainShadowMap::clearMask() const {
+        return _depthTextureMode ? GL_DEPTH_BUFFER_BIT : (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    }
+
+    bool TerrainShadowMap::isDepthTexture() const {
+        return _depthTextureMode;
+    }
+
+    bool TerrainShadowMap::isHardwarePCF() const {
+        return _hardwarePCF;
     }
 
     void TerrainShadowMap::endPass(unsigned int previousFrameBuffer, int viewportWidth, int viewportHeight) {
         glDisable(GL_SCISSOR_TEST);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0); // see beginPass
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, _depthTextureMode ? GL_DEPTH_ATTACHMENT : GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0); // see beginPass
         glDisable(GL_POLYGON_OFFSET_FILL);
         glPolygonOffset(0.0f, 0.0f);
         glBindFramebuffer(GL_FRAMEBUFFER, previousFrameBuffer);
