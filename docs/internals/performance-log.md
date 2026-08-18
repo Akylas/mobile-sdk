@@ -1487,7 +1487,7 @@ windows longer than 1600 ms discarded, two cycles per configuration.
 
 ## 18. Phase 4 opened by measuring first, and the first two items died (2026-08-19)
 
-[Phase 4](rendering/16-graphics-api-migration.md#phase-4--harvest) lists five ES 3.0 harvests
+[Phase 4](rendering/16-graphics-api-migration.md#phase-4--harvest-closed-nothing-shipped) lists five ES 3.0 harvests
 "ordered by expected payoff". Nothing had been measured against that order. Method: Crosscall
 HLTE556N (Adreno 610), `bench/city2d.sh` — Grenoble 5.724/45.188 z16.22 tilt 26, terrain off,
 composite base with the bundled style project, scripted north pan, `-PprofileRender`.
