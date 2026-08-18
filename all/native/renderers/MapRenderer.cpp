@@ -1459,6 +1459,9 @@ namespace massif {
     // quarter of the screen resolution is not visible in the result - measured against a half:
     // the mask pass 14-16 ms -> 8-9 ms, and 8.5 -> 9.6 fps.
     static const int SHADOW_MASK_DIVISOR = 4;
+    // The tile zoom the caster ring's reach is derived from: coarse enough that one tile spans the
+    // massif whose shadow reaches the view, not just the ground under it. ~28 km at latitude 45.
+    static const int SHADOW_RELIEF_ZOOM = 10;
     static const int SHADOW_MAP_MAX_AGE = 30;
     // Frames between two refreshes driven by newly arrived tile content.
     static const int SHADOW_MAP_CONTENT_INTERVAL = 4;
@@ -1591,7 +1594,21 @@ namespace massif {
                     // (7 km at z16 is a 35x35 ring). The ring is generated at the coarsest zoom
                     // that still needs no more than casterMargin tiles to span the throw, and the
                     // partition logic below subdivides whatever overlaps the finer cover.
+                    // The relief that matters is the terrain AROUND the view, not the cover's own.
+                    // At z16 over a valley floor the cover is a few tiles of flat ground - metres of
+                    // relief, a throw of a couple of hundred metres, and a ring that collapses back
+                    // onto the cover's own zoom. The mountain casting into that view is outside the
+                    // cover entirely, so its height was never in the range. A coarse ancestor spans
+                    // the massif and costs one elevation query.
                     double relief = std::max(0.0, maxHeight - minHeight);
+                    if (std::shared_ptr<ElevationManager> elevationManager = terrainOptions->getElevationManager()) {
+                        const vt::TileId& sample = coverTileIds[coverTileIds.size() / 2];
+                        int coarseZoom = std::min(sample.zoom, SHADOW_RELIEF_ZOOM);
+                        int shift = sample.zoom - coarseZoom;
+                        double coarseMin = 0, coarseMax = 0;
+                        elevationManager->getMinMaxDisplayHeightExact(MapTile(sample.x >> shift, sample.y >> shift, coarseZoom, 0), coarseMin, coarseMax);
+                        relief = std::max(relief, coarseMax - coarseMin);
+                    }
                     double sunUp = std::max(0.05f, shadowSunDir(2));
                     double throwDistance = relief * std::sqrt(std::max(0.0, 1.0 - sunUp * sunUp)) / sunUp;
                     int ringZoom = maxCoverZoom;

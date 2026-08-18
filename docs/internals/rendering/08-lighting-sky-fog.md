@@ -69,9 +69,18 @@ Design points, each measured:
   mountain into the cover. Holding the distance means dropping the resolution — 7 km at z16 would be
   a 35x35 ring — so the ring is generated at the **coarsest zoom that spans the throw in
   `shadowCasterMargin` tiles**, and `shadowCasterMargin` now sets the ring's resolution rather than
-  its reach. Measured on the Crosscall at lat 45.193196 lon 5.735717 z16.04 tilt 90: 22 caster tiles
-  per pass, 1.0 ms per pass, and the ring costs 2.3 ms of drape (20.5 fps against 25.4 with no ring).
-  The old fine ring drew up to 49 tiles there and still missed the mountain.
+  its reach.
+
+  **The relief is read from a coarse ancestor (`SHADOW_RELIEF_ZOOM = 10`), not from the cover.** This
+  is the part that is easy to get wrong and did not work at first: at z16 top-down over a valley the
+  cover is a few tiles of flat ground, so the cover's own relief is metres, the throw is a couple of
+  hundred metres, and the ring collapses straight back onto the cover's zoom. The mountain casting
+  into that view is *outside* the cover, so its height is never in that range. One elevation query on
+  an ancestor spanning the massif fixes it. Measured on the Crosscall at lat 45.193196 lon 5.735717
+  z16.04 tilt 90: 21 caster tiles per pass, 1.0 ms per pass, 23.5 fps / 3.5 ms drape — *faster* than
+  the cover-relief version (20.5 fps / 4.8 ms, 22 tiles) because the same number of tiles now covers
+  the throw coarsely instead of covering the valley floor finely. Against no ring at all: 25.7 fps /
+  2.3 ms. The original fine ring drew up to 49 tiles and still missed the mountain.
 - **The caster set has to stay a partition of the ground.** The cover is a quadtree partition, but the
   ring is generated at each cover tile's own zoom and the cover mixes zooms (up to
   `TerrainMaxTileZoomCoarsening` levels), so the ring around a coarse tile lands on top of the fine
