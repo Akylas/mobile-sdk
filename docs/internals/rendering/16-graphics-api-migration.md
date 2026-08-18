@@ -12,9 +12,9 @@ Windows/Linux/macOS need later. Does **not** cover what the renderer draws — t
 [this set](index.mdx).
 
 Status as of 2026-08-18: Phase 0 run — gates 0.1 and 0.2 pass, gate 0.3 is **not answered** (see
-[Phase 0 results](#phase-0--results)). Phases 2 and 3 are code-complete; Phase 3 is verified on the
-iOS simulator, and **neither is verified on hardware**. The Apple source was decided against
-upstream ANGLE, see [MetalANGLE master, not upstream](#metalangle-master-not-upstream-angle).
+[Phase 0 results](#phase-0--results)). Phases 2 and 3 are done and **verified on an Adreno 610
+device**; an iOS device is still owed. The Apple source was decided against upstream ANGLE, see
+[MetalANGLE master, not upstream](#metalangle-master-not-upstream-angle).
 
 ## Where we are
 
@@ -357,8 +357,9 @@ iOS 13 floor — where every device is A7+ — that is a rounding error. The app
 in [migration.md](../../migration.md#opengl-es-30-is-required).
 
 **Done when**: an Adreno 610 device and one iOS device show no regression at the bench cameras.
-Neither has been run — the Android APK builds and the manifest merges at `0x00030000`, but nothing
-has been rendered on hardware.
+The Adreno 610 leg is done — see [Phase 3](#phase-3--glsl-es-300), which was verified on the same
+device and run, and exercises this phase's context and capability changes on the way. An iOS device
+is still owed.
 
 ### Phase 3 — GLSL ES 3.00
 
@@ -400,19 +401,31 @@ compiles a shader — that happens at runtime. Only running it found this.
 **Done when**: every program compiles at `300 es` on both device families and
 `hasShaderVersionFallback()` returns false.
 
-Where that stands, measured on the iPhone 16 Pro simulator through ANGLE (the strict translator) at
-lon 5.7606 / lat 45.2442 / z13.6 / tilt 55, terrain on:
+Measured at lon 5.7606 / lat 45.2442 / z13.6 / tilt 55, terrain on, on two unrelated GL stacks:
 
-| | |
-|---|---|
-| shader compile / link failures | **0** |
-| ESSL 3.00 → 1.00 fallbacks | **0** |
-| GL errors | **0** |
-| frame vs the ESSL 1.00 build, identical launch args | **every map band 0.00% different** |
+| | iPhone 16 Pro simulator (ANGLE/Metal) | Crosscall HLTE556N, **Adreno 610**, ES 3.2 |
+|---|---|---|
+| shader compile / link failures | 0 | **0** |
+| ESSL 3.00 → 1.00 fallbacks | 0 | **0** |
+| GL errors | 0 | **0** |
+| frame vs the ESSL 1.00 build | every map band 0.00% | see below |
 
-The only differing pixels are the status-bar clock and the home indicator — 0.28% of the frame, all
-of it iOS chrome. Still owed: the same on an Adreno 610 and a real iOS device, where the drivers are
-not ANGLE.
+The Adreno is the one that matters, because its driver is a real Qualcomm GLSL compiler rather than
+ANGLE's translator, and it is where `GLContext::VERSION` first met a vendor version string —
+`OpenGL ES 3.2 V@0502.0 (GIT@...)` parses to `320`, as tangram's parser is meant to.
+
+The device A/B needs its control quoted or it says nothing. Same build run twice differs by 0.19%
+of sampled pixels (labels are placed as tiles arrive, so no two runs match exactly). ESSL 1.00 vs
+3.00 differs by 0.37%, and the per-band profile is the same shape — the excess is confined to
+glyph pixels, black text against landcover green in both directions, i.e. sub-pixel label
+antialiasing. Cropped and compared by eye, the two frames are indistinguishable: same contours, same
+labels, same positions.
+
+One thing the A/B settled that inspection alone would not: a **route line that draws in broken
+chunks** over terrain is present *identically in both builds*. It is the known open terrain
+line-following issue, not a regression from this phase.
+
+Still owed: a real iOS device (Apple's driver, not the simulator's).
 
 #### The `gl_FragColor` disagreement — settled, tangram was right
 
