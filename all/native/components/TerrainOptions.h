@@ -200,7 +200,8 @@ namespace massif {
          * Sets which style layers must NOT be baked into the drape texture, as a regular expression
          * over the vt layer name (which comes from the style's own rule names). They are drawn live
          * in the 3D pass at screen resolution instead. Hairline content is what the drape resolution
-         * costs, hence contours by default.
+         * costs, hence contours by default. They still take the terrain's sun and shadow, so they
+         * shade like the ground they lie on.
          * @param filter The regular expression, or an empty string to drape everything.
          */
         void setNoDrapeLayerFilter(const std::string& filter);

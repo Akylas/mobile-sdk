@@ -39,6 +39,34 @@ well, from the geometric normal — not from the hillshade's own exaggerated slo
 surface underneath leaves the shading over it unlit, and since a shadow multiplies the lit colour,
 nothing shows at all.
 
+### Undraped 2D content takes the same sun
+
+Content baked into the drape is lit once, by the surface draw that samples the drape texture. What
+is **not** baked is drawn live into the 3D scene and was therefore the only thing in the frame that
+kept its flat style colour: a `TerrainOptions.NoDrapeLayerFilter` layer (contours by default), and
+everything 2D when the drape is off. `GEOMETRY_LIGHT` in `renderTileGeometry` closes that — point,
+line and polygon programs multiply by the same normalised Lambert the surface uses, with N·L taken
+from the **terrain** normal (`terrainNdl`, the 3×3 DEM stencil), never from the geometry's own flat
+normal. Extrusions are excluded: they light by their own model (see [Buildings](#buildings)).
+
+Shadows already worked this way, so the shading and the shadow now share one `ndl` per fragment
+(`applyTerrainShading` in `commonFsh`, one helper for all three programs).
+
+**Cost** — Crosscall HLTE556N (Adreno 610), massif at z13.6 / tilt 55, contours over the whole
+frame, `--es terrainLight true --es ambient 0.35`, GPU timer, two paired runs per configuration:
+
+| | GPU `layers` | GPU total | fps |
+|---|---|---|---|
+| shadows on, before | 4.85 ms | 32.4–36.6 ms | 15.1–15.7 |
+| shadows on, after | 4.83 ms | 32.2–35.0 ms | 15.3–16.1 |
+| shadows off, before | 1.30 ms | 18.8 ms | 20.8–22.0 |
+| shadows off, after | 2.51 ms | 20.1 ms | 20.3–20.6 |
+
+With shadows on it is free: the stencil was already being paid for the shadow's slope bias. With
+shadows off the lighting is what pays for it, +1.2 ms of `layers` (+6% of the frame) — the price of
+a contour that shades like the ground under it. Cheaper normals were not tried: a different normal
+than the surface's would make the two disagree exactly where the eye compares them.
+
 ## Cast shadows
 
 `MapRenderer::applyTerrainShadows` + `TerrainShadowMap` (all/native/renderers/utils/).

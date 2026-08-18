@@ -1375,3 +1375,35 @@ Worth remembering before either is attempted: the 3D label batch **cache** remov
 targeted and bought **zero frames** ([06-labels.mdx](rendering/06-labels.mdx#a-persistent-label-batch-and-what-blocks-it)),
 and was reverted for correctness. Fewer label draws may go the same way — price it against the frame,
 not against the counter.
+
+---
+
+## 17. Lighting the undraped 2D content (2026-08-18)
+
+Contours (and any `NoDrapeLayerFilter` layer, and every 2D layer when the drape is off) were the
+only content in a lit scene still drawn at flat style colour: the sun is applied by the surface
+draw that samples the drape texture, and these are drawn live instead. `GEOMETRY_LIGHT` gives the
+point/line/polygon programs the surface's own normalised Lambert, N·L from the terrain normal.
+Mechanism and the "why not a cheaper normal" in
+[rendering/08-lighting-sky-fog.md](rendering/08-lighting-sky-fog.md#undraped-2d-content-takes-the-same-sun).
+
+**Method.** Crosscall HLTE556N (Adreno 610), two prebuilt APKs (no rebuild inside a pair), massif
+z13.6 / tilt 55 / lat 45.2442 lon 5.7606, contours over the whole frame,
+`--es terrainLight true --es ambient 0.35 --es sunHour 8`, 16 pan swipes after a 60 s settle, `PROF`
+windows longer than 1600 ms discarded, two cycles per configuration.
+
+| Configuration | GPU `layers` | GPU total | fps |
+|---|---|---|---|
+| shadows on (0.3), before | 4.83 / 4.87 ms | 32.4 / 36.6 ms | 15.1 / 15.7 |
+| shadows on (0.3), after | 4.88 / 4.78 ms | 35.0 / 32.2 ms | 16.1 / 15.3 |
+| shadows off, before | 1.29 / 1.30 ms | 18.8 / 18.8 ms | 20.8 / 22.0 |
+| shadows off, after | 2.55 / 2.47 ms | 20.2 / 20.0 ms | 20.6 / 20.3 |
+
+- **With shadows on the sun is free.** The 3×3 DEM stencil was already being run per fragment for
+  the shadow's slope bias; the lighting reuses that `ndl`. Both cycles land inside the run-to-run
+  spread, in opposite directions — no delta is claimed.
+- **With shadows off it costs the stencil**: `layers` doubles, +1.2 ms on a 19 ms GPU frame (+6%),
+  fps 21.4 → 20.5. Repeatable across both cycles, unlike the shadowed pair.
+- Reading `layers` rather than fps is what makes this measurable at all: the device presents at
+  43 Hz (§15.6) and the frame here is far from that ceiling, so ±1 fps of run-to-run noise swamps
+  a 1.2 ms section change.
