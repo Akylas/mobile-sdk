@@ -454,15 +454,22 @@ killed the first two items and reordered the rest.
 | Item | Status at the city camera, Adreno 610 |
 |---|---|
 | 1. Instancing (billboards, markers) | **Dead here** — 0.1 ms CPU, 0.0 ms GPU, and billboards are already one draw per batch. Needs a marker-heavy bench to justify at all |
-| 2. Shadow cascades as a texture array | Untested — shadows are off in this bench |
+| 2. Shadow cascades as a texture array | **The one with a measured case.** At the *terrain* camera the shadow pass is 15.2 ms of a 27.5 ms GPU frame — 55%. Also lifts the texture-size cap that 4 × 2048 cascades would hit |
 | 3. Packed vertex attributes | Does not cut draws: they come from tile × style layer, not from the 16-bit index cap |
 | 4. UBOs | The only remaining item aimed at the bottleneck. Targets `styleUpload` ≈ **0.67 ms/frame (~1.7%)** — judge it on `layers`, not fps |
 | 5. `glMapBufferRange` for label streaming | **Measured no-op** — the six label buffers are a few KB each. Reverted, not shipped |
 
-The frame is CPU-bound on draw submission at **320 geometry draws/frame**, so the lever the data
-points at is merging geometry across tiles per style layer — which **is not on this list**. That is
-the honest outcome of the phase so far: the ES 3.0 baseline is worth having for what it removed
-(Phase 2's extension probes) more than for what this phase has so far harvested.
+Two cameras, two different bottlenecks, and the list was written for neither:
+
+- **City (2D, shadows off)** — CPU-bound on draw submission at **320 geometry draws/frame** (63
+  tiles × ~5 style layers). The lever is merging geometry across tiles per style layer, which is
+  **not on this list**; item 3 does not deliver it either, since the draws come from that structure
+  and not from the 16-bit index cap.
+- **Terrain (shadows on)** — GPU-bound, and **55% of the GPU frame is the shadow pass**. That is
+  what item 2 addresses, and it is the only item of the five that measurement supports.
+
+So the order to take the rest in is **2, then nothing else here** until a cross-tile batching item
+exists to take the city case.
 
 ### Phase 5 — desktop
 

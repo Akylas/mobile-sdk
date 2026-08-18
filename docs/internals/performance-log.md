@@ -1559,3 +1559,36 @@ move fps on this device, and it should be judged on `layers` rather than fps for
 The lever the data actually points at — merging geometry across tiles per style layer, to cut 320
 draws — **is not in Phase 4's list**. Item 3 (packed attributes) does not deliver it either: the
 draws come from the tile × style-layer structure, not from the 16-bit index cap.
+
+### 18.4 The terrain camera says shadows are 55% of the GPU frame
+
+The city bench has shadows off, which is why §18 found nothing to optimise in it. Re-measured at
+the mountain camera (Saint-Eynard, 5.760595/45.244172 z13.2 tilt 55, `--es terrain true --es shadow
+0.6 --es terrainLight true --es bld3d true`), same device and profiler build:
+
+| | ms/frame |
+|---|---|
+| CPU frame | 36.0–38.8 |
+| GPU frame | **27.5–28.3** |
+| fps | 15.7–16.1 |
+
+GPU sections: sky 4.5 · background 1.2 · layers 6.2 · layers3D 0.3 · **shadowCast 8.3–9.0** ·
+**shadowMask 6.9**.
+
+**The shadow pass is 15.2–15.9 ms, 55% of the GPU frame.** That is the largest single measured cost
+found anywhere in this phase, and it makes Phase 4 item 2 — shadow cascades as a texture array — the
+only one of the five with a measured case behind it.
+
+What an array is expected to buy, and what it is not:
+
+- **Not** `shadowCast`. That cost is casters × cascades; the render target's shape does not change
+  how much geometry is drawn.
+- **Possibly** `shadowMask`, which samples the `_size * _cascades` wide atlas with manual slice
+  offsetting and clamping per cascade. An array indexes the layer directly, so the offset maths and
+  the clamp both disappear.
+- **Certainly** the texture-size cap: 3 × 1024 is a 3072-wide texture today, and 4 × 2048 would be
+  8192, at or over `GL_MAX_TEXTURE_SIZE` on this class of device. An array removes that ceiling, so
+  it is a robustness fix regardless of what it does to the frame.
+
+Measure it build-to-build (`bench/abapk.sh`) rather than behind a property: a second shadow-map path
+kept alive only for the A/B is exactly the flag-driven duplication the working agreement warns off.
