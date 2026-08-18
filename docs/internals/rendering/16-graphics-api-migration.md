@@ -227,6 +227,46 @@ To answer it properly: build both with `MASSIF_FRAME_PROFILER=1 MASSIF_VT_RENDER
 per-section CPU/GPU milliseconds are visible *below* the vsync cap, and run on a device at a camera
 that is actually GPU-bound. Frame rate against a 60 Hz cap cannot resolve this either way.
 
+### What still needs a physical device
+
+Nothing below has been observed on real Apple hardware. The `arm64` and Catalyst slices are built
+and staged, so this is a session with a phone, not more build work.
+
+```sh
+cd scripts/ios-dev && PROFILE_RENDER=1 ./bootstrap.sh device
+```
+
+| # | Check | Why it needs a device |
+|---|---|---|
+| 1 | `scripts/ios-dev` runs at all on `arm64` | The device slice has only ever been built, never linked or launched |
+| 2 | Startup reports `OpenGL ES 3.0.0 (ANGLE 2.1.0.ec925142edeb)` | Gate 0.1 is simulator-only; confirms the version string on the real backend |
+| 3 | The ESSL 3.00 shadow program compiles — `hasShaderVersionFallback()` false, no `_essl3Failed` | It is the only current `ESSL3_FLAG` user, so it is the one existing proof that ANGLE takes a `300 es` program at all. Ignore the `shadow samplers` log field, see below |
+| 4 | **Gate 0.3**, the real one — EAGL vs MetalANGLE `8ef9aba` vs master | EAGL does not exist on an Apple Silicon simulator at all |
+| 5 | A screenshot at a fixed camera matches the EAGL build | Phase 1's "done when" |
+| 6 | Catalyst still builds and runs | The Catalyst slices were rebuilt at master and are otherwise untested |
+
+For (4), follow `scripts/android-dev/bench/README.md`'s discipline rather than a single run:
+interleave the builds (A/B/A/B) and take medians over many windows — same-build drift on a device
+was 14.6–17.4 fps across one morning. Read `PROF` / `RenderStats` from the device console. The
+expected loss, if there is one, is **per-draw** — this renderer's uniform volume, not its shaders —
+so the city camera with many small draws is the case to bench, not the terrain.
+
+Bench a **Release** build. `RelWithDebInfo` is plain `-O2 -g`, while Release applies `-Oz` and thin
+LTO; a number from the wrong configuration is not the shipped one.
+
+#### `shadow samplers 0` is a red herring
+
+The startup line reports it and it means nothing here. `GLContext` probes
+`HasGLExtension("GL_EXT_shadow_samplers")`, which is an **ES 2.0** extension: in ES 3.0
+`sampler2DShadow` and depth comparison are core, so a driver has no reason to export the old string
+on an ES 3.0 context, and most do not.
+
+`GLContext::SHADOW_SAMPLERS` is then **never read** — it is logged and nothing else. Hardware PCF is
+gated on `_depthTextureMode && GLContext::ES3` in `TerrainShadowMap::create`, both true on the
+simulator run. The probe is dead code and a deletion candidate for Phase 2, which already collapses
+the `GLContext` extension probes; the log field should go with it or be re-pointed at
+`GLContext::ES3`.
+
 ## What ES 3.0 actually buys
 
 Nothing lands from the version bump itself. The wins are the work it unblocks:
@@ -353,8 +393,8 @@ bench has not been run, so this is deferred, not decided.
 - Every number in "Where we are" is from static analysis of the tree, unchanged since.
 - ES 3.0 on the Metal backend is confirmed **on the simulator only** (gate 0.1). No device run yet,
   and the fork's own README grades its ES 3.0 at 90%.
-- `shadow samplers 0` on the simulator: the hardware-PCF path, the only current `ESSL3_FLAG` user,
-  is not available there. Unknown whether that is a simulator limitation or the backend.
+- `GLContext::SHADOW_SAMPLERS` is dead — probed from an ES 2.0 extension string, logged, never read.
+  Phase 2 should delete it along with the other extension probes.
 - The linked (as opposed to static-slice) binary-size delta is still unmeasured. The stripped
   arm64-simulator slice is 14.2 MB at master, 15.2 MB at the vendored 2021 build.
 - Xamarin is assumed droppable. If it is not, it blocks an ANGLE-only iOS on its own.

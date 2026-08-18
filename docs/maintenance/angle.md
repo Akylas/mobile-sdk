@@ -67,20 +67,38 @@ Per slice, change `-sdk` and `-arch`:
 | `arm64` | `iphoneos` | `arm64` | `Release-iphoneos` |
 | `x86_64` | `iphonesimulator` | `x86_64` | `Release-iphonesimulator` |
 
-Mac Catalyst uses the scheme rather than the target, and is then split with `lipo`:
+Mac Catalyst uses `-scheme`, plus the same settings block, once per architecture:
 
 ```sh
 xcodebuild -project OpenGLES.xcodeproj -scheme MetalANGLE_static -sdk macosx \
   -configuration Release -destination 'platform=macOS,variant=Mac Catalyst' \
-  build SUPPORTS_MACCATALYST=YES
-lipo <output>/libMetalANGLE_static.a -extract arm64  -output libangle.a   # -> arm64-maccatalyst/
-lipo <output>/libMetalANGLE_static.a -extract x86_64 -output libangle.a   # -> x86_64-maccatalyst/
+  SUPPORTS_MACCATALYST=YES CODE_SIGNING_ALLOWED=NO <same settings as above> build
+# and for the Intel slice:
+#   -destination 'platform=macOS,variant=Mac Catalyst,arch=x86_64' ARCHS=x86_64 ONLY_ACTIVE_ARCH=NO
 ```
+
+Two traps here, both different from the 2021 recipe in the `angle-metal` README:
+
+- **`-scheme` writes to DerivedData, not `build/`.** The `-target` invocations above land in
+  `ios/xcode/build/Release-<sdk>/`; the Catalyst ones land in
+  `~/Library/Developer/Xcode/DerivedData/OpenGLES-*/Build/Products/Release-maccatalyst/`. Read the
+  `Libtool`/`Strip` line at the end of the build log for the actual path rather than guessing.
+- **The result is thin, not fat.** The old recipe built one archive and split it with
+  `lipo -extract`. On Xcode 26.5 the build resolves to the host architecture only (`-arch_only
+  arm64` in the libtool line), so there is nothing to extract — build each architecture separately
+  and copy each straight to its `<arch>-maccatalyst/libangle.a`.
 
 See [Mac Catalyst](mac-catalyst.md) for why those slices behave like a macOS build at link time.
 
 `armv7` and `i386` slices still exist in the submodule and are dead — the deployment floor is
 iOS 13.0. Do not rebuild them.
+
+### Bitcode is gone, and that is most of the size drop
+
+The vendored 2021 device slice is **51.7 MB**; rebuilt at master it is **14.2 MB**. Almost all of
+that is bitcode — the old README added `OTHER_CFLAGS="-fembed-bitcode"` for the arm64 and armv7
+device targets. Apple removed bitcode in Xcode 14, so the flag is not carried forward and must not
+be re-added. The simulator slices never had it, which is why they were 15.2 MB then and 14.2 MB now.
 
 ### Why each strip setting is there
 
@@ -124,7 +142,7 @@ suffix did not change, the link picked up the old one.
 `scripts/ios-dev` is the fastest way to exercise it:
 
 ```sh
-cd scripts/ios-dev && ./bootstrap.sh
+cd scripts/ios-dev && ./bootstrap.sh            # or './bootstrap.sh device'
 xcodebuild -project MassifDemo.xcodeproj -scheme MassifDemo -sdk iphonesimulator \
   -destination 'id=<simulator-udid>' build
 ```
@@ -132,10 +150,20 @@ xcodebuild -project MassifDemo.xcodeproj -scheme MassifDemo -sdk iphonesimulator
 `-destination` needs the UDID from `xcrun simctl list devices available`; the by-name form fails
 with *"no available devices matched the request"* even when the name is right.
 
+For a frame-time comparison add `PROFILE_RENDER=1` to the bootstrap — it compiles in
+`MASSIF_FRAME_PROFILER` / `MASSIF_VT_RENDER_STATS` and their `PROF` / `RenderStats` lines, the
+counterpart of android-dev's `-PprofileRender`. It is a compile-time flag, so switching it needs a
+re-bootstrap.
+
 ## Known gaps
 
-- Only `arm64-simulator` has actually been rebuilt at master. The device, x86_64 and Catalyst slices
-  in the submodule are still the 2021 `8ef9aba` builds.
-- No device run: ES 3.0 on the Metal backend is confirmed on the simulator only.
+- All five live slices are rebuilt at master `ec925142e` — `arm64`, `arm64-simulator`,
+  `arm64-maccatalyst`, `x86_64-maccatalyst`, `x86_64`. `armv7` and `i386` are dead and were not.
+  **They are built but not yet vendored**: the submodule still carries the 2021 binaries.
+- **Nothing has been run on a physical device** — ES 3.0 on the Metal backend is confirmed on the
+  simulator only, and Catalyst was rebuilt but not launched. The checklist is in
+  [Graphics API migration](../internals/rendering/16-graphics-api-migration.md#what-still-needs-a-physical-device).
 - MetalANGLE's own README grades its ES 3.0 at 90% — primitive restart and last-provoking-vertex
-  flat shading are unimplemented. Not yet checked against what this renderer draws.
+  flat shading are unimplemented. Checked against this renderer: **neither is used** (no
+  `PRIMITIVE_RESTART` call sites, no `flat` qualifiers in the vt shaders), so the gap does not bite
+  today. Re-check if either appears.
