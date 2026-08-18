@@ -1592,3 +1592,54 @@ What an array is expected to buy, and what it is not:
 
 Measure it build-to-build (`bench/abapk.sh`) rather than behind a property: a second shadow-map path
 kept alive only for the A/B is exactly the flag-driven duplication the working agreement warns off.
+
+### 18.5 Shadow cascades as a texture array: 28% SLOWER on the Adreno 610
+
+Phase 4 item 2, implemented and measured. Each cascade became one layer of a
+`GL_TEXTURE_2D_ARRAY` (`glTexStorage3D`, `glFramebufferTextureLayer` per cascade) instead of a page
+of one `_size * _cascades` wide atlas; the receiver sampled `sampler2DArrayShadow` and the atlas
+scale/offset in `shadowFactorSlope` disappeared. It rendered correctly — shadows ACTIVE, no GL
+errors, no shader failures, cast shadows visually right.
+
+Two APKs, interleaved over two rounds, mountain camera with terrain, shadows and 3D buildings,
+25 one-second windows per arm:
+
+| arm | shadowCast | shadowMask | GPU total |
+|---|---|---|---|
+| atlas | 7.80 | 6.70 | 20.00 |
+| **array** | **8.80** | **10.30** | **25.70** |
+| delta | +1.00 (+12.8%) | **+3.60 (+53.7%)** | **+5.70 (+28.5%)** |
+
+Consistent across rounds, and the atlas arm is the stable one: mask 6.70/6.70 against the array's
+8.70/11.30.
+
+Where it goes:
+
+- **`shadowMask` +53.7%.** The receiver does four PCF taps per fragment. On this Adreno,
+  `sampler2DArrayShadow` is evidently off the fast path that `sampler2DShadow` is on — the atlas
+  arithmetic that was removed (one multiply-add per tap) is far cheaper than whatever the array
+  fetch costs instead.
+- **`shadowCast` +12.8%.** `glFramebufferTextureLayer` per cascade re-attaches the target three
+  times per pass where the atlas set a viewport; the driver appears to treat each as a real target
+  change.
+
+**Reverted, not shipped.** The change is *correct* and it does remove the size cap (`setSize` no
+longer has to divide `GL_MAX_TEXTURE_SIZE` by the cascade count, so 4 x 2048 becomes possible), but
+28% of the GPU frame is not a price worth paying for a cap nothing currently hits.
+
+Worth knowing before anyone tries again: this is a per-GPU result. A desktop or Apple GPU may not
+share the Adreno's array-shadow penalty, so if the cascade count ever needs to exceed what the
+atlas can hold, re-measure rather than assume this verdict travels.
+
+### 18.6 Phase 4, so far: three items measured, three negative
+
+| Item | Verdict on the Adreno 610 |
+|---|---|
+| 1. Instancing | 0.1 ms CPU / 0.0 ms GPU at the city camera — nothing to win, and already batched |
+| 2. Shadow cascades as a texture array | Implemented; **+28.5% GPU**. Reverted |
+| 5. `glMapBufferRange` label streaming | No-op; buffers are a few KB. Reverted |
+
+That is not a failure of the phase, it is the phase working: the list was written from what ES 3.0
+*offers* rather than from what this renderer *spends*, and measuring first cost three short
+experiments instead of three shipped regressions. What the numbers keep pointing at — 320 draws per
+frame in the city, 55% of the terrain GPU frame in shadow rendering itself — is not on the list.

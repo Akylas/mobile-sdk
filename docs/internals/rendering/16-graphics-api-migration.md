@@ -454,7 +454,7 @@ killed the first two items and reordered the rest.
 | Item | Status at the city camera, Adreno 610 |
 |---|---|
 | 1. Instancing (billboards, markers) | **Dead here** — 0.1 ms CPU, 0.0 ms GPU, and billboards are already one draw per batch. Needs a marker-heavy bench to justify at all |
-| 2. Shadow cascades as a texture array | **The one with a measured case.** At the *terrain* camera the shadow pass is 15.2 ms of a 27.5 ms GPU frame — 55%. Also lifts the texture-size cap that 4 × 2048 cascades would hit |
+| 2. Shadow cascades as a texture array | **Implemented and reverted: +28.5% GPU on the Adreno 610.** `sampler2DArrayShadow` costs far more per PCF tap there than the atlas arithmetic it replaced. Correct, and it does lift the size cap — but not at that price. Re-measure before trying it on another GPU |
 | 3. Packed vertex attributes | Does not cut draws: they come from tile × style layer, not from the 16-bit index cap |
 | 4. UBOs | The only remaining item aimed at the bottleneck. Targets `styleUpload` ≈ **0.67 ms/frame (~1.7%)** — judge it on `layers`, not fps |
 | 5. `glMapBufferRange` for label streaming | **Measured no-op** — the six label buffers are a few KB each. Reverted, not shipped |
