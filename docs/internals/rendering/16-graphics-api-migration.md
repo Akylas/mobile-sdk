@@ -371,6 +371,28 @@ that Phase 1 no longer writes.
 - **Windows** — ANGLE on D3D11, reusing the UWP EGL wrapper shape.
 - **Linux** — native EGL against Mesa's GLES 3.2. Pull in ANGLE-on-Vulkan only if a driver forces it.
 
+#### What the ES 3.0 baseline costs on desktop
+
+Almost nothing, and it settles the Windows backend question. ANGLE's D3D11 backend caps the ES
+version by feature level (`GetMaximumClientVersion` in `renderer11_utils.cpp`; `Renderer11.cpp`
+puts it plainly — *"Can't support ES3 at all without feature level 10.1"*):
+
+| D3D feature level | max ES |
+|---|---|
+| 11_0 / 11_1 | 3.1 |
+| **10_1** | **3.0** |
+| 10_0 and below | 2.0 |
+
+So the Windows floor is **FL 10_1**: Sandy Bridge (2011) and AMD HD 3000 (2007) clear it, NVIDIA
+GeForce 8/9 (10_0) and pre-2011 Intel GMA (9_x) do not. Windows 11 already requires a DX12-capable
+GPU, so it excludes nobody there, and WARP — what VMs and RDP sessions fall back to — reports 11_1.
+
+That is the argument for **D3D11 over Vulkan** on Windows, which this plan previously assumed on
+maturity grounds alone: ANGLE-on-Vulkan needs a 2016-or-later driver, so it is *narrower* in the
+tail than D3D11's 2011 floor. Linux and macOS have no equivalent cut — Mesa serves GLES 3.x on
+anything post-2012 (llvmpipe does 3.2 in software), and the macOS floor is "Metal-capable", which
+macOS 10.14+ requires anyway.
+
 ## What this plan deliberately does not do
 
 **No graphics abstraction layer.** MapLibre needed one because they were adding real backends; we
