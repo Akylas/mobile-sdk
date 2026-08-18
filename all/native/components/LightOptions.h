@@ -197,10 +197,15 @@ namespace massif {
          */
         int getShadowCasterMargin() const;
         /**
-         * Sets how many tiles beyond the visible ones are rendered as shadow casters. A mountain
-         * just off screen still casts its shadow into the view, and without a margin that shadow
-         * disappears as you zoom in and the mountain leaves the visible set. Costs one caster
-         * draw per extra tile.
+         * Sets how many tiles wide the ring of extra shadow casters around the visible ones is.
+         * A mountain off screen still casts its shadow into the view, and without the ring that
+         * shadow disappears as you zoom in and the mountain leaves the visible set.
+         *
+         * The ring's REACH is not this value: it is the distance a shadow can be thrown, the
+         * relief over the tangent of the sun altitude. This value sets the ring's RESOLUTION - the
+         * ring is generated at the coarsest tile zoom that still spans that throw in this many
+         * tiles, so the reach holds at every zoom while the count stays bounded. Raising it makes
+         * the distant casters finer and costs one caster draw per extra tile; 0 removes the ring.
          * @param margin The new caster margin in tiles (clamped to 0..8).
          */
         void setShadowCasterMargin(int margin);

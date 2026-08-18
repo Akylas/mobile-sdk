@@ -1580,13 +1580,52 @@ namespace massif {
                         take(tileId);
                         maxCoverZoom = std::max(maxCoverZoom, tileId.zoom);
                     }
-                    // Finest first: a coarse candidate then splits against the fine tiles already
-                    // taken, instead of claiming their ground and being split by nothing.
+                    // The ring is bounded by how far a shadow can be THROWN, not by a fixed number
+                    // of tiles: relief / tan(sun altitude), which the 15-degree floor caps at about
+                    // 3.7 x the relief. A ring counted in tiles is a distance that shrinks with the
+                    // zoom - at z16 a tile is ~430 m, so three of them reach 1.3 km and a mountain
+                    // 5 km away simply has no caster, which is a mountain shadow that appears only
+                    // when you zoom out far enough to pull it into the cover.
+                    //
+                    // Holding the DISTANCE means dropping the RESOLUTION, or the count explodes
+                    // (7 km at z16 is a 35x35 ring). The ring is generated at the coarsest zoom
+                    // that still needs no more than casterMargin tiles to span the throw, and the
+                    // partition logic below subdivides whatever overlaps the finer cover.
+                    double relief = std::max(0.0, maxHeight - minHeight);
+                    double sunUp = std::max(0.05f, shadowSunDir(2));
+                    double throwDistance = relief * std::sqrt(std::max(0.0, 1.0 - sunUp * sunUp)) / sunUp;
+                    int ringZoom = maxCoverZoom;
+                    if (throwDistance > 0) {
+                        // 2^z <= casterMargin * WORLD_SIZE / throw
+                        double limit = casterMargin * Const::WORLD_SIZE / throwDistance;
+                        if (limit > 1) {
+                            ringZoom = std::min(maxCoverZoom, static_cast<int>(std::floor(std::log2(limit))));
+                        }
+                        ringZoom = std::max(0, ringZoom);
+                    }
+                    // The cover's footprint at the ring's zoom, widened by the margin.
                     std::vector<vt::TileId> candidates;
-                    for (const vt::TileId& tileId : coverTileIds) {
-                        for (int dy = -casterMargin; dy <= casterMargin; dy++) {
-                            for (int dx = -casterMargin; dx <= casterMargin; dx++) {
-                                candidates.emplace_back(tileId.zoom, tileId.x + dx, tileId.y + dy);
+                    {
+                        int minX = 0, minY = 0, maxX = 0, maxY = 0;
+                        bool first = true;
+                        for (const vt::TileId& tileId : coverTileIds) {
+                            int shift = tileId.zoom - ringZoom;
+                            int x = (shift >= 0 ? tileId.x >> shift : tileId.x << -shift);
+                            int y = (shift >= 0 ? tileId.y >> shift : tileId.y << -shift);
+                            if (first) {
+                                minX = maxX = x;
+                                minY = maxY = y;
+                                first = false;
+                            } else {
+                                minX = std::min(minX, x); maxX = std::max(maxX, x);
+                                minY = std::min(minY, y); maxY = std::max(maxY, y);
+                            }
+                        }
+                        if (!first) {
+                            for (int y = minY - casterMargin; y <= maxY + casterMargin; y++) {
+                                for (int x = minX - casterMargin; x <= maxX + casterMargin; x++) {
+                                    candidates.emplace_back(ringZoom, x, y);
+                                }
                             }
                         }
                     }

@@ -60,9 +60,18 @@ Design points, each measured:
   grey wash that appears and disappears with the cover. The **shadow pass alone** floors the sun
   altitude at 15°, keeping the azimuth, which caps shadow length at ~3.7× the relief. N·L lighting
   keeps the true sun, so a low sun still reads as a low sun.
-- **Caster margin.** Casters are taken from the cover plus a ring of neighbours (`shadowCasterMargin`
-  tiles): a mountain just off screen still throws its shadow into the view, and without the margin
-  its shadow vanishes as you zoom in and it leaves the visible set.
+- **Caster margin, bounded by the shadow THROW.** Casters are the cover plus a ring, because a
+  mountain off screen still throws its shadow into the view. The ring's reach is
+  `relief / tan(sun altitude)` — capped at about 3.7 x the relief by the 15-degree floor — and NOT a
+  tile count: a ring counted in tiles is a distance that shrinks with the zoom, so at z16 (tiles
+  ~430 m) the default 3 reached 1.3 km and a mountain 5 km away had no caster at all. Symptom: a
+  mountain shadow missing at z16 that appears as soon as you zoom out or pan enough to pull the
+  mountain into the cover. Holding the distance means dropping the resolution — 7 km at z16 would be
+  a 35x35 ring — so the ring is generated at the **coarsest zoom that spans the throw in
+  `shadowCasterMargin` tiles**, and `shadowCasterMargin` now sets the ring's resolution rather than
+  its reach. Measured on the Crosscall at lat 45.193196 lon 5.735717 z16.04 tilt 90: 22 caster tiles
+  per pass, 1.0 ms per pass, and the ring costs 2.3 ms of drape (20.5 fps against 25.4 with no ring).
+  The old fine ring drew up to 49 tiles there and still missed the mountain.
 - **The caster set has to stay a partition of the ground.** The cover is a quadtree partition, but the
   ring is generated at each cover tile's own zoom and the cover mixes zooms (up to
   `TerrainMaxTileZoomCoarsening` levels), so the ring around a coarse tile lands on top of the fine
