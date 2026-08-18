@@ -319,7 +319,8 @@ public final class DemoStyles {
                 : "",
             "#transportation['class'='motorway'] { line-color: #e27d60; line-width: " + DemoConfig.INLINE_MOTORWAY_WIDTH + "; }",
             DemoConfig.INLINE_BUILDINGS_3D
-                ? "#building[zoom>=14] { building-fill: #d9cfc4; building-height: " + DemoConfig.INLINE_BUILDING_HEIGHT + "; }"
+                ? "#building[zoom>=14] { building-fill: #d9cfc4; building-height: [render_height] ? [render_height] : 5;\n" +
+                  "      building-min-height: [render_min_height]; }"
                 : "#building[zoom>=14] { polygon-fill: #d9cfc4; }");
     }
 
