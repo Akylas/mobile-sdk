@@ -190,6 +190,33 @@ source vertices before tesselation (the `simplify` mapnik property is parsed and
 Halving the triangles buys ~25%; removing them (drape) buys ~90%. At a tolerance anyone would ship,
 simplification is worth half a frame per second — not a lever. **Draping is.**
 
+### The 2D city is bound by the OPPOSITE thing: draw submission
+
+Terrain off, same city camera (`--es terrain false --es base composite --es style assets`,
+`bench/city2d.sh`): **CPU frame 51.9 ms against a GPU frame of 20.4** — the inverse of the 3D city
+above. The frame issues **765 draws** (606 geometry, 74 label, 62 stencil mask, 23 per-tile
+background), and `simpleperf` puts **60% of the GL thread in the driver and the kernel**
+(`libGLESv2_adreno.so` 36.1%, kernel 24.1%, our own code 23.9%).
+
+The two experiments that settle it: dropping the background plane takes **22% off the GPU frame and
+buys no fps**, while dropping the stencil masks removes **8% of the draws and buys 4%**. So on this
+camera fragments, triangles and shading are all free, and the only currency is the draw count.
+
+Acting on that: a style layer alternating patterned and plain polygon fills used to split into a
+draw per alternation — 48% of all geometry draws. Each style slot now carries a **pattern flag**
+instead, so both live in one draw ([03-vt-renderer.md](03-vt-renderer.md#what-splits-a-tiles-style-layer-into-several-draws)):
+**584 → 363 draws a frame, 17.9 → 20.3 fps**, `layers` CPU 21.9 → 15.1 ms. The floor is one draw per
+(tile, style layer) — 337 — so what is left needs cross-tile batching, which nothing here does.
+
+2D at the *mountain* camera measures 41 fps and is pinned against the device's 43 Hz present ceiling
+([performance-log.md 15.6](../performance-log.md)), which is why this was never visible before: the
+conclusion "cutting 2D work cannot show up as frame rate" is true of that camera only.
+
+**`-PprofileRender` itself costs 13%** (SurfaceFlinger `totalFrames`, three interleaved pairs:
+415/415/424 plain against 363/366/371 instrumented) — `clock_gettime` is 19.4% inclusive of the GL
+thread. Discount any absolute CPU ms from a profiling build before comparing it with anything else.
+Numbers and the full A/B in [performance-log.md 16](../performance-log.md).
+
 ## Against tangram-ng, on the same device and camera
 
 Run back to back on the Crosscall at Grenoble 5.724/45.188 z15 tilt 45, their demo patched to that

@@ -1175,3 +1175,203 @@ not a multiple of the 16.7 ms the panel reports.
 Crosscall's ceiling for a fullscreen GL surface, not our pacing, and 2D at 41 fps is already
 against it. Two consequences: cutting 2D work on this device cannot show up as frame rate, and
 any future fps comparison has 43, not 60, as its ceiling.
+
+---
+
+## 16. The 2D city frame, profiled for the first time (2026-08-18)
+
+Every 2D number before this round was taken at the mountain camera, where 2D runs at 41 fps against
+the device's 43 Hz present ceiling — so [15.6](#156-the-device-presents-at-43-hz-not-60---and-so-does-tangram)
+concluded that "cutting 2D work on this device cannot show up as frame rate". That holds **only for
+that camera**. The 2D *city* has 20 fps of headroom under the ceiling and had never been measured.
+
+Method: Crosscall HLTE556N, Grenoble 5.724/45.188 z16.22 tilt 26, `--es terrain false --es base
+composite --es style assets`, scripted north pan (`--es anim pan --es animLatDelta 0.06`),
+`bench/city2d.sh`, medians over 38 one-second windows per arm, arms interleaved over two rounds.
+
+### 16.1 It is CPU-bound on draw submission, not on fragments
+
+| | ms |
+|---|---|
+| CPU frame | **51.9** |
+| GPU frame | **20.4** |
+| fps | 17.6 |
+
+CPU sections: swap wait 12.2 · `layers` 21.5 · `layers3D` 10.1.
+GPU sections: sky 5.5 · background 3.4 · layers 9.8.
+
+Per frame: **606 geometry draws**, 1.57 M indices, 74 label draws, 62 stencil mask draws, 23
+per-tile background quads — **765 draws**. Label work on the GL thread is 9.6 ms/frame (2D pass
+4.97, 3D pass 2.14, build 2.50); masks 1.07.
+
+`simpleperf` over the GL thread (4144 of 12 802 samples) puts **60% of it outside our code**:
+
+| shared object | % of the GL thread |
+|---|---|
+| `libGLESv2_adreno.so` | **36.1** |
+| kernel | 24.1 |
+| `libmassif.so` | 23.9 |
+| `libc` | 7.1 |
+
+Inclusive: `renderGeometry2D` 53.8 → `renderTileGeometry` **45.3** · `renderLabels` **25.0**
+(`renderLabelBatch` 11.0, `Label::calculateVertexData` 8.2).
+
+This is the 3D city's answer inverted. There the frame is GPU-bound and the lever was triangles
+([10-performance.md](rendering/10-performance.md#the-undraped-line-cost-is-triangles-not-pixels-and-not-shading));
+here the GPU is idle-ish and the lever is the **number of draws**.
+
+### 16.2 The A/B that proves it
+
+| arm | fps | CPU frame | GPU total |
+|---|---|---|---|
+| base | 17.6 | 51.9 | 20.4 |
+| background plane off (`debug.massif.background 0`) | 18.1 | 50.9 | **16.0** |
+| stencil tile masks off (`debug.massif.tilemasks 0`) | 18.3 | **49.5** | 20.9 |
+| 3D buildings off (`--es bld3d false`) | 17.9 | 49.7 | 20.5 |
+
+Two results, read together:
+
+- Removing the background plane takes **22% off the GPU frame and buys nothing** — 4.4 ms of GPU
+  slack, confirming the frame does not wait on the GPU. The sky and the plane remain what
+  [15.5](#155-where-the-frame-is-not-measured-this-session) said they were: simplicity, not frame rate.
+- Removing the masks removes **62 of 765 draws (8%) and buys 4%** — roughly proportional. Draws are
+  the currency.
+
+**Do not re-run `--es labels false` at this camera**: that knob only strips the *inline* style's
+text rules, and this run uses `--es style assets`, so `labelDraws` was unchanged at 71/frame. The
+arm looked like +5% and measured nothing. Labels are priced by the profile above (25%) instead.
+
+### 16.3 `-PprofileRender` costs 13% — every CPU ms on this page is that much high
+
+`PROF` cannot compare two builds, so this is SurfaceFlinger `totalFrames` over an identical 20 s
+window, three interleaved pairs:
+
+| build | totalFrames |
+|---|---|
+| plain | 415 · 415 · 424 |
+| `-PprofileRender` | 363 · 366 · 371 |
+
+**13%, with no overlap between the arms** — `steady_clock::now()`/`clock_gettime` is 19.4% inclusive
+of the GL thread in the instrumented build. The shipped 2D city therefore sits at **~20 fps**, and
+any absolute CPU figure taken with the profilers on should be discounted by ~13% before it is
+compared with anything else.
+
+### 16.4 Found while benching: the label batch drew from a freed glyph atlas
+
+About half the startups at this camera died, as either a null `bitmap` in `renderLabelBatch` or
+`Scudo ERROR: invalid chunk state when deallocating`. `GlyphMap::getBitmapPattern()` returns the
+pattern **by value** and `renderLabelPass` bound a reference through that temporary's `->`, which
+extends nothing; a tile thread loading a glyph resets the map's pattern, so the render thread's
+temporary could be the last owner. 6/6 clean starts after the fix, 3/6 before.
+(libs-massif `83da937`, mobile-sdk `064ad2254`, [06-labels.mdx](rendering/06-labels.mdx#on-the-gl-thread))
+
+### 16.5 What this round retires, and what is left
+
+Retired as levers for the 2D city on this device:
+
+- **An opaque/translucent depth split** (maplibre's `renderPass` model). 2D disables the depth test
+  entirely, so there is no early-Z at all — but the frame is not fill-bound, and 4.4 ms of GPU slack
+  says early-Z has nothing to win here. Worth revisiting only on an immediate-mode GPU.
+- **The sky quad and the background plane.** 8.9 ms of GPU, 0 fps.
+- **Per-tile background meshes in 2D.** Tangram has none and dropping them is right, but they are
+  23 of 765 draws — 3%, not the frame.
+
+Left, in order: **merge geometry draws** (606 draws for 62 render tiles × 32 style layers is the
+frame), **drop the masks in 2D** (62 draws, +4%, `setTileMasks` already has the switch), and the
+**per-frame label batch rebuild** (25% of the GL thread, already open in
+[06-labels.mdx](rendering/06-labels.mdx#a-persistent-label-batch-and-what-blocks-it)).
+
+### 16.6 Merging the polygon-pattern draws: 584 -> 363 draws, +13% fps
+
+[16.1](#161-it-is-cpu-bound-on-draw-submission-not-on-fragments) said the currency is draws, so the
+next question was which of them are avoidable. A probe counting draws per (tile, style layer) pair:
+
+| per frame | |
+|---|---|
+| geometry draws | 584 |
+| pairs that drew anything | **337** (the floor a per-tile merge can reach) |
+| extra geometries inside a pair | **285** (49% of the draws) |
+
+and, by why the pair split:
+
+| reason | per frame |
+|---|---|
+| **pattern differs** | **278** |
+| already mergeable | 4 |
+| geometry type differs | 3 |
+| same atlas grown between packs | 0 |
+
+Every sampled pair was the same shape — `type=3 params=1/1 pattern '64x64' -> 'none'` — a POLYGON
+style layer alternating a `polygon-pattern-file` fill with a plain one, one style slot each. Not two
+competing patterns: **a pattern against no pattern**.
+
+That killed the atlas design this was scoped as. An atlas (mapbox's `fill-pattern` model) would have
+needed `fract()` into a sub-rect, 1-texel wrap padding and the loss of `GL_REPEAT` and of the
+mipmaps polygon patterns currently get. A **per-slot pattern flag** removes the same 278 splits with
+none of that: `patternScales` in the style table, `uPatternTable` in the shader, packed into `vUV.z`
+so it costs no extra varying vector, and `mix(vColor, texture2D(...) * vColor, vUV.z)` in the
+fragment shader. Only a second, *different* pattern still splits.
+
+Interleaved, three rounds, ~59 one-second windows per arm:
+
+| | fps | CPU frame | `layers` CPU | GPU total | GPU layers |
+|---|---|---|---|---|---|
+| before | 17.9 | 51.1 | 21.9 | 20.2 | 9.7 |
+| after | **20.3** | **43.2** | **15.1** | 18.4 | 7.6 |
+
+**584 -> 363 draws a frame (-38%), +13.4% fps**, and the `layers` section — the one that submits them
+— down 31%. The GPU moved too (layers 9.7 -> 7.6 ms) because a draw carries its uniform uploads and
+its texture bind with it, but the GPU was never the bound here.
+
+Verification: 0.28% of pixels differ at a landcover camera (z13.5, forest/scrub/water patterns on
+screen), all of it label churn between runs — the same 0.18-0.28% shows up comparing two runs of the
+*same* build. 3D terrain re-checked at the ridge camera on the INLINE style, unchanged;
+assets-over-terrain was not re-shot.
+
+Two notes for whoever goes further. The floor is **one draw per (tile, style layer)**; 363 against a
+floor of 337 means the remaining splits are the type/comp-op/16-slot ones, which are not worth
+chasing. Below the floor needs cross-tile batching (one VBO per style layer with per-vertex tile
+offsets), which nothing in this renderer does and which the tile lifecycle makes expensive.
+
+### 16.7 Label batches: the floor is one glyph atlas per (font, render size)
+
+With the geometry draws down to their floor ([16.6](#166-merging-the-polygon-pattern-draws-584---363-draws-13-fps)),
+the next item on the 2D city frame is labels: `renderLabels` is **25% of the GL thread** in the
+simpleperf profile (`renderLabelBatch` 11%, `Label::calculateVertexData` 8.2%), and the frame issues
+**65 label draws**, each re-specifying five or six VBOs with `glBufferData`.
+
+A probe on why a batch ends:
+
+| break reason | per frame |
+|---|---|
+| **glyph atlas (bitmap) changes** | **33.1** |
+| **the style carries a `transform`** | **25.6** |
+| parameter table full | 3.4 |
+| scale / glyph render size | 0.0 |
+
+The obvious read — labels arrive in culler order, so the atlas thrashes A→B→A — is **wrong, and the
+experiment that would have exploited it is a dead end**. A stable sort of the pass by
+`style->glyphMap` before batching (`debug.massif.labelsort`, reverted) moved the atlas breaks
+**33.0 → 31.8** and the label draws 70.8 → 68.6. The atlases really are distinct: `FontManager`
+keys `_glyphMapMap` by the **full font name including its query parameters**, so every
+(font, glyph render size) pair owns its own `GlyphMap` — and with the 16/28/40 raster ladder a
+handful of font families becomes ~32 atlases on screen. Sorting can only ever reach
+one break per distinct atlas, which is what it did.
+
+Do not read a frame rate off that A/B either: it measured 19.1 fps against 20.8, and the same build
+had measured 20.3 an hour earlier in [16.6](#166-merging-the-polygon-pattern-draws-584---363-draws-13-fps).
+With the break counts flat there is no mechanism behind the difference — it is the session drift
+[Getting a trustworthy number](rendering/10-performance.md#getting-a-trustworthy-number) warns about,
+caught here only because the counters disagreed with the fps.
+
+So the label batching floor is the number of distinct (font, render size) pairs on screen, and the
+only way under it is **one shared glyph atlas for every font**, which is mapbox's model and a
+`FontManager` change (`_glyphMapMap` → a single map, bounded by `_maxGlyphMapWidth/Height`). Not
+attempted here. The `transform` breaks are a second, independent 25/frame: a style transform is
+folded into the batch's `labelMatrix`, so a transformed label cannot share a batch — applying it to
+the vertices in `calculateVertexData` instead would let it.
+
+Worth remembering before either is attempted: the 3D label batch **cache** removed the work it
+targeted and bought **zero frames** ([06-labels.mdx](rendering/06-labels.mdx#a-persistent-label-batch-and-what-blocks-it)),
+and was reverted for correctness. Fewer label draws may go the same way — price it against the frame,
+not against the counter.

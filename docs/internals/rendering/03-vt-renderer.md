@@ -60,6 +60,27 @@ The counters split a draw into `geomProgramNs` (program selection + fog uniforms
 `geomStyleEvalNs` (the colour/width functions themselves), so a regression can be attributed without
 guessing.
 
+### What splits a tile's style layer into several draws
+
+`TileLayerBuilder` accumulates a style layer's features into one `TileGeometry` and calls
+`appendGeometry()` — one more draw — whenever the next feature cannot share the vertex format or the
+style table: a different geometry **type**, a different **comp-op** or **translate**, a full
+16-slot parameter table, or more than 65535 indices.
+
+**A polygon pattern is not one of them any more.** A style layer that alternates patterned and plain
+fills (`polygon-pattern-file` on some features) used to split at every alternation, and that was
+**48% of every geometry draw** in a 2D city frame — 584 draws where 337 (tile, style layer) pairs
+actually drew. Each slot of the style table now carries a **pattern flag** (`patternScales`,
+`uPatternTable`, packed into `vUV.z`), so a plain fill sits in the same geometry and the same draw as
+a patterned one and simply keeps its flat colour. Only a **second, different** pattern still splits.
+
+Measured on a Crosscall, 2D city pan: **584 → 363 draws a frame, 17.9 → 20.3 fps**, the `layers` CPU
+section 21.9 → 15.1 ms ([performance-log.md 16.6](../performance-log.md)).
+
+Lines never had the problem: they go through the shared `StrokeMap` atlas and select their dash by a
+per-slot stroke id, which is the same trick one level down. The remaining floor is one draw per
+(tile, style layer); going below it needs cross-tile batching, which nothing here does yet.
+
 ## Shaders
 
 Programs are built on demand from source in `GLTileRendererShaders.h` and cached by a key made of
