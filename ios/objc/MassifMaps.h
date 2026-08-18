@@ -39,7 +39,7 @@
 #import "MSFTileDownloadListener.h"
 #import "MSFMultiTileDataSource.h"
 #import "MSFPMTilesTileDataSource.h"
-#import "MSFPContourTileDataSource.h"
+#import "MSFContourTileDataSource.h"
 
 #import "MSFFeature.h"
 #import "MSFFeatureCollection.h"
