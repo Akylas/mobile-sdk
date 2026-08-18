@@ -2,7 +2,7 @@
 #include "utils/Log.h"
 #include "utils/GeneralUtils.h"
 
-#include <EGL/egl.h>
+#include <cstdlib>
 
 namespace massif {
 
@@ -30,23 +30,22 @@ namespace massif {
         }
         
         TEXTURE_FILTER_ANISOTROPIC = HasGLExtension("GL_EXT_texture_filter_anisotropic");
-        TEXTURE_NPOT_REPEAT = HasGLExtension("GL_OES_texture_npot");
-        TEXTURE_NPOT_MIPMAPS = HasGLExtension("GL_OES_texture_npot") || HasGLExtension("NV_texture_npot_2D_mipmap") || HasGLExtension("APPLE_texture_2D_limited_npot");
 
-#ifdef GL_EXT_discard_framebuffer
-        DISCARD_FRAMEBUFFER = HasGLExtension("GL_EXT_discard_framebuffer");
-        if (DISCARD_FRAMEBUFFER) {
-            _DiscardFramebufferEXT = reinterpret_cast<PFNGLDISCARDFRAMEBUFFEREXTPROC>(eglGetProcAddress("glDiscardFramebufferEXT"));
-        }
-#endif
-
-        PACKED_DEPTH_STENCIL = HasGLExtension("GL_OES_packed_depth_stencil");
-
+        // Parsed the way tangram does it (Hardware::loadCapabilities): first digit run in
+        // GL_VERSION, scaled by 100. "OpenGL ES 3.0 ..." -> 300.
         const char* version = reinterpret_cast<const char*>(glGetString(GL_VERSION));
-        ES3 = version && std::string(version).find("OpenGL ES 3.") != std::string::npos;
-        DEPTH_TEXTURE = ES3 || HasGLExtension("GL_OES_depth_texture") || HasGLExtension("GL_ANGLE_depth_texture");
-        SHADOW_SAMPLERS = HasGLExtension("GL_EXT_shadow_samplers");
-        Log::Infof("GLContext::LoadExtensions: %s, depth texture %d, shadow samplers %d", version ? version : "?", DEPTH_TEXTURE ? 1 : 0, SHADOW_SAMPLERS ? 1 : 0);
+        for (const char* s = version ? version : ""; *s; ++s) {
+            if (*s >= '0' && *s <= '9') {
+                VERSION = static_cast<int>(std::strtof(s, nullptr) * 100.0f + 0.5f);
+                break;
+            }
+        }
+        Log::Infof("GLContext::LoadExtensions: %s (version %d), anisotropic filtering %d", version ? version : "?", VERSION, TEXTURE_FILTER_ANISOTROPIC ? 1 : 0);
+        if (VERSION < 300) {
+            // Not fatal here - the context was already created, and failing to draw is worse than
+            // drawing wrongly. It tells a bug report why everything after this looks broken.
+            Log::Errorf("GLContext::LoadExtensions: the SDK requires an OpenGL ES 3.0 context, got '%s'", version ? version : "?");
+        }
     }
         
     void GLContext::CheckGLError(const char* place) {
@@ -55,36 +54,18 @@ namespace massif {
         }
     }
 
-    void GLContext::DiscardFramebufferEXT(GLenum target, GLsizei numAttachments, const GLenum* attachments) {
-        std::lock_guard<std::recursive_mutex> lock(_Mutex);
-
-#ifdef GL_EXT_discard_framebuffer
-        if (_DiscardFramebufferEXT) {
-            _DiscardFramebufferEXT(target, numAttachments, attachments);
-        }
-#endif
+    void GLContext::InvalidateFramebuffer(GLenum target, GLsizei numAttachments, const GLenum* attachments) {
+        glInvalidateFramebuffer(target, numAttachments, attachments);
     }
-    
+
     GLContext::GLContext() {
     }
-    
+
+    int GLContext::VERSION = 0;
+
     bool GLContext::TEXTURE_FILTER_ANISOTROPIC = false;
-    bool GLContext::TEXTURE_NPOT_REPEAT = false;
-    bool GLContext::TEXTURE_NPOT_MIPMAPS = false;
 
-    bool GLContext::DISCARD_FRAMEBUFFER = false;
-
-    bool GLContext::PACKED_DEPTH_STENCIL = false;
-
-    bool GLContext::ES3 = false;
-    bool GLContext::DEPTH_TEXTURE = false;
-    bool GLContext::SHADOW_SAMPLERS = false;
-    
     std::size_t GLContext::MAX_VERTEXBUFFER_SIZE = 65535; // Should NOT exceed 64k!
-
-#ifdef GL_EXT_discard_framebuffer
-    PFNGLDISCARDFRAMEBUFFEREXTPROC GLContext::_DiscardFramebufferEXT = nullptr;
-#endif
 
     std::unordered_set<std::string> GLContext::_ExtensionCache;
         

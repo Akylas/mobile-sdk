@@ -125,8 +125,6 @@ if(APPLE)
   # include_directories("${SDK_BASE_DIR}/ios/stdlib")
   if(SDK_CPP_DEFINES MATCHES ".*_MASSIF_USE_METALANGLE.*")
     include_directories("${SDK_EXTERNAL_LIBS_DIR}/angle-metal/include")
-  else()
-    # include_directories("${SDK_BASE_DIR}/ios/glwrapper")
   endif()
 endif(APPLE)
 
@@ -330,7 +328,10 @@ endif()
 add_library(massif ${SDK_LIBRARY_TYPE} ${SDK_SRC_FILES} ${SDK_OBJECTS})
 
 if(ANDROID)
-  target_link_libraries(massif EGL GLESv2 z log android jnigraphics)
+  # GLESv3, not GLESv2: the ES 3.0 core entry points (glGenVertexArrays, glInvalidateFramebuffer,
+  # ...) are only exported by libGLESv3.so. It is a superset, so it replaces GLESv2 rather than
+  # joining it, and it exists on every device at minSdk 21.
+  target_link_libraries(massif EGL GLESv3 z log android jnigraphics)
 elseif(APPLE)
   target_link_libraries(massif "-framework Foundation" "-framework CoreGraphics" "-framework CoreText" "-framework CFNetwork" "-framework UIKit")
   if(SDK_CPP_DEFINES MATCHES ".*_MASSIF_USE_METALANGLE.*")

@@ -11,8 +11,9 @@ move to an OpenGL ES 3.0 baseline (dropping ES 2.0), the Apple situation (Metal)
 Windows/Linux/macOS need later. Does **not** cover what the renderer draws — that is the rest of
 [this set](index.mdx).
 
-Status as of 2026-08-18: Phase 0 run. Gates 0.1 and 0.2 pass, gate 0.3 is **not answered** — see
-[Phase 0 results](#phase-0--results). The Apple source was decided against upstream ANGLE, see
+Status as of 2026-08-18: Phase 0 run — gates 0.1 and 0.2 pass, gate 0.3 is **not answered** (see
+[Phase 0 results](#phase-0--results)). Phase 2 is **code-complete but unverified on hardware**. The
+Apple source was decided against upstream ANGLE, see
 [MetalANGLE master, not upstream](#metalangle-master-not-upstream-angle).
 
 ## Where we are
@@ -310,20 +311,54 @@ a fixed camera matches the EAGL build.
 
 ### Phase 2 — ES 3.0 baseline, ES 2.0 dropped
 
-Copy tangram's shape: one `Hardware::glVersion` parsed from `GL_VERSION`, every capability gated
-off that number (`core/src/gl/hardware.cpp`).
+Done, except the device check. Config plus dead-code removal; no shader work — an ES 3.0 context
+compiles `#version 100` shaders, so the shaders move separately in Phase 3.
 
-- Android manifest to `0x00030000`; drop the `reqGlEsVersion` probe and `ConfigChooser`'s ES2
-  branch. UWP client version 2 to 3.
-- Collapse `GLContext`: NPOT, packed-depth-stencil and depth-texture become unconditional, the `ES3`
-  flag disappears, `glDiscardFramebufferEXT` becomes `glInvalidateFramebuffer`.
-- `vt/GLExtensions`: VAO and standard-derivatives probes become core calls;
-  `GL_DEPTH_COMPONENT24_OES` becomes `GL_DEPTH_COMPONENT24`.
+Contexts, no probes and no fallbacks left: Android manifests to `0x00030000` and
+`setEGLContextClientVersion(3)` in both `MapView` and `TextureMapView` (each carried its own copy of
+the `reqGlEsVersion` probe), `ConfigChooser` down to one ES3-renderable table, iOS `MapView.mm` with
+no ES2 retry, UWP `EGL_CONTEXT_CLIENT_VERSION` 3, and the Xamarin binding raised to match — leaving
+it at 2 would have handed the native side a context it now assumes it will never see.
+
+What the capability flags became:
+
+| Was | Now |
+|---|---|
+| `GLContext::ES3`, `DEPTH_TEXTURE`, `PACKED_DEPTH_STENCIL`, `TEXTURE_NPOT_*`, `DISCARD_FRAMEBUFFER` | gone — all ES 3.0 core |
+| `GLContext::SHADOW_SAMPLERS` | gone — it was never read (see [above](#shadow-samplers-0-is-a-red-herring)) |
+| `GLContext::DiscardFramebufferEXT` + its `eglGetProcAddress` | `InvalidateFramebuffer` → `glInvalidateFramebuffer` |
+| `vt` VAO wrappers + `GL_OES_vertex_array_object` probe | `glGenVertexArrays` / `glBindVertexArray` / `glDeleteVertexArrays` |
+| `GL_OES_standard_derivatives` probe | always on |
+| `GL_DEPTH_COMPONENT24_OES`, `GL_DEPTH24_STENCIL8_OES`, `GL_TEXTURE_COMPARE_MODE_EXT` | the unsuffixed core tokens |
+| `GLES2/gl2.h` | `GLES3/gl3.h` (`gl2ext.h` stays — extension tokens still live there) |
+
+What is left of the probes is one flag, `TEXTURE_FILTER_ANISOTROPIC`, which is an extension in every
+ES version. `GLContext::VERSION` replaces the booleans, parsed the way tangram parses it
+(`Hardware::loadCapabilities`): first digit run of `GL_VERSION` times 100, so `300`. It gates nothing
+today — it is there for logging and for a future 3.1/3.2 check.
+
+Two traps, both of which a `-fsyntax-only` check passes straight through:
+
+- **Android must link `GLESv3`, not `GLESv2`.** The ES 3.0 entry points are only exported by
+  `libGLESv3.so`; with `GLESv2` the compile succeeds and the *link* fails on `glGenVertexArrays`,
+  `glInvalidateFramebuffer` and friends. It is a superset, so it replaces `GLESv2` rather than
+  joining it.
+- **`vt`'s derivatives flag still has to emit the `#extension` line.** `fwidth` is core on an ES 3.0
+  *context*, but the shaders are GLSL ES 1.00 until Phase 3, and in ESSL 1.00 it is still an
+  extension. `commonFsh` keeps `#extension GL_OES_standard_derivatives : enable` under
+  `!defined(ESSL3)`; only the runtime probe went away.
+
+`vt::GLExtensions` survives as a near-empty class holding the anisotropic probe. Deleting it would
+change `GLTileRenderer`'s constructor, which is beyond this phase — fold it in whenever that
+signature next changes.
 
 Devices lost: pre-2013 GPUs (Mali-400, Adreno 200/305, Tegra 3, PowerVR SGX). At minSdk 21 and an
-iOS 13 floor — where every device is A7+ — that is a rounding error.
+iOS 13 floor — where every device is A7+ — that is a rounding error. The app-facing consequence is
+in [migration.md](../../migration.md#opengl-es-30-is-required).
 
 **Done when**: an Adreno 610 device and one iOS device show no regression at the bench cameras.
+Neither has been run — the Android APK builds and the manifest merges at `0x00030000`, but nothing
+has been rendered on hardware.
 
 ### Phase 3 — GLSL ES 3.00
 

@@ -64,19 +64,17 @@ namespace massif {
 
 
     void FrameBuffer::discard(bool color, bool depth, bool stencil) {
-        if (GLContext::DISCARD_FRAMEBUFFER) {
-            std::vector<GLenum> attachments;
-            if (color) {
-                attachments.push_back(GL_COLOR_ATTACHMENT0);
-            }
-            if (depth) {
-                attachments.push_back(GL_DEPTH_ATTACHMENT);
-            }
-            if (stencil) {
-                attachments.push_back(GL_STENCIL_ATTACHMENT);
-            }
-            GLContext::DiscardFramebufferEXT(GL_FRAMEBUFFER, static_cast<int>(attachments.size()), attachments.data());
+        std::vector<GLenum> attachments;
+        if (color) {
+            attachments.push_back(GL_COLOR_ATTACHMENT0);
         }
+        if (depth) {
+            attachments.push_back(GL_DEPTH_ATTACHMENT);
+        }
+        if (stencil) {
+            attachments.push_back(GL_STENCIL_ATTACHMENT);
+        }
+        GLContext::InvalidateFramebuffer(GL_FRAMEBUFFER, static_cast<int>(attachments.size()), attachments.data());
     }
         
     FrameBuffer::FrameBuffer(const std::weak_ptr<GLResourceManager>& manager, int width, int height, bool color, bool depth, bool stencil) :
@@ -105,11 +103,11 @@ namespace massif {
             GLint oldRBId = 0;
             glGetIntegerv(GL_FRAMEBUFFER_BINDING, &oldRBId);
 
-            if (_depth && _stencil && GLContext::PACKED_DEPTH_STENCIL) {
+            if (_depth && _stencil) {
                 GLuint depthStencilRBId = 0;
                 glGenRenderbuffers(1, &depthStencilRBId);
                 glBindRenderbuffer(GL_RENDERBUFFER, depthStencilRBId);
-                glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8_OES, _width, _height);
+                glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, _width, _height);
                 glBindRenderbuffer(GL_RENDERBUFFER, oldRBId);
                 glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthStencilRBId);
                 glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, depthStencilRBId);

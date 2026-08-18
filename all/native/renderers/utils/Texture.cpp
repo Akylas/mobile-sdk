@@ -2,7 +2,6 @@
 #include "graphics/Bitmap.h"
 #include "renderers/utils/GLResourceManager.h"
 #include "utils/Log.h"
-#include "utils/GeneralUtils.h"
 
 #include <algorithm>
 
@@ -32,19 +31,8 @@ namespace massif {
         _texCoordScale(1.0f, 1.0f),
         _texId(0)
     {
-        bool npot = !GeneralUtils::IsPow2(bitmap->getWidth()) || !GeneralUtils::IsPow2(bitmap->getHeight());
-        if (npot && !GLContext::TEXTURE_NPOT_REPEAT) {
-            if (repeat) {
-                int pow2Width  = GeneralUtils::UpperPow2(bitmap->getWidth());
-                int pow2Height = GeneralUtils::UpperPow2(bitmap->getHeight());
-                _bitmap = _bitmap->getResizedBitmap(pow2Width, pow2Height);
-            } else if (genMipmaps) {
-                int xPadding = GeneralUtils::UpperPow2(bitmap->getWidth())  - bitmap->getWidth();
-                int yPadding = GeneralUtils::UpperPow2(bitmap->getHeight()) - bitmap->getHeight();
-                _bitmap = _bitmap->getPaddedBitmap(xPadding, -yPadding);
-                _texCoordScale = cglib::vec2<float>(static_cast<float>(bitmap->getWidth()) / _bitmap->getWidth(), static_cast<float>(bitmap->getHeight()) / _bitmap->getHeight());
-            }
-        }
+        // ES 3.0 takes NPOT textures with any wrap mode and mipmaps, so nothing is rounded up to a
+        // power of two any more.
 
         _sizeInBytes = static_cast<std::size_t>((_mipmaps ? MIPMAP_SIZE_MULTIPLIER : 1.0) * _bitmap->getWidth() * _bitmap->getHeight() * _bitmap->getBytesPerPixel());
     }
@@ -112,8 +100,7 @@ namespace massif {
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         }
     
-        bool npot = !GeneralUtils::IsPow2(bitmap.getWidth()) || !GeneralUtils::IsPow2(bitmap.getHeight());
-        if (!genMipmaps || (npot && !GLContext::TEXTURE_NPOT_MIPMAPS)) {
+        if (!genMipmaps) {
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         } else {

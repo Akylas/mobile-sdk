@@ -92,23 +92,15 @@ static const int NATIVE_NO_COORDINATE = -1;
 }
 
 -(void)initContext {
-    // Prefer an OpenGL ES 3.0 context: the rendering code uses the ES 2.0 API subset,
-    // but ES3-class contexts guarantee vertex texture fetch (GPU terrain draping).
+    // OpenGL ES 3.0 is required - there is no ES 2.0 fallback. Every device above the iOS 13
+    // deployment floor is A7 or newer and provides one.
 #ifdef _MASSIF_USE_METALANGLE
     MSFGLContext* context = [[MSFGLContext alloc] initWithAPI:kMGLRenderingAPIOpenGLES3];
-    if (!context) {
-        massif::Log::Warn("MapView::initContext: Failed to create OpenGL ES 3.0 context, falling back to ES 2.0");
-        context = [[MSFGLContext alloc] initWithAPI:kMGLRenderingAPIOpenGLES2];
-    }
 #else
     MSFGLContext* context = [[MSFGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES3];
-    if (!context) {
-        massif::Log::Warn("MapView::initContext: Failed to create OpenGL ES 3.0 context, falling back to ES 2.0");
-        context = [[MSFGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
-    }
 #endif
     if (!context) {
-        massif::Log::Fatal("MapView::initContext: Failed to create OpenGL ES context");
+        massif::Log::Fatal("MapView::initContext: Failed to create an OpenGL ES 3.0 context");
     }
 
     self.context = context;
