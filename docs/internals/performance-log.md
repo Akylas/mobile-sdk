@@ -1332,3 +1332,46 @@ Two notes for whoever goes further. The floor is **one draw per (tile, style lay
 floor of 337 means the remaining splits are the type/comp-op/16-slot ones, which are not worth
 chasing. Below the floor needs cross-tile batching (one VBO per style layer with per-vertex tile
 offsets), which nothing in this renderer does and which the tile lifecycle makes expensive.
+
+### 16.7 Label batches: the floor is one glyph atlas per (font, render size)
+
+With the geometry draws down to their floor ([16.6](#166-merging-the-polygon-pattern-draws-584---363-draws-13-fps)),
+the next item on the 2D city frame is labels: `renderLabels` is **25% of the GL thread** in the
+simpleperf profile (`renderLabelBatch` 11%, `Label::calculateVertexData` 8.2%), and the frame issues
+**65 label draws**, each re-specifying five or six VBOs with `glBufferData`.
+
+A probe on why a batch ends:
+
+| break reason | per frame |
+|---|---|
+| **glyph atlas (bitmap) changes** | **33.1** |
+| **the style carries a `transform`** | **25.6** |
+| parameter table full | 3.4 |
+| scale / glyph render size | 0.0 |
+
+The obvious read — labels arrive in culler order, so the atlas thrashes A→B→A — is **wrong, and the
+experiment that would have exploited it is a dead end**. A stable sort of the pass by
+`style->glyphMap` before batching (`debug.massif.labelsort`, reverted) moved the atlas breaks
+**33.0 → 31.8** and the label draws 70.8 → 68.6. The atlases really are distinct: `FontManager`
+keys `_glyphMapMap` by the **full font name including its query parameters**, so every
+(font, glyph render size) pair owns its own `GlyphMap` — and with the 16/28/40 raster ladder a
+handful of font families becomes ~32 atlases on screen. Sorting can only ever reach
+one break per distinct atlas, which is what it did.
+
+Do not read a frame rate off that A/B either: it measured 19.1 fps against 20.8, and the same build
+had measured 20.3 an hour earlier in [16.6](#166-merging-the-polygon-pattern-draws-584---363-draws-13-fps).
+With the break counts flat there is no mechanism behind the difference — it is the session drift
+[Getting a trustworthy number](rendering/10-performance.md#getting-a-trustworthy-number) warns about,
+caught here only because the counters disagreed with the fps.
+
+So the label batching floor is the number of distinct (font, render size) pairs on screen, and the
+only way under it is **one shared glyph atlas for every font**, which is mapbox's model and a
+`FontManager` change (`_glyphMapMap` → a single map, bounded by `_maxGlyphMapWidth/Height`). Not
+attempted here. The `transform` breaks are a second, independent 25/frame: a style transform is
+folded into the batch's `labelMatrix`, so a transformed label cannot share a batch — applying it to
+the vertices in `calculateVertexData` instead would let it.
+
+Worth remembering before either is attempted: the 3D label batch **cache** removed the work it
+targeted and bought **zero frames** ([06-labels.mdx](rendering/06-labels.mdx#a-persistent-label-batch-and-what-blocks-it)),
+and was reverted for correctness. Fewer label draws may go the same way — price it against the frame,
+not against the counter.
