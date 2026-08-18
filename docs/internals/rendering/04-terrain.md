@@ -269,7 +269,9 @@ reintroduce:
   ever wrote. `colormapFsh` had carried the full `TERRAIN_LIGHT` block all along as dead code. The
   visible result was the previous zoom's ground flashing **unshaded** over the lit drape beside it —
   measured as a uniform ×0.62 multiply on all three channels with the sky untouched, which is what
-  a missing shading term looks like and what finally identified it.
+  a missing shading term looks like and what finally identified it. Passing the flag was not enough
+  on its own: the block it enabled did not compile until its declarations were shared, see
+  [08-lighting-sky-fog.md](08-lighting-sky-fog.md#a-compile-failure-this-uncovered-and-its-fix).
 - **The old imagery was drawn at all.** Once shaded identically the flash was gone, but the z12
   raster was still painted over the z11 drape for the length of the fade — visible as the previous
   zoom's satellite imagery. `isTileDraped` now answers "draped" in **both** directions: a drape tile
