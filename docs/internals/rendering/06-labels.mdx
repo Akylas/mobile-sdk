@@ -645,6 +645,23 @@ on Android instead of rendering as plain Roboto Regular.
   than on a large one, and up to **five times** what the single-raster build drew — a soft white
   glow instead of an outline, reported as "halo huge at radius 2, fine at 1". If halos ever look
   wrong again, check that term before the style.
+- **A style `transform` no longer ends the batch.** The translate was a factor of the batch's
+  `labelMatrix`, and the batch broke both when a label carried one and when the previous label did —
+  so every transformed label was a draw of its own, **30 of a city frame's 68 label draws**.
+  Conjugated by the tile matrix the translate is a *pure world translation*, so it is added to that
+  label's vertices after `calculateVertexData` instead, and the label batches with its neighbours.
+  Measured on the 2D city pan: **68.4 → 38.7 label draws a frame**, `labels2D` 4.89 → 4.24 ms, CPU
+  frame 45.0 → 43.2. It also fixes a latent bug: several same-style labels *did* share a batch, and
+  the matrix was built from the **first** label's tile, so the rest were translated by the wrong
+  tile's frame.
+- **One glyph atlas shared by every font at a render size — measured and dropped.** `FontManager`
+  keys `_glyphMapMap` by the full font name, so every (family, size) pair owns an atlas and the
+  16/28/40 ladder makes ~32 of them on a city screen; a batch ends whenever the atlas changes, which
+  is the other half of the label draws. Keying by render size instead took the draws to 32.9 and
+  bought **no frame rate**, and it makes overflow a live risk: a 2048² atlas is ~1764 cells at
+  render size 40 against ~200 glyphs per family, and `GlyphMap::loadBitmapGlyph` returns 0 when full
+  — glyphs vanish silently. Not worth a silent-text-loss failure mode for an unmeasurable gain. If it
+  is retried, widen the atlas first and measure the fill.
 - **The glyph atlas can be replaced under the batch loop.** `GlyphMap::getBitmapPattern()` returns
   the pattern **by value**, and a tile thread loading a new glyph resets `_bitmapPattern` — so the
   render thread's temporary can be the last owner. `renderLabelPass` bound its `labelBitmap`
