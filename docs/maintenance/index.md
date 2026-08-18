@@ -14,3 +14,4 @@ they were run with, what breaks when a step is skipped, and the dead ends.
 |------|----------------|
 | [`valhalla-upgrade.md`](valhalla-upgrade.md) | Merging a new upstream Valhalla release into `mbtiles-support`, regenerating protos / locales / the tz database, and the fork patches that must survive |
 | [`mac-catalyst.md`](mac-catalyst.md) | Why the Catalyst slices are a macOS project in disguise, what that breaks at link time, and what the build gives up to work around it |
+| [`angle.md`](angle.md) | Rebuilding the vendored MetalANGLE static slices, the strip settings that make them shippable, and the one fork patch to re-apply |
