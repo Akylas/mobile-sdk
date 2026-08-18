@@ -129,6 +129,7 @@ typedef NS_ENUM(NSInteger, DemoEntryKind) {
     void (^terrain)(void) = ^{ [demo applyTerrainOptions]; };
     void (^light)(void) = ^{ [demo applyLightOptions]; };
     void (^sky)(void) = ^{ [demo applySkyOptions]; };
+    void (^fog)(void) = ^{ [demo applyFogOptions]; };
     void (^hillshade)(void) = ^{ [demo applyHillshadeConfig]; };
     void (^contours)(void) = ^{ [demo applyContourConfig]; };
     void (^camera)(void) = ^{ [demo applyCamera]; };
@@ -324,13 +325,14 @@ typedef NS_ENUM(NSInteger, DemoEntryKind) {
         ]],
         [self section:@"SKY" entries:@[
             [DemoEntry toggle:@"sky" label:@"sky" apply:sky],
-            [DemoEntry slider:@"fogBlend" label:@"sky fog blend (deg)" min:0 max:45 apply:sky],
-            [DemoEntry slider:@"fogHorizon" label:@"sky fog horizon (deg, <0=auto)" min:-1 max:30 apply:sky],
+            [DemoEntry slider:@"fogBlend" label:@"sky fog blend (0-1)" min:0 max:0.5 apply:fog],
+            [DemoEntry slider:@"fogHorizon" label:@"sky fog horizon (deg, <0=auto)" min:-1 max:30 apply:fog],
         ]],
         [self section:@"FOG / DISTANCE" entries:@[
-            [DemoEntry toggle:@"fog" label:@"fog" apply:terrain],
-            [DemoEntry slider:@"fogStart" label:@"fog start (m)" min:0 max:40000 apply:terrain],
-            [DemoEntry slider:@"fogDistance" label:@"fog distance (m, 0=off)" min:0 max:120000 apply:terrain],
+            [DemoEntry toggle:@"fog" label:@"fog" apply:fog],
+            // Multiples of the camera-to-focus distance, so one pair holds at every zoom.
+            [DemoEntry slider:@"fogRangeStart" label:@"fog range start (x cam dist)" min:0 max:4 apply:fog],
+            [DemoEntry slider:@"fogRangeEnd" label:@"fog range end (x cam dist)" min:0 max:20 apply:fog],
             [DemoEntry slider:@"lodFactor" label:@"tile LOD (x tangram)" min:0 max:4 apply:^{
                 [demo applyOptions];
             }],

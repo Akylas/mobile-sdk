@@ -806,10 +806,8 @@ static const DemoFeature LAYER_ORDER[] = {
         [_terrainOptions setMaxTileZoomOffset:[DemoConfig intFor:@"maxTileZoomOffset"]];
     }
     // Fog and view distance go together: the distance ENDS the ground, the fog is what makes it
-    // fade out instead of being cut off.
-    [_terrainOptions setFogColor:[DemoMap colorFromHex:[DemoConfig boolFor:@"fog"] ? @"#b8c6d8" : @"#00000000"]];
-    [_terrainOptions setFogStartDistance:[DemoConfig floatFor:@"fogStart"]];
-    [_terrainOptions setFogDistance:[DemoConfig floatFor:@"fogDistance"]];
+    // fade out instead of being cut off. The fog itself lives on FogOptions now.
+    [self applyFogOptions];
     [_terrainOptions setViewDistanceFactor:[DemoConfig floatFor:@"viewDistance"]];
     [_terrainOptions setViewDistance:[DemoConfig floatFor:@"viewDistanceMeters"]];
     [_terrainOptions setMaxTileZoomCoarsening:[DemoConfig intFor:@"coarsening"]];
@@ -848,6 +846,23 @@ static const DemoFeature LAYER_ORDER[] = {
     [self updateSky];
 }
 
+/** Fog is its own options object and is independent of the terrain - it fogs a plain 2D map too. */
+- (void)applyFogOptions {
+    if (!_fogOptions) {
+        _fogOptions = [[MSFFogOptions alloc] init];
+        [[self.mapView getOptions] setFogOptions:_fogOptions];
+    }
+    [_fogOptions setEnabled:[DemoConfig boolFor:@"fog"]];
+    [_fogOptions setColor:[DemoMap colorFromHex:@"#b8c6d8"]];
+    [_fogOptions setRangeStart:[DemoConfig floatFor:@"fogRangeStart"]];
+    [_fogOptions setRangeEnd:[DemoConfig floatFor:@"fogRangeEnd"]];
+    // How much of the sky the haze takes: HorizonBlend is the fade width, HorizonAngle the angle
+    // it is still at full strength at (negative = from the terrain, 0 = from the horizon).
+    [_fogOptions setHorizonBlend:[DemoConfig floatFor:@"fogBlend"]];
+    [_fogOptions setHorizonAngle:[DemoConfig floatFor:@"fogHorizon"]];
+    [self requestRender];
+}
+
 /** The sky is always attached so the panel can toggle it live; disabled = no sky at all. */
 - (void)applySkyOptions {
     if (!_skyOptions) {
@@ -855,10 +870,6 @@ static const DemoFeature LAYER_ORDER[] = {
         [[self.mapView getOptions] setSkyOptions:_skyOptions];
     }
     [_skyOptions setEnabled:[DemoConfig boolFor:@"sky"]];
-    // How much of the sky the terrain haze takes: FogBlend is the fade width, FogHorizon the angle
-    // it is still at full strength at (negative = from the terrain, 0 = from the horizon).
-    [_skyOptions setFogBlend:[DemoConfig floatFor:@"fogBlend"]];
-    [_skyOptions setFogHorizon:[DemoConfig floatFor:@"fogHorizon"]];
     // In the relief view the sky is part of the palette: a light one over the paper, a night one
     // over the ink.
     if ([DemoConfig boolFor:@"reliefSurface"] || [DemoConfig boolFor:@"peakfinder"]) {

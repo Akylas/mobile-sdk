@@ -75,9 +75,11 @@ static NSMutableDictionary *sValues = nil;
 
         // --- fog / view distance / sky ---
         @"fog":                 @NO,
-        @"fogStart":            @1500.0f,
-        @"fogDistance":         @0.0f,
-        @"fogBlend":            @12.0f,
+        // Ranges are multiples of the camera-to-focus distance, not metres, so one pair holds at
+        // every zoom. Same names and values as the Android demo's FOG_* fields.
+        @"fogRangeStart":       @0.8f,
+        @"fogRangeEnd":         @8.0f,
+        @"fogBlend":            @(12.0f / 90.0f),
         @"fogHorizon":          @(-1.0f),
         @"viewDistance":        @1.0f,
         @"viewDistanceMeters":  @170000.0f,
