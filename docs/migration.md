@@ -163,8 +163,22 @@ Devices lost are pre-2013 GPUs: Mali-400, Adreno 200/305, Tegra 3, PowerVR SGX. 
 an iOS 13 floor — where every device is A7 or newer — that is a rounding error. On desktop the
 equivalent floor is D3D feature level 10_1 (Sandy Bridge, 2011), which Windows 11 already exceeds.
 
-The shaders are unaffected: they are still GLSL ES 1.00, which an ES 3.0 context compiles. Moving
-them to `#version 300 es` is a separate, later change.
+### Shaders moved to GLSL ES 3.00 — and your shaders still work
+
+The SDK's shaders now compile as `#version 300 es`. **This is not a breaking change for
+application GLSL.** If you pass a shader to `SkyOptions.shaderSource`, `FogOptions.shaderSource`,
+`TerrainOptions.surfaceShaderSource`, `CustomRasterTileLayer.shaderSource` or `PostProcessEffect`,
+keep writing it exactly as before — `attribute`, `varying`, `texture2D` and `gl_FragColor` all still
+work.
+
+They keep working because the SDK prepends tangram's compatibility preamble, which maps the ESSL
+1.00 spellings onto their 3.00 equivalents, including `#define gl_FragColor`. That is legal: ESSL
+reserves the `GL_` prefix for *macro* names, and `gl_FragColor` is a built-in *variable* that ESSL
+3.00 does not declare.
+
+You may now also use ESSL 3.00 features directly (`in`/`out`, `texture()`, integer operations) — but
+do not declare your own `#version` line, and do not declare a fragment output named
+`TANGRAM_FragColor`, which the preamble already provides at location 0.
 
 ### `LightOptions.shadowDistance` is a factor, not metres
 

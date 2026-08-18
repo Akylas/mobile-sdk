@@ -2,9 +2,54 @@
 #include "renderers/utils/GLResourceManager.h"
 #include "utils/Log.h"
 
+#include <cstdlib>
 #include <vector>
 
 namespace massif {
+
+    namespace {
+        // tangram's preamble, verbatim from core/src/gl/shaderSource.cpp. The shader sources - and
+        // the application GLSL spliced into them through SkyOptions/FogOptions/TerrainOptions/
+        // CustomRasterTileLayer/PostProcessEffect - stay written in ESSL 1.00 and are translated
+        // here, so an app's shader needs no migration.
+        //
+        // '#define gl_FragColor' is legal: ESSL reserves the GL_ prefix for MACRO names, while
+        // gl_FragColor is a built-in variable that ESSL 3.00 does not declare. Measured through
+        // ANGLE's translator, not assumed - see docs/internals/rendering/16-graphics-api-migration.md.
+        const std::string ESSL3_VERSION = "#version 300 es\n";
+
+        const std::string ESSL3_VERT_HEADER = R"GLSL(
+#define texture2D texture
+#define attribute in
+#define varying out
+)GLSL";
+
+        const std::string ESSL3_FRAG_HEADER = R"GLSL(
+#define texture2D texture
+#define varying in
+#define gl_FragColor TANGRAM_FragColor
+layout (location = 0) out highp vec4 TANGRAM_FragColor;
+)GLSL";
+    }
+
+    std::string Shader::TranslateToESSL3(const std::string& source, GLenum shaderType) {
+        const std::string& header = (shaderType == GL_VERTEX_SHADER ? ESSL3_VERT_HEADER : ESSL3_FRAG_HEADER);
+
+        // '#version' must be on the FIRST LINE - not merely preceded by whitespace. These sources
+        // are raw literals that open with a newline and an indent, so the directive is emitted at
+        // offset 0 and whatever came before it is pushed after the header.
+        std::size_t versionPos = source.find("#version");
+        if (versionPos == std::string::npos) {
+            return ESSL3_VERSION + header + source;
+        }
+        std::size_t eol = source.find('\n', versionPos);
+        if (eol == std::string::npos) {
+            eol = source.size();
+        } else {
+            eol += 1;
+        }
+        return ESSL3_VERSION + header + source.substr(0, versionPos) + source.substr(eol);
+    }
 
     Shader::~Shader() {
     }
@@ -150,7 +195,8 @@ namespace massif {
             return 0;
         }
 
-        const char* sourceBuf = source.c_str();
+        std::string translatedSource = TranslateToESSL3(source, shaderType);
+        const char* sourceBuf = translatedSource.c_str();
         glShaderSource(shaderId, 1, &sourceBuf, NULL);
 
         glCompileShader(shaderId);
@@ -165,6 +211,23 @@ namespace massif {
                 glGetShaderInfoLog(shaderId, infoLen, &charsWritten, infoBuf.data());
                 std::string msg(infoBuf.begin(), infoBuf.begin() + charsWritten);
                 Log::Errorf("Shader::LoadShader: Failed to compile shader type %i in '%s' shader \n Error: %s", shaderType, name.c_str(), msg.c_str());
+                // The reported line is into the TRANSLATED source, which nothing on disk matches -
+                // quote it, or every compile error costs a round of guessing.
+                std::size_t colon = msg.find(':');
+                if (colon != std::string::npos) {
+                    int line = std::atoi(msg.c_str() + colon + 1);
+                    std::size_t pos = 0;
+                    for (int i = 1; i < line && pos != std::string::npos; i++) {
+                        pos = translatedSource.find('\n', pos);
+                        if (pos != std::string::npos) {
+                            pos++;
+                        }
+                    }
+                    if (pos != std::string::npos && line > 0) {
+                        std::size_t eol = translatedSource.find('\n', pos);
+                        Log::Errorf("Shader::LoadShader: line %d is: %s", line, translatedSource.substr(pos, eol == std::string::npos ? eol : eol - pos).c_str());
+                    }
+                }
             }
             glDeleteShader(shaderId);
             shaderId = 0;

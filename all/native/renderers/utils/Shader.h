@@ -32,6 +32,10 @@ namespace massif {
         virtual void destroy();
 
     private:
+        // Rewrites a '#version 100' shader to ESSL 3.00 with tangram's preamble, so the sources
+        // stay written once. See Shader.cpp for why the shaders are not migrated by hand.
+        static std::string TranslateToESSL3(const std::string& source, GLenum shaderType);
+
         static GLuint LoadProg(const std::string& name, GLuint vertShaderId, GLuint fragShaderId);
         static GLuint LoadShader(const std::string& name, const std::string& source, GLenum shaderType);
 
