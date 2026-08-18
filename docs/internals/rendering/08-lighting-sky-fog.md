@@ -81,6 +81,22 @@ Design points, each measured:
   the cover-relief version (20.5 fps / 4.8 ms, 22 tiles) because the same number of tiles now covers
   the throw coarsely instead of covering the valley floor finely. Against no ring at all: 25.7 fps /
   2.3 ms. The original fine ring drew up to 49 tiles and still missed the mountain.
+- **The height slab must span the CASTERS, not the cover.** vt has no per-tile heights for the ring
+  — it measures every ring tile at the one range it is handed — so a ridge taller than that range is
+  clipped out of the caster pass by the light box's near plane, and its shadow arrives truncated
+  along an edge that moves with the camera, because the range follows the cover. Measured at
+  Grenoble z16.53 tilt 90: the cover's range was `5.75..17.43` while the ring tiles reached `145.13`,
+  eight times taller. `MapRenderer` therefore widens the range with the caster tiles' own min/max,
+  which is exact rather than a guess from a coarse ancestor. The per-tile ranges still narrow each
+  cascade's *receiver* slab, so the texel size does not pay for it.
+
+  Worth recording how this was nearly missed: a single-frame screenshot A/B said the fix changed
+  19,425 px of 1,357,952 — noise — and it was reverted as refuted. The symptom only shows while
+  panning, so a static frame did not measure it. Two earlier candidates were ruled out the same way
+  and those refutations stand (0 casters skipped for missing elevation; the ring's reach needs 1.76
+  tiles of the 3 it has, and `shadowMargin` 3 vs 8 is noise), but a still frame is not a valid
+  detector for anything that only appears in motion.
+
 - **The caster set has to stay a partition of the ground.** The cover is a quadtree partition, but the
   ring is generated at each cover tile's own zoom and the cover mixes zooms (up to
   `TerrainMaxTileZoomCoarsening` levels), so the ring around a coarse tile lands on top of the fine

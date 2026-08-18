@@ -1676,6 +1676,24 @@ namespace massif {
                         }
                     }
                 }
+                // The slab has to hold the CASTERS, and vt has no per-tile heights for the RING -
+                // it measures every ring tile at this range, so a ridge taller than it is clipped
+                // out of the caster pass by the light box's near plane and its shadow arrives
+                // truncated, along an edge that moves with the camera because the range follows the
+                // cover. Measured at Grenoble z16.53 tilt 90: the cover's range was 5.75..17.43
+                // while the ring tiles reached 145.13. Taken from the caster tiles themselves, so
+                // it is exact rather than a guess from an ancestor. The per-tile ranges above still
+                // narrow each cascade's RECEIVER slab, so the texel size does not pay for this.
+                if (std::shared_ptr<ElevationManager> elevationManager = terrainOptions->getElevationManager()) {
+                    for (const vt::TileId& tileId : casterTileIds) {
+                        double casterMin = 0, casterMax = 0;
+                        elevationManager->getMinMaxDisplayHeightExact(MapTile(tileId.x, tileId.y, tileId.zoom, 0), casterMin, casterMax);
+                        if (casterMax > casterMin) {
+                            minHeight = std::min(minHeight, casterMin);
+                            maxHeight = std::max(maxHeight, casterMax);
+                        }
+                    }
+                }
                 // One light box per cascade, near slice first. A single box has to
                 // span everything visible, so at a tilt its texels are metres of
                 // ground and every shadow edge is a staircase; the near cascade
