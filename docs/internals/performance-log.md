@@ -1482,3 +1482,80 @@ windows longer than 1600 ms discarded, two cycles per configuration.
 - Reading `layers` rather than fps is what makes this measurable at all: the device presents at
   43 Hz (§15.6) and the frame here is far from that ceiling, so ±1 fps of run-to-run noise swamps
   a 1.2 ms section change.
+
+---
+
+## 18. Phase 4 opened by measuring first, and the first two items died (2026-08-19)
+
+[Phase 4](rendering/16-graphics-api-migration.md#phase-4--harvest) lists five ES 3.0 harvests
+"ordered by expected payoff". Nothing had been measured against that order. Method: Crosscall
+HLTE556N (Adreno 610), `bench/city2d.sh` — Grenoble 5.724/45.188 z16.22 tilt 26, terrain off,
+composite base with the bundled style project, scripted north pan, `-PprofileRender`.
+
+Baseline, 22.1 fps, frame avg 39.9 ms:
+
+| CPU section | ms/frame | | GPU section | ms/frame |
+|---|---|---|---|---|
+| `sky` | 12.2 | | sky | 5.4 |
+| `layers` | 14.1 | | background | 3.6 |
+| `layers3D` | 11.4 | | layers | 7.3 |
+| labels 2D + 3D | 3.4 + 2.2 | | layers3D | 1.4 |
+| **`billboards`** | **0.1** | | **billboards** | **0.0** |
+
+`sky` at 12.2 matches §16's "swap wait 12.2" exactly, so it is absorbing the vsync wait rather than
+costing that much itself.
+
+### 18.1 Item 1 (instancing billboards/markers) is dead at this camera
+
+**0.1 ms CPU, 0.0 ms GPU.** There is nothing to win. Its premise is also already satisfied:
+`BillboardRenderer::BuildAndDrawBuffers` draws `drawDataIndex * 6` indices in one
+`glDrawElements` per buffer-full, so billboards are *already* one draw per batch, not one per quad.
+
+What instancing would actually change here is different from what the issue says: the renderer
+builds four corners per billboard per frame and hands them over as **client-side vertex arrays**
+(`coordBuf.data()`, no VBO). That is a real cost — but only in a scene that has billboards. This
+camera has none, so any instancing work needs a marker-heavy bench built first, and the payoff
+would be for marker-heavy apps rather than for the map.
+
+### 18.2 Item 5 (label vertex streaming) measures as a no-op
+
+`renderLabelBatch` re-specifies six buffers per batch with
+`glBufferData(..., GL_DYNAMIC_DRAW)`. Replaced with ES 3.0 orphaning — `glBufferData(size, nullptr,
+GL_STREAM_DRAW)` then `glMapBufferRange(GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT |
+GL_MAP_UNSYNCHRONIZED_BIT)` and a `memcpy` — behind `debug.massif.labelorphan` so one APK does the
+A/B. Interleaved OFF/ON over two rounds, 41 one-second windows per arm:
+
+| arm | fps median | IQR | CPU frame | GPU total |
+|---|---|---|---|---|
+| off | 19.80 | 17.65–22.80 | 43.4 | 18.3 |
+| orphaned | 20.00 | 17.90–21.90 | 44.0 | 18.2 |
+
+**The same arm differs more between rounds than the arms differ from each other** — `off` measured
+18.90 in round 1 and 19.80 in round 2, 4.5× the 0.2 fps between arms, against a stdev of 5.2. No
+effect.
+
+Why: there are ~25 label batches per frame carrying ~245 labels, so each of the six buffers is a
+few KB. `glBufferData` of a few KB is already cheap, and orphaning solves a pipeline stall that at
+that size does not happen. The change was reverted rather than shipped — a no-op behind a debug
+property is complexity for nothing.
+
+Note also that `labelBuild attribMs`, at 17.4 **per interval**, is 0.76 ms/frame, not 17.4 — and
+`Label.cpp`'s `labelAttribNs` clock covers CPU filling of the `VertexArray`s, which buffer mapping
+does not touch at all. Reading a per-interval stat as per-frame is the easy mistake here; every
+`RenderStats` line ending `(per interval)` covers the whole ~1 s window.
+
+### 18.3 What the numbers say to do instead
+
+The frame is CPU-bound on draw submission (§16: 36% of the GL thread inside `libGLESv2_adreno.so`),
+and the per-draw breakdown is `draw=10.1 µs` against `styleEval=3.5`, `styleUpload=2.1`,
+`compile=3.3`, `bind=1.6`. At **320 geometry draws/frame** — 63 tiles × ~5 style layers with content
+— the driver's own per-draw cost dominates.
+
+Of the remaining Phase 4 items, only **UBOs (item 4)** aims at any of that, and it targets
+`styleUpload`: 320 × 2.1 µs ≈ **0.67 ms/frame, ~1.7% of the frame**. Worth doing, but it will not
+move fps on this device, and it should be judged on `layers` rather than fps for the reason in
+§17.
+
+The lever the data actually points at — merging geometry across tiles per style layer, to cut 320
+draws — **is not in Phase 4's list**. Item 3 (packed attributes) does not deliver it either: the
+draws come from the tile × style-layer structure, not from the 16-bit index cap.

@@ -446,9 +446,23 @@ vt's rename is still harmless and need not be undone; only the comment is mislea
 
 ### Phase 4 — harvest
 
-One measured PR each, recorded in [Performance log](../performance-log.md): instancing, then shadow
-cascades as a texture array, then packed vertex attributes, then UBOs, then `glMapBufferRange` for
-label streaming.
+One measured PR each, recorded in [Performance log](../performance-log.md). The list was written as
+"ordered by expected payoff" before anything was measured; opening it with a measurement
+([round 18](../performance-log.md#18-phase-4-opened-by-measuring-first-and-the-first-two-items-died-2026-08-19))
+killed the first two items and reordered the rest.
+
+| Item | Status at the city camera, Adreno 610 |
+|---|---|
+| 1. Instancing (billboards, markers) | **Dead here** — 0.1 ms CPU, 0.0 ms GPU, and billboards are already one draw per batch. Needs a marker-heavy bench to justify at all |
+| 2. Shadow cascades as a texture array | Untested — shadows are off in this bench |
+| 3. Packed vertex attributes | Does not cut draws: they come from tile × style layer, not from the 16-bit index cap |
+| 4. UBOs | The only remaining item aimed at the bottleneck. Targets `styleUpload` ≈ **0.67 ms/frame (~1.7%)** — judge it on `layers`, not fps |
+| 5. `glMapBufferRange` for label streaming | **Measured no-op** — the six label buffers are a few KB each. Reverted, not shipped |
+
+The frame is CPU-bound on draw submission at **320 geometry draws/frame**, so the lever the data
+points at is merging geometry across tiles per style layer — which **is not on this list**. That is
+the honest outcome of the phase so far: the ES 3.0 baseline is worth having for what it removed
+(Phase 2's extension probes) more than for what this phase has so far harvested.
 
 ### Phase 5 — desktop
 
