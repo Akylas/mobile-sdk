@@ -243,9 +243,35 @@ Styles keep both overrides: `building-light-intensity` and `building-ambient` in
 still win over the sun, so a style can tune walls without moving the terrain sun.
 
 Note the asymmetry: buildings take the sun's **direction, colour and intensity**, but keep their
-**own ambient** (0.35 unless a style sets `building-ambient`). `lightOptions.ambientIntensity` moves
-the ground, not the facades — at ambient 1 a shared value would flatten every building, and an
-extrusion with no side shading does not read as 3D.
+**own ambient**. `lightOptions.ambientIntensity` moves the ground, not the facades — at ambient 1 a
+shared value would flatten every building, and an extrusion with no side shading does not read as 3D.
+
+### 3D buildings follow mapbox's `fill-extrusion` model
+
+The normalised Lambert above was replaced by mapbox's model, so a facade shades the way the same
+building does in mapbox at the same hour. Details in
+[`internals/rendering/08-lighting-sky-fog.md`](internals/rendering/08-lighting-sky-fog.md#buildings).
+
+**The look changes on upgrade even if you set nothing**, in three ways:
+
+| | Before | After |
+|---|---|---|
+| light sum | `ambient + sun * (1 - ambient)`, in sRGB | `ambient + sun`, summed **linear**, returned to sRGB |
+| `building-ambient` default | 0.35 | **0.5** |
+| `building-light-intensity` default | 1.0 | **0.5** |
+| `building-vertical-gradient` default | 0.65 | **0** — mapbox has no facade gradient |
+
+The two 0.5s sum to exactly 1 in direct sun, so a lit facade keeps its own colour at any hour. To
+keep something close to the old look, set `building-vertical-gradient: 0.65` and
+`building-light-intensity: 1` in the style's `Map` block; the linear sum has no opt-out.
+
+Roofs now read **lighter than walls in daylight and darker at dawn**, as mapbox does — it falls out
+of `N.L` and is not tunable. A 60° floor on the building sun's altitude, present only in unreleased
+6.1 builds, was removed: it was compensating for a shadow bug and it suppressed that inversion.
+
+Buildings also gain a rounded roof edge (`building-edge-radius`, metres, 0 = off as before), a
+`building-roof-shade` knob, and pitched roofs from OSM `roof:shape` / `roof:height` where the tiles
+carry them. All default to the previous flat-capped, sharp-edged geometry.
 
 ## Deliberately NOT renamed
 

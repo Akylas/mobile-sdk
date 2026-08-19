@@ -76,21 +76,21 @@ namespace massif {
     struct ResolvedLighting {
         bool terrainLightingEnabled = false;
         cglib::vec3<float> sunDir = cglib::vec3<float>(0, 0, 1);
-        // The sun the 3D extrusions light with: the same azimuth and colour, but with its ALTITUDE
-        // floored (see resolveLighting). A city at a 9-degree sun is otherwise uniformly muddy.
-        cglib::vec3<float> buildingSunDir = cglib::vec3<float>(0, 0, 1);
         Color sunColor = Color(255, 255, 255, 255);
         float sunIntensity = 1.0f;
         float ambientIntensity = 0.35f;
         Color ambientColor = Color(255, 255, 255, 255);
-        // What the 3D extrusions light with: the same normalised Lambert the terrain surface uses,
-        // so walls and the ground agree. The intensity follows the sun; the ambient is the walls'
-        // own, so flattening the ground does not flatten every facade with it (see resolveLighting).
-        float buildingLightIntensity = 1.0f;
-        float buildingAmbient = 0.35f;
-        // How dark the foot of a wall goes, as a fraction of its colour. The reach it fades out
-        // over is decode-time geometry, not a uniform - see TileLayerBuilder::appendWallQuad.
-        float buildingVerticalGradient = 0.65f;
+        // What the 3D extrusions light with: mapbox's fill-extrusion model, summed in linear space
+        // (TileRenderer::LIGHTING_SHADER_3D). Both default to their 0.5, which sums to exactly 1
+        // in full sun - a facade the light reaches keeps its own colour, whatever the hour.
+        // The ambient is the walls' own, so flattening the ground does not flatten every facade
+        // with it (see resolveLighting).
+        float buildingLightIntensity = 0.5f;
+        float buildingAmbient = 0.5f;
+        // How dark the foot of a wall goes, as a fraction of its colour. Off by default: mapbox has
+        // no facade gradient, the direction-aware ambient separates the walls instead. The reach it
+        // fades over is decode-time geometry, not a uniform - see TileLayerBuilder::appendWallQuad.
+        float buildingVerticalGradient = 0.0f;
         float buildingRoofShade = 1.0f;
         // The contact shadow on the ground around a footprint. Its RADIUS is decode-time geometry
         // (TileLayerBuilder::appendGroundSkirt); these two shade the skirt it produced.

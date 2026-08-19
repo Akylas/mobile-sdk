@@ -420,24 +420,43 @@ because it is mapbox's default; the case for it is a lower depth bias, which has
 entry point for anything solid drawn in the 3D pass — extrusions today, source-driven 3D models next
 (#131) — so a model and the wall beside it cannot disagree about the sun.
 
-It is the **same normalised Lambert the terrain surface uses** (`applyTerrainShading`, above), fed
-from the same four resolved values:
+It is **mapbox's `fill-extrusion` model**, ported from `_prelude_lighting.glsl` and
+`fill_extrusion.{vertex,fragment}.glsl` (semantics only — mapbox-gl-js v3 is under their TOS, not
+BSD, so nothing is copied):
 
 ```glsl
-lit = ambientColor * ambient + sunColor * ((1.0 - ambient) * max(0.0, dot(N, sunDir)) * intensity)
+ambient = ambientColor * ambientIntensity * verticalFactor * ambientDirectional
+sun     = sunColor * sunIntensity * max(0.0, dot(N, sunDir)) * shadow
+lit     = pow(ambient + sun, 1.0 / 2.2)          // summed LINEAR, returned to sRGB once
 ```
+
+Four things matter here, and each was a separate round to find:
+
+- **The sum is linear, the output sRGB.** `linearProduct(c, k) = c * pow(k, 1/2.2)`, which is
+  `linearTosRGB(sRGBToLinear(c) * k)` with one `pow` instead of three. A straight sRGB multiply
+  crushes the midtones and is why facades read harsh here long after the model was otherwise right.
+- **Ambient is direction-aware.** `verticalFactor = mix(0.92, 1, N.z*0.5+0.5)` (light blocked from
+  below), and `ambientDirectional` takes up to 30% off faces pointing away from the sun, scaled by
+  the sun's own luminance. That variation across the ambient is what separates wall tones — mapbox
+  has **no facade gradient at all** in this path (`u_vertical_gradient` is read only in their legacy
+  branch, and even there it clamps flat below ~106 m). `buildingVerticalGradient` defaults to 0.
+- **Ambient and sun simply add**, with no headroom coupling. Both default to mapbox's **0.5**, so
+  they sum to exactly 1 in direct sun: a facade the light reaches keeps its own colour at any hour.
+- **The shadow scales the sun only** — see the back-face trap below.
 
 Roofs and walls both take `N.L`, and `resolveLighting` sets `buildingLightIntensity` from the sun
 **unconditionally** — `terrainLightingEnabled` decides whether the *ground* is lit and nothing else.
 
-The **sun's altitude is floored at 60°** for buildings — its azimuth and colour are the real ones.
-A roof's `N.L` is `sin(altitude)`, so at the 9° that makes a massif read well every roof in a city
-drops to 0.16 of its colour and the whole block goes muddy; no ambient value fixes that without
-flattening the walls with it. The ground keeps the true sun, so long shadows and low relief are
-unaffected. This is the same trick the shadow pass already uses with its own 15° floor, and it puts
-our building light where mapbox puts its `fill-extrusion` light (`position: [1.15, 210, 30]`, i.e.
-30° from vertical). At the floor a roof lands at 0.91, a sunward wall at 0.68 and a wall facing away
-at 0.35 — bright roofs with a real range across the walls.
+This model reproduces mapbox's day/dusk inversion for free: a roof's `N.L` is `sin(altitude)` and a
+sunward wall's is `cos(altitude)`, so **roofs read lighter than walls in daylight and darker at
+dawn**. Measured on one roof pixel at the Grenoble camera: sun 45° → `(168,94,27)`, sun 8° →
+`(140,76,21)`, with the sunward wall overtaking it at the low sun.
+
+A **60° floor on the sun's altitude for buildings** was added in `e830b54ee` and removed again: it
+existed because facades went black at a low sun, and that blackening was the back-face bug below,
+not the sun angle. While it stood, every roof was lit as if the sun were at 60° and the inversion
+above could never happen. Note mapbox's directional light defaults to elevation **30°**
+(`direction: [210, 30]`) and it is an ordinary style property, not a floor.
 
 The **ambient does not follow the ground's** either, and that asymmetry is deliberate. Ambient is the floor
 the directional term is added on top of, so at `ambientIntensity` 1 the model collapses to a
@@ -450,6 +469,25 @@ scene ambient for the same reason. A style ties them back together with `buildin
 This was found the hard way: with the ambient coupled, `--es terrainLight false` produced completely
 flat buildings, and `terrainLight true` hid it — the shadow pass's back-face rule was darkening
 away-facing walls and doing the job the sun should have been doing.
+
+### The back-face trap: a shadow must not take the ambient with it
+
+`shadowFactorSlope` ends with `lit = min(lit, facing)`, `facing = smoothstep(0, 0.15, N.L)` — a
+surface turned away from the sun is in its own shadow whatever the depth map says, which is right and
+is what lets the bias stay small everywhere else. The bug was **where the result was applied**:
+`polygon3DFsh` multiplied the finished colour by it, ambient included, so every wall not in direct
+sun collapsed to near-black rather than dropping to sky-only. mapbox instead passes the shadow in as
+the *directional* factor and never touches ambient.
+
+The term now goes into `applyLighting3D`, which requires the extrusion lighting to run **per
+fragment** (`LightingShader(perVertex=false)`) — the shadow exists nowhere else. Unmeasured cost: one
+dot, one mix and one `pow(vec3)` per building fragment.
+
+Worth recording how long this hid: three separate rounds blamed the lighting model, the ambient
+value and the sun altitude in turn. What settled it was bypassing stages rather than reasoning —
+`applyLighting3D` returning its input unchanged still gave black walls, which ruled the lighting out
+in one build; removing the shadow multiply fixed them in the next. A histogram of the frame was
+actively misleading here, because the dominant dark tone was the *ground*, not the walls.
 
 Until 2026-08 there were two models here instead, switched on `buildingLightIntensity > 0`: with the
 terrain sun off, walls used `N.L * mainLightColor + ambientColor` from the pre-`LightOptions`

@@ -444,6 +444,11 @@ namespace massif {
         }
     }
 
+    cglib::vec3<float> TileRenderer::linearColor(const Color& color, float intensity) {
+        auto linear = [intensity](unsigned char c) { return std::pow(c / 255.0f, 2.2f) * intensity; };
+        return cglib::vec3<float>(linear(color.getR()), linear(color.getG()), linear(color.getB()));
+    }
+
     vt::GLTileRenderer::TerrainLighting TileRenderer::buildTerrainLighting(const ResolvedLighting& lighting) {
         vt::GLTileRenderer::TerrainLighting terrainLighting;
         terrainLighting.enabled = true;
@@ -828,7 +833,7 @@ namespace massif {
             _groundAOIntensity = lighting.buildingAoIntensity;
             _groundAOAttenuation = lighting.buildingAoGroundAttenuation;
             _resolvedSunDir = lighting.sunDir;
-            _resolvedBuildingSunDir = lighting.buildingSunDir;
+            _resolvedBuildingSunDir = lighting.sunDir;
             _resolvedSunColor = lighting.sunColor;
             _resolvedAmbientColor = lighting.ambientColor;
             // The terrain surface is what this lights, and it exists whenever the stack draws one:
@@ -1329,11 +1334,15 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
             // The RESOLVED sun (style over LightOptions), captured by onDrawFrame: this callback runs
             // at draw time and cannot resolve it itself. Same four values the terrain surface is lit
             // by, so a building and the ground it stands on agree about the hour.
-            vt::GLTileRenderer::LightingShader lightingShader3D(true, LIGHTING_SHADER_3D, [this](GLuint shaderProgram, const vt::ViewState& viewState) {
+            // Per FRAGMENT: the shadow term has to reach the lighting, and it only exists there.
+            vt::GLTileRenderer::LightingShader lightingShader3D(false, LIGHTING_SHADER_3D, [this](GLuint shaderProgram, const vt::ViewState& viewState) {
+                // Linear, and already carrying the intensity: the shader sums the two and returns
+                // the sum to sRGB once, so it never needs the intensities apart.
+                cglib::vec3<float> sunColor = linearColor(_resolvedSunColor, _buildingLightIntensity);
+                cglib::vec3<float> ambientColor = linearColor(_resolvedAmbientColor, _buildingAmbient);
                 glUniform3fv(glGetUniformLocation(shaderProgram, "u_sunDir"), 1, _resolvedBuildingSunDir.data());
-                glUniform3f(glGetUniformLocation(shaderProgram, "u_sunColor"), _resolvedSunColor.getR() / 255.0f, _resolvedSunColor.getG() / 255.0f, _resolvedSunColor.getB() / 255.0f);
-                glUniform3f(glGetUniformLocation(shaderProgram, "u_ambientColor"), _resolvedAmbientColor.getR() / 255.0f, _resolvedAmbientColor.getG() / 255.0f, _resolvedAmbientColor.getB() / 255.0f);
-                glUniform2f(glGetUniformLocation(shaderProgram, "u_sunParams"), _buildingLightIntensity, _buildingAmbient);
+                glUniform3fv(glGetUniformLocation(shaderProgram, "u_sunColor"), 1, sunColor.data());
+                glUniform3fv(glGetUniformLocation(shaderProgram, "u_ambientColor"), 1, ambientColor.data());
                 glUniform2f(glGetUniformLocation(shaderProgram, "u_verticalGradient"), _buildingVerticalGradient, _buildingRoofShade);
             });
             tileRenderer->setLightingShader3D(lightingShader3D);
@@ -1377,11 +1386,10 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
 
     const std::string TileRenderer::LIGHTING_SHADER_3D = R"GLSL(
         uniform vec3 u_sunDir;
-        uniform vec3 u_sunColor;
-        uniform vec3 u_ambientColor;
-        uniform vec2 u_sunParams; // x = sun intensity, y = ambient intensity
+        uniform vec3 u_sunColor;     // linear, already scaled by the sun intensity
+        uniform vec3 u_ambientColor; // linear, already scaled by the ambient intensity
         uniform vec2 u_verticalGradient; // x = how dark the foot of a wall goes, y = roof shade
-        vec4 applyLighting3D(lowp vec4 color, mediump vec3 normal, mediump float wallT, mediump float sideVertex) {
+        vec4 applyLighting3D(lowp vec4 color, mediump vec3 normal, mediump float wallT, mediump float sideVertex, mediump float shadow) {
             // Ambient occlusion where a wall meets the ground: that corner is shadowed by the ground
             // and by the building's own footprint whatever the sun does, and it is the cue that
             // makes an extrusion stand on the terrain instead of floating over it - the shadow map
@@ -1396,12 +1404,22 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
             // The roof shade rides the same weight: full on a roof, none on a wall, and partway
             // across the bevel, so a darkened roof does not meet its wall on a hard line.
             lowp vec3 baseColor = color.rgb * mix(u_verticalGradient.y, mix(1.0 - u_verticalGradient.x, 1.0, wallT), sideVertex);
-            // Byte for byte the terrain surface's normalised Lambert (applyTerrainShading): ambient
-            // is the floor, the coloured sun fills the headroom. One model for roofs and walls, and
-            // the same one the ground uses - so nothing changes shape when terrain lighting is
-            // toggled, and a warm evening sun warms a facade exactly as it warms the slope behind it.
-            mediump float ndl = max(0.0, dot(normal, u_sunDir));
-            mediump vec3 lit = u_ambientColor * u_sunParams.y + u_sunColor * ((1.0 - u_sunParams.y) * ndl * u_sunParams.x);
+            // Mapbox's fill-extrusion model (docs/internals/rendering/08-lighting-sky-fog.md).
+            // Ambient and sun simply SUM - no headroom coupling - and the ambient itself is
+            // direction-aware, which is what separates wall tones without any gradient ramp.
+            mediump float ndl = dot(normal, u_sunDir);
+            // Sky is brighter near the sun: faces turned away lose up to 30% of the ambient,
+            // scaled by how bright the sun actually is.
+            mediump float dirLuminance = dot(u_sunColor, vec3(0.2126, 0.7152, 0.0722));
+            mediump float ambientDirectional = mix(1.0 - 0.3 * min(dirLuminance, 1.0), 1.0, min(ndl + 1.0, 1.0));
+            // Environmental light blocked from below: a downward face keeps 92%, a roof all of it.
+            mediump float vertical = mix(0.92, 1.0, normal.z * 0.5 + 0.5);
+            // Only the sun is shadowed. The ambient is the sky, and a wall in shadow still sees it.
+            mediump vec3 lit = u_ambientColor * (vertical * ambientDirectional) + u_sunColor * (max(0.0, ndl) * shadow);
+            // The light is summed in LINEAR space and only then returned to sRGB, which is the
+            // whole reason their facades stay soft where a straight sRGB multiply crushes them.
+            // Equivalent to linearTosRGB(sRGBToLinear(color) * lit), one pow instead of three.
+            lit = pow(lit, vec3(1.0 / 2.2));
             // Premultiplied, so scaling rgb alone is a valid tint and the clamp keeps rgb <= a.
             return vec4(min(baseColor * lit, vec3(color.a)), color.a);
         }

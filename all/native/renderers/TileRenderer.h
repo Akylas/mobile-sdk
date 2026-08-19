@@ -139,6 +139,8 @@ namespace massif {
         // The vt-side lighting struct for a resolved sun. One place, so the pre-surface push above
         // and onDrawFrame cannot light the same frame differently.
         static vt::GLTileRenderer::TerrainLighting buildTerrainLighting(const ResolvedLighting& lighting);
+        // A light colour in LINEAR space, scaled by its intensity - the form the 3D lighting sums in.
+        static cglib::vec3<float> linearColor(const Color& color, float intensity);
         // Turns this renderer into a terrain paint baker: it shades the shared terrain elevation
         // texture into the drape texture, at its own place in the layer order, instead of holding
         // a tile set of its own. The fingerprint must cover every value the paint's appearance
