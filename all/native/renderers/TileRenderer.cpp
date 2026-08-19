@@ -1375,14 +1375,17 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
         uniform vec3 u_sunColor;
         uniform vec3 u_ambientColor;
         uniform vec2 u_sunParams; // x = sun intensity, y = ambient intensity
-        uniform float u_verticalGradient; // how dark the foot of a wall goes, 0 = off
-        vec4 applyLighting3D(lowp vec4 color, mediump vec3 normal, highp_opt float height, mediump float wallT, bool sideVertex) {
+        uniform float u_verticalGradient; // how dark the foot of a wall goes, 0 = flat facade
+        vec4 applyLighting3D(lowp vec4 color, mediump vec3 normal, mediump float wallT, bool sideVertex) {
             // Ambient occlusion where a wall meets the ground: that corner is shadowed by the ground
             // and by the building's own footprint whatever the sun does, and it is the cue that
             // makes an extrusion stand on the terrain instead of floating over it - the shadow map
-            // cannot resolve it, its texels are metres wide. Measured along the WALL (0 at its own
-            // base ring, 1 at its roof), not in absolute metres: a building part starting 20 m up
-            // is at its own foot there, and the metre form gave it no gradient at all.
+            // cannot resolve it, its texels are metres wide.
+            //
+            // wallT is the ramp itself, baked per vertex by the tesselator from the wall's ABSOLUTE
+            // height and the style's reach (TileLayerBuilder::appendWallQuad). Both are style values
+            // in one unit there, where the shader's own height carries a packing and a tile scale;
+            // and being absolute, every part of a building shares one ramp instead of restarting.
             lowp vec3 baseColor = sideVertex ? color.rgb * mix(1.0 - u_verticalGradient, 1.0, wallT) : color.rgb;
             // Byte for byte the terrain surface's normalised Lambert (applyTerrainShading): ambient
             // is the floor, the coloured sun fills the headroom. One model for roofs and walls, and

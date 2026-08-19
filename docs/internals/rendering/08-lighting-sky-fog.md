@@ -459,23 +459,103 @@ whatever the sun does, and the shadow map cannot resolve it - its texels are met
 luminance down a wall on the device: 206 at the roof, 100 at the foot (124 with the previous 0.5,
 which read as too light).
 
-It is `mix(1 - buildingVerticalGradient, 1, t)` where `t` is 0 on the base ring and 1 on the top
-ring — the wall's **own** parameter, not a height in metres. `t` needed no new attribute: the
-tesselator has always written it into `_attribs[2]`, where nothing read it. The style sets the
-strength with `building-vertical-gradient` (default `0.65`, i.e. the foot at 35% of the wall colour).
+It is `mix(1 - buildingVerticalGradient, 1, wallT)`, and **`wallT` is baked into the vertex by the
+tesselator**, not computed in the shader: `clamp(h / building-vertical-gradient-height, 0, 1)` where
+`h` is the vertex's **absolute height above the ground** (`TileLayerBuilder::appendWallQuad`, packed
+0..127 in `_attribs[3]`). The style sets `building-vertical-gradient` (default `0.65`, the foot at
+35% of the wall colour) and `building-vertical-gradient-height` (default `20` m).
 
-The previous form was `1 - 0.65/(1 + h*h)` with `h` in **absolute metres**. Given the per-vertex rule
-above it produced almost the same screen ramp for an ordinary building — 0.35 at the foot, ~1.0 at
-the roof — so this is not the "tall facades are flat" bug [#132] describes; a tall facade was never
-flat. What it actually broke is a wall whose **base is not at zero**: an OSM `building:part` starting
-20 m up evaluated `1 - 0.65/401 ≈ 0.998` at its own foot and got no gradient at all. The `t` form is
-also the one A2's bevel and A5's parts need, since both reason along the wall rather than about its
-altitude.
+Two things follow from where it is evaluated, and both were learned the hard way:
+
+- **Absolute, not a 0..1 parameter of each wall.** OSM models one building as a parent plus
+  `building:part` polygons of different heights. A per-wall parameter makes every part ramp over
+  *its own* height, so a 10 m part is fully bright exactly where the 30 m part beside it is still
+  mid-grey: the building reads as a stack of blocks with a band at every junction.
+- **In the tesselator, not the shader.** There, the height and the reach are both style values in
+  one unit. The shader's `height` was not: `aVertexHeight * uAbsHeightScale` worked out to
+  `metres × 262144` — `POLYGON3D_HEIGHT_SCALE` is circumference/4 and `tileHeightScale` is
+  `WORLD_SIZE / 2^zoom`, and the tile-local factors cancel to exactly `WORLD_SIZE / 4`. Comparing
+  that against a reach in metres saturated at 7.6 × 10⁻⁵ m, so every vertex above the base ring
+  evaluated to 1 and each wall quad ramped over itself no matter what the reach said. On device that
+  looked like *one gradient per floor*, identical at 10, 20 and 40 m. `uAbsHeightScale` and
+  `POLYGON3D_HEIGHT_SCALE` are gone with it — nothing else used them.
+
+The reach is therefore **decode-time geometry**, not a uniform: changing it re-decodes the tiles.
+The strength stays a live uniform.
+
+### Two dead ends, both shipped before being caught
+
+Worth knowing, because both look correct in isolation:
+
+- `1 - 0.65/(1 + h*h)`, the original. Given the per-vertex rule above it produced almost the right
+  screen ramp for an ordinary building — 0.35 at the foot, ~1.0 at the roof — so it is *not* the
+  "tall facades are flat" bug [#132] describes; a tall facade was never flat. It broke a wall whose
+  base is not at zero: a part starting 20 m up evaluated `1 - 0.65/401 ≈ 0.998` at its own foot and
+  got no gradient at all. That silent failure is also what made the stacked-parts case *look* right,
+  since a gradient-less upper part blends with the bright top of the part below it.
+- `mix(1 - g, 1, t)` with `t` the wall's own 0..1 parameter, which fixes the raised part in isolation
+  and is what replaced the above. On real Grenoble data it is visibly worse: it gives every part a
+  full ramp, so the junctions that used to blend now band hard. Verified on device.
+
+### The reach needs a vertex, not just a uniform
+
+The lighting is per vertex, and a wall has vertices only at its base ring and its roof — so any curve
+in there reaches the screen as a straight line between those two values. A reach of 20 m on a 40 m
+wall does not stop at 20 m; it stretches the whole facade. The reach only bit on walls *shorter* than
+itself, which is a knob that silently does nothing on exactly the buildings you set it for.
+
+`TileLayerBuilder::setPolygon3DGradientHeight` fixes that in geometry: the tesselator inserts an
+extra ring where the gradient knees, so the per-vertex line has a joint in the right place, and the
+ramp above it is flat. `TileReader` reads the value from the `Map` block with the **tile's own**
+zoom — this decides geometry, so it has to be fixed when the tile is built, and a zoom-dependent
+reach is sampled once per tile.
+
+Cost is one extra quad per wall taller than the reach (2 triangles → 4), nothing for shorter ones.
+That was chosen over moving the lighting per fragment, which is the general fix and is what A1 needs
+anyway for a metric AO falloff, a roof-edge term and emissive — none of which a vertex split
+approximates. Per-fragment lands as its own measured PR rather than smuggled in under a gradient fix.
+
 
 Contact darkening on the GROUND around a footprint is the other half and is not implemented: the
 ground does not know where the buildings are. It would need either screen-space AO over the scene
 depth (too expensive on an Adreno 610, where the whole 3D pass is ~9 ms) or a halo drawn by the
 style, which is a styling decision rather than an engine one.
+
+### Coincident walls
+
+A stipple on tall walls that looks exactly like shadow acne is usually **not** acne. OSM models a
+building whose height varies as a parent `building` plus several `building:part` polygons, and
+duplicate footprints from two source layers do the same thing: two extrusions end up with walls on
+the same footprint edge, a few centimetres apart, and they z-fight. The extrusion depth bias is
+uniform across the pass (`TERRAIN_EXTRUSION_DEPTH_DELTAS`), so nothing separates building from
+building.
+
+**Telling them apart costs one broadcast**: `--es shadow 0`. Acne cannot survive shadows being off;
+z-fighting can. Second discriminator — acne tracks the sun (`--es sunHour`), z-fighting tracks the
+camera and is unchanged by the hour.
+
+`TileLayerBuilder` therefore keeps `_polygon3DWalls`, a map from footprint edge to the height range
+already walled on it for this layer and tile. A wall is emitted only over the range no earlier
+feature covered — as up to two quads, since a wall taller at both ends sticks out below *and* above
+what is there. The edge key quantises both endpoints to 1/32768 of a tile (7 cm at z14, finer than
+any tiler's grid) and is undirected, because two features walk a shared edge in opposite directions.
+
+This is ours, not a port. **mapbox-gl-js does not do it**: `fill_extrusion_bucket` tesselates every
+polygon independently, and its `buildingGroups` — keyed on a `building_id` property carried in the
+tile — exists only to give every part of one building an identical centroid for the ground AO and
+flood light. Their tiles ship parts already resolved against their parent, so coincident faces never
+reach the renderer. Tangram has no handling either (`Builders::buildPolygonExtrusion`, one extrusion
+per polygon), so it shows the same artifact on the same data.
+
+Known gaps:
+
+- **Roofs are not deduped.** A part's roof coplanar with its parent's still fights. Walls were what
+  showed on the device; roofs need polygon-level overlap, not an edge key.
+- The covered range per edge is a single interval, so a wall split into disjoint pieces by two
+  earlier walls at different heights is approximated by their hull.
+- Where a shared wall survives, it keeps the colour of whichever feature reached the builder first.
+  Deterministic per tile, arbitrary between the two.
+- Fixing the tiles upstream is still the better answer, and the one mapbox ships.
 
 ### What did not work
 

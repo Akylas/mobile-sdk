@@ -81,7 +81,8 @@ namespace massif {
         // so walls and the ground agree. Follows the sun unless the style overrides it.
         float buildingLightIntensity = 1.0f;
         float buildingAmbient = 0.35f;
-        // How dark the foot of a wall goes, as a fraction of its colour, measured ALONG the wall.
+        // How dark the foot of a wall goes, as a fraction of its colour. The reach it fades out
+        // over is decode-time geometry, not a uniform - see TileLayerBuilder::appendWallQuad.
         float buildingVerticalGradient = 0.65f;
         float shadowStrength = 0.0f;
         float shadowBias = 0.25f;
