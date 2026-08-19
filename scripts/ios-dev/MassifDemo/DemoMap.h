@@ -50,6 +50,7 @@ typedef NS_ENUM(NSInteger, DemoFeature) {
 @property (nonatomic, readonly) MSFTerrainOptions *terrainOptions;
 @property (nonatomic, readonly) MSFLightOptions *lightOptions;
 @property (nonatomic, readonly) MSFSkyOptions *skyOptions;
+@property (nonatomic, readonly) MSFFogOptions *fogOptions;
 /** Sun, moon and their daily paths - demo content built on the generic celestial API. */
 @property (nonatomic, readonly) DemoCelestial *celestial;
 /** The bright-star catalogue, the constellation figures and the planets - same API. */
@@ -80,6 +81,7 @@ typedef NS_ENUM(NSInteger, DemoFeature) {
 - (void)applyTerrainOptions;
 - (void)applyLightOptions;
 - (void)applySkyOptions;
+- (void)applyFogOptions;
 - (void)applyHillshadeConfig;
 - (void)applyContourConfig;
 - (void)applyDebugConfig;

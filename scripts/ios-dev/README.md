@@ -8,10 +8,18 @@ gradle gives on Android.
 ## Setup
 
 ```sh
-./bootstrap.sh              # arm64 simulator (the usual dev target)
-./bootstrap.sh device       # arm64 device
-PROFILE=lite ./bootstrap.sh # a different feature profile
+./bootstrap.sh                  # arm64 simulator (the usual dev target)
+./bootstrap.sh device           # arm64 device
+PROFILE=lite ./bootstrap.sh     # a different feature profile
+PROFILE_RENDER=1 ./bootstrap.sh # per-frame timings, android-dev's -PprofileRender
 ```
+
+`PROFILE_RENDER=1` compiles in `MASSIF_FRAME_PROFILER` and `MASSIF_VT_RENDER_STATS` — the per-frame
+section timings and the vt draw/label/tile counters, printed as `PROF` and `RenderStats` lines.
+Neither exists in the binary otherwise, so switching it is a re-bootstrap, not a launch argument.
+Read them with `xcrun simctl spawn <udid> log stream` on the simulator, or the device console.
+Method for an A/B is [`scripts/android-dev/bench/README.md`](../android-dev/bench/README.md): the
+numbers drift, so only interleaved runs with medians over many windows count.
 
 That regenerates the Objective-C bindings, configures the SDK with CMake's Xcode generator, and
 writes `MassifDemo.xcodeproj` with [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install
