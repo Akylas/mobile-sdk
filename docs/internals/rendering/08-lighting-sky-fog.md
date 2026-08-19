@@ -549,8 +549,12 @@ per polygon), so it shows the same artifact on the same data.
 
 Known gaps:
 
-- **Roofs are not deduped.** A part's roof coplanar with its parent's still fights. Walls were what
-  showed on the device; roofs need polygon-level overlap, not an edge key.
+- **A roof is matched whole, not clipped.** `_polygon3DRoofs` keys the footprint plus the height it
+  sits at, summed over the vertices so the ring's start vertex and winding do not matter — which
+  catches a **duplicated footprint**, the case that actually z-fights. A `building:part` normally
+  differs in height from its parent, putting its roof on another plane entirely; a part that shares
+  its parent's height *and* only overlaps it partly would still fight, and would need real polygon
+  overlap to fix.
 - The covered range per edge is a single interval, so a wall split into disjoint pieces by two
   earlier walls at different heights is approximated by their hull.
 - Where a shared wall survives, it keeps the colour of whichever feature reached the builder first.
