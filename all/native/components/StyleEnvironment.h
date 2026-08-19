@@ -74,11 +74,9 @@ namespace massif {
         Color sunColor = Color(255, 255, 255, 255);
         float sunIntensity = 1.0f;
         float ambientIntensity = 0.35f;
-        // What the 3D extrusions light with. Intensity 0 selects the legacy model (walls by the
-        // light direction, roofs by the VIEW direction), which is what a map with no terrain
-        // lighting and no building properties has always drawn; anything above 0 is the same
-        // normalised Lambert the terrain surface uses, so walls and the ground agree.
-        float buildingLightIntensity = 0.0f;
+        // What the 3D extrusions light with: the same normalised Lambert the terrain surface uses,
+        // so walls and the ground agree. Follows the sun unless the style overrides it.
+        float buildingLightIntensity = 1.0f;
         float buildingAmbient = 0.35f;
         float shadowStrength = 0.0f;
         float shadowBias = 0.25f;

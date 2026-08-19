@@ -230,20 +230,17 @@ namespace massif {
 
         double _horizontalLayerOffset;
         cglib::vec3<float> _viewDir;
-        cglib::vec3<float> _mainLightDir;
         // The sun as RESOLVED (style over LightOptions), captured each frame for the 3D lighting
         // shader callback, which runs at draw time and cannot resolve it itself.
         cglib::vec3<float> _resolvedSunDir = cglib::vec3<float>(0, 0, 1);
+        Color _resolvedSunColor = Color(255, 255, 255, 255);
         // The elevation DATA version last acted on, apart from the global one: a change to only
         // the exaggeration moves the global version without making any surface stale.
         unsigned int _elevationDataVersion = 0;
-        bool _sunLightingEnabled = false;
-        float _sunIntensity = 0.0f;
         // What the extrusions light with, resolved from the style over the options
-        // (StyleEnvironment::resolveLighting). Intensity 0 = the legacy view-direction model.
-        float _buildingLightIntensity = 0.0f;
+        // (StyleEnvironment::resolveLighting).
+        float _buildingLightIntensity = 1.0f;
         float _buildingAmbient = 0.35f;
-        float _sunAmbient = 0.35f;
         cglib::vec3<float> _normalLightDir;
         MapVec _normalIlluminationDirection;
         bool _normalIlluminationMapRotationEnabled;

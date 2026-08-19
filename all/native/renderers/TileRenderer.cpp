@@ -67,7 +67,6 @@ namespace massif {
         _clickHandlerLayerFilter(),
         _horizontalLayerOffset(0),
         _viewDir(0, 0, 0),
-        _mainLightDir(0, 0, 0),
         _normalLightDir(0, 0, 0),
         _normalIlluminationMapRotationEnabled(false),
         _normalIlluminationDirection(0,0,0),
@@ -812,18 +811,13 @@ namespace massif {
             // sun stays with LightOptions. Both are re-read every frame, so either may depend on
             // the zoom.
             ResolvedLighting lighting = resolveLighting(options->getLightOptions(), _styleEnvironment);
-            // Kept for the 3D lighting shader callback, which runs at DRAW time and used to read
-            // LightOptions straight - so a style that had an opinion about the sun moved the
-            // terrain and left the buildings lit from the old direction, at the old intensity.
-            _sunLightingEnabled = lighting.terrainLightingEnabled;
-            _sunIntensity = lighting.sunIntensity;
-            _sunAmbient = lighting.ambientIntensity;
-            // Extrusions light by their OWN resolved pair, so a style can keep the soft
-            // normalised-Lambert walls with the terrain sun off - and so toggling terrain
-            // lighting no longer changes how dark a wall is unless the style wants it to.
+            // Extrusions light by their OWN resolved pair, so a style can tune the walls without
+            // moving the terrain sun. Captured for the 3D lighting callback, which runs at DRAW
+            // time and cannot resolve anything itself.
             _buildingLightIntensity = lighting.buildingLightIntensity;
             _buildingAmbient = lighting.buildingAmbient;
             _resolvedSunDir = lighting.sunDir;
+            _resolvedSunColor = lighting.sunColor;
             // The terrain surface is what this lights, and it exists whenever the stack draws one:
             // baked under a drape, or the shared ground pass when the drape is off. Gating on the
             // drape alone left the ground AND the hillshade paint over it unlit - and with them the
@@ -869,16 +863,6 @@ namespace massif {
         _viewDir = cglib::unit(viewState.getFocusPosNormal());
         if (auto options = _options.lock()) {
             MapPos internalFocusPos = viewState.getProjectionSurface()->calculateMapPos(viewState.getFocusPos());
-            _mainLightDir = cglib::vec3<float>::convert(cglib::unit(viewState.getProjectionSurface()->calculateVector(internalFocusPos, options->getMainLightDirection())));
-            // 3D extrusions are lit by this direction. With terrain lighting on, the whole map is
-            // supposed to answer to one sun, so the sun replaces the legacy fixed main light -
-            // otherwise buildings stay lit from a direction that has nothing to do with the hour.
-            // The RESOLVED sun, not LightOptions': a style may set the azimuth, altitude or
-            // intensity, and reading the options here left the buildings on a different sun from
-            // the ground they stand on.
-            if (_sunLightingEnabled) {
-                _mainLightDir = _resolvedSunDir;
-            }
             MapVec normalIlluminationDir = options->getMainLightDirection();
             if (_normalIlluminationDirection != MapVec(0,0,0)) {
                 normalIlluminationDir = _normalIlluminationDirection;
@@ -1332,23 +1316,13 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
                 tileRenderer->setLightingShader2D(lightingShader2D);
             }
 
+            // The RESOLVED sun (style over LightOptions), captured by onDrawFrame: this callback runs
+            // at draw time and cannot resolve it itself. Same four values the terrain surface is lit
+            // by, so a building and the ground it stands on agree about the hour.
             vt::GLTileRenderer::LightingShader lightingShader3D(true, LIGHTING_SHADER_3D, [this](GLuint shaderProgram, const vt::ViewState& viewState) {
-                if (auto options = _options.lock()) {
-                    const Color& ambientLightColor = options->getAmbientLightColor();
-                    glUniform4f(glGetUniformLocation(shaderProgram, "u_ambientColor"), ambientLightColor.getR() / 255.0f, ambientLightColor.getG() / 255.0f, ambientLightColor.getB() / 255.0f, ambientLightColor.getA() / 255.0f);
-                    const Color& mainLightColor = options->getMainLightColor();
-                    glUniform4f(glGetUniformLocation(shaderProgram, "u_lightColor"), mainLightColor.getR() / 255.0f, mainLightColor.getG() / 255.0f, mainLightColor.getB() / 255.0f, mainLightColor.getA() / 255.0f);
-                    glUniform3fv(glGetUniformLocation(shaderProgram, "u_lightDir"), 1, _mainLightDir.data());
-                    glUniform3fv(glGetUniformLocation(shaderProgram, "u_viewDir"), 1, _viewDir.data());
-                    // The RESOLVED sun (style over options), captured by onDrawFrame. Reading
-                    // LightOptions here ignored every sun property a style had set, so buildings
-                    // and the ground they stand on disagreed about the hour.
-                    // 0 keeps the legacy model; anything above it is the normalised Lambert the
-                    // terrain surface uses. resolveLighting decides which, so the style has the
-                    // final word (see ResolvedLighting::buildingLightIntensity).
-                    float buildingIntensity = (_buildingLightIntensity > 0.0f ? _buildingLightIntensity : 0.0f);
-                    glUniform2f(glGetUniformLocation(shaderProgram, "u_sunParams"), buildingIntensity, _buildingAmbient);
-                }
+                glUniform3fv(glGetUniformLocation(shaderProgram, "u_sunDir"), 1, _resolvedSunDir.data());
+                glUniform3f(glGetUniformLocation(shaderProgram, "u_sunColor"), _resolvedSunColor.getR() / 255.0f, _resolvedSunColor.getG() / 255.0f, _resolvedSunColor.getB() / 255.0f);
+                glUniform2f(glGetUniformLocation(shaderProgram, "u_sunParams"), _buildingLightIntensity, _buildingAmbient);
             });
             tileRenderer->setLightingShader3D(lightingShader3D);
 
@@ -1390,12 +1364,10 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
     )GLSL";
 
     const std::string TileRenderer::LIGHTING_SHADER_3D = R"GLSL(
-        uniform vec4 u_ambientColor;
-        uniform vec4 u_lightColor;
-        uniform vec3 u_lightDir;
-        uniform vec3 u_viewDir;
-        uniform vec2 u_sunParams; // x = sun intensity (0 = legacy lighting), y = ambient
-        vec4 applyLighting(lowp vec4 color, mediump vec3 normal, highp_opt float height, bool sideVertex) {
+        uniform vec3 u_sunDir;
+        uniform vec3 u_sunColor;
+        uniform vec2 u_sunParams; // x = sun intensity, y = ambient intensity
+        vec4 applyLighting3D(lowp vec4 color, mediump vec3 normal, highp_opt float height, bool sideVertex) {
             // Ambient occlusion where a wall meets the ground: that corner is shadowed by the ground
             // and by the building's own footprint whatever the sun does, and it is the cue that
             // makes an extrusion stand on the terrain instead of floating over it - the shadow map
@@ -1404,23 +1376,14 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
             // survive, and the wall carries the linear interpolation between them. What the cue is
             // worth is therefore the base value alone.
             lowp vec3 baseColor = sideVertex ? color.rgb * (1.0 - 0.65 / (1.0 + height * height)) : color.rgb;
-            if (u_sunParams.x > 0.0) {
-                // Sun lighting: roofs AND walls answer to the light. The legacy path lit roofs by
-                // the VIEW direction, so from above - where roofs are most of what you see - the
-                // buildings did not react to the sun at all. Same normalised Lambert as the
-                // terrain surface, so the two agree.
-                mediump float ndl = max(0.0, dot(normal, u_lightDir));
-                mediump float lit = u_sunParams.y + (1.0 - u_sunParams.y) * ndl * u_sunParams.x;
-                // No u_lightColor here: that is the legacy main-light tint and it darkens the
-                // result well below the terrain lit by the same formula. The two must match.
-                return vec4(baseColor * lit, color.a);
-            }
-            if (sideVertex) {
-                mediump vec3 lighting = max(0.0, dot(normal, u_lightDir)) * u_lightColor.rgb + u_ambientColor.rgb;
-                return vec4(baseColor * lighting, color.a);
-            }
-            mediump float lighting = max(0.0, dot(normal, u_viewDir)) * 0.5 + 0.5;
-            return vec4(baseColor * lighting, color.a);
+            // Byte for byte the terrain surface's normalised Lambert (applyTerrainShading): ambient
+            // is the floor, the coloured sun fills the headroom. One model for roofs and walls, and
+            // the same one the ground uses - so nothing changes shape when terrain lighting is
+            // toggled, and a warm evening sun warms a facade exactly as it warms the slope behind it.
+            mediump float ndl = max(0.0, dot(normal, u_sunDir));
+            mediump vec3 lit = vec3(u_sunParams.y) + u_sunColor * ((1.0 - u_sunParams.y) * ndl * u_sunParams.x);
+            // Premultiplied, so scaling rgb alone is a valid tint and the clamp keeps rgb <= a.
+            return vec4(min(baseColor * lit, vec3(color.a)), color.a);
         }
     )GLSL";
 

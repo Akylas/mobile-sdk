@@ -87,21 +87,17 @@ namespace massif {
         if (env.terrainLightingEnabled) {
             lighting.terrainLightingEnabled = *env.terrainLightingEnabled;
         }
-        // Buildings: the style wins when it says anything about them, whatever the terrain does.
-        // Otherwise they follow the terrain sun, and with no sun at all they keep the legacy
-        // model (intensity 0) - so a style that says nothing renders exactly as before.
-        if (lighting.terrainLightingEnabled) {
-            lighting.buildingLightIntensity = lighting.sunIntensity;
-            lighting.buildingAmbient = lighting.ambientIntensity;
-        }
+        // Buildings follow the sun unconditionally - terrainLightingEnabled decides whether the
+        // GROUND is lit, and gating the walls on it too gave the extrusions a second lighting
+        // model that changed shape as the terrain was toggled. The style still overrides either
+        // value on its own, which is how a style tunes the walls without moving the terrain sun.
+        lighting.buildingLightIntensity = lighting.sunIntensity;
+        lighting.buildingAmbient = lighting.ambientIntensity;
         if (env.buildingLightIntensity) {
             lighting.buildingLightIntensity = *env.buildingLightIntensity;
         }
         if (env.buildingAmbient) {
             lighting.buildingAmbient = *env.buildingAmbient;
-            if (!env.buildingLightIntensity && lighting.buildingLightIntensity <= 0.0f) {
-                lighting.buildingLightIntensity = lighting.sunIntensity; // ambient alone still means "light them"
-            }
         }
         if (env.shadowStrength) {
             lighting.shadowStrength = *env.shadowStrength;

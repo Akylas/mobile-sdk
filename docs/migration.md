@@ -216,6 +216,32 @@ New with it: `enabled` (a real switch — no more toggling fog by driving a dist
 `highColor`, `spaceColor`, `starIntensity` (Mapbox `high-color` / `space-color` / `star-intensity`),
 and `shaderSource` for a custom fog blend across map and sky.
 
+### 3D buildings are lit by the sun, whatever the terrain is doing
+
+Tile extrusions had two lighting models, picked by whether terrain lighting was on. With it off,
+walls used `Options.MainLightDirection` / `MainLightColor` / `AmbientLightColor` and **roofs were
+shaded by the view direction** — so buildings changed shape when terrain lighting was toggled, and
+never answered to the hour of day. There is now one model, the same normalised Lambert the terrain
+surface uses, and it is always on.
+
+| Before | After |
+|---|---|
+| `options.mainLightDirection` (3D buildings) | `lightOptions.sunAzimuth` / `sunAltitude` |
+| `options.mainLightColor` (3D buildings) | `lightOptions.sunColor` |
+| `options.ambientLightColor` (3D buildings) | `lightOptions.ambientIntensity` |
+
+**The look changes on upgrade even if you set nothing.** The old default light pointed down and
+slightly north-east (`0.35, 0.35, -0.87`); the sun defaults to azimuth 315 / altitude 45. Buildings
+are also tinted by `sunColor` now, which is what makes a facade go warm at dusk with the slope
+behind it.
+
+The three `Options` properties still exist and still drive the normal-map illumination default and
+the spherical-mode 2D lighting; they simply no longer reach tile extrusions. `Polygon3DLayer`
+elements are unaffected — they have their own renderer and their own lighting.
+
+Styles keep both overrides: `building-light-intensity` and `building-ambient` in the `Map` block
+still win over the sun, so a style can tune walls without moving the terrain sun.
+
 ## Deliberately NOT renamed
 
 These name data or upstream work, not this SDK:

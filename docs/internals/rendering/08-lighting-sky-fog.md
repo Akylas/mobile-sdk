@@ -416,7 +416,37 @@ because it is mapbox's default; the case for it is a lower depth bias, which has
 
 ## Buildings
 
-`TileRenderer::LIGHTING_SHADER_3D` lights extrusions, and it is installed **per vertex**
+`TileRenderer::LIGHTING_SHADER_3D` lights extrusions through `applyLighting3D`, which is the one
+entry point for anything solid drawn in the 3D pass — extrusions today, source-driven 3D models next
+(#131) — so a model and the wall beside it cannot disagree about the sun.
+
+It is the **same normalised Lambert the terrain surface uses** (`applyTerrainShading`, above), fed
+from the same four resolved values:
+
+```glsl
+lit = ambient + sunColor * ((1.0 - ambient) * max(0.0, dot(N, sunDir)) * intensity)
+```
+
+Roofs and walls both take `N.L`; `resolveLighting` sets `buildingLightIntensity` /
+`buildingAmbient` from the sun **unconditionally**, so `terrainLightingEnabled` decides whether the
+*ground* is lit and nothing else. A style still overrides either building value on its own
+(`building-light-intensity`, `building-ambient`), which is how a style tunes the walls without moving
+the terrain sun.
+
+Until 2026-08 there were two models here instead, switched on `buildingLightIntensity > 0`: with the
+terrain sun off, walls used `N.L * mainLightColor + ambientColor` from the pre-`LightOptions`
+`Options` properties and **roofs used the VIEW direction**, so from above — where roofs are most of
+what you see — the buildings did not answer to the sun at all, and they visibly changed shape when
+terrain lighting was toggled. The colour was dropped from the surviving branch as well, on the
+grounds that `u_lightColor` (the legacy grey `143,143,143`) darkened the walls below the ground lit
+by the same formula. That was the wrong uniform to reach for: `sunColor` is the one the terrain uses,
+and without it a warm evening sun warmed the slope while the facade in front of it stayed grey.
+
+`Options.MainLightDirection` / `MainLightColor` / `AmbientLightColor` no longer reach the tile
+extrusions at all — see [migration.md](../../migration.md). `Polygon3DRenderer` (app-supplied
+`Polygon3D` vector elements, not tile extrusions) still carries a third, unrelated lighting model.
+
+It is installed **per vertex**
 (`LightingShader(true, ...)`). That has a consequence worth knowing before touching it: any function
 of height in there only reaches the screen through the values at the base ring and at the roof - the
 wall carries the linear interpolation between them, whatever curve the formula draws. A falloff
