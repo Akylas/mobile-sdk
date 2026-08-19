@@ -430,7 +430,16 @@ lit = ambientColor * ambient + sunColor * ((1.0 - ambient) * max(0.0, dot(N, sun
 Roofs and walls both take `N.L`, and `resolveLighting` sets `buildingLightIntensity` from the sun
 **unconditionally** — `terrainLightingEnabled` decides whether the *ground* is lit and nothing else.
 
-The **ambient does not follow the ground's**, and that asymmetry is deliberate. Ambient is the floor
+The **sun's altitude is floored at 60°** for buildings — its azimuth and colour are the real ones.
+A roof's `N.L` is `sin(altitude)`, so at the 9° that makes a massif read well every roof in a city
+drops to 0.16 of its colour and the whole block goes muddy; no ambient value fixes that without
+flattening the walls with it. The ground keeps the true sun, so long shadows and low relief are
+unaffected. This is the same trick the shadow pass already uses with its own 15° floor, and it puts
+our building light where mapbox puts its `fill-extrusion` light (`position: [1.15, 210, 30]`, i.e.
+30° from vertical). At the floor a roof lands at 0.91, a sunward wall at 0.68 and a wall facing away
+at 0.35 — bright roofs with a real range across the walls.
+
+The **ambient does not follow the ground's** either, and that asymmetry is deliberate. Ambient is the floor
 the directional term is added on top of, so at `ambientIntensity` 1 the model collapses to a
 constant and every facade goes flat. Flattening the ground that way is a normal thing for an app to
 do when a hillshade layer supplies the relief — the demo ships `AMBIENT_INTENSITY = 1.0` for exactly

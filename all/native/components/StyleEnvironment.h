@@ -73,6 +73,9 @@ namespace massif {
     struct ResolvedLighting {
         bool terrainLightingEnabled = false;
         cglib::vec3<float> sunDir = cglib::vec3<float>(0, 0, 1);
+        // The sun the 3D extrusions light with: the same azimuth and colour, but with its ALTITUDE
+        // floored (see resolveLighting). A city at a 9-degree sun is otherwise uniformly muddy.
+        cglib::vec3<float> buildingSunDir = cglib::vec3<float>(0, 0, 1);
         Color sunColor = Color(255, 255, 255, 255);
         float sunIntensity = 1.0f;
         float ambientIntensity = 0.35f;

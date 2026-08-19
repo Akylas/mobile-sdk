@@ -825,6 +825,7 @@ namespace massif {
             _buildingAmbient = lighting.buildingAmbient;
             _buildingVerticalGradient = lighting.buildingVerticalGradient;
             _resolvedSunDir = lighting.sunDir;
+            _resolvedBuildingSunDir = lighting.buildingSunDir;
             _resolvedSunColor = lighting.sunColor;
             _resolvedAmbientColor = lighting.ambientColor;
             // The terrain surface is what this lights, and it exists whenever the stack draws one:
@@ -1325,7 +1326,7 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
             // at draw time and cannot resolve it itself. Same four values the terrain surface is lit
             // by, so a building and the ground it stands on agree about the hour.
             vt::GLTileRenderer::LightingShader lightingShader3D(true, LIGHTING_SHADER_3D, [this](GLuint shaderProgram, const vt::ViewState& viewState) {
-                glUniform3fv(glGetUniformLocation(shaderProgram, "u_sunDir"), 1, _resolvedSunDir.data());
+                glUniform3fv(glGetUniformLocation(shaderProgram, "u_sunDir"), 1, _resolvedBuildingSunDir.data());
                 glUniform3f(glGetUniformLocation(shaderProgram, "u_sunColor"), _resolvedSunColor.getR() / 255.0f, _resolvedSunColor.getG() / 255.0f, _resolvedSunColor.getB() / 255.0f);
                 glUniform3f(glGetUniformLocation(shaderProgram, "u_ambientColor"), _resolvedAmbientColor.getR() / 255.0f, _resolvedAmbientColor.getG() / 255.0f, _resolvedAmbientColor.getB() / 255.0f);
                 glUniform2f(glGetUniformLocation(shaderProgram, "u_sunParams"), _buildingLightIntensity, _buildingAmbient);

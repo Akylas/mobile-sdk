@@ -236,6 +236,8 @@ namespace massif {
         // The sun as RESOLVED (style over LightOptions), captured each frame for the 3D lighting
         // shader callback, which runs at draw time and cannot resolve it itself.
         cglib::vec3<float> _resolvedSunDir = cglib::vec3<float>(0, 0, 1);
+        // The same sun with its altitude floored, which is what the extrusions light with.
+        cglib::vec3<float> _resolvedBuildingSunDir = cglib::vec3<float>(0, 0, 1);
         Color _resolvedSunColor = Color(255, 255, 255, 255);
         Color _resolvedAmbientColor = Color(255, 255, 255, 255);
         // The elevation DATA version last acted on, apart from the global one: a change to only

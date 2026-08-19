@@ -209,17 +209,17 @@ public final class DemoStyles {
                .append(" sun-altitude: linear([view::zoom], (11, 55), (15, 12));")
                .append(" sun-intensity: 1;")
                .append(" ambient-intensity: 0.4;")
-               // Extrusion lighting, declared by the STYLE: keeps the soft normalised-Lambert
-               // walls whatever terrain lighting does, instead of the harder legacy shading.
-               .append(" building-light-intensity: " + DemoConfig.INLINE_BUILDING_LIGHT + ";")
-               .append(" building-ambient: " + DemoConfig.INLINE_BUILDING_AMBIENT + ";")
                .append(" shadow-strength: 0.8;")
                .append(" shadow-softness: 1;")
                .append(" terrain-max-visible-distance: 40000;");
         }
-        // Outside the styleLight gate on purpose: these two default to the engine's own values, so
-        // emitting them always is a no-op until --es bldGradient / bldGradientHeight sets one.
-        map.append(" building-vertical-gradient: " + DemoConfig.INLINE_BUILDING_GRADIENT + ";")
+        // Outside the styleLight gate on purpose: every one of these defaults to the engine's own
+        // value, so emitting them always is a no-op until the matching --es knob sets one. Inside
+        // the gate they were unreachable without --es styleLight true, which is how bldAmbient and
+        // bldGradient both looked broken.
+        map.append(" building-light-intensity: " + DemoConfig.INLINE_BUILDING_LIGHT + ";")
+           .append(" building-ambient: " + DemoConfig.INLINE_BUILDING_AMBIENT + ";")
+           .append(" building-vertical-gradient: " + DemoConfig.INLINE_BUILDING_GRADIENT + ";")
            .append(" building-vertical-gradient-height: " + DemoConfig.INLINE_BUILDING_GRADIENT_HEIGHT + ";");
         if (DemoConfig.FOG_SOURCE_STYLE.equals(DemoConfig.FOG_SOURCE)) {
             // The mapbox 'fog' property set, written in the style. The range is in multiples of the

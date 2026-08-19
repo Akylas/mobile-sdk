@@ -9,6 +9,12 @@
 
 namespace massif {
 
+    namespace {
+        // 60 degrees, which is where mapbox puts its fill-extrusion light. Above this the real sun
+        // is used unchanged.
+        const float BUILDING_SUN_ALTITUDE_FLOOR = 60.0f * static_cast<float>(Const::DEG_TO_RAD);
+    }
+
     void StyleEnvironment::mergeMissing(const StyleEnvironment& other) {
         auto take = [](auto& value, const auto& otherValue) {
             if (!value) {
@@ -97,6 +103,21 @@ namespace massif {
         // GROUND is lit, and gating the walls on it too gave the extrusions a second lighting
         // model that changed shape as the terrain was toggled.
         lighting.buildingLightIntensity = lighting.sunIntensity;
+        // Buildings light from the sun's AZIMUTH and colour, but not from its altitude below a
+        // floor. A roof's N.L is sin(altitude), so at the 9 degrees that make a massif read well
+        // every roof in a city drops to 0.16 of its colour and the whole block goes muddy - no
+        // ambient value fixes that without flattening the walls with it. The ground keeps the true
+        // sun, so long shadows and low relief are unaffected. Same trick the shadow pass already
+        // uses with its own 15 degree floor, and mapbox's fill-extrusion light sits at a fixed 60.
+        {
+            float altitude = std::asin(std::max(-1.0f, std::min(1.0f, lighting.sunDir(2))));
+            lighting.buildingSunDir = lighting.sunDir;
+            if (altitude < BUILDING_SUN_ALTITUDE_FLOOR) {
+                float horizontal = std::sqrt(std::max(0.0f, lighting.sunDir(0) * lighting.sunDir(0) + lighting.sunDir(1) * lighting.sunDir(1)));
+                float scale = (horizontal > 0.0f ? std::cos(BUILDING_SUN_ALTITUDE_FLOOR) / horizontal : 0.0f);
+                lighting.buildingSunDir = cglib::vec3<float>(lighting.sunDir(0) * scale, lighting.sunDir(1) * scale, std::sin(BUILDING_SUN_ALTITUDE_FLOOR));
+            }
+        }
         // Their AMBIENT is their own, though, and does not follow the ground's. Ambient is the
         // floor the directional term is added on top of, so an app that flattens the ground with
         // ambient 1 - a normal thing to do when a hillshade layer supplies the relief - would
