@@ -217,6 +217,10 @@ public final class DemoStyles {
                .append(" shadow-softness: 1;")
                .append(" terrain-max-visible-distance: 40000;");
         }
+        // Outside the styleLight gate on purpose: these two default to the engine's own values, so
+        // emitting them always is a no-op until --es bldGradient / bldGradientHeight sets one.
+        map.append(" building-vertical-gradient: " + DemoConfig.INLINE_BUILDING_GRADIENT + ";")
+           .append(" building-vertical-gradient-height: " + DemoConfig.INLINE_BUILDING_GRADIENT_HEIGHT + ";");
         if (DemoConfig.FOG_SOURCE_STYLE.equals(DemoConfig.FOG_SOURCE)) {
             // The mapbox 'fog' property set, written in the style. The range is in multiples of the
             // camera-to-focus distance, so it needs no per-zoom expression - fog-range-end is one

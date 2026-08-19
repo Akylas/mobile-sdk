@@ -515,6 +515,8 @@ public final class DemoConfig {
      *  the legacy view-direction shading, above 0 is the soft normalised Lambert the terrain uses. */
     public static float INLINE_BUILDING_LIGHT = 1f;
     public static float INLINE_BUILDING_AMBIENT = 0.35f;
+    public static float INLINE_BUILDING_GRADIENT = 0.65f;
+    public static float INLINE_BUILDING_GRADIENT_HEIGHT = 20f;
     /** Extrusion height in meters. Same vertex count at any value: the knob that separates the
      *  extrusion pass's fill cost from its vertex cost. */
     public static float INLINE_BUILDING_HEIGHT = 14f;
@@ -1196,6 +1198,8 @@ public final class DemoConfig {
         INLINE_CONTOUR_WIDTH = DemoCfg.cfgStr("contourWidth", INLINE_CONTOUR_WIDTH);
         INLINE_BUILDING_LIGHT = DemoCfg.cfgFloat("bldLight", INLINE_BUILDING_LIGHT);
         INLINE_BUILDING_AMBIENT = DemoCfg.cfgFloat("bldAmbient", INLINE_BUILDING_AMBIENT);
+        INLINE_BUILDING_GRADIENT = DemoCfg.cfgFloat("bldGradient", INLINE_BUILDING_GRADIENT);
+        INLINE_BUILDING_GRADIENT_HEIGHT = DemoCfg.cfgFloat("bldGradientHeight", INLINE_BUILDING_GRADIENT_HEIGHT);
         INLINE_STYLE_LIGHTING = DemoCfg.cfgBool("styleLight", INLINE_STYLE_LIGHTING);
         INLINE_LABELS = DemoCfg.cfgBool("labels", INLINE_LABELS);
         INLINE_STYLE_MINIMAL = DemoCfg.cfgBool("minimal", INLINE_STYLE_MINIMAL);

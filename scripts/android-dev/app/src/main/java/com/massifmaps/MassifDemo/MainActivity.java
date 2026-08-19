@@ -3,8 +3,11 @@ package com.massifmaps.MassifDemo;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.WindowCompat;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+
+import com.massifmaps.MassifDemo.demo.DemoLive;
 
 import com.massifmaps.MassifDemo.ui.main.MainFragment;
 import com.massifmaps.MassifDemo.ui.main.SecondFragment;
@@ -26,6 +29,24 @@ public class MainActivity extends AppCompatActivity {
                     .replace(R.id.container, SecondFragment.newInstance())
                     .commitNow();
         }
+    }
+
+    /**
+     * 'am start' with extras on the RUNNING demo applies them live instead of relaunching. The
+     * activity is singleTop, so Android delivers the intent here rather than recreating it, and the
+     * extras take the same path as the CONFIG broadcast (see DemoLive) - a relaunch rebuilds every
+     * cache, which is exactly what hides a stale-redraw bug.
+     */
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        Bundle extras = intent != null ? intent.getExtras() : null;
+        if (extras == null || extras.isEmpty()) {
+            return;
+        }
+        Log.d(TAG, "onNewIntent " + extras);
+        sendBroadcast(new Intent(DemoLive.ACTION).setPackage(getPackageName()).putExtras(extras));
     }
 
     @Override
