@@ -36,15 +36,21 @@ function firstImage(body) {
   return null;
 }
 
-/** Body with the image markup and HTML comments removed, trimmed to a teaser. */
-function summarize(body, limit = 260) {
+/** Body as plain text — markup stripped, trimmed to a card-sized teaser. */
+function summarize(body, limit = 170) {
   if (!body) return '';
   const text = body
     .replace(/<!--[\s\S]*?-->/g, '')
     .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
     .replace(/<img[^>]*>/gi, '')
     .replace(/```[\s\S]*?```/g, '')
+    .replace(/`([^`]*)`/g, '$1')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/[*_]([^*_]+)[*_]/g, '$1')
     .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^\s*>\s?/gm, '')
+    .replace(/^\s*[-*+]\s+/gm, '')
     .replace(/\r/g, '')
     .split('\n')
     .map((l) => l.trim())

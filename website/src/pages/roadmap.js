@@ -5,40 +5,41 @@ import {usePluginData} from '@docusaurus/useGlobalData';
 function Card({card}) {
   return (
     <a className="roadmapCard" href={card.url} target="_blank" rel="noreferrer">
-      {card.image && (
-        <div className="roadmapCardImage">
-          <img src={card.image} alt="" loading="lazy" />
-        </div>
-      )}
+      <div className={`roadmapCardImage${card.image ? '' : ' roadmapCardImage--empty'}`}>
+        {card.image && <img src={card.image} alt="" loading="lazy" />}
+      </div>
       <div className="roadmapCardBody">
-        <div className="roadmapCardTitle">{card.title}</div>
+        <h3 className="roadmapCardTitle">{card.title}</h3>
         {card.summary && <p className="roadmapCardSummary">{card.summary}</p>}
         <div className="roadmapCardFooter">
           <span className="roadmapCardNumber">#{card.number}</span>
-          {card.labels.map((l) => (
+          {card.labels.slice(0, 2).map((l) => (
             <span key={l} className="roadmapCardLabel">
               {l}
             </span>
           ))}
-          {card.reactions > 0 && <span className="roadmapCardStat">👍 {card.reactions}</span>}
-          {card.comments > 0 && <span className="roadmapCardStat">💬 {card.comments}</span>}
+          <span className="roadmapCardStats">
+            {card.reactions > 0 && <span>👍 {card.reactions}</span>}
+            {card.comments > 0 && <span>💬 {card.comments}</span>}
+          </span>
         </div>
       </div>
     </a>
   );
 }
 
-function Column({column}) {
+function Section({column}) {
   return (
-    <section className="roadmapColumn">
-      <h2 className="roadmapColumnTitle">
-        {column.title} <span className="roadmapColumnCount">{column.cards.length}</span>
-      </h2>
-      {column.cards.length === 0 ? (
-        <p className="roadmapColumnEmpty">Nothing here yet.</p>
-      ) : (
-        column.cards.map((card) => <Card key={card.number} card={card} />)
-      )}
+    <section className={`roadmapSection roadmapSection--${column.id}`}>
+      <div className="roadmapSectionHead">
+        <h2 className="roadmapSectionTitle">{column.title}</h2>
+        <span className="roadmapSectionCount">{column.cards.length}</span>
+      </div>
+      <div className="roadmapGrid">
+        {column.cards.map((card) => (
+          <Card key={card.number} card={card} />
+        ))}
+      </div>
     </section>
   );
 }
@@ -85,11 +86,7 @@ export default function RoadmapPage() {
             </Link>
           </div>
         ) : (
-          <div className="roadmapBoard">
-            {columns.map((column) => (
-              <Column key={column.id} column={column} />
-            ))}
-          </div>
+          columns.map((column) => <Section key={column.id} column={column} />)
         )}
 
         <p className="margin-top--xl roadmapFootnote">
