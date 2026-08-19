@@ -7,7 +7,7 @@
 #ifndef _MASSIF_GLCONTEXT_H_
 #define _MASSIF_GLCONTEXT_H_
 
-#include <GLES2/gl2.h>
+#include <GLES3/gl3.h>
 #include <GLES2/gl2ext.h>
 
 #include <mutex>
@@ -19,46 +19,34 @@ namespace massif {
 
     class GLContext {
     public:
+        // GL_VERSION as an integer, tangram's shape (core/src/gl/hardware.cpp): 300 for OpenGL
+        // ES 3.0. The SDK requires >= 300, so this is for logging and for a future 3.1/3.2 gate,
+        // not for deciding whether a core feature exists.
+        static int VERSION;
+
+        // The one capability still worth probing: anisotropic filtering is an extension in every
+        // ES version, not core. Everything else this class used to ask about - NPOT, VAOs,
+        // packed depth-stencil, depth textures, framebuffer invalidation - is ES 3.0 core.
         static bool TEXTURE_FILTER_ANISOTROPIC;
-        static bool TEXTURE_NPOT_REPEAT;
-        static bool TEXTURE_NPOT_MIPMAPS;
-
-        static bool DISCARD_FRAMEBUFFER;
-
-        static bool PACKED_DEPTH_STENCIL;
-
-        // An ES 3.0 context. The shaders stay GLSL ES 1.00 - this says what the API offers, not
-        // what the shading language does.
-        static bool ES3;
-        // A depth texture can be attached to a framebuffer and sampled. ES3 core, otherwise an
-        // extension. Lets the shadow pass drop its packed-RGB colour target.
-        static bool DEPTH_TEXTURE;
-        // Hardware depth comparison from GLSL ES 1.00 (shadow2DEXT): one filtered fetch instead of
-        // four taps and a manual compare. NOT implied by ES3 - the shading language decides.
-        static bool SHADOW_SAMPLERS;
 
         static std::size_t MAX_VERTEXBUFFER_SIZE;
-    
+
         static bool HasGLExtension(const char* extension);
-    
+
         static void LoadExtensions();
-        
+
         static void CheckGLError(const char* place);
 
-        static void DiscardFramebufferEXT(GLenum target, GLsizei numAttachments, const GLenum* attachments);
-    
+        static void InvalidateFramebuffer(GLenum target, GLsizei numAttachments, const GLenum* attachments);
+
     private:
         GLContext();
 
-#ifdef GL_EXT_discard_framebuffer
-        static PFNGLDISCARDFRAMEBUFFEREXTPROC _DiscardFramebufferEXT;
-#endif
-
         static std::unordered_set<std::string> _ExtensionCache;
-    
+
         static std::recursive_mutex _Mutex;
     };
-    
+
 }
 
 #endif

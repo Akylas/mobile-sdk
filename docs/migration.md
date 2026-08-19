@@ -143,6 +143,29 @@ banner at the top.
 
 ## Breaking changes after 6.0.0
 
+### OpenGL ES 3.0 is required
+
+The SDK no longer creates or accepts an OpenGL ES 2.0 context. No API changed — this is a **device**
+break, not a code one.
+
+| | Before | After |
+|---|---|---|
+| Android manifest | `uses-feature glEsVersion 0x00020000` | **`0x00030000`** |
+| Android context | ES 3.0 if the device reported it, else ES 2.0 | ES 3.0, no fallback |
+| iOS context | ES 3.0, falling back to ES 2.0 | ES 3.0, no fallback |
+| UWP | `EGL_CONTEXT_CLIENT_VERSION 2` | `3` |
+
+**If your app ships its own `AndroidManifest.xml` with a `glEsVersion` line, raise it to
+`0x00030000`** — the merged manifest takes the highest value, so a stale `0x00020000` in your app is
+harmless, but leaving it there advertises support you no longer have.
+
+Devices lost are pre-2013 GPUs: Mali-400, Adreno 200/305, Tegra 3, PowerVR SGX. At `minSdk 21` and
+an iOS 13 floor — where every device is A7 or newer — that is a rounding error. On desktop the
+equivalent floor is D3D feature level 10_1 (Sandy Bridge, 2011), which Windows 11 already exceeds.
+
+The shaders are unaffected: they are still GLSL ES 1.00, which an ES 3.0 context compiles. Moving
+them to `#version 300 es` is a separate, later change.
+
 ### `LightOptions.shadowDistance` is a factor, not metres
 
 | Before | After |
