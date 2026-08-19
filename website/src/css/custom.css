@@ -335,39 +335,59 @@
   font-weight: 700;
 }
 
-/* ---------- Roadmap ---------- */
-.roadmapBoard {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.5rem;
-  align-items: start;
+/* ---------- Roadmap ----------
+   One stacked section per status, each a responsive card grid, so a status with
+   a single item still gets a card and not a full-width slab. */
+.roadmapSection {
+  --roadmap-accent: var(--ifm-color-emphasis-400);
+  margin-bottom: 2.75rem;
 }
-.roadmapColumnTitle {
-  font-size: 1.1rem;
+.roadmapSection--in-progress {
+  --roadmap-accent: #036fe2;
+}
+.roadmapSection--next {
+  --roadmap-accent: #7b5cf0;
+}
+.roadmapSection--done {
+  --roadmap-accent: #14915b;
+}
+.roadmapSectionHead {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 2px solid var(--ifm-color-primary);
+  gap: 0.6rem;
+  margin-bottom: 1.1rem;
 }
-.roadmapColumnCount {
-  font-size: 0.8rem;
+.roadmapSectionHead::before {
+  content: '';
+  width: 4px;
+  height: 1.1em;
+  border-radius: 2px;
+  background: var(--roadmap-accent);
+}
+.roadmapSectionTitle {
+  font-size: 1.25rem;
+  margin: 0;
+}
+.roadmapSectionCount {
+  font-size: 0.75rem;
   font-weight: 700;
   color: var(--ifm-color-emphasis-700);
   background: var(--ifm-color-emphasis-200);
   border-radius: 999px;
   padding: 1px 8px;
 }
-.roadmapColumnEmpty {
-  color: var(--ifm-color-emphasis-600);
-  font-size: 0.9rem;
+.roadmapGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
 }
 .roadmapCard {
-  display: block;
-  margin-bottom: 1rem;
-  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
   overflow: hidden;
   border: 1px solid var(--ifm-color-emphasis-200);
+  border-top: 3px solid var(--roadmap-accent);
   background: var(--ifm-background-surface-color);
   color: inherit;
   text-decoration: none;
@@ -380,8 +400,13 @@
   box-shadow: 0 10px 26px rgba(3, 111, 226, 0.14);
 }
 .roadmapCardImage {
-  aspect-ratio: 16 / 9;
+  height: 130px;
   background: var(--ifm-color-emphasis-100);
+}
+/* Kept even without an issue image, so every title in a row starts at the same height. */
+.roadmapCardImage--empty {
+  background: linear-gradient(135deg, var(--roadmap-accent) 0%, var(--ifm-color-emphasis-200) 130%);
+  opacity: 0.25;
 }
 .roadmapCardImage img {
   width: 100%;
@@ -390,23 +415,38 @@
   display: block;
 }
 .roadmapCardBody {
-  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: 0.9rem 1rem 0.8rem;
 }
 .roadmapCardTitle {
+  font-size: 1rem;
+  line-height: 1.35;
   font-weight: 700;
-  margin-bottom: 0.35rem;
+  margin: 0 0 0.35rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .roadmapCardSummary {
-  font-size: 0.88rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
   color: var(--ifm-color-emphasis-700);
-  margin-bottom: 0.6rem;
+  margin: 0 0 0.8rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .roadmapCardFooter {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.75rem;
+  margin-top: auto;
+  font-size: 0.72rem;
   color: var(--ifm-color-emphasis-600);
 }
 .roadmapCardNumber {
@@ -416,6 +456,18 @@
   border: 1px solid var(--ifm-color-emphasis-300);
   border-radius: 999px;
   padding: 0 7px;
+  white-space: nowrap;
+}
+.roadmapCardStats {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+/* Single column on a phone — an empty band is dead scroll there. */
+@media (max-width: 768px) {
+  .roadmapCardImage--empty {
+    display: none;
+  }
 }
 .roadmapEmpty,
 .sponsorWallEmpty {
