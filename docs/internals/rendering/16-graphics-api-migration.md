@@ -11,9 +11,8 @@ move to an OpenGL ES 3.0 baseline (dropping ES 2.0), the Apple situation (Metal)
 Windows/Linux/macOS need later. Does **not** cover what the renderer draws — that is the rest of
 [this set](index.mdx).
 
-Status as of 2026-08-18: Phase 0 run — gates 0.1 and 0.2 pass, gate 0.3 is **not answered** (see
-[Phase 0 results](#phase-0--results)). Phase 2 is **code-complete but unverified on hardware**. The
-Apple source was decided against upstream ANGLE, see
+Status as of 2026-08-18: Phase 0 run. Gates 0.1 and 0.2 pass, gate 0.3 is **not answered** — see
+[Phase 0 results](#phase-0--results). The Apple source was decided against upstream ANGLE, see
 [MetalANGLE master, not upstream](#metalangle-master-not-upstream-angle).
 
 ## Where we are
