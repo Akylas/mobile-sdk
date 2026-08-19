@@ -5,6 +5,7 @@
 #   ./bootstrap.sh                  # arm64 simulator (the usual dev target)
 #   ./bootstrap.sh device           # arm64 device
 #   PROFILE=lite ./bootstrap.sh     # a different feature profile
+#   PROFILE_RENDER=1 ./bootstrap.sh # per-frame timings, the counterpart of -PprofileRender
 #
 # Re-run it after changing the profile or the platform. Day to day you do not: once the project
 # exists, build from Xcode or with 'xcodebuild -project MassifDemo.xcodeproj'.
@@ -23,6 +24,17 @@ case "${1:-simulator}" in
 esac
 ARCH=arm64
 BUILD_DIR="$BASE_DIR/build/ios_metal-$PLATFORM-$ARCH"
+
+# Render profiling, off unless asked for - the counterpart of android-dev's '-PprofileRender'.
+# Turns on the per-frame section timings (utils/FrameProfiler.h) and the vt draw/label/tile
+# counters (vt/RenderStats.h); neither exists in the binary otherwise. Read the 'PROF' and
+# 'RenderStats' lines with 'xcrun simctl spawn <udid> log stream' or the device console.
+# Changing it needs this re-run: it is a compile-time flag, not a launch argument.
+PROFILER_DEFINES=""
+if [ -n "$PROFILE_RENDER" ]; then
+  PROFILER_DEFINES="-DMASSIF_FRAME_PROFILER=1 -DMASSIF_VT_RENDER_STATS=1"
+  echo "==> Render profiling ON"
+fi
 
 if [ ! -x "$SWIG" ]; then
   echo "SWIG executable not found at $SWIG - set SWIG=/path/to/mobile-swig/swig" >&2
@@ -60,7 +72,7 @@ cmake -G Xcode $OPTIONS \
   -DSINGLE_LIBRARY:BOOL=ON \
   -DSHARED_LIBRARY:BOOL=OFF \
   -DWRAPPER_DIR="$BASE_DIR/generated/ios-objc/proxies" \
-  -DSDK_CPP_DEFINES="$DEFINES -D_MASSIF_USE_METALANGLE -DZSTD_STATIC_LINKING_ONLY" \
+  -DSDK_CPP_DEFINES="$DEFINES -D_MASSIF_USE_METALANGLE -DZSTD_STATIC_LINKING_ONLY $PROFILER_DEFINES" \
   -DSDK_VERSION=Devel \
   -DSDK_PLATFORM=iOS \
   -DSDK_IOS_ARCH="$ARCH" \

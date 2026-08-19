@@ -252,6 +252,7 @@ namespace massif {
         float _hillshadeExaggeration;
         float _hillshadeIntensity;
         bool _terrainDepthWriteMode = false;
+        bool _essl3FallbackReported = false;  // the ESSL 3.00 -> 1.00 fallback warning is logged once
         bool _terrainPaintEnabled = false; // this renderer shades the DEM instead of drawing tiles
         bool _terrainPaintFullDetail = true; // shade from the DEM's own max zoom, not the mesh's level
         bool prepareFrameUnsafe(float deltaSeconds, const ViewState& viewState); // caller holds _mutex

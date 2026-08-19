@@ -102,18 +102,9 @@ public class TextureMapView extends GLTextureView implements GLSurfaceView.Rende
             baseMapView.setRedrawRequestListener(new TextureMapRedrawRequestListener(this));
 
             setPreserveEGLContextOnPause(true);
-            // Prefer an OpenGL ES 3.0 context when the device supports it (see MapView)
-            int glesVersion = 2;
-            try {
-                android.app.ActivityManager activityManager = (android.app.ActivityManager) context.getApplicationContext().getSystemService(android.content.Context.ACTIVITY_SERVICE);
-                if (activityManager != null && activityManager.getDeviceConfigurationInfo().reqGlEsVersion >= 0x30000) {
-                    glesVersion = 3;
-                }
-            } catch (Exception e) {
-                com.massifmaps.utils.Log.info("TextureMapView: Could not query OpenGL ES version, using ES 2.0: " + e);
-            }
-            setEGLContextClientVersion(glesVersion);
-            setEGLConfigChooser(new ConfigChooser(glesVersion));
+            // OpenGL ES 3.0 is required, no probe and no fallback (see MapView)
+            setEGLContextClientVersion(3);
+            setEGLConfigChooser(new ConfigChooser());
             setRenderer(this);
             setRenderMode(RENDERMODE_WHEN_DIRTY);
         }

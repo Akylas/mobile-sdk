@@ -12,7 +12,9 @@ namespace massif {
         _frameBuffer(0),
         _texture(0),
         _depthBuffer(0),
-        _depthTextureMode(false),
+        // ES 3.0 core, so it starts on; the incomplete-framebuffer fallback below is the only
+        // thing that clears it, and it stays cleared for the size retries that follow.
+        _depthTextureMode(true),
         _hardwarePCF(false),
         _failed(false)
     {
@@ -77,34 +79,28 @@ namespace massif {
     }
 
     bool TerrainShadowMap::createResourcesAtSize() {
-        // The DEPTH BUFFER IS THE MAP wherever a depth texture can be sampled: the caster pass then
-        // writes depth alone instead of depth plus a packed-RGB copy of it, the atlas is 16 bits
-        // instead of 32 + 16, and the receiver reads the hardware's own value. The packed-colour
-        // path remains for anything without it - the ES2 MetalANGLE build for 32-bit iOS, mainly.
-        _depthTextureMode = GLContext::DEPTH_TEXTURE;
+        // The DEPTH BUFFER IS THE MAP: the caster pass writes depth alone instead of depth plus a
+        // packed-RGB copy of it, the atlas is 16 bits instead of 32 + 16, and the receiver reads
+        // the hardware's own value. ES 3.0 core, so the only way back to the packed-colour path is
+        // the incomplete-framebuffer fallback below.
 
         glGenTextures(1, &_texture);
         glBindTexture(GL_TEXTURE_2D, _texture);
         if (_depthTextureMode) {
-            // 24 bits where the API allows a sized format. The packed path stored gl_FragCoord.z
-            // across three bytes, so dropping to a 16-bit depth texture would LOSE precision and
-            // buy acne back; ES2 + OES_depth_texture has only the unsized form.
-            if (GLContext::ES3) {
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24_OES, _size * _cascades, _size, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, NULL);
-            } else {
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, _size * _cascades, _size, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT, NULL);
-            }
+            // 24 bits. The packed path stored gl_FragCoord.z across three bytes, so a 16-bit depth
+            // texture would LOSE precision and buy acne back.
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, _size * _cascades, _size, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, NULL);
         } else {
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, _size * _cascades, _size, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
         }
-        // A COMPARISON sampler where the shading language can declare one (ESSL 3.00, hence ES3):
-        // the texture unit then does four depth compares per fetch and returns their bilinear
-        // average, so LINEAR is right here. Without it the filter must be NEAREST - depth is not a
-        // filterable quantity, and interpolating two depths gives a third, meaningless one.
-        _hardwarePCF = _depthTextureMode && GLContext::ES3;
+        // A COMPARISON sampler: the texture unit does four depth compares per fetch and returns
+        // their bilinear average, so LINEAR is right here. On the packed-colour fallback the filter
+        // must be NEAREST - depth is not a filterable quantity, and interpolating two depths gives
+        // a third, meaningless one.
+        _hardwarePCF = _depthTextureMode;
         if (_hardwarePCF) {
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE_EXT, GL_COMPARE_REF_TO_TEXTURE_EXT);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC_EXT, GL_LEQUAL);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
         }
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, _hardwarePCF ? GL_LINEAR : GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, _hardwarePCF ? GL_LINEAR : GL_NEAREST);
@@ -138,7 +134,7 @@ namespace massif {
             deleteResources();
             if (retryPacked) {
                 Log::Warn("TerrainShadowMap: depth-only framebuffer incomplete, falling back to the packed-colour map");
-                GLContext::DEPTH_TEXTURE = false;
+                _depthTextureMode = false;
                 return createResourcesAtSize();
             }
             _failed = true;

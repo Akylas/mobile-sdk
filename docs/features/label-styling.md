@@ -167,6 +167,16 @@ which is what removed the blurred stems and the holes at stem/shoulder joins tha
 SDF produced. Nothing to configure — but it is why label appearance changed relative to older
 builds of this fork.
 
+## 2D and 3D from one style
+
+`text-orientation-mode` is fixed when the tile is decoded, so it cannot be switched by a style
+parameter — branch on the SDK's own
+[`render::3d`](/docs/features/style-parameters#the-render-mode-variable-render3d) instead:
+
+```css
+#road_label { text-orientation-mode: [render::3d] ? billboard-line : line; }
+```
+
 ## See also
 
 - [Composite Vector Tile Layer](/docs/features/composite-vector-tile-layer) — where a label group sits in the draw order.

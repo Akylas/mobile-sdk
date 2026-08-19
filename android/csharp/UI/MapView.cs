@@ -73,7 +73,7 @@ namespace Massif.Ui {
                 Massif.Utils.Log.Info("MapView: Preserving EGL context on pause is not possible: " + e);
             }
 
-            SetEGLContextClientVersion(2);
+            SetEGLContextClientVersion(3);
             SetEGLConfigChooser(new ConfigChooser());
             SetRenderer(_baseMapViewRenderer);
             RenderMode = Rendermode.WhenDirty;

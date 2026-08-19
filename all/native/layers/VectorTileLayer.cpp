@@ -676,6 +676,10 @@ namespace massif {
         if (auto symbolizerContextSettings = _tileDecoder->getSymbolizerContextSettings()) {
             exprContext.setStyleParameterStore(symbolizerContextSettings->getStyleParameterStore());
         }
+        // Same source as the tiles use, so Map-block properties read the same render::3d
+        if (std::shared_ptr<vt::TileTransformer> tileTransformer = getTileTransformer()) {
+            exprContext.setRender3D(tileTransformer->isElevationBased());
+        }
         return exprContext;
     }
     

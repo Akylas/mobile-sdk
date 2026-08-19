@@ -11,7 +11,10 @@ move to an OpenGL ES 3.0 baseline (dropping ES 2.0), the Apple situation (Metal)
 Windows/Linux/macOS need later. Does **not** cover what the renderer draws — that is the rest of
 [this set](index.mdx).
 
-Status as of 2026-08-18: investigation and plan. Nothing below Phase 0 has been executed.
+Status as of 2026-08-18: Phase 0 run — gates 0.1 and 0.2 pass, gate 0.3 is **not answered** (see
+[Phase 0 results](#phase-0--results)). Phases 2 and 3 are done and **verified on an Adreno 610
+device**; an iOS device is still owed. The Apple source was decided against upstream ANGLE, see
+[MetalANGLE master, not upstream](#metalangle-master-not-upstream-angle).
 
 ## Where we are
 
@@ -120,30 +123,150 @@ The reference implementation is a non-participant, which matters here more than 
 backend permanently ends the copy-from-tangram workflow that
 [the rest of these pages](11-tangram-diff.md) depend on.
 
-## ANGLE upstream, not MetalANGLE
+## MetalANGLE master, not upstream ANGLE
 
-`libs-external/angle-metal` is a prebuilt of `kakashidinho/metalangle` at commit `8ef9aba`,
-originally vendored as `nutiteq/angle-metal`. That fork is dead by its author's own statement: most
-of its ES 3.0 Metal implementation was merged into official ANGLE by June 2021, and the repo has
-been inactive since he joined Google, with all development redirected upstream. Apple contributes
-there too.
+Decided 2026-08-18, reversing this page's first draft. **MetalANGLE is itself a fork of Google's
+ANGLE** — its README's first line says so — so there is no Google-free option here, only a choice of
+revision.
 
-Upstream ANGLE's Metal backend is complete for **ES 2.0 and ES 3.0** on macOS and iOS (not
-ES 3.1/3.2 — irrelevant here).
+`libs-external/angle-metal` is a **nested submodule** (`massif-maps/angle-metal`) holding prebuilt
+binaries only: one `libangle.a` per arch plus headers, no ANGLE source. Last pushed 2021-08-31,
+built from `kakashidinho/metalangle` at `8ef9aba` (2021-06-30). There is nothing to rebase; either
+direction means building from source and re-dropping the `.a`.
 
-Porting cost is bounded and specific: the GL API surface is identical, so `all/native`, `vt` and
-`nml` are untouched. What is **not** upstream is **MGLKit**, MetalANGLE's Objective-C lookalike for
-Apple's deprecated EAGL/GLKit — which is exactly the `MSFGLContext` / `MSFGLKView` typedefs in
-`ios/objc/ui/MapView.h` and the drawable-format block in `MapView.mm`. Those get rewritten onto
-plain EGL + `CAMetalLayer`.
+What decided it is the build path, not the code:
 
-Two things to carry into the work:
+| | MetalANGLE | upstream ANGLE |
+|---|---|---|
+| Build tooling | `ios/xcode/OpenGLES.xcodeproj` + `fetchDependencies.sh` — plain `xcodebuild` | depot_tools + gclient + gn, ~10 GB sync |
+| Builds under Xcode 26.5 | **yes, unpatched** (measured, see below) | unmeasured |
+| MGLKit | included — `MSFGLContext`/`MSFGLKView` keep working | absent; Phase 1 must write the EGL + `CAMetalLayer` bootstrap |
 
-- Apple's upstream contributions prioritised WebGL conformance over speed (rewriting index buffers
-  on the fly for provoking-vertex rules, for one). Upstream may be **slower** than the fork on some
-  paths. Bench it, do not assume it.
-- Upstream drops the fork's ES2-downgrade patch and the armv7/i386 slices, both obsolete under the
-  iOS 13.0 deployment floor.
+What this costs, accepted knowingly:
+
+- MetalANGLE's own README grades its **ES 3.0 at "90% complete"**, with Primitive Restart
+  ("doesn't work reliably") and last-provoking-vertex flat shading unimplemented. Neither is used
+  by this renderer today; both become blockers if that changes.
+- The fork's last code commit is Mar 2022. Four years of upstream Metal-backend fixes are foregone.
+- **Two divergent ANGLE forks stay vendored**: `angle-metal` (2021) and `angle-uwp` (2022 binaries).
+  Upstream would have collapsed them to one.
+- Phase 5 loses its cheap path: MetalANGLE has no Win32/D3D and no AppKit slice, so Windows and
+  native macOS need upstream ANGLE anyway, or another source.
+
+The one argument *for* the fork on the merits — that Apple's upstream contributions prioritised
+WebGL conformance over speed, rewriting index buffers on the fly for provoking-vertex rules — is a
+hypothesis gate 0.3 was meant to test and **did not**. It remains unmeasured in both directions.
+
+MGLKit is still the piece that is not upstream anywhere: `MSFGLContext` / `MSFGLKView` in
+`ios/objc/ui/MapView.h` and the drawable-format block in `MapView.mm`. Staying on the fork defers
+rewriting them onto plain EGL + `CAMetalLayer`; it does not remove the job, because Phase 5 needs
+that bootstrap for Win32 and AppKit regardless.
+
+## Phase 0 — results
+
+Run 2026-08-18 on macOS 15 / Xcode 26.5, against `kakashidinho/metalangle` master `ec925142e`.
+Build commands are in [`docs/maintenance/angle.md`](../../maintenance/angle.md).
+
+### 0.1 — build and run on arm64-simulator: **PASS**
+
+`MetalANGLE_static` built for `iphonesimulator`, `arm64-apple-ios13.0-simulator`, against
+`iPhoneSimulator26.5.sdk`. **No patches were needed** — the 2022 tree compiles unmodified on a 2026
+toolchain, which was the main risk of staying on the fork. `scripts/ios-dev` linked against it with
+no API drift and ran:
+
+```
+GLContext::LoadExtensions: OpenGL ES 3.0.0 (ANGLE 2.1.0.ec925142edeb), depth texture 1, shadow samplers 0
+MapRenderer::onSurfaceCreated: renderer 'ANGLE (Metal Renderer: Apple iOS simulator GPU)', depth bits 24, stencil bits 8
+```
+
+The commit suffix in the version string is how you tell the slices apart: the vendored 2021 build
+reports a bare `ANGLE 2.1.0.`. Frames at lon 5.7606 / lat 45.2442 / z13.6 / tilt 55 are identical
+between the two builds bar the status-bar clock — 1259 of 3162132 pixels, bbox `(227,79)-(288,117)`.
+
+Stripped with the vendoring settings the slice is **14.2 MB**, against the vendored 15.2 MB. That
+also fills one of this page's old gaps: the settings in the `angle-metal` README do reproduce the
+shipped artefact, and the difference is Xcode 26.5 with no bitcode rather than anything structural.
+
+`shadow samplers 0` is worth carrying into Phase 3 — the hardware-PCF program is the one place
+`ESSL3_FLAG` is used today, and the Metal backend is not offering `sampler2DShadow` here.
+
+### 0.2 — `#define gl_FragColor`: **ACCEPTED, so Phase 3 is not breaking**
+
+Run through the real translator (`SH_GLSL_METAL_OUTPUT`, `SH_GLES3_SPEC`, with `CompilerMtl` /
+`ShaderMtl`'s own compile options), not inferred from the spec:
+
+| case | result |
+|---|---|
+| tangram header, shader body writes `gl_FragColor` | **PASS** |
+| vt header, body writes `glFragColor` | PASS |
+| tangram vertex header (`#define attribute in` …) | PASS |
+| control — same body, no header | FAIL: `'varying' : Illegal use of reserved word` |
+| control — header **minus only the two `gl_FragColor` lines** | FAIL: `'gl_FragColor' : undeclared identifier` |
+
+The macro is applied, not ignored: `gl_FragColor = texture2D(uTex, vUV) * …` translates to
+`_uTANGRAM_FragColor = texture(_uuTex, _uvUV) * …`.
+
+So the comment in `GLTileRenderer::createShaderProgram` — *"a name starting with `gl_` cannot be
+`#define`d, so that one had to be a real rename"* — **is wrong**. ESSL reserves the `GL_` prefix for
+*macro* names; `gl_FragColor` is a built-in *variable*, and in ESSL 3.00 it is not declared at all.
+Consequence: the five public GLSL setters (`SkyOptions`, `FogOptions`, `TerrainOptions`,
+`CustomRasterTileLayer`, `PostProcessEffect`) need **no migration**, and Phase 3 can adopt tangram's
+`shaderSource.cpp` preamble verbatim instead of renaming.
+
+### 0.3 — frame-time A/B: **NOT ANSWERED**
+
+Blocked on hardware, and the plan under-specified it:
+
+- The **EAGL leg is impossible on any Apple-Silicon simulator** — it has no OpenGL ES at all, which
+  is why `scripts/ios-dev` links ANGLE in the first place. EAGL vs Metal is a device-only comparison.
+- No physical iOS device was attached (`xcrun devicectl list devices` → *No devices found*).
+- The leg that *was* in reach — master vs `8ef9aba`, both on Metal — **saturated**: four interleaved
+  75 s runs of the scripted pan returned exactly 60.0 fps for both. That is the simulator's vsync
+  cap, not a tie. A capped test has no discriminating power and is not evidence of equal cost.
+
+To answer it properly: build both with `MASSIF_FRAME_PROFILER=1 MASSIF_VT_RENDER_STATS=1` so the
+per-section CPU/GPU milliseconds are visible *below* the vsync cap, and run on a device at a camera
+that is actually GPU-bound. Frame rate against a 60 Hz cap cannot resolve this either way.
+
+### What still needs a physical device
+
+Nothing below has been observed on real Apple hardware. The `arm64` and Catalyst slices are built
+and staged, so this is a session with a phone, not more build work.
+
+```sh
+cd scripts/ios-dev && PROFILE_RENDER=1 ./bootstrap.sh device
+```
+
+| # | Check | Why it needs a device |
+|---|---|---|
+| 1 | `scripts/ios-dev` runs at all on `arm64` | The device slice has only ever been built, never linked or launched |
+| 2 | Startup reports `OpenGL ES 3.0.0 (ANGLE 2.1.0.ec925142edeb)` | Gate 0.1 is simulator-only; confirms the version string on the real backend |
+| 3 | The ESSL 3.00 shadow program compiles — `hasShaderVersionFallback()` false, no `_essl3Failed` | It is the only current `ESSL3_FLAG` user, so it is the one existing proof that ANGLE takes a `300 es` program at all. Ignore the `shadow samplers` log field, see below |
+| 4 | **Gate 0.3**, the real one — EAGL vs MetalANGLE `8ef9aba` vs master | EAGL does not exist on an Apple Silicon simulator at all |
+| 5 | A screenshot at a fixed camera matches the EAGL build | Phase 1's "done when" |
+| 6 | Catalyst still builds and runs | The Catalyst slices were rebuilt at master and are otherwise untested |
+
+For (4), follow `scripts/android-dev/bench/README.md`'s discipline rather than a single run:
+interleave the builds (A/B/A/B) and take medians over many windows — same-build drift on a device
+was 14.6–17.4 fps across one morning. Read `PROF` / `RenderStats` from the device console. The
+expected loss, if there is one, is **per-draw** — this renderer's uniform volume, not its shaders —
+so the city camera with many small draws is the case to bench, not the terrain.
+
+Bench a **Release** build. `RelWithDebInfo` is plain `-O2 -g`, while Release applies `-Oz` and thin
+LTO; a number from the wrong configuration is not the shipped one.
+
+#### `shadow samplers 0` is a red herring
+
+The startup line reports it and it means nothing here. `GLContext` probes
+`HasGLExtension("GL_EXT_shadow_samplers")`, which is an **ES 2.0** extension: in ES 3.0
+`sampler2DShadow` and depth comparison are core, so a driver has no reason to export the old string
+on an ES 3.0 context, and most do not.
+
+`GLContext::SHADOW_SAMPLERS` is then **never read** — it is logged and nothing else. Hardware PCF is
+gated on `_depthTextureMode && GLContext::ES3` in `TerrainShadowMap::create`, both true on the
+simulator run. The probe is dead code and a deletion candidate for Phase 2, which already collapses
+the `GLContext` extension probes; the log field should go with it or be re-pointed at
+`GLContext::ES3`.
 
 ## What ES 3.0 actually buys
 
@@ -166,89 +289,229 @@ reference implementation to copy from.
 
 ### Phase 0 — decision gates
 
-Three measurements, no production code. Everything after this is conditional on them.
+Three measurements, no production code. Results are in [Phase 0 — results](#phase-0--results):
+0.1 pass, 0.2 answered (not breaking), 0.3 unanswered.
 
-1. Build upstream ANGLE for `arm64-simulator`, run `scripts/ios-dev` against it. Confirms
-   Metal-backend ES 3.0 in practice rather than from a support matrix.
-2. Compile a `#version 300 es` shader containing `#define gl_FragColor TANGRAM_FragColor` through
-   ANGLE's translator. See [the `gl_FragColor` disagreement](#the-gl_fragcolor-disagreement) below —
-   this decides whether Phase 3 is a breaking change.
-3. Frame-time A/B at a fixed bench camera: upstream ANGLE vs the vendored MetalANGLE vs EAGL.
-
-**Gate**: if (1) fails or (3) is bad, this plan stops and the native question reopens.
+**Gate**: if (1) fails or (3) is bad, this plan stops and the native question reopens. (1) passed.
+(3) is still open, so the native question is deferred rather than closed — but on the evidence of
+0.1 nothing blocks Phase 1 starting.
 
 ### Phase 1 — ANGLE is the Apple graphics layer
 
-- Re-vendor upstream ANGLE into `libs-external`. Slices: ios-arm64, ios-sim-arm64, catalyst
-  arm64 + x86_64, macos arm64 + x86_64. Drop armv7 and i386.
-- **One shared EGL bootstrap, parameterized by view class** — not `#ifdef`s inside `MapView.mm`.
-  It will have four callers (UIKit, AppKit, Catalyst, later Win32), and MGLKit has to be replaced
-  regardless; build it for that now.
-- Delete: the EAGL path, `MSFGLContext`/`MSFGLKView`, `_MASSIF_USE_METALANGLE` and
-  `--use-metalangle` (unconditional now), the `ios/glwrapper` OpenGLES fallbacks, and Xamarin
-  (unmaintained; it is also the only binding that blocks an ANGLE-only iOS).
-- `docs/maintenance/angle.md` with the exact build commands, versions and every fork patch.
+- Re-vendor MetalANGLE master `ec925142e` into `massif-maps/angle-metal`. Slices: ios-arm64,
+  ios-sim-arm64, catalyst arm64 + x86_64. Drop armv7 and i386. Carry the one fork patch on
+  `MGLContext.h` (see [`angle.md`](../../maintenance/angle.md)).
+- MGLKit survives this phase — that is what choosing the fork bought. The EGL + `CAMetalLayer`
+  bootstrap moves to Phase 5, where Win32 and AppKit force it anyway.
+- Delete: the EAGL path, `--use-metalangle` (unconditional now), the `ios/glwrapper` OpenGLES
+  fallbacks, and Xamarin (unmaintained; it is also the only binding that blocks an ANGLE-only iOS).
 
 **Done when**: `scripts/ios-dev` runs on device and simulator, Catalyst builds, and a screenshot at
 a fixed camera matches the EAGL build.
 
 ### Phase 2 — ES 3.0 baseline, ES 2.0 dropped
 
-Copy tangram's shape: one `Hardware::glVersion` parsed from `GL_VERSION`, every capability gated
-off that number (`core/src/gl/hardware.cpp`).
+Done, except the device check. Config plus dead-code removal; no shader work — an ES 3.0 context
+compiles `#version 100` shaders, so the shaders move separately in Phase 3.
 
-- Android manifest to `0x00030000`; drop the `reqGlEsVersion` probe and `ConfigChooser`'s ES2
-  branch. UWP client version 2 to 3.
-- Collapse `GLContext`: NPOT, packed-depth-stencil and depth-texture become unconditional, the `ES3`
-  flag disappears, `glDiscardFramebufferEXT` becomes `glInvalidateFramebuffer`.
-- `vt/GLExtensions`: VAO and standard-derivatives probes become core calls;
-  `GL_DEPTH_COMPONENT24_OES` becomes `GL_DEPTH_COMPONENT24`.
+Contexts, no probes and no fallbacks left: Android manifests to `0x00030000` and
+`setEGLContextClientVersion(3)` in both `MapView` and `TextureMapView` (each carried its own copy of
+the `reqGlEsVersion` probe), `ConfigChooser` down to one ES3-renderable table, iOS `MapView.mm` with
+no ES2 retry, UWP `EGL_CONTEXT_CLIENT_VERSION` 3, and the Xamarin binding raised to match — leaving
+it at 2 would have handed the native side a context it now assumes it will never see.
+
+What the capability flags became:
+
+| Was | Now |
+|---|---|
+| `GLContext::ES3`, `DEPTH_TEXTURE`, `PACKED_DEPTH_STENCIL`, `TEXTURE_NPOT_*`, `DISCARD_FRAMEBUFFER` | gone — all ES 3.0 core |
+| `GLContext::SHADOW_SAMPLERS` | gone — it was never read (see [above](#shadow-samplers-0-is-a-red-herring)) |
+| `GLContext::DiscardFramebufferEXT` + its `eglGetProcAddress` | `InvalidateFramebuffer` → `glInvalidateFramebuffer` |
+| `vt` VAO wrappers + `GL_OES_vertex_array_object` probe | `glGenVertexArrays` / `glBindVertexArray` / `glDeleteVertexArrays` |
+| `GL_OES_standard_derivatives` probe | always on |
+| `GL_DEPTH_COMPONENT24_OES`, `GL_DEPTH24_STENCIL8_OES`, `GL_TEXTURE_COMPARE_MODE_EXT` | the unsuffixed core tokens |
+| `GLES2/gl2.h` | `GLES3/gl3.h` (`gl2ext.h` stays — extension tokens still live there) |
+
+What is left of the probes is one flag, `TEXTURE_FILTER_ANISOTROPIC`, which is an extension in every
+ES version. `GLContext::VERSION` replaces the booleans, parsed the way tangram parses it
+(`Hardware::loadCapabilities`): first digit run of `GL_VERSION` times 100, so `300`. It gates nothing
+today — it is there for logging and for a future 3.1/3.2 check.
+
+Two traps, both of which a `-fsyntax-only` check passes straight through:
+
+- **Android must link `GLESv3`, not `GLESv2`.** The ES 3.0 entry points are only exported by
+  `libGLESv3.so`; with `GLESv2` the compile succeeds and the *link* fails on `glGenVertexArrays`,
+  `glInvalidateFramebuffer` and friends. It is a superset, so it replaces `GLESv2` rather than
+  joining it.
+- **`vt`'s derivatives flag still has to emit the `#extension` line.** `fwidth` is core on an ES 3.0
+  *context*, but the shaders are GLSL ES 1.00 until Phase 3, and in ESSL 1.00 it is still an
+  extension. `commonFsh` keeps `#extension GL_OES_standard_derivatives : enable` under
+  `!defined(ESSL3)`; only the runtime probe went away.
+
+`vt::GLExtensions` survives as a near-empty class holding the anisotropic probe. Deleting it would
+change `GLTileRenderer`'s constructor, which is beyond this phase — fold it in whenever that
+signature next changes.
 
 Devices lost: pre-2013 GPUs (Mali-400, Adreno 200/305, Tegra 3, PowerVR SGX). At minSdk 21 and an
-iOS 13 floor — where every device is A7+ — that is a rounding error.
+iOS 13 floor — where every device is A7+ — that is a rounding error. The app-facing consequence is
+in [migration.md](../../migration.md#opengl-es-30-is-required).
 
 **Done when**: an Adreno 610 device and one iOS device show no regression at the bench cameras.
+The Adreno 610 leg is done — see [Phase 3](#phase-3--glsl-es-300), which was verified on the same
+device and run, and exercises this phase's context and capability changes on the way. An iOS device
+is still owed.
 
 ### Phase 3 — GLSL ES 3.00
 
-The reference is already in the tree, and it is tangram, not mapbox-gl-js:
-`core/src/gl/shaderSource.cpp` gates `#version 300 es` plus a vertex/fragment header on
-`Hardware::glVersion >= 300`.
+Done on the simulator; the device leg is still owed. tangram's preamble
+(`core/src/gl/shaderSource.cpp`) is ported verbatim into three places, and **not one of the 27
+shader literals was edited** — they stay written in ESSL 1.00 and are translated on the way to the
+driver, which is what keeps application GLSL working unchanged:
 
-- Port that preamble into `all/native/renderers/utils/Shader.cpp`; flip `ESSL3_FLAG` on globally in
-  `vt`; same for `nml`.
-- Keep `vt`'s per-program 1.00 fallback for one release as the canary, then delete it.
+| Where | How |
+|---|---|
+| `all/native` | `Shader::TranslateToESSL3` rewrites the source in `LoadShader` |
+| `vt` | `buildShaderProgram` ORs in `ESSL3_FLAG` for every program, not at the 20-odd call sites |
+| `nml` | `GLResourceManager::createShader` gained a shader-type parameter so it can pick the right header |
+
+Because the app's GLSL is spliced *into* the SDK's own literals, one translation point covers all
+five public setters. `vt`'s per-program 1.00 fallback stays one release as a canary.
+
+**`hasShaderVersionFallback()` had no callers.** vt sets `_essl3Failed` with the comment "the owner
+logs it once", and no owner ever did — so the phase's own success criterion was unobservable.
+`TileRenderer::onDrawFrame` now logs it once. Without that, a program silently rebuilt at 1.00 looks
+exactly like success: the map still draws.
+
+#### `#version` must be on the first line, not merely preceded by whitespace
+
+The one real trap, and it failed *every* shader on the first run:
+
+```
+ERROR: 0:2: '' : #version directive must occur on the first line of the shader
+```
+
+The shader literals are raw strings that open with a newline and an indent, so replacing the
+`#version 100` line in place leaves the new directive on line 2. Whitespace on the *same* line is
+allowed; a preceding newline is not. The directive is emitted at offset 0 and whatever preceded it
+is pushed after the header.
+
+Worth noting how this was caught: the Android build was **green**, because a C++ build never
+compiles a shader — that happens at runtime. Only running it found this.
 
 **Done when**: every program compiles at `300 es` on both device families and
 `hasShaderVersionFallback()` returns false.
 
-#### The `gl_FragColor` disagreement
+Measured at lon 5.7606 / lat 45.2442 / z13.6 / tilt 55, terrain on, on two unrelated GL stacks:
 
-The two implementations contradict each other, and the answer decides whether this phase breaks the
+| | iPhone 16 Pro simulator (ANGLE/Metal) | Crosscall HLTE556N, **Adreno 610**, ES 3.2 |
+|---|---|---|
+| shader compile / link failures | 0 | **0** |
+| ESSL 3.00 → 1.00 fallbacks | 0 | **0** |
+| GL errors | 0 | **0** |
+| frame vs the ESSL 1.00 build | every map band 0.00% | see below |
+
+The Adreno is the one that matters, because its driver is a real Qualcomm GLSL compiler rather than
+ANGLE's translator, and it is where `GLContext::VERSION` first met a vendor version string —
+`OpenGL ES 3.2 V@0502.0 (GIT@...)` parses to `320`, as tangram's parser is meant to.
+
+The device A/B needs its control quoted or it says nothing. Same build run twice differs by 0.19%
+of sampled pixels (labels are placed as tiles arrive, so no two runs match exactly). ESSL 1.00 vs
+3.00 differs by 0.37%, and the per-band profile is the same shape — the excess is confined to
+glyph pixels, black text against landcover green in both directions, i.e. sub-pixel label
+antialiasing. Cropped and compared by eye, the two frames are indistinguishable: same contours, same
+labels, same positions.
+
+One thing the A/B settled that inspection alone would not: a **route line that draws in broken
+chunks** over terrain is present *identically in both builds*. It is the known open terrain
+line-following issue, not a regression from this phase.
+
+Still owed: a real iOS device (Apple's driver, not the simulator's).
+
+#### The `gl_FragColor` disagreement — settled, tangram was right
+
+The two implementations contradicted each other and the answer decided whether this phase breaks the
 public API.
 
 - **tangram** does `#define gl_FragColor TANGRAM_FragColor` plus a `layout(location = 0) out`
   declaration. App shaders keep writing `gl_FragColor` and need no migration.
-- **`vt`** renames instead, and its comment states the reason: a name starting with `gl_` cannot be
-  `#define`d.
+- **`vt`** renames instead, and its comment claims a name starting with `gl_` cannot be `#define`d.
 
-Tangram ships its form and it works on their device matrix — but tangram uses EAGL and has never run
-under ANGLE, whose shader translator is the strict one. If ANGLE accepts the macro, the five public
-GLSL setters need no migration and Phase 3 stops being a breaking change. That is Phase 0, item 2.
+Gate 0.2 put both through ANGLE's translator: **the macro is accepted and applied**. vt's comment is
+wrong — ESSL reserves the `GL_` prefix for *macro* names, while `gl_FragColor` is a built-in
+*variable* that ESSL 3.00 does not declare at all. So Phase 3 adopts tangram's preamble verbatim,
+the five public GLSL setters need no migration, and this phase is **not** a breaking change.
 
-### Phase 4 — harvest
+vt's rename is still harmless and need not be undone; only the comment is misleading, and only the
+`all/native` side has to choose. Full method and controls in [Phase 0 — results](#02--define-gl_fragcolor-accepted-so-phase-3-is-not-breaking).
 
-One measured PR each, recorded in [Performance log](../performance-log.md): instancing, then shadow
-cascades as a texture array, then packed vertex attributes, then UBOs, then `glMapBufferRange` for
-label streaming.
+### Phase 4 — harvest: closed, nothing shipped
+
+Closed 2026-08-19 (#140). Three of the five items were implemented and measured on an Adreno 610;
+all three were negative, and the two best remaining performance targets do not need ES 3.0 at all.
+Method and numbers in [round 18](../performance-log.md#18-phase-4-opened-by-measuring-first-and-the-first-two-items-died-2026-08-19).
+
+| Item | Result |
+|---|---|
+| 1. Instancing (billboards, markers) | **0.1 ms CPU, 0.0 ms GPU.** Already one draw per batch, so the premise was false |
+| 2. Shadow cascades as a texture array | Implemented and correct, then **+28.5% GPU** (`shadowMask` 6.70 → 10.30 ms). Reverted. Explicitly a **per-GPU** verdict |
+| 3. Packed vertex attributes | Not measured. Cannot cut draws — they come from tile × style layer, not the 16-bit index cap |
+| 4. UBOs | Not measured. Targets `styleUpload` ≈ **0.46 ms/frame** once the profiler's own per-bucket overhead is subtracted |
+| 5. `glMapBufferRange` for label streaming | **No-op** — the six label buffers are a few KB each. Reverted |
+
+The list was written from what ES 3.0 *offers* rather than from what this renderer *spends*, and
+ordered by expected payoff before anything was measured. There are two cameras with two bottlenecks
+and it addresses neither: the 2D city is CPU-bound on **320 geometry draws/frame**, and the terrain
+frame is GPU-bound with **55% of it in the shadow pass** — a cost that is casters × cascades, which
+item 2 could not touch however the texture is laid out.
+
+What took its place, neither of which depends on this migration:
+
+- **[#144](https://github.com/massif-maps/MassifMaps/issues/144)** — cut the 320 draws. Step 1 hoists
+  the per-layer uniforms out of the per-tile loop (~1.5 ms/frame); the loop is *already* grouped by
+  style layer and re-uploads identical style parameters per tile.
+- **Instancing the shared-mesh per-tile draws** — tile masks (62/frame, measured at ~2.4 ms CPU),
+  background quads (23/frame) and the terrain grid all bind one shared VBO and differ only by
+  `U_MVPMATRIX`. This is where item 1 should have pointed. Instanced arrays are also an ES 2.0
+  extension.
+
+**This does not undo Phases 2 and 3.** They were never justified by frame rate — they are what makes
+ANGLE-on-Metal and the desktop phase possible. On Android specifically, Phase 2 bought *simplicity,
+not capability*: the bench device already exposed `GL_OES_vertex_array_object`,
+`GL_EXT_discard_framebuffer`, `GL_OES_depth_texture` and `GL_OES_texture_npot`, so every capability
+made core was already reachable through the probes that were deleted. The migration's payoff is in
+Phases 1 and 5, and it should be judged there.
 
 ### Phase 5 — desktop
 
-No renderer change. Per platform: one context/window file and one build script.
+No renderer change, but this is where the MetalANGLE choice is paid for: the fork has no Win32/D3D
+and no AppKit slice, so this phase needs upstream ANGLE *and* the EGL + `CAMetalLayer` bootstrap
+that Phase 1 no longer writes.
 
-- **macOS native (AppKit)** — reuse the Phase 1 bootstrap, swap the view class.
+- **macOS native (AppKit)** — upstream ANGLE on Metal, plus the shared EGL bootstrap.
 - **Windows** — ANGLE on D3D11, reusing the UWP EGL wrapper shape.
 - **Linux** — native EGL against Mesa's GLES 3.2. Pull in ANGLE-on-Vulkan only if a driver forces it.
+
+#### What the ES 3.0 baseline costs on desktop
+
+Almost nothing, and it settles the Windows backend question. ANGLE's D3D11 backend caps the ES
+version by feature level (`GetMaximumClientVersion` in `renderer11_utils.cpp`; `Renderer11.cpp`
+puts it plainly — *"Can't support ES3 at all without feature level 10.1"*):
+
+| D3D feature level | max ES |
+|---|---|
+| 11_0 / 11_1 | 3.1 |
+| **10_1** | **3.0** |
+| 10_0 and below | 2.0 |
+
+So the Windows floor is **FL 10_1**: Sandy Bridge (2011) and AMD HD 3000 (2007) clear it, NVIDIA
+GeForce 8/9 (10_0) and pre-2011 Intel GMA (9_x) do not. Windows 11 already requires a DX12-capable
+GPU, so it excludes nobody there, and WARP — what VMs and RDP sessions fall back to — reports 11_1.
+
+That is the argument for **D3D11 over Vulkan** on Windows, which this plan previously assumed on
+maturity grounds alone: ANGLE-on-Vulkan needs a 2016-or-later driver, so it is *narrower* in the
+tail than D3D11's 2011 floor. Linux and macOS have no equivalent cut — Mesa serves GLES 3.x on
+anything post-2012 (llvmpipe does 3.2 in software), and the macOS floor is "Metal-capable", which
+macOS 10.14+ requires anyway.
 
 ## What this plan deliberately does not do
 
@@ -258,18 +521,26 @@ adopting is the cheaper discipline: new GL calls go through the `renderers/utils
 into logic files. Retrofitting the 898 already-scattered calls in `all/native` is its own priced
 job and is not part of this.
 
-**No native Metal.** Reopen only if the Phase 0 bench shows ANGLE costing real frames at the city
-camera — and price it against the table above, including the loss of tangram as a reference.
+**No native Metal.** Reopen only if the gate 0.3 bench shows ANGLE costing real frames at the city
+camera — and price it against the table above, including the loss of tangram as a reference. That
+bench has not been run, so this is deferred, not decided.
 
 ## Known gaps
 
-- Every number in "Where we are" is from static analysis of the tree. Nothing in Phase 0 has been
-  run; the ES 3.0 conformance of ANGLE's Metal backend is taken from its support matrix, not
-  observed here.
-- The binary-size delta of a linked upstream ANGLE is unmeasured. The vendored MetalANGLE static
-  slice is 15.2 MB for arm64 before dead-stripping, which is not the shipped cost.
-- Whether ANGLE adds measurable per-draw overhead versus EAGL is unknown, and it is the one result
-  that could send this back to a native backend.
+- **Gate 0.3 is unmeasured.** Whether ANGLE adds per-draw overhead versus EAGL is the one result
+  that could send this back to a native backend, and it needs a physical iOS device: the
+  Apple-Silicon simulator has no OpenGL ES to compare against, and its 60 Hz vsync cap hides any
+  delta the scene does not already exceed. Use `MASSIF_FRAME_PROFILER=1` per-section timings, not
+  frame rate.
+- Every number in "Where we are" is from static analysis of the tree, unchanged since.
+- ES 3.0 on the Metal backend is confirmed **on the simulator only** (gate 0.1). No device run yet,
+  and the fork's own README grades its ES 3.0 at 90%.
+- `GLContext::SHADOW_SAMPLERS` is dead — probed from an ES 2.0 extension string, logged, never read.
+  Phase 2 should delete it along with the other extension probes.
+- The linked (as opposed to static-slice) binary-size delta is still unmeasured. The stripped
+  arm64-simulator slice is 14.2 MB at master, 15.2 MB at the vendored 2021 build.
 - Xamarin is assumed droppable. If it is not, it blocks an ANGLE-only iOS on its own.
+- Whether MetalANGLE's two unimplemented ES 3.0 features (primitive restart, last-provoking-vertex
+  flat shading) matter to this renderer has not been checked against the draw calls it makes.
 - No decision on whether Windows should use ANGLE-on-D3D11 or ANGLE-on-Vulkan; D3D11 is assumed on
   maturity grounds only.

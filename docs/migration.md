@@ -143,6 +143,43 @@ banner at the top.
 
 ## Breaking changes after 6.0.0
 
+### OpenGL ES 3.0 is required
+
+The SDK no longer creates or accepts an OpenGL ES 2.0 context. No API changed — this is a **device**
+break, not a code one.
+
+| | Before | After |
+|---|---|---|
+| Android manifest | `uses-feature glEsVersion 0x00020000` | **`0x00030000`** |
+| Android context | ES 3.0 if the device reported it, else ES 2.0 | ES 3.0, no fallback |
+| iOS context | ES 3.0, falling back to ES 2.0 | ES 3.0, no fallback |
+| UWP | `EGL_CONTEXT_CLIENT_VERSION 2` | `3` |
+
+**If your app ships its own `AndroidManifest.xml` with a `glEsVersion` line, raise it to
+`0x00030000`** — the merged manifest takes the highest value, so a stale `0x00020000` in your app is
+harmless, but leaving it there advertises support you no longer have.
+
+Devices lost are pre-2013 GPUs: Mali-400, Adreno 200/305, Tegra 3, PowerVR SGX. At `minSdk 21` and
+an iOS 13 floor — where every device is A7 or newer — that is a rounding error. On desktop the
+equivalent floor is D3D feature level 10_1 (Sandy Bridge, 2011), which Windows 11 already exceeds.
+
+### Shaders moved to GLSL ES 3.00 — and your shaders still work
+
+The SDK's shaders now compile as `#version 300 es`. **This is not a breaking change for
+application GLSL.** If you pass a shader to `SkyOptions.shaderSource`, `FogOptions.shaderSource`,
+`TerrainOptions.surfaceShaderSource`, `CustomRasterTileLayer.shaderSource` or `PostProcessEffect`,
+keep writing it exactly as before — `attribute`, `varying`, `texture2D` and `gl_FragColor` all still
+work.
+
+They keep working because the SDK prepends tangram's compatibility preamble, which maps the ESSL
+1.00 spellings onto their 3.00 equivalents, including `#define gl_FragColor`. That is legal: ESSL
+reserves the `GL_` prefix for *macro* names, and `gl_FragColor` is a built-in *variable* that ESSL
+3.00 does not declare.
+
+You may now also use ESSL 3.00 features directly (`in`/`out`, `texture()`, integer operations) — but
+do not declare your own `#version` line, and do not declare a fragment output named
+`TANGRAM_FragColor`, which the preamble already provides at location 0.
+
 ### `LightOptions.shadowDistance` is a factor, not metres
 
 | Before | After |

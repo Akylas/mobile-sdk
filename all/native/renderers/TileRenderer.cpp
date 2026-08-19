@@ -596,6 +596,14 @@ namespace massif {
             return false;
         }
 
+        // vt has no logger of its own, so the fallback is invisible without this. It means a
+        // program would not build at '#version 300 es' and was rebuilt at 1.00 - the map still
+        // draws, which is exactly why it needs saying out loud.
+        if (!_essl3FallbackReported && tileRenderer->hasShaderVersionFallback()) {
+            _essl3FallbackReported = true;
+            Log::Warn("TileRenderer: a shader fell back from GLSL ES 3.00 to 1.00");
+        }
+
         cglib::mat4x4<double> modelViewMat = viewState.getModelviewMat() * cglib::translate4_matrix(cglib::vec3<double>(_horizontalLayerOffset, 0, 0));
         vt::ViewState vtViewState(viewState.getProjectionMat(), modelViewMat, viewState.getZoom(), viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewState.getNormalizedResolution());
         vtViewState.planarProjection = isPlanarProjectionMode(); // labels rescale by view depth, so neither terrain elevation nor a tilt blows up their screen size
