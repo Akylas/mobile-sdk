@@ -534,6 +534,38 @@ anyway for a metric AO falloff, a roof-edge term and emissive — none of which 
 approximates. Per-fragment lands as its own measured PR rather than smuggled in under a gradient fix.
 
 
+### Rounded roof edges
+
+`building-edge-radius` (metres, **0 = off**, mapbox's default too). The wall stops at
+`maxHeight - radius`, the roof ring is inset by the same amount, and **one quad per footprint edge**
+bridges the two — against [#132]'s projected +30% roof vertices, there are no extra roof vertices
+beyond the inset ring.
+
+The rounding is in the **normals**, not in subdivision. `_attribs[1]` went from a 0/1 `sideVertex`
+flag to a 0..127 blend, and the vertex stage does `normalize(mix(aVertexNormal, aVertexBinormal,
+side))`: the band's lower edge carries the wall's normal, its upper edge the roof's, so
+wall → bevel → roof shades continuously. Reusing that byte means no vertex-size increase, and the
+same blend now weights the facade gradient so it fades out as a surface turns to face up.
+
+**0.8 m matches mapbox** on Grenoble data; 2 m already reads as too soft.
+
+The bevel follows the wall dedupe — an edge whose wall was suppressed as a duplicate gets no bevel,
+or it would round an edge it did not draw. It is skipped entirely for a building shorter than
+`2 × radius`.
+
+Insetting is where this goes wrong, twice over, and both are worth knowing:
+
+- **Clamp per vertex, not per footprint.** A global clamp to the narrowest edge let one 1 m jog cost
+  the whole building its bevel, so most roofs stayed sharp while a few clean rectangles got the full
+  radius — which reads as the feature not working rather than as a clamp.
+- **Clamp the DISPLACEMENT, not the radius.** The miter runs to 5× at a sharp corner, so a radius
+  already clamped to half an edge still moved the vertex two and a half edges — across the footprint.
+  The ring self-intersected and the tesselator answered with inverted triangles: black wedges along
+  the roof edge, worst where corners are sharpest.
+
+Degenerate edges are skipped rather than rejected: an MVT ring that repeats its first point at the
+end has one, and bailing on it left **every** building sharp.
+
 ### Contact shadow on the ground
 
 The other half of standing on the terrain, and the reason buildings otherwise read as pasted on.
@@ -558,6 +590,30 @@ extrusions at all (`isDrapeableGeometry` excludes `POLYGON3D`), so it is not fre
 drape texture is 0.6–2.4 ground metres per texel at z15–17, making a 3 m radius one to three texels;
 and the drape is a terrain feature, so a plain 2D map would get no contact shadow. mapbox uses a
 scene pass (`groundEffect`) for the same reasons.
+
+The falloff is **smoothstepped**, not just `pow()`. `pow(d, 0.69)` reaches 1 with a slope of 0.69,
+and the eye reads that derivative step as a crease where the skirt ends — a visible outline around
+every building, which is the opposite of what a contact shadow is for. Smoothstep lands at both ends
+with zero slope, so the band fades into the ground and is flattest against the wall, where the
+occlusion really is most complete.
+
+The skirt is **one offset ring**: every vertex moves outward by its own miter (capped at 3× radius),
+and quads span consecutive pairs. The first version offset each EDGE by its own normal and filled
+the corner gap with a triangle — but that triangle interpolates its darkening from a single wall
+vertex while the quads beside it interpolate from an edge, so the shading disagreed along both
+shared edges and produced one radial streak per footprint vertex. Per-vertex offsetting has no
+corners to fill and is fewer triangles.
+
+It also **scales by the tile's fade**, which arrives as the style colour's alpha. An extrusion fades
+in by growing, so without this its contact shadow appeared at full strength on a building that was
+not there yet: a footprint painted on the ground as a tile arrived.
+
+**Its own packing scales have to be measured, not assumed.** `packGroundSkirt` calls the explicit
+`packGeometry` overload, and the scales it passes are what the vertices are quantised to on the way
+into int16. Passing `1.0f` snapped every skirt vertex onto integer tile coordinates — one triangle
+per block instead of a contact shadow, multiplied into the ground as a black wedge. It needs the **index split** too: the index
+buffer is `UNSIGNED_SHORT`, and a dense tile runs past 65535 skirt vertices, wrapping the indices so
+triangles stitch unrelated vertices into slivers hundreds of metres long.
 
 **The radius is in metres and the tesselator works in tile-local units.** Converting is
 `transformer->calculateHeight(p, radius)` — `2^zoom / circumference / cos(latitude)`, which is what

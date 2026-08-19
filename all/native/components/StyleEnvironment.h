@@ -39,6 +39,7 @@ namespace massif {
         std::optional<float> buildingLightIntensity;
         std::optional<float> buildingAmbient;
         std::optional<float> buildingVerticalGradient;
+        std::optional<float> buildingRoofShade;
         std::optional<float> buildingAoIntensity;
         std::optional<float> buildingAoGroundAttenuation;
         std::optional<bool> terrainLightingEnabled;
@@ -90,6 +91,7 @@ namespace massif {
         // How dark the foot of a wall goes, as a fraction of its colour. The reach it fades out
         // over is decode-time geometry, not a uniform - see TileLayerBuilder::appendWallQuad.
         float buildingVerticalGradient = 0.65f;
+        float buildingRoofShade = 1.0f;
         // The contact shadow on the ground around a footprint. Its RADIUS is decode-time geometry
         // (TileLayerBuilder::appendGroundSkirt); these two shade the skirt it produced.
         float buildingAoIntensity = 0.5f;

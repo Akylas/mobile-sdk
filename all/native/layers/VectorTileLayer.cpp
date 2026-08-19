@@ -598,6 +598,7 @@ namespace massif {
         readFloat(mapSettings->buildingLightIntensity, env.buildingLightIntensity);
         readFloat(mapSettings->buildingAmbient, env.buildingAmbient);
         readFloat(mapSettings->buildingVerticalGradient, env.buildingVerticalGradient);
+        readFloat(mapSettings->buildingRoofShade, env.buildingRoofShade);
         readFloat(mapSettings->buildingAoIntensity, env.buildingAoIntensity);
         readFloat(mapSettings->buildingAoGroundAttenuation, env.buildingAoGroundAttenuation);
         readFloat(mapSettings->shadowStrength, env.shadowStrength);

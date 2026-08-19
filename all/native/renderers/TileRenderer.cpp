@@ -824,6 +824,7 @@ namespace massif {
             _buildingLightIntensity = lighting.buildingLightIntensity;
             _buildingAmbient = lighting.buildingAmbient;
             _buildingVerticalGradient = lighting.buildingVerticalGradient;
+            _buildingRoofShade = lighting.buildingRoofShade;
             _groundAOIntensity = lighting.buildingAoIntensity;
             _groundAOAttenuation = lighting.buildingAoGroundAttenuation;
             _resolvedSunDir = lighting.sunDir;
@@ -1333,7 +1334,7 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
                 glUniform3f(glGetUniformLocation(shaderProgram, "u_sunColor"), _resolvedSunColor.getR() / 255.0f, _resolvedSunColor.getG() / 255.0f, _resolvedSunColor.getB() / 255.0f);
                 glUniform3f(glGetUniformLocation(shaderProgram, "u_ambientColor"), _resolvedAmbientColor.getR() / 255.0f, _resolvedAmbientColor.getG() / 255.0f, _resolvedAmbientColor.getB() / 255.0f);
                 glUniform2f(glGetUniformLocation(shaderProgram, "u_sunParams"), _buildingLightIntensity, _buildingAmbient);
-                glUniform1f(glGetUniformLocation(shaderProgram, "u_verticalGradient"), _buildingVerticalGradient);
+                glUniform2f(glGetUniformLocation(shaderProgram, "u_verticalGradient"), _buildingVerticalGradient, _buildingRoofShade);
             });
             tileRenderer->setLightingShader3D(lightingShader3D);
 
@@ -1379,8 +1380,8 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
         uniform vec3 u_sunColor;
         uniform vec3 u_ambientColor;
         uniform vec2 u_sunParams; // x = sun intensity, y = ambient intensity
-        uniform float u_verticalGradient; // how dark the foot of a wall goes, 0 = flat facade
-        vec4 applyLighting3D(lowp vec4 color, mediump vec3 normal, mediump float wallT, bool sideVertex) {
+        uniform vec2 u_verticalGradient; // x = how dark the foot of a wall goes, y = roof shade
+        vec4 applyLighting3D(lowp vec4 color, mediump vec3 normal, mediump float wallT, mediump float sideVertex) {
             // Ambient occlusion where a wall meets the ground: that corner is shadowed by the ground
             // and by the building's own footprint whatever the sun does, and it is the cue that
             // makes an extrusion stand on the terrain instead of floating over it - the shadow map
@@ -1390,7 +1391,11 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
             // height and the style's reach (TileLayerBuilder::appendWallQuad). Both are style values
             // in one unit there, where the shader's own height carries a packing and a tile scale;
             // and being absolute, every part of a building shares one ramp instead of restarting.
-            lowp vec3 baseColor = sideVertex ? color.rgb * mix(1.0 - u_verticalGradient, 1.0, wallT) : color.rgb;
+            // sideVertex weights it: 1 on a wall, 0 on a roof, and partway on the bevel that
+            // rounds the edge, so the gradient fades out as the surface turns to face up.
+            // The roof shade rides the same weight: full on a roof, none on a wall, and partway
+            // across the bevel, so a darkened roof does not meet its wall on a hard line.
+            lowp vec3 baseColor = color.rgb * mix(u_verticalGradient.y, mix(1.0 - u_verticalGradient.x, 1.0, wallT), sideVertex);
             // Byte for byte the terrain surface's normalised Lambert (applyTerrainShading): ambient
             // is the floor, the coloured sun fills the headroom. One model for roofs and walls, and
             // the same one the ground uses - so nothing changes shape when terrain lighting is

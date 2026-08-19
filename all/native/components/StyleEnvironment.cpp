@@ -30,6 +30,7 @@ namespace massif {
         take(buildingLightIntensity, other.buildingLightIntensity);
         take(buildingAmbient, other.buildingAmbient);
         take(buildingVerticalGradient, other.buildingVerticalGradient);
+        take(buildingRoofShade, other.buildingRoofShade);
         take(buildingAoIntensity, other.buildingAoIntensity);
         take(buildingAoGroundAttenuation, other.buildingAoGroundAttenuation);
         take(terrainLightingEnabled, other.terrainLightingEnabled);
@@ -52,7 +53,7 @@ namespace massif {
     }
 
     bool StyleEnvironment::empty() const {
-        return !(sunAzimuth || sunAltitude || sunColor || sunIntensity || ambientIntensity || ambientColor || buildingLightIntensity || buildingAmbient || buildingVerticalGradient || buildingAoIntensity || buildingAoGroundAttenuation || terrainLightingEnabled ||
+        return !(sunAzimuth || sunAltitude || sunColor || sunIntensity || ambientIntensity || ambientColor || buildingLightIntensity || buildingAmbient || buildingVerticalGradient || buildingRoofShade || buildingAoIntensity || buildingAoGroundAttenuation || terrainLightingEnabled ||
                  shadowStrength || shadowBias || shadowSoftness || shadowDistance || shadowMapSize || shadowCascades ||
                  shadowCasterMargin || fogEnabled || fogColor || fogRangeStart || fogRangeEnd || fogHighColor || fogSpaceColor ||
                  fogHorizonBlend || fogStarIntensity || terrainMaxVisibleDistance);
@@ -134,6 +135,9 @@ namespace massif {
         }
         if (env.buildingVerticalGradient) {
             lighting.buildingVerticalGradient = *env.buildingVerticalGradient;
+        }
+        if (env.buildingRoofShade) {
+            lighting.buildingRoofShade = *env.buildingRoofShade;
         }
         if (env.buildingAoIntensity) {
             lighting.buildingAoIntensity = *env.buildingAoIntensity;

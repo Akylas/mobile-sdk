@@ -1413,6 +1413,7 @@ public class DemoMap {
         lightOptions.setSunIntensity(DemoConfig.SUN_INTENSITY);
         lightOptions.setAmbientIntensity(DemoConfig.AMBIENT_INTENSITY);
         lightOptions.setAmbientColor(new Color(DemoConfig.AMBIENT_COLOR_ARGB));
+        lightOptions.setSunColor(new Color(DemoConfig.SUN_COLOR_ARGB));
         lightOptions.setTerrainLightingEnabled(DemoConfig.TERRAIN_LIGHTING);
         lightOptions.setShadowStrength(DemoConfig.SHADOW_STRENGTH);
         lightOptions.setShadowSoftness(DemoConfig.SHADOW_SOFTNESS);

@@ -331,6 +331,8 @@ public final class DemoConfig {
     public static float AMBIENT_INTENSITY = 1.0f;
     /** Tint of everything in shadow. White = neutral; a cool blue reads as sky-lit at dusk. */
     public static int AMBIENT_COLOR_ARGB = 0xFFFFFFFF;
+    /** Colour of the direct sun. Warm at a low sun is what makes a dusk scene read as dusk. */
+    public static int SUN_COLOR_ARGB = 0xFFFFFFFF;
     public static float SHADOW_STRENGTH = 0.3f;
     public static float SHADOW_SOFTNESS = 1.0f;
     public static int SHADOW_MAP_SIZE = 1024;
@@ -521,6 +523,10 @@ public final class DemoConfig {
     public static float INLINE_BUILDING_AO_RADIUS = 0f;
     public static float INLINE_BUILDING_AO_INTENSITY = 0.5f;
     public static float INLINE_BUILDING_AO_ATTENUATION = 0.69f;
+    /** Bevel at the roof edge, in metres. 0 = a hard 90 degrees, which is the default. */
+    public static float INLINE_BUILDING_EDGE_RADIUS = 0f;
+    /** Roofs multiplied by this. 1 = untouched; below 1 is the mapbox look. */
+    public static float INLINE_BUILDING_ROOF_SHADE = 1f;
     /** Extrusion height in meters. Same vertex count at any value: the knob that separates the
      *  extrusion pass's fill cost from its vertex cost. */
     public static float INLINE_BUILDING_HEIGHT = 14f;
@@ -1115,6 +1121,7 @@ public final class DemoConfig {
         SUN_INTENSITY = DemoCfg.cfgFloat("sunIntensity", SUN_INTENSITY);
         AMBIENT_INTENSITY = DemoCfg.cfgFloat("ambient", AMBIENT_INTENSITY);
         AMBIENT_COLOR_ARGB = DemoCfg.cfgColorInt("ambientColor", AMBIENT_COLOR_ARGB);
+        SUN_COLOR_ARGB = DemoCfg.cfgColorInt("sunColor", SUN_COLOR_ARGB);
         SHADOW_STRENGTH = DemoCfg.cfgFloat("shadow", SHADOW_STRENGTH);
         SHADOW_SOFTNESS = DemoCfg.cfgFloat("shadowSoftness", SHADOW_SOFTNESS);
         SHADOW_MAP_SIZE = DemoCfg.cfgInt("shadowMapSize", SHADOW_MAP_SIZE);
@@ -1207,6 +1214,8 @@ public final class DemoConfig {
         INLINE_BUILDING_AO_RADIUS = DemoCfg.cfgFloat("bldAoRadius", INLINE_BUILDING_AO_RADIUS);
         INLINE_BUILDING_AO_INTENSITY = DemoCfg.cfgFloat("bldAoIntensity", INLINE_BUILDING_AO_INTENSITY);
         INLINE_BUILDING_AO_ATTENUATION = DemoCfg.cfgFloat("bldAoAttenuation", INLINE_BUILDING_AO_ATTENUATION);
+        INLINE_BUILDING_EDGE_RADIUS = DemoCfg.cfgFloat("bldEdgeRadius", INLINE_BUILDING_EDGE_RADIUS);
+        INLINE_BUILDING_ROOF_SHADE = DemoCfg.cfgFloat("bldRoofShade", INLINE_BUILDING_ROOF_SHADE);
         INLINE_STYLE_LIGHTING = DemoCfg.cfgBool("styleLight", INLINE_STYLE_LIGHTING);
         INLINE_LABELS = DemoCfg.cfgBool("labels", INLINE_LABELS);
         INLINE_STYLE_MINIMAL = DemoCfg.cfgBool("minimal", INLINE_STYLE_MINIMAL);
