@@ -245,6 +245,7 @@ namespace massif {
         // (StyleEnvironment::resolveLighting).
         float _buildingLightIntensity = 1.0f;
         float _buildingAmbient = 0.35f;
+        float _buildingVerticalGradient = 0.65f;
         cglib::vec3<float> _normalLightDir;
         MapVec _normalIlluminationDirection;
         bool _normalIlluminationMapRotationEnabled;

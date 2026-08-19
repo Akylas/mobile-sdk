@@ -823,6 +823,7 @@ namespace massif {
             // time and cannot resolve anything itself.
             _buildingLightIntensity = lighting.buildingLightIntensity;
             _buildingAmbient = lighting.buildingAmbient;
+            _buildingVerticalGradient = lighting.buildingVerticalGradient;
             _resolvedSunDir = lighting.sunDir;
             _resolvedSunColor = lighting.sunColor;
             _resolvedAmbientColor = lighting.ambientColor;
@@ -1328,6 +1329,7 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
                 glUniform3f(glGetUniformLocation(shaderProgram, "u_sunColor"), _resolvedSunColor.getR() / 255.0f, _resolvedSunColor.getG() / 255.0f, _resolvedSunColor.getB() / 255.0f);
                 glUniform3f(glGetUniformLocation(shaderProgram, "u_ambientColor"), _resolvedAmbientColor.getR() / 255.0f, _resolvedAmbientColor.getG() / 255.0f, _resolvedAmbientColor.getB() / 255.0f);
                 glUniform2f(glGetUniformLocation(shaderProgram, "u_sunParams"), _buildingLightIntensity, _buildingAmbient);
+                glUniform1f(glGetUniformLocation(shaderProgram, "u_verticalGradient"), _buildingVerticalGradient);
             });
             tileRenderer->setLightingShader3D(lightingShader3D);
 
@@ -1373,15 +1375,15 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
         uniform vec3 u_sunColor;
         uniform vec3 u_ambientColor;
         uniform vec2 u_sunParams; // x = sun intensity, y = ambient intensity
-        vec4 applyLighting3D(lowp vec4 color, mediump vec3 normal, highp_opt float height, bool sideVertex) {
+        uniform float u_verticalGradient; // how dark the foot of a wall goes, 0 = off
+        vec4 applyLighting3D(lowp vec4 color, mediump vec3 normal, highp_opt float height, mediump float wallT, bool sideVertex) {
             // Ambient occlusion where a wall meets the ground: that corner is shadowed by the ground
             // and by the building's own footprint whatever the sun does, and it is the cue that
             // makes an extrusion stand on the terrain instead of floating over it - the shadow map
-            // cannot resolve it, its texels are metres wide. This lighting runs PER VERTEX, so the
-            // shape of the falloff is irrelevant: only the value at the base ring and at the roof
-            // survive, and the wall carries the linear interpolation between them. What the cue is
-            // worth is therefore the base value alone.
-            lowp vec3 baseColor = sideVertex ? color.rgb * (1.0 - 0.65 / (1.0 + height * height)) : color.rgb;
+            // cannot resolve it, its texels are metres wide. Measured along the WALL (0 at its own
+            // base ring, 1 at its roof), not in absolute metres: a building part starting 20 m up
+            // is at its own foot there, and the metre form gave it no gradient at all.
+            lowp vec3 baseColor = sideVertex ? color.rgb * mix(1.0 - u_verticalGradient, 1.0, wallT) : color.rgb;
             // Byte for byte the terrain surface's normalised Lambert (applyTerrainShading): ambient
             // is the floor, the coloured sun fills the headroom. One model for roofs and walls, and
             // the same one the ground uses - so nothing changes shape when terrain lighting is

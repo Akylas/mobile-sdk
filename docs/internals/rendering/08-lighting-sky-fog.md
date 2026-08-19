@@ -453,11 +453,24 @@ wall carries the linear interpolation between them, whatever curve the formula d
 "over the first metre" is therefore a full-height ramp on screen, and the only thing that changes the
 look is the endpoint value.
 
-The ambient term at the foot of a wall (`1 - 0.65/(1 + h*h)`) is the cue that makes an extrusion
-stand on the terrain rather than float over it: that corner is occluded by the ground and by the
-building's own footprint whatever the sun does, and the shadow map cannot resolve it - its texels are
-metres wide. Measured luminance down a wall on the device: 206 at the roof, 100 at the foot (124 with
-the previous 0.5, which read as too light).
+The ambient term at the foot of a wall is the cue that makes an extrusion stand on the terrain rather
+than float over it: that corner is occluded by the ground and by the building's own footprint
+whatever the sun does, and the shadow map cannot resolve it - its texels are metres wide. Measured
+luminance down a wall on the device: 206 at the roof, 100 at the foot (124 with the previous 0.5,
+which read as too light).
+
+It is `mix(1 - buildingVerticalGradient, 1, t)` where `t` is 0 on the base ring and 1 on the top
+ring — the wall's **own** parameter, not a height in metres. `t` needed no new attribute: the
+tesselator has always written it into `_attribs[2]`, where nothing read it. The style sets the
+strength with `building-vertical-gradient` (default `0.65`, i.e. the foot at 35% of the wall colour).
+
+The previous form was `1 - 0.65/(1 + h*h)` with `h` in **absolute metres**. Given the per-vertex rule
+above it produced almost the same screen ramp for an ordinary building — 0.35 at the foot, ~1.0 at
+the roof — so this is not the "tall facades are flat" bug [#132] describes; a tall facade was never
+flat. What it actually broke is a wall whose **base is not at zero**: an OSM `building:part` starting
+20 m up evaluated `1 - 0.65/401 ≈ 0.998` at its own foot and got no gradient at all. The `t` form is
+also the one A2's bevel and A5's parts need, since both reason along the wall rather than about its
+altitude.
 
 Contact darkening on the GROUND around a footprint is the other half and is not implemented: the
 ground does not know where the buildings are. It would need either screen-space AO over the scene

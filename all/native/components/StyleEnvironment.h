@@ -38,6 +38,7 @@ namespace massif {
         std::optional<Color> ambientColor;
         std::optional<float> buildingLightIntensity;
         std::optional<float> buildingAmbient;
+        std::optional<float> buildingVerticalGradient;
         std::optional<bool> terrainLightingEnabled;
         std::optional<float> shadowStrength;
         std::optional<float> shadowBias;
@@ -80,6 +81,8 @@ namespace massif {
         // so walls and the ground agree. Follows the sun unless the style overrides it.
         float buildingLightIntensity = 1.0f;
         float buildingAmbient = 0.35f;
+        // How dark the foot of a wall goes, as a fraction of its colour, measured ALONG the wall.
+        float buildingVerticalGradient = 0.65f;
         float shadowStrength = 0.0f;
         float shadowBias = 0.25f;
         float shadowNormalOffset = 3.0f;
