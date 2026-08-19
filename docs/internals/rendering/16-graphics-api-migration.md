@@ -444,11 +444,42 @@ the five public GLSL setters need no migration, and this phase is **not** a brea
 vt's rename is still harmless and need not be undone; only the comment is misleading, and only the
 `all/native` side has to choose. Full method and controls in [Phase 0 — results](#02--define-gl_fragcolor-accepted-so-phase-3-is-not-breaking).
 
-### Phase 4 — harvest
+### Phase 4 — harvest: closed, nothing shipped
 
-One measured PR each, recorded in [Performance log](../performance-log.md): instancing, then shadow
-cascades as a texture array, then packed vertex attributes, then UBOs, then `glMapBufferRange` for
-label streaming.
+Closed 2026-08-19 (#140). Three of the five items were implemented and measured on an Adreno 610;
+all three were negative, and the two best remaining performance targets do not need ES 3.0 at all.
+Method and numbers in [round 18](../performance-log.md#18-phase-4-opened-by-measuring-first-and-the-first-two-items-died-2026-08-19).
+
+| Item | Result |
+|---|---|
+| 1. Instancing (billboards, markers) | **0.1 ms CPU, 0.0 ms GPU.** Already one draw per batch, so the premise was false |
+| 2. Shadow cascades as a texture array | Implemented and correct, then **+28.5% GPU** (`shadowMask` 6.70 → 10.30 ms). Reverted. Explicitly a **per-GPU** verdict |
+| 3. Packed vertex attributes | Not measured. Cannot cut draws — they come from tile × style layer, not the 16-bit index cap |
+| 4. UBOs | Not measured. Targets `styleUpload` ≈ **0.46 ms/frame** once the profiler's own per-bucket overhead is subtracted |
+| 5. `glMapBufferRange` for label streaming | **No-op** — the six label buffers are a few KB each. Reverted |
+
+The list was written from what ES 3.0 *offers* rather than from what this renderer *spends*, and
+ordered by expected payoff before anything was measured. There are two cameras with two bottlenecks
+and it addresses neither: the 2D city is CPU-bound on **320 geometry draws/frame**, and the terrain
+frame is GPU-bound with **55% of it in the shadow pass** — a cost that is casters × cascades, which
+item 2 could not touch however the texture is laid out.
+
+What took its place, neither of which depends on this migration:
+
+- **[#144](https://github.com/massif-maps/MassifMaps/issues/144)** — cut the 320 draws. Step 1 hoists
+  the per-layer uniforms out of the per-tile loop (~1.5 ms/frame); the loop is *already* grouped by
+  style layer and re-uploads identical style parameters per tile.
+- **Instancing the shared-mesh per-tile draws** — tile masks (62/frame, measured at ~2.4 ms CPU),
+  background quads (23/frame) and the terrain grid all bind one shared VBO and differ only by
+  `U_MVPMATRIX`. This is where item 1 should have pointed. Instanced arrays are also an ES 2.0
+  extension.
+
+**This does not undo Phases 2 and 3.** They were never justified by frame rate — they are what makes
+ANGLE-on-Metal and the desktop phase possible. On Android specifically, Phase 2 bought *simplicity,
+not capability*: the bench device already exposed `GL_OES_vertex_array_object`,
+`GL_EXT_discard_framebuffer`, `GL_OES_depth_texture` and `GL_OES_texture_npot`, so every capability
+made core was already reachable through the probes that were deleted. The migration's payoff is in
+Phases 1 and 5, and it should be judged there.
 
 ### Phase 5 — desktop
 

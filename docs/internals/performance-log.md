@@ -1482,3 +1482,164 @@ windows longer than 1600 ms discarded, two cycles per configuration.
 - Reading `layers` rather than fps is what makes this measurable at all: the device presents at
   43 Hz (§15.6) and the frame here is far from that ceiling, so ±1 fps of run-to-run noise swamps
   a 1.2 ms section change.
+
+---
+
+## 18. Phase 4 opened by measuring first, and the first two items died (2026-08-19)
+
+[Phase 4](rendering/16-graphics-api-migration.md#phase-4--harvest-closed-nothing-shipped) lists five ES 3.0 harvests
+"ordered by expected payoff". Nothing had been measured against that order. Method: Crosscall
+HLTE556N (Adreno 610), `bench/city2d.sh` — Grenoble 5.724/45.188 z16.22 tilt 26, terrain off,
+composite base with the bundled style project, scripted north pan, `-PprofileRender`.
+
+Baseline, 22.1 fps, frame avg 39.9 ms:
+
+| CPU section | ms/frame | | GPU section | ms/frame |
+|---|---|---|---|---|
+| `sky` | 12.2 | | sky | 5.4 |
+| `layers` | 14.1 | | background | 3.6 |
+| `layers3D` | 11.4 | | layers | 7.3 |
+| labels 2D + 3D | 3.4 + 2.2 | | layers3D | 1.4 |
+| **`billboards`** | **0.1** | | **billboards** | **0.0** |
+
+`sky` at 12.2 matches §16's "swap wait 12.2" exactly, so it is absorbing the vsync wait rather than
+costing that much itself.
+
+### 18.1 Item 1 (instancing billboards/markers) is dead at this camera
+
+**0.1 ms CPU, 0.0 ms GPU.** There is nothing to win. Its premise is also already satisfied:
+`BillboardRenderer::BuildAndDrawBuffers` draws `drawDataIndex * 6` indices in one
+`glDrawElements` per buffer-full, so billboards are *already* one draw per batch, not one per quad.
+
+What instancing would actually change here is different from what the issue says: the renderer
+builds four corners per billboard per frame and hands them over as **client-side vertex arrays**
+(`coordBuf.data()`, no VBO). That is a real cost — but only in a scene that has billboards. This
+camera has none, so any instancing work needs a marker-heavy bench built first, and the payoff
+would be for marker-heavy apps rather than for the map.
+
+### 18.2 Item 5 (label vertex streaming) measures as a no-op
+
+`renderLabelBatch` re-specifies six buffers per batch with
+`glBufferData(..., GL_DYNAMIC_DRAW)`. Replaced with ES 3.0 orphaning — `glBufferData(size, nullptr,
+GL_STREAM_DRAW)` then `glMapBufferRange(GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT |
+GL_MAP_UNSYNCHRONIZED_BIT)` and a `memcpy` — behind `debug.massif.labelorphan` so one APK does the
+A/B. Interleaved OFF/ON over two rounds, 41 one-second windows per arm:
+
+| arm | fps median | IQR | CPU frame | GPU total |
+|---|---|---|---|---|
+| off | 19.80 | 17.65–22.80 | 43.4 | 18.3 |
+| orphaned | 20.00 | 17.90–21.90 | 44.0 | 18.2 |
+
+**The same arm differs more between rounds than the arms differ from each other** — `off` measured
+18.90 in round 1 and 19.80 in round 2, 4.5× the 0.2 fps between arms, against a stdev of 5.2. No
+effect.
+
+Why: there are ~25 label batches per frame carrying ~245 labels, so each of the six buffers is a
+few KB. `glBufferData` of a few KB is already cheap, and orphaning solves a pipeline stall that at
+that size does not happen. The change was reverted rather than shipped — a no-op behind a debug
+property is complexity for nothing.
+
+Note also that `labelBuild attribMs`, at 17.4 **per interval**, is 0.76 ms/frame, not 17.4 — and
+`Label.cpp`'s `labelAttribNs` clock covers CPU filling of the `VertexArray`s, which buffer mapping
+does not touch at all. Reading a per-interval stat as per-frame is the easy mistake here; every
+`RenderStats` line ending `(per interval)` covers the whole ~1 s window.
+
+### 18.3 What the numbers say to do instead
+
+The frame is CPU-bound on draw submission (§16: 36% of the GL thread inside `libGLESv2_adreno.so`),
+and the per-draw breakdown is `draw=10.1 µs` against `styleEval=3.5`, `styleUpload=2.1`,
+`compile=3.3`, `bind=1.6`. At **320 geometry draws/frame** — 63 tiles × ~5 style layers with content
+— the driver's own per-draw cost dominates.
+
+Of the remaining Phase 4 items, only **UBOs (item 4)** aims at any of that, and it targets
+`styleUpload`: 320 × 2.1 µs ≈ **0.67 ms/frame, ~1.7% of the frame**. Worth doing, but it will not
+move fps on this device, and it should be judged on `layers` rather than fps for the reason in
+§17.
+
+The lever the data actually points at — merging geometry across tiles per style layer, to cut 320
+draws — **is not in Phase 4's list**. Item 3 (packed attributes) does not deliver it either: the
+draws come from the tile × style-layer structure, not from the 16-bit index cap.
+
+### 18.4 The terrain camera says shadows are 55% of the GPU frame
+
+The city bench has shadows off, which is why §18 found nothing to optimise in it. Re-measured at
+the mountain camera (Saint-Eynard, 5.760595/45.244172 z13.2 tilt 55, `--es terrain true --es shadow
+0.6 --es terrainLight true --es bld3d true`), same device and profiler build:
+
+| | ms/frame |
+|---|---|
+| CPU frame | 36.0–38.8 |
+| GPU frame | **27.5–28.3** |
+| fps | 15.7–16.1 |
+
+GPU sections: sky 4.5 · background 1.2 · layers 6.2 · layers3D 0.3 · **shadowCast 8.3–9.0** ·
+**shadowMask 6.9**.
+
+**The shadow pass is 15.2–15.9 ms, 55% of the GPU frame.** That is the largest single measured cost
+found anywhere in this phase, and it makes Phase 4 item 2 — shadow cascades as a texture array — the
+only one of the five with a measured case behind it.
+
+What an array is expected to buy, and what it is not:
+
+- **Not** `shadowCast`. That cost is casters × cascades; the render target's shape does not change
+  how much geometry is drawn.
+- **Possibly** `shadowMask`, which samples the `_size * _cascades` wide atlas with manual slice
+  offsetting and clamping per cascade. An array indexes the layer directly, so the offset maths and
+  the clamp both disappear.
+- **Certainly** the texture-size cap: 3 × 1024 is a 3072-wide texture today, and 4 × 2048 would be
+  8192, at or over `GL_MAX_TEXTURE_SIZE` on this class of device. An array removes that ceiling, so
+  it is a robustness fix regardless of what it does to the frame.
+
+Measure it build-to-build (`bench/abapk.sh`) rather than behind a property: a second shadow-map path
+kept alive only for the A/B is exactly the flag-driven duplication the working agreement warns off.
+
+### 18.5 Shadow cascades as a texture array: 28% SLOWER on the Adreno 610
+
+Phase 4 item 2, implemented and measured. Each cascade became one layer of a
+`GL_TEXTURE_2D_ARRAY` (`glTexStorage3D`, `glFramebufferTextureLayer` per cascade) instead of a page
+of one `_size * _cascades` wide atlas; the receiver sampled `sampler2DArrayShadow` and the atlas
+scale/offset in `shadowFactorSlope` disappeared. It rendered correctly — shadows ACTIVE, no GL
+errors, no shader failures, cast shadows visually right.
+
+Two APKs, interleaved over two rounds, mountain camera with terrain, shadows and 3D buildings,
+25 one-second windows per arm:
+
+| arm | shadowCast | shadowMask | GPU total |
+|---|---|---|---|
+| atlas | 7.80 | 6.70 | 20.00 |
+| **array** | **8.80** | **10.30** | **25.70** |
+| delta | +1.00 (+12.8%) | **+3.60 (+53.7%)** | **+5.70 (+28.5%)** |
+
+Consistent across rounds, and the atlas arm is the stable one: mask 6.70/6.70 against the array's
+8.70/11.30.
+
+Where it goes:
+
+- **`shadowMask` +53.7%.** The receiver does four PCF taps per fragment. On this Adreno,
+  `sampler2DArrayShadow` is evidently off the fast path that `sampler2DShadow` is on — the atlas
+  arithmetic that was removed (one multiply-add per tap) is far cheaper than whatever the array
+  fetch costs instead.
+- **`shadowCast` +12.8%.** `glFramebufferTextureLayer` per cascade re-attaches the target three
+  times per pass where the atlas set a viewport; the driver appears to treat each as a real target
+  change.
+
+**Reverted, not shipped.** The change is *correct* and it does remove the size cap (`setSize` no
+longer has to divide `GL_MAX_TEXTURE_SIZE` by the cascade count, so 4 x 2048 becomes possible), but
+28% of the GPU frame is not a price worth paying for a cap nothing currently hits.
+
+Worth knowing before anyone tries again: this is a per-GPU result. A desktop or Apple GPU may not
+share the Adreno's array-shadow penalty, so if the cascade count ever needs to exceed what the
+atlas can hold, re-measure rather than assume this verdict travels.
+
+### 18.6 Phase 4, so far: three items measured, three negative
+
+| Item | Verdict on the Adreno 610 |
+|---|---|
+| 1. Instancing | 0.1 ms CPU / 0.0 ms GPU at the city camera — nothing to win, and already batched |
+| 2. Shadow cascades as a texture array | Implemented; **+28.5% GPU**. Reverted |
+| 5. `glMapBufferRange` label streaming | No-op; buffers are a few KB. Reverted |
+
+That is not a failure of the phase, it is the phase working: the list was written from what ES 3.0
+*offers* rather than from what this renderer *spends*, and measuring first cost three short
+experiments instead of three shipped regressions. What the numbers keep pointing at — 320 draws per
+frame in the city, 55% of the terrain GPU frame in shadow rendering itself — is not on the list.
