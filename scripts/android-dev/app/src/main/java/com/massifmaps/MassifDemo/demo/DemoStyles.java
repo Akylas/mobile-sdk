@@ -225,7 +225,8 @@ public final class DemoStyles {
            .append(" building-ao-intensity: " + DemoConfig.INLINE_BUILDING_AO_INTENSITY + ";")
            .append(" building-ao-ground-attenuation: " + DemoConfig.INLINE_BUILDING_AO_ATTENUATION + ";")
            .append(" building-edge-radius: " + DemoConfig.INLINE_BUILDING_EDGE_RADIUS + ";")
-           .append(" building-roof-shade: " + DemoConfig.INLINE_BUILDING_ROOF_SHADE + ";");
+           .append(" building-roof-shade: " + DemoConfig.INLINE_BUILDING_ROOF_SHADE + ";")
+           .append(" building-rounded-roof: " + DemoConfig.INLINE_BUILDING_ROUNDED_ROOF + ";");
         if (DemoConfig.FOG_SOURCE_STYLE.equals(DemoConfig.FOG_SOURCE)) {
             // The mapbox 'fog' property set, written in the style. The range is in multiples of the
             // camera-to-focus distance, so it needs no per-zoom expression - fog-range-end is one
@@ -328,9 +329,9 @@ public final class DemoStyles {
                 : "",
             "#transportation['class'='motorway'] { line-color: #e27d60; line-width: " + DemoConfig.INLINE_MOTORWAY_WIDTH + "; }",
             DemoConfig.INLINE_BUILDINGS_3D
-                ? "#building[zoom>=14] { building-fill: #d9cfc4; building-height: [render_height] ? [render_height] : 5;\n" +
-                  "      building-min-height: [render_min_height]; }"
-                : "#building[zoom>=14] { polygon-fill: #d9cfc4; }");
+                ? "#building[zoom>=14] { building-fill: " + DemoConfig.INLINE_BUILDING_COLOR + "; building-height: [render_height] ? [render_height] : 5;\n" +
+                  "      building-min-height: [render_min_height]; building-roof-shape: 'gabled'; building-roof-height: 4; }"
+                : "#building[zoom>=14] { polygon-fill: " + DemoConfig.INLINE_BUILDING_COLOR + "; }");
     }
 
     // =============================================================================================
@@ -600,8 +601,8 @@ public final class DemoStyles {
             "#transportation { line-color: get([param::" + TABLE_PARAMETER + "], [class], #ffffff); line-width: 1.2; }",
             "#transportation['class'='motorway'] { line-width: " + DemoConfig.INLINE_MOTORWAY_WIDTH + "; }",
             DemoConfig.INLINE_BUILDINGS_3D
-                ? "#building[zoom>=14] { building-fill: #d9cfc4; building-height: " + DemoConfig.INLINE_BUILDING_HEIGHT + "; }"
-                : "#building[zoom>=14] { polygon-fill: #d9cfc4; }");
+                ? "#building[zoom>=14] { building-fill: " + DemoConfig.INLINE_BUILDING_COLOR + "; building-height: " + DemoConfig.INLINE_BUILDING_HEIGHT + "; }"
+                : "#building[zoom>=14] { polygon-fill: " + DemoConfig.INLINE_BUILDING_COLOR + "; }");
 
         try {
             java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();

@@ -505,6 +505,8 @@ public final class DemoConfig {
     // =============================================================================================
 
     public static String INLINE_BACKGROUND_COLOR = "#eef2f0";
+    /** Extrusion fill, so the mapbox colour match can be driven from adb (--es bldColor). */
+    public static String INLINE_BUILDING_COLOR = "#d9cfc4";
     /** Extrude buildings: this is what gives the shadow pass real 3D casters. */
     public static boolean INLINE_BUILDINGS_3D = false;
     /** Line widths of the inline style, as CartoCSS expressions - so they can be made
@@ -513,11 +515,11 @@ public final class DemoConfig {
     public static String INLINE_ROAD_WIDTH = "linear([view::zoom], (12, 0.6), (18, 4.0))";
     public static String INLINE_MOTORWAY_WIDTH = "linear([view::zoom], (12, 1.5), (18, 9.0))";
     public static String INLINE_CONTOUR_WIDTH = "linear([view::zoom], (12, 0.4), (18, 1))";
-    /** Extrusion lighting declared BY THE STYLE (needs --es styleLight true): intensity 0 keeps
-     *  the legacy view-direction shading, above 0 is the soft normalised Lambert the terrain uses. */
-    public static float INLINE_BUILDING_LIGHT = 1f;
-    public static float INLINE_BUILDING_AMBIENT = 0.35f;
-    public static float INLINE_BUILDING_GRADIENT = 0.65f;
+    /** Extrusion lighting declared BY THE STYLE (needs --es styleLight true). Sun + ambient sum in
+     *  linear space, mapbox's fill-extrusion model, so 0.5/0.5 is full colour in direct sun. */
+    public static float INLINE_BUILDING_LIGHT = 0.5f;
+    public static float INLINE_BUILDING_AMBIENT = 0.5f;
+    public static float INLINE_BUILDING_GRADIENT = 0f;
     public static float INLINE_BUILDING_GRADIENT_HEIGHT = 20f;
     /** Contact shadow on the ground around a footprint. Radius 0 = off, which is the default. */
     public static float INLINE_BUILDING_AO_RADIUS = 0f;
@@ -527,6 +529,8 @@ public final class DemoConfig {
     public static float INLINE_BUILDING_EDGE_RADIUS = 0f;
     /** Roofs multiplied by this. 1 = untouched; below 1 is the mapbox look. */
     public static float INLINE_BUILDING_ROOF_SHADE = 1f;
+    /** 0 = the bevel is a flat facet with its own tone, tracing a rim around every roof. */
+    public static float INLINE_BUILDING_ROUNDED_ROOF = 1f;
     /** Extrusion height in meters. Same vertex count at any value: the knob that separates the
      *  extrusion pass's fill cost from its vertex cost. */
     public static float INLINE_BUILDING_HEIGHT = 14f;
@@ -1202,6 +1206,7 @@ public final class DemoConfig {
 
         // inline style
         INLINE_BACKGROUND_COLOR = DemoCfg.cfgColor("bg", INLINE_BACKGROUND_COLOR);
+        INLINE_BUILDING_COLOR = DemoCfg.cfgColor("bldColor", INLINE_BUILDING_COLOR);
         INLINE_BUILDINGS_3D = DemoCfg.cfgBool("bld3d", INLINE_BUILDINGS_3D);
         INLINE_BUILDING_HEIGHT = DemoCfg.cfgFloat("bldHeight", INLINE_BUILDING_HEIGHT);
         INLINE_ROAD_WIDTH = DemoCfg.cfgStr("roadWidth", INLINE_ROAD_WIDTH);
@@ -1216,6 +1221,7 @@ public final class DemoConfig {
         INLINE_BUILDING_AO_ATTENUATION = DemoCfg.cfgFloat("bldAoAttenuation", INLINE_BUILDING_AO_ATTENUATION);
         INLINE_BUILDING_EDGE_RADIUS = DemoCfg.cfgFloat("bldEdgeRadius", INLINE_BUILDING_EDGE_RADIUS);
         INLINE_BUILDING_ROOF_SHADE = DemoCfg.cfgFloat("bldRoofShade", INLINE_BUILDING_ROOF_SHADE);
+        INLINE_BUILDING_ROUNDED_ROOF = DemoCfg.cfgFloat("bldRoundedRoof", INLINE_BUILDING_ROUNDED_ROOF);
         INLINE_STYLE_LIGHTING = DemoCfg.cfgBool("styleLight", INLINE_STYLE_LIGHTING);
         INLINE_LABELS = DemoCfg.cfgBool("labels", INLINE_LABELS);
         INLINE_STYLE_MINIMAL = DemoCfg.cfgBool("minimal", INLINE_STYLE_MINIMAL);
