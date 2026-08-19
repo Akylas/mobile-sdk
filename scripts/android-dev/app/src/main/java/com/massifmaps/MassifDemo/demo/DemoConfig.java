@@ -329,6 +329,8 @@ public final class DemoConfig {
     public static float SUN_ALTITUDE = 9f;
     public static float SUN_INTENSITY = 1.0f;
     public static float AMBIENT_INTENSITY = 1.0f;
+    /** Tint of everything in shadow. White = neutral; a cool blue reads as sky-lit at dusk. */
+    public static int AMBIENT_COLOR_ARGB = 0xFFFFFFFF;
     public static float SHADOW_STRENGTH = 0.3f;
     public static float SHADOW_SOFTNESS = 1.0f;
     public static int SHADOW_MAP_SIZE = 1024;
@@ -1106,6 +1108,7 @@ public final class DemoConfig {
         SUN_ALTITUDE = DemoCfg.cfgFloat("sunAltitude", SUN_ALTITUDE);
         SUN_INTENSITY = DemoCfg.cfgFloat("sunIntensity", SUN_INTENSITY);
         AMBIENT_INTENSITY = DemoCfg.cfgFloat("ambient", AMBIENT_INTENSITY);
+        AMBIENT_COLOR_ARGB = DemoCfg.cfgColorInt("ambientColor", AMBIENT_COLOR_ARGB);
         SHADOW_STRENGTH = DemoCfg.cfgFloat("shadow", SHADOW_STRENGTH);
         SHADOW_SOFTNESS = DemoCfg.cfgFloat("shadowSoftness", SHADOW_SOFTNESS);
         SHADOW_MAP_SIZE = DemoCfg.cfgInt("shadowMapSize", SHADOW_MAP_SIZE);

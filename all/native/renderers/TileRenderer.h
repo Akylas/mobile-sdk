@@ -135,7 +135,10 @@ namespace massif {
         // state, but it runs after that draw, so the surface would light itself with the PREVIOUS
         // frame's sun - invisible while the map redrew continuously, and a change that appears not
         // to apply at all once it goes idle.
-        void setTerrainSunLighting(bool enabled, const cglib::vec3<float>& sunDir, const Color& sunColor, float sunIntensity, float ambientIntensity);
+        void setTerrainSunLighting(const ResolvedLighting& lighting);
+        // The vt-side lighting struct for a resolved sun. One place, so the pre-surface push above
+        // and onDrawFrame cannot light the same frame differently.
+        static vt::GLTileRenderer::TerrainLighting buildTerrainLighting(const ResolvedLighting& lighting);
         // Turns this renderer into a terrain paint baker: it shades the shared terrain elevation
         // texture into the drape texture, at its own place in the layer order, instead of holding
         // a tile set of its own. The fingerprint must cover every value the paint's appearance
@@ -234,6 +237,7 @@ namespace massif {
         // shader callback, which runs at draw time and cannot resolve it itself.
         cglib::vec3<float> _resolvedSunDir = cglib::vec3<float>(0, 0, 1);
         Color _resolvedSunColor = Color(255, 255, 255, 255);
+        Color _resolvedAmbientColor = Color(255, 255, 255, 255);
         // The elevation DATA version last acted on, apart from the global one: a change to only
         // the exaggeration moves the global version without making any surface stale.
         unsigned int _elevationDataVersion = 0;

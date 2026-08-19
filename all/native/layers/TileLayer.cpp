@@ -1049,8 +1049,8 @@ namespace massif {
         _tileRenderer->setTerrainShadowMap(texture, mapSize, cascades, depthBiases, strength, softness, depthTexture, hardwarePCF, normalOffset, sunDir, lightViewProjs);
     }
 
-    void TileLayer::setTerrainSunLighting(bool enabled, const cglib::vec3<float>& sunDir, const Color& sunColor, float sunIntensity, float ambientIntensity) {
-        _tileRenderer->setTerrainSunLighting(enabled, sunDir, sunColor, sunIntensity, ambientIntensity);
+    void TileLayer::setTerrainSunLighting(const ResolvedLighting& lighting) {
+        _tileRenderer->setTerrainSunLighting(lighting);
     }
 
     void TileLayer::setTerrainRenderOrder(int order) {

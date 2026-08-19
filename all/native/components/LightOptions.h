@@ -118,6 +118,20 @@ namespace massif {
         void setAmbientIntensity(float intensity);
 
         /**
+         * Returns the ambient light color.
+         * @return The ambient color. The default is white.
+         */
+        Color getAmbientColor() const;
+        /**
+         * Sets the ambient light color - the tint of the light reaching surfaces that face away
+         * from the sun, i.e. the colour of everything in shadow. White keeps the neutral grey
+         * shading; a cool blue is what makes a dusk or night scene read as lit by the sky rather
+         * than simply darker. Applies to the terrain surface and to 3D buildings alike.
+         * @param color The new ambient color.
+         */
+        void setAmbientColor(const Color& color);
+
+        /**
          * Returns whether the sun lights the 3D terrain surface.
          * @return True if terrain surface lighting is enabled. The default is false.
          */
@@ -279,6 +293,7 @@ namespace massif {
         std::atomic<int> _sunColorARGB;
         std::atomic<float> _sunIntensity;
         std::atomic<float> _ambientIntensity;
+        std::atomic<int> _ambientColorARGB;
         std::atomic<bool> _terrainLightingEnabled;
         std::atomic<float> _shadowStrength;
         std::atomic<int> _shadowMapSize;

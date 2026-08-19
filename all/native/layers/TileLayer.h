@@ -450,7 +450,7 @@ namespace massif {
         void setTerrainShadowMap(unsigned int texture, int mapSize, int cascades, const std::array<float, 4>& depthBiases, float strength, float softness, bool depthTexture, bool hardwarePCF, float normalOffset, const cglib::vec3<float>& sunDir, const std::array<cglib::mat4x4<double>, 4>& lightViewProjs);
         void setTerrainShadowMask(unsigned int texture, float invScreenWidth, float invScreenHeight);
         int renderTerrainShadowMask(const std::vector<vt::TileId>& tileIds);
-        void setTerrainSunLighting(bool enabled, const cglib::vec3<float>& sunDir, const Color& sunColor, float sunIntensity, float ambientIntensity);
+        void setTerrainSunLighting(const ResolvedLighting& lighting);
 
     protected:
 

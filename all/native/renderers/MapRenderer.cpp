@@ -1875,7 +1875,7 @@ namespace massif {
             // runs later in the frame. The surface would light itself with the previous
             // frame's sun, so toggling the light did nothing until something else
             // happened to force another frame.
-            tileLayer->setTerrainSunLighting(lighting.terrainLightingEnabled, lighting.sunDir, lighting.sunColor, lighting.sunIntensity, lighting.ambientIntensity);
+            tileLayer->setTerrainSunLighting(lighting);
         }
         // Resolve the terrain's shadow ONCE per screen pixel, at a fraction of the screen
         // resolution, so the surface

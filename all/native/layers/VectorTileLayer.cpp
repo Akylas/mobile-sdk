@@ -594,6 +594,7 @@ namespace massif {
         readColor(mapSettings->sunColor, env.sunColor);
         readFloat(mapSettings->sunIntensity, env.sunIntensity);
         readFloat(mapSettings->ambientIntensity, env.ambientIntensity);
+        readColor(mapSettings->ambientColor, env.ambientColor);
         readFloat(mapSettings->buildingLightIntensity, env.buildingLightIntensity);
         readFloat(mapSettings->buildingAmbient, env.buildingAmbient);
         readFloat(mapSettings->shadowStrength, env.shadowStrength);

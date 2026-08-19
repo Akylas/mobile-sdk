@@ -20,6 +20,7 @@ namespace massif {
         take(sunColor, other.sunColor);
         take(sunIntensity, other.sunIntensity);
         take(ambientIntensity, other.ambientIntensity);
+        take(ambientColor, other.ambientColor);
         take(buildingLightIntensity, other.buildingLightIntensity);
         take(buildingAmbient, other.buildingAmbient);
         take(terrainLightingEnabled, other.terrainLightingEnabled);
@@ -42,7 +43,7 @@ namespace massif {
     }
 
     bool StyleEnvironment::empty() const {
-        return !(sunAzimuth || sunAltitude || sunColor || sunIntensity || ambientIntensity || buildingLightIntensity || buildingAmbient || terrainLightingEnabled ||
+        return !(sunAzimuth || sunAltitude || sunColor || sunIntensity || ambientIntensity || ambientColor || buildingLightIntensity || buildingAmbient || terrainLightingEnabled ||
                  shadowStrength || shadowBias || shadowSoftness || shadowDistance || shadowMapSize || shadowCascades ||
                  shadowCasterMargin || fogEnabled || fogColor || fogRangeStart || fogRangeEnd || fogHighColor || fogSpaceColor ||
                  fogHorizonBlend || fogStarIntensity || terrainMaxVisibleDistance);
@@ -56,6 +57,7 @@ namespace massif {
             lighting.sunColor = lightOptions->getSunColor();
             lighting.sunIntensity = lightOptions->getSunIntensity();
             lighting.ambientIntensity = lightOptions->getAmbientIntensity();
+            lighting.ambientColor = lightOptions->getAmbientColor();
             lighting.shadowStrength = lightOptions->getShadowStrength();
             lighting.shadowBias = lightOptions->getShadowBias();
         lighting.shadowNormalOffset = lightOptions->getShadowNormalOffset();
@@ -83,6 +85,9 @@ namespace massif {
         }
         if (env.ambientIntensity) {
             lighting.ambientIntensity = *env.ambientIntensity;
+        }
+        if (env.ambientColor) {
+            lighting.ambientColor = *env.ambientColor;
         }
         if (env.terrainLightingEnabled) {
             lighting.terrainLightingEnabled = *env.terrainLightingEnabled;

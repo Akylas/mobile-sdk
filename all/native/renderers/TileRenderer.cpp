@@ -444,17 +444,24 @@ namespace massif {
         }
     }
 
-    void TileRenderer::setTerrainSunLighting(bool enabled, const cglib::vec3<float>& sunDir, const Color& sunColor, float sunIntensity, float ambientIntensity) {
+    vt::GLTileRenderer::TerrainLighting TileRenderer::buildTerrainLighting(const ResolvedLighting& lighting) {
+        vt::GLTileRenderer::TerrainLighting terrainLighting;
+        terrainLighting.enabled = true;
+        terrainLighting.sunDir = lighting.sunDir;
+        terrainLighting.sunColor = cglib::vec3<float>(lighting.sunColor.getR() / 255.0f, lighting.sunColor.getG() / 255.0f, lighting.sunColor.getB() / 255.0f);
+        terrainLighting.ambientColor = cglib::vec3<float>(lighting.ambientColor.getR() / 255.0f, lighting.ambientColor.getG() / 255.0f, lighting.ambientColor.getB() / 255.0f);
+        terrainLighting.sunIntensity = lighting.sunIntensity;
+        terrainLighting.ambientIntensity = lighting.ambientIntensity;
+        return terrainLighting;
+    }
+
+    void TileRenderer::setTerrainSunLighting(const ResolvedLighting& lighting) {
         std::lock_guard<std::mutex> lock(_mutex);
 
         if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
             vt::GLTileRenderer::TerrainLighting terrainLighting;
-            if (enabled) {
-                terrainLighting.enabled = true;
-                terrainLighting.sunDir = sunDir;
-                terrainLighting.sunColor = cglib::vec3<float>(sunColor.getR() / 255.0f, sunColor.getG() / 255.0f, sunColor.getB() / 255.0f);
-                terrainLighting.sunIntensity = sunIntensity;
-                terrainLighting.ambientIntensity = ambientIntensity;
+            if (lighting.terrainLightingEnabled) {
+                terrainLighting = buildTerrainLighting(lighting);
             }
             tileRenderer->setTerrainLighting(terrainLighting);
         }
@@ -818,6 +825,7 @@ namespace massif {
             _buildingAmbient = lighting.buildingAmbient;
             _resolvedSunDir = lighting.sunDir;
             _resolvedSunColor = lighting.sunColor;
+            _resolvedAmbientColor = lighting.ambientColor;
             // The terrain surface is what this lights, and it exists whenever the stack draws one:
             // baked under a drape, or the shared ground pass when the drape is off. Gating on the
             // drape alone left the ground AND the hillshade paint over it unlit - and with them the
@@ -825,11 +833,7 @@ namespace massif {
             // layer's own pass, which runs after the owner has set the stack's sun, so it saw the
             // value this line computes).
             if ((drapeFills || _terrainGroundActive) && lighting.terrainLightingEnabled) {
-                terrainLighting.enabled = true;
-                terrainLighting.sunDir = lighting.sunDir;
-                terrainLighting.sunColor = cglib::vec3<float>(lighting.sunColor.getR() / 255.0f, lighting.sunColor.getG() / 255.0f, lighting.sunColor.getB() / 255.0f);
-                terrainLighting.sunIntensity = lighting.sunIntensity;
-                terrainLighting.ambientIntensity = lighting.ambientIntensity;
+                terrainLighting = buildTerrainLighting(lighting);
             }
 
             // Distance fog, lit by the same sun as the ground (see resolveFog). The range is
@@ -1322,6 +1326,7 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
             vt::GLTileRenderer::LightingShader lightingShader3D(true, LIGHTING_SHADER_3D, [this](GLuint shaderProgram, const vt::ViewState& viewState) {
                 glUniform3fv(glGetUniformLocation(shaderProgram, "u_sunDir"), 1, _resolvedSunDir.data());
                 glUniform3f(glGetUniformLocation(shaderProgram, "u_sunColor"), _resolvedSunColor.getR() / 255.0f, _resolvedSunColor.getG() / 255.0f, _resolvedSunColor.getB() / 255.0f);
+                glUniform3f(glGetUniformLocation(shaderProgram, "u_ambientColor"), _resolvedAmbientColor.getR() / 255.0f, _resolvedAmbientColor.getG() / 255.0f, _resolvedAmbientColor.getB() / 255.0f);
                 glUniform2f(glGetUniformLocation(shaderProgram, "u_sunParams"), _buildingLightIntensity, _buildingAmbient);
             });
             tileRenderer->setLightingShader3D(lightingShader3D);
@@ -1366,6 +1371,7 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
     const std::string TileRenderer::LIGHTING_SHADER_3D = R"GLSL(
         uniform vec3 u_sunDir;
         uniform vec3 u_sunColor;
+        uniform vec3 u_ambientColor;
         uniform vec2 u_sunParams; // x = sun intensity, y = ambient intensity
         vec4 applyLighting3D(lowp vec4 color, mediump vec3 normal, highp_opt float height, bool sideVertex) {
             // Ambient occlusion where a wall meets the ground: that corner is shadowed by the ground
@@ -1381,7 +1387,7 @@ viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewSt
             // the same one the ground uses - so nothing changes shape when terrain lighting is
             // toggled, and a warm evening sun warms a facade exactly as it warms the slope behind it.
             mediump float ndl = max(0.0, dot(normal, u_sunDir));
-            mediump vec3 lit = vec3(u_sunParams.y) + u_sunColor * ((1.0 - u_sunParams.y) * ndl * u_sunParams.x);
+            mediump vec3 lit = u_ambientColor * u_sunParams.y + u_sunColor * ((1.0 - u_sunParams.y) * ndl * u_sunParams.x);
             // Premultiplied, so scaling rgb alone is a valid tint and the clamp keeps rgb <= a.
             return vec4(min(baseColor * lit, vec3(color.a)), color.a);
         }

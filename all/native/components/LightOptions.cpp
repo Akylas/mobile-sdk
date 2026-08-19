@@ -12,6 +12,7 @@ namespace massif {
         _sunColorARGB(Color(255, 255, 255, 255).getARGB()),
         _sunIntensity(1.0f),
         _ambientIntensity(0.35f),
+        _ambientColorARGB(Color(255, 255, 255, 255).getARGB()),
         _terrainLightingEnabled(false),
         _shadowStrength(0.0f),
         _shadowMapSize(1024),
@@ -119,6 +120,16 @@ namespace massif {
         float clamped = std::max(0.0f, std::min(1.0f, intensity));
         if (_ambientIntensity.exchange(clamped) != clamped) {
             notifyOptionChanged("AmbientIntensity");
+        }
+    }
+
+    Color LightOptions::getAmbientColor() const {
+        return Color(_ambientColorARGB.load());
+    }
+
+    void LightOptions::setAmbientColor(const Color& color) {
+        if (_ambientColorARGB.exchange(color.getARGB()) != color.getARGB()) {
+            notifyOptionChanged("AmbientColor");
         }
     }
 

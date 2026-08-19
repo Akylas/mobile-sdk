@@ -35,6 +35,7 @@ namespace massif {
         std::optional<Color> sunColor;
         std::optional<float> sunIntensity;
         std::optional<float> ambientIntensity;
+        std::optional<Color> ambientColor;
         std::optional<float> buildingLightIntensity;
         std::optional<float> buildingAmbient;
         std::optional<bool> terrainLightingEnabled;
@@ -74,6 +75,7 @@ namespace massif {
         Color sunColor = Color(255, 255, 255, 255);
         float sunIntensity = 1.0f;
         float ambientIntensity = 0.35f;
+        Color ambientColor = Color(255, 255, 255, 255);
         // What the 3D extrusions light with: the same normalised Lambert the terrain surface uses,
         // so walls and the ground agree. Follows the sun unless the style overrides it.
         float buildingLightIntensity = 1.0f;

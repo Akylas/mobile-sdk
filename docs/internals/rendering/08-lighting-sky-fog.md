@@ -424,7 +424,7 @@ It is the **same normalised Lambert the terrain surface uses** (`applyTerrainSha
 from the same four resolved values:
 
 ```glsl
-lit = ambient + sunColor * ((1.0 - ambient) * max(0.0, dot(N, sunDir)) * intensity)
+lit = ambientColor * ambient + sunColor * ((1.0 - ambient) * max(0.0, dot(N, sunDir)) * intensity)
 ```
 
 Roofs and walls both take `N.L`; `resolveLighting` sets `buildingLightIntensity` /
