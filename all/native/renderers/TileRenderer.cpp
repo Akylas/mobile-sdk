@@ -824,6 +824,8 @@ namespace massif {
             _buildingLightIntensity = lighting.buildingLightIntensity;
             _buildingAmbient = lighting.buildingAmbient;
             _buildingVerticalGradient = lighting.buildingVerticalGradient;
+            _groundAOIntensity = lighting.buildingAoIntensity;
+            _groundAOAttenuation = lighting.buildingAoGroundAttenuation;
             _resolvedSunDir = lighting.sunDir;
             _resolvedBuildingSunDir = lighting.buildingSunDir;
             _resolvedSunColor = lighting.sunColor;
@@ -851,6 +853,7 @@ namespace massif {
             }
         }
         tileRenderer->setTerrainLighting(terrainLighting);
+        tileRenderer->setGroundAO(_groundAOIntensity, _groundAOAttenuation);
         tileRenderer->setTerrainDepthWrite(terrainMode && _terrainDepthWriteMode);
         if (auto options = _options.lock()) {
             tileRenderer->setDebugTileBorders(options->isDebugTileBorders());

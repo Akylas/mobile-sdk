@@ -534,10 +534,40 @@ anyway for a metric AO falloff, a roof-edge term and emissive — none of which 
 approximates. Per-fragment lands as its own measured PR rather than smuggled in under a gradient fix.
 
 
-Contact darkening on the GROUND around a footprint is the other half and is not implemented: the
-ground does not know where the buildings are. It would need either screen-space AO over the scene
-depth (too expensive on an Adreno 610, where the whole 3D pass is ~9 ms) or a halo drawn by the
-style, which is a styling decision rather than an engine one.
+### Contact shadow on the ground
+
+The other half of standing on the terrain, and the reason buildings otherwise read as pasted on.
+`building-ao-ground-radius` (metres, **0 = off**, so nothing changes until a style asks),
+`building-ao-intensity` and `building-ao-ground-attenuation`, on mapbox's names.
+
+`TileLayerBuilder::appendGroundSkirt` emits a flat skirt around each footprint at the building's
+**base** height — a quad per edge reaching `radius` outward with the distance packed 0..127 in
+`_attribs[3]`, plus a triangle filling the wedge that offsetting leaves at every convex corner
+(without it a rectangular building has four undarkened notches; reflex corners need none, the quads
+overlap there instead). Which way is *out* comes from the ring's signed area, so an exterior ring
+and a courtyard hole each get the skirt on the side with no building.
+
+It is its own `TileGeometry::Type::POLYGON3DGROUND` with its own accumulation arrays, because the
+builder has ONE vertex stream keyed by `_builderParameters.type` and this needs its own program and
+blend state. `renderGeometry3D` draws it **before** the extrusions, multiplied into the ground
+(`GL_ZERO, GL_SRC_COLOR`), depth read but **not written** — it lies on the surface and must not
+become an occluder for the walls standing on it.
+
+Chosen over baking it into the drape, which is what [#132] originally proposed. The drape cannot see
+extrusions at all (`isDrapeableGeometry` excludes `POLYGON3D`), so it is not free at draw time; a
+drape texture is 0.6–2.4 ground metres per texel at z15–17, making a 3 m radius one to three texels;
+and the drape is a terrain feature, so a plain 2D map would get no contact shadow. mapbox uses a
+scene pass (`groundEffect`) for the same reasons.
+
+**The radius is in metres and the tesselator works in tile-local units.** Converting is
+`transformer->calculateHeight(p, radius)` — `2^zoom / circumference / cos(latitude)`, which is what
+a metre is worth horizontally as well as vertically. Skipping it made a 3 m skirt reach three tile
+widths, about 1.8 km at z16, and multiplied the entire map to black. That is the second time a
+style value in metres has been compared against something in another unit here (see the facade
+gradient above); when a constant crosses into vt, check what it will be measured against.
+
+Screen-space AO over the scene depth was not tried: the whole 3D pass is ~9 ms on an Adreno 610.
+It is the only option that would also darken building-against-building, which this does not.
 
 ### Coincident walls
 

@@ -42,7 +42,8 @@ public final class DemoLive extends BroadcastReceiver {
     };
     // Anything written INTO the style: the tiles carry it, so it only changes on a re-decode.
     private static final String[] STYLE_KEYS = {
-        "style", "styleLight", "bld3d", "bldLight", "bldAmbient", "bldGradient", "bldGradientHeight"
+        "style", "styleLight", "bld3d", "bldLight", "bldAmbient", "bldGradient", "bldGradientHeight",
+        "bldAoRadius", "bldAoIntensity", "bldAoAttenuation"
     };
     private static final String[] SKY_KEYS = { "sky", "skyColor", "horizonColor", "sunDisc" };
     private static final String[] CAMERA_KEYS = { "lon", "lat", "zoom", "tilt", "rotation" };

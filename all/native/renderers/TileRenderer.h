@@ -248,6 +248,8 @@ namespace massif {
         float _buildingLightIntensity = 1.0f;
         float _buildingAmbient = 0.35f;
         float _buildingVerticalGradient = 0.65f;
+        float _groundAOIntensity = 0.5f;
+        float _groundAOAttenuation = 0.69f;
         cglib::vec3<float> _normalLightDir;
         MapVec _normalIlluminationDirection;
         bool _normalIlluminationMapRotationEnabled;

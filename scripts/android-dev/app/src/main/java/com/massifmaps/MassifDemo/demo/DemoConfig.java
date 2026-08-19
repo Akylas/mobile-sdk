@@ -517,6 +517,10 @@ public final class DemoConfig {
     public static float INLINE_BUILDING_AMBIENT = 0.35f;
     public static float INLINE_BUILDING_GRADIENT = 0.65f;
     public static float INLINE_BUILDING_GRADIENT_HEIGHT = 20f;
+    /** Contact shadow on the ground around a footprint. Radius 0 = off, which is the default. */
+    public static float INLINE_BUILDING_AO_RADIUS = 0f;
+    public static float INLINE_BUILDING_AO_INTENSITY = 0.5f;
+    public static float INLINE_BUILDING_AO_ATTENUATION = 0.69f;
     /** Extrusion height in meters. Same vertex count at any value: the knob that separates the
      *  extrusion pass's fill cost from its vertex cost. */
     public static float INLINE_BUILDING_HEIGHT = 14f;
@@ -1200,6 +1204,9 @@ public final class DemoConfig {
         INLINE_BUILDING_AMBIENT = DemoCfg.cfgFloat("bldAmbient", INLINE_BUILDING_AMBIENT);
         INLINE_BUILDING_GRADIENT = DemoCfg.cfgFloat("bldGradient", INLINE_BUILDING_GRADIENT);
         INLINE_BUILDING_GRADIENT_HEIGHT = DemoCfg.cfgFloat("bldGradientHeight", INLINE_BUILDING_GRADIENT_HEIGHT);
+        INLINE_BUILDING_AO_RADIUS = DemoCfg.cfgFloat("bldAoRadius", INLINE_BUILDING_AO_RADIUS);
+        INLINE_BUILDING_AO_INTENSITY = DemoCfg.cfgFloat("bldAoIntensity", INLINE_BUILDING_AO_INTENSITY);
+        INLINE_BUILDING_AO_ATTENUATION = DemoCfg.cfgFloat("bldAoAttenuation", INLINE_BUILDING_AO_ATTENUATION);
         INLINE_STYLE_LIGHTING = DemoCfg.cfgBool("styleLight", INLINE_STYLE_LIGHTING);
         INLINE_LABELS = DemoCfg.cfgBool("labels", INLINE_LABELS);
         INLINE_STYLE_MINIMAL = DemoCfg.cfgBool("minimal", INLINE_STYLE_MINIMAL);

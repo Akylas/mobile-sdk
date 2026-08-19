@@ -220,7 +220,10 @@ public final class DemoStyles {
         map.append(" building-light-intensity: " + DemoConfig.INLINE_BUILDING_LIGHT + ";")
            .append(" building-ambient: " + DemoConfig.INLINE_BUILDING_AMBIENT + ";")
            .append(" building-vertical-gradient: " + DemoConfig.INLINE_BUILDING_GRADIENT + ";")
-           .append(" building-vertical-gradient-height: " + DemoConfig.INLINE_BUILDING_GRADIENT_HEIGHT + ";");
+           .append(" building-vertical-gradient-height: " + DemoConfig.INLINE_BUILDING_GRADIENT_HEIGHT + ";")
+           .append(" building-ao-ground-radius: " + DemoConfig.INLINE_BUILDING_AO_RADIUS + ";")
+           .append(" building-ao-intensity: " + DemoConfig.INLINE_BUILDING_AO_INTENSITY + ";")
+           .append(" building-ao-ground-attenuation: " + DemoConfig.INLINE_BUILDING_AO_ATTENUATION + ";");
         if (DemoConfig.FOG_SOURCE_STYLE.equals(DemoConfig.FOG_SOURCE)) {
             // The mapbox 'fog' property set, written in the style. The range is in multiples of the
             // camera-to-focus distance, so it needs no per-zoom expression - fog-range-end is one
