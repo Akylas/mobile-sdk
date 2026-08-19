@@ -11,8 +11,9 @@ move to an OpenGL ES 3.0 baseline (dropping ES 2.0), the Apple situation (Metal)
 Windows/Linux/macOS need later. Does **not** cover what the renderer draws — that is the rest of
 [this set](index.mdx).
 
-Status as of 2026-08-18: Phase 0 run. Gates 0.1 and 0.2 pass, gate 0.3 is **not answered** — see
-[Phase 0 results](#phase-0--results). The Apple source was decided against upstream ANGLE, see
+Status as of 2026-08-18: Phase 0 run — gates 0.1 and 0.2 pass, gate 0.3 is **not answered** (see
+[Phase 0 results](#phase-0--results)). Phases 2 and 3 are done and **verified on an Adreno 610
+device**; an iOS device is still owed. The Apple source was decided against upstream ANGLE, see
 [MetalANGLE master, not upstream](#metalangle-master-not-upstream-angle).
 
 ## Where we are
@@ -356,21 +357,75 @@ iOS 13 floor — where every device is A7+ — that is a rounding error. The app
 in [migration.md](../../migration.md#opengl-es-30-is-required).
 
 **Done when**: an Adreno 610 device and one iOS device show no regression at the bench cameras.
-Neither has been run — the Android APK builds and the manifest merges at `0x00030000`, but nothing
-has been rendered on hardware.
+The Adreno 610 leg is done — see [Phase 3](#phase-3--glsl-es-300), which was verified on the same
+device and run, and exercises this phase's context and capability changes on the way. An iOS device
+is still owed.
 
 ### Phase 3 — GLSL ES 3.00
 
-The reference is already in the tree, and it is tangram, not mapbox-gl-js:
-`core/src/gl/shaderSource.cpp` gates `#version 300 es` plus a vertex/fragment header on
-`Hardware::glVersion >= 300`.
+Done on the simulator; the device leg is still owed. tangram's preamble
+(`core/src/gl/shaderSource.cpp`) is ported verbatim into three places, and **not one of the 27
+shader literals was edited** — they stay written in ESSL 1.00 and are translated on the way to the
+driver, which is what keeps application GLSL working unchanged:
 
-- Port that preamble into `all/native/renderers/utils/Shader.cpp`; flip `ESSL3_FLAG` on globally in
-  `vt`; same for `nml`.
-- Keep `vt`'s per-program 1.00 fallback for one release as the canary, then delete it.
+| Where | How |
+|---|---|
+| `all/native` | `Shader::TranslateToESSL3` rewrites the source in `LoadShader` |
+| `vt` | `buildShaderProgram` ORs in `ESSL3_FLAG` for every program, not at the 20-odd call sites |
+| `nml` | `GLResourceManager::createShader` gained a shader-type parameter so it can pick the right header |
+
+Because the app's GLSL is spliced *into* the SDK's own literals, one translation point covers all
+five public setters. `vt`'s per-program 1.00 fallback stays one release as a canary.
+
+**`hasShaderVersionFallback()` had no callers.** vt sets `_essl3Failed` with the comment "the owner
+logs it once", and no owner ever did — so the phase's own success criterion was unobservable.
+`TileRenderer::onDrawFrame` now logs it once. Without that, a program silently rebuilt at 1.00 looks
+exactly like success: the map still draws.
+
+#### `#version` must be on the first line, not merely preceded by whitespace
+
+The one real trap, and it failed *every* shader on the first run:
+
+```
+ERROR: 0:2: '' : #version directive must occur on the first line of the shader
+```
+
+The shader literals are raw strings that open with a newline and an indent, so replacing the
+`#version 100` line in place leaves the new directive on line 2. Whitespace on the *same* line is
+allowed; a preceding newline is not. The directive is emitted at offset 0 and whatever preceded it
+is pushed after the header.
+
+Worth noting how this was caught: the Android build was **green**, because a C++ build never
+compiles a shader — that happens at runtime. Only running it found this.
 
 **Done when**: every program compiles at `300 es` on both device families and
 `hasShaderVersionFallback()` returns false.
+
+Measured at lon 5.7606 / lat 45.2442 / z13.6 / tilt 55, terrain on, on two unrelated GL stacks:
+
+| | iPhone 16 Pro simulator (ANGLE/Metal) | Crosscall HLTE556N, **Adreno 610**, ES 3.2 |
+|---|---|---|
+| shader compile / link failures | 0 | **0** |
+| ESSL 3.00 → 1.00 fallbacks | 0 | **0** |
+| GL errors | 0 | **0** |
+| frame vs the ESSL 1.00 build | every map band 0.00% | see below |
+
+The Adreno is the one that matters, because its driver is a real Qualcomm GLSL compiler rather than
+ANGLE's translator, and it is where `GLContext::VERSION` first met a vendor version string —
+`OpenGL ES 3.2 V@0502.0 (GIT@...)` parses to `320`, as tangram's parser is meant to.
+
+The device A/B needs its control quoted or it says nothing. Same build run twice differs by 0.19%
+of sampled pixels (labels are placed as tiles arrive, so no two runs match exactly). ESSL 1.00 vs
+3.00 differs by 0.37%, and the per-band profile is the same shape — the excess is confined to
+glyph pixels, black text against landcover green in both directions, i.e. sub-pixel label
+antialiasing. Cropped and compared by eye, the two frames are indistinguishable: same contours, same
+labels, same positions.
+
+One thing the A/B settled that inspection alone would not: a **route line that draws in broken
+chunks** over terrain is present *identically in both builds*. It is the known open terrain
+line-following issue, not a regression from this phase.
+
+Still owed: a real iOS device (Apple's driver, not the simulator's).
 
 #### The `gl_FragColor` disagreement — settled, tangram was right
 
