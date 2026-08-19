@@ -228,7 +228,7 @@ surface uses, and it is always on.
 |---|---|
 | `options.mainLightDirection` (3D buildings) | `lightOptions.sunAzimuth` / `sunAltitude` |
 | `options.mainLightColor` (3D buildings) | `lightOptions.sunColor` |
-| `options.ambientLightColor` (3D buildings) | `lightOptions.ambientIntensity` |
+| `options.ambientLightColor` (3D buildings) | style `building-ambient` (see below) |
 
 **The look changes on upgrade even if you set nothing.** The old default light pointed down and
 slightly north-east (`0.35, 0.35, -0.87`); the sun defaults to azimuth 315 / altitude 45. Buildings
@@ -241,6 +241,11 @@ elements are unaffected — they have their own renderer and their own lighting.
 
 Styles keep both overrides: `building-light-intensity` and `building-ambient` in the `Map` block
 still win over the sun, so a style can tune walls without moving the terrain sun.
+
+Note the asymmetry: buildings take the sun's **direction, colour and intensity**, but keep their
+**own ambient** (0.35 unless a style sets `building-ambient`). `lightOptions.ambientIntensity` moves
+the ground, not the facades — at ambient 1 a shared value would flatten every building, and an
+extrusion with no side shading does not read as 3D.
 
 ## Deliberately NOT renamed
 

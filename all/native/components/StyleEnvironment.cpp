@@ -95,10 +95,14 @@ namespace massif {
         }
         // Buildings follow the sun unconditionally - terrainLightingEnabled decides whether the
         // GROUND is lit, and gating the walls on it too gave the extrusions a second lighting
-        // model that changed shape as the terrain was toggled. The style still overrides either
-        // value on its own, which is how a style tunes the walls without moving the terrain sun.
+        // model that changed shape as the terrain was toggled.
         lighting.buildingLightIntensity = lighting.sunIntensity;
-        lighting.buildingAmbient = lighting.ambientIntensity;
+        // Their AMBIENT is their own, though, and does not follow the ground's. Ambient is the
+        // floor the directional term is added on top of, so an app that flattens the ground with
+        // ambient 1 - a normal thing to do when a hillshade layer supplies the relief - would
+        // flatten every facade with it, and a building with no side shading does not read as 3D at
+        // all. mapbox's fill-extrusion shades from its own light intensity for the same reason.
+        // A style ties them back together with 'building-ambient' when it wants that.
         if (env.buildingLightIntensity) {
             lighting.buildingLightIntensity = *env.buildingLightIntensity;
         }

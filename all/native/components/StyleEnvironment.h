@@ -78,7 +78,8 @@ namespace massif {
         float ambientIntensity = 0.35f;
         Color ambientColor = Color(255, 255, 255, 255);
         // What the 3D extrusions light with: the same normalised Lambert the terrain surface uses,
-        // so walls and the ground agree. Follows the sun unless the style overrides it.
+        // so walls and the ground agree. The intensity follows the sun; the ambient is the walls'
+        // own, so flattening the ground does not flatten every facade with it (see resolveLighting).
         float buildingLightIntensity = 1.0f;
         float buildingAmbient = 0.35f;
         // How dark the foot of a wall goes, as a fraction of its colour. The reach it fades out

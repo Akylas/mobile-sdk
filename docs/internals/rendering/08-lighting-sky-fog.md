@@ -427,11 +427,20 @@ from the same four resolved values:
 lit = ambientColor * ambient + sunColor * ((1.0 - ambient) * max(0.0, dot(N, sunDir)) * intensity)
 ```
 
-Roofs and walls both take `N.L`; `resolveLighting` sets `buildingLightIntensity` /
-`buildingAmbient` from the sun **unconditionally**, so `terrainLightingEnabled` decides whether the
-*ground* is lit and nothing else. A style still overrides either building value on its own
-(`building-light-intensity`, `building-ambient`), which is how a style tunes the walls without moving
-the terrain sun.
+Roofs and walls both take `N.L`, and `resolveLighting` sets `buildingLightIntensity` from the sun
+**unconditionally** — `terrainLightingEnabled` decides whether the *ground* is lit and nothing else.
+
+The **ambient does not follow the ground's**, and that asymmetry is deliberate. Ambient is the floor
+the directional term is added on top of, so at `ambientIntensity` 1 the model collapses to a
+constant and every facade goes flat. Flattening the ground that way is a normal thing for an app to
+do when a hillshade layer supplies the relief — the demo ships `AMBIENT_INTENSITY = 1.0` for exactly
+that reason — and it should not cost every building its side shading, without which an extrusion does
+not read as 3D at all. mapbox's `fill-extrusion` shades from its own light intensity rather than the
+scene ambient for the same reason. A style ties them back together with `building-ambient`.
+
+This was found the hard way: with the ambient coupled, `--es terrainLight false` produced completely
+flat buildings, and `terrainLight true` hid it — the shadow pass's back-face rule was darkening
+away-facing walls and doing the job the sun should have been doing.
 
 Until 2026-08 there were two models here instead, switched on `buildingLightIntensity > 0`: with the
 terrain sun off, walls used `N.L * mainLightColor + ambientColor` from the pre-`LightOptions`
