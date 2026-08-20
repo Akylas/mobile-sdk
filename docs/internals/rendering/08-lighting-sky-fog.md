@@ -682,11 +682,23 @@ the sampling resolution; 1024 is what makes it visible.
 
 #### Known gap: the drape is a flat projection
 
-The drape is baked **orthographically over the tile** and then painted onto the displaced mesh, so
-any baked detail is stretched along a slope by an amount that depends on the slope's direction —
-which is why the shadow stops matching the footprint, and why it changes with orientation. Draped
-roads have the same distortion; a ~1 m band has no slack to hide it. Resolution sharpens the texels
-and does not change the projection.
+Two separate things made a draped shadow stop matching its footprint, and only one is fixed.
+
+**Grazing-angle smear (fixed).** The drape was `GL_LINEAR_MIPMAP_*` with no anisotropic filtering.
+At tilt the sampler's two axes are wildly different and mip selection follows the worst of them, so
+everything baked into the drape blurred along the view direction - by an amount that changes with
+the camera's rotation, which is what made it read as orientation-dependent. `TerrainDrapeCache` now
+sets `GL_TEXTURE_MAX_ANISOTROPY_EXT` (the machinery was already there for `Texture`). It costs
+sampler bandwidth on the surface draw and nothing else: 11.2 ms GPU total against a 10.7-12.5
+bracket before it, i.e. not measurable. It sharpens every draped layer, not just this one.
+
+**The projection (open).** The drape is baked **orthographically over the tile** and painted onto
+the displaced mesh, so a band baked `r` wide in plan lands `r / cos(slope)` wide along the ground.
+Resolution sharpens texels and does not change that. It cannot be fixed by changing the drape's
+projection - the surface samples by tile-plan uv and every draped layer depends on it - but it can
+be fixed by **pre-distorting the content**: sample the elevation gradient in the AO bake fragment
+and divide the distance by `normal.z`, so the band measures `r` on the actual surface. Bake-time
+only, so free per frame. Not implemented.
 
 Screen-space AO over the scene depth was not tried: the whole 3D pass is ~9 ms on an Adreno 610.
 It is the only option that would also darken building-against-building, which this does not.
