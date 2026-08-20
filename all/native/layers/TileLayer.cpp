@@ -1062,10 +1062,14 @@ namespace massif {
         return _tileRenderer && _tileRenderer->isGroundAOBakeable();
     }
 
-    void TileLayer::setLabelOcclusionDepth(unsigned int depthTexture, float occluderSize, float occludedOpacity) {
+    void TileLayer::setLabelOcclusionDepth(unsigned int depthTexture, float occluderSize) {
         if (_tileRenderer) {
-            _tileRenderer->setLabelOcclusionDepth(depthTexture, occluderSize, occludedOpacity);
+            _tileRenderer->setLabelOcclusionDepth(depthTexture, occluderSize);
         }
+    }
+
+    float TileLayer::getTextOcclusionOpacity() const {
+        return _tileRenderer ? _tileRenderer->getTextOcclusionOpacity() : 1.0f;
     }
 
     int TileLayer::renderLabelOcclusionDepth() {

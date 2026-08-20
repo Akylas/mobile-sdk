@@ -1346,6 +1346,7 @@ public class DemoMap {
         terrainOptions.setElevationPrefetchEnabled(DemoConfig.TERRAIN_ELEVATION_PREFETCH);
         terrainOptions.setBillboardOcclusionEnabled(DemoConfig.TERRAIN_BILLBOARD_OCCLUSION);
         terrainOptions.setBillboardOcclusionTolerance(DemoConfig.TERRAIN_OCCLUSION_TOLERANCE);
+        terrainOptions.setTextOcclusionOpacity(DemoConfig.TERRAIN_TEXT_OCCLUSION_OPACITY);
         terrainOptions.setBackgroundBitmapEnabled(DemoConfig.TERRAIN_BACKGROUND_BITMAP);
         if (DemoConfig.TERRAIN_MAX_TILE_ZOOM_OFFSET_ENABLED) {
             terrainOptions.setMaxTileZoomOffset(DemoConfig.TERRAIN_MAX_TILE_ZOOM_OFFSET);

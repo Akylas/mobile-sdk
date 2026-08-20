@@ -255,8 +255,12 @@ namespace massif {
             ResolvedLighting lighting = resolveLighting(options->getLightOptions(), _styleEnvironment);
             _groundAOIntensity = lighting.buildingAoIntensity;
             _groundAOAttenuation = lighting.buildingAoGroundAttenuation;
+            // Same reason again, and one step earlier than the rest: the owner reads this BEFORE
+            // the layer passes, to decide whether to render the occluder buffer at all.
+            _textOcclusionOpacity.store(resolveTextOcclusionOpacity(options->getTerrainOptions(), _styleEnvironment));
         }
         tileRenderer->setGroundAO(_groundAOIntensity, _groundAOAttenuation);
+        tileRenderer->setLabelOcclusionOpacity(_textOcclusionOpacity.load());
         try {
             _framePrepareResult = tileRenderer->startFrame(deltaSeconds * 3);
         }
@@ -464,12 +468,16 @@ namespace massif {
         return false;
     }
 
-    void TileRenderer::setLabelOcclusionDepth(unsigned int depthTexture, float occluderSize, float occludedOpacity) {
+    void TileRenderer::setLabelOcclusionDepth(unsigned int depthTexture, float occluderSize) {
         std::lock_guard<std::mutex> lock(_mutex);
 
         if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
-            tileRenderer->setLabelOcclusionDepth(depthTexture, occluderSize, occludedOpacity);
+            tileRenderer->setLabelOcclusionDepth(depthTexture, occluderSize);
         }
+    }
+
+    float TileRenderer::getTextOcclusionOpacity() const {
+        return _textOcclusionOpacity.load();
     }
 
     int TileRenderer::renderLabelOcclusionDepth() {

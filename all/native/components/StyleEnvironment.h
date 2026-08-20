@@ -41,6 +41,7 @@ namespace massif {
         std::optional<float> buildingVerticalGradient;
         std::optional<float> buildingRoofShade;
         std::optional<float> buildingAoIntensity;
+        std::optional<float> textOcclusionOpacity;
         std::optional<float> buildingAoGroundAttenuation;
         std::optional<bool> terrainLightingEnabled;
         std::optional<float> shadowStrength;
@@ -107,6 +108,13 @@ namespace massif {
     };
 
     ResolvedLighting resolveLighting(const std::shared_ptr<LightOptions>& lightOptions, const StyleEnvironment& env);
+
+    /**
+     * The opacity a label keeps while its anchor is hidden by 3D content: TerrainOptions'
+     * TextOcclusionOpacity, or the style's 'text-occlusion-opacity' where it sets one. 1 means no
+     * occlusion at all, and the pass that answers it is skipped.
+     */
+    float resolveTextOcclusionOpacity(const std::shared_ptr<TerrainOptions>& terrainOptions, const StyleEnvironment& env);
 
     /**
      * The distance fog to actually render with: FogOptions, with every value the style defines

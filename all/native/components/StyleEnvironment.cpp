@@ -26,6 +26,7 @@ namespace massif {
         take(buildingVerticalGradient, other.buildingVerticalGradient);
         take(buildingRoofShade, other.buildingRoofShade);
         take(buildingAoIntensity, other.buildingAoIntensity);
+        take(textOcclusionOpacity, other.textOcclusionOpacity);
         take(buildingAoGroundAttenuation, other.buildingAoGroundAttenuation);
         take(terrainLightingEnabled, other.terrainLightingEnabled);
         take(shadowStrength, other.shadowStrength);
@@ -47,7 +48,7 @@ namespace massif {
     }
 
     bool StyleEnvironment::empty() const {
-        return !(sunAzimuth || sunAltitude || sunColor || sunIntensity || ambientIntensity || ambientColor || buildingLightIntensity || buildingAmbient || buildingVerticalGradient || buildingRoofShade || buildingAoIntensity || buildingAoGroundAttenuation || terrainLightingEnabled ||
+        return !(sunAzimuth || sunAltitude || sunColor || sunIntensity || ambientIntensity || ambientColor || buildingLightIntensity || buildingAmbient || buildingVerticalGradient || buildingRoofShade || buildingAoIntensity || textOcclusionOpacity || buildingAoGroundAttenuation || terrainLightingEnabled ||
                  shadowStrength || shadowBias || shadowSoftness || shadowDistance || shadowMapSize || shadowCascades ||
                  shadowCasterMargin || fogEnabled || fogColor || fogRangeStart || fogRangeEnd || fogHighColor || fogSpaceColor ||
                  fogHorizonBlend || fogStarIntensity || terrainMaxVisibleDistance);
@@ -148,6 +149,14 @@ namespace massif {
         return lighting;
     }
 
+
+    float resolveTextOcclusionOpacity(const std::shared_ptr<TerrainOptions>& terrainOptions, const StyleEnvironment& env) {
+        float opacity = (terrainOptions ? terrainOptions->getTextOcclusionOpacity() : 1.0f);
+        if (env.textOcclusionOpacity) {
+            opacity = *env.textOcclusionOpacity;
+        }
+        return std::min(1.0f, std::max(0.0f, opacity));
+    }
 
     ResolvedFog resolveFog(const std::shared_ptr<FogOptions>& fogOptions, const StyleEnvironment& env, const ResolvedLighting& lighting, double cameraDistance) {
         ResolvedFog fog;

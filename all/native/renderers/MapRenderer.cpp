@@ -1512,22 +1512,6 @@ namespace massif {
     // ... and for the extrusions' contact shadows. Half, not a quarter: this one is a few metres
     // wide on the ground, so its own gradient is most of what a quarter-resolution texel would
     // average away. The LINEAR fetch that reads it back is also the only blur the effect gets.
-#ifdef __ANDROID__
-    // Per-label occlusion by the 3D content. Off until a style property drives it.
-    //   adb shell setprop debug.massif.labelocclusion 1
-    static bool isLabelOcclusionEnabled() {
-        static const bool enabled = [] {
-            char property[PROP_VALUE_MAX] = { 0 };
-            return __system_property_get("debug.massif.labelocclusion", property) > 0 && property[0] == '1';
-        }();
-        return enabled;
-    }
-#else
-    static bool isLabelOcclusionEnabled() {
-        return false;
-    }
-#endif
-
     static const int GROUND_AO_MASK_DIVISOR = 2;
     // Half resolution: the buffer answers one depth comparison per label anchor, over a square of
     // several pixels, so its own texels are never seen. mapbox samples a 30 px square.
@@ -3288,7 +3272,8 @@ namespace massif {
                 layer->collectDrapeLayers(occlusionLayers, viewState);
             }
             unsigned int occlusionTexture = 0;
-            if (isLabelOcclusionEnabled() && !occlusionLayers.empty() && viewState.getWidth() > 0 && viewState.getHeight() > 0) {
+            auto occlusionWanted = [](const std::shared_ptr<TileLayer>& tileLayer) { return tileLayer->getTextOcclusionOpacity() < 1.0f; };
+            if (std::any_of(occlusionLayers.begin(), occlusionLayers.end(), occlusionWanted) && viewState.getWidth() > 0 && viewState.getHeight() > 0) {
                 if (!_labelOcclusionBuffer) {
                     // Colour, not a depth texture: the occluders pack their window depth into rgb
                     // (the shadow caster's encoding), because sampling a depth texture from a
@@ -3314,7 +3299,7 @@ namespace massif {
                 }
             }
             for (const std::shared_ptr<TileLayer>& tileLayer : occlusionLayers) {
-                tileLayer->setLabelOcclusionDepth(occlusionTexture, LABEL_OCCLUSION_SIZE_PIXELS, 0.0f);
+                tileLayer->setLabelOcclusionDepth(occlusionTexture, LABEL_OCCLUSION_SIZE_PIXELS);
             }
         }
 

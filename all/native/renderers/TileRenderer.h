@@ -133,7 +133,9 @@ namespace massif {
         int renderTerrainShadowMask(const std::vector<vt::TileId>& tileIds);
         bool isGroundAOActive() const;
         bool isGroundAOBakeable() const;
-        void setLabelOcclusionDepth(unsigned int depthTexture, float occluderSize, float occludedOpacity);
+        void setLabelOcclusionDepth(unsigned int depthTexture, float occluderSize);
+        // The resolved TerrainOptions/style value; 1 means nothing to do (see resolveTextOcclusionOpacity).
+        float getTextOcclusionOpacity() const;
         int renderLabelOcclusionDepth();
         int renderGroundAOMask();
         int bakeGroundAOMask(const vt::TileId& tileId);
@@ -257,6 +259,7 @@ namespace massif {
         float _buildingAmbient = 0.35f;
         float _buildingVerticalGradient = 0.65f;
         float _buildingRoofShade = 1.0f;
+        std::atomic<float> _textOcclusionOpacity{1.0f};
         float _groundAOIntensity = 0.5f;
         float _groundAOAttenuation = 0.69f;
         cglib::vec3<float> _normalLightDir;

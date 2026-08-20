@@ -860,11 +860,21 @@ falls back to for the same reason, and it costs one `dot` per tap.
 zero when nothing asks for it — the pass does not run. See the
 [performance log](../performance-log.md).
 
+### Asking for it
+
+`TerrainOptions::setTextOcclusionOpacity(float)` — the opacity an occluded label **keeps**. 1, the
+default, is no occlusion at all and the pass does not run; 0 hides such a label completely. The
+style's `text-occlusion-opacity` (a `Map`-block property) wins over it wherever it sets one, as
+every other style/option pair here does (`resolveTextOcclusionOpacity`).
+
+Both the name and the meaning are mapbox's `text-occlusion-opacity`. Theirs is a paint property per
+layer and defaults to 0; ours is one value per tile layer and defaults to 1, because turning it on
+by default would spend ~0.85 ms of every frame for a map that may have no 3D content at all.
+
 ### Known gaps
 
-- The switch is `debug.massif.labelocclusion` for now; the style/option property that should drive
-  it is not written. mapbox makes it a paint property per layer with the opacity an occluded symbol
-  keeps, which is the shape to mirror.
+- Per **tile layer**, not per style layer: a style cannot occlude its road labels and leave its POI
+  labels alone, which mapbox can.
 - A layer whose `LabelRenderOrder` is not `LAST` draws its labels in the 2D pass, before the buffer
   for this frame exists, so it samples the previous frame's — one frame of lag while the camera
   moves.

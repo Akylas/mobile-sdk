@@ -452,7 +452,8 @@ namespace massif {
         int renderTerrainShadowMask(const std::vector<vt::TileId>& tileIds);
         bool isGroundAOActive() const;
         bool isGroundAOBakeable() const;
-        void setLabelOcclusionDepth(unsigned int depthTexture, float occluderSize, float occludedOpacity);
+        void setLabelOcclusionDepth(unsigned int depthTexture, float occluderSize);
+        float getTextOcclusionOpacity() const;
         int renderLabelOcclusionDepth();
         int renderGroundAOMask();
         int bakeGroundAOMask(const vt::TileId& tileId);
