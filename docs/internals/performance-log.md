@@ -1753,5 +1753,7 @@ Gain on the visible set, static at 45.1852/5.7220 z15.71 t29: `z10=3 z11=1 z12=4
 
 **It does not fix the grazing far field**, which is what prompted the work. At that camera the
 accepted areas are 13k-83k px² against a 212k threshold — the elevation term moves the areas 2-4x
-and still trips no level. Method and the rule change that would fix it are in
+and still trips no level. The cause is the flat footprint quad, not the rule: maplibre's
+`calculateTileZoom` reduces to the same `−log2(d) + ½·log2(cos θ)` as the area test at its default
+fov. Method and the fix that would work (per-corner DEM heights) are in
 [02-tiles.md](rendering/02-tiles.md#the-lod-height-is-per-tile-not-per-frame).

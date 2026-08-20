@@ -111,14 +111,29 @@ The midpoint redistributes rather than adds: slopes refine, the near valley coar
 effect on the visible set at 45.1852/5.7220 z15.71 t29, a coarse mid-field patch splitting:
 `z10=3 z11=1 z12=4 z14=3 z15=7` → `z10=3 z12=4 z13=2 z14=4 z15=6`.
 
-**What this does not fix.** At that camera the accepted tiles' areas run 13k–83k px² against a
-212k px² threshold — 3 to 16× under it — so the elevation term moves areas without moving levels.
-The deep massif is coarse because a grazing tile's projected area collapses with the foreshortening,
-not because of its height, and the area rule counts that foreshortening on top of the distance. The
-symptom is a tile that stays coarse after you pan closer to it than a tile that was already fine.
-The lever for that is the rule itself — maplibre's `calculateTileZoom` is a distance ratio plus an
-explicit `maxZoomLevelsOnScreen` budget, and loses roughly one level per doubling of distance where
-the area rule loses two. Not adopted; see [11-tangram-diff.md](11-tangram-diff.md).
+**What this does not fix: the flat footprint.** At that camera the accepted tiles' areas run
+13k–83k px² against a 212k px² threshold — 3 to 16× under it — so the elevation term moves areas
+without moving levels. The symptom is a mountain that stays coarse after you pan closer to it than a
+tile that was already fine, while flat ground at the same distance behaves.
+
+The cause is not the rule. Both candidate rules decompose identically:
+
+```
+level = const − log2(distance) + (p/2)·log2(cos θ)     θ = incidence angle of the view ray on the ground
+```
+
+with `p = 1` for the area rule, and `p = 2·((maxZoomLevelsOnScreen − 1) / log2(cos(H − fov)/cos H) − 1)`
+for maplibre's `calculateTileZoom` — which is **1.000** at its defaults (`maxZoomLevelsOnScreen`
+9.314, `maxMercatorHorizonAngle` 89.25°, fov 36.87°). Same rule. Swapping to it buys nothing here;
+it only becomes gentler than ours above fov ~37° (p 0.83 at fov 50) and harsher below.
+
+What is wrong is the **input**: the four corners are projected as a flat footprint quad, so a
+mountain face standing toward the camera is given the incidence angle of flat ground in the same
+place. At 85° flat incidence a 30° slope facing the camera really presents cos 55° / cos 85° ≈ 6.6×
+the area — **1.4 levels**. Projecting each corner at its own DEM height instead of all four at one
+height would recover that, and only where the ground is actually tilted toward the viewer. Not done
+yet. The blunt alternative, `Options::TileLODFactor` 0.71, buys the same level everywhere and costs
+2× the tiles.
 
 At **tilt 90** none of this applies: the areas there (408k–464k px²) are above the threshold, so the
 level is the `targetTileZoom` cap, `floor(cameraZoom)`, for every tile. Tangram short-circuits the

@@ -94,9 +94,11 @@ elevation band midpoint instead, falling back to their value where the DEM is no
 Maplibre is not a precedent for this either — its `coveringTiles` uses the per-tile elevation AABB
 for the **frustum test** only, and its LOD distance is horizontal (`Aabb.distanceX`/`distanceY`).
 
-Cost, gain and the case it does **not** fix (the grazing far field, where the area rule counts the
-foreshortening on top of the distance and maplibre's distance-ratio rule would not) are in
-[02-tiles.md](02-tiles.md#the-lod-height-is-per-tile-not-per-frame).
+Cost, gain and the case it does **not** fix (a mountain face given the incidence angle of flat
+ground, because the area is taken on the tile's flat footprint) are in
+[02-tiles.md](02-tiles.md#the-lod-height-is-per-tile-not-per-frame). Note there that maplibre's
+`calculateTileZoom` reduces to the *same* rule as tangram's area test at its default fov, so it is
+not an alternative worth porting for that case.
 
 ### The zoom is calibrated on the focus, not on the terrain
 
