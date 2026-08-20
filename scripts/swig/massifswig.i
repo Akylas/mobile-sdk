@@ -12,6 +12,15 @@
 
 %include <attribute.i>
 
+// Java: int constants inside a class named after the enum, instead of proper Java enums.
+// Android-style namespaced constants; the !enum directive adds the @IntDef on top.
+// javaconst: literals, not a JNI call per constant at class load - and only a literal can be a
+// @IntDef member or a switch case label.
+#ifdef SWIGJAVA
+%javaconst(1);
+%include <enumtypeunsafe.swg>
+#endif
+
 #ifdef WINDOWS_PHONE
 %include <std_string.i>
 #endif

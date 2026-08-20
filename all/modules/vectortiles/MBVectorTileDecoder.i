@@ -22,6 +22,7 @@
 %import "styles/CartoCSSStyleSet.i"
 %import "vectortiles/VectorTileDecoder.i"
 
+!enum(massif::TileFormat::TileFormat)
 !polymorphic_shared_ptr(massif::MBVectorTileDecoder, vectortiles.MBVectorTileDecoder)
 
 %attributeval(massif::MBVectorTileDecoder, std::vector<std::string>, StyleParameters, getStyleParameters)

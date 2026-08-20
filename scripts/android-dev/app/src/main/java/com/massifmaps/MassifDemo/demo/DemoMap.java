@@ -667,11 +667,13 @@ public class DemoMap {
         mapView.requestRender();
     }
 
-    private HillshadeMethod hillshadeMethod() {
-        try {
-            return HillshadeMethod.valueOf(DemoConfig.HILLSHADE_METHOD);
-        } catch (Exception e) {
-            return HillshadeMethod.IGOR;
+    private @HillshadeMethod.Value int hillshadeMethod() {
+        switch (DemoConfig.HILLSHADE_METHOD) {
+            case "STANDARD": return HillshadeMethod.STANDARD;
+            case "COMBINED": return HillshadeMethod.COMBINED;
+            case "MULTIDIRECTIONAL": return HillshadeMethod.MULTIDIRECTIONAL;
+            case "BASIC": return HillshadeMethod.BASIC;
+            default: return HillshadeMethod.IGOR;
         }
     }
 
@@ -1532,8 +1534,8 @@ public class DemoMap {
         options.setTiltRange(new com.massifmaps.core.MapRange(minTilt, 90f));
     }
 
-    /** "map" / "anchored" / "constant" -> the SDK enum. */
-    public static com.massifmaps.components.PanningSpeedMode panningSpeedMode(String name) {
+    /** "map" / "anchored" / "constant" -> the SDK constant. */
+    public static @com.massifmaps.components.PanningSpeedMode.Value int panningSpeedMode(String name) {
         if ("map".equals(name)) {
             return com.massifmaps.components.PanningSpeedMode.PANNING_SPEED_MODE_MAP;
         }
@@ -1543,8 +1545,8 @@ public class DemoMap {
         return com.massifmaps.components.PanningSpeedMode.PANNING_SPEED_MODE_ANCHORED;
     }
 
-    /** "off" / "look" / "fps" -> the SDK enum. */
-    public static com.massifmaps.components.FreeRoamMode freeRoamMode(String name) {
+    /** "off" / "look" / "fps" -> the SDK constant. */
+    public static @com.massifmaps.components.FreeRoamMode.Value int freeRoamMode(String name) {
         if ("look".equals(name)) {
             return com.massifmaps.components.FreeRoamMode.FREE_ROAM_MODE_LOOK;
         }
