@@ -308,12 +308,30 @@ mapbox splits the two ends, and that is what is implemented here:
 | | aligned to | result |
 |---|---|---|
 | base ring | the terrain under each vertex | the wall meets the slope everywhere, no gap, no float |
-| everything above it | ONE elevation, the footprint's centroid | the roof stays level; walls simply grow taller downhill |
+| everything above it | ONE elevation, the **highest ground under the footprint** | the roof stays level; walls simply grow taller downhill |
 
 The centroid rides in the **texcoord slot**, which was free because for an extrusion `_texCoords`
 was a byte-for-byte duplicate of `_coords`. `polygon3DVsh` feeds it to `applyTerrain` for the anchor
 and keeps the position for the tile clip. `packGeometry` forces `texCoordScale == coordScale` for
 `POLYGON3D` so both are in the raw coord units `applyTerrain` expects.
+
+### Raising the prism clear of the hill
+
+The centroid alone is not enough: everything uphill of it is swallowed by the slope. The tesselator
+therefore also stores the footprint's **reach from that centroid** (`_polygon3DExtent`, in 1/512 of
+a tile — 1 m at zoom 16, capped at a quarter tile) in the attribute byte the extrusion shader never
+read, and the vertex stage samples the ground at the centroid **and at that reach in four
+directions**, taking the highest. The whole prism is lifted to it.
+
+That is 5 elevation samples per above-ground vertex instead of 1. Measured on an Adreno 610 at the
+Grenoble city camera it costs **+0.35 ms** on the `layers3D` pass (2.30 vs 1.95 ms median), ~3% of
+the frame — see the [performance log](../performance-log.md).
+
+The **wall dedupe is keyed on that anchor too** (`wallEdgeKey`). Two features sharing a footprint
+edge only have coincident walls if they stand at the same height, and that is now per footprint:
+suppressing the second wall regardless left a hole wherever the two anchors differ — one missing
+wall where two wings of a building meet. Duplicate footprints from two source layers, the case the
+dedupe exists for, share a centroid and are still deduped.
 
 ### The dead ends
 
@@ -332,13 +350,21 @@ owns each building, no cutting at borders — but a building can reach into a ti
 sits in a neighbour, and then *every* tile holding it discards it. Walls vanish until a zoom out
 retiles them. The clip stays per vertex.
 
+**Clamping the finished top to the ground is not the fix.** It was the first answer to a buried
+building, and it takes the max *after* adding the height: the wall then has zero height wherever
+the hill reaches the roof, so whole faces are simply gone. Taking the ground per vertex instead
+keeps the walls but bends the roof down the slope — tangram's melted look, by another route. The
+max has to be over the FOOTPRINT and applied to the BASE, which is what the reach samples do.
+
 ### What is still wrong
 
-A level roof anchored at one point is still swallowed wherever the hill rises past
-`anchor + height`. The top is clamped to the ground under it, so it bends rather than disappearing —
-better than vanishing, not correct. Fixing it properly needs the **maximum** terrain over the
-footprint, which no vertex can know on its own; it would have to be sampled on the CPU, and the
-tesselator has no DEM. mapbox buries buildings here too.
+The reach is a **circle around the centroid**, so a long thin building samples ground it does not
+stand on, and an L-shaped one misses the far end of its wings. Four samples on the axes also miss a
+ridge that runs diagonally between them.
+
+A footprint **split across two tiles** gets a different centroid and a different reach in each half,
+so the two can lift to different heights and step at the tile seam. Pre-existing for the centroid,
+now inherited by the reach.
 
 ## Near and far planes
 

@@ -1677,3 +1677,26 @@ in the sampled window.
 
 This is the argument for the drape path where there is a drape, and it is not free elsewhere: with
 no drape the shadow costs ~2.8 ms of a ~12 ms GPU frame at a city camera.
+
+## 20. Raising an extrusion clear of the hill (2026-08-20)
+
+Crosscall (Adreno 610), Grenoble city camera `--es lat 45.190814 --es lon 5.724807 --es zoom 17.7
+--es tilt 53 --es rotation 60.23 --es bld3d true --es anim rotate`, `-PprofileRender`, the
+`layers3D` GPU section. `anim rotate` is what makes this measurable at all: the section swings
+between 1.7 and 4.4 ms with the building count on screen, so a static camera says nothing. Two runs
+per variant, first four samples dropped (tile decode), n≈25 each.
+
+| roof anchor | median | mean |
+|---|---|---|
+| centroid only, 1 elevation sample | 1.90 / 2.00 ms | 1.97 / 1.93 |
+| + footprint reach, 5 samples | 2.30 / 2.30 ms | 2.36 / 2.43 |
+
+**+0.35 ms**, ~15% of the extrusion pass and ~3% of an 8-12 ms GPU frame, repeatable across both
+run pairs. That buys buildings that are neither buried in a hillside nor bent down it; see
+[the terrain page](rendering/04-terrain.md#raising-the-prism-clear-of-the-hill) for the model and
+for the two cheaper answers that do not work.
+
+The samples are `applyTerrain`, which is 4 `demMeters` under the lattice clamp - so this is 16
+extra DEM taps per above-ground vertex, not 4. The obvious optimisation is a lighter variant that
+skips the lattice clamp (the anchor only picks the highest ground, it never has to line up with the
+surface mesh); not done, and worth roughly three quarters of the 0.35 ms if it is.
