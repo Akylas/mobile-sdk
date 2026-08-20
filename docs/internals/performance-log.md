@@ -1724,3 +1724,70 @@ drape tile, and the extrusions are a small part of the geometry.
 The model and the two dead ends - a per-fragment depth test on the label pass, and a
 `GL_DEPTH_COMPONENT24` texture sampled from the vertex stage - are in
 [the labels page](rendering/06-labels.mdx#per-label-occlusion-by-3d-content).
+
+## 22. Per-tile LOD height (2026-08-20)
+
+Crosscall (Adreno 610), `-PprofileRender`, Grenoble looking north into the Chartreuse
+`--es lat 45.218503 --es lon 5.734582 --es zoom 15.37 --es tilt 29 --es rotation -7.46
+--es contour true --es hs true --es anim pan --es animLatDelta 0.03`, three interleaved pairs of
+prebuilt APKs, `bench/absum.py` medians over 63-64 windows.
+
+`TileLayer::calculateVisibleTilesRecursive` projected every tile at the elevation under the screen
+centre (tangram's rule). Here the focus sits at **1389 m** and the near valley at ~250 m, so the
+near field was projected a kilometre too high.
+
+| tile height for the area test | fps | frame ms | tiles/frame |
+|---|---|---|---|
+| screen centre (before) | 25.7 | 29.7 | 42.0 |
+| elevation band **top** | 21.8 | 33.8 | 57.0 |
+| elevation band **midpoint** (shipped) | 25.8 | 29.5 | 38.8 |
+
+The band top is the maplibre-shaped choice (the AABB point nearest the camera) and costs **15% of
+the frame** for +37% tiles: projecting a whole quad at its highest corner refines the far field for
+one peak. The midpoint redistributes instead — slopes refine, the near valley coarsens — and is
+free. One `ElevationManager::getMinMaxDisplayHeightCached` per visited quadtree node (one mutex +
+LRU read, `CACHED_ONLY`, never loads) does not show at this scale.
+
+Gain on the visible set, static at 45.1852/5.7220 z15.71 t29: `z10=3 z11=1 z12=4 z14=3 z15=7` →
+`z10=3 z12=4 z13=2 z14=4 z15=6`.
+
+**It does not fix the grazing far field**, which is what prompted the work. At that camera the
+accepted areas are 13k-83k px² against a 212k threshold — the elevation term moves the areas 2-4x
+and still trips no level. The cause is the flat footprint quad, not the rule: maplibre's
+`calculateTileZoom` reduces to the same `−log2(d) + ½·log2(cos θ)` as the area test at its default
+fov. Method and the fix that would work (per-corner DEM heights) are in
+[02-tiles.md](rendering/02-tiles.md#the-lod-height-is-per-tile-not-per-frame).
+
+## 23. Bounding the LOD's foreshortening term (2026-08-20)
+
+Same rig and camera as entry 22, plus a static probe logging `(zoom, area, cos θ, distance)` per
+accepted tile. `Options::TileLODFactor` 0.5 (the demo's value), threshold 212 337 px².
+
+The probe's first result is the useful one: at tilt 29 **every** accepted tile is at 79°–89°
+incidence, losing 1.2–3.0 levels to foreshortening — not just the horizon band. And beyond ~15 km
+the tiles are distance-limited: they would need `cos θ > 1` to refine, so no bound on the grazing
+term can reach them.
+
+`Options::TileLODForeshorteningLimit` (default 0 = off = tangram's rule), static camera at
+45.1852/5.7220 z15.71 t29:
+
+| limit | visible set | n |
+|---|---|---|
+| 0 | `z10=3 z12=4 z13=2 z14=4 z15=6` | 19 |
+| 1.25 | `z10=2 z12=4 z13=2 z14=2 z15=9` | 19 |
+| 1.0 | `z11=2 z12=3 z13=6 z14=2 z15=9` | 22 |
+| 0.75 | saturated, same as 1.0 | 22 |
+
+Cost at limit 1.0, panning north at 45.2185/5.7346 z15.37 t29, 3 interleaved pairs, 63 windows:
+
+| | fps | frame ms | tiles/frame |
+|---|---|---|---|
+| off | 26.7 | 29.1 | 40.0 |
+| limit 1.0 | 24.6 | 30.1 | 50.4 |
+
+**+26% tiles for −8% fps.** Off by default, so it costs nothing until an app opts in.
+
+**Method note — do not size an LOD change from a spreadsheet.** Applying the clamp to each accepted
+tile's measured area predicted 19 → 40 tiles, **7× the real cost**. The recursion boosts a parent
+and its children by the same factor, so a tile that splits produces children that stop one level
+down rather than cascading; the per-tile model has no way to see that. Build it and count.

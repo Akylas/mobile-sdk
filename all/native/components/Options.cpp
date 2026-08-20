@@ -28,6 +28,7 @@ namespace massif {
         _doubleClickMaxDuration(DEFAULT_DOUBLE_CLICK_MAX_DURATION),
         _tileDrawSize(256),
         _tileLODFactor(1.0f),
+        _tileLODForeshorteningLimit(0.0f),
         _dpi(160.0f),
         _drawDistance(16),
         _fovY(70),
@@ -268,6 +269,23 @@ namespace massif {
             _tileLODFactor = clamped;
         }
         notifyOptionChanged("TileLODFactor");
+    }
+
+    float Options::getTileLODForeshorteningLimit() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+        return _tileLODForeshorteningLimit;
+    }
+
+    void Options::setTileLODForeshorteningLimit(float levels) {
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            float clamped = std::max(0.0f, levels);
+            if (_tileLODForeshorteningLimit == clamped) {
+                return;
+            }
+            _tileLODForeshorteningLimit = clamped;
+        }
+        notifyOptionChanged("TileLODForeshorteningLimit");
     }
     
     float Options::getDPI() const {

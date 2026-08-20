@@ -1330,6 +1330,8 @@ public class DemoMap {
 
     /** Creates the TerrainOptions on first call, then pushes every terrain value onto it. */
     public void applyTerrainOptions() {
+        mapView.getOptions().setTileLODFactor(DemoConfig.TILE_LOD_FACTOR);
+        mapView.getOptions().setTileLODForeshorteningLimit(DemoConfig.TILE_LOD_GRAZING);
         if (terrainOptions == null) {
             terrainOptions = new TerrainOptions(demSource(), elevationDecoder());
             mapView.getOptions().setTerrainOptions(terrainOptions);
