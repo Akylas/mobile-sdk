@@ -297,6 +297,46 @@ Buildings also gain a rounded roof edge (`building-edge-radius`, metres, 0 = off
 `building-roof-shade` knob, and pitched roofs from OSM `roof:shape` / `roof:height` where the tiles
 carry them. All default to the previous flat-capped, sharp-edged geometry.
 
+### Java enums are int constants (Android only)
+
+The 31 generated Java `enum` classes are now **classes of `int` constants**, annotated with
+`@IntDef` — the shape Android's own APIs use. iOS and .NET are unchanged: Objective-C already
+emitted `typedef NS_ENUM`, and C# enums cost nothing to wrap.
+
+```java
+// before                                    // after
+public enum PanningMode {                    public final class PanningMode {
+  PANNING_MODE_FREE,                           public final static int PANNING_MODE_FREE = 0;
+  PANNING_MODE_STICKY,                         public final static int PANNING_MODE_STICKY = 1;
+  ...                                          ...
+}                                              @IntDef({ ... }) public @interface Value {}
+                                             }
+```
+
+Signatures carry the annotation, so Android Studio still autocompletes only the valid constants and
+lint flags a wrong `int`:
+
+```java
+public void setPanningMode(@PanningMode.Value int panningMode);
+```
+
+**Most call sites do not change.** The class name and the constant names are identical, so
+`options.setPanningMode(PanningMode.PANNING_MODE_STICKY)` compiles as before. What breaks:
+
+| | Before | After |
+|---|---|---|
+| holding one | `PanningMode m = options.getPanningMode();` | `int m = options.getPanningMode();` |
+| parsing a name | `PanningMode.valueOf(name)` | your own `switch` on the string |
+| numeric value | `m.swigValue()` | `m` **is** the value |
+| from a number | `PanningMode.swigToEnum(i)` | `i` **is** the constant |
+| iterating | `PanningMode.values()` | no equivalent — list the constants you need |
+| `switch` | `case PANNING_MODE_FREE:` | unchanged |
+
+`switch` keeps working because the constants are now compile-time literals rather than a JNI call
+per constant at class load — which is also what lets them be `@IntDef` members.
+
+The Android artifact gains one dependency, `androidx.annotation`, for the annotation itself.
+
 ## Deliberately NOT renamed
 
 These name data or upstream work, not this SDK:

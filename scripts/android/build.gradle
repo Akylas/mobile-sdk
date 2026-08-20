@@ -67,6 +67,11 @@ android {
     }
 }
 
+dependencies {
+    // @IntDef on the generated constant namespaces (PanningMode, LineJoinType, ...).
+    api 'androidx.annotation:annotation:1.9.1'
+}
+
 task javadoc(type: Javadoc) {
     source = android.sourceSets.main.java.srcDirs
     classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
