@@ -42,6 +42,7 @@
 %attribute(massif::TerrainOptions, float, DepthBias, getDepthBias, setDepthBias)
 %attribute(massif::TerrainOptions, bool, BillboardOcclusionEnabled, isBillboardOcclusionEnabled, setBillboardOcclusionEnabled)
 %attribute(massif::TerrainOptions, float, BillboardOcclusionTolerance, getBillboardOcclusionTolerance, setBillboardOcclusionTolerance)
+%attribute(massif::TerrainOptions, float, TextOcclusionOpacity, getTextOcclusionOpacity, setTextOcclusionOpacity)
 %attributestring(massif::TerrainOptions, std::string, SurfaceShaderSource, getSurfaceShaderSource, setSurfaceShaderSource)
 %std_exceptions(massif::TerrainOptions::TerrainOptions)
 

@@ -143,6 +143,30 @@ banner at the top.
 
 ## Breaking changes after 6.0.0
 
+### 3D buildings cast a contact shadow by default
+
+`building-ao-ground-radius` used to default to `0`, i.e. off, so nothing changed until a style
+asked. It now defaults to **4 metres** with `building-ao-intensity` **0.2**, and an app that
+upgrades gets the shadow without changing anything.
+
+An extrusion with no contact shadow reads as pasted onto the map rather than standing on it, which
+is why it is on. It is not free — around 3 ms of GPU frame at a city camera where there is no
+drape to bake it into, and nothing where there is (see
+[the performance log](internals/performance-log.md)).
+
+`building-ao-ground-attenuation` also **changes meaning**: it is now the exponent `k` of
+`occlusion = (1 - d)^k`, not mapbox's `1 - pow(1 - d, k)`. Higher keeps the shadow tighter to the
+wall; the old formula read far too strong across the whole band.
+
+| | Before | After |
+|---|---|---|
+| `building-ao-ground-radius` | `0` (off) | `4` |
+| `building-ao-intensity` | `0.5` | `0.2` |
+| `building-ao-ground-attenuation` | `0.69`, mapbox's curve | `1.75`, exponent of `(1 - d)` |
+
+To keep the old look, set `building-ao-ground-radius: 0;` in the style's `Map` block.
+
+
 ### OpenGL ES 3.0 is required
 
 The SDK no longer creates or accepts an OpenGL ES 2.0 context. No API changed — this is a **device**
@@ -215,6 +239,63 @@ everywhere. Start from the defaults (`0.8` to `8`) rather than converting.
 New with it: `enabled` (a real switch — no more toggling fog by driving a distance to `0`),
 `highColor`, `spaceColor`, `starIntensity` (Mapbox `high-color` / `space-color` / `star-intensity`),
 and `shaderSource` for a custom fog blend across map and sky.
+
+### 3D buildings are lit by the sun, whatever the terrain is doing
+
+Tile extrusions had two lighting models, picked by whether terrain lighting was on. With it off,
+walls used `Options.MainLightDirection` / `MainLightColor` / `AmbientLightColor` and **roofs were
+shaded by the view direction** — so buildings changed shape when terrain lighting was toggled, and
+never answered to the hour of day. There is now one model, the same normalised Lambert the terrain
+surface uses, and it is always on.
+
+| Before | After |
+|---|---|
+| `options.mainLightDirection` (3D buildings) | `lightOptions.sunAzimuth` / `sunAltitude` |
+| `options.mainLightColor` (3D buildings) | `lightOptions.sunColor` |
+| `options.ambientLightColor` (3D buildings) | style `building-ambient` (see below) |
+
+**The look changes on upgrade even if you set nothing.** The old default light pointed down and
+slightly north-east (`0.35, 0.35, -0.87`); the sun defaults to azimuth 315 / altitude 45. Buildings
+are also tinted by `sunColor` now, which is what makes a facade go warm at dusk with the slope
+behind it.
+
+The three `Options` properties still exist and still drive the normal-map illumination default and
+the spherical-mode 2D lighting; they simply no longer reach tile extrusions. `Polygon3DLayer`
+elements are unaffected — they have their own renderer and their own lighting.
+
+Styles keep both overrides: `building-light-intensity` and `building-ambient` in the `Map` block
+still win over the sun, so a style can tune walls without moving the terrain sun.
+
+Note the asymmetry: buildings take the sun's **direction, colour and intensity**, but keep their
+**own ambient**. `lightOptions.ambientIntensity` moves the ground, not the facades — at ambient 1 a
+shared value would flatten every building, and an extrusion with no side shading does not read as 3D.
+
+### 3D buildings follow mapbox's `fill-extrusion` model
+
+The normalised Lambert above was replaced by mapbox's model, so a facade shades the way the same
+building does in mapbox at the same hour. Details in
+[`internals/rendering/08-lighting-sky-fog.md`](internals/rendering/08-lighting-sky-fog.md#buildings).
+
+**The look changes on upgrade even if you set nothing**, in three ways:
+
+| | Before | After |
+|---|---|---|
+| light sum | `ambient + sun * (1 - ambient)`, in sRGB | `ambient + sun`, summed **linear**, returned to sRGB |
+| `building-ambient` default | 0.35 | **0.5** |
+| `building-light-intensity` default | 1.0 | **0.5** |
+| `building-vertical-gradient` default | 0.65 | **0** — mapbox has no facade gradient |
+
+The two 0.5s sum to exactly 1 in direct sun, so a lit facade keeps its own colour at any hour. To
+keep something close to the old look, set `building-vertical-gradient: 0.65` and
+`building-light-intensity: 1` in the style's `Map` block; the linear sum has no opt-out.
+
+Roofs now read **lighter than walls in daylight and darker at dawn**, as mapbox does — it falls out
+of `N.L` and is not tunable. A 60° floor on the building sun's altitude, present only in unreleased
+6.1 builds, was removed: it was compensating for a shadow bug and it suppressed that inversion.
+
+Buildings also gain a rounded roof edge (`building-edge-radius`, metres, 0 = off as before), a
+`building-roof-shade` knob, and pitched roofs from OSM `roof:shape` / `roof:height` where the tiles
+carry them. All default to the previous flat-capped, sharp-edged geometry.
 
 ## Deliberately NOT renamed
 

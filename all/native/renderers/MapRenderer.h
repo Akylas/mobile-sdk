@@ -52,7 +52,7 @@ namespace massif {
     class TileLayer;
     class TerrainDrapeCache;
     class TerrainShadowMap;
-    class TerrainShadowMaskBuffer;
+    class ScreenMaskBuffer;
     class ThreadWorker;
     class CullWorker;
     class VTLabelPlacementWorker;
@@ -172,6 +172,11 @@ namespace massif {
 
         void clearAndBindScreenFBO(const Color& color, bool depth, bool stencil);
         void blendAndUnbindScreenFBO(float opacity);
+        // Draws a full-screen quad sampling the mask. Sets NO render state - the caller owns blend,
+        // depth and culling, because one caller runs inside the drape bake, which has its own.
+        void drawMaskQuad(unsigned int texture, float invWidth, float invHeight);
+        // The same, wrapped in the state for a plain screen multiply (dst *= mask).
+        void multiplyScreenMask(unsigned int texture, float invWidth, float invHeight);
         void setZBuffering(bool enable);
     
         void calculateRayIntersectedElements(const MapPos& targetPos, ViewState& viewState, std::vector<RayIntersectedElement>& results);
@@ -294,7 +299,11 @@ namespace massif {
         // Camera pose the last drape-bake pass ran against, to tell a moving frame from a
         // still one (see the bake time budget in onDrawFrame).
         cglib::mat4x4<double> _drapeBakeLastMVPMatrix = cglib::mat4x4<double>::identity();
-        std::unique_ptr<TerrainShadowMaskBuffer> _terrainShadowMaskBuffer;
+        std::unique_ptr<ScreenMaskBuffer> _terrainShadowMaskBuffer;
+        std::unique_ptr<ScreenMaskBuffer> _groundAOMaskBuffer;
+        // Depth of the 3D occluders, for per-label occlusion (see the pass in drawLayers).
+        std::unique_ptr<ScreenMaskBuffer> _labelOcclusionBuffer;
+        std::unique_ptr<ScreenMaskBuffer> _groundAODrapeBuffer;
         bool _shadowMapValid = false;
         int _shadowMapSize = 0;
         int _shadowMapCascades = 0;

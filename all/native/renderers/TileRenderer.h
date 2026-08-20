@@ -131,11 +131,25 @@ namespace massif {
         void setTerrainShadowMap(unsigned int texture, int mapSize, int cascades, const std::array<float, 4>& depthBiases, float strength, float softness, bool depthTexture, bool hardwarePCF, float normalOffset, const cglib::vec3<float>& sunDir, const std::array<cglib::mat4x4<double>, 4>& lightViewProjs);
         void setTerrainShadowMask(unsigned int texture, float invScreenWidth, float invScreenHeight);
         int renderTerrainShadowMask(const std::vector<vt::TileId>& tileIds);
+        bool isGroundAOActive() const;
+        bool isGroundAOBakeable() const;
+        void setLabelOcclusionDepth(unsigned int depthTexture, float occluderSize);
+        // Whether anything wants labels occluded by 3D content: the resolved TerrainOptions/Map
+        // default, or a style layer with its own text-occlusion-opacity.
+        bool isLabelOcclusionWanted() const;
+        int renderLabelOcclusionDepth();
+        int renderGroundAOMask();
+        int bakeGroundAOMask(const vt::TileId& tileId);
         // Pushed by the owner BEFORE the shared terrain surface is drawn. onDrawFrame sets the same
         // state, but it runs after that draw, so the surface would light itself with the PREVIOUS
         // frame's sun - invisible while the map redrew continuously, and a change that appears not
         // to apply at all once it goes idle.
-        void setTerrainSunLighting(bool enabled, const cglib::vec3<float>& sunDir, const Color& sunColor, float sunIntensity, float ambientIntensity);
+        void setTerrainSunLighting(const ResolvedLighting& lighting);
+        // The vt-side lighting struct for a resolved sun. One place, so the pre-surface push above
+        // and onDrawFrame cannot light the same frame differently.
+        static vt::GLTileRenderer::TerrainLighting buildTerrainLighting(const ResolvedLighting& lighting);
+        // A light colour in LINEAR space, scaled by its intensity - the form the 3D lighting sums in.
+        static cglib::vec3<float> linearColor(const Color& color, float intensity);
         // Turns this renderer into a terrain paint baker: it shades the shared terrain elevation
         // texture into the drape texture, at its own place in the layer order, instead of holding
         // a tile set of its own. The fingerprint must cover every value the paint's appearance
@@ -230,20 +244,25 @@ namespace massif {
 
         double _horizontalLayerOffset;
         cglib::vec3<float> _viewDir;
-        cglib::vec3<float> _mainLightDir;
         // The sun as RESOLVED (style over LightOptions), captured each frame for the 3D lighting
         // shader callback, which runs at draw time and cannot resolve it itself.
         cglib::vec3<float> _resolvedSunDir = cglib::vec3<float>(0, 0, 1);
+        // The same sun with its altitude floored, which is what the extrusions light with.
+        cglib::vec3<float> _resolvedBuildingSunDir = cglib::vec3<float>(0, 0, 1);
+        Color _resolvedSunColor = Color(255, 255, 255, 255);
+        Color _resolvedAmbientColor = Color(255, 255, 255, 255);
         // The elevation DATA version last acted on, apart from the global one: a change to only
         // the exaggeration moves the global version without making any surface stale.
         unsigned int _elevationDataVersion = 0;
-        bool _sunLightingEnabled = false;
-        float _sunIntensity = 0.0f;
         // What the extrusions light with, resolved from the style over the options
-        // (StyleEnvironment::resolveLighting). Intensity 0 = the legacy view-direction model.
-        float _buildingLightIntensity = 0.0f;
+        // (StyleEnvironment::resolveLighting).
+        float _buildingLightIntensity = 1.0f;
         float _buildingAmbient = 0.35f;
-        float _sunAmbient = 0.35f;
+        float _buildingVerticalGradient = 0.65f;
+        float _buildingRoofShade = 1.0f;
+        std::atomic<float> _textOcclusionOpacity{1.0f};
+        float _groundAOIntensity = 0.5f;
+        float _groundAOAttenuation = 0.69f;
         cglib::vec3<float> _normalLightDir;
         MapVec _normalIlluminationDirection;
         bool _normalIlluminationMapRotationEnabled;

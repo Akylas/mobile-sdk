@@ -1346,6 +1346,7 @@ public class DemoMap {
         terrainOptions.setElevationPrefetchEnabled(DemoConfig.TERRAIN_ELEVATION_PREFETCH);
         terrainOptions.setBillboardOcclusionEnabled(DemoConfig.TERRAIN_BILLBOARD_OCCLUSION);
         terrainOptions.setBillboardOcclusionTolerance(DemoConfig.TERRAIN_OCCLUSION_TOLERANCE);
+        terrainOptions.setTextOcclusionOpacity(DemoConfig.TERRAIN_TEXT_OCCLUSION_OPACITY);
         terrainOptions.setBackgroundBitmapEnabled(DemoConfig.TERRAIN_BACKGROUND_BITMAP);
         if (DemoConfig.TERRAIN_MAX_TILE_ZOOM_OFFSET_ENABLED) {
             terrainOptions.setMaxTileZoomOffset(DemoConfig.TERRAIN_MAX_TILE_ZOOM_OFFSET);
@@ -1412,6 +1413,8 @@ public class DemoMap {
         }
         lightOptions.setSunIntensity(DemoConfig.SUN_INTENSITY);
         lightOptions.setAmbientIntensity(DemoConfig.AMBIENT_INTENSITY);
+        lightOptions.setAmbientColor(new Color(DemoConfig.AMBIENT_COLOR_ARGB));
+        lightOptions.setSunColor(new Color(DemoConfig.SUN_COLOR_ARGB));
         lightOptions.setTerrainLightingEnabled(DemoConfig.TERRAIN_LIGHTING);
         lightOptions.setShadowStrength(DemoConfig.SHADOW_STRENGTH);
         lightOptions.setShadowSoftness(DemoConfig.SHADOW_SOFTNESS);

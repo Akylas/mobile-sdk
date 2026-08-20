@@ -170,6 +170,8 @@ adb shell am start -n com.massifmaps.MassifDemo/.MainActivity --es ui false --es
   extra, so most experiments need no rebuild: `lon lat zoom tilt rotation`, `drape drapeLines
   drapeResolution meshResolution exaggeration`, `viewDistance`,
   `hs sat satZoom contour bld3d stitch`, `daycycle sunHour sunAzimuth sunAltitude shadow`,
+  `textOcclusion` (labels behind buildings fade to this opacity, 1 = off) and
+  `roadLabelOcclusion` (the same for the road-name style layer alone, a re-decode),
   `ui false` (hide the panel), `anim zoom|pan|rotate|zoomseq|approach` (`approach` = dive close,
   pan along the slope, pull back out — the terrain close-approach repro shape).
 - **Change a knob on the RUNNING app** (`demo/DemoLive.java`) instead of relaunching — a relaunch
@@ -181,6 +183,14 @@ adb shell am start -n com.massifmaps.MassifDemo/.MainActivity --es ui false --es
   Same keys as the launch extras; only the option groups whose keys arrive are re-applied, and the
   camera is left alone unless a camera key is sent. This is how the A/B-per-band diff gets run
   without the tile set changing underneath it.
+  **`am start` on an already-running demo does the same thing** — the activity is `singleTop` and
+  `MainActivity.onNewIntent` feeds its extras back through `DemoLive` — so one command form works
+  whether or not the app is up, and it never relaunches when it is.
+- **A style knob needs a re-decode, not just an option apply.** Anything written into the CartoCSS
+  (`style styleLight bld3d bldLight bldAmbient bldGradient bldGradientHeight`) is carried by the
+  TILES, so `DemoLive` rebuilds the base layer for those keys. And the inline style's whole sun /
+  shadow / building block is gated on `--es styleLight true`: without it those `Map` properties are
+  never emitted and every knob that feeds them silently does nothing.
 - **A screenshot after a state change needs the map to have drawn TWICE.** The surface is
   double-buffered and WHEN_DIRTY draws exactly what was requested, so one frame lands in the back
   buffer and the screen keeps the old state — permanently, not briefly. `requestRedraw` now owes a

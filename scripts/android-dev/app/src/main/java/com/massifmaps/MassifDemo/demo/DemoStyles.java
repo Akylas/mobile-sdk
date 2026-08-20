@@ -209,14 +209,25 @@ public final class DemoStyles {
                .append(" sun-altitude: linear([view::zoom], (11, 55), (15, 12));")
                .append(" sun-intensity: 1;")
                .append(" ambient-intensity: 0.4;")
-               // Extrusion lighting, declared by the STYLE: keeps the soft normalised-Lambert
-               // walls whatever terrain lighting does, instead of the harder legacy shading.
-               .append(" building-light-intensity: " + DemoConfig.INLINE_BUILDING_LIGHT + ";")
-               .append(" building-ambient: " + DemoConfig.INLINE_BUILDING_AMBIENT + ";")
                .append(" shadow-strength: 0.8;")
                .append(" shadow-softness: 1;")
                .append(" terrain-max-visible-distance: 40000;");
         }
+        // Outside the styleLight gate on purpose: every one of these defaults to the engine's own
+        // value, so emitting them always is a no-op until the matching --es knob sets one. Inside
+        // the gate they were unreachable without --es styleLight true, which is how bldAmbient and
+        // bldGradient both looked broken.
+        map.append(" building-light-intensity: " + DemoConfig.INLINE_BUILDING_LIGHT + ";")
+           .append(" building-ambient: " + DemoConfig.INLINE_BUILDING_AMBIENT + ";")
+           .append(" building-vertical-gradient: " + DemoConfig.INLINE_BUILDING_GRADIENT + ";")
+           .append(" building-vertical-gradient-height: " + DemoConfig.INLINE_BUILDING_GRADIENT_HEIGHT + ";")
+           .append(" building-ao-ground-radius: " + DemoConfig.INLINE_BUILDING_AO_RADIUS + ";")
+           .append(" building-ao-intensity: " + DemoConfig.INLINE_BUILDING_AO_INTENSITY + ";")
+           .append(" building-ao-ground-step: " + DemoConfig.INLINE_BUILDING_AO_STEP + ";")
+           .append(" building-ao-ground-attenuation: " + DemoConfig.INLINE_BUILDING_AO_ATTENUATION + ";")
+           .append(" building-edge-radius: " + DemoConfig.INLINE_BUILDING_EDGE_RADIUS + ";")
+           .append(" building-roof-shade: " + DemoConfig.INLINE_BUILDING_ROOF_SHADE + ";")
+           .append(" building-rounded-roof: " + DemoConfig.INLINE_BUILDING_ROUNDED_ROOF + ";");
         if (DemoConfig.FOG_SOURCE_STYLE.equals(DemoConfig.FOG_SOURCE)) {
             // The mapbox 'fog' property set, written in the style. The range is in multiples of the
             // camera-to-focus distance, so it needs no per-zoom expression - fog-range-end is one
@@ -315,13 +326,16 @@ public final class DemoStyles {
                         DemoConfig.LABEL_MAX_DISTANCE > 0
                             ? "text-max-distance: " + DemoConfig.LABEL_MAX_DISTANCE + ";"
                             : "",
+                        DemoConfig.INLINE_TEXT_OCCLUSION_OPACITY >= 0
+                            ? "text-occlusion-opacity: " + DemoConfig.INLINE_TEXT_OCCLUSION_OPACITY + ";"
+                            : "",
                         " }")
                 : "",
             "#transportation['class'='motorway'] { line-color: #e27d60; line-width: " + DemoConfig.INLINE_MOTORWAY_WIDTH + "; }",
             DemoConfig.INLINE_BUILDINGS_3D
-                ? "#building[zoom>=14] { building-fill: #d9cfc4; building-height: [render_height] ? [render_height] : 5;\n" +
-                  "      building-min-height: [render_min_height]; }"
-                : "#building[zoom>=14] { polygon-fill: #d9cfc4; }");
+                ? "#building[zoom>=14] { building-fill: " + DemoConfig.INLINE_BUILDING_COLOR + "; building-height: [render_height] ? [render_height] : 5;\n" +
+                  "      building-min-height: [render_min_height]; building-roof-shape: 'gabled'; building-roof-height: 4; }"
+                : "#building[zoom>=14] { polygon-fill: " + DemoConfig.INLINE_BUILDING_COLOR + "; }");
     }
 
     // =============================================================================================
@@ -591,8 +605,8 @@ public final class DemoStyles {
             "#transportation { line-color: get([param::" + TABLE_PARAMETER + "], [class], #ffffff); line-width: 1.2; }",
             "#transportation['class'='motorway'] { line-width: " + DemoConfig.INLINE_MOTORWAY_WIDTH + "; }",
             DemoConfig.INLINE_BUILDINGS_3D
-                ? "#building[zoom>=14] { building-fill: #d9cfc4; building-height: " + DemoConfig.INLINE_BUILDING_HEIGHT + "; }"
-                : "#building[zoom>=14] { polygon-fill: #d9cfc4; }");
+                ? "#building[zoom>=14] { building-fill: " + DemoConfig.INLINE_BUILDING_COLOR + "; building-height: " + DemoConfig.INLINE_BUILDING_HEIGHT + "; }"
+                : "#building[zoom>=14] { polygon-fill: " + DemoConfig.INLINE_BUILDING_COLOR + "; }");
 
         try {
             java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
