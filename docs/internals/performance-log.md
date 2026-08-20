@@ -1700,3 +1700,27 @@ The samples are `applyTerrain`, which is 4 `demMeters` under the lattice clamp -
 extra DEM taps per above-ground vertex, not 4. The obvious optimisation is a lighter variant that
 skips the lattice clamp (the anchor only picks the highest ground, it never has to line up with the
 surface mesh); not done, and worth roughly three quarters of the 0.35 ms if it is.
+
+## 21. Occluding labels with the 3D content (2026-08-20)
+
+Crosscall (Adreno 610), Grenoble city camera `--es zoom 17.7 --es tilt 60 --es bld3d true
+--es drape true --es anim rotate`, `-PprofileRender`, the new `labelOcc` GPU section. Three runs,
+first four samples dropped, n=11 each.
+
+| | `labelOcc` | GPU total |
+|---|---|---|
+| `debug.massif.labelocclusion 0` | 0.00 ms | 10.20 |
+| `debug.massif.labelocclusion 1` | 0.90 / 0.80 ms | 10.80 / 10.70 |
+
+**~0.85 ms**, and the frame total moves with it (+0.5-0.6). That is one half-resolution pass over
+the visible extrusions with colour writes packing their depth; the per-label taps in the vertex
+stage do not show against it. Zero when nothing asks: the pass is skipped, which is also why it
+must stay behind a property rather than being always on.
+
+Cheaper than the 1.5-2.5 ms estimated from the ground-AO mask (~1.4 ms just to bind and clear at
+any resolution). The difference is that this target is bound once per frame rather than once per
+drape tile, and the extrusions are a small part of the geometry.
+
+The model and the two dead ends - a per-fragment depth test on the label pass, and a
+`GL_DEPTH_COMPONENT24` texture sampled from the vertex stage - are in
+[the labels page](rendering/06-labels.mdx#per-label-occlusion-by-3d-content).

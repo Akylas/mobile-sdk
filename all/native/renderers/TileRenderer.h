@@ -133,6 +133,8 @@ namespace massif {
         int renderTerrainShadowMask(const std::vector<vt::TileId>& tileIds);
         bool isGroundAOActive() const;
         bool isGroundAOBakeable() const;
+        void setLabelOcclusionDepth(unsigned int depthTexture, float occluderSize, float occludedOpacity);
+        int renderLabelOcclusionDepth();
         int renderGroundAOMask();
         int bakeGroundAOMask(const vt::TileId& tileId);
         // Pushed by the owner BEFORE the shared terrain surface is drawn. onDrawFrame sets the same

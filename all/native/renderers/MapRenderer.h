@@ -301,6 +301,8 @@ namespace massif {
         cglib::mat4x4<double> _drapeBakeLastMVPMatrix = cglib::mat4x4<double>::identity();
         std::unique_ptr<ScreenMaskBuffer> _terrainShadowMaskBuffer;
         std::unique_ptr<ScreenMaskBuffer> _groundAOMaskBuffer;
+        // Depth of the 3D occluders, for per-label occlusion (see the pass in drawLayers).
+        std::unique_ptr<ScreenMaskBuffer> _labelOcclusionBuffer;
         std::unique_ptr<ScreenMaskBuffer> _groundAODrapeBuffer;
         bool _shadowMapValid = false;
         int _shadowMapSize = 0;

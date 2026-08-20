@@ -1076,6 +1076,7 @@ namespace massif {
         _terrainShadowMaskBuffer.reset();
         _groundAOMaskBuffer.reset();
         _groundAODrapeBuffer.reset();
+        _labelOcclusionBuffer.reset();
         _shadowMapValid = false;
 
         // Notify renderers about the event
@@ -1511,7 +1512,27 @@ namespace massif {
     // ... and for the extrusions' contact shadows. Half, not a quarter: this one is a few metres
     // wide on the ground, so its own gradient is most of what a quarter-resolution texel would
     // average away. The LINEAR fetch that reads it back is also the only blur the effect gets.
+#ifdef __ANDROID__
+    // Per-label occlusion by the 3D content. Off until a style property drives it.
+    //   adb shell setprop debug.massif.labelocclusion 1
+    static bool isLabelOcclusionEnabled() {
+        static const bool enabled = [] {
+            char property[PROP_VALUE_MAX] = { 0 };
+            return __system_property_get("debug.massif.labelocclusion", property) > 0 && property[0] == '1';
+        }();
+        return enabled;
+    }
+#else
+    static bool isLabelOcclusionEnabled() {
+        return false;
+    }
+#endif
+
     static const int GROUND_AO_MASK_DIVISOR = 2;
+    // Half resolution: the buffer answers one depth comparison per label anchor, over a square of
+    // several pixels, so its own texels are never seen. mapbox samples a 30 px square.
+    static const int LABEL_OCCLUSION_DIVISOR = 2;
+    static const float LABEL_OCCLUSION_SIZE_PIXELS = 30.0f;
     // The tile zoom the caster ring's reach is derived from: coarse enough that one tile spans the
     // massif whose shadow reaches the view, not just the ground under it. ~28 km at latitude 45.
     static const int SHADOW_RELIEF_ZOOM = 10;
@@ -3248,6 +3269,52 @@ namespace massif {
                     multiplyScreenMask(_groundAOMaskBuffer->getTexture(), 1.0f / viewState.getWidth(), 1.0f / viewState.getHeight());
                 }
                 FRAME_PROF_GPU_END();
+            }
+        }
+
+        // Label occlusion against the 3D content, on mapbox's model (see labelVsh): a label asks
+        // whether its ANCHOR is behind a building and fades out as a whole, rather than being cut
+        // by one. The scene's own depth cannot answer it - it is a renderbuffer on the default
+        // framebuffer - so the extrusions are drawn once more into a half-resolution depth texture
+        // from the same camera. The ground is left out: labels are already tested against the
+        // terrain on the CPU, per label (TileRenderer::setLabelOcclusionTest).
+        //
+        // Here, between the two layer passes, because the labels that sample it are drawn with the
+        // 3D content (LabelRenderOrder LAST). A layer that draws its labels in the 2D pass instead
+        // samples the PREVIOUS frame's buffer, which lags a moving camera.
+        {
+            std::vector<std::shared_ptr<TileLayer> > occlusionLayers;
+            for (const std::shared_ptr<Layer>& layer : layers) {
+                layer->collectDrapeLayers(occlusionLayers, viewState);
+            }
+            unsigned int occlusionTexture = 0;
+            if (isLabelOcclusionEnabled() && !occlusionLayers.empty() && viewState.getWidth() > 0 && viewState.getHeight() > 0) {
+                if (!_labelOcclusionBuffer) {
+                    // Colour, not a depth texture: the occluders pack their window depth into rgb
+                    // (the shadow caster's encoding), because sampling a depth texture from a
+                    // VERTEX shader is not something every driver here does.
+                    _labelOcclusionBuffer = std::make_unique<ScreenMaskBuffer>(true);
+                }
+                _labelOcclusionBuffer->setSize(viewState.getWidth(), viewState.getHeight(), LABEL_OCCLUSION_DIVISOR);
+                GLint occlusionPrevFBO = 0;
+                glGetIntegerv(GL_FRAMEBUFFER_BINDING, &occlusionPrevFBO);
+                int occluderDraws = 0;
+                FRAME_PROF_GPU_BEGIN(SECTION_LABELOCC);
+                if (_labelOcclusionBuffer->beginPass()) {
+                    for (const std::shared_ptr<TileLayer>& tileLayer : occlusionLayers) {
+                        occluderDraws += tileLayer->renderLabelOcclusionDepth();
+                    }
+                    _labelOcclusionBuffer->endPass(occlusionPrevFBO, viewState.getWidth(), viewState.getHeight());
+                }
+                FRAME_PROF_GPU_END();
+                // An empty buffer would read as "nothing occludes anything", which is the same
+                // answer as not sampling at all - and not sampling is a cheaper way to say it.
+                if (occluderDraws > 0) {
+                    occlusionTexture = _labelOcclusionBuffer->getTexture();
+                }
+            }
+            for (const std::shared_ptr<TileLayer>& tileLayer : occlusionLayers) {
+                tileLayer->setLabelOcclusionDepth(occlusionTexture, LABEL_OCCLUSION_SIZE_PIXELS, 0.0f);
             }
         }
 

@@ -464,6 +464,23 @@ namespace massif {
         return false;
     }
 
+    void TileRenderer::setLabelOcclusionDepth(unsigned int depthTexture, float occluderSize, float occludedOpacity) {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            tileRenderer->setLabelOcclusionDepth(depthTexture, occluderSize, occludedOpacity);
+        }
+    }
+
+    int TileRenderer::renderLabelOcclusionDepth() {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            return tileRenderer->renderLabelOcclusionDepth();
+        }
+        return 0;
+    }
+
     int TileRenderer::renderGroundAOMask() {
         std::lock_guard<std::mutex> lock(_mutex);
 
