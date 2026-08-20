@@ -32,6 +32,7 @@ namespace massif {
         _cameraClampDuration(0.0f),
         _billboardOcclusionEnabled(true),
         _billboardOcclusionTolerance(0.02f),
+        _textOcclusionOpacity(1.0f),
         _viewDistanceFactor(1.0f),
         _viewDistance(0.0f),
         _maxTileZoomCoarsening(3),
@@ -349,6 +350,17 @@ namespace massif {
         float value = std::min(1.0f, std::max(0.0f, tolerance));
         if (_billboardOcclusionTolerance.exchange(value) != value) {
             notifyOptionChanged("BillboardOcclusionTolerance");
+        }
+    }
+
+    float TerrainOptions::getTextOcclusionOpacity() const {
+        return _textOcclusionOpacity.load();
+    }
+
+    void TerrainOptions::setTextOcclusionOpacity(float opacity) {
+        float value = std::min(1.0f, std::max(0.0f, opacity));
+        if (_textOcclusionOpacity.exchange(value) != value) {
+            notifyOptionChanged("TextOcclusionOpacity");
         }
     }
 

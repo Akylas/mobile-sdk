@@ -9,6 +9,8 @@
 
 namespace massif {
 
+    // Same ceiling Texture uses; drivers clamp to their own maximum anyway.
+    const int TerrainDrapeCache::MAX_ANISOTROPY = 8;
     const std::size_t TerrainDrapeCache::MAX_POOLED_TEXTURES = 32;
     // Keep a generation of tiles past the visible cover: a zoom or pan walks back over the same
     // tiles and re-acquiring means re-baking every layer of each. A BYTE budget, not a tile count -
@@ -130,6 +132,19 @@ const std::size_t TerrainDrapeCache::MAX_ENTRIES = 160;
         // its footprint. With GL_LINEAR that is four texels from an incoherent footprint per
         // fragment - a texture cache miss per fragment, and minification aliasing on top.
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, isMipmapEnabled() ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
+        // ANISOTROPIC, because the drape is looked at along the ground. At tilt the sampler's two
+        // axes are wildly different and mip selection follows the WORST of them, so everything
+        // baked into the drape smears along the view direction - by an amount that changes with
+        // the camera's rotation. It is why a contact shadow stops matching its footprint, and it
+        // blurs draped roads and labels in exactly the same way. Only with mipmaps: it selects
+        // between levels, so there is nothing to select from without them.
+        if (isMipmapEnabled() && GLContext::TEXTURE_FILTER_ANISOTROPIC) {
+            GLint deviceMaxAnisotropy = 0;
+            glGetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &deviceMaxAnisotropy);
+            if (deviceMaxAnisotropy > 1) {
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, std::min(MAX_ANISOTROPY, deviceMaxAnisotropy));
+            }
+        }
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glBindTexture(GL_TEXTURE_2D, 0);

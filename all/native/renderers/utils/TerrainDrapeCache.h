@@ -154,6 +154,7 @@ namespace massif {
 
         unsigned int createTexture();
 
+        static const int MAX_ANISOTROPY;
         static const std::size_t MAX_POOLED_TEXTURES; // recycled textures kept between frames
         static const std::size_t MAX_ENTRIES;         // cached tiles kept alive across frames (upper bound)
         static const std::size_t MIN_ENTRIES;         // ... but never fewer than this, whatever the resolution costs

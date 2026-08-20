@@ -20,8 +20,14 @@ namespace massif {
         take(sunColor, other.sunColor);
         take(sunIntensity, other.sunIntensity);
         take(ambientIntensity, other.ambientIntensity);
+        take(ambientColor, other.ambientColor);
         take(buildingLightIntensity, other.buildingLightIntensity);
         take(buildingAmbient, other.buildingAmbient);
+        take(buildingVerticalGradient, other.buildingVerticalGradient);
+        take(buildingRoofShade, other.buildingRoofShade);
+        take(buildingAoIntensity, other.buildingAoIntensity);
+        take(textOcclusionOpacity, other.textOcclusionOpacity);
+        take(buildingAoGroundAttenuation, other.buildingAoGroundAttenuation);
         take(terrainLightingEnabled, other.terrainLightingEnabled);
         take(shadowStrength, other.shadowStrength);
         take(shadowBias, other.shadowBias);
@@ -42,7 +48,7 @@ namespace massif {
     }
 
     bool StyleEnvironment::empty() const {
-        return !(sunAzimuth || sunAltitude || sunColor || sunIntensity || ambientIntensity || buildingLightIntensity || buildingAmbient || terrainLightingEnabled ||
+        return !(sunAzimuth || sunAltitude || sunColor || sunIntensity || ambientIntensity || ambientColor || buildingLightIntensity || buildingAmbient || buildingVerticalGradient || buildingRoofShade || buildingAoIntensity || textOcclusionOpacity || buildingAoGroundAttenuation || terrainLightingEnabled ||
                  shadowStrength || shadowBias || shadowSoftness || shadowDistance || shadowMapSize || shadowCascades ||
                  shadowCasterMargin || fogEnabled || fogColor || fogRangeStart || fogRangeEnd || fogHighColor || fogSpaceColor ||
                  fogHorizonBlend || fogStarIntensity || terrainMaxVisibleDistance);
@@ -56,6 +62,7 @@ namespace massif {
             lighting.sunColor = lightOptions->getSunColor();
             lighting.sunIntensity = lightOptions->getSunIntensity();
             lighting.ambientIntensity = lightOptions->getAmbientIntensity();
+            lighting.ambientColor = lightOptions->getAmbientColor();
             lighting.shadowStrength = lightOptions->getShadowStrength();
             lighting.shadowBias = lightOptions->getShadowBias();
         lighting.shadowNormalOffset = lightOptions->getShadowNormalOffset();
@@ -84,24 +91,39 @@ namespace massif {
         if (env.ambientIntensity) {
             lighting.ambientIntensity = *env.ambientIntensity;
         }
+        if (env.ambientColor) {
+            lighting.ambientColor = *env.ambientColor;
+        }
         if (env.terrainLightingEnabled) {
             lighting.terrainLightingEnabled = *env.terrainLightingEnabled;
         }
-        // Buildings: the style wins when it says anything about them, whatever the terrain does.
-        // Otherwise they follow the terrain sun, and with no sun at all they keep the legacy
-        // model (intensity 0) - so a style that says nothing renders exactly as before.
-        if (lighting.terrainLightingEnabled) {
-            lighting.buildingLightIntensity = lighting.sunIntensity;
-            lighting.buildingAmbient = lighting.ambientIntensity;
-        }
+        // Buildings follow the sun unconditionally - terrainLightingEnabled decides whether the
+        // GROUND is lit, and gating the walls on it too gave the extrusions a second lighting
+        // model that changed shape as the terrain was toggled.
+        lighting.buildingLightIntensity = lighting.sunIntensity;
+        // Their AMBIENT is their own, though, and does not follow the ground's. Ambient is the
+        // floor the directional term is added on top of, so an app that flattens the ground with
+        // ambient 1 - a normal thing to do when a hillshade layer supplies the relief - would
+        // flatten every facade with it, and a building with no side shading does not read as 3D at
+        // all. mapbox's fill-extrusion shades from its own light intensity for the same reason.
+        // A style ties them back together with 'building-ambient' when it wants that.
         if (env.buildingLightIntensity) {
             lighting.buildingLightIntensity = *env.buildingLightIntensity;
         }
         if (env.buildingAmbient) {
             lighting.buildingAmbient = *env.buildingAmbient;
-            if (!env.buildingLightIntensity && lighting.buildingLightIntensity <= 0.0f) {
-                lighting.buildingLightIntensity = lighting.sunIntensity; // ambient alone still means "light them"
-            }
+        }
+        if (env.buildingVerticalGradient) {
+            lighting.buildingVerticalGradient = *env.buildingVerticalGradient;
+        }
+        if (env.buildingRoofShade) {
+            lighting.buildingRoofShade = *env.buildingRoofShade;
+        }
+        if (env.buildingAoIntensity) {
+            lighting.buildingAoIntensity = *env.buildingAoIntensity;
+        }
+        if (env.buildingAoGroundAttenuation) {
+            lighting.buildingAoGroundAttenuation = *env.buildingAoGroundAttenuation;
         }
         if (env.shadowStrength) {
             lighting.shadowStrength = *env.shadowStrength;
@@ -127,6 +149,14 @@ namespace massif {
         return lighting;
     }
 
+
+    float resolveTextOcclusionOpacity(const std::shared_ptr<TerrainOptions>& terrainOptions, const StyleEnvironment& env) {
+        float opacity = (terrainOptions ? terrainOptions->getTextOcclusionOpacity() : 1.0f);
+        if (env.textOcclusionOpacity) {
+            opacity = *env.textOcclusionOpacity;
+        }
+        return std::min(1.0f, std::max(0.0f, opacity));
+    }
 
     ResolvedFog resolveFog(const std::shared_ptr<FogOptions>& fogOptions, const StyleEnvironment& env, const ResolvedLighting& lighting, double cameraDistance) {
         ResolvedFog fog;

@@ -1643,3 +1643,84 @@ That is not a failure of the phase, it is the phase working: the list was writte
 *offers* rather than from what this renderer *spends*, and measuring first cost three short
 experiments instead of three shipped regressions. What the numbers keep pointing at — 320 draws per
 frame in the city, 55% of the terrain GPU frame in shadow rendering itself — is not on the list.
+
+## 19. The buildings' contact shadow, on the device
+
+Crosscall (Adreno 610), Grenoble city centre `5.724807 / 45.190814`, rotation 60.2, z17.7, tilt 53,
+`--es bld3d true`. `-PprofileRender`, per-frame `PROF GPU` section averages. The `fps` on the `PROF`
+line is meaningless here — the map is idle under WHEN_DIRTY and only a handful of frames are
+sampled — so only the GPU section averages are usable.
+
+### Screen-space path (`--es drape false`)
+
+| | `groundAO` | GPU total |
+|---|---|---|
+| `bldAoRadius 0` | 1.4 ms | 11.1 / 10.7 |
+| `bldAoRadius 3` | 2.7 / 2.8 ms | 11.8 |
+
+Repeated in a bracket (off / on / off / on); both pairs agreed.
+
+**1.4 ms of that was the empty pass.** `bldAoRadius 0` removes the geometry but not the work:
+`isGroundAOActive` tested the style intensity only, so the mask target was bound and cleared every
+frame with nothing to draw. That is the bare framebuffer round trip on a tiler, and it is the same
+cost whatever resolution the mask is — measured earlier at full and quarter resolution with under
+2 fps between them. `isGroundAOActive` now also requires a visible tile that actually has
+`POLYGON3DGROUND`, and the off case measures **0.0 ms**. The capsules themselves are the ~1.3 ms
+on top.
+
+### Drape path (`--es drape true`)
+
+`groundAO` is 0.0 in every run, and AO on/off do not separate: 12.3 / 11.2 / 12.5 / 10.7 across a
+four-run bracket, with "on" cheaper than "off" both times. The work happens at bake time and is
+cached, so there is no per-frame cost to find; what varies is how many tiles happened to be baking
+in the sampled window.
+
+This is the argument for the drape path where there is a drape, and it is not free elsewhere: with
+no drape the shadow costs ~2.8 ms of a ~12 ms GPU frame at a city camera.
+
+## 20. Raising an extrusion clear of the hill (2026-08-20)
+
+Crosscall (Adreno 610), Grenoble city camera `--es lat 45.190814 --es lon 5.724807 --es zoom 17.7
+--es tilt 53 --es rotation 60.23 --es bld3d true --es anim rotate`, `-PprofileRender`, the
+`layers3D` GPU section. `anim rotate` is what makes this measurable at all: the section swings
+between 1.7 and 4.4 ms with the building count on screen, so a static camera says nothing. Two runs
+per variant, first four samples dropped (tile decode), n≈25 each.
+
+| roof anchor | median | mean |
+|---|---|---|
+| centroid only, 1 elevation sample | 1.90 / 2.00 ms | 1.97 / 1.93 |
+| + footprint reach, 5 samples | 2.30 / 2.30 ms | 2.36 / 2.43 |
+
+**+0.35 ms**, ~15% of the extrusion pass and ~3% of an 8-12 ms GPU frame, repeatable across both
+run pairs. That buys buildings that are neither buried in a hillside nor bent down it; see
+[the terrain page](rendering/04-terrain.md#raising-the-prism-clear-of-the-hill) for the model and
+for the two cheaper answers that do not work.
+
+The samples are `applyTerrain`, which is 4 `demMeters` under the lattice clamp - so this is 16
+extra DEM taps per above-ground vertex, not 4. The obvious optimisation is a lighter variant that
+skips the lattice clamp (the anchor only picks the highest ground, it never has to line up with the
+surface mesh); not done, and worth roughly three quarters of the 0.35 ms if it is.
+
+## 21. Occluding labels with the 3D content (2026-08-20)
+
+Crosscall (Adreno 610), Grenoble city camera `--es zoom 17.7 --es tilt 60 --es bld3d true
+--es drape true --es anim rotate`, `-PprofileRender`, the new `labelOcc` GPU section. Three runs,
+first four samples dropped, n=11 each.
+
+| | `labelOcc` | GPU total |
+|---|---|---|
+| `debug.massif.labelocclusion 0` | 0.00 ms | 10.20 |
+| `debug.massif.labelocclusion 1` | 0.90 / 0.80 ms | 10.80 / 10.70 |
+
+**~0.85 ms**, and the frame total moves with it (+0.5-0.6). That is one half-resolution pass over
+the visible extrusions with colour writes packing their depth; the per-label taps in the vertex
+stage do not show against it. Zero when nothing asks: the pass is skipped, which is also why it
+must stay behind a property rather than being always on.
+
+Cheaper than the 1.5-2.5 ms estimated from the ground-AO mask (~1.4 ms just to bind and clear at
+any resolution). The difference is that this target is bound once per frame rather than once per
+drape tile, and the extrusions are a small part of the geometry.
+
+The model and the two dead ends - a per-fragment depth test on the label pass, and a
+`GL_DEPTH_COMPONENT24` texture sampled from the vertex stage - are in
+[the labels page](rendering/06-labels.mdx#per-label-occlusion-by-3d-content).

@@ -35,8 +35,14 @@ namespace massif {
         std::optional<Color> sunColor;
         std::optional<float> sunIntensity;
         std::optional<float> ambientIntensity;
+        std::optional<Color> ambientColor;
         std::optional<float> buildingLightIntensity;
         std::optional<float> buildingAmbient;
+        std::optional<float> buildingVerticalGradient;
+        std::optional<float> buildingRoofShade;
+        std::optional<float> buildingAoIntensity;
+        std::optional<float> textOcclusionOpacity;
+        std::optional<float> buildingAoGroundAttenuation;
         std::optional<bool> terrainLightingEnabled;
         std::optional<float> shadowStrength;
         std::optional<float> shadowBias;
@@ -74,12 +80,23 @@ namespace massif {
         Color sunColor = Color(255, 255, 255, 255);
         float sunIntensity = 1.0f;
         float ambientIntensity = 0.35f;
-        // What the 3D extrusions light with. Intensity 0 selects the legacy model (walls by the
-        // light direction, roofs by the VIEW direction), which is what a map with no terrain
-        // lighting and no building properties has always drawn; anything above 0 is the same
-        // normalised Lambert the terrain surface uses, so walls and the ground agree.
-        float buildingLightIntensity = 0.0f;
-        float buildingAmbient = 0.35f;
+        Color ambientColor = Color(255, 255, 255, 255);
+        // What the 3D extrusions light with: mapbox's fill-extrusion model, summed in linear space
+        // (TileRenderer::LIGHTING_SHADER_3D). Both default to their 0.5, which sums to exactly 1
+        // in full sun - a facade the light reaches keeps its own colour, whatever the hour.
+        // The ambient is the walls' own, so flattening the ground does not flatten every facade
+        // with it (see resolveLighting).
+        float buildingLightIntensity = 0.5f;
+        float buildingAmbient = 0.5f;
+        // How dark the foot of a wall goes, as a fraction of its colour. Off by default: mapbox has
+        // no facade gradient, the direction-aware ambient separates the walls instead. The reach it
+        // fades over is decode-time geometry, not a uniform - see TileLayerBuilder::appendWallQuad.
+        float buildingVerticalGradient = 0.0f;
+        float buildingRoofShade = 1.0f;
+        // The contact shadow on the ground around a footprint. Its RADIUS is decode-time geometry
+        // (TileLayerBuilder::appendGroundSkirt); these two shade the skirt it produced.
+        float buildingAoIntensity = 0.2f;
+        float buildingAoGroundAttenuation = 1.75f;
         float shadowStrength = 0.0f;
         float shadowBias = 0.25f;
         float shadowNormalOffset = 3.0f;
@@ -91,6 +108,13 @@ namespace massif {
     };
 
     ResolvedLighting resolveLighting(const std::shared_ptr<LightOptions>& lightOptions, const StyleEnvironment& env);
+
+    /**
+     * The opacity a label keeps while its anchor is hidden by 3D content: TerrainOptions'
+     * TextOcclusionOpacity, or the style's 'text-occlusion-opacity' where it sets one. 1 means no
+     * occlusion at all, and the pass that answers it is skipped.
+     */
+    float resolveTextOcclusionOpacity(const std::shared_ptr<TerrainOptions>& terrainOptions, const StyleEnvironment& env);
 
     /**
      * The distance fog to actually render with: FogOptions, with every value the style defines

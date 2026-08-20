@@ -27,6 +27,7 @@ val light = LightOptions().apply {
     sunAltitude = 45f          // degrees above the horizon; default 45
     sunIntensity = 1.0f
     ambientIntensity = 0.35f
+    ambientColor = Color(0xFFB8C8E0.toInt())   // cool sky tint in the shadows; default white
     isTerrainLightingEnabled = true   // shade the terrain surface with N·L
 }
 mapView.options.lightOptions = light
@@ -44,7 +45,8 @@ light.setSunPositionFromTime(2026, 8, 14, 7, 30, 45.188, 5.719)   // UTC + lat/l
 | `SunAzimuth` | `315` | Degrees clockwise from north. The classic cartographic light is NW. |
 | `SunAltitude` | `45` | Degrees above the horizon, clamped `-90..90`. |
 | `SunColor` / `SunIntensity` | white / `1.0` | Direct light. |
-| `AmbientIntensity` | `0.35` | Light in the shadow. |
+| `AmbientIntensity` | `0.35` | Light in the shadow, and the brightness floor everywhere. |
+| `AmbientColor` | white | Tint of that shadow light. A cool blue is what makes dusk read as sky-lit rather than just darker. Applies to the terrain surface and to 3D buildings alike. |
 | `TerrainLightingEnabled` | `false` | Shade the terrain surface from its geometric normal. |
 | `ShadowStrength` | `0.0` | `0` = no shadows. |
 | `ShadowMapSize` / `ShadowCascades` | `1024` / `3` | Cascaded shadow map, up to 4 cascades. |

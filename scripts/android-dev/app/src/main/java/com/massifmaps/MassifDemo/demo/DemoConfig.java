@@ -210,7 +210,10 @@ public final class DemoConfig {
      *  draped (Crosscall, packaged style, 5.724/45.188 z15 t45). Contours stay sharp - see
      *  TerrainOptions.NoDrapeLayerFilter. '--es drapeLines false' goes back for an A/B. */
     public static boolean TERRAIN_DRAPE_LINES = true;
-    public static int TERRAIN_DRAPE_RESOLUTION = 0;
+    /** 0 = derive from the screen, which the cache's memory budget then clamps to 512. Set
+     *  explicitly, so the extrusions' contact shadow baked into the drape is more than a texel
+     *  wide: at 512 a drape texel is ~1.7 m on the ground and the shadow reaches under 1 m. */
+    public static int TERRAIN_DRAPE_RESOLUTION = 1024;
     /** Stitch neighbouring DEM tiles so ridges do not appear at tile borders. */
     public static boolean TERRAIN_TILE_EDGE_STITCHING = true;
     public static boolean TERRAIN_SEAMLESS_TILE_EDGES = true;
@@ -218,6 +221,12 @@ public final class DemoConfig {
     /** Hide billboards behind relief; tolerance > 0 keeps summits partly behind a ridge visible. */
     public static boolean TERRAIN_BILLBOARD_OCCLUSION = true;
     public static float TERRAIN_OCCLUSION_TOLERANCE = 0.0f;
+    /** Opacity a label keeps while its anchor is behind a BUILDING, for the whole layer.
+     *  1 = no occlusion. TerrainOptions::TextOcclusionOpacity. */
+    public static float TERRAIN_TEXT_OCCLUSION_OPACITY = 1.0f;
+    /** The same, for the ROAD LABEL style layer alone (text-occlusion-opacity). < 0 = not set,
+     *  so the layer-wide value above stands. This is the per-style-layer half. */
+    public static float INLINE_TEXT_OCCLUSION_OPACITY = -1.0f;
     /** 0 = off; caps terrain LOD tile detail at what flat rendering would show. */
     public static boolean TERRAIN_MAX_TILE_ZOOM_OFFSET_ENABLED = false;
     public static int TERRAIN_MAX_TILE_ZOOM_OFFSET = 0;
@@ -329,6 +338,10 @@ public final class DemoConfig {
     public static float SUN_ALTITUDE = 9f;
     public static float SUN_INTENSITY = 1.0f;
     public static float AMBIENT_INTENSITY = 1.0f;
+    /** Tint of everything in shadow. White = neutral; a cool blue reads as sky-lit at dusk. */
+    public static int AMBIENT_COLOR_ARGB = 0xFFFFFFFF;
+    /** Colour of the direct sun. Warm at a low sun is what makes a dusk scene read as dusk. */
+    public static int SUN_COLOR_ARGB = 0xFFFFFFFF;
     public static float SHADOW_STRENGTH = 0.3f;
     public static float SHADOW_SOFTNESS = 1.0f;
     public static int SHADOW_MAP_SIZE = 1024;
@@ -501,6 +514,8 @@ public final class DemoConfig {
     // =============================================================================================
 
     public static String INLINE_BACKGROUND_COLOR = "#eef2f0";
+    /** Extrusion fill, so the mapbox colour match can be driven from adb (--es bldColor). */
+    public static String INLINE_BUILDING_COLOR = "#d9cfc4";
     /** Extrude buildings: this is what gives the shadow pass real 3D casters. */
     public static boolean INLINE_BUILDINGS_3D = false;
     /** Line widths of the inline style, as CartoCSS expressions - so they can be made
@@ -509,10 +524,26 @@ public final class DemoConfig {
     public static String INLINE_ROAD_WIDTH = "linear([view::zoom], (12, 0.6), (18, 4.0))";
     public static String INLINE_MOTORWAY_WIDTH = "linear([view::zoom], (12, 1.5), (18, 9.0))";
     public static String INLINE_CONTOUR_WIDTH = "linear([view::zoom], (12, 0.4), (18, 1))";
-    /** Extrusion lighting declared BY THE STYLE (needs --es styleLight true): intensity 0 keeps
-     *  the legacy view-direction shading, above 0 is the soft normalised Lambert the terrain uses. */
-    public static float INLINE_BUILDING_LIGHT = 1f;
-    public static float INLINE_BUILDING_AMBIENT = 0.35f;
+    /** Extrusion lighting declared BY THE STYLE (needs --es styleLight true). Sun + ambient sum in
+     *  linear space, mapbox's fill-extrusion model, so 0.5/0.5 is full colour in direct sun. */
+    public static float INLINE_BUILDING_LIGHT = 0.5f;
+    public static float INLINE_BUILDING_AMBIENT = 0.5f;
+    public static float INLINE_BUILDING_GRADIENT = 0f;
+    public static float INLINE_BUILDING_GRADIENT_HEIGHT = 20f;
+    /** Contact shadow on the ground around a footprint, in metres. Radius 0 = off. */
+    public static float INLINE_BUILDING_AO_RADIUS = 4f;
+    public static float INLINE_BUILDING_AO_INTENSITY = 0.2f;
+    /** Metres between subdivisions along a wall of the contact shadow. 0 = the terrain grid cell.
+     *  Raise it to see the chord artifact on a slope, lower it to kill it. */
+    public static float INLINE_BUILDING_AO_STEP = 0f;
+    /** Exponent of the falloff: occlusion = (1 - d)^k. Higher keeps it tighter to the wall. */
+    public static float INLINE_BUILDING_AO_ATTENUATION = 1.75f;
+    /** Bevel at the roof edge, in metres. 0 = a hard 90 degrees, which is the default. */
+    public static float INLINE_BUILDING_EDGE_RADIUS = 0f;
+    /** Roofs multiplied by this. 1 = untouched; below 1 is the mapbox look. */
+    public static float INLINE_BUILDING_ROOF_SHADE = 1f;
+    /** 0 = the bevel is a flat facet with its own tone, tracing a rim around every roof. */
+    public static float INLINE_BUILDING_ROUNDED_ROOF = 1f;
     /** Extrusion height in meters. Same vertex count at any value: the knob that separates the
      *  extrusion pass's fill cost from its vertex cost. */
     public static float INLINE_BUILDING_HEIGHT = 14f;
@@ -1034,6 +1065,8 @@ public final class DemoConfig {
         TERRAIN_ELEVATION_PREFETCH = DemoCfg.cfgBool("prefetch", TERRAIN_ELEVATION_PREFETCH);
         TERRAIN_BILLBOARD_OCCLUSION = DemoCfg.cfgBool("occlusion", TERRAIN_BILLBOARD_OCCLUSION);
         TERRAIN_OCCLUSION_TOLERANCE = DemoCfg.cfgFloat("occlusionTolerance", TERRAIN_OCCLUSION_TOLERANCE);
+        TERRAIN_TEXT_OCCLUSION_OPACITY = DemoCfg.cfgFloat("textOcclusion", TERRAIN_TEXT_OCCLUSION_OPACITY);
+        INLINE_TEXT_OCCLUSION_OPACITY = DemoCfg.cfgFloat("roadLabelOcclusion", INLINE_TEXT_OCCLUSION_OPACITY);
         TERRAIN_BACKGROUND_BITMAP = DemoCfg.cfgBool("backgroundBitmap", TERRAIN_BACKGROUND_BITMAP);
         if (DemoCfg.cfg("maxTileZoomOffset") != null) {
             TERRAIN_MAX_TILE_ZOOM_OFFSET_ENABLED = true;
@@ -1106,6 +1139,8 @@ public final class DemoConfig {
         SUN_ALTITUDE = DemoCfg.cfgFloat("sunAltitude", SUN_ALTITUDE);
         SUN_INTENSITY = DemoCfg.cfgFloat("sunIntensity", SUN_INTENSITY);
         AMBIENT_INTENSITY = DemoCfg.cfgFloat("ambient", AMBIENT_INTENSITY);
+        AMBIENT_COLOR_ARGB = DemoCfg.cfgColorInt("ambientColor", AMBIENT_COLOR_ARGB);
+        SUN_COLOR_ARGB = DemoCfg.cfgColorInt("sunColor", SUN_COLOR_ARGB);
         SHADOW_STRENGTH = DemoCfg.cfgFloat("shadow", SHADOW_STRENGTH);
         SHADOW_SOFTNESS = DemoCfg.cfgFloat("shadowSoftness", SHADOW_SOFTNESS);
         SHADOW_MAP_SIZE = DemoCfg.cfgInt("shadowMapSize", SHADOW_MAP_SIZE);
@@ -1186,6 +1221,7 @@ public final class DemoConfig {
 
         // inline style
         INLINE_BACKGROUND_COLOR = DemoCfg.cfgColor("bg", INLINE_BACKGROUND_COLOR);
+        INLINE_BUILDING_COLOR = DemoCfg.cfgColor("bldColor", INLINE_BUILDING_COLOR);
         INLINE_BUILDINGS_3D = DemoCfg.cfgBool("bld3d", INLINE_BUILDINGS_3D);
         INLINE_BUILDING_HEIGHT = DemoCfg.cfgFloat("bldHeight", INLINE_BUILDING_HEIGHT);
         INLINE_ROAD_WIDTH = DemoCfg.cfgStr("roadWidth", INLINE_ROAD_WIDTH);
@@ -1193,6 +1229,15 @@ public final class DemoConfig {
         INLINE_CONTOUR_WIDTH = DemoCfg.cfgStr("contourWidth", INLINE_CONTOUR_WIDTH);
         INLINE_BUILDING_LIGHT = DemoCfg.cfgFloat("bldLight", INLINE_BUILDING_LIGHT);
         INLINE_BUILDING_AMBIENT = DemoCfg.cfgFloat("bldAmbient", INLINE_BUILDING_AMBIENT);
+        INLINE_BUILDING_GRADIENT = DemoCfg.cfgFloat("bldGradient", INLINE_BUILDING_GRADIENT);
+        INLINE_BUILDING_GRADIENT_HEIGHT = DemoCfg.cfgFloat("bldGradientHeight", INLINE_BUILDING_GRADIENT_HEIGHT);
+        INLINE_BUILDING_AO_RADIUS = DemoCfg.cfgFloat("bldAoRadius", INLINE_BUILDING_AO_RADIUS);
+        INLINE_BUILDING_AO_INTENSITY = DemoCfg.cfgFloat("bldAoIntensity", INLINE_BUILDING_AO_INTENSITY);
+        INLINE_BUILDING_AO_STEP = DemoCfg.cfgFloat("bldAoStep", INLINE_BUILDING_AO_STEP);
+        INLINE_BUILDING_AO_ATTENUATION = DemoCfg.cfgFloat("bldAoAttenuation", INLINE_BUILDING_AO_ATTENUATION);
+        INLINE_BUILDING_EDGE_RADIUS = DemoCfg.cfgFloat("bldEdgeRadius", INLINE_BUILDING_EDGE_RADIUS);
+        INLINE_BUILDING_ROOF_SHADE = DemoCfg.cfgFloat("bldRoofShade", INLINE_BUILDING_ROOF_SHADE);
+        INLINE_BUILDING_ROUNDED_ROOF = DemoCfg.cfgFloat("bldRoundedRoof", INLINE_BUILDING_ROUNDED_ROOF);
         INLINE_STYLE_LIGHTING = DemoCfg.cfgBool("styleLight", INLINE_STYLE_LIGHTING);
         INLINE_LABELS = DemoCfg.cfgBool("labels", INLINE_LABELS);
         INLINE_STYLE_MINIMAL = DemoCfg.cfgBool("minimal", INLINE_STYLE_MINIMAL);

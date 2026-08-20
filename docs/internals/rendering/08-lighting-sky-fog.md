@@ -416,23 +416,378 @@ because it is mapbox's default; the case for it is a lower depth bias, which has
 
 ## Buildings
 
-`TileRenderer::LIGHTING_SHADER_3D` lights extrusions, and it is installed **per vertex**
+`TileRenderer::LIGHTING_SHADER_3D` lights extrusions through `applyLighting3D`, which is the one
+entry point for anything solid drawn in the 3D pass — extrusions today, source-driven 3D models next
+(#131) — so a model and the wall beside it cannot disagree about the sun.
+
+It is **mapbox's `fill-extrusion` model**, ported from `_prelude_lighting.glsl` and
+`fill_extrusion.{vertex,fragment}.glsl` (semantics only — mapbox-gl-js v3 is under their TOS, not
+BSD, so nothing is copied):
+
+```glsl
+ambient = ambientColor * ambientIntensity * verticalFactor * ambientDirectional
+sun     = sunColor * sunIntensity * max(0.0, dot(N, sunDir)) * shadow
+lit     = pow(ambient + sun, 1.0 / 2.2)          // summed LINEAR, returned to sRGB once
+```
+
+Four things matter here, and each was a separate round to find:
+
+- **The sum is linear, the output sRGB.** `linearProduct(c, k) = c * pow(k, 1/2.2)`, which is
+  `linearTosRGB(sRGBToLinear(c) * k)` with one `pow` instead of three. A straight sRGB multiply
+  crushes the midtones and is why facades read harsh here long after the model was otherwise right.
+- **Ambient is direction-aware.** `verticalFactor = mix(0.92, 1, N.z*0.5+0.5)` (light blocked from
+  below), and `ambientDirectional` takes up to 30% off faces pointing away from the sun, scaled by
+  the sun's own luminance. That variation across the ambient is what separates wall tones — mapbox
+  has **no facade gradient at all** in this path (`u_vertical_gradient` is read only in their legacy
+  branch, and even there it clamps flat below ~106 m). `buildingVerticalGradient` defaults to 0.
+- **Ambient and sun simply add**, with no headroom coupling. Both default to mapbox's **0.5**, so
+  they sum to exactly 1 in direct sun: a facade the light reaches keeps its own colour at any hour.
+- **The shadow scales the sun only** — see the back-face trap below.
+
+Roofs and walls both take `N.L`, and `resolveLighting` sets `buildingLightIntensity` from the sun
+**unconditionally** — `terrainLightingEnabled` decides whether the *ground* is lit and nothing else.
+
+This model reproduces mapbox's day/dusk inversion for free: a roof's `N.L` is `sin(altitude)` and a
+sunward wall's is `cos(altitude)`, so **roofs read lighter than walls in daylight and darker at
+dawn**. Measured on one roof pixel at the Grenoble camera: sun 45° → `(168,94,27)`, sun 8° →
+`(140,76,21)`, with the sunward wall overtaking it at the low sun.
+
+A **60° floor on the sun's altitude for buildings** was added in `e830b54ee` and removed again: it
+existed because facades went black at a low sun, and that blackening was the back-face bug below,
+not the sun angle. While it stood, every roof was lit as if the sun were at 60° and the inversion
+above could never happen. Note mapbox's directional light defaults to elevation **30°**
+(`direction: [210, 30]`) and it is an ordinary style property, not a floor.
+
+The **ambient does not follow the ground's** either, and that asymmetry is deliberate. Ambient is the floor
+the directional term is added on top of, so at `ambientIntensity` 1 the model collapses to a
+constant and every facade goes flat. Flattening the ground that way is a normal thing for an app to
+do when a hillshade layer supplies the relief — the demo ships `AMBIENT_INTENSITY = 1.0` for exactly
+that reason — and it should not cost every building its side shading, without which an extrusion does
+not read as 3D at all. mapbox's `fill-extrusion` shades from its own light intensity rather than the
+scene ambient for the same reason. A style ties them back together with `building-ambient`.
+
+This was found the hard way: with the ambient coupled, `--es terrainLight false` produced completely
+flat buildings, and `terrainLight true` hid it — the shadow pass's back-face rule was darkening
+away-facing walls and doing the job the sun should have been doing.
+
+### The back-face trap: a shadow must not take the ambient with it
+
+`shadowFactorSlope` ends with `lit = min(lit, facing)`, `facing = smoothstep(0, 0.15, N.L)` — a
+surface turned away from the sun is in its own shadow whatever the depth map says, which is right and
+is what lets the bias stay small everywhere else. The bug was **where the result was applied**:
+`polygon3DFsh` multiplied the finished colour by it, ambient included, so every wall not in direct
+sun collapsed to near-black rather than dropping to sky-only. mapbox instead passes the shadow in as
+the *directional* factor and never touches ambient.
+
+The term now goes into `applyLighting3D`, which requires the extrusion lighting to run **per
+fragment** (`LightingShader(perVertex=false)`) — the shadow exists nowhere else. Unmeasured cost: one
+dot, one mix and one `pow(vec3)` per building fragment.
+
+Worth recording how long this hid: three separate rounds blamed the lighting model, the ambient
+value and the sun altitude in turn. What settled it was bypassing stages rather than reasoning —
+`applyLighting3D` returning its input unchanged still gave black walls, which ruled the lighting out
+in one build; removing the shadow multiply fixed them in the next. A histogram of the frame was
+actively misleading here, because the dominant dark tone was the *ground*, not the walls.
+
+Until 2026-08 there were two models here instead, switched on `buildingLightIntensity > 0`: with the
+terrain sun off, walls used `N.L * mainLightColor + ambientColor` from the pre-`LightOptions`
+`Options` properties and **roofs used the VIEW direction**, so from above — where roofs are most of
+what you see — the buildings did not answer to the sun at all, and they visibly changed shape when
+terrain lighting was toggled. The colour was dropped from the surviving branch as well, on the
+grounds that `u_lightColor` (the legacy grey `143,143,143`) darkened the walls below the ground lit
+by the same formula. That was the wrong uniform to reach for: `sunColor` is the one the terrain uses,
+and without it a warm evening sun warmed the slope while the facade in front of it stayed grey.
+
+`Options.MainLightDirection` / `MainLightColor` / `AmbientLightColor` no longer reach the tile
+extrusions at all — see [migration.md](../../migration.md). `Polygon3DRenderer` (app-supplied
+`Polygon3D` vector elements, not tile extrusions) still carries a third, unrelated lighting model.
+
+It is installed **per vertex**
 (`LightingShader(true, ...)`). That has a consequence worth knowing before touching it: any function
 of height in there only reaches the screen through the values at the base ring and at the roof - the
 wall carries the linear interpolation between them, whatever curve the formula draws. A falloff
 "over the first metre" is therefore a full-height ramp on screen, and the only thing that changes the
 look is the endpoint value.
 
-The ambient term at the foot of a wall (`1 - 0.65/(1 + h*h)`) is the cue that makes an extrusion
-stand on the terrain rather than float over it: that corner is occluded by the ground and by the
-building's own footprint whatever the sun does, and the shadow map cannot resolve it - its texels are
-metres wide. Measured luminance down a wall on the device: 206 at the roof, 100 at the foot (124 with
-the previous 0.5, which read as too light).
+The ambient term at the foot of a wall is the cue that makes an extrusion stand on the terrain rather
+than float over it: that corner is occluded by the ground and by the building's own footprint
+whatever the sun does, and the shadow map cannot resolve it - its texels are metres wide. Measured
+luminance down a wall on the device: 206 at the roof, 100 at the foot (124 with the previous 0.5,
+which read as too light).
 
-Contact darkening on the GROUND around a footprint is the other half and is not implemented: the
-ground does not know where the buildings are. It would need either screen-space AO over the scene
-depth (too expensive on an Adreno 610, where the whole 3D pass is ~9 ms) or a halo drawn by the
-style, which is a styling decision rather than an engine one.
+It is `mix(1 - buildingVerticalGradient, 1, wallT)`, and **`wallT` is baked into the vertex by the
+tesselator**, not computed in the shader: `clamp(h / building-vertical-gradient-height, 0, 1)` where
+`h` is the vertex's **absolute height above the ground** (`TileLayerBuilder::appendWallQuad`, packed
+0..127 in `_attribs[3]`). The style sets `building-vertical-gradient` (default `0.65`, the foot at
+35% of the wall colour) and `building-vertical-gradient-height` (default `20` m).
+
+Two things follow from where it is evaluated, and both were learned the hard way:
+
+- **Absolute, not a 0..1 parameter of each wall.** OSM models one building as a parent plus
+  `building:part` polygons of different heights. A per-wall parameter makes every part ramp over
+  *its own* height, so a 10 m part is fully bright exactly where the 30 m part beside it is still
+  mid-grey: the building reads as a stack of blocks with a band at every junction.
+- **In the tesselator, not the shader.** There, the height and the reach are both style values in
+  one unit. The shader's `height` was not: `aVertexHeight * uAbsHeightScale` worked out to
+  `metres × 262144` — `POLYGON3D_HEIGHT_SCALE` is circumference/4 and `tileHeightScale` is
+  `WORLD_SIZE / 2^zoom`, and the tile-local factors cancel to exactly `WORLD_SIZE / 4`. Comparing
+  that against a reach in metres saturated at 7.6 × 10⁻⁵ m, so every vertex above the base ring
+  evaluated to 1 and each wall quad ramped over itself no matter what the reach said. On device that
+  looked like *one gradient per floor*, identical at 10, 20 and 40 m. `uAbsHeightScale` and
+  `POLYGON3D_HEIGHT_SCALE` are gone with it — nothing else used them.
+
+The reach is therefore **decode-time geometry**, not a uniform: changing it re-decodes the tiles.
+The strength stays a live uniform.
+
+### Two dead ends, both shipped before being caught
+
+Worth knowing, because both look correct in isolation:
+
+- `1 - 0.65/(1 + h*h)`, the original. Given the per-vertex rule above it produced almost the right
+  screen ramp for an ordinary building — 0.35 at the foot, ~1.0 at the roof — so it is *not* the
+  "tall facades are flat" bug [#132] describes; a tall facade was never flat. It broke a wall whose
+  base is not at zero: a part starting 20 m up evaluated `1 - 0.65/401 ≈ 0.998` at its own foot and
+  got no gradient at all. That silent failure is also what made the stacked-parts case *look* right,
+  since a gradient-less upper part blends with the bright top of the part below it.
+- `mix(1 - g, 1, t)` with `t` the wall's own 0..1 parameter, which fixes the raised part in isolation
+  and is what replaced the above. On real Grenoble data it is visibly worse: it gives every part a
+  full ramp, so the junctions that used to blend now band hard. Verified on device.
+
+### The reach needs a vertex, not just a uniform
+
+The lighting is per vertex, and a wall has vertices only at its base ring and its roof — so any curve
+in there reaches the screen as a straight line between those two values. A reach of 20 m on a 40 m
+wall does not stop at 20 m; it stretches the whole facade. The reach only bit on walls *shorter* than
+itself, which is a knob that silently does nothing on exactly the buildings you set it for.
+
+`TileLayerBuilder::setPolygon3DGradientHeight` fixes that in geometry: the tesselator inserts an
+extra ring where the gradient knees, so the per-vertex line has a joint in the right place, and the
+ramp above it is flat. `TileReader` reads the value from the `Map` block with the **tile's own**
+zoom — this decides geometry, so it has to be fixed when the tile is built, and a zoom-dependent
+reach is sampled once per tile.
+
+Cost is one extra quad per wall taller than the reach (2 triangles → 4), nothing for shorter ones.
+That was chosen over moving the lighting per fragment, which is the general fix and is what A1 needs
+anyway for a metric AO falloff, a roof-edge term and emissive — none of which a vertex split
+approximates. Per-fragment lands as its own measured PR rather than smuggled in under a gradient fix.
+
+
+### Rounded roof edges
+
+`building-edge-radius` (metres, **0 = off**, mapbox's default too). The wall stops at
+`maxHeight - radius`, the roof ring is inset by the same amount, and **one quad per footprint edge**
+bridges the two — against [#132]'s projected +30% roof vertices, there are no extra roof vertices
+beyond the inset ring.
+
+The rounding is in the **normals**, not in subdivision. `_attribs[1]` went from a 0/1 `sideVertex`
+flag to a 0..127 blend, and the vertex stage does `normalize(mix(aVertexNormal, aVertexBinormal,
+side))`: the band's lower edge carries the wall's normal, its upper edge the roof's, so
+wall → bevel → roof shades continuously. Reusing that byte means no vertex-size increase, and the
+same blend now weights the facade gradient so it fades out as a surface turns to face up.
+
+**0.8 m matches mapbox** on Grenoble data; 2 m already reads as too soft.
+
+The bevel follows the wall dedupe — an edge whose wall was suppressed as a duplicate gets no bevel,
+or it would round an edge it did not draw. It is skipped entirely for a building shorter than
+`2 × radius`.
+
+Insetting is where this goes wrong, twice over, and both are worth knowing:
+
+- **Clamp per vertex, not per footprint.** A global clamp to the narrowest edge let one 1 m jog cost
+  the whole building its bevel, so most roofs stayed sharp while a few clean rectangles got the full
+  radius — which reads as the feature not working rather than as a clamp.
+- **Clamp the DISPLACEMENT, not the radius.** The miter runs to 5× at a sharp corner, so a radius
+  already clamped to half an edge still moved the vertex two and a half edges — across the footprint.
+  The ring self-intersected and the tesselator answered with inverted triangles: black wedges along
+  the roof edge, worst where corners are sharpest.
+
+Degenerate edges are skipped rather than rejected: an MVT ring that repeats its first point at the
+end has one, and bailing on it left **every** building sharp.
+
+### Contact shadow on the ground
+
+The other half of standing on the terrain, and the reason buildings otherwise read as pasted on.
+`building-ao-ground-radius` (metres, default **4**), `building-ao-intensity` (default **0.2**),
+`building-ao-ground-attenuation` and `building-ao-ground-step`, on mapbox's names. The reach is
+`radius / 3.5`, as mapbox divides it, so the style's metres mean there what they mean here.
+**On by default**, unlike most options here: an extrusion without one reads as pasted onto the map
+rather than standing on it. `building-ao-ground-radius: 0` turns it off.
+
+The falloff is `occlusion = (1 - d)^k`, `k` being `building-ao-ground-attenuation` (default
+**1.75**): full against the wall, zero at the radius, and above 1 it reaches the radius with zero
+slope, so there is no crease for the eye to read as an outline drawn around every building. 1.75
+halves the shadow a third of the way out (`0.5 -> 0.3`), which is the profile a contact shadow
+wants. mapbox's own attenuation (their default 0.69, applied as `1 - pow(1 - d, k)`) reads far too
+strong across the whole band, with or without a smoothstep over it.
+
+**Under the footprint the band does not fall off.** The capsule already covers a radius *inside*
+the ring as well as outside; holding it at full strength there hides the seam where a draped shadow
+meets a wall on a slope, since the dark side is the side the displacement moves it towards. Which
+side is "under" comes from the ring's signed area, **flipped for every ring after the first** — a
+hole's material is the side it does not enclose. It cannot be read from the winding alone: the tile
+data does not guarantee holes wind the other way, and a courtyard whose winding matched its outer
+ring came out filled solid, with no ramp at all. Only alongside the edge itself: past its ends that
+half-plane leaves the footprint, and the neighbouring edge's own quad covers what is left.
+
+mapbox's model, ported whole:
+
+1. **One quad per footprint edge**, covering that edge's bounding **capsule**
+   (`TileLayerBuilder::appendGroundSkirt`). The quad carries `(along, across, length)` in the
+   segment's own frame, in units of the radius — affine in the vertex, so interpolating it is exact.
+2. The fragment measures **its own distance to the segment**. Corners are round because the caps
+   are, and one edge's shadow joins the next through them. Nothing offsets, unions or fills a corner.
+3. Overlaps — a corner, a building and its `building:part`, two neighbours — are resolved by
+   **`GL_MIN`** into a mask cleared to white, never by arithmetic. Multiplied straight into the
+   frame, every one of those overlaps compounds towards black.
+4. The mask is applied **once**. Re-drawing the quads to composite them multiplies again at every
+   overlap and undoes exactly what MIN just resolved.
+
+Only for a footprint that is **extruded** and **stands on the ground**: `maxHeight > minHeight`
+(a flat one cast a full ring onto open ground with nothing above it) and `minHeight <= 0` (a
+`building:part` starting at 20 m — a bridge deck, a tunnel roof — was shadowing ground it never
+touches). On the **screen-space** path it scales by the tile's fade, which arrives as the style
+colour's alpha, or an extrusion that fades in by *growing* gets a full-strength shadow before it
+is there.
+
+The quads are **split along the wall** at 1/32 of a tile, the regular terrain grid's own cell. A
+quad's four corners land on the surface but its interior interpolates linearly between them, so one
+quad over a 50 m wall cuts into a slope at one end and floats at the other. Across the wall the span
+is only `2 * radius`, so that direction needs no split.
+
+#### Two paths, because neither covers both cases
+
+| | drape on (3D terrain) | drape off (2D, or terrain without drape) |
+|---|---|---|
+| where | baked into the tile's drape texture (`bakeGroundAOMask`) | screen-space mask (`renderGroundAOMask`) |
+| MIN resolved in | the tile's own frame, at bake time | screen space, once per frame |
+| follows terrain | exactly — it *is* the ground | via the wall subdivision above |
+| cost | at bake time, cached | one offscreen target per frame |
+
+`MapRenderer` routes between them on whether the drape actually carried the ground this frame.
+That flag cannot come from `collectDrapeLayers`, which returns every visible tile layer whether it
+is draped or not.
+
+**Contact shadows count toward the drape fingerprint** (`hasGroundAOContent`). `calculateDrapeFingerprint`
+skips any layer without *drapeable* content and extrusions are not drapeable, so a buildings layer
+contributed nothing: its tiles decoded without changing the fingerprint, no re-bake was asked for,
+and whichever drape textures were baked before the buildings arrived kept no shadow for as long as
+they stayed cached. That was AO missing from scattered tiles with no pattern to it.
+
+##### A bake is a cached picture: nothing per-frame may enter it
+
+Three separate bugs, all the same shape — the shadow was baked at whatever transient strength the
+frame happened to have, and a cached texture is only re-baked when its tile's *content* changes.
+All three read identically from the outside: **launch above zoom 16 and there is no contact shadow
+until a zoom out and back in**.
+
+- **The tile's fade-in.** `bakeGroundAOMask` passed `renderLayer.blend`. The first frame a tile has
+  extrusions to bake is the frame they appear, i.e. blend ≈ 0, so the shadow froze at nothing. It
+  now bakes at blend 1, as every other bake in `bakeDrapeTile` already did.
+- **The zoom fade.** `groundAOZoomFade` belongs to the screen-space pass, which pays per frame.
+  `isGroundAOBakeable` is the drape's predicate and applies none: a launch animation passing below
+  zoom 16 was enough to bake a whole screen of tiles with no shadow.
+- **The lighting resolve order.** `TileRenderer::onDrawFrame` resolves the lighting, and the drape
+  bake runs *before* it, so on the first frame at a camera the intensity was still 0.
+  `prepareFrameUnsafe` now pushes it, next to the view state it already pushed for the same reason.
+
+**The shadow is in the stack signature, not only the per-tile fingerprint**
+(`TileLayer::drapeStackSignature`). A drape tile is fingerprinted from render tiles *of its own
+zoom*, while the shadow it carries can come from a coarser render tile covering it — so a z18 leaf
+never noticed a z17 tile's extrusions arriving. The stack signature is the existing mechanism for
+"content baked into a tile that is not made of that tile", and it flips once per session.
+
+#### The dead ends
+
+**Per-vertex distance facets.** Interpolating a distance stored per vertex is linear inside a
+triangle while the true field near a corner is radial — corners read as facets and do not meet. More
+arc segments narrow the error and never remove it. Per-fragment distance is the fix, and it is why
+mapbox does it that way.
+
+**Every attempt to avoid MIN failed**, in this order: dedupe rings, dedupe edges exactly, dedupe
+edges on a 0.5 m grid, union the outlines per tile, offset polygons. Measured stacked layers at one
+pixel went 7.6 → 4.7 → 3.9 → 2.9 against a target of 1.0. The overlap is intra-ring self-overlap
+and cannot be removed by deduplication.
+
+**Do not drop the per-tile clip.** Under overzoom one source tile's capsules are handed to every
+target tile derived from it, and each of those draws displaces them with *its own* elevation
+texture. Identical vertices, different DEM: a second shadow at a neighbouring tile's height,
+floating beside the right one. MIN makes identical duplicates harmless, which is what made removing
+the clip look safe.
+
+**A depth-less screen mask leaks.** A capsule hidden behind a nearer building still wrote into the
+mask and the multiply laid it on that building. The mask carries depth, seeded with the terrain
+cover and the extrusions.
+
+**The drape cannot do it alone.** At 512 per tile a drape texel is ~1.7 ground metres and the shadow
+reaches under 1 m — half a texel, then mipmapped away. It was baking correctly and was simply below
+the sampling resolution; 1024 is what makes it visible.
+
+#### Known gap: the band is measured in PLAN, not along the ground
+
+On a slope the shadow stops matching its footprint - it spreads downhill and reads as displaced.
+
+**It is not the drape.** That was the first explanation, and it was wrong: the drape bakes
+orthographically over the tile, so it seemed obvious that the stretch came from painting a flat
+bake onto a displaced mesh. Rendering the same camera through the screen-space path, which has no
+such projection, showed **the same displacement**. Whatever it is, both paths share it.
+
+What they share is the geometry: the capsule is built in **plan**, so a band `r` wide in plan
+covers `r / cos(slope)` of actual ground, and it does so asymmetrically about the footprint once
+the ground tilts. The fix is to correct the distance for the local slope - sample the elevation
+gradient and divide by `normal.z` - which would apply to both paths. Not implemented.
+
+Two things were fixed along the way and are worth keeping separate from the above:
+
+- **Grazing-angle smear.** The drape was `GL_LINEAR_MIPMAP_*` with no anisotropic filtering, so
+  everything baked into it blurred along the view direction by an amount that changed with the
+  camera's rotation. `TerrainDrapeCache` now sets `GL_TEXTURE_MAX_ANISOTROPY_EXT`; not measurable
+  (11.2 ms GPU total against a 10.7-12.5 bracket), and it sharpens every draped layer.
+- **Drape texel size.** At 512 per tile a drape texel is ~1.7 ground metres against a sub-metre
+  band. 1024 is what makes the shadow visible at all; it does not change the stretch.
+
+
+Screen-space AO over the scene depth was not tried: the whole 3D pass is ~9 ms on an Adreno 610.
+It is the only option that would also darken building-against-building, which this does not.
+
+### Coincident walls
+
+A stipple on tall walls that looks exactly like shadow acne is usually **not** acne. OSM models a
+building whose height varies as a parent `building` plus several `building:part` polygons, and
+duplicate footprints from two source layers do the same thing: two extrusions end up with walls on
+the same footprint edge, a few centimetres apart, and they z-fight. The extrusion depth bias is
+uniform across the pass (`TERRAIN_EXTRUSION_DEPTH_DELTAS`), so nothing separates building from
+building.
+
+**Telling them apart costs one broadcast**: `--es shadow 0`. Acne cannot survive shadows being off;
+z-fighting can. Second discriminator — acne tracks the sun (`--es sunHour`), z-fighting tracks the
+camera and is unchanged by the hour.
+
+`TileLayerBuilder` therefore keeps `_polygon3DWalls`, a map from footprint edge to the height range
+already walled on it for this layer and tile. A wall is emitted only over the range no earlier
+feature covered — as up to two quads, since a wall taller at both ends sticks out below *and* above
+what is there. The edge key quantises both endpoints to 1/32768 of a tile (7 cm at z14, finer than
+any tiler's grid) and is undirected, because two features walk a shared edge in opposite directions.
+
+This is ours, not a port. **mapbox-gl-js does not do it**: `fill_extrusion_bucket` tesselates every
+polygon independently, and its `buildingGroups` — keyed on a `building_id` property carried in the
+tile — exists only to give every part of one building an identical centroid for the ground AO and
+flood light. Their tiles ship parts already resolved against their parent, so coincident faces never
+reach the renderer. Tangram has no handling either (`Builders::buildPolygonExtrusion`, one extrusion
+per polygon), so it shows the same artifact on the same data.
+
+Known gaps:
+
+- **A roof is matched whole, not clipped.** `_polygon3DRoofs` keys the footprint plus the height it
+  sits at, summed over the vertices so the ring's start vertex and winding do not matter — which
+  catches a **duplicated footprint**, the case that actually z-fights. A `building:part` normally
+  differs in height from its parent, putting its roof on another plane entirely; a part that shares
+  its parent's height *and* only overlaps it partly would still fight, and would need real polygon
+  overlap to fix.
+- The covered range per edge is a single interval, so a wall split into disjoint pieces by two
+  earlier walls at different heights is approximated by their hull.
+- Where a shared wall survives, it keeps the colour of whichever feature reached the builder first.
+  Deterministic per tile, arbitrary between the two.
+- Fixing the tiles upstream is still the better answer, and the one mapbox ships.
 
 ### What did not work
 

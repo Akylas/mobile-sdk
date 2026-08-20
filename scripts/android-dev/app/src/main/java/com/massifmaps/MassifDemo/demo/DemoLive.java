@@ -33,11 +33,18 @@ public final class DemoLive extends BroadcastReceiver {
     };
     private static final String[] TERRAIN_KEYS = {
         "terrain", "drape", "drapeLines", "drapeResolution", "meshResolution", "exaggeration",
-        "viewDistance", "viewDistanceMeters", "coarsening", "stitch"
+        "viewDistance", "viewDistanceMeters", "coarsening", "stitch", "textOcclusion"
     };
     private static final String[] LIGHT_KEYS = {
         "daycycle", "sunHour", "sunAzimuth", "sunAltitude", "shadow", "shadowSoftness",
-        "shadowDistance", "shadowCascades", "shadowNormalOffset"
+        "shadowDistance", "shadowCascades", "shadowNormalOffset", "terrainLight", "ambient",
+        "ambientColor", "sunColor", "sunIntensity"
+    };
+    // Anything written INTO the style: the tiles carry it, so it only changes on a re-decode.
+    private static final String[] STYLE_KEYS = {
+        "style", "styleLight", "bg", "bldColor", "bld3d", "bldLight", "bldAmbient", "bldGradient", "bldGradientHeight",
+        "bldAoRadius", "bldAoIntensity", "bldAoAttenuation", "bldAoStep", "bldEdgeRadius", "bldRoofShade", "bldRoundedRoof",
+        "roadLabelOcclusion"
     };
     private static final String[] SKY_KEYS = { "sky", "skyColor", "horizonColor", "sunDisc" };
     private static final String[] CAMERA_KEYS = { "lon", "lat", "zoom", "tilt", "rotation" };
@@ -77,6 +84,9 @@ public final class DemoLive extends BroadcastReceiver {
         }
         if (has(extras, SKY_KEYS)) {
             demo.applySkyOptions();
+        }
+        if (has(extras, STYLE_KEYS)) {
+            demo.rebuildBaseLayer();
         }
         if (has(extras, CAMERA_KEYS)) {
             demo.applyCamera();

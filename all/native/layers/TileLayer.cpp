@@ -965,7 +965,16 @@ namespace massif {
     }
 
     std::size_t TileLayer::drapeStackSignature() const {
-        return static_cast<std::size_t>(reinterpret_cast<std::uintptr_t>(this));
+        // The contact shadows belong here rather than in the per-tile fingerprint: a drape tile is
+        // fingerprinted from the render tiles OF ITS OWN ZOOM, while the shadow it carries can come
+        // from a coarser render tile covering it. A tile baked before the extrusions had decoded
+        // then kept no shadow and nothing ever asked it to bake again - which is a launch with a
+        // warm tile cache showing no contact shadows until a zoom rebuilds the drape.
+        std::size_t signature = static_cast<std::size_t>(reinterpret_cast<std::uintptr_t>(this));
+        if (isGroundAOBakeable()) {
+            signature ^= 0x9e3779b9;
+        }
+        return signature;
     }
 
     bool TileLayer::prepareTerrainDrapeFrame(float deltaSeconds, const ViewState& viewState) {
@@ -1045,12 +1054,51 @@ namespace massif {
         return 0;
     }
 
+    bool TileLayer::isGroundAOActive() const {
+        return _tileRenderer && _tileRenderer->isGroundAOActive();
+    }
+
+    bool TileLayer::isGroundAOBakeable() const {
+        return _tileRenderer && _tileRenderer->isGroundAOBakeable();
+    }
+
+    void TileLayer::setLabelOcclusionDepth(unsigned int depthTexture, float occluderSize) {
+        if (_tileRenderer) {
+            _tileRenderer->setLabelOcclusionDepth(depthTexture, occluderSize);
+        }
+    }
+
+    bool TileLayer::isLabelOcclusionWanted() const {
+        return _tileRenderer && _tileRenderer->isLabelOcclusionWanted();
+    }
+
+    int TileLayer::renderLabelOcclusionDepth() {
+        if (_tileRenderer) {
+            return _tileRenderer->renderLabelOcclusionDepth();
+        }
+        return 0;
+    }
+
+    int TileLayer::renderGroundAOMask() {
+        if (_tileRenderer) {
+            return _tileRenderer->renderGroundAOMask();
+        }
+        return 0;
+    }
+
+    int TileLayer::bakeGroundAOMask(const vt::TileId& tileId) {
+        if (_tileRenderer) {
+            return _tileRenderer->bakeGroundAOMask(tileId);
+        }
+        return 0;
+    }
+
     void TileLayer::setTerrainShadowMap(unsigned int texture, int mapSize, int cascades, const std::array<float, 4>& depthBiases, float strength, float softness, bool depthTexture, bool hardwarePCF, float normalOffset, const cglib::vec3<float>& sunDir, const std::array<cglib::mat4x4<double>, 4>& lightViewProjs) {
         _tileRenderer->setTerrainShadowMap(texture, mapSize, cascades, depthBiases, strength, softness, depthTexture, hardwarePCF, normalOffset, sunDir, lightViewProjs);
     }
 
-    void TileLayer::setTerrainSunLighting(bool enabled, const cglib::vec3<float>& sunDir, const Color& sunColor, float sunIntensity, float ambientIntensity) {
-        _tileRenderer->setTerrainSunLighting(enabled, sunDir, sunColor, sunIntensity, ambientIntensity);
+    void TileLayer::setTerrainSunLighting(const ResolvedLighting& lighting) {
+        _tileRenderer->setTerrainSunLighting(lighting);
     }
 
     void TileLayer::setTerrainRenderOrder(int order) {

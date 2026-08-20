@@ -65,6 +65,8 @@ namespace massif {
             SECTION_BILLBOARDS,
             SECTION_SHADOWCAST,  // the shadow map's caster pass
             SECTION_SHADOWMASK,  // the screen-space terrain shadow mask
+            SECTION_GROUNDAO,    // the screen-space contact-shadow mask of the extrusions
+        SECTION_LABELOCC,    // the occluder depth labels test their anchors against
             SECTION_COUNT
         };
 

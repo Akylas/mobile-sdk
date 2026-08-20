@@ -602,6 +602,13 @@ on Android instead of rendering as plain Roboto Regular.
   rendered until they reach 0. Over terrain it also fades a label out when its anchor is behind a
   ridge — a stale occlusion buffer queried with the wrong camera is what made labels blink while
   zooming, see [04-terrain.md](04-terrain.md#query-with-the-buffers-camera-not-the-frames).
+- **Occlusion by 3D content.** The ridge test above is a CPU query per label against a read-back
+  terrain depth buffer, and terrain is all it knows: a label behind a *building* was drawn in front
+  of it. The extra test is mapbox's, ported by semantics: the occluders are drawn once more into a
+  half-resolution buffer from the same camera, and `labelVsh` samples a small square around the
+  label's **anchor** and fades the whole label by how much of that square is in front of it. It is
+  never clipped — a wall crossing a word does nothing, and a word is never cut in half. See
+  [Per-label occlusion](#per-label-occlusion-by-3d-content) below.
 - **Terrain anchoring.** Label geometry is built flat at decode time, so a label must be re-anchored
   onto the terrain: once when it is new, and afterwards only when the elevation under one of its
   tiles changed. `invalidateLabelElevation(tileIds)` marks exactly those; the blanket version exists
@@ -815,3 +822,72 @@ is theirs but the object model is not (see
 where the work happens: theirs is amortised into tile building, ours falls on tile-set changes during
 panning. Their contour labels are generated from the elevation texture with no geometry at all,
 which this fork now also does ([07-hillshade-contours.md](07-hillshade-contours.md)).
+
+## Per-label occlusion by 3D content
+
+A label is occluded by the terrain on the CPU, per label, by a read-back depth buffer
+(`TerrainRenderer::isOccludedByTerrain`, fed to `vt` as `setLabelOcclusionTest`). That buffer holds
+**terrain only**, so a label standing behind a building was drawn straight over it.
+
+The extra test is **mapbox's model, ported by semantics** (their `text-occlusion-opacity` /
+`icon-occlusion-opacity`; the spec's own wording for the absent value is *"full occlusion against
+terrain only"*, which is exactly what this codebase already did):
+
+1. `MapRenderer` draws every visible extrusion once more into a **half-resolution** buffer between
+   the 2D and the 3D layer passes, from the same camera. It is the shadow *caster* path pointed at
+   the camera instead of the sun, so the occluders are the extrusions as the frame draws them —
+   same shader, same terrain anchoring, the tile's own fade — with their window depth packed into
+   rgb.
+2. `labelVsh` projects the label's **anchor**, samples a 30 px square around it (4 taps), compares
+   each against the anchor's depth through a soft ramp, and averages them into one opacity for the
+   whole label.
+
+The ground is deliberately **not** in the buffer: terrain occlusion is already answered on the CPU,
+per label, and drawing the surfaces here would only pay for it twice.
+
+**Per label, not per fragment.** A depth test on the label pass is the obvious alternative and it is
+wrong twice over: a building crossing a word cuts it in half, and — the reason it was abandoned — a
+label's anchor sits ON the ground, so the ground eats it. Nearly every label on a terrain camera
+disappeared. mapbox's small NDC offset (`-0.0001`, "to prevent coplanar symbol/geometry cases") plus
+the multi-tap average is what makes the coplanar case a non-event.
+
+**Packed colour, not a depth texture.** The first version attached a `GL_DEPTH_COMPONENT24` texture
+and sampled it with `texture2D` in the vertex stage. Every tap came back `1.0` on the emulator, with
+the pass demonstrably drawing into the buffer. The packed-rgb encoding is what `TerrainShadowMap`
+falls back to for the same reason, and it costs one `dot` per tap.
+
+**Cost:** 0.80–0.90 ms of GPU on an Adreno 610 at a city camera (frame total 10.2 → 10.7 ms), and
+zero when nothing asks for it — the pass does not run. See the
+[performance log](../performance-log.md).
+
+### Asking for it
+
+`TerrainOptions::setTextOcclusionOpacity(float)` — the opacity an occluded label **keeps**. 1, the
+default, is no occlusion at all and the pass does not run; 0 hides such a label completely. The
+style's `text-occlusion-opacity` (a `Map`-block property) wins over it wherever it sets one, as
+every other style/option pair here does (`resolveTextOcclusionOpacity`).
+
+A **style layer** may set its own `text-occlusion-opacity` (a `TextSymbolizer` property, so
+`#roads { text-occlusion-opacity: 0; }`), and that wins for its labels — a style can hide its road
+names behind a building and leave its POI labels alone, which is mapbox's granularity. It also turns
+the pass on by itself: `hasStyledLabelOcclusion` is noted while the pass label lists are rebuilt,
+because that loop already touches every label once, and the owner needs the answer *before* the
+layer passes.
+
+So three scopes, each overriding the one above it: `TerrainOptions` → the style's `Map` block →
+the style layer.
+
+The name and the meaning are mapbox's. Theirs defaults to 0; ours defaults to 1 at every scope,
+because turning it on by default would spend ~0.85 ms of every frame for a map that may have no 3D
+content at all.
+
+The per-label value rides on the **batch**, not on a per-style slot in the parameter tables: it is a
+property of the style layer, so consecutive labels share it, and a slot would have to join the
+colour/size key every label is matched on. A change of occluded opacity ends a batch the way a
+change of glyph atlas does.
+- A layer whose `LabelRenderOrder` is not `LAST` draws its labels in the 2D pass, before the buffer
+  for this frame exists, so it samples the previous frame's — one frame of lag while the camera
+  moves.
+- The anchor decides for the whole label. A long line label whose anchor is in a gap between two
+  buildings stays fully drawn; that is mapbox's behaviour too, and it is the price of never cutting
+  a word.

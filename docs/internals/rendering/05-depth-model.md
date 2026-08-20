@@ -103,6 +103,26 @@ Two more from choosing constants instead of copying them: `depth_shift` scaled b
 nothing), then by `|m23|` (dragged a landcover fill in front of the mountain); and an ordinal stride
 of 32 per renderer, which reached the leak range with five layers.
 
+### Extrusions are in the numbering too
+
+`renderGeometry3D` sets `_terrainDrawLayerOffset` from the same dense numbering `renderGeometry2D`
+uses. Left out of it — which it was — an extrusion draws at **ordinal 0, the ground's own level**,
+while every 2D style layer is pulled forward by its own ordinal, so any decal with a real ordinal
+wins the depth test against a building of any height. Two symptoms, one cause:
+
+- **roads over buildings, but only with the drape off** — with the drape on they are baked into the
+  ground and never drawn live, so nothing is left to win;
+- **`billboard-line` labels over buildings, drape or not** — clipped text is `POINT` geometry and is
+  not draped, so it is always drawn live.
+
+Both were chased first to the decals' own forward pull, and neither is it: setting
+`DEFAULT_LINE_CLEARANCE_METERS` to 0 changes nothing, and so does removing the decal
+`glPolygonOffset(-2, -8)`. The ordinal is the whole of it. Tangram has no such gap because a
+building is a style layer with an `order` like any other.
+
+The ordinal applies **only under the shared ground**, as in the 2D path; the other paths take their
+clearance from pushing the surface back instead.
+
 ## A flat quad over a curved surface is a DECAL
 
 Lines and points are both chains of flat quads laid over a height field, so neither is coincident

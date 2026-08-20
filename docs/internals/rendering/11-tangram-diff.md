@@ -120,6 +120,15 @@ measurement and the alternative (`opacity` + `comp-op`).
 
 Not documented here on purpose; see [the render-pipeline index](index.mdx#two-rules-that-shaped-the-render-code).
 
+### Coincident extrusion walls are deduped; neither tangram nor mapbox does that
+
+`Builders::buildPolygonExtrusion` extrudes each polygon on its own, and mapbox's
+`fill_extrusion_bucket` does the same. Both rely on the tiles not containing a `building` and its
+`building:part` on the same footprint edge — true of Mapbox Streets, not true of every OSM pipeline,
+and the two coincident walls z-fight into a stipple that reads as shadow acne. We drop the covered
+range at tesselation instead. Mechanism, discriminating test and known gaps in
+[08-lighting-sky-fog.md](08-lighting-sky-fog.md#coincident-walls).
+
 ## Measuring against them
 
 `PROF` is ours only and is **not comparable** to anything they report — it read 20–27 fps for a
