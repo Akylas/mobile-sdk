@@ -139,6 +139,43 @@ At **tilt 90** none of this applies: the areas there (408k–464k px²) are abov
 level is the `targetTileZoom` cap, `floor(cameraZoom)`, for every tile. Tangram short-circuits the
 same case explicitly (`if (m_pitch == 0) return FLT_MAX`).
 
+### Bounding what the grazing angle may cost
+
+The area rule folds two independent things into one number. Write it as a level:
+
+```
+level = const − log2(distance) + ½·log2(cos θ)      θ = incidence of the view ray on the ground
+```
+
+The first term is what LOD is *for*. The second is foreshortening, and at a low tilt it dominates
+everything: measured per accepted tile on the Crosscall at 45.1852/5.7220 z15.71 t29, **every tile in
+the frame sits at 79°–89° of incidence** and loses **1.2 to 3.0 levels** to it — the near ones as much
+as the horizon. That is why a mountain 10 km out stays coarse while ground at the same distance
+under a steeper angle is refined, and why panning closer to it does so little: you are buying back
+one level per halving of distance against a 2-level foreshortening debt.
+
+`Options::TileLODForeshorteningLimit` bounds the second term only, as a floor on `cos θ`
+(`limit` levels ⇒ `cos θ ≥ 2^(−2·limit)`). The distance term is untouched, so genuinely far ground
+stays coarse — and it *must*, because beyond ~15 km those tiles would need `cos θ > 1` to refine at
+all. `0` (the default) is the area rule exactly as tangram wrote it.
+
+Measured at that camera, `TileLODFactor` 0.5 (the demo's value), threshold 212 337 px²:
+
+| limit | visible set | n |
+|---|---|---|
+| 0 (off) | `z10=3 z12=4 z13=2 z14=4 z15=6` | 19 |
+| 1.25 | `z10=2 z12=4 z13=2 z14=2 z15=9` | 19 |
+| **1.0** | `z11=2 z12=3 z13=6 z14=2 z15=9` | 22 |
+| 0.75 | same as 1.0 (saturated) | 22 |
+
+At 1.0 the 46–66 km `z10` patches are gone, `z13` triples, and the ladder is continuous `z11`…`z15`
+instead of jumping `z12`→`z10`. Cost while panning (3 interleaved pairs, 63 windows):
+**40.0 → 50.4 tiles/frame, 26.7 → 24.6 fps** — +26% tiles for −8% frame rate.
+
+Do not size this from a spreadsheet. Simulating the clamp per accepted tile predicted 19 → 40 tiles
+at limit 1.0, **7× the real cost**: boosting a parent boosts its children by the same factor, so a
+tile that splits produces children that stop one level down instead of cascading.
+
 ### The coarsening floor times the view distance
 
 `TerrainOptions::MaxTileZoomCoarsening` floors how coarse a far tile may get (default: 3 levels

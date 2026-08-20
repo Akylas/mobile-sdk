@@ -310,6 +310,25 @@ namespace massif {
          * @param factor The new tile LOD factor. The default is 1.
          */
         void setTileLODFactor(float factor);
+
+        /**
+         * Returns how many zoom levels a tile may lose to foreshortening.
+         * @return The limit in zoom levels, or 0 when there is no limit. The default is 0.
+         */
+        float getTileLODForeshorteningLimit() const;
+        /**
+         * Sets how many zoom levels a tile may be coarsened by the grazing angle alone.
+         * The LOD rule (see setTileLODFactor) compares a tile's projected screen AREA, which falls
+         * both with the distance and with the cosine of the angle the view ray makes with the
+         * ground. The second term is what keeps a mountain 10 km out coarse while ground at the same
+         * distance under a steeper angle is refined: at a low tilt every tile in the frame sits at
+         * 79-89 degrees of incidence and loses 1.2 to 3 levels to it.
+         * This bounds that second term only, so the distance term is untouched and genuinely far
+         * ground stays coarse. Lower values refine more of the tilted view and cost tiles roughly
+         * 2x per level; 0 leaves the area rule as tangram wrote it.
+         * @param levels The limit in zoom levels, or 0 for no limit. The default is 0.
+         */
+        void setTileLODForeshorteningLimit(float levels);
     
         /**
          * Returns the dots per inch value.
@@ -802,6 +821,7 @@ namespace massif {
     
         int _tileDrawSize;
         float _tileLODFactor;
+        float _tileLODForeshorteningLimit;
     
         float _dpi;
     

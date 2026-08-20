@@ -74,6 +74,7 @@
 %attribute(massif::Options, int, TileThreadPoolSize, getTileThreadPoolSize, setTileThreadPoolSize)
 %attribute(massif::Options, int, TileDrawSize, getTileDrawSize, setTileDrawSize)
 %attribute(massif::Options, float, TileLODFactor, getTileLODFactor, setTileLODFactor)
+%attribute(massif::Options, float, TileLODForeshorteningLimit, getTileLODForeshorteningLimit, setTileLODForeshorteningLimit)
 %attribute(massif::Options, float, DPI, getDPI, setDPI)
 %attribute(massif::Options, float, DrawDistance, getDrawDistance, setDrawDistance)
 %std_exceptions(massif::Options::setBaseProjection)

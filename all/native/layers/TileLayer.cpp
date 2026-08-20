@@ -672,6 +672,7 @@ namespace massif {
         }
 
         _lodMaxTileArea = 0;
+        _lodMinCosTheta = 0;
         if (auto options = getOptions()) {
             const ViewState& viewState = cullState->getViewState();
             double tileSizePixels = options->getTileDrawSize() * viewState.getDPI() / Const::UNSCALED_DPI;
@@ -681,6 +682,10 @@ namespace massif {
             // A source whose tiles are bigger than the nominal size carries a zoom bias; the same
             // bias applies to the area it is allowed to cover (tangram: maxArea * exp2(2*zoomBias)).
             _lodMaxTileArea = maxEdge * maxEdge * std::pow(4.0, -getZoomLevelBias());
+            // Floor on cos(incidence): the area falls with the distance AND with the grazing angle,
+            // and only the second term is bounded here (docs/internals/rendering/02-tiles.md).
+            float limit = options->getTileLODForeshorteningLimit();
+            _lodMinCosTheta = limit > 0 ? std::pow(2.0, -2.0 * limit) : 0.0;
         }
 
         // Recursively calculate visible tiles
@@ -779,6 +784,14 @@ namespace massif {
                     area += p(0) * q(1) - q(0) * p(1);
                 }
                 screenArea = std::abs(area) * 0.5;
+                if (_lodMinCosTheta > 0) {
+                    cglib::vec3<double> toTile = tileCenter + cglib::vec3<double>(0, 0, lodElevation) - viewState.getCameraPos();
+                    double dist = cglib::length(toTile);
+                    double cosTheta = dist > 0 ? std::abs(toTile(2)) / dist : 1.0;
+                    if (cosTheta > 0 && cosTheta < _lodMinCosTheta) {
+                        screenArea *= _lodMinCosTheta / cosTheta; // the area this tile would have at the limit
+                    }
+                }
             }
         }
         bool subDivide = !(_lodMaxTileArea > 0) || screenArea >= _lodMaxTileArea;

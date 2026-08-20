@@ -1757,3 +1757,37 @@ and still trips no level. The cause is the flat footprint quad, not the rule: ma
 `calculateTileZoom` reduces to the same `−log2(d) + ½·log2(cos θ)` as the area test at its default
 fov. Method and the fix that would work (per-corner DEM heights) are in
 [02-tiles.md](rendering/02-tiles.md#the-lod-height-is-per-tile-not-per-frame).
+
+## 23. Bounding the LOD's foreshortening term (2026-08-20)
+
+Same rig and camera as entry 22, plus a static probe logging `(zoom, area, cos θ, distance)` per
+accepted tile. `Options::TileLODFactor` 0.5 (the demo's value), threshold 212 337 px².
+
+The probe's first result is the useful one: at tilt 29 **every** accepted tile is at 79°–89°
+incidence, losing 1.2–3.0 levels to foreshortening — not just the horizon band. And beyond ~15 km
+the tiles are distance-limited: they would need `cos θ > 1` to refine, so no bound on the grazing
+term can reach them.
+
+`Options::TileLODForeshorteningLimit` (default 0 = off = tangram's rule), static camera at
+45.1852/5.7220 z15.71 t29:
+
+| limit | visible set | n |
+|---|---|---|
+| 0 | `z10=3 z12=4 z13=2 z14=4 z15=6` | 19 |
+| 1.25 | `z10=2 z12=4 z13=2 z14=2 z15=9` | 19 |
+| 1.0 | `z11=2 z12=3 z13=6 z14=2 z15=9` | 22 |
+| 0.75 | saturated, same as 1.0 | 22 |
+
+Cost at limit 1.0, panning north at 45.2185/5.7346 z15.37 t29, 3 interleaved pairs, 63 windows:
+
+| | fps | frame ms | tiles/frame |
+|---|---|---|---|
+| off | 26.7 | 29.1 | 40.0 |
+| limit 1.0 | 24.6 | 30.1 | 50.4 |
+
+**+26% tiles for −8% fps.** Off by default, so it costs nothing until an app opts in.
+
+**Method note — do not size an LOD change from a spreadsheet.** Applying the clamp to each accepted
+tile's measured area predicted 19 → 40 tiles, **7× the real cost**. The recursion boosts a parent
+and its children by the same factor, so a tile that splits produces children that stop one level
+down rather than cascading; the per-tile model has no way to see that. Build it and count.
