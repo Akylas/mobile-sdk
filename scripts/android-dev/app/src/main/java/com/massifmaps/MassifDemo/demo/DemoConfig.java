@@ -221,8 +221,12 @@ public final class DemoConfig {
     /** Hide billboards behind relief; tolerance > 0 keeps summits partly behind a ridge visible. */
     public static boolean TERRAIN_BILLBOARD_OCCLUSION = true;
     public static float TERRAIN_OCCLUSION_TOLERANCE = 0.0f;
-    /** Opacity a label keeps while its anchor is behind a BUILDING. 1 = no occlusion. */
+    /** Opacity a label keeps while its anchor is behind a BUILDING, for the whole layer.
+     *  1 = no occlusion. TerrainOptions::TextOcclusionOpacity. */
     public static float TERRAIN_TEXT_OCCLUSION_OPACITY = 1.0f;
+    /** The same, for the ROAD LABEL style layer alone (text-occlusion-opacity). < 0 = not set,
+     *  so the layer-wide value above stands. This is the per-style-layer half. */
+    public static float INLINE_TEXT_OCCLUSION_OPACITY = -1.0f;
     /** 0 = off; caps terrain LOD tile detail at what flat rendering would show. */
     public static boolean TERRAIN_MAX_TILE_ZOOM_OFFSET_ENABLED = false;
     public static int TERRAIN_MAX_TILE_ZOOM_OFFSET = 0;
@@ -1062,6 +1066,7 @@ public final class DemoConfig {
         TERRAIN_BILLBOARD_OCCLUSION = DemoCfg.cfgBool("occlusion", TERRAIN_BILLBOARD_OCCLUSION);
         TERRAIN_OCCLUSION_TOLERANCE = DemoCfg.cfgFloat("occlusionTolerance", TERRAIN_OCCLUSION_TOLERANCE);
         TERRAIN_TEXT_OCCLUSION_OPACITY = DemoCfg.cfgFloat("textOcclusion", TERRAIN_TEXT_OCCLUSION_OPACITY);
+        INLINE_TEXT_OCCLUSION_OPACITY = DemoCfg.cfgFloat("roadLabelOcclusion", INLINE_TEXT_OCCLUSION_OPACITY);
         TERRAIN_BACKGROUND_BITMAP = DemoCfg.cfgBool("backgroundBitmap", TERRAIN_BACKGROUND_BITMAP);
         if (DemoCfg.cfg("maxTileZoomOffset") != null) {
             TERRAIN_MAX_TILE_ZOOM_OFFSET_ENABLED = true;

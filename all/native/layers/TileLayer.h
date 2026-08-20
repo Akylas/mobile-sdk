@@ -453,7 +453,7 @@ namespace massif {
         bool isGroundAOActive() const;
         bool isGroundAOBakeable() const;
         void setLabelOcclusionDepth(unsigned int depthTexture, float occluderSize);
-        float getTextOcclusionOpacity() const;
+        bool isLabelOcclusionWanted() const;
         int renderLabelOcclusionDepth();
         int renderGroundAOMask();
         int bakeGroundAOMask(const vt::TileId& tileId);

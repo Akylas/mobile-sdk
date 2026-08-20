@@ -33,7 +33,7 @@ public final class DemoLive extends BroadcastReceiver {
     };
     private static final String[] TERRAIN_KEYS = {
         "terrain", "drape", "drapeLines", "drapeResolution", "meshResolution", "exaggeration",
-        "viewDistance", "viewDistanceMeters", "coarsening", "stitch"
+        "viewDistance", "viewDistanceMeters", "coarsening", "stitch", "textOcclusion"
     };
     private static final String[] LIGHT_KEYS = {
         "daycycle", "sunHour", "sunAzimuth", "sunAltitude", "shadow", "shadowSoftness",
@@ -43,7 +43,8 @@ public final class DemoLive extends BroadcastReceiver {
     // Anything written INTO the style: the tiles carry it, so it only changes on a re-decode.
     private static final String[] STYLE_KEYS = {
         "style", "styleLight", "bg", "bldColor", "bld3d", "bldLight", "bldAmbient", "bldGradient", "bldGradientHeight",
-        "bldAoRadius", "bldAoIntensity", "bldAoAttenuation", "bldAoStep", "bldEdgeRadius", "bldRoofShade", "bldRoundedRoof"
+        "bldAoRadius", "bldAoIntensity", "bldAoAttenuation", "bldAoStep", "bldEdgeRadius", "bldRoofShade", "bldRoundedRoof",
+        "roadLabelOcclusion"
     };
     private static final String[] SKY_KEYS = { "sky", "skyColor", "horizonColor", "sunDisc" };
     private static final String[] CAMERA_KEYS = { "lon", "lat", "zoom", "tilt", "rotation" };

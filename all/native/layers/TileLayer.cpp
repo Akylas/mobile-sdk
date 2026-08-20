@@ -1068,8 +1068,8 @@ namespace massif {
         }
     }
 
-    float TileLayer::getTextOcclusionOpacity() const {
-        return _tileRenderer ? _tileRenderer->getTextOcclusionOpacity() : 1.0f;
+    bool TileLayer::isLabelOcclusionWanted() const {
+        return _tileRenderer && _tileRenderer->isLabelOcclusionWanted();
     }
 
     int TileLayer::renderLabelOcclusionDepth() {

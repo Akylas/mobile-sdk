@@ -134,8 +134,9 @@ namespace massif {
         bool isGroundAOActive() const;
         bool isGroundAOBakeable() const;
         void setLabelOcclusionDepth(unsigned int depthTexture, float occluderSize);
-        // The resolved TerrainOptions/style value; 1 means nothing to do (see resolveTextOcclusionOpacity).
-        float getTextOcclusionOpacity() const;
+        // Whether anything wants labels occluded by 3D content: the resolved TerrainOptions/Map
+        // default, or a style layer with its own text-occlusion-opacity.
+        bool isLabelOcclusionWanted() const;
         int renderLabelOcclusionDepth();
         int renderGroundAOMask();
         int bakeGroundAOMask(const vt::TileId& tileId);

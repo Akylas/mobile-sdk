@@ -3272,7 +3272,7 @@ namespace massif {
                 layer->collectDrapeLayers(occlusionLayers, viewState);
             }
             unsigned int occlusionTexture = 0;
-            auto occlusionWanted = [](const std::shared_ptr<TileLayer>& tileLayer) { return tileLayer->getTextOcclusionOpacity() < 1.0f; };
+            auto occlusionWanted = [](const std::shared_ptr<TileLayer>& tileLayer) { return tileLayer->isLabelOcclusionWanted(); };
             if (std::any_of(occlusionLayers.begin(), occlusionLayers.end(), occlusionWanted) && viewState.getWidth() > 0 && viewState.getHeight() > 0) {
                 if (!_labelOcclusionBuffer) {
                     // Colour, not a depth texture: the occluders pack their window depth into rgb

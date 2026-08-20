@@ -170,6 +170,8 @@ adb shell am start -n com.massifmaps.MassifDemo/.MainActivity --es ui false --es
   extra, so most experiments need no rebuild: `lon lat zoom tilt rotation`, `drape drapeLines
   drapeResolution meshResolution exaggeration`, `viewDistance`,
   `hs sat satZoom contour bld3d stitch`, `daycycle sunHour sunAzimuth sunAltitude shadow`,
+  `textOcclusion` (labels behind buildings fade to this opacity, 1 = off) and
+  `roadLabelOcclusion` (the same for the road-name style layer alone, a re-decode),
   `ui false` (hide the panel), `anim zoom|pan|rotate|zoomseq|approach` (`approach` = dive close,
   pan along the slope, pull back out — the terrain close-approach repro shape).
 - **Change a knob on the RUNNING app** (`demo/DemoLive.java`) instead of relaunching — a relaunch

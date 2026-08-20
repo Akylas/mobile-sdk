@@ -326,6 +326,9 @@ public final class DemoStyles {
                         DemoConfig.LABEL_MAX_DISTANCE > 0
                             ? "text-max-distance: " + DemoConfig.LABEL_MAX_DISTANCE + ";"
                             : "",
+                        DemoConfig.INLINE_TEXT_OCCLUSION_OPACITY >= 0
+                            ? "text-occlusion-opacity: " + DemoConfig.INLINE_TEXT_OCCLUSION_OPACITY + ";"
+                            : "",
                         " }")
                 : "",
             "#transportation['class'='motorway'] { line-color: #e27d60; line-width: " + DemoConfig.INLINE_MOTORWAY_WIDTH + "; }",

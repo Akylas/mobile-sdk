@@ -867,14 +867,24 @@ default, is no occlusion at all and the pass does not run; 0 hides such a label 
 style's `text-occlusion-opacity` (a `Map`-block property) wins over it wherever it sets one, as
 every other style/option pair here does (`resolveTextOcclusionOpacity`).
 
-Both the name and the meaning are mapbox's `text-occlusion-opacity`. Theirs is a paint property per
-layer and defaults to 0; ours is one value per tile layer and defaults to 1, because turning it on
-by default would spend ~0.85 ms of every frame for a map that may have no 3D content at all.
+A **style layer** may set its own `text-occlusion-opacity` (a `TextSymbolizer` property, so
+`#roads { text-occlusion-opacity: 0; }`), and that wins for its labels — a style can hide its road
+names behind a building and leave its POI labels alone, which is mapbox's granularity. It also turns
+the pass on by itself: `hasStyledLabelOcclusion` is noted while the pass label lists are rebuilt,
+because that loop already touches every label once, and the owner needs the answer *before* the
+layer passes.
 
-### Known gaps
+So three scopes, each overriding the one above it: `TerrainOptions` → the style's `Map` block →
+the style layer.
 
-- Per **tile layer**, not per style layer: a style cannot occlude its road labels and leave its POI
-  labels alone, which mapbox can.
+The name and the meaning are mapbox's. Theirs defaults to 0; ours defaults to 1 at every scope,
+because turning it on by default would spend ~0.85 ms of every frame for a map that may have no 3D
+content at all.
+
+The per-label value rides on the **batch**, not on a per-style slot in the parameter tables: it is a
+property of the style layer, so consecutive labels share it, and a slot would have to join the
+colour/size key every label is matched on. A change of occluded opacity ends a batch the way a
+change of glyph atlas does.
 - A layer whose `LabelRenderOrder` is not `LAST` draws its labels in the 2D pass, before the buffer
   for this frame exists, so it samples the previous frame's — one frame of lag while the camera
   moves.
