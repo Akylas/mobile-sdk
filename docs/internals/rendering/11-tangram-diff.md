@@ -34,7 +34,8 @@ and *still different*, the latter with the reason it is not simply copied.
 | line antialias | none — hard-edged quads (`core/shaders/polyline.fs`) | ramp over one device pixel (`uAntialiasScale`) | **different — we antialias** |
 | content subdivision | none at all | area fills to two surface cells; lines cut at the lattice | **different — see below** |
 | elevation texture | source raster bound directly, ancestors via uv sub-rects, edges extrapolated in-shader (`res/scenes/elevation.yaml`) | per-tile CPU re-encode with a 1-texel border from up to 8 neighbours | **different — see below** |
-| tile LOD | subdivide while screen area > `(2·pixelScale·256)²` (`core/src/tile/tileManager.cpp:214`) | distance rule, ~one zoom level finer | **different — measured not to matter** |
+| tile LOD | subdivide while screen area > `(2·pixelScale·256)²` (`core/src/tile/tileManager.cpp:214`) | same rule, `Options::TileLODFactor` scaling it | ported whole |
+| LOD tile height | terrain depth at the screen centre, one value per frame (`View::getTileScreenArea`) | each tile's own elevation band midpoint | **different — see below** |
 | tile decode threads | 2 (`SceneOptions::numTileWorkers`) | 1 (`Options::setTileThreadPoolSize`) | **different — measured not to matter** |
 | terrain depth read-back | worker thread, shared context, half res, never waited on | worker thread, **unshared** context, submit-interval limited | ported with a difference |
 | terrain shadows | none | cascaded shadow maps (currently off on the shared ground) | **we are ahead** ([08](08-lighting-sky-fog.md)) |
@@ -81,6 +82,23 @@ the name cannot win or lose a slot independently — "icon placed, name dropped"
 no equivalent because CartoCSS centres every line within the block already, so alignment only moves
 the block and one glyph run covers all sides. See
 [06-labels.mdx](06-labels.mdx#anchored-shields-the-name-takes-a-free-side-fork-specific).
+
+### The LOD height is per-tile
+
+Their `getTileScreenArea` projects every tile at the terrain depth under the screen centre. That is
+right for their camera, whose zoom is *defined* by that same depth (see the next section), and wrong
+for ours, which lets the focus keep its own height: at a low tilt the focus can sit a kilometre above
+the near ground, and every near tile is then projected a kilometre too high. We use the tile's own
+elevation band midpoint instead, falling back to their value where the DEM is not decoded yet.
+
+Maplibre is not a precedent for this either — its `coveringTiles` uses the per-tile elevation AABB
+for the **frustum test** only, and its LOD distance is horizontal (`Aabb.distanceX`/`distanceY`).
+
+Cost, gain and the case it does **not** fix (a mountain face given the incidence angle of flat
+ground, because the area is taken on the tile's flat footprint) are in
+[02-tiles.md](02-tiles.md#the-lod-height-is-per-tile-not-per-frame). Note there that maplibre's
+`calculateTileZoom` reduces to the *same* rule as tangram's area test at its default fov, so it is
+not an alternative worth porting for that case.
 
 ### The zoom is calibrated on the focus, not on the terrain
 

@@ -178,6 +178,11 @@ public final class DemoConfig {
      *  (fewer tiles, fewer far labels); 0 refines everything to the camera zoom.
      *  '--es lodFactor 2'. */
     public static float TILE_LOD_FACTOR = 0.5f;
+    /** Zoom levels a tile may lose to the grazing angle alone, 0 = no limit (the tangram rule).
+     *  Bounds only the foreshortening half of the LOD area test, never the distance half, so far
+     *  ground stays coarse while a tilted mid-field is refined. Costs ~2x the tiles per level.
+     *  '--es lodGrazing 1.25'. */
+    public static float TILE_LOD_GRAZING = 0f;
     /** Metres beyond which the inline style's street labels are not placed (0 = no limit). Only
      *  the inline style uses it; it is the 'text-max-distance' CartoCSS property.
      *  '--es labelMaxDistance 2000'. */
@@ -1051,6 +1056,7 @@ public final class DemoConfig {
         // terrain
         TILE_THREAD_POOL_SIZE = DemoCfg.cfgInt("tilePool", TILE_THREAD_POOL_SIZE);
         TILE_LOD_FACTOR = DemoCfg.cfgFloat("lodFactor", TILE_LOD_FACTOR);
+        TILE_LOD_GRAZING = DemoCfg.cfgFloat("lodGrazing", TILE_LOD_GRAZING);
         LABEL_MAX_DISTANCE = DemoCfg.cfgFloat("labelMaxDistance", LABEL_MAX_DISTANCE);
         TERRAIN_ENABLED = DemoCfg.cfgBool("terrain", TERRAIN_ENABLED);
         TERRAIN_CAMERA_CLEARANCE = DemoCfg.cfgFloat("clearance", TERRAIN_CAMERA_CLEARANCE);

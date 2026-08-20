@@ -25,6 +25,7 @@
 namespace massif {
     class CancelableTask;
     class CullState;
+    class ElevationManager;
     class GLResourceManager;
     class ProjectionSurface;
     class TerrainOptions;
@@ -525,7 +526,9 @@ namespace massif {
         int _terrainMinTileZoom = 0; // terrain mode: the coarsest tile zoom the LOD rule may pick
         double _maxVisibleDistance = 0; // internal units; 0 = as far as the camera can see
         double _lodMaxTileArea = 0; // screen pixels squared; the tangram LOD threshold, 0 = no area test
-        double _lodElevation = 0; // world z the LOD projects tile corners at (the terrain under the focus)
+        double _lodMinCosTheta = 0; // cos of the most grazing incidence the LOD charges for, 0 = no limit
+        double _lodElevation = 0; // world z the LOD projects a tile at when the DEM has no data for it (the terrain under the focus)
+        std::shared_ptr<ElevationManager> _lodElevationManager; // held for one cull pass, per-tile terrain height for the LOD
         bool _terrainOverzoomTargets = false; // terrain mode: target tiles may exceed the data source max zoom (overzoom-fed)
 
         std::vector<MapTile> _visibleTiles;

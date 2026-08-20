@@ -56,12 +56,14 @@ Three terrain-specific details, each of which was a bug once:
 
 - **The LOD area is taken at surface level, not from the elevation-expanded bbox.** Otherwise
   subdivision decisions change as elevation streams in, and the visible tile set (and with it tile
-  and DEM fetching) churns forever. "Surface level" is the elevation **at the screen centre**
-  (`_lodElevation`), tangram's choice too (`View::getTileScreenArea`, "use elevation at center of
-  screen"): one value for the whole cull, so it moves with the camera and not with the tile.
-  Measuring a mountain tile as if it lay at sea level puts it further away and makes it smaller, so
-  it stays coarse exactly where the terrain is high and steep — blurred hillshade, a blunt depth
-  occluder that ridges leak through, and a wide LOD spread that tears at tile borders.
+  and DEM fetching) churns forever. Measuring a mountain tile as if it lay at sea level puts it
+  further away and makes it smaller, so it stays coarse exactly where the terrain is high and steep
+  — blurred hillshade, a blunt depth occluder that ridges leak through, and a wide LOD spread that
+  tears at tile borders. "Surface level" is the **midpoint of the tile's own elevation band**
+  (`ElevationManager::getMinMaxDisplayHeightCached`, never loads), falling back to the elevation at
+  the screen centre (`_lodElevation`) where the DEM is not decoded yet. See
+  [the per-tile height](#the-lod-height-is-per-tile-not-per-frame) below for why this differs from
+  both references.
 - **Target tiles may exceed the data source's max zoom** in terrain mode
   (`_terrainOverzoomTargets`, fed by the existing overzoom machinery). A z12 DEM-derived hillshade
   under a z15 camera otherwise renders surfaces many times coarser than the base map's, and those
@@ -80,6 +82,99 @@ Three terrain-specific details, each of which was a bug once:
   [05-depth.md](05-depth-model.md)) — so it is an explicit trade, not the default. A style may pin an absolute
   distance in metres with `terrain-max-visible-distance`. Pair a short one with fog
   ([08-lighting-sky-fog.md](08-lighting-sky-fog.md)) or the ground simply ends.
+
+### The LOD height is per-tile, not per-frame
+
+Both references use **one** height for every tile in a frame. Tangram takes the terrain depth under
+the screen centre (`View::getTileScreenArea`, "use elevation at center of screen"). Maplibre's
+`coveringTiles` uses each tile's real min/max elevation AABB — but only for the **frustum test**:
+its LOD distance is `Aabb.distanceX`/`distanceY`, purely horizontal, and the vertical term
+(`distanceToTileZ`) is the camera-to-center distance, the same for every tile
+(`src/geo/projection/covering_tiles.ts`). Neither refines by per-tile height.
+
+One height per frame is wrong whenever the screen centre is not at the height of the tile being
+judged, and at a low tilt that is most of the frame. Measured on the Crosscall at
+45.2185/5.7346 z15.37 t29 looking north into the Chartreuse, the focus sits at **1389 m** while the
+near valley is at ~250 m: every near tile was projected a kilometre too high.
+
+The tile's own band midpoint is used instead — the midpoint, not the ceiling, because projecting the
+whole quad at the band's top refines a valley tile for one high corner. Measured at the same camera,
+3 interleaved pairs, `--es contour true --es hs true`, panning north:
+
+| tile height | fps (median of 63 windows) | tiles/frame |
+|---|---|---|
+| screen centre (tangram) | 25.7 | 42.0 |
+| band top | 21.8 | 57.0 |
+| band midpoint | 25.8 | 38.8 |
+
+The midpoint redistributes rather than adds: slopes refine, the near valley coarsens. Measured
+effect on the visible set at 45.1852/5.7220 z15.71 t29, a coarse mid-field patch splitting:
+`z10=3 z11=1 z12=4 z14=3 z15=7` → `z10=3 z12=4 z13=2 z14=4 z15=6`.
+
+**What this does not fix: the flat footprint.** At that camera the accepted tiles' areas run
+13k–83k px² against a 212k px² threshold — 3 to 16× under it — so the elevation term moves areas
+without moving levels. The symptom is a mountain that stays coarse after you pan closer to it than a
+tile that was already fine, while flat ground at the same distance behaves.
+
+The cause is not the rule. Both candidate rules decompose identically:
+
+```
+level = const − log2(distance) + (p/2)·log2(cos θ)     θ = incidence angle of the view ray on the ground
+```
+
+with `p = 1` for the area rule, and `p = 2·((maxZoomLevelsOnScreen − 1) / log2(cos(H − fov)/cos H) − 1)`
+for maplibre's `calculateTileZoom` — which is **1.000** at its defaults (`maxZoomLevelsOnScreen`
+9.314, `maxMercatorHorizonAngle` 89.25°, fov 36.87°). Same rule. Swapping to it buys nothing here;
+it only becomes gentler than ours above fov ~37° (p 0.83 at fov 50) and harsher below.
+
+What is wrong is the **input**: the four corners are projected as a flat footprint quad, so a
+mountain face standing toward the camera is given the incidence angle of flat ground in the same
+place. At 85° flat incidence a 30° slope facing the camera really presents cos 55° / cos 85° ≈ 6.6×
+the area — **1.4 levels**. Projecting each corner at its own DEM height instead of all four at one
+height would recover that, and only where the ground is actually tilted toward the viewer. Not done
+yet. The blunt alternative, `Options::TileLODFactor` 0.71, buys the same level everywhere and costs
+2× the tiles.
+
+At **tilt 90** none of this applies: the areas there (408k–464k px²) are above the threshold, so the
+level is the `targetTileZoom` cap, `floor(cameraZoom)`, for every tile. Tangram short-circuits the
+same case explicitly (`if (m_pitch == 0) return FLT_MAX`).
+
+### Bounding what the grazing angle may cost
+
+The area rule folds two independent things into one number. Write it as a level:
+
+```
+level = const − log2(distance) + ½·log2(cos θ)      θ = incidence of the view ray on the ground
+```
+
+The first term is what LOD is *for*. The second is foreshortening, and at a low tilt it dominates
+everything: measured per accepted tile on the Crosscall at 45.1852/5.7220 z15.71 t29, **every tile in
+the frame sits at 79°–89° of incidence** and loses **1.2 to 3.0 levels** to it — the near ones as much
+as the horizon. That is why a mountain 10 km out stays coarse while ground at the same distance
+under a steeper angle is refined, and why panning closer to it does so little: you are buying back
+one level per halving of distance against a 2-level foreshortening debt.
+
+`Options::TileLODForeshorteningLimit` bounds the second term only, as a floor on `cos θ`
+(`limit` levels ⇒ `cos θ ≥ 2^(−2·limit)`). The distance term is untouched, so genuinely far ground
+stays coarse — and it *must*, because beyond ~15 km those tiles would need `cos θ > 1` to refine at
+all. `0` (the default) is the area rule exactly as tangram wrote it.
+
+Measured at that camera, `TileLODFactor` 0.5 (the demo's value), threshold 212 337 px²:
+
+| limit | visible set | n |
+|---|---|---|
+| 0 (off) | `z10=3 z12=4 z13=2 z14=4 z15=6` | 19 |
+| 1.25 | `z10=2 z12=4 z13=2 z14=2 z15=9` | 19 |
+| **1.0** | `z11=2 z12=3 z13=6 z14=2 z15=9` | 22 |
+| 0.75 | same as 1.0 (saturated) | 22 |
+
+At 1.0 the 46–66 km `z10` patches are gone, `z13` triples, and the ladder is continuous `z11`…`z15`
+instead of jumping `z12`→`z10`. Cost while panning (3 interleaved pairs, 63 windows):
+**40.0 → 50.4 tiles/frame, 26.7 → 24.6 fps** — +26% tiles for −8% frame rate.
+
+Do not size this from a spreadsheet. Simulating the clamp per accepted tile predicted 19 → 40 tiles
+at limit 1.0, **7× the real cost**: boosting a parent boosts its children by the same factor, so a
+tile that splits produces children that stop one level down instead of cascading.
 
 ### The coarsening floor times the view distance
 
