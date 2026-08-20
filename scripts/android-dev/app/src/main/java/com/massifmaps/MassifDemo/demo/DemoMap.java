@@ -1354,7 +1354,7 @@ public class DemoMap {
         // it fade out instead of being cut off. The fog itself lives on FogOptions now.
         applyFogOptions();
         terrainOptions.setViewDistanceFactor(DemoConfig.VIEW_DISTANCE_FACTOR);
-        terrainOptions.setViewDistance(DemoConfig.VIEW_DISTANCE_METERS);
+//        terrainOptions.setViewDistance(DemoConfig.VIEW_DISTANCE_METERS);
         terrainOptions.setMaxTileZoomCoarsening(DemoConfig.TERRAIN_MAX_TILE_ZOOM_COARSENING);
         applyReliefSurface();
         mapView.requestRender();
