@@ -569,7 +569,11 @@ namespace massif {
         getMinMaxDisplayHeight(tile, minZ, maxZ, true);
     }
 
-    void ElevationManager::getMinMaxDisplayHeight(const MapTile& tile, double& minZ, double& maxZ, bool exact) const {
+    bool ElevationManager::getMinMaxDisplayHeightCached(const MapTile& tile, double& minZ, double& maxZ) const {
+        return getMinMaxDisplayHeight(tile, minZ, maxZ, true);
+    }
+
+    bool ElevationManager::getMinMaxDisplayHeight(const MapTile& tile, double& minZ, double& maxZ, bool exact) const {
         // Fall back to the maximum elevation actually observed so far (starting flat) instead
         // of a large conservative constant: a many-kilometers default bound would pull far
         // tiles into the view frustum, causing them to fetch elevation data, which changes
@@ -597,10 +601,11 @@ namespace massif {
         if (exact && haveData) {
             minZ = minMeters * exaggeration * scale;
             maxZ = maxMeters * exaggeration * scale;
-            return;
+            return true;
         }
         minZ = std::min(0.0, minMeters * exaggeration * scale);
         maxZ = std::max(0.0, maxMeters * exaggeration * scale);
+        return haveData;
     }
 
     unsigned int ElevationManager::getDataVersion() const {

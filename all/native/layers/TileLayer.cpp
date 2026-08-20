@@ -654,13 +654,16 @@ namespace massif {
             }
         }
 
-        // Screen-centre elevation for the whole cull, like tangram's View::getTileScreenArea - it
-        // moves with the camera, not with the tile (docs/internals/rendering/02-tiles.md, the LOD rule).
+        // Elevation the LOD projects tile corners at. Per tile where the DEM is decoded, screen-centre
+        // elevation elsewhere - tangram's View::getTileScreenArea uses the screen centre for every tile
+        // (docs/internals/rendering/02-tiles.md, the LOD rule).
         _lodElevation = 0;
+        _lodElevationManager.reset();
         if (auto options = getOptions()) {
             if (auto terrainOptions = options->getTerrainOptions()) {
                 if (terrainOptions->isEnabled()) {
                     if (auto elevationManager = terrainOptions->getElevationManager()) {
+                        _lodElevationManager = elevationManager;
                         const cglib::vec3<double>& focusPos = cullState->getViewState().getFocusPos();
                         _lodElevation = elevationManager->getDisplayHeight(focusPos(0), focusPos(1), ElevationManager::LoadMode::CACHED_ONLY);
                     }
@@ -740,6 +743,16 @@ namespace massif {
         // projected area and is always subdivided.
         const cglib::mat4x4<double>& mvpMat = viewState.getModelviewProjectionMat();
         cglib::mat4x4<double> tileMat = tileTransformer->calculateTileMatrix(vtTileId, 1.0f);
+        // The height THIS tile sits at, not the height under the screen centre that tangram uses for
+        // every tile - at a low tilt the focus can be a kilometre above the near ground. The band
+        // midpoint, not its top: see docs/internals/rendering/02-tiles.md, the LOD rule.
+        double lodElevation = _lodElevation;
+        if (_lodElevationManager) {
+            double minZ = 0, maxZ = 0;
+            if (_lodElevationManager->getMinMaxDisplayHeightCached(MapTile(tile.getX() & tileMask, tile.getY(), tile.getZoom(), 0), minZ, maxZ)) {
+                lodElevation = (minZ + maxZ) * 0.5;
+            }
+        }
         double screenArea = std::numeric_limits<double>::infinity();
         {
             static const cglib::vec3<double> CORNERS[4] = {
@@ -750,7 +763,7 @@ namespace massif {
             bool projected = true;
             for (int i = 0; i < 4; i++) {
                 cglib::vec3<double> worldPos = cglib::transform_point(CORNERS[i], tileMat);
-                worldPos(2) += _lodElevation; // see calculateVisibleTiles
+                worldPos(2) += lodElevation;
                 cglib::vec4<double> clipPos = cglib::transform(cglib::vec4<double>(worldPos(0), worldPos(1), worldPos(2), 1.0), mvpMat);
                 if (!(clipPos(3) > 0)) {
                     projected = false;

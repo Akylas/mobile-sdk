@@ -188,6 +188,12 @@ namespace massif {
          * shadow box, not culling. Falls back to the clamped range when the tile has no data.
          */
         void getMinMaxDisplayHeightExact(const MapTile& tile, double& minZ, double& maxZ) const;
+        /**
+         * getMinMaxDisplayHeightExact, plus whether the range came from decoded data: false when
+         * the tile has no cached grid, for a caller that would rather keep its own estimate than
+         * use the conservative global one. Never loads.
+         */
+        bool getMinMaxDisplayHeightCached(const MapTile& tile, double& minZ, double& maxZ) const;
         virtual unsigned int getVersion() const override;
 
         /**
@@ -227,7 +233,7 @@ namespace massif {
         std::shared_ptr<ElevationTileGrid> lookupTileGrid(const MapTile& dataTile, LoadMode mode) const;
         std::shared_ptr<ElevationTileGrid> getGridForInternalPos(double internalX, double internalY, LoadMode mode) const;
         std::shared_ptr<ElevationTileGrid> loadTileGrid(const MapTile& mapTile) const;
-        void getMinMaxDisplayHeight(const MapTile& tile, double& minZ, double& maxZ, bool exact) const;
+        bool getMinMaxDisplayHeight(const MapTile& tile, double& minZ, double& maxZ, bool exact) const;
         void runPrefetchWorker() const;
 
         const std::shared_ptr<TileDataSource> _dataSource;
