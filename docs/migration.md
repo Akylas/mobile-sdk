@@ -143,6 +143,25 @@ banner at the top.
 
 ## Breaking changes after 6.0.0
 
+### 3D buildings cast a contact shadow by default
+
+`building-ao-ground-radius` used to default to `0`, i.e. off, so nothing changed until a style
+asked. It now defaults to **4 metres** with `building-ao-intensity` **0.2**, and an app that
+upgrades gets the shadow without changing anything.
+
+An extrusion with no contact shadow reads as pasted onto the map rather than standing on it, which
+is why it is on. It is not free — around 3 ms of GPU frame at a city camera where there is no
+drape to bake it into, and nothing where there is (see
+[the performance log](internals/performance-log.md)).
+
+| | Before | After |
+|---|---|---|
+| `building-ao-ground-radius` | `0` (off) | `4` |
+| `building-ao-intensity` | `0.5` | `0.2` |
+
+To keep the old look, set `building-ao-ground-radius: 0;` in the style's `Map` block.
+
+
 ### OpenGL ES 3.0 is required
 
 The SDK no longer creates or accepts an OpenGL ES 2.0 context. No API changed — this is a **device**

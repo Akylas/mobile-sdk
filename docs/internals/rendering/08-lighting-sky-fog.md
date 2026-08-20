@@ -607,9 +607,17 @@ end has one, and bailing on it left **every** building sharp.
 ### Contact shadow on the ground
 
 The other half of standing on the terrain, and the reason buildings otherwise read as pasted on.
-`building-ao-ground-radius` (metres, **0 = off**, so nothing changes until a style asks),
-`building-ao-intensity` and `building-ao-ground-attenuation`, on mapbox's names. The reach is
+`building-ao-ground-radius` (metres, default **4**), `building-ao-intensity` (default **0.2**),
+`building-ao-ground-attenuation` and `building-ao-ground-step`, on mapbox's names. The reach is
 `radius / 3.5`, as mapbox divides it, so the style's metres mean there what they mean here.
+**On by default**, unlike most options here: an extrusion without one reads as pasted onto the map
+rather than standing on it. `building-ao-ground-radius: 0` turns it off.
+
+The falloff is `pow` for mapbox's attenuation and then **smoothstepped**, so it lands at both ends
+with zero slope. `pow` alone has an infinite derivative as it reaches the edge and the eye reads
+that as a crease - an outline drawn around every building, which is the opposite of what a contact
+shadow is for. It also makes the band flattest against the wall, where the occlusion really is
+most complete.
 
 mapbox's model, ported whole:
 
@@ -680,25 +688,29 @@ cover and the extrusions.
 reaches under 1 m — half a texel, then mipmapped away. It was baking correctly and was simply below
 the sampling resolution; 1024 is what makes it visible.
 
-#### Known gap: the drape is a flat projection
+#### Known gap: the band is measured in PLAN, not along the ground
 
-Two separate things made a draped shadow stop matching its footprint, and only one is fixed.
+On a slope the shadow stops matching its footprint - it spreads downhill and reads as displaced.
 
-**Grazing-angle smear (fixed).** The drape was `GL_LINEAR_MIPMAP_*` with no anisotropic filtering.
-At tilt the sampler's two axes are wildly different and mip selection follows the worst of them, so
-everything baked into the drape blurred along the view direction - by an amount that changes with
-the camera's rotation, which is what made it read as orientation-dependent. `TerrainDrapeCache` now
-sets `GL_TEXTURE_MAX_ANISOTROPY_EXT` (the machinery was already there for `Texture`). It costs
-sampler bandwidth on the surface draw and nothing else: 11.2 ms GPU total against a 10.7-12.5
-bracket before it, i.e. not measurable. It sharpens every draped layer, not just this one.
+**It is not the drape.** That was the first explanation, and it was wrong: the drape bakes
+orthographically over the tile, so it seemed obvious that the stretch came from painting a flat
+bake onto a displaced mesh. Rendering the same camera through the screen-space path, which has no
+such projection, showed **the same displacement**. Whatever it is, both paths share it.
 
-**The projection (open).** The drape is baked **orthographically over the tile** and painted onto
-the displaced mesh, so a band baked `r` wide in plan lands `r / cos(slope)` wide along the ground.
-Resolution sharpens texels and does not change that. It cannot be fixed by changing the drape's
-projection - the surface samples by tile-plan uv and every draped layer depends on it - but it can
-be fixed by **pre-distorting the content**: sample the elevation gradient in the AO bake fragment
-and divide the distance by `normal.z`, so the band measures `r` on the actual surface. Bake-time
-only, so free per frame. Not implemented.
+What they share is the geometry: the capsule is built in **plan**, so a band `r` wide in plan
+covers `r / cos(slope)` of actual ground, and it does so asymmetrically about the footprint once
+the ground tilts. The fix is to correct the distance for the local slope - sample the elevation
+gradient and divide by `normal.z` - which would apply to both paths. Not implemented.
+
+Two things were fixed along the way and are worth keeping separate from the above:
+
+- **Grazing-angle smear.** The drape was `GL_LINEAR_MIPMAP_*` with no anisotropic filtering, so
+  everything baked into it blurred along the view direction by an amount that changed with the
+  camera's rotation. `TerrainDrapeCache` now sets `GL_TEXTURE_MAX_ANISOTROPY_EXT`; not measurable
+  (11.2 ms GPU total against a 10.7-12.5 bracket), and it sharpens every draped layer.
+- **Drape texel size.** At 512 per tile a drape texel is ~1.7 ground metres against a sub-metre
+  band. 1024 is what makes the shadow visible at all; it does not change the stretch.
+
 
 Screen-space AO over the scene depth was not tried: the whole 3D pass is ~9 ms on an Adreno 610.
 It is the only option that would also darken building-against-building, which this does not.
