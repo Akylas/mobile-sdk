@@ -451,6 +451,7 @@ namespace massif {
         void setTerrainShadowMask(unsigned int texture, float invScreenWidth, float invScreenHeight);
         int renderTerrainShadowMask(const std::vector<vt::TileId>& tileIds);
         bool isGroundAOActive() const;
+        bool isGroundAOBakeable() const;
         int renderGroundAOMask();
         int bakeGroundAOMask(const vt::TileId& tileId);
         void setTerrainSunLighting(const ResolvedLighting& lighting);

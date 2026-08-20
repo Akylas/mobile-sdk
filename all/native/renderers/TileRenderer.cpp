@@ -247,6 +247,16 @@ namespace massif {
         vt::ViewState prepareViewState(viewState.getProjectionMat(), prepareModelViewMat, viewState.getZoom(), viewState.getRotation(), viewState.getTilt(), viewState.getAspectRatio(), viewState.getNormalizedResolution());
         prepareViewState.planarProjection = isPlanarProjectionMode();
         tileRenderer->setViewState(prepareViewState);
+        // Same reason for the contact shadows: the drape bake asks whether they are active before
+        // onDrawFrame has resolved any lighting, so on the first frame at a camera they baked with
+        // intensity 0 - and a cached drape is never re-baked for a uniform change, so they stayed
+        // missing until a zoom rebuilt the tiles.
+        if (auto options = _options.lock()) {
+            ResolvedLighting lighting = resolveLighting(options->getLightOptions(), _styleEnvironment);
+            _groundAOIntensity = lighting.buildingAoIntensity;
+            _groundAOAttenuation = lighting.buildingAoGroundAttenuation;
+        }
+        tileRenderer->setGroundAO(_groundAOIntensity, _groundAOAttenuation);
         try {
             _framePrepareResult = tileRenderer->startFrame(deltaSeconds * 3);
         }
@@ -441,6 +451,15 @@ namespace massif {
 
         if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
             return tileRenderer->isGroundAOActive();
+        }
+        return false;
+    }
+
+    bool TileRenderer::isGroundAOBakeable() const {
+        std::lock_guard<std::mutex> lock(_mutex);
+
+        if (std::shared_ptr<vt::GLTileRenderer> tileRenderer = (_vtRenderer ? _vtRenderer->getTileRenderer() : std::shared_ptr<vt::GLTileRenderer>())) {
+            return tileRenderer->isGroundAOBakeable();
         }
         return false;
     }

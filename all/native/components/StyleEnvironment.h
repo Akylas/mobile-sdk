@@ -95,7 +95,7 @@ namespace massif {
         // The contact shadow on the ground around a footprint. Its RADIUS is decode-time geometry
         // (TileLayerBuilder::appendGroundSkirt); these two shade the skirt it produced.
         float buildingAoIntensity = 0.2f;
-        float buildingAoGroundAttenuation = 0.69f;
+        float buildingAoGroundAttenuation = 1.75f;
         float shadowStrength = 0.0f;
         float shadowBias = 0.25f;
         float shadowNormalOffset = 3.0f;

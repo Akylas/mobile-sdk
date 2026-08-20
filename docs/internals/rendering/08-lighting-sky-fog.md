@@ -613,11 +613,21 @@ The other half of standing on the terrain, and the reason buildings otherwise re
 **On by default**, unlike most options here: an extrusion without one reads as pasted onto the map
 rather than standing on it. `building-ao-ground-radius: 0` turns it off.
 
-The falloff is `pow` for mapbox's attenuation and then **smoothstepped**, so it lands at both ends
-with zero slope. `pow` alone has an infinite derivative as it reaches the edge and the eye reads
-that as a crease - an outline drawn around every building, which is the opposite of what a contact
-shadow is for. It also makes the band flattest against the wall, where the occlusion really is
-most complete.
+The falloff is `occlusion = (1 - d)^k`, `k` being `building-ao-ground-attenuation` (default
+**1.75**): full against the wall, zero at the radius, and above 1 it reaches the radius with zero
+slope, so there is no crease for the eye to read as an outline drawn around every building. 1.75
+halves the shadow a third of the way out (`0.5 -> 0.3`), which is the profile a contact shadow
+wants. mapbox's own attenuation (their default 0.69, applied as `1 - pow(1 - d, k)`) reads far too
+strong across the whole band, with or without a smoothstep over it.
+
+**Under the footprint the band does not fall off.** The capsule already covers a radius *inside*
+the ring as well as outside; holding it at full strength there hides the seam where a draped shadow
+meets a wall on a slope, since the dark side is the side the displacement moves it towards. Which
+side is "under" comes from the ring's signed area, **flipped for every ring after the first** — a
+hole's material is the side it does not enclose. It cannot be read from the winding alone: the tile
+data does not guarantee holes wind the other way, and a courtyard whose winding matched its outer
+ring came out filled solid, with no ramp at all. Only alongside the edge itself: past its ends that
+half-plane leaves the footprint, and the neighbouring edge's own quad covers what is left.
 
 mapbox's model, ported whole:
 
@@ -635,8 +645,9 @@ mapbox's model, ported whole:
 Only for a footprint that is **extruded** and **stands on the ground**: `maxHeight > minHeight`
 (a flat one cast a full ring onto open ground with nothing above it) and `minHeight <= 0` (a
 `building:part` starting at 20 m — a bridge deck, a tunnel roof — was shadowing ground it never
-touches). It scales by the tile's fade, which arrives as the style colour's alpha, or an extrusion
-that fades in by *growing* gets a full-strength shadow before it is there.
+touches). On the **screen-space** path it scales by the tile's fade, which arrives as the style
+colour's alpha, or an extrusion that fades in by *growing* gets a full-strength shadow before it
+is there.
 
 The quads are **split along the wall** at 1/32 of a tile, the regular terrain grid's own cell. A
 quad's four corners land on the surface but its interior interpolates linearly between them, so one
@@ -661,6 +672,29 @@ skips any layer without *drapeable* content and extrusions are not drapeable, so
 contributed nothing: its tiles decoded without changing the fingerprint, no re-bake was asked for,
 and whichever drape textures were baked before the buildings arrived kept no shadow for as long as
 they stayed cached. That was AO missing from scattered tiles with no pattern to it.
+
+##### A bake is a cached picture: nothing per-frame may enter it
+
+Three separate bugs, all the same shape — the shadow was baked at whatever transient strength the
+frame happened to have, and a cached texture is only re-baked when its tile's *content* changes.
+All three read identically from the outside: **launch above zoom 16 and there is no contact shadow
+until a zoom out and back in**.
+
+- **The tile's fade-in.** `bakeGroundAOMask` passed `renderLayer.blend`. The first frame a tile has
+  extrusions to bake is the frame they appear, i.e. blend ≈ 0, so the shadow froze at nothing. It
+  now bakes at blend 1, as every other bake in `bakeDrapeTile` already did.
+- **The zoom fade.** `groundAOZoomFade` belongs to the screen-space pass, which pays per frame.
+  `isGroundAOBakeable` is the drape's predicate and applies none: a launch animation passing below
+  zoom 16 was enough to bake a whole screen of tiles with no shadow.
+- **The lighting resolve order.** `TileRenderer::onDrawFrame` resolves the lighting, and the drape
+  bake runs *before* it, so on the first frame at a camera the intensity was still 0.
+  `prepareFrameUnsafe` now pushes it, next to the view state it already pushed for the same reason.
+
+**The shadow is in the stack signature, not only the per-tile fingerprint**
+(`TileLayer::drapeStackSignature`). A drape tile is fingerprinted from render tiles *of its own
+zoom*, while the shadow it carries can come from a coarser render tile covering it — so a z18 leaf
+never noticed a z17 tile's extrusions arriving. The stack signature is the existing mechanism for
+"content baked into a tile that is not made of that tile", and it flips once per session.
 
 #### The dead ends
 

@@ -2677,7 +2677,7 @@ namespace massif {
                     // Resolved once, not per tile: it locks two mutexes per layer.
                     bool groundAOWanted = false;
                     for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
-                        groundAOWanted = tileLayer->isGroundAOActive() || groundAOWanted;
+                        groundAOWanted = tileLayer->isGroundAOBakeable() || groundAOWanted;
                     }
                     static int bakedTiles = 0, bakedPrimitives = 0;
                     int surfaceDraws = 0, filledSurfaces = 0, skippedSurfaces = 0;

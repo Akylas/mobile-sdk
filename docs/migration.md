@@ -154,10 +154,15 @@ is why it is on. It is not free — around 3 ms of GPU frame at a city camera wh
 drape to bake it into, and nothing where there is (see
 [the performance log](internals/performance-log.md)).
 
+`building-ao-ground-attenuation` also **changes meaning**: it is now the exponent `k` of
+`occlusion = (1 - d)^k`, not mapbox's `1 - pow(1 - d, k)`. Higher keeps the shadow tighter to the
+wall; the old formula read far too strong across the whole band.
+
 | | Before | After |
 |---|---|---|
 | `building-ao-ground-radius` | `0` (off) | `4` |
 | `building-ao-intensity` | `0.5` | `0.2` |
+| `building-ao-ground-attenuation` | `0.69`, mapbox's curve | `1.75`, exponent of `(1 - d)` |
 
 To keep the old look, set `building-ao-ground-radius: 0;` in the style's `Map` block.
 

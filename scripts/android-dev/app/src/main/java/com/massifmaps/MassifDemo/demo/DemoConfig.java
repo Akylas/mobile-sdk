@@ -524,13 +524,14 @@ public final class DemoConfig {
     public static float INLINE_BUILDING_AMBIENT = 0.5f;
     public static float INLINE_BUILDING_GRADIENT = 0f;
     public static float INLINE_BUILDING_GRADIENT_HEIGHT = 20f;
-    /** Contact shadow on the ground around a footprint. Radius 0 = off, which is the default. */
-    public static float INLINE_BUILDING_AO_RADIUS = 0f;
-    public static float INLINE_BUILDING_AO_INTENSITY = 0.5f;
+    /** Contact shadow on the ground around a footprint, in metres. Radius 0 = off. */
+    public static float INLINE_BUILDING_AO_RADIUS = 4f;
+    public static float INLINE_BUILDING_AO_INTENSITY = 0.2f;
     /** Metres between subdivisions along a wall of the contact shadow. 0 = the terrain grid cell.
      *  Raise it to see the chord artifact on a slope, lower it to kill it. */
     public static float INLINE_BUILDING_AO_STEP = 0f;
-    public static float INLINE_BUILDING_AO_ATTENUATION = 0.69f;
+    /** Exponent of the falloff: occlusion = (1 - d)^k. Higher keeps it tighter to the wall. */
+    public static float INLINE_BUILDING_AO_ATTENUATION = 1.75f;
     /** Bevel at the roof edge, in metres. 0 = a hard 90 degrees, which is the default. */
     public static float INLINE_BUILDING_EDGE_RADIUS = 0f;
     /** Roofs multiplied by this. 1 = untouched; below 1 is the mapbox look. */

@@ -965,7 +965,16 @@ namespace massif {
     }
 
     std::size_t TileLayer::drapeStackSignature() const {
-        return static_cast<std::size_t>(reinterpret_cast<std::uintptr_t>(this));
+        // The contact shadows belong here rather than in the per-tile fingerprint: a drape tile is
+        // fingerprinted from the render tiles OF ITS OWN ZOOM, while the shadow it carries can come
+        // from a coarser render tile covering it. A tile baked before the extrusions had decoded
+        // then kept no shadow and nothing ever asked it to bake again - which is a launch with a
+        // warm tile cache showing no contact shadows until a zoom rebuilds the drape.
+        std::size_t signature = static_cast<std::size_t>(reinterpret_cast<std::uintptr_t>(this));
+        if (isGroundAOBakeable()) {
+            signature ^= 0x9e3779b9;
+        }
+        return signature;
     }
 
     bool TileLayer::prepareTerrainDrapeFrame(float deltaSeconds, const ViewState& viewState) {
@@ -1047,6 +1056,10 @@ namespace massif {
 
     bool TileLayer::isGroundAOActive() const {
         return _tileRenderer && _tileRenderer->isGroundAOActive();
+    }
+
+    bool TileLayer::isGroundAOBakeable() const {
+        return _tileRenderer && _tileRenderer->isGroundAOBakeable();
     }
 
     int TileLayer::renderGroundAOMask() {
