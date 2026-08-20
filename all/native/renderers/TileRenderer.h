@@ -131,6 +131,9 @@ namespace massif {
         void setTerrainShadowMap(unsigned int texture, int mapSize, int cascades, const std::array<float, 4>& depthBiases, float strength, float softness, bool depthTexture, bool hardwarePCF, float normalOffset, const cglib::vec3<float>& sunDir, const std::array<cglib::mat4x4<double>, 4>& lightViewProjs);
         void setTerrainShadowMask(unsigned int texture, float invScreenWidth, float invScreenHeight);
         int renderTerrainShadowMask(const std::vector<vt::TileId>& tileIds);
+        bool isGroundAOActive() const;
+        int renderGroundAOMask();
+        int bakeGroundAOMask(const vt::TileId& tileId);
         // Pushed by the owner BEFORE the shared terrain surface is drawn. onDrawFrame sets the same
         // state, but it runs after that draw, so the surface would light itself with the PREVIOUS
         // frame's sun - invisible while the map redrew continuously, and a change that appears not

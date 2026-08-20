@@ -1,4 +1,4 @@
-#include "TerrainShadowMaskBuffer.h"
+#include "ScreenMaskBuffer.h"
 #include "renderers/utils/GLContext.h"
 #include "utils/Log.h"
 
@@ -6,7 +6,8 @@
 
 namespace massif {
 
-    TerrainShadowMaskBuffer::TerrainShadowMaskBuffer() :
+    ScreenMaskBuffer::ScreenMaskBuffer(bool useDepth) :
+        _useDepth(useDepth),
         _width(0),
         _height(0),
         _frameBuffer(0),
@@ -16,20 +17,20 @@ namespace massif {
     {
     }
 
-    TerrainShadowMaskBuffer::~TerrainShadowMaskBuffer() {
+    ScreenMaskBuffer::~ScreenMaskBuffer() {
         // GL resources must be released explicitly via deleteResources() while the context is
         // current; the destructor may run after it is gone.
     }
 
-    int TerrainShadowMaskBuffer::getWidth() const {
+    int ScreenMaskBuffer::getWidth() const {
         return _width;
     }
 
-    int TerrainShadowMaskBuffer::getHeight() const {
+    int ScreenMaskBuffer::getHeight() const {
         return _height;
     }
 
-    void TerrainShadowMaskBuffer::setSize(int screenWidth, int screenHeight, int divisor) {
+    void ScreenMaskBuffer::setSize(int screenWidth, int screenHeight, int divisor) {
         int width = std::max(1, screenWidth / std::max(1, divisor));
         int height = std::max(1, screenHeight / std::max(1, divisor));
         if (width != _width || height != _height) {
@@ -40,7 +41,7 @@ namespace massif {
         }
     }
 
-    bool TerrainShadowMaskBuffer::createResources() {
+    bool ScreenMaskBuffer::createResources() {
         if (_frameBuffer != 0) {
             return true;
         }
@@ -59,34 +60,39 @@ namespace massif {
         glBindTexture(GL_TEXTURE_2D, 0);
 
         // Depth, because the terrain tiles overlap on screen: without it the last tile drawn wins
-        // a pixel instead of the nearest one, and the mask holds the shadow of hidden ground.
-        glGenRenderbuffers(1, &_depthBuffer);
-        glBindRenderbuffer(GL_RENDERBUFFER, _depthBuffer);
-        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, _width, _height);
-        glBindRenderbuffer(GL_RENDERBUFFER, 0);
+        // a pixel instead of the nearest one, and the mask holds the shadow of hidden ground. A
+        // pass that reduces its draws with a blend equation instead does not need it.
+        if (_useDepth) {
+            glGenRenderbuffers(1, &_depthBuffer);
+            glBindRenderbuffer(GL_RENDERBUFFER, _depthBuffer);
+            glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, _width, _height);
+            glBindRenderbuffer(GL_RENDERBUFFER, 0);
+        }
 
         GLint prevFrameBuffer = 0;
         glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFrameBuffer);
         glGenFramebuffers(1, &_frameBuffer);
         glBindFramebuffer(GL_FRAMEBUFFER, _frameBuffer);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, _texture, 0);
-        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, _depthBuffer);
+        if (_useDepth) {
+            glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, _depthBuffer);
+        }
         bool complete = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
         glBindFramebuffer(GL_FRAMEBUFFER, prevFrameBuffer);
         if (!complete) {
             deleteResources();
             _failed = true;
-            Log::Errorf("TerrainShadowMaskBuffer: no usable %d x %d mask - the surface falls back to the analytic lookup", _width, _height);
+            Log::Errorf("ScreenMaskBuffer: no usable %d x %d mask - the effect that wanted it is skipped", _width, _height);
             return false;
         }
         return true;
     }
 
-    unsigned int TerrainShadowMaskBuffer::getTexture() {
+    unsigned int ScreenMaskBuffer::getTexture() {
         return createResources() ? _texture : 0;
     }
 
-    bool TerrainShadowMaskBuffer::beginPass() {
+    bool ScreenMaskBuffer::beginPass() {
         if (!createResources()) {
             return false;
         }
@@ -99,16 +105,21 @@ namespace massif {
         glDisable(GL_BLEND);
         glDisable(GL_STENCIL_TEST);
         glDisable(GL_CULL_FACE); // displaced surfaces can face away near ridge crests
-        glEnable(GL_DEPTH_TEST);
-        glDepthFunc(GL_LESS);
-        glDepthMask(GL_TRUE);
-        // White = fully lit, which is what a pixel with no terrain in it must contribute.
+        if (_useDepth) {
+            glEnable(GL_DEPTH_TEST);
+            glDepthFunc(GL_LESS);
+            glDepthMask(GL_TRUE);
+        } else {
+            glDisable(GL_DEPTH_TEST);
+            glDepthMask(GL_FALSE);
+        }
+        // White = untouched, which is what a pixel neither shadowed nor near a wall contributes.
         glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glClear(_useDepth ? (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT) : GL_COLOR_BUFFER_BIT);
         return true;
     }
 
-    void TerrainShadowMaskBuffer::endPass(unsigned int previousFrameBuffer, int viewportWidth, int viewportHeight) {
+    void ScreenMaskBuffer::endPass(unsigned int previousFrameBuffer, int viewportWidth, int viewportHeight) {
         // Detach before anything samples it - see beginPass.
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
         glBindFramebuffer(GL_FRAMEBUFFER, previousFrameBuffer);
@@ -118,7 +129,25 @@ namespace massif {
         glDepthMask(GL_FALSE);
     }
 
-    void TerrainShadowMaskBuffer::deleteResources() {
+    bool ScreenMaskBuffer::beginPassRaw() {
+        if (!createResources()) {
+            return false;
+        }
+        glBindFramebuffer(GL_FRAMEBUFFER, _frameBuffer);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, _texture, 0);
+        glViewport(0, 0, _width, _height);
+        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | (_useDepth ? GL_DEPTH_BUFFER_BIT : 0));
+        return true;
+    }
+
+    void ScreenMaskBuffer::endPassRaw(unsigned int previousFrameBuffer, int viewportWidth, int viewportHeight) {
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
+        glBindFramebuffer(GL_FRAMEBUFFER, previousFrameBuffer);
+        glViewport(0, 0, viewportWidth, viewportHeight);
+    }
+
+    void ScreenMaskBuffer::deleteResources() {
         if (_frameBuffer != 0) {
             glDeleteFramebuffers(1, &_frameBuffer);
             _frameBuffer = 0;

@@ -1045,6 +1045,24 @@ namespace massif {
         return 0;
     }
 
+    bool TileLayer::isGroundAOActive() const {
+        return _tileRenderer && _tileRenderer->isGroundAOActive();
+    }
+
+    int TileLayer::renderGroundAOMask() {
+        if (_tileRenderer) {
+            return _tileRenderer->renderGroundAOMask();
+        }
+        return 0;
+    }
+
+    int TileLayer::bakeGroundAOMask(const vt::TileId& tileId) {
+        if (_tileRenderer) {
+            return _tileRenderer->bakeGroundAOMask(tileId);
+        }
+        return 0;
+    }
+
     void TileLayer::setTerrainShadowMap(unsigned int texture, int mapSize, int cascades, const std::array<float, 4>& depthBiases, float strength, float softness, bool depthTexture, bool hardwarePCF, float normalOffset, const cglib::vec3<float>& sunDir, const std::array<cglib::mat4x4<double>, 4>& lightViewProjs) {
         _tileRenderer->setTerrainShadowMap(texture, mapSize, cascades, depthBiases, strength, softness, depthTexture, hardwarePCF, normalOffset, sunDir, lightViewProjs);
     }

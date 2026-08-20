@@ -297,6 +297,49 @@ passes — which turned out not to run at all once a tile layer owns depth-write
 (`background=0 keepDepth=0 prepass=0 depthWriteAssigned=1`), and eliminating them is what pointed at
 vt's direct draw.
 
+## Extrusions on a slope
+
+A building is a **prism, not a cloth**. Displacing every extrusion vertex by the terrain under it —
+which is what tangram does (`position.z += getElevation()` in `terrain-3d.yaml`, per vertex, for
+every style) — shears the roof down the hillside and the building reads as melted.
+
+mapbox splits the two ends, and that is what is implemented here:
+
+| | aligned to | result |
+|---|---|---|
+| base ring | the terrain under each vertex | the wall meets the slope everywhere, no gap, no float |
+| everything above it | ONE elevation, the footprint's centroid | the roof stays level; walls simply grow taller downhill |
+
+The centroid rides in the **texcoord slot**, which was free because for an extrusion `_texCoords`
+was a byte-for-byte duplicate of `_coords`. `polygon3DVsh` feeds it to `applyTerrain` for the anchor
+and keeps the position for the tile clip. `packGeometry` forces `texCoordScale == coordScale` for
+`POLYGON3D` so both are in the raw coord units `applyTerrain` expects.
+
+### The dead ends
+
+**maplibre's rigid prism buries buildings.** Their `fill_extrusion.vertex.glsl` anchors the base at
+the centroid too and sinks it by a flat 10 m ("basement") so it cannot hang over a falling slope.
+On the Bastille hillside the ground rises further than a building is tall, so the whole prism
+disappears into the hill. 10 m is not a tunable that fixes it — the base has to follow the terrain.
+
+**The anchor must go through the transformer.** `DefaultVertexTransformer::calculatePoint` returns
+`(x, 1 - y, 0)`. The coords go through it; a centroid stored raw does not, so `applyTerrain` sampled
+a **mirrored y** — a different hill entirely, and every building on a slope sank out of sight. The
+tile clip then has to flip back, because `uTileMatrix` works in unflipped tile space.
+
+**Do not clip by the centroid.** Making the overzoom clip test the centroid looks tidy — one tile
+owns each building, no cutting at borders — but a building can reach into a tile while its centroid
+sits in a neighbour, and then *every* tile holding it discards it. Walls vanish until a zoom out
+retiles them. The clip stays per vertex.
+
+### What is still wrong
+
+A level roof anchored at one point is still swallowed wherever the hill rises past
+`anchor + height`. The top is clamped to the ground under it, so it bends rather than disappearing —
+better than vanishing, not correct. Fixing it properly needs the **maximum** terrain over the
+footprint, which no vertex can know on its own; it would have to be sampled on the CPU, and the
+tesselator has no DEM. mapbox buries buildings here too.
+
 ## Near and far planes
 
 Terrain mode floors the near plane at **camera height / 50**, which is tangram's

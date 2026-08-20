@@ -31,7 +31,7 @@
 #include "renderers/TerrainRenderer.h"
 #include "renderers/utils/TerrainDrapeCache.h"
 #include "renderers/utils/TerrainShadowMap.h"
-#include "renderers/utils/TerrainShadowMaskBuffer.h"
+#include "renderers/utils/ScreenMaskBuffer.h"
 
 #include <chrono>
 #include <set>
@@ -1074,6 +1074,8 @@ namespace massif {
         _terrainDrapeCache.reset();
         _terrainShadowMap.reset();
         _terrainShadowMaskBuffer.reset();
+        _groundAOMaskBuffer.reset();
+        _groundAODrapeBuffer.reset();
         _shadowMapValid = false;
 
         // Notify renderers about the event
@@ -1335,6 +1337,53 @@ namespace massif {
         GLContext::CheckGLError("MapRenderer::blendAndUnbindScreenFBO");
     }
 
+    void MapRenderer::drawMaskQuad(unsigned int texture, float invWidth, float invHeight) {
+        if (texture == 0 || !_glResourceManager) {
+            return;
+        }
+        static const GLfloat screenVertices[8] = { -1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, 1.0f, 1.0f };
+
+        if (!_screenBlendShader || !_screenBlendShader->isValid()) {
+            _screenBlendShader = _glResourceManager->create<Shader>("blend", BLEND_VERTEX_SHADER, BLEND_FRAGMENT_SHADER);
+        }
+        glUseProgram(_screenBlendShader->getProgId());
+
+        glVertexAttribPointer(_screenBlendShader->getAttribLoc("a_coord"), 2, GL_FLOAT, GL_FALSE, 0, screenVertices);
+        glEnableVertexAttribArray(_screenBlendShader->getAttribLoc("a_coord"));
+
+        cglib::mat4x4<float> mvpMatrix = cglib::mat4x4<float>::identity();
+        glUniformMatrix4fv(_screenBlendShader->getUniformLoc("u_mvpMat"), 1, GL_FALSE, mvpMatrix.data());
+        glUniform1i(_screenBlendShader->getUniformLoc("u_tex"), 0);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, texture);
+        glUniform4f(_screenBlendShader->getUniformLoc("u_color"), 1.0f, 1.0f, 1.0f, 1.0f);
+        glUniform2f(_screenBlendShader->getUniformLoc("u_invScreenSize"), invWidth, invHeight);
+
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glDisableVertexAttribArray(_screenBlendShader->getAttribLoc("a_coord"));
+
+        GLContext::CheckGLError("MapRenderer::drawMaskQuad");
+    }
+
+    void MapRenderer::multiplyScreenMask(unsigned int texture, float invWidth, float invHeight) {
+        // dst *= mask. No depth test: the mask holds white everywhere no footprint reaches, so the
+        // multiply is a no-op there and only the ground around a building is touched. The strip's
+        // two triangles wind opposite ways, so culling would discard exactly half of it.
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_ZERO, GL_SRC_COLOR);
+        glBlendEquation(GL_FUNC_ADD);
+        glDisable(GL_DEPTH_TEST);
+        glDepthMask(GL_FALSE);
+        glDisable(GL_CULL_FACE);
+
+        drawMaskQuad(texture, invWidth, invHeight);
+
+        glDisable(GL_BLEND);
+        glEnable(GL_DEPTH_TEST);
+    }
+
     void MapRenderer::setZBuffering(bool enable) {
         glDepthMask(enable ? GL_TRUE : GL_FALSE);
     }
@@ -1459,6 +1508,10 @@ namespace massif {
     // quarter of the screen resolution is not visible in the result - measured against a half:
     // the mask pass 14-16 ms -> 8-9 ms, and 8.5 -> 9.6 fps.
     static const int SHADOW_MASK_DIVISOR = 4;
+    // ... and for the extrusions' contact shadows. Half, not a quarter: this one is a few metres
+    // wide on the ground, so its own gradient is most of what a quarter-resolution texel would
+    // average away. The LINEAR fetch that reads it back is also the only blur the effect gets.
+    static const int GROUND_AO_MASK_DIVISOR = 2;
     // The tile zoom the caster ring's reach is derived from: coarse enough that one tile spans the
     // massif whose shadow reaches the view, not just the ground under it. ~28 km at latitude 45.
     static const int SHADOW_RELIEF_ZOOM = 10;
@@ -1885,7 +1938,7 @@ namespace massif {
         float invWidth = 0.0f, invHeight = 0.0f;
         if (shadowTexture != 0 && viewState.getWidth() > 0 && viewState.getHeight() > 0) {
             if (!_terrainShadowMaskBuffer) {
-                _terrainShadowMaskBuffer = std::make_unique<TerrainShadowMaskBuffer>();
+                _terrainShadowMaskBuffer = std::make_unique<ScreenMaskBuffer>();
             }
             _terrainShadowMaskBuffer->setSize(viewState.getWidth(), viewState.getHeight(), SHADOW_MASK_DIVISOR);
             FRAME_PROF_GPU_BEGIN(SECTION_SHADOWMASK);
@@ -2218,6 +2271,10 @@ namespace massif {
         // terrain - so a hillshade layer and a vector tile layer share one drape, one surface and
         // one depth domain instead of each keeping its own. Content that is draped never enters
         // the 3D scene at all, which is what removes the whole content-vs-surface depth problem.
+        // Whether the RTT drape actually carried the ground this frame, so the screen-space contact
+        // shadow knows to stand down. collectDrapeLayers below returns every visible tile layer,
+        // draped or not, and cannot answer this.
+        bool groundAODraped = false;
         std::vector<std::shared_ptr<TileLayer> > drapeLayers;
         bool sharedGroundActive = false;
         if (terrainMode) {
@@ -2617,6 +2674,11 @@ namespace massif {
                     };
                     // Cumulative since start: bakes are cached, so a per-frame count is 0 on most
                     // frames and says nothing about whether baking ever produced anything.
+                    // Resolved once, not per tile: it locks two mutexes per layer.
+                    bool groundAOWanted = false;
+                    for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
+                        groundAOWanted = tileLayer->isGroundAOActive() || groundAOWanted;
+                    }
                     static int bakedTiles = 0, bakedPrimitives = 0;
                     int surfaceDraws = 0, filledSurfaces = 0, skippedSurfaces = 0;
                     // Per-frame, unlike the cumulative counter above: the shadow cache below needs
@@ -2882,6 +2944,48 @@ namespace massif {
                                 break;
                             }
                         }
+                        // The extrusions' contact shadows, resolved per tile under MIN and
+                        // multiplied into this tile's drape. Baked into the ground itself, so the
+                        // shadow follows the terrain exactly - a screen-space capsule cannot,
+                        // because one quad spans a slope linearly between its own corners.
+                        //
+                        // Every GL state this touches is put back the way bakeDrapeTile leaves it.
+                        // Culling above all: the bake matrix maps tile-local xy straight to clip
+                        // with no y flip, so a stray glEnable(GL_CULL_FACE) here empties every tile
+                        // baked after this one.
+                        if (groundAOWanted) {
+                            if (!_groundAODrapeBuffer) {
+                                _groundAODrapeBuffer = std::make_unique<ScreenMaskBuffer>(false);
+                            }
+                            _groundAODrapeBuffer->setSize(resolution, resolution, 1);
+                            GLint drapeFBO = 0;
+                            glGetIntegerv(GL_FRAMEBUFFER_BINDING, &drapeFBO);
+                            int aoBaked = 0;
+                            if (_groundAODrapeBuffer->beginPassRaw()) {
+                                glEnable(GL_BLEND);
+                                glBlendFunc(GL_ONE, GL_ONE);
+                                glBlendEquation(GL_MIN);
+                                for (const std::shared_ptr<TileLayer>& tileLayer : drapeLayers) {
+                                    aoBaked += tileLayer->bakeGroundAOMask(request.tileId);
+                                }
+                                glBlendEquation(GL_FUNC_ADD);
+                                _groundAODrapeBuffer->endPassRaw(drapeFBO, resolution, resolution);
+                                if (aoBaked > 0) {
+                                    // The drape colour is PREMULTIPLIED, so scaling rgb alone is
+                                    // valid; the mask's own alpha is 1, so dst alpha is untouched.
+                                    glBlendFunc(GL_ZERO, GL_SRC_COLOR);
+                                    drawMaskQuad(_groundAODrapeBuffer->getTexture(), 1.0f / resolution, 1.0f / resolution);
+                                }
+                                // Back to exactly what bakeDrapeTile establishes and the next tile
+                                // relies on (beginOffscreen only runs once per frame).
+                                glDisable(GL_CULL_FACE);
+                                glDisable(GL_DEPTH_TEST);
+                                glDepthMask(GL_FALSE);
+                                glDisable(GL_STENCIL_TEST);
+                                glEnable(GL_BLEND);
+                                glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+                            }
+                        }
                         _terrainDrapeCache->markBaked(request.tileId, 0, bakedFingerprint, bakedMask);
                         TerrainDrapeCache::generateMipmaps(texture);
                         bakedTiles++;
@@ -2975,6 +3079,7 @@ namespace massif {
                     glDepthFunc(GL_LEQUAL);
                     glDepthMask(GL_TRUE);
                     glDisable(GL_CULL_FACE); // displaced surfaces can face away near ridge crests
+                    groundAODraped = groundAODraped || !drapedTiles.empty();
                     for (auto it = drapedTiles.begin(); it != drapedTiles.end(); it++) {
                         // Every drape tile gets a surface, always. The surface is the terrain's
                         // only depth writer, so a tile skipped because its bake has not landed
@@ -3106,6 +3211,45 @@ namespace massif {
         }
 
         FRAME_PROF_ADD(layerMs, profLayerStart);
+
+        // Resolve the extrusions' contact shadows into one screen-space mask, under MIN blending.
+        // Only when nothing is draped - with a drape it is baked into the ground instead, which is
+        // the one way it follows the terrain exactly.
+        // The capsule quads of a corner, of a building and its building:parts, and of two
+        // neighbours all overlap; multiplied straight into the frame every one of those overlaps
+        // compounds towards black. The 3D pass below only multiplies this resolved value in.
+        // After the 2D pass, because that is what left each layer's render tiles current.
+        {
+            std::vector<std::shared_ptr<TileLayer> > aoTileLayers;
+            for (const std::shared_ptr<Layer>& layer : layers) {
+                layer->collectDrapeLayers(aoTileLayers, viewState);
+            }
+            auto aoActive = [](const std::shared_ptr<TileLayer>& tileLayer) { return tileLayer->isGroundAOActive(); };
+            if (!groundAODraped && std::any_of(aoTileLayers.begin(), aoTileLayers.end(), aoActive) && viewState.getWidth() > 0 && viewState.getHeight() > 0) {
+                if (!_groundAOMaskBuffer) {
+                    _groundAOMaskBuffer = std::make_unique<ScreenMaskBuffer>(true);
+                }
+                _groundAOMaskBuffer->setSize(viewState.getWidth(), viewState.getHeight(), GROUND_AO_MASK_DIVISOR);
+                GLint aoPrevFBO = 0;
+                glGetIntegerv(GL_FRAMEBUFFER_BINDING, &aoPrevFBO);
+                FRAME_PROF_GPU_BEGIN(SECTION_GROUNDAO);
+                int aoDraws = 0;
+                if (_groundAOMaskBuffer->beginPass()) {
+                    for (const std::shared_ptr<TileLayer>& tileLayer : aoTileLayers) {
+                        aoDraws += tileLayer->renderGroundAOMask();
+                    }
+                    _groundAOMaskBuffer->endPass(aoPrevFBO, viewState.getWidth(), viewState.getHeight());
+                }
+                // ONE multiply over the whole frame, before the extrusions are drawn: they then
+                // cover their own footprints, and the ground keeps the shadow around them. Drawing
+                // the quads again to composite them would multiply at every overlap and undo the
+                // MIN that was the point of the mask.
+                if (aoDraws > 0) {
+                    multiplyScreenMask(_groundAOMaskBuffer->getTexture(), 1.0f / viewState.getWidth(), 1.0f / viewState.getHeight());
+                }
+                FRAME_PROF_GPU_END();
+            }
+        }
 
         // Do 3D drawing pass
         FRAME_PROF_NOW(profLayer3DStart);

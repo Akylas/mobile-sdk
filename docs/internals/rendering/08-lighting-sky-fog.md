@@ -608,57 +608,85 @@ end has one, and bailing on it left **every** building sharp.
 
 The other half of standing on the terrain, and the reason buildings otherwise read as pasted on.
 `building-ao-ground-radius` (metres, **0 = off**, so nothing changes until a style asks),
-`building-ao-intensity` and `building-ao-ground-attenuation`, on mapbox's names.
+`building-ao-intensity` and `building-ao-ground-attenuation`, on mapbox's names. The reach is
+`radius / 3.5`, as mapbox divides it, so the style's metres mean there what they mean here.
 
-`TileLayerBuilder::appendGroundSkirt` emits a flat skirt around each footprint at the building's
-**base** height — a quad per edge reaching `radius` outward with the distance packed 0..127 in
-`_attribs[3]`, plus a triangle filling the wedge that offsetting leaves at every convex corner
-(without it a rectangular building has four undarkened notches; reflex corners need none, the quads
-overlap there instead). Which way is *out* comes from the ring's signed area, so an exterior ring
-and a courtyard hole each get the skirt on the side with no building.
+mapbox's model, ported whole:
 
-It is its own `TileGeometry::Type::POLYGON3DGROUND` with its own accumulation arrays, because the
-builder has ONE vertex stream keyed by `_builderParameters.type` and this needs its own program and
-blend state. `renderGeometry3D` draws it **before** the extrusions, multiplied into the ground
-(`GL_ZERO, GL_SRC_COLOR`), depth read but **not written** — it lies on the surface and must not
-become an occluder for the walls standing on it.
+1. **One quad per footprint edge**, covering that edge's bounding **capsule**
+   (`TileLayerBuilder::appendGroundSkirt`). The quad carries `(along, across, length)` in the
+   segment's own frame, in units of the radius — affine in the vertex, so interpolating it is exact.
+2. The fragment measures **its own distance to the segment**. Corners are round because the caps
+   are, and one edge's shadow joins the next through them. Nothing offsets, unions or fills a corner.
+3. Overlaps — a corner, a building and its `building:part`, two neighbours — are resolved by
+   **`GL_MIN`** into a mask cleared to white, never by arithmetic. Multiplied straight into the
+   frame, every one of those overlaps compounds towards black.
+4. The mask is applied **once**. Re-drawing the quads to composite them multiplies again at every
+   overlap and undoes exactly what MIN just resolved.
 
-Chosen over baking it into the drape, which is what [#132] originally proposed. The drape cannot see
-extrusions at all (`isDrapeableGeometry` excludes `POLYGON3D`), so it is not free at draw time; a
-drape texture is 0.6–2.4 ground metres per texel at z15–17, making a 3 m radius one to three texels;
-and the drape is a terrain feature, so a plain 2D map would get no contact shadow. mapbox uses a
-scene pass (`groundEffect`) for the same reasons.
+Only for a footprint that is **extruded** and **stands on the ground**: `maxHeight > minHeight`
+(a flat one cast a full ring onto open ground with nothing above it) and `minHeight <= 0` (a
+`building:part` starting at 20 m — a bridge deck, a tunnel roof — was shadowing ground it never
+touches). It scales by the tile's fade, which arrives as the style colour's alpha, or an extrusion
+that fades in by *growing* gets a full-strength shadow before it is there.
 
-The falloff is **smoothstepped**, not just `pow()`. `pow(d, 0.69)` reaches 1 with a slope of 0.69,
-and the eye reads that derivative step as a crease where the skirt ends — a visible outline around
-every building, which is the opposite of what a contact shadow is for. Smoothstep lands at both ends
-with zero slope, so the band fades into the ground and is flattest against the wall, where the
-occlusion really is most complete.
+The quads are **split along the wall** at 1/32 of a tile, the regular terrain grid's own cell. A
+quad's four corners land on the surface but its interior interpolates linearly between them, so one
+quad over a 50 m wall cuts into a slope at one end and floats at the other. Across the wall the span
+is only `2 * radius`, so that direction needs no split.
 
-The skirt is **one offset ring**: every vertex moves outward by its own miter (capped at 3× radius),
-and quads span consecutive pairs. The first version offset each EDGE by its own normal and filled
-the corner gap with a triangle — but that triangle interpolates its darkening from a single wall
-vertex while the quads beside it interpolate from an edge, so the shading disagreed along both
-shared edges and produced one radial streak per footprint vertex. Per-vertex offsetting has no
-corners to fill and is fewer triangles.
+#### Two paths, because neither covers both cases
 
-It also **scales by the tile's fade**, which arrives as the style colour's alpha. An extrusion fades
-in by growing, so without this its contact shadow appeared at full strength on a building that was
-not there yet: a footprint painted on the ground as a tile arrived.
+| | drape on (3D terrain) | drape off (2D, or terrain without drape) |
+|---|---|---|
+| where | baked into the tile's drape texture (`bakeGroundAOMask`) | screen-space mask (`renderGroundAOMask`) |
+| MIN resolved in | the tile's own frame, at bake time | screen space, once per frame |
+| follows terrain | exactly — it *is* the ground | via the wall subdivision above |
+| cost | at bake time, cached | one offscreen target per frame |
 
-**Its own packing scales have to be measured, not assumed.** `packGroundSkirt` calls the explicit
-`packGeometry` overload, and the scales it passes are what the vertices are quantised to on the way
-into int16. Passing `1.0f` snapped every skirt vertex onto integer tile coordinates — one triangle
-per block instead of a contact shadow, multiplied into the ground as a black wedge. It needs the **index split** too: the index
-buffer is `UNSIGNED_SHORT`, and a dense tile runs past 65535 skirt vertices, wrapping the indices so
-triangles stitch unrelated vertices into slivers hundreds of metres long.
+`MapRenderer` routes between them on whether the drape actually carried the ground this frame.
+That flag cannot come from `collectDrapeLayers`, which returns every visible tile layer whether it
+is draped or not.
 
-**The radius is in metres and the tesselator works in tile-local units.** Converting is
-`transformer->calculateHeight(p, radius)` — `2^zoom / circumference / cos(latitude)`, which is what
-a metre is worth horizontally as well as vertically. Skipping it made a 3 m skirt reach three tile
-widths, about 1.8 km at z16, and multiplied the entire map to black. That is the second time a
-style value in metres has been compared against something in another unit here (see the facade
-gradient above); when a constant crosses into vt, check what it will be measured against.
+**Contact shadows count toward the drape fingerprint** (`hasGroundAOContent`). `calculateDrapeFingerprint`
+skips any layer without *drapeable* content and extrusions are not drapeable, so a buildings layer
+contributed nothing: its tiles decoded without changing the fingerprint, no re-bake was asked for,
+and whichever drape textures were baked before the buildings arrived kept no shadow for as long as
+they stayed cached. That was AO missing from scattered tiles with no pattern to it.
+
+#### The dead ends
+
+**Per-vertex distance facets.** Interpolating a distance stored per vertex is linear inside a
+triangle while the true field near a corner is radial — corners read as facets and do not meet. More
+arc segments narrow the error and never remove it. Per-fragment distance is the fix, and it is why
+mapbox does it that way.
+
+**Every attempt to avoid MIN failed**, in this order: dedupe rings, dedupe edges exactly, dedupe
+edges on a 0.5 m grid, union the outlines per tile, offset polygons. Measured stacked layers at one
+pixel went 7.6 → 4.7 → 3.9 → 2.9 against a target of 1.0. The overlap is intra-ring self-overlap
+and cannot be removed by deduplication.
+
+**Do not drop the per-tile clip.** Under overzoom one source tile's capsules are handed to every
+target tile derived from it, and each of those draws displaces them with *its own* elevation
+texture. Identical vertices, different DEM: a second shadow at a neighbouring tile's height,
+floating beside the right one. MIN makes identical duplicates harmless, which is what made removing
+the clip look safe.
+
+**A depth-less screen mask leaks.** A capsule hidden behind a nearer building still wrote into the
+mask and the multiply laid it on that building. The mask carries depth, seeded with the terrain
+cover and the extrusions.
+
+**The drape cannot do it alone.** At 512 per tile a drape texel is ~1.7 ground metres and the shadow
+reaches under 1 m — half a texel, then mipmapped away. It was baking correctly and was simply below
+the sampling resolution; 1024 is what makes it visible.
+
+#### Known gap: the drape is a flat projection
+
+The drape is baked **orthographically over the tile** and then painted onto the displaced mesh, so
+any baked detail is stretched along a slope by an amount that depends on the slope's direction —
+which is why the shadow stops matching the footprint, and why it changes with orientation. Draped
+roads have the same distortion; a ~1 m band has no slack to hide it. Resolution sharpens the texels
+and does not change the projection.
 
 Screen-space AO over the scene depth was not tried: the whole 3D pass is ~9 ms on an Adreno 610.
 It is the only option that would also darken building-against-building, which this does not.
