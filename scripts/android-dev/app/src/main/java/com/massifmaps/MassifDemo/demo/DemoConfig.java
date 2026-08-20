@@ -527,6 +527,9 @@ public final class DemoConfig {
     /** Contact shadow on the ground around a footprint. Radius 0 = off, which is the default. */
     public static float INLINE_BUILDING_AO_RADIUS = 0f;
     public static float INLINE_BUILDING_AO_INTENSITY = 0.5f;
+    /** Metres between subdivisions along a wall of the contact shadow. 0 = the terrain grid cell.
+     *  Raise it to see the chord artifact on a slope, lower it to kill it. */
+    public static float INLINE_BUILDING_AO_STEP = 0f;
     public static float INLINE_BUILDING_AO_ATTENUATION = 0.69f;
     /** Bevel at the roof edge, in metres. 0 = a hard 90 degrees, which is the default. */
     public static float INLINE_BUILDING_EDGE_RADIUS = 0f;
@@ -1221,6 +1224,7 @@ public final class DemoConfig {
         INLINE_BUILDING_GRADIENT_HEIGHT = DemoCfg.cfgFloat("bldGradientHeight", INLINE_BUILDING_GRADIENT_HEIGHT);
         INLINE_BUILDING_AO_RADIUS = DemoCfg.cfgFloat("bldAoRadius", INLINE_BUILDING_AO_RADIUS);
         INLINE_BUILDING_AO_INTENSITY = DemoCfg.cfgFloat("bldAoIntensity", INLINE_BUILDING_AO_INTENSITY);
+        INLINE_BUILDING_AO_STEP = DemoCfg.cfgFloat("bldAoStep", INLINE_BUILDING_AO_STEP);
         INLINE_BUILDING_AO_ATTENUATION = DemoCfg.cfgFloat("bldAoAttenuation", INLINE_BUILDING_AO_ATTENUATION);
         INLINE_BUILDING_EDGE_RADIUS = DemoCfg.cfgFloat("bldEdgeRadius", INLINE_BUILDING_EDGE_RADIUS);
         INLINE_BUILDING_ROOF_SHADE = DemoCfg.cfgFloat("bldRoofShade", INLINE_BUILDING_ROOF_SHADE);

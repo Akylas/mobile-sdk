@@ -223,6 +223,7 @@ public final class DemoStyles {
            .append(" building-vertical-gradient-height: " + DemoConfig.INLINE_BUILDING_GRADIENT_HEIGHT + ";")
            .append(" building-ao-ground-radius: " + DemoConfig.INLINE_BUILDING_AO_RADIUS + ";")
            .append(" building-ao-intensity: " + DemoConfig.INLINE_BUILDING_AO_INTENSITY + ";")
+           .append(" building-ao-ground-step: " + DemoConfig.INLINE_BUILDING_AO_STEP + ";")
            .append(" building-ao-ground-attenuation: " + DemoConfig.INLINE_BUILDING_AO_ATTENUATION + ";")
            .append(" building-edge-radius: " + DemoConfig.INLINE_BUILDING_EDGE_RADIUS + ";")
            .append(" building-roof-shade: " + DemoConfig.INLINE_BUILDING_ROOF_SHADE + ";")
