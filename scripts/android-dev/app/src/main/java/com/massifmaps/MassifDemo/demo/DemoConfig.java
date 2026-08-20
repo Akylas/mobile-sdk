@@ -210,7 +210,10 @@ public final class DemoConfig {
      *  draped (Crosscall, packaged style, 5.724/45.188 z15 t45). Contours stay sharp - see
      *  TerrainOptions.NoDrapeLayerFilter. '--es drapeLines false' goes back for an A/B. */
     public static boolean TERRAIN_DRAPE_LINES = true;
-    public static int TERRAIN_DRAPE_RESOLUTION = 0;
+    /** 0 = derive from the screen, which the cache's memory budget then clamps to 512. Set
+     *  explicitly, so the extrusions' contact shadow baked into the drape is more than a texel
+     *  wide: at 512 a drape texel is ~1.7 m on the ground and the shadow reaches under 1 m. */
+    public static int TERRAIN_DRAPE_RESOLUTION = 1024;
     /** Stitch neighbouring DEM tiles so ridges do not appear at tile borders. */
     public static boolean TERRAIN_TILE_EDGE_STITCHING = true;
     public static boolean TERRAIN_SEAMLESS_TILE_EDGES = true;
