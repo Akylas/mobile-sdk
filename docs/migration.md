@@ -83,7 +83,7 @@ old spelling will be removed in a later release.
 | `[nuti::x]` | `[param::x]` | app-supplied runtime parameter, joining `mapnik::` and `view::` |
 | `"nutiparameters"` (project.json) | `"styleparameters"` | the block declaring those parameters |
 | `text-placement: nutibillboard` | `billboard` | fully screen-aligned |
-| `text-placement: nutibillboardline` | `billboard-line` | screen-aligned, laid along a line |
+| `text-placement: nutibillboardline` | `billboard-line-repeat` | screen-aligned, repeated along a line |
 | `text-placement: nutipoint` | `flat` | flat in the placement plane, no camera facing |
 | `text-placement: nuticallout` | `callout` | screen-aligned with a leader line |
 
@@ -101,8 +101,25 @@ instead of placing one upright label per `text-spacing` step.
 |---|---|
 | the 5.x look, text in the ground plane (route distances, contour heights) | `text-placement: line` — no change needed |
 | the 6.0.0 look, text upright and readable at any tilt | `text-placement: billboard-line` |
+| one upright label per `text-spacing` step, not turning with the line (road shields) | `text-placement: billboard-line-repeat` |
 
-See [Labels](internals/rendering/06-labels.mdx) for the two layouts.
+See [Labels](internals/rendering/06-labels.mdx) for the three layouts.
+
+### `shield-placement` defaults to `billboard-line-repeat` (breaking change after 6.0.1)
+
+`billboard-line-repeat` is new: it repeats along the line at `shield-spacing` like `line` does, but
+lays no glyph run on it, so each repeat stays an upright camera-facing box. That is what a road
+shield is, and until now no placement gave both — `billboard-line` turns the shield with the road,
+`billboard` draws one per line. It is now the **default** for shields, so a style that never set
+`shield-placement` changes twice:
+
+| Feature | Before (`point`) | Now |
+|---|---|---|
+| line | one shield, flat on the ground at the line's midpoint | one per `shield-spacing` step, facing the camera |
+| point / polygon | flat on the ground, foreshortening with the tilt | facing the camera |
+
+`shield-placement: point` restores the old default exactly. `text-placement` is unchanged — text
+still defaults to `point`.
 
 ### `text-clip` / `shield-clip` no longer follow `allow-overlap` (behaviour change in 6.0.1)
 

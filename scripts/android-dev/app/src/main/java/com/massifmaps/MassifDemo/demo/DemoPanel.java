@@ -720,7 +720,7 @@ public final class DemoPanel {
         check(context, "text-allow-overlap", DemoConfig.BUG_TEXT_ALLOW_OVERLAP, new BoolSetting() {
             public void set(boolean value) { DemoConfig.BUG_TEXT_ALLOW_OVERLAP = value; reloadBugs(demo); }
         });
-        final String[] placements = { "line", "billboard-line", "billboard", "point" };
+        final String[] placements = { "line", "billboard-line", "billboard-line-repeat", "billboard", "point" };
         choice(context, "text-placement", placements, indexOf(placements, DemoConfig.BUG_TEXT_PLACEMENT), new IntSetting() {
             public void set(int index) { DemoConfig.BUG_TEXT_PLACEMENT = placements[index]; reloadBugs(demo); }
         });

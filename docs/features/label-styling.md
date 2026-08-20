@@ -58,6 +58,35 @@ A style without `shield-anchors` builds no variants and takes exactly the old pa
 anchored (~2300 labels, 4 sides + icon-only) a placement pass measured **20.8 ms against 16.3 ms**
 unset, and frame time moved by under 1 ms.
 
+## Repeating a shield along its road
+
+`shield-placement` / `text-placement` decide two things at once — how often the label is placed along
+a line, and whether its glyphs follow the line's direction:
+
+| Placement | Repeats at `spacing` | Glyphs |
+|---|---|---|
+| `point` | no — one label per line | flat on the ground, swivelling to face the camera |
+| `billboard` | no — one label per line | upright, facing the camera |
+| `line` | yes | flat on the ground, following the line |
+| `billboard-line` | yes | upright, following the line |
+| `billboard-line-repeat` | yes | upright, **not** following the line |
+
+`billboard-line-repeat` is the road-shield combination and is what **shields default to**: a route
+number repeated along its motorway has to stay readable, not turn with the bend. On a feature that
+is not a line it behaves as `billboard`.
+
+```css
+#road_shield {
+  shield-name: [ref];
+  shield-file: url(shields/motorway.svg);
+  shield-spacing: 200;                       /* ground distance between repeats */
+  shield-min-distance: 100;                  /* ... and the screen-space guarantee */
+  /* shield-placement: billboard-line-repeat;   the default; 'point' is the old one */
+}
+```
+
+Text still defaults to `point`. `text-spacing: 0` means one label for the whole line.
+
 ## Font icons
 
 `shield-icon-name` is a run of glyphs from an icon face, drawn before the text with its own colour
