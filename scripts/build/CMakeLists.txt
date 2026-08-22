@@ -286,8 +286,48 @@ endif()
 source_group("Wrapper Sources" REGULAR_EXPRESSION ".*_wrap.cpp")
 source_group("Wrapper Headers" REGULAR_EXPRESSION ".*_wrap.h")
 
+# The facade API's property table is derived from the Swig attribute macros, so it is generated
+# rather than checked in: adding a setter adds a path with no second step to remember.
+#
+# Generated at BUILD time, not configure time. AGP decides whether to re-run CMake from its own
+# hash of the configuration, so it skips a reconfigure when only a module changed - and a stale
+# table shows up as a property that silently does not exist. A build rule with the modules as
+# DEPENDS is checked by ninja on every build instead.
+find_program(SDK_PYTHON NAMES python3 python)
+if(NOT SDK_PYTHON)
+  message(FATAL_ERROR "python3 is required to generate the API property table")
+endif()
+# all/modules only. The platform module sets are glue - iOS BitmapUtils/AssetUtils, Android's
+# asset package - and their headers are Objective-C on Apple, which a C++ translation unit cannot
+# include. They are also not the cross-platform surface the facade is about.
+set(SDK_API_SOURCEDIR "${SDK_BASE_DIR}/all/modules")
+set(SDK_API_CPPDIR "${SDK_SRC_DIR}")
+file(GLOB_RECURSE SDK_MODULE_FILES "${SDK_API_SOURCEDIR}/*.i")
+# This build's own support defines, not a profile name: the thunks have to be emitted for exactly
+# the classes being compiled, or a lite build fails to link.
+string(REGEX MATCHALL "_MASSIF_[A-Za-z0-9_]+" SDK_API_DEFINE_LIST "${SDK_CPP_DEFINES}")
+list(JOIN SDK_API_DEFINE_LIST "," SDK_API_DEFINES)
+set(SDK_API_TABLE_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/api")
+set(SDK_API_TABLE_FILES "${SDK_API_TABLE_DIR}/PropertyTable.inc" "${SDK_API_TABLE_DIR}/PropertyAccessors.inc"
+    "${SDK_API_TABLE_DIR}/SpecConstructors.inc")
+add_custom_command(
+  OUTPUT ${SDK_API_TABLE_FILES}
+  COMMAND "${SDK_PYTHON}" "${SDK_BASE_DIR}/scripts/gen-api-tables.py"
+          # Comma, not semicolon: ninja runs this through a shell, which would split on one.
+          "--sourcedir" "${SDK_API_SOURCEDIR}"
+          "--defines" "${SDK_API_DEFINES}"
+          # The base-class chain is read from the headers, so the generator needs the same
+          # include roots the compile does.
+          "--cppdir" "${SDK_API_CPPDIR}"
+          "--outdir" "${SDK_API_TABLE_DIR}"
+  DEPENDS ${SDK_MODULE_FILES} "${SDK_BASE_DIR}/scripts/gen-api-tables.py"
+  COMMENT "Generating the API property table")
+add_custom_target(massif_api_tables DEPENDS ${SDK_API_TABLE_FILES})
+set_source_files_properties("${SDK_SRC_DIR}/api/PropertyTable.cpp" PROPERTIES OBJECT_DEPENDS "${SDK_API_TABLE_FILES}")
+set_source_files_properties("${SDK_SRC_DIR}/api/SpecBuilders.cpp" PROPERTIES OBJECT_DEPENDS "${SDK_API_TABLE_FILES}")
+
 # Include directories for main SDK project
-include_directories("${SDK_SRC_DIR}")
+include_directories("${SDK_SRC_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/generated")
 
 foreach(SDK_HEADER_LIB IN ITEMS "cglib" "stdext" "picojson" "pbf" "rapidjson/include" "tinyformat" "nanosvg/src" "utf8/source" "geojsonvt/geojson-vt-cpp/include" "geojsonvt/geometry.hpp/include" "geojsonvt/variant/include")
   include_directories("${SDK_EXTERNAL_LIBS_DIR}/${SDK_HEADER_LIB}")
@@ -326,6 +366,9 @@ else()
 endif()
 
 add_library(massif ${SDK_LIBRARY_TYPE} ${SDK_SRC_FILES} ${SDK_OBJECTS})
+
+# The generated tables exist before anything that includes them compiles.
+add_dependencies(massif massif_api_tables)
 
 if(ANDROID)
   # GLESv3, not GLESv2: the ES 3.0 core entry points (glGenVertexArrays, glInvalidateFramebuffer,
